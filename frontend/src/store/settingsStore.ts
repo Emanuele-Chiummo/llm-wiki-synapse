@@ -71,6 +71,14 @@ const LS_LANG = "synapse.lang";
 const LS_SETTINGS = "synapse.settings";
 const LS_THEME = "synapse.theme";
 
+// ─── Retrieval mode (B2 / F5) ─────────────────────────────────────────────────
+
+export type RetrievalMode = "fast" | "standard" | "deep" | "local_first";
+
+export const RETRIEVAL_MODE_OPTIONS: RetrievalMode[] = ["fast", "standard", "deep", "local_first"];
+
+export const DEFAULT_RETRIEVAL_MODE: RetrievalMode = "standard";
+
 // ─── Theme types ──────────────────────────────────────────────────────────────
 
 export type Theme = "light" | "dark" | "system";
@@ -147,6 +155,8 @@ function removeSystemListener(): void {
 interface PersistedSettings {
   contextWindowTokens: number;
   conversationHistoryLength?: number;
+  retrievalMode?: string;
+  webSearchEnabled?: boolean;
 }
 
 function loadSettings(): {
@@ -154,11 +164,15 @@ function loadSettings(): {
   contextWindowTokens: ContextWindowTokens;
   conversationHistoryLength: ConvHistoryLength;
   theme: Theme;
+  retrievalMode: RetrievalMode;
+  webSearchEnabled: boolean;
 } {
   let language = "en";
   let contextWindowTokens: ContextWindowTokens = DEFAULT_CONTEXT_WINDOW;
   let conversationHistoryLength: ConvHistoryLength = DEFAULT_CONV_HISTORY;
   let theme: Theme = DEFAULT_THEME;
+  let retrievalMode: RetrievalMode = DEFAULT_RETRIEVAL_MODE;
+  let webSearchEnabled = false;
 
   try {
     const storedLang = localStorage.getItem(LS_LANG);
@@ -179,6 +193,13 @@ function loadSettings(): {
       if (h !== undefined && CONV_HISTORY_OPTIONS.includes(h as ConvHistoryLength)) {
         conversationHistoryLength = h as ConvHistoryLength;
       }
+      const rm = parsed.retrievalMode;
+      if (rm !== undefined && RETRIEVAL_MODE_OPTIONS.includes(rm as RetrievalMode)) {
+        retrievalMode = rm as RetrievalMode;
+      }
+      if (typeof parsed.webSearchEnabled === "boolean") {
+        webSearchEnabled = parsed.webSearchEnabled;
+      }
     }
   } catch {
     // ignore
@@ -193,12 +214,20 @@ function loadSettings(): {
     // ignore
   }
 
-  return { language, contextWindowTokens, conversationHistoryLength, theme };
+  return { language, contextWindowTokens, conversationHistoryLength, theme, retrievalMode, webSearchEnabled };
 }
 
-function saveSettings(contextWindowTokens: number, conversationHistoryLength: number): void {
+function saveSettings(
+  contextWindowTokens: number,
+  conversationHistoryLength: number,
+  retrievalMode: RetrievalMode,
+  webSearchEnabled: boolean,
+): void {
   try {
-    localStorage.setItem(LS_SETTINGS, JSON.stringify({ contextWindowTokens, conversationHistoryLength }));
+    localStorage.setItem(
+      LS_SETTINGS,
+      JSON.stringify({ contextWindowTokens, conversationHistoryLength, retrievalMode, webSearchEnabled }),
+    );
   } catch {
     // ignore
   }
@@ -223,6 +252,16 @@ interface SettingsState {
    * NOT used in Tauri (which uses the ConnectScreen gate instead).
    */
   authRequired: boolean;
+  /**
+   * Retrieval mode sent to POST /chat/stream (B2 / F5).
+   * Persisted to localStorage["synapse.settings"]. Default: "standard".
+   */
+  retrievalMode: RetrievalMode;
+  /**
+   * Whether web search is enabled for chat (B2).
+   * Persisted to localStorage["synapse.settings"]. Default: false.
+   */
+  webSearchEnabled: boolean;
 }
 
 interface SettingsActions {
@@ -252,6 +291,10 @@ interface SettingsActions {
    * Called by the register401Handler callback in AppShell (web only).
    */
   setAuthRequired: (required: boolean) => void;
+  /** Set retrieval mode and persist to localStorage (B2). */
+  setRetrievalMode: (mode: RetrievalMode) => void;
+  /** Toggle web-search-enabled flag and persist to localStorage (B2). */
+  setWebSearchEnabled: (enabled: boolean) => void;
   reset: () => void;
 }
 
@@ -280,12 +323,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
     },
 
     setContextWindow: (contextWindowTokens) => {
-      saveSettings(contextWindowTokens, get().conversationHistoryLength);
+      const s = get();
+      saveSettings(contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled);
       set({ contextWindowTokens });
     },
 
     setConversationHistoryLength: (conversationHistoryLength) => {
-      saveSettings(get().contextWindowTokens, conversationHistoryLength);
+      const s = get();
+      saveSettings(s.contextWindowTokens, conversationHistoryLength, s.retrievalMode, s.webSearchEnabled);
       set({ conversationHistoryLength });
     },
 
@@ -322,6 +367,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
       set({ authRequired: required });
     },
 
+    setRetrievalMode: (retrievalMode) => {
+      const s = get();
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, retrievalMode, s.webSearchEnabled);
+      set({ retrievalMode });
+    },
+
+    setWebSearchEnabled: (webSearchEnabled) => {
+      const s = get();
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, webSearchEnabled);
+      set({ webSearchEnabled });
+    },
+
     reset: () => {
       try {
         localStorage.removeItem(LS_LANG);
@@ -336,6 +393,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         contextWindowTokens: DEFAULT_CONTEXT_WINDOW,
         conversationHistoryLength: DEFAULT_CONV_HISTORY,
         theme: DEFAULT_THEME,
+        retrievalMode: DEFAULT_RETRIEVAL_MODE,
+        webSearchEnabled: false,
       });
     },
   };
@@ -399,4 +458,20 @@ export function selectAuthRequired(s: SettingsStore): boolean {
 
 export function selectSetAuthRequired(s: SettingsStore): SettingsActions["setAuthRequired"] {
   return s.setAuthRequired;
+}
+
+export function selectRetrievalMode(s: SettingsStore): RetrievalMode {
+  return s.retrievalMode;
+}
+
+export function selectSetRetrievalMode(s: SettingsStore): SettingsActions["setRetrievalMode"] {
+  return s.setRetrievalMode;
+}
+
+export function selectWebSearchEnabled(s: SettingsStore): boolean {
+  return s.webSearchEnabled;
+}
+
+export function selectSetWebSearchEnabled(s: SettingsStore): SettingsActions["setWebSearchEnabled"] {
+  return s.setWebSearchEnabled;
 }

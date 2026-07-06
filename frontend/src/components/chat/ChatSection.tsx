@@ -31,6 +31,8 @@ import {
   useSettingsStore,
   selectContextWindow,
   selectConversationHistoryLength,
+  selectRetrievalMode,
+  selectWebSearchEnabled,
 } from "../../store/settingsStore";
 import { useChatStream } from "./useChatStream";
 import { buildMessagePayload } from "./buildMessagePayload";
@@ -41,7 +43,7 @@ import { PanelDrawer } from "../panels/PanelDrawer";
 import { useViewport } from "../../hooks/useViewport";
 import { EmptyState } from "../common/EmptyState";
 import { useProviderConfigured } from "../../hooks/useProviderConfigured";
-import type { ChatStreamRequest } from "../../api/chatClient";
+import type { ChatStreamRequest, ChatImageAttachment } from "../../api/chatClient";
 import { safeRandomUUID } from "../../utils/uuid";
 
 export function ChatSection(): ReactNode {
@@ -54,6 +56,8 @@ export function ChatSection(): ReactNode {
   const appendMessage = useChatStore((s) => s.appendMessage);
   const contextWindow = useSettingsStore(selectContextWindow);
   const historyLength = useSettingsStore(selectConversationHistoryLength);
+  const retrievalMode = useSettingsStore(selectRetrievalMode);
+  const webSearchEnabled = useSettingsStore(selectWebSearchEnabled);
 
   const { send, abort } = useChatStream();
 
@@ -69,7 +73,7 @@ export function ChatSection(): ReactNode {
   const { configured, loading: providerLoading } = useProviderConfigured();
 
   const handleSend = useCallback(
-    (text: string) => {
+    (text: string, images: ChatImageAttachment[] = []) => {
       if (isStreaming) return;
 
       // Optimistic: insert the user message immediately
@@ -88,10 +92,12 @@ export function ChatSection(): ReactNode {
 
       // Build message history to send (include existing settled messages + this new one),
       // then trim to historyLength (I7 context-budget enforcement, AC-HARD-CONV-2).
-      const allMessages = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content: text },
-      ];
+      // Images are attached to the last (current) user message only (B2).
+      const priorMessages = messages.map((m) => ({ role: m.role, content: m.content }));
+      const currentUserMsg = images.length > 0
+        ? { role: "user" as const, content: text, images }
+        : { role: "user" as const, content: text };
+      const allMessages = [...priorMessages, currentUserMsg];
       const history = buildMessagePayload(allMessages, historyLength);
 
       const req: ChatStreamRequest = {
@@ -100,6 +106,9 @@ export function ChatSection(): ReactNode {
         vault_id: vaultId,
         context_window: contextWindow > 0 ? contextWindow : null,
         operation: "chat",
+        // B2: include web-search and retrieval-mode settings
+        use_web_search: webSearchEnabled,
+        retrieval_mode: retrievalMode,
       };
 
       send(req);
@@ -111,6 +120,8 @@ export function ChatSection(): ReactNode {
       vaultId,
       contextWindow,
       historyLength,
+      webSearchEnabled,
+      retrievalMode,
       appendMessage,
       send,
     ],
@@ -141,10 +152,13 @@ export function ChatSection(): ReactNode {
       context_window: contextWindow > 0 ? contextWindow : null,
       operation: "chat",
       regenerate: true,
+      // B2: carry same search/retrieval settings on regenerate
+      use_web_search: webSearchEnabled,
+      retrieval_mode: retrievalMode,
     };
 
     send(req);
-  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, send]);
+  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, webSearchEnabled, retrievalMode, send]);
 
   // While checking configuration, render nothing to avoid flicker (I3).
   if (providerLoading || configured === null) {
@@ -281,7 +295,12 @@ export function ChatSection(): ReactNode {
         </div>
 
         {/* Message list (virtualized, I4) */}
-        <MessageList onRegenerate={handleRegenerate} onSend={handleSend} />
+        {/* handleSendText: thin wrapper so example chips (text-only) satisfy the
+            MessageList onSend: (text: string) => void signature. */}
+        <MessageList
+          onRegenerate={handleRegenerate}
+          onSend={(text: string) => handleSend(text, [])}
+        />
 
         {/* Input (plain textarea, I4) */}
         <MessageInput onSend={handleSend} onStop={abort} isStreaming={isStreaming} />

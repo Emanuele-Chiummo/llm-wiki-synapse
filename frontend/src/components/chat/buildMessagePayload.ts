@@ -25,6 +25,10 @@ export interface SimpleMessage {
 /**
  * Slice messages to at most `historyLength` of the most-recent entries.
  *
+ * Generic over T extends SimpleMessage so that callers can pass messages that carry
+ * extra fields (e.g. images: ChatImageAttachment[]) and receive them back — the
+ * payload builder preserves all fields without knowing about them (I3 / B2).
+ *
  * @param messages  Full ordered list of messages (chronological, oldest first).
  * @param historyLength  Max messages to include. Must be >= 1.
  * @returns  At most the last `historyLength` messages, in original order.
@@ -36,11 +40,11 @@ export interface SimpleMessage {
  *   - historyLength = 2 → last 2 messages only
  *   - historyLength = 20 → last 20 messages (or fewer if history is shorter)
  */
-export function buildMessagePayload(
-  messages: ReadonlyArray<SimpleMessage>,
+export function buildMessagePayload<T extends SimpleMessage>(
+  messages: ReadonlyArray<T>,
   historyLength: number,
-): SimpleMessage[] {
+): T[] {
   if (historyLength <= 0) return [];
   if (messages.length <= historyLength) return [...messages];
-  return messages.slice(messages.length - historyLength) as SimpleMessage[];
+  return messages.slice(messages.length - historyLength) as T[];
 }

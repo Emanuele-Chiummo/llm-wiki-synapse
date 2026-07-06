@@ -566,7 +566,22 @@
     "renameCommit": "Save rename",
     "renameCancel": "Cancel rename",
     "renameError": "Failed to rename conversation",
-    "citationNotFound": "Cited page not found in the wiki"
+    "citationNotFound": "Cited page not found in the wiki",
+    "attachImage": "Attach image",
+    "attachImageDisabled": "The active provider does not support images",
+    "webSearch": "Web",
+    "webSearchOn": "Web search on — click to disable",
+    "webSearchOff": "Web search off — click to enable",
+    "retrievalModeLabel": "Retrieval mode",
+    "retrievalMode": {
+      "fast": "Fast",
+      "standard": "Standard",
+      "deep": "Deep",
+      "localFirst": "Local first"
+    },
+    "imageTooLarge": "Image \"{{name}}\" exceeds {{maxMb}} MB limit",
+    "tooManyImages": "Maximum {{max}} images per message",
+    "webSources": "WEB SOURCES"
   },
   "research": {
     "title": "Deep Search",

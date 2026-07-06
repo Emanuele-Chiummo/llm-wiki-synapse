@@ -140,6 +140,11 @@ export interface StatusResponse {
    * Absent on older backends → undefined, badge hidden.
    */
   review_pending?: number;
+  /**
+   * Whether the active provider supports image inputs (B2 — vision gate).
+   * Absent on older backends → undefined → treat as false (button stays disabled).
+   */
+  supports_vision?: boolean;
 }
 
 // ─── GET /ingest/runs (ADR-0018 §7) ──────────────────────────────────────────

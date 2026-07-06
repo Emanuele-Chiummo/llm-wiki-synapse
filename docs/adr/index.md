@@ -93,6 +93,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0046** | [Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)](0046-ingest-activity-queue-cancellation.md) | Accepted |
 | **0050** | [Retrieval scope restricted to wiki/ pages only](0050-retrieval-wiki-only-scope.md) | Accepted |
 | **0051** | [Pluggable PDF extractor seam: Marker over HTTP with pypdf fallback](0051-pluggable-pdf-extractor-seam.md) | Accepted |
+| **0059** | [Chat composer parity: attach-image (capability-aware vision), web-search toggle (amends ADR-0050 — additive `[W]` namespace), frozen retrieval-mode presets, AnyTXT do-not-mirror (B2; I3/I6/I7/I9)](ADR-0059-chat-composer-parity.md) | Accepted |
 
 ---
 

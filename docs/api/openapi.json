@@ -716,7 +716,7 @@
     "/status": {
       "get": {
         "summary": "Service health + data_version",
-        "description": "Returns vault_id, current data_version (monotonic ingest counter), service started_at, and uptime_seconds. (AC-REST-1, AC-F16dv-3)",
+        "description": "Returns vault_id, current data_version (monotonic ingest counter), service started_at, uptime_seconds, and supports_vision (B2-C1). (AC-REST-1, AC-F16dv-3)",
         "operationId": "get_status_status_get",
         "responses": {
           "200": {
@@ -4566,6 +4566,29 @@
         "title": "CascadePreviewResponse",
         "description": "POST /pages/{id}/cascade-delete/preview response (ADR-0026 \u00a76.1, DRY-RUN).\n\nRead-only: mutates nothing \u2014 no soft-delete, no Qdrant delete, no file write,\nno data_version bump.  Returns the full CascadePlan as JSON."
       },
+      "ChatImageIn": {
+        "properties": {
+          "mime": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Mime",
+            "description": "IANA media type, e.g. 'image/png'"
+          },
+          "data_base64": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data Base64",
+            "description": "base64 image payload WITHOUT a data-URI prefix"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mime",
+          "data_base64"
+        ],
+        "title": "ChatImageIn",
+        "description": "One image attachment for a chat message (B2-C1, F17/I6 vision surface).\n\n`mime` is the IANA media type (e.g. ``\"image/png\"``). `data_base64` is the\nbase64-encoded payload WITHOUT a ``data:...;base64,`` URI prefix.\nSize must be capped by the client before sending; the backend passes this through\ninto the provider-neutral :class:`~app.ingest.schemas.MessageImage` DTO without\nre-validating size (the provider layer handles/ignores per its ``supports_vision``\ncapability \u2014 B2-C1 cross-layer contract)."
+      },
       "ChatMessageIn": {
         "properties": {
           "role": {
@@ -4577,6 +4600,21 @@
             "type": "string",
             "minLength": 1,
             "title": "Content"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatImageIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images",
+            "description": "B2-C1: optional image attachments for this message turn. Passed through to the provider's chat() only when the active provider advertises supports_vision=True. Non-vision providers silently drop these (defense-in-depth, I6)."
           }
         },
         "type": "object",
@@ -4759,6 +4797,24 @@
             "title": "Regenerate",
             "description": "AC-F6-4: delete the last assistant message before re-streaming",
             "default": false
+          },
+          "use_web_search": {
+            "type": "boolean",
+            "title": "Use Web Search",
+            "description": "B2-C2: when True, make ONE bounded SearXNG search and append a [W]-namespaced web-context block to the retrieval context (I9 \u2014 SearXNG only, no loop). For local_first retrieval_mode, web search fires only when wiki hits < LOCAL_FIRST_MIN_HITS. web_citations in the done event.",
+            "default": false
+          },
+          "retrieval_mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "standard",
+              "deep",
+              "local_first"
+            ],
+            "title": "Retrieval Mode",
+            "description": "B2-C3: frozen retrieval preset. fast=k4/depth0 \u00b7 standard=k8/depth2 (default) \u00b7 deep=k12/depth2 \u00b7 local_first=k8/depth2+web-gate. expansion_depth is always clamped to \u22642 (I7).",
+            "default": "standard"
           }
         },
         "type": "object",
@@ -4766,7 +4822,7 @@
           "messages"
         ],
         "title": "ChatRequest",
-        "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+        "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2, B2-C1/C2/C3).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently.\n\nB2 additions (additive, non-breaking for existing clients):\n  - ``use_web_search``: trigger a single-shot SearXNG fetch (C2, I9). [W] namespace.\n  - ``retrieval_mode``: one of four frozen presets controlling k + expansion_depth (C3, I7)."
       },
       "CliAuthConfigRequest": {
         "properties": {
@@ -9335,6 +9391,12 @@
             "title": "Review Pending",
             "description": "Count of pending review-queue items \u2014 feeds the NavRail badge via the existing /status poll (no dedicated poller, I3). Additive, non-breaking.",
             "default": 0
+          },
+          "supports_vision": {
+            "type": "boolean",
+            "title": "Supports Vision",
+            "description": "B2-C1: True when the active chat provider reports capabilities().supports_vision. The frontend uses this to gate the attach-image button. Additive, non-breaking \u2014 defaults False so existing clients without the field read as vision-disabled.",
+            "default": false
           }
         },
         "type": "object",
@@ -9350,6 +9412,7 @@
           "data_version": 3,
           "review_pending": 5,
           "started_at": "2026-06-28T10:00:00Z",
+          "supports_vision": false,
           "uptime_seconds": 42.7,
           "vault_id": "default",
           "version": "1.2.0"

@@ -16,6 +16,7 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
+import type { WebCitationRef } from "../api/chatClient";
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -50,6 +51,9 @@ export interface CitationRef {
   slug: string;
 }
 
+// Re-export WebCitationRef so consumers can import it from chatStore.
+export type { WebCitationRef };
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -65,6 +69,11 @@ export interface ChatMessage {
    * Empty array when retrieval produced no citations (non-breaking additive field).
    */
   citations: CitationRef[];
+  /**
+   * Web citations from a SearXNG search (B2).
+   * Present when use_web_search=true. Empty array when not set. Non-breaking additive field.
+   */
+  web_citations?: WebCitationRef[];
 }
 
 export interface LastUsage {

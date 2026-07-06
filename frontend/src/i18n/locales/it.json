@@ -566,7 +566,22 @@
     "renameCommit": "Salva nome",
     "renameCancel": "Annulla rinomina",
     "renameError": "Impossibile rinominare la conversazione",
-    "citationNotFound": "Pagina citata non trovata nella wiki"
+    "citationNotFound": "Pagina citata non trovata nella wiki",
+    "attachImage": "Allega immagine",
+    "attachImageDisabled": "Il provider attivo non supporta le immagini",
+    "webSearch": "Web",
+    "webSearchOn": "Ricerca web attiva — clicca per disattivare",
+    "webSearchOff": "Ricerca web disattiva — clicca per attivare",
+    "retrievalModeLabel": "Modalità di recupero",
+    "retrievalMode": {
+      "fast": "Veloce",
+      "standard": "Standard",
+      "deep": "Profondo",
+      "localFirst": "Locale prima"
+    },
+    "imageTooLarge": "L'immagine \"{{name}}\" supera il limite di {{maxMb}} MB",
+    "tooManyImages": "Massimo {{max}} immagini per messaggio",
+    "webSources": "FONTI WEB"
   },
   "research": {
     "title": "Ricerca Profonda",

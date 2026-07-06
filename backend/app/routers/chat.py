@@ -145,11 +145,37 @@ class ChatMessageListResponse(BaseModel):
     total: int
 
 
+class ChatImageIn(BaseModel):
+    """
+    One image attachment for a chat message (B2-C1, F17/I6 vision surface).
+
+    `mime` is the IANA media type (e.g. ``"image/png"``). `data_base64` is the
+    base64-encoded payload WITHOUT a ``data:...;base64,`` URI prefix.
+    Size must be capped by the client before sending; the backend passes this through
+    into the provider-neutral :class:`~app.ingest.schemas.MessageImage` DTO without
+    re-validating size (the provider layer handles/ignores per its ``supports_vision``
+    capability — B2-C1 cross-layer contract).
+    """
+
+    mime: str = Field(..., min_length=1, description="IANA media type, e.g. 'image/png'")
+    data_base64: str = Field(
+        ..., min_length=1, description="base64 image payload WITHOUT a data-URI prefix"
+    )
+
+
 class ChatMessageIn(BaseModel):
     """One turn in a ChatRequest. Mirrors the backend-neutral Message shape (I6)."""
 
     role: str = Field(..., description="user | assistant | system")
     content: str = Field(..., min_length=1)
+    images: list[ChatImageIn] | None = Field(
+        default=None,
+        description=(
+            "B2-C1: optional image attachments for this message turn. Passed through to the "
+            "provider's chat() only when the active provider advertises supports_vision=True. "
+            "Non-vision providers silently drop these (defense-in-depth, I6)."
+        ),
+    )
 
     @field_validator("role")
     @classmethod
@@ -161,11 +187,15 @@ class ChatMessageIn(BaseModel):
 
 class ChatRequest(BaseModel):
     """
-    Request body for POST /chat/stream (ADR-0019 §2.2).
+    Request body for POST /chat/stream (ADR-0019 §2.2, B2-C1/C2/C3).
 
     The server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves
     `resolve_provider_config("chat", vault_id)`. `operation` is fixed to "chat" so the same
     abstraction can route ingest-vs-chat differently.
+
+    B2 additions (additive, non-breaking for existing clients):
+      - ``use_web_search``: trigger a single-shot SearXNG fetch (C2, I9). [W] namespace.
+      - ``retrieval_mode``: one of four frozen presets controlling k + expansion_depth (C3, I7).
     """
 
     conversation_id: uuid.UUID | None = Field(
@@ -183,6 +213,24 @@ class ChatRequest(BaseModel):
     regenerate: bool = Field(
         default=False,
         description="AC-F6-4: delete the last assistant message before re-streaming",
+    )
+    use_web_search: bool = Field(
+        default=False,
+        description=(
+            "B2-C2: when True, make ONE bounded SearXNG search and append a [W]-namespaced "
+            "web-context block to the retrieval context (I9 — SearXNG only, no loop). "
+            "For local_first retrieval_mode, web search fires only when wiki hits < "
+            "LOCAL_FIRST_MIN_HITS. web_citations in the done event."
+        ),
+    )
+    retrieval_mode: Literal["fast", "standard", "deep", "local_first"] = Field(
+        default="standard",
+        description=(
+            "B2-C3: frozen retrieval preset. "
+            "fast=k4/depth0 · standard=k8/depth2 (default) · "
+            "deep=k12/depth2 · local_first=k8/depth2+web-gate. "
+            "expansion_depth is always clamped to ≤2 (I7)."
+        ),
     )
 
 
@@ -490,13 +538,25 @@ async def rename_conversation(
 )
 async def chat_stream(body: ChatRequest) -> StreamingResponse:
     """
-    POST /chat/stream — the NDJSON streaming chat turn (ADR-0019 §2.2).
+    POST /chat/stream — the NDJSON streaming chat turn (ADR-0019 §2.2, B2-C1/C2/C3).
 
     Setup failures that must map to an HTTP status (unknown conversation → 404, no provider →
     503) are raised by run_chat_stream BEFORE the first yield; we surface them here. Once the
     stream starts (HTTP 200), all later failures are terminal `error` NDJSON events.
     """
-    domain_messages = [Message(role=m.role, content=m.content) for m in body.messages]
+    from app.ingest.schemas import MessageImage
+
+    domain_messages = [
+        Message(
+            role=m.role,
+            content=m.content,
+            images=[
+                MessageImage(mime=img.mime, data_base64=img.data_base64)
+                for img in (m.images or [])
+            ],
+        )
+        for m in body.messages
+    ]
 
     agen = run_chat_stream(
         conversation_id=body.conversation_id,
@@ -504,6 +564,8 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
         vault_id=body.vault_id,
         context_window=body.context_window,
         regenerate=body.regenerate,
+        use_web_search=body.use_web_search,
+        retrieval_mode=body.retrieval_mode,
     )
 
     # Pull the first line eagerly so pre-stream setup errors (404/503) become real HTTP codes

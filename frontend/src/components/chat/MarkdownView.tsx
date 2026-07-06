@@ -21,9 +21,10 @@
 
 import { useMemo, useCallback, memo, type ReactNode, type MouseEvent } from "react";
 import { renderMarkdown } from "./renderMarkdown";
-import { decorateCitations } from "./decorateCitations";
+import { decorateCitations, decorateWebCitations } from "./decorateCitations";
 import { ThinkBlock } from "./ThinkBlock";
 import type { CitationRef } from "../../store/chatStore";
+import type { WebCitationRef } from "../../api/chatClient";
 
 interface MarkdownViewProps {
   /** Raw settled content — immutable after done (includes literal <think>…</think> if present). */
@@ -33,6 +34,11 @@ interface MarkdownViewProps {
    * Passed through to decorateCitations — NEVER triggers a re-parse of the markdown.
    */
   citations?: CitationRef[];
+  /**
+   * Web citations from a SearXNG search (B2). Optional; empty or absent = no decoration.
+   * Passed through to decorateWebCitations — never triggers a re-parse.
+   */
+  webCitations?: WebCitationRef[];
   /**
    * Called when the user clicks a [n] citation superscript.
    * Receives the slug of the referenced page.
@@ -67,6 +73,7 @@ function splitThink(raw: string): { thinkContent: string; visibleContent: string
 export const MarkdownView = memo(function MarkdownView({
   content,
   citations,
+  webCitations,
   onCitationClick,
 }: MarkdownViewProps): ReactNode {
   // Parse exactly once per unique content string (immutable post-done — AC-G3-2)
@@ -75,23 +82,42 @@ export const MarkdownView = memo(function MarkdownView({
   // Step 1: renderMarkdown — called ONCE on settled content (I3 / G3).
   const rawHtml = useMemo(() => renderMarkdown(visibleContent), [visibleContent]);
 
-  // Step 2: decorateCitations — single-pass string substitution over the already-parsed HTML.
-  // This is NOT a second markdown parse; it only wraps [n] text tokens in <sup> tags.
-  // Memoized on (rawHtml, citations) — re-runs only when the message or citations change.
-  // During streaming, citations is undefined and rawHtml is never set, so this never runs.
-  const html = useMemo(() => decorateCitations(rawHtml, citations ?? []), [rawHtml, citations]);
+  // Step 2a: decorateCitations — single-pass [n] → <sup class="synapse-citation">.
+  // Memoized on (rawHtml, citations) — never runs during streaming.
+  const wikiDecoratedHtml = useMemo(
+    () => decorateCitations(rawHtml, citations ?? []),
+    [rawHtml, citations],
+  );
 
-  // Event delegation: catch clicks on .synapse-citation elements within the rendered HTML.
-  // Uses data-slug attribute written by decorateCitations. No inline onclick in the HTML.
+  // Step 2b: decorateWebCitations — single-pass [Wn] → <sup class="synapse-web-citation">.
+  // Runs after step 2a; memoized on (wikiDecoratedHtml, webCitations).
+  const html = useMemo(
+    () => decorateWebCitations(wikiDecoratedHtml, webCitations ?? []),
+    [wikiDecoratedHtml, webCitations],
+  );
+
+  // Event delegation: catch clicks on citation elements within the rendered HTML.
   const handleBodyClick = useCallback(
     (e: MouseEvent<HTMLDivElement>) => {
-      if (!onCitationClick) return;
       const target = e.target as HTMLElement;
+
+      // Web citation: open URL in new tab (B2).
+      const webCitEl = target.closest(".synapse-web-citation");
+      if (webCitEl) {
+        const url = webCitEl.getAttribute("data-url");
+        if (url) {
+          e.preventDefault();
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+        return;
+      }
+
+      // Wiki citation: navigate to page (ADR-0022 §2.4 / AC-R8-6-2).
+      if (!onCitationClick) return;
       const citEl = target.closest(".synapse-citation");
       if (citEl) {
         const slug = citEl.getAttribute("data-slug");
-        // v1.3.3: prefer the page UUID when present (id navigates directly;
-        // the derived slug needs a by-slug resolution roundtrip).
+        // v1.3.3: prefer the page UUID when present.
         const pageId = citEl.getAttribute("data-page-id");
         if (slug || pageId) {
           e.preventDefault();

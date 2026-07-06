@@ -47,8 +47,10 @@ tests) does not require the SDK to be installed. The actual SDK<->MCP wiring liv
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
+import shutil
 import tempfile
 from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
@@ -285,8 +287,18 @@ class CliAgentProvider(InferenceProvider):
             ) from exc
 
         max_turns = _chat_agent_max_turns()
+        # B2-C1: CliAgentProvider is always vision-capable (claude-agent-sdk models see images).
+        # We honour the same seam the other backends use — carry Message.images only when
+        # capabilities().supports_vision is True; drop otherwise (defense-in-depth, debug log).
+        vision = self.capabilities().supports_vision
         return self._chat_stream(
-            ClaudeAgentOptions, ClaudeSDKClient, messages, retrieval_context, max_turns, auth_mode
+            ClaudeAgentOptions,
+            ClaudeSDKClient,
+            messages,
+            retrieval_context,
+            max_turns,
+            auth_mode,
+            vision,
         )
 
     async def _chat_stream(
@@ -297,19 +309,31 @@ class CliAgentProvider(InferenceProvider):
         retrieval_context: str,
         max_turns: int,
         auth_mode: str,
+        vision: bool,
     ) -> AsyncIterator[str]:
         """
-        The actual SDK streaming session. Read-only: no write_page / filesystem-write tools are
-        granted (allowed_tools=[]), so the agent can only answer from `retrieval_context`.
-        Records Usage out of band (cost per NB-4) in a finally block, even on early aclose()
-        (token_budget cap) or mid-stream error — keeping the I7 ledger truthful.
+        The actual SDK streaming session. Read-only by default: no write_page / filesystem-write
+        tools are granted, so the agent answers from `retrieval_context`. Records Usage out of band
+        (cost per NB-4) in a finally block, even on early aclose() (token_budget cap) or mid-stream
+        error — keeping the I7 ledger truthful.
+
+        B2-C1 vision: when `vision` is True AND the turns carry `Message.images`, each base64 image
+        is materialized to a scoped temp file (the SDK sees images through its `Read` tool, the same
+        pattern as caption_image — base64 chat images have no filesystem path otherwise). The prompt
+        references those paths and the agent is granted a scoped `Read` tool for the temp dir ONLY.
+        The temp dir is removed in a finally. When `vision` is False the images are dropped (debug
+        log, never the base64 payload) and the chat is the existing text-only path.
         """
+        # Materialize any attached images to a scoped temp dir (empty list when none / vision off).
+        image_paths, tmp_dir = _materialize_chat_images(messages, vision)
+        allowed_tools = ["Read"] if image_paths else []  # scoped Read ONLY when images present
         options = options_cls(
             model=self._model,  # from provider_config (I6)
             system_prompt=retrieval_context,  # light header + retrieved context (ADR-0022 §2.7)
             permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
-            allowed_tools=[],  # READ-ONLY chat: no write_page / fs-write (ADR-0022 §2.7)
+            allowed_tools=allowed_tools,  # [] text-only; ["Read"] scoped to tmp_dir for images
             max_turns=max_turns,  # third I7 bound (CHAT_AGENT_MAX_TURNS)
+            **({"cwd": tmp_dir} if tmp_dir is not None else {}),  # scope Read to the temp dir
         )
 
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
@@ -322,7 +346,7 @@ class CliAgentProvider(InferenceProvider):
         try:
             with _cli_subscription_env_scope(db_token):
                 async with client_cls(options=options) as client:
-                    await client.query(_build_chat_prompt(messages))
+                    await client.query(_build_chat_prompt(messages, image_paths))
                     async for message in client.receive_response():
                         for delta in _extract_text_deltas(message):
                             if delta:
@@ -332,6 +356,10 @@ class CliAgentProvider(InferenceProvider):
                         if msg_cost is not None:
                             sdk_cost_usd = msg_cost
         finally:
+            # B2-C1: remove the whole scoped temp image dir (files + dir) — no leak. Best-effort
+            # (never masks the stream outcome); ignore_errors so cleanup can't raise from finally.
+            if tmp_dir is not None:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
             self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
 
     # ── Delegated ingest (the agentic route) ────────────────────────────────────
@@ -566,15 +594,60 @@ def _chat_agent_max_turns() -> int:
     return value
 
 
-def _build_chat_prompt(messages: list[Message]) -> str:
+def _build_chat_prompt(messages: list[Message], image_paths: list[Path] | None = None) -> str:
     """
     Render the conversation turns into a single prompt for the SDK agent. The grounding context
     travels via the system_prompt (ADR-0022 §2.7), so here we only carry the user/assistant turns
     (system turns are dropped — they belong to the system_prompt). Role-tagged so the agent reads
     the dialogue order; the latest user message is the question to answer.
+
+    B2-C1: when `image_paths` are provided, a trailing directive lists the temp file paths so the
+    agent reads them via its scoped `Read` tool (base64 chat images are materialized to disk by
+    _materialize_chat_images; the SDK has no inline-base64 chat input in the installed version).
     """
     lines = [f"{m.role}: {m.content}" for m in messages if m.role in ("user", "assistant")]
-    return "\n\n".join(lines)
+    prompt = "\n\n".join(lines)
+    if image_paths:
+        listing = "\n".join(str(p) for p in image_paths)
+        prompt = (
+            f"{prompt}\n\nThe user attached the following image file(s) — read each with the Read "
+            f"tool and use them to answer:\n{listing}"
+        )
+    return prompt
+
+
+def _materialize_chat_images(
+    messages: list[Message], vision: bool
+) -> tuple[list[Path], str | None]:
+    """
+    Write any base64 images on the chat turns to a scoped temp dir so the SDK's `Read` tool can
+    open them (B2-C1). Returns (image_paths, tmp_dir); ([], None) when there are no images or when
+    `vision` is False (images dropped — debug log, NEVER the base64 payload). The caller grants a
+    scoped `Read` tool for tmp_dir and removes the files in a finally.
+    """
+    all_images = [img for m in messages for img in m.images]
+    if not all_images:
+        return [], None
+    if not vision:
+        logger.debug(
+            "CLI chat: dropping %d image(s) — instance is not vision-capable (B2-C1)",
+            len(all_images),
+        )
+        return [], None
+    tmp_dir = tempfile.mkdtemp(prefix="synapse_chat_img_")
+    paths: list[Path] = []
+    _suffixes = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/gif": ".gif",
+        "image/webp": ".webp",
+    }
+    for i, img in enumerate(all_images):
+        suffix = _suffixes.get(img.mime, ".png")
+        p = Path(tmp_dir) / f"image_{i}{suffix}"
+        p.write_bytes(base64.b64decode(img.data_base64))
+        paths.append(p)
+    return paths, tmp_dir
 
 
 def _extract_text_deltas(message: Any) -> list[str]:

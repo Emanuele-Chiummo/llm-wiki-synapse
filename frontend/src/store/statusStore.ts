@@ -32,6 +32,12 @@ interface StatusState {
    * the NavRail badge renders nothing in that case.
    */
   reviewPending: number | undefined;
+  /**
+   * Whether the active provider supports image inputs (B2 — vision gate).
+   * Undefined until the first /status poll. Absent from older backends → false.
+   * MessageInput uses this to enable/disable the attach-image button.
+   */
+  supportsVision: boolean;
 }
 
 interface StatusActions {
@@ -39,6 +45,8 @@ interface StatusActions {
   setBackendVersion: (version: string | undefined) => void;
   /** Called by ActivityBar with /status.review_pending (may be absent → undefined). */
   setReviewPending: (count: number | undefined) => void;
+  /** Called by ActivityBar with /status.supports_vision (may be absent → false). */
+  setSupportsVision: (v: boolean) => void;
 }
 
 export type StatusStore = StatusState & StatusActions;
@@ -48,8 +56,10 @@ export type StatusStore = StatusState & StatusActions;
 export const useStatusStore = create<StatusStore>((set) => ({
   backendVersion: undefined,
   reviewPending: undefined,
+  supportsVision: false,
   setBackendVersion: (backendVersion) => set({ backendVersion }),
   setReviewPending: (reviewPending) => set({ reviewPending }),
+  setSupportsVision: (supportsVision) => set({ supportsVision }),
 }));
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
@@ -64,4 +74,12 @@ export function selectSetBackendVersion(s: StatusStore): StatusActions["setBacke
 
 export function selectReviewPending(s: StatusStore): number | undefined {
   return s.reviewPending;
+}
+
+export function selectSupportsVision(s: StatusStore): boolean {
+  return s.supportsVision;
+}
+
+export function selectSetSupportsVision(s: StatusStore): StatusActions["setSupportsVision"] {
+  return s.setSupportsVision;
 }

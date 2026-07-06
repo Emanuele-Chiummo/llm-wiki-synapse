@@ -857,6 +857,17 @@ class ChatMessage(Base):
         comment="RESERVED for M5 [n] citations; always [] in M4 (ADR-0019 §2.3)",
     )
 
+    images: Mapped[list[Any] | None] = mapped_column(
+        # JSONB on Postgres; plain JSON on SQLite (test in-memory engine).
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=True,
+        comment=(
+            "B2-C1 image attachments: [{mime, data_base64}] for user messages. "
+            "NULL when no images attached. Stored so regenerate/history preserves images. "
+            "Migration: 0024_messages_images."
+        ),
+    )
+
     provider_type: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
