@@ -764,6 +764,7 @@
     "legendCommunityLabel": "Community {{id}}",
     "legendCommunitySize": "{{size}} nodes",
     "legendCommunityLowCohesion": "Low cohesion",
+    "legendCommunityDomain": "Domain: {{domain}}",
     "insights": {
       "title": "Graph Insights",
       "sectionSurprising": "Surprising connections",

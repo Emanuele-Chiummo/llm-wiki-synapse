@@ -33,11 +33,13 @@
  *   (documented in ADR-0015 §CVD-SAFE): sigma cannot resolve CSS vars at draw time.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
+import { computeCommunityCentroids } from "./graphCommunityUtils";
+import type { CommunityCentroid } from "./graphCommunityUtils";
 import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
@@ -149,12 +151,14 @@ function colorForType(type: string | null): string {
   return TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
 }
 
-// ─── Re-export community palette identifiers for test isolation ───────────────
-// COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, ColorMode are
-// all imported from ./graphPalette (pure module, no sigma dependency) so they
-// can be unit-tested in jsdom without WebGL2. See graphPalette.ts.
+// ─── Re-export community palette + centroid utilities for test isolation ──────
+// These are all imported from pure modules (no sigma dependency) so they can be
+// unit-tested in jsdom without WebGL2. See graphPalette.ts, graphCommunityUtils.ts.
 export { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity };
 export type { ColorMode };
+// computeCommunityCentroids is also re-exported from graphCommunityUtils for tests
+// that import from GraphViewer directly (backward compat).
+export { computeCommunityCentroids };
 
 /**
  * Deepen a hex color by mixing it 30% toward black (#000000).
@@ -1192,6 +1196,12 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
             communities.map((c) => {
               const isLowCohesion = c.cohesion < LOW_COHESION_THRESHOLD;
               const color = colorForCommunity(c.id);
+              // Use server-provided label (dominant domain or top-page title);
+              // fall back to "Comunità {id}" / "Community {id}" when absent or empty.
+              const displayName =
+                (c.label != null && c.label.trim().length > 0)
+                  ? c.label
+                  : t("graph.legendCommunityLabel", { id: c.id });
               return (
                 <div
                   key={c.id}
@@ -1203,6 +1213,11 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
                     cursor: onCommunityClick ? "pointer" : "default",
                   }}
                   data-testid={`community-legend-item-${c.id}`}
+                  title={
+                    c.dominant_domain != null
+                      ? t("graph.legendCommunityDomain", { domain: c.dominant_domain })
+                      : undefined
+                  }
                   onClick={() => onCommunityClick?.(c.id)}
                   role={onCommunityClick ? "button" : undefined}
                   tabIndex={onCommunityClick ? 0 : undefined}
@@ -1225,7 +1240,13 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
                     aria-hidden="true"
                   />
                   <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
-                    {t("graph.legendCommunityLabel", { id: c.id })}
+                    {/* Core deliverable: show domain/community name (not raw id) */}
+                    <span
+                      data-testid={`community-legend-name-${c.id}`}
+                      style={{ fontWeight: 500 }}
+                    >
+                      {displayName}
+                    </span>
                     <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
                       {t("graph.legendCommunitySize", { size: c.size })}
                     </span>
@@ -1267,6 +1288,155 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
           </div>
         </>
       )}
+    </div>
+  );
+};
+
+// ─── CommunityOverlay ─────────────────────────────────────────────────────────
+// Renders named cluster labels above the sigma WebGL canvas in Community mode.
+//
+// Architecture:
+//   - Centroids are received as a pre-memoized Map (I3: computed once per data change).
+//   - On sigma `afterRender`, project graph-space centroids → viewport pixels with
+//     sigma.graphToViewport(). Schedule with requestAnimationFrame so DOM writes are
+//     batched with sigma's frame (I3: no string work per frame — only numeric transforms).
+//   - Labels are positioned absolutely in the overlay div that sits above the canvas.
+//   - pointer-events: none so the overlay never blocks sigma interaction.
+//   - Hidden entirely when colorMode !== "community" or centroids map is empty.
+//
+// INVARIANT I2: we NEVER mutate node x/y. We read coords to project them.
+// INVARIANT I3: centroid computation is outside this component (memoized by caller).
+//              Projection (graphToViewport) is fast: pure arithmetic, no string ops.
+
+interface CommunityOverlayProps {
+  /** Pre-memoized centroids (community id → {x,y,label,color}). Memoized by GraphViewer. */
+  centroids: Map<number, CommunityCentroid>;
+  /** The sigma instance — used to subscribe to afterRender + call graphToViewport. */
+  sigmaRef: React.RefObject<Sigma<Attributes, Attributes, Attributes> | null>;
+  /** Only render when community mode is active. */
+  active: boolean;
+}
+
+/** Maximum label character count before truncation with ellipsis. */
+const OVERLAY_LABEL_MAX_CHARS = 20;
+
+function truncateOverlayLabel(label: string): string {
+  if (label.length <= OVERLAY_LABEL_MAX_CHARS) return label;
+  return label.slice(0, OVERLAY_LABEL_MAX_CHARS - 1) + "…";
+}
+
+const CommunityOverlay: React.FC<CommunityOverlayProps> = ({ centroids, sigmaRef, active }) => {
+  // Viewport projections: community id → {x,y} in CSS pixels
+  // Stored in a ref (not state) to avoid React re-renders on every sigma frame.
+  // We update the DOM directly via the overlayRef to stay off the React tree entirely.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  // rafHandle: rAF id so we can cancel on cleanup
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!active || centroids.size === 0) {
+      // Hide all labels when not in community mode or no centroids
+      if (overlayRef.current) overlayRef.current.style.display = "none";
+      return;
+    }
+    if (overlayRef.current) overlayRef.current.style.display = "block";
+
+    const sigma = sigmaRef.current;
+    if (!sigma) return;
+
+    // Project all centroids and update the overlay DOM directly (no React state mutation).
+    // This avoids React re-renders on every sigma frame (I3).
+    function project() {
+      const overlay = overlayRef.current;
+      const s = sigmaRef.current;
+      if (!overlay || !s) return;
+
+      // One pass: update each label element's transform. Elements are keyed by data-cid.
+      for (const [cid, centroid] of centroids) {
+        const el = overlay.querySelector<HTMLElement>(`[data-cid="${cid}"]`);
+        if (!el) continue;
+        const vp = s.graphToViewport({ x: centroid.x, y: centroid.y });
+        // Translate so the label is centered on the centroid
+        el.style.transform = `translate(calc(${vp.x}px - 50%), calc(${vp.y}px - 50%))`;
+      }
+    }
+
+    // Throttle via rAF: sigma fires afterRender at most 60fps; we just schedule
+    // one DOM-write frame after each render event (I3: no per-token string work).
+    function onAfterRender() {
+      if (rafRef.current !== null) return; // already queued
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        project();
+      });
+    }
+
+    // Initial projection
+    project();
+
+    // Subscribe to sigma afterRender so projections follow camera moves/zooms
+    sigma.on("afterRender", onAfterRender);
+
+    return () => {
+      sigma.off("afterRender", onAfterRender);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+    // Re-subscribe when sigma instance changes (graph rebuild) or centroids change
+  }, [active, centroids, sigmaRef]);
+
+  if (!active || centroids.size === 0) return null;
+
+  return (
+    <div
+      ref={overlayRef}
+      data-testid="community-overlay"
+      style={{
+        position: "absolute",
+        inset: 0,
+        // pointer-events none: overlay is purely visual — never blocks sigma interaction
+        pointerEvents: "none",
+        // overflow hidden: labels near edges clip cleanly
+        overflow: "hidden",
+      }}
+      aria-hidden="true"
+    >
+      {/* Render one label element per community centroid.
+          Their CSS transform is updated directly in the effect above — NO React state.
+          I2: we do not add graph nodes here; this is pure DOM overlay. */}
+      {Array.from(centroids.entries()).map(([cid, centroid]) => (
+        <div
+          key={cid}
+          data-cid={cid}
+          data-testid={`community-overlay-label-${cid}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            // transform is set dynamically in the effect
+            transform: "translate(-50%, -50%)",
+            fontSize: 11,
+            fontWeight: 600,
+            fontFamily: "Inter, system-ui, sans-serif",
+            letterSpacing: "0.02em",
+            color: centroid.color,
+            // Text halo for legibility on any background (matches sigma's own halo approach)
+            textShadow: [
+              "-1px -1px 0 rgba(255,255,255,0.85)",
+              " 1px -1px 0 rgba(255,255,255,0.85)",
+              "-1px  1px 0 rgba(255,255,255,0.85)",
+              " 1px  1px 0 rgba(255,255,255,0.85)",
+              " 0    0   3px rgba(255,255,255,0.6)",
+            ].join(","),
+            whiteSpace: "nowrap",
+            userSelect: "none",
+          }}
+        >
+          {truncateOverlayLabel(centroid.label)}
+        </div>
+      ))}
     </div>
   );
 };
@@ -1452,6 +1622,16 @@ export const GraphViewer: React.FC = () => {
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Aria-live announcement text
   const [announcement, setAnnouncement] = useState<string>("");
+
+  // ── Community centroid map (I3 — memoized; recomputed only when nodes or communities change)
+  // INVARIANT I2: only reads server-provided x/y — never mutates coords.
+  // INVARIANT I3: computed once per (nodes, communities) change, NOT per sigma frame.
+  // Only meaningful in community colorMode, but we memoize unconditionally so the
+  // overlay doesn't add stale data on a colorMode switch.
+  const communityCentroids = useMemo(
+    () => computeCommunityCentroids(nodes, communities),
+    [nodes, communities],
+  );
 
   // ── R9-5: Community panel state ──────────────────────────────────────────
   const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
@@ -2331,6 +2511,17 @@ export const GraphViewer: React.FC = () => {
         colorMode={colorMode}
         communities={communities}
         {...(colorMode === "community" ? { onCommunityClick: handleCommunityClick } : {})}
+      />
+
+      {/* Community centroid labels overlay (community mode only).
+          One label per non-singleton community, positioned at its centroid via sigma.graphToViewport.
+          Projections are updated on sigma afterRender, throttled with rAF.
+          INVARIANT I2: reads coords only — never mutates node positions or runs layout.
+          INVARIANT I3: centroids are memoized above; only projection runs on each frame. */}
+      <CommunityOverlay
+        centroids={communityCentroids}
+        sigmaRef={sigmaRef}
+        active={colorMode === "community"}
       />
 
       {/* R9-5: Community drill-down panel */}

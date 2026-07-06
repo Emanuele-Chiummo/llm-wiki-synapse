@@ -244,6 +244,7 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
                 title TEXT,
                 type TEXT,
                 sources TEXT,
+                tags TEXT,
                 content_hash TEXT NOT NULL DEFAULT '',
                 source_mtime_ns INTEGER,
                 qdrant_point_id TEXT,
@@ -254,6 +255,17 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
                 pinned INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+        """))
+        await conn.execute(sa_text("""
+            CREATE TABLE links (
+                id TEXT PRIMARY KEY,
+                source_page_id TEXT NOT NULL REFERENCES pages(id),
+                target_title TEXT NOT NULL,
+                target_page_id TEXT,
+                alias TEXT,
+                dangling INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """))
         await conn.execute(sa_text("""

@@ -156,22 +156,74 @@ class GraphEdgeResponse(BaseModel):
     )
 
 
+class GraphCommunityTopPageResponse(BaseModel):
+    """Highest-degree member page of a community — disambiguation + tooltip (F18)."""
+
+    id: str = Field(description="Page UUID")
+    title: str | None = Field(None, description="Page title")
+    slug: str = Field(description="URL-safe slug derived from title")
+
+
 class GraphCommunityResponse(BaseModel):
     """
-    Per-community summary in the GET /graph response (G-P0-2).
+    Per-community summary in the GET /graph response (G-P0-2, F18).
 
-    id      : re-numbered Louvain community id (0 = largest community).
-    size    : number of member nodes.
-    cohesion: intra-edge density in [0, 1]; 0 for singleton communities.
-              Low cohesion (<0.1) signals a loosely-connected community
-              suitable for a warning in the client legend.
+    id             : re-numbered Louvain community id (0 = largest community).
+    size           : number of member nodes.
+    cohesion       : intra-edge density in [0, 1]; 0 for singleton communities.
+                     Low cohesion (<0.1) signals a loosely-connected community
+                     suitable for a warning in the client legend.
+    label          : human-readable display name for Community Mode (F18).
+                     Priority: dominant_domain → top_page.title → "Comunità {id}".
+                     Computed server-side in recompute() — no client computation (I2).
+    dominant_domain: most-frequent in-vocab "domain/<Name>" tag among members (F18).
+                     None when no valid domain tags are present.
+    top_page       : highest-degree member page {id, title, slug} for disambiguation
+                     and tooltip (F18). None for communities with no members.
     """
 
     id: int
     size: int
     cohesion: float = Field(description="Intra-edge density [0,1]; 0 for singletons")
+    label: str = Field(
+        default="",
+        description=(
+            "Human-readable community name for Community Mode (F18). "
+            "Priority: dominant_domain → top_page.title → 'Comunità {id}'. "
+            "Computed server-side alongside cohesion (I2)."
+        ),
+    )
+    dominant_domain: str | None = Field(
+        default=None,
+        description=(
+            "Most-frequent in-vocabulary domain/* tag among community members (F18). "
+            "Prefix 'domain/' is stripped. None when no valid domain tags are present."
+        ),
+    )
+    top_page: GraphCommunityTopPageResponse | None = Field(
+        default=None,
+        description=(
+            "Highest-degree member page {id, title, slug} — used for label fallback "
+            "and tooltip (F18). None when the community has no members."
+        ),
+    )
 
-    model_config = {"json_schema_extra": {"example": {"id": 0, "size": 12, "cohesion": 0.42}}}
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": 0,
+                "size": 12,
+                "cohesion": 0.42,
+                "label": "SAM",
+                "dominant_domain": "SAM",
+                "top_page": {
+                    "id": "00000000-0000-0000-0000-000000000001",
+                    "title": "Software Asset Management",
+                    "slug": "software-asset-management",
+                },
+            }
+        }
+    }
 
 
 class GraphResponse(BaseModel):
@@ -236,7 +288,20 @@ class GraphResponse(BaseModel):
                 ],
                 "data_version": 7,
                 "cached": True,
-                "communities": [{"id": 0, "size": 2, "cohesion": 1.0}],
+                "communities": [
+                    {
+                        "id": 0,
+                        "size": 2,
+                        "cohesion": 1.0,
+                        "label": "SAM",
+                        "dominant_domain": "SAM",
+                        "top_page": {
+                            "id": "00000000-0000-0000-0000-000000000001",
+                            "title": "Alpha",
+                            "slug": "alpha",
+                        },
+                    }
+                ],
                 "total_nodes": 986,
                 "total_edges": 4213,
             }
@@ -472,7 +537,22 @@ async def get_graph() -> Response:
         for e in snapshot.edges
     ]
     communities: list[GraphCommunityResponse] = [
-        GraphCommunityResponse(id=c.id, size=c.size, cohesion=c.cohesion)
+        GraphCommunityResponse(
+            id=c.id,
+            size=c.size,
+            cohesion=c.cohesion,
+            label=c.label,
+            dominant_domain=c.dominant_domain,
+            top_page=(
+                GraphCommunityTopPageResponse(
+                    id=c.top_page.id,
+                    title=c.top_page.title,
+                    slug=c.top_page.slug,
+                )
+                if c.top_page is not None
+                else None
+            ),
+        )
         for c in snapshot.communities
     ]
     payload = GraphResponse(
