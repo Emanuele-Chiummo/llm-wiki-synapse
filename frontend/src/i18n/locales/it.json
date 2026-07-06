@@ -699,7 +699,10 @@
     "unsavedDialogTitle": "Modifiche non salvate",
     "unsavedDialogBody": "Hai modifiche non salvate. Scartarle e uscire?",
     "unsavedDiscard": "Scarta",
-    "unsavedKeepEditing": "Continua a modificare"
+    "unsavedKeepEditing": "Continua a modificare",
+    "tagsMore": "Altri (+{{count}})",
+    "tagsCollapse": "Meno",
+    "updatedLabel": "aggiornato: {{iso}}"
   },
   "lint": {
     "title": "Lint",
@@ -838,10 +841,15 @@
   "sources": {
     "title": "Sorgenti",
     "import": "Importa",
+    "importFolder": "+ Cartella",
     "refresh": "Aggiorna",
     "ingest": "Importa",
     "delete": "Elimina",
     "confirmDelete": "Conferma",
+    "deleteFolder": "Elimina cartella",
+    "confirmDeleteFolder": "Conferma",
+    "deletedFolderToast": "Cartella eliminata · {{files}} file, {{pages}} pagine",
+    "deletedFolderTooMany": "Cartella troppo grande — usa la CLI del backend.",
     "ingested": "Importata",
     "notIngested": "Non importata",
     "derivedPages": "pagine",
@@ -857,6 +865,8 @@
     "ingestAllRunning": "Indicizzo… {{done}}/{{total}}",
     "ingestAllNone": "Nulla da indicizzare",
     "ingestAllAlready": "Già in corso",
+    "footerCount": "{{total}} sorgenti",
+    "folderUploadSkipped": "{{count}} file ignorati (tipo non supportato)",
     "bulk": {
       "selectAll": "Seleziona tutti i file",
       "selectFile": "Seleziona {{name}}",

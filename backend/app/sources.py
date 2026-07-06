@@ -62,6 +62,13 @@ async def _cascade_delete_page(page_uuid: uuid.UUID) -> None:
 # Maximum total entries returned by GET /sources (I7 listing cap)
 SOURCES_LIST_MAX: int = int(os.environ.get("SOURCES_LIST_MAX", "5000"))
 
+# Maximum files that may be cascade-deleted in a single directory DELETE (I7 — S2/B3b).
+# When the directory contains more files than this cap, DELETE returns 409 with a clear
+# message. The user must delete subdirectories or individual files to stay under the cap.
+# Default 500 — generous enough for normal use; tight enough to prevent runaway cascades.
+# Env var: SOURCES_DELETE_MAX_FILES
+SOURCES_DELETE_MAX_FILES: int = int(os.environ.get("SOURCES_DELETE_MAX_FILES", "500"))
+
 # Maximum text preview characters for text-like files (I7 text cap)
 SOURCES_TEXT_MAX_CHARS: int = int(os.environ.get("SOURCES_TEXT_MAX_CHARS", str(200_000)))
 
@@ -287,10 +294,26 @@ class SourceContentResponse(BaseModel):
 
 
 class SourceDeleteResponse(BaseModel):
-    """Response for DELETE /sources."""
+    """
+    Response for DELETE /sources.
+
+    Single-file delete:  deleted_source=<rel_path>, files_deleted=1, pages_cascaded=N,
+                         pages_deleted=N (backward-compat alias; always equals pages_cascaded).
+    Directory delete:    deleted_source=<rel_dir>,  files_deleted=K, pages_cascaded=M,
+                         pages_deleted=M.
+    """
 
     deleted_source: str
-    pages_deleted: int
+    """Relative path (from raw/sources/) of the deleted file or directory."""
+
+    files_deleted: int = 1
+    """Number of raw source files removed from disk (1 for single-file delete; K for dir)."""
+
+    pages_cascaded: int = 0
+    """Total derived wiki pages cascade-deleted across all files."""
+
+    pages_deleted: int = 0
+    """Backward-compat alias for pages_cascaded. Always equals pages_cascaded."""
 
 
 class IngestAllResponse(BaseModel):
@@ -671,20 +694,29 @@ async def source_derived_pages(
 @router.delete(
     "",
     response_model=SourceDeleteResponse,
-    summary="Delete a raw source file and cascade-delete its derived pages",
+    summary="Delete a raw source file or directory and cascade-delete derived pages",
     description=(
-        "Deletes the raw source file from disk and cascade-deletes all derived wiki pages "
+        "Deletes the raw source file or directory (S2, B3b) from disk and cascade-deletes "
+        "all derived wiki pages for each contained file "
         "(soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). "
         "Reuses the existing cascade-delete machinery (ops/cascade_delete.py — F13/ADR-0026). "
         "Bumps data_version + notifies GraphCache (I2). "
         "path must be relative to vault/raw/sources/ — resolved via resolve_under_sources(). "
-        "404 when path escapes or file is absent. "
+        "404 when path escapes or target does not exist. "
+        "\n\nFILE delete (is_dir=False): existing behaviour unchanged — cascade then remove file. "
         "If the source has no derived pages, the raw file is still deleted. "
-        'To re-ingest: POST /ingest/trigger with {"file_path": "<absolute-or-relative-path>"}.'
+        "Returns {deleted_source, files_deleted:1, pages_cascaded:N}. "
+        "\n\nDIRECTORY delete (is_dir=True, S2): enumerates all files in the subtree, "
+        "runs the SAME per-file cascade for each, then removes files + empty dirs from disk. "
+        f"Bounded at SOURCES_DELETE_MAX_FILES (env, default {SOURCES_DELETE_MAX_FILES}); "
+        "if the subtree contains more files, returns 409 with a clear message (I7 — no "
+        "unbounded cascade). Returns {deleted_source, files_deleted:K, pages_cascaded:M}. "
+        "\n\nPath-safety: resolve_under_sources() for all paths (ADR-0020 §2.2)."
     ),
     responses={
         200: {"description": "Source deleted; derived pages cascade-deleted"},
-        404: {"description": "Source file not found or path outside raw/sources/"},
+        404: {"description": "Source file or directory not found or path outside raw/sources/"},
+        409: {"description": "Directory exceeds SOURCES_DELETE_MAX_FILES limit (I7)"},
         422: {"description": "Path traversal attempt"},
     },
 )
@@ -692,13 +724,16 @@ async def delete_source(
     path: str = Query(..., description="Relative path under vault/raw/sources/"),
 ) -> SourceDeleteResponse:
     """
-    DELETE /sources?path=<rel> — delete raw source + cascade-delete derived pages (F13/I1/I2).
+    DELETE /sources?path=<rel> — delete raw source file or directory (S2, B3b).
+
+    Dispatches on is_dir:
+    - File path → _delete_single_source_file (existing behaviour, unchanged).
+    - Dir  path → _delete_source_directory   (new; S2; bounded by SOURCES_DELETE_MAX_FILES).
 
     Path-safety: resolve_under_sources(path) (ADR-0020 §2.2).
-    Reuses cascade_delete (ops/cascade_delete.py) for each derived page.
-    Deletes raw file last (after cascade completes) so a crash mid-cascade doesn't lose the file.
-    Bumps data_version + notifies GraphCache EXACTLY ONCE per derived page (handled by cascade);
-    if there are no derived pages, bumps once manually to signal the sources-tree change.
+    I1: cascade reuses the incremental cascade machinery (ops/cascade_delete.py).
+    I2: data_version bumped (once per file, or once for the no-derived case).
+    I7: directory delete capped at SOURCES_DELETE_MAX_FILES → 409 beyond.
     """
     # Path safety
     try:
@@ -706,16 +741,36 @@ async def delete_source(
     except HTTPException:
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
-    if not abs_path.exists() or not abs_path.is_file():
+    if not abs_path.exists():
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
 
     sources_dir = settings.raw_sources_dir
+
+    if abs_path.is_dir():
+        return await _delete_source_directory(abs_path, sources_dir, path)
+    elif abs_path.is_file():
+        return await _delete_single_source_file(abs_path, sources_dir)
+    else:
+        raise HTTPException(status_code=404, detail=f"Source not found: {path!r}")
+
+
+async def _delete_single_source_file(
+    abs_path: Path,
+    sources_dir: Path,
+) -> SourceDeleteResponse:
+    """
+    Delete a single raw source file and cascade-delete its derived wiki pages.
+
+    This is the ORIGINAL per-file delete logic, extracted into a helper so it can
+    be reused by _delete_source_directory. Behaviour is byte-for-byte identical to
+    the pre-S2 implementation (no invariant changes).
+    """
     rel_path = abs_path.relative_to(sources_dir).as_posix()
 
     # Find all derived pages (non-deleted) via sources[] JSONB pivot
     derived = await _get_derived_pages(rel_path)
 
-    pages_deleted = 0
+    pages_cascaded = 0
 
     if derived:
         # Cascade-delete each derived page using the existing machinery (F13/ADR-0026).
@@ -730,7 +785,7 @@ async def delete_source(
             try:
                 page_uuid = uuid.UUID(derived_page.id)
                 await _cascade_delete_page(page_uuid)
-                pages_deleted += 1
+                pages_cascaded += 1
                 logger.info(
                     "sources.delete: cascade-deleted page %s (derived from %s)",
                     derived_page.id,
@@ -762,7 +817,158 @@ async def delete_source(
     if not derived:
         await _bump_version_no_derived()
 
-    return SourceDeleteResponse(deleted_source=rel_path, pages_deleted=pages_deleted)
+    return SourceDeleteResponse(
+        deleted_source=rel_path,
+        files_deleted=1,
+        pages_cascaded=pages_cascaded,
+        pages_deleted=pages_cascaded,
+    )
+
+
+async def _delete_source_directory(
+    abs_dir: Path,
+    sources_dir: Path,
+    client_path: str,
+) -> SourceDeleteResponse:
+    """
+    S2 (B3b) — Delete a directory subtree from raw/sources/ with bounded cascade.
+
+    Steps:
+    1. Enumerate ALL files in the subtree (os.walk, alphabetic).
+    2. If count > SOURCES_DELETE_MAX_FILES → 409 (I7 — no unbounded cascade).
+    3. For each file: run the SAME cascade as _delete_single_source_file.
+       (per-file derived-page lookup → cascade each → unlink file).
+    4. Remove now-empty subdirectories bottom-up (rmdir; no-op if non-empty due to race).
+    5. Bump data_version once if no files were processed (empty-dir case; I2).
+    6. Return {deleted_source, files_deleted, pages_cascaded}.
+
+    Path-safety: abs_dir is already resolve_under_sources-checked by the caller.
+    I7: capped at SOURCES_DELETE_MAX_FILES → 409 beyond the cap.
+    I1: reuses _cascade_delete_page (same seam as per-file delete; no new rescan).
+    """
+    rel_dir = abs_dir.relative_to(sources_dir).as_posix()
+
+    # ── Step 1: Enumerate files (I7 — count before committing to cascade) ──────
+    all_files: list[Path] = []
+    dirs_seen: list[Path] = []  # in walk order (for bottom-up rmdir later)
+
+    for dirpath_str, dirnames, filenames in os.walk(abs_dir):
+        dirnames.sort()
+        filenames.sort()
+        dp = Path(dirpath_str)
+        if dp != abs_dir:
+            dirs_seen.append(dp)
+        for fname in filenames:
+            fpath = dp / fname
+            if len(all_files) > SOURCES_DELETE_MAX_FILES:
+                # Exceeded cap — fail BEFORE touching anything on disk
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Directory {client_path!r} contains more than "
+                        f"{SOURCES_DELETE_MAX_FILES} files "
+                        f"(SOURCES_DELETE_MAX_FILES). "
+                        "Delete subdirectories individually or raise the env cap."
+                    ),
+                )
+            all_files.append(fpath)
+
+    # ── Step 2: Final cap check (accounts for exactly-at-limit edge) ───────────
+    if len(all_files) > SOURCES_DELETE_MAX_FILES:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Directory {client_path!r} contains more than "
+                f"{SOURCES_DELETE_MAX_FILES} files "
+                f"(SOURCES_DELETE_MAX_FILES). "
+                "Delete subdirectories individually or raise the env cap."
+            ),
+        )
+
+    logger.info(
+        "sources.delete_dir: starting cascade for %d files in %s",
+        len(all_files),
+        rel_dir,
+    )
+
+    # ── Step 3: Cascade each file (reuses existing per-file seam) ─────────────
+    from app.ops.cascade_delete import PageNotFoundError
+
+    total_pages_cascaded = 0
+    files_deleted = 0
+
+    for fpath in all_files:
+        file_rel = fpath.relative_to(sources_dir).as_posix()
+        derived = await _get_derived_pages(file_rel)
+
+        if derived:
+            for derived_page in derived:
+                try:
+                    page_uuid = uuid.UUID(derived_page.id)
+                    await _cascade_delete_page(page_uuid)
+                    total_pages_cascaded += 1
+                    logger.info(
+                        "sources.delete_dir: cascade-deleted page %s (derived from %s)",
+                        derived_page.id,
+                        file_rel,
+                    )
+                except PageNotFoundError:
+                    logger.debug(
+                        "sources.delete_dir: page %s already deleted (skipping)", derived_page.id
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    logger.error(
+                        "sources.delete_dir: cascade_delete failed for page %s: %s",
+                        derived_page.id,
+                        exc,
+                    )
+
+        # Remove the raw file from disk after cascade completes for this file
+        try:
+            fpath.unlink(missing_ok=True)
+            files_deleted += 1
+            logger.debug("sources.delete_dir: removed file %s", file_rel)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("sources.delete_dir: failed to unlink %s: %s", file_rel, exc)
+
+        # If this file had no derived pages, bump data_version (mirrors single-file logic)
+        if not derived:
+            await _bump_version_no_derived()
+
+    # ── Step 4: Remove now-empty subdirectories bottom-up ──────────────────────
+    # dirs_seen is in top-down order from os.walk; reverse it for bottom-up rmdir.
+    for subdir in reversed(dirs_seen):
+        try:
+            subdir.rmdir()
+            logger.debug("sources.delete_dir: removed empty subdir %s", subdir)
+        except OSError:
+            # Non-empty (race condition or unlinked file was skipped) — leave it
+            logger.debug("sources.delete_dir: subdir not empty (skipping rmdir) %s", subdir)
+
+    # Remove the top-level directory itself (only if now empty)
+    try:
+        abs_dir.rmdir()
+        logger.info("sources.delete_dir: removed directory %s", rel_dir)
+    except OSError:
+        logger.debug("sources.delete_dir: directory not empty after cleanup: %s", rel_dir)
+
+    # ── Step 5: bump data_version once if directory was empty (I2) ─────────────
+    if not all_files:
+        await _bump_version_no_derived()
+
+    logger.info(
+        "sources.delete_dir: completed — files_deleted=%d pages_cascaded=%d path=%s",
+        files_deleted,
+        total_pages_cascaded,
+        rel_dir,
+    )
+
+    return SourceDeleteResponse(
+        deleted_source=rel_dir,
+        files_deleted=files_deleted,
+        pages_cascaded=total_pages_cascaded,
+        pages_deleted=total_pages_cascaded,
+    )
 
 
 @router.post(

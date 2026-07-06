@@ -92,10 +92,21 @@ export interface SourceDerivedPage {
   file_path: string;
 }
 
-/** Response from DELETE /sources?path=<rel>. */
+/** Response from DELETE /sources?path=<rel> (file). */
 export interface SourceDeleteResponse {
   deleted_source: string;
   pages_deleted: number;
+}
+
+/**
+ * Response from DELETE /sources?path=<dir> (directory).
+ * Backend returns this shape when the path is a directory (recursive cascade).
+ * 409 is thrown as ApiError when the directory exceeds the backend-configured max files.
+ */
+export interface SourceDeleteFolderResponse {
+  deleted_path: string;
+  files_deleted: number;
+  pages_cascaded: number;
 }
 
 /** Response from POST /sources/ingest-all (202). */
@@ -240,4 +251,23 @@ export async function getIngestAllStatus(signal?: AbortSignal): Promise<IngestAl
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as IngestAllStatusResponse;
+}
+
+/**
+ * Delete a raw source directory and all files within it (recursive cascade).
+ * DELETE /sources?path=<dir> → SourceDeleteFolderResponse
+ * 409 ApiError is thrown when the directory exceeds the backend max-files safety cap.
+ * INVARIANT I7: bounded by the backend safety cap; client surfaces 409 as a toast.
+ */
+export async function deleteFolderSource(
+  path: string,
+  signal?: AbortSignal,
+): Promise<SourceDeleteFolderResponse> {
+  const url = `${apiBase()}/sources?path=${encodeURIComponent(path)}`;
+  const res = await apiFetch(url, {
+    method: "DELETE",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as SourceDeleteFolderResponse;
 }

@@ -90,6 +90,9 @@ vi.mock("react-i18next", () => {
     "noteView.sources": "Sources",
     "noteView.related": "Related ({{count}})",
     "noteView.relatedError": "Could not load related pages",
+    "noteView.tagsMore": "More (+{{count}})",
+    "noteView.tagsCollapse": "Fewer",
+    "noteView.updatedLabel": "updated: {{iso}}",
     "common.loading": "Loading…",
     "common.retry": "Retry",
   };
@@ -379,5 +382,106 @@ describe("NoteView", () => {
     act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
     // Still exactly 1 call after entering edit mode — no re-parse on mode switch (I3)
     expect(mockRenderMarkdown).toHaveBeenCalledTimes(1);
+  });
+
+  // ── R2: ISO updated line ───────────────────────────────────────────────────
+
+  it("R2: renders the ISO updated line when updated_at is present", async () => {
+    _selectedNodeId = "page-abc";
+    mockedFetch.mockResolvedValue(PAGE_CONTENT); // updated_at: "2025-06-30T10:00:00Z"
+
+    render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-updated-iso"));
+
+    // The label should contain the ISO string
+    expect(screen.getByTestId("note-updated-iso").textContent).toContain("2025-06-30T10:00:00Z");
+  });
+
+  it("R2: does not render the ISO updated line when updated_at is absent", async () => {
+    _selectedNodeId = "page-abc";
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { updated_at: _omit, ...noUpdated } = PAGE_CONTENT;
+    mockedFetch.mockResolvedValue({ ...noUpdated } as PageContentResponse);
+
+    render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-edit-btn"));
+    expect(screen.queryByTestId("note-updated-iso")).toBeNull();
+  });
+});
+
+// ─── R1: Tag overflow ─────────────────────────────────────────────────────────
+
+describe("NoteView — R1 tag overflow", () => {
+  beforeEach(() => {
+    _selectedNodeId = "page-abc";
+  });
+
+  afterEach(() => {
+    _selectedNodeId = null;
+  });
+
+  it("renders all chips when tag count is within MAX_VISIBLE_TAGS (24)", async () => {
+    const tags = Array.from({ length: 5 }, (_, i) => `tag${i}`);
+    mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
+
+    render(<NoteView />);
+    await waitFor(() => {
+      const chips = screen.getAllByTestId("note-tag-chip");
+      expect(chips.length).toBe(5);
+    });
+    expect(screen.queryByTestId("note-tags-more")).toBeNull();
+  });
+
+  it("renders only 24 chips and a 'More' button when tags exceed MAX", async () => {
+    const tags = Array.from({ length: 30 }, (_, i) => `tag${i}`);
+    mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
+
+    render(<NoteView />);
+    await waitFor(() => {
+      const chips = screen.getAllByTestId("note-tag-chip");
+      // Only first 24 visible while collapsed
+      expect(chips.length).toBe(24);
+    });
+    expect(screen.getByTestId("note-tags-more")).toBeTruthy();
+    // "More (+6)" text
+    expect(screen.getByTestId("note-tags-more").textContent).toContain("6");
+  });
+
+  it("expands to show all chips when 'More' is clicked", async () => {
+    const tags = Array.from({ length: 30 }, (_, i) => `tag${i}`);
+    mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
+
+    render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-tags-more"));
+
+    act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
+
+    await waitFor(() => {
+      const chips = screen.getAllByTestId("note-tag-chip");
+      expect(chips.length).toBe(30);
+    });
+    // "More" gone, "Fewer" visible
+    expect(screen.queryByTestId("note-tags-more")).toBeNull();
+    expect(screen.getByTestId("note-tags-collapse")).toBeTruthy();
+  });
+
+  it("collapses back when 'Fewer' is clicked", async () => {
+    const tags = Array.from({ length: 30 }, (_, i) => `tag${i}`);
+    mockedFetch.mockResolvedValue({ ...PAGE_CONTENT, tags });
+
+    render(<NoteView />);
+    await waitFor(() => screen.getByTestId("note-tags-more"));
+
+    // Expand
+    act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
+    await waitFor(() => screen.getByTestId("note-tags-collapse"));
+
+    // Collapse
+    act(() => { fireEvent.click(screen.getByTestId("note-tags-collapse")); });
+    await waitFor(() => {
+      const chips = screen.getAllByTestId("note-tag-chip");
+      expect(chips.length).toBe(24);
+    });
+    expect(screen.getByTestId("note-tags-more")).toBeTruthy();
   });
 });
