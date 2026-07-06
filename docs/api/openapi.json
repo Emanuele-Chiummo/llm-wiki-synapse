@@ -3768,6 +3768,95 @@
         ]
       }
     },
+    "/review/queue/bulk-resolve": {
+      "post": {
+        "summary": "Bulk-resolve review items by id list (B5/D2 \u2014 llm_wiki parity)",
+        "description": "F9 HITL Review Queue \u2014 per-item bulk resolve (B5/D2). Distinct from POST /review/queue/bulk (vault-scoped action-typed bulk): this endpoint accepts a flat id list and applies the action (skip|dismiss) to each via the EXACT per-item ops.review function (same seam as the REST /{id}/skip and /{id}/dismiss endpoints \u2014 I9, no second writer). len(ids) capped at 200 (I7 \u2014 422 beyond). action must be skip or dismiss (exact tokens from ops/review.py \u2014 422 on unknown). Already-terminal or not-found ids are counted and silently skipped.",
+        "operationId": "bulk_resolve_review_queue_review_queue_bulk_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk resolve complete; {resolved, not_found, count}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResolveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ids exceed 200 cap, or unknown action (I7)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/review/queue/{item_id}": {
+      "patch": {
+        "summary": "Resolve or reopen a single review item (B5/D2 \u2014 llm_wiki parity)",
+        "description": "F9 HITL Review Queue \u2014 single-item PATCH (B5/D2 llm_wiki parity). resolved=true (default): apply action (skip|dismiss) via the per-item ops.review seam. resolved=false: reopen the item to pending (clears status, resolution, reviewed_at). action must be skip|dismiss (422 on unknown); ignored when resolved=false. Routes through the exact ops.review._set_status primitive \u2014 no second writer (I9). 404 if item_id is unknown.",
+        "operationId": "patch_review_item_review_queue__item_id__patch",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item patched; returns updated ReviewItemResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "422": {
+            "description": "Unknown action"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/lint/scan": {
       "post": {
         "summary": "Run a bounded lint scan (K2 \u2014 produces findings, never auto-fixes)",
@@ -4669,6 +4758,63 @@
           "file"
         ],
         "title": "Body_upload_ingest_ingest_upload_post"
+      },
+      "BulkResolveRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "Review item id strings (UUID) to resolve; capped at 200 (I7 \u2014 422 beyond cap)."
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Resolution action: skip | dismiss (exact tokens from ops/review.py; 422 on unknown)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "action"
+        ],
+        "title": "BulkResolveRequest",
+        "description": "Request body for POST /review/queue/bulk-resolve (B5/D2 \u2014 llm_wiki parity).",
+        "example": {
+          "action": "skip",
+          "ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ]
+        }
+      },
+      "BulkResolveResponse": {
+        "properties": {
+          "resolved": {
+            "type": "integer",
+            "title": "Resolved",
+            "description": "Items successfully resolved via the per-item action"
+          },
+          "not_found": {
+            "type": "integer",
+            "title": "Not Found",
+            "description": "ids that had no matching review item"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Total ids supplied (= resolved + not_found + terminal_skipped)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolved",
+          "not_found",
+          "count"
+        ],
+        "title": "BulkResolveResponse",
+        "description": "Response for POST /review/queue/bulk-resolve (B5/D2)."
       },
       "CascadeDeleteResponse": {
         "properties": {
@@ -7687,6 +7833,29 @@
         ],
         "title": "PatchPositionResponse",
         "description": "Response for PATCH /pages/{page_id}/position (Feature A)."
+      },
+      "PatchReviewRequest": {
+        "properties": {
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved",
+            "description": "True \u2192 resolve (action required); False \u2192 reopen to pending. Default True.",
+            "default": true
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Resolution action when resolved=True: skip | dismiss (exact tokens from ops/review.py; 422 on unknown). Ignored when resolved=False (reopen).",
+            "default": "skip"
+          }
+        },
+        "type": "object",
+        "title": "PatchReviewRequest",
+        "description": "Request body for PATCH /review/queue/{id} (B5/D2 \u2014 llm_wiki parity).",
+        "example": {
+          "action": "skip",
+          "resolved": true
+        }
       },
       "ProviderConfigCreate": {
         "properties": {

@@ -138,18 +138,26 @@ async def client_with_token() -> AsyncGenerator[AsyncClient, None]:
 class TestBuildHttpMcp:
     """build_http_mcp() returns a FastMCP with the correct tool set."""
 
-    def test_read_only_registers_exactly_3_tools(self) -> None:
-        """write_enabled=False → search_wiki, get_page, list_pages (3 tools)."""
+    def test_read_only_registers_exactly_6_tools(self) -> None:
+        """write_enabled=False → 6 read-only tools (3 original + 3 new B5/D2)."""
         from app.mcp.server import build_http_mcp
 
         http_mcp = build_http_mcp(write_enabled=False)
         assert isinstance(http_mcp, FastMCP)
         names = _get_tool_names(http_mcp)
         assert names == {
+            # Original read-only tools
             "search_wiki",
             "get_page",
             "list_pages",
-        }, f"Expected 3 read-only tools; got {names!r}"
+            # B5/D2 new read-only tools
+            "get_graph_neighborhood",
+            "list_reviews",
+            "read_source_file",
+        }, f"Expected 6 read-only tools; got {names!r}"
+
+    # Keep backward-compat alias test name pointing to the new test
+    test_read_only_registers_exactly_3_tools = test_read_only_registers_exactly_6_tools
 
     def test_read_only_excludes_write_page(self) -> None:
         """write_page must NOT be in the read-only HTTP surface."""
@@ -161,18 +169,29 @@ class TestBuildHttpMcp:
             "write_page" not in names
         ), "write_page must not be registered when write_enabled=False"
 
-    def test_write_enabled_registers_exactly_4_tools(self) -> None:
-        """write_enabled=True → all 4 tools including write_page."""
+    def test_write_enabled_registers_exactly_9_tools(self) -> None:
+        """write_enabled=True → all 9 tools (6 read + 3 write, including B5/D2 additions)."""
         from app.mcp.server import build_http_mcp
 
         http_mcp = build_http_mcp(write_enabled=True)
         names = _get_tool_names(http_mcp)
         assert names == {
+            # Original read-only tools
             "search_wiki",
             "get_page",
             "list_pages",
+            # B5/D2 new read-only tools
+            "get_graph_neighborhood",
+            "list_reviews",
+            "read_source_file",
+            # Write tools (original + B5/D2)
             "write_page",
-        }, f"Expected 4 tools when write_enabled=True; got {names!r}"
+            "resolve_review",
+            "trigger_source_rescan",
+        }, f"Expected 9 tools when write_enabled=True; got {names!r}"
+
+    # Keep backward-compat alias
+    test_write_enabled_registers_exactly_4_tools = test_write_enabled_registers_exactly_9_tools
 
     def test_write_enabled_includes_write_page(self) -> None:
         """write_page must be present when write_enabled=True (ADR-0029 §2.3)."""

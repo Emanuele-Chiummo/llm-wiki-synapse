@@ -31,9 +31,17 @@ class TestMcpServerDefinition:
 
         assert isinstance(mcp, FastMCP)
 
-    def test_four_tools_registered(self) -> None:
-        """The server must expose exactly the four contracted tool names (ADR-0010 §6)."""
+    def test_nine_tools_registered(self) -> None:
+        """The stdio server must expose all 9 contracted tool names (ADR-0010 §6, B5/D2)."""
         from app.mcp.server import mcp
+
+        _ALL_NINE = {
+            # original 4
+            "search_wiki", "write_page", "get_page", "list_pages",
+            # B5/D2 additions
+            "get_graph_neighborhood", "list_reviews", "read_source_file",
+            "resolve_review", "trigger_source_rescan",
+        }
 
         # FastMCP 3.x stores tools in _tool_manager or similar; we introspect via list_tools
         # or by checking the tool registry attribute.
@@ -52,12 +60,15 @@ class TestMcpServerDefinition:
             # Fallback: check that the decorated functions are importable
             from app.mcp import server as srv
 
-            for name in ("search_wiki", "write_page", "get_page", "list_pages"):
+            for name in _ALL_NINE:
                 assert hasattr(srv, name), f"Tool function {name!r} not found in mcp server"
             return
 
-        for expected in ("search_wiki", "write_page", "get_page", "list_pages"):
+        for expected in _ALL_NINE:
             assert expected in tool_names, f"Tool {expected!r} not registered in FastMCP server"
+
+    # Keep backward-compat alias
+    test_four_tools_registered = test_nine_tools_registered
 
 
 # ── search_wiki ────────────────────────────────────────────────────────────────
