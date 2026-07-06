@@ -418,6 +418,27 @@ class TestListSources:
         for d in dirs:
             assert d["is_dir"] is True
 
+    async def test_hidden_files_and_dirs_excluded(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-001c: dotfiles (.DS_Store) and hidden dirs are never listed under raw/sources."""
+        sources_dir: Path = src_env["sources_dir"]
+        (sources_dir / ".DS_Store").write_bytes(b"\x00\x01\x02")
+        hidden_dir = sources_dir / ".hidden"
+        hidden_dir.mkdir()
+        (hidden_dir / "secret.txt").write_text("nope\n", encoding="utf-8")
+
+        resp = await src_client.get("/sources")
+        assert resp.status_code == 200
+        paths = {e["path"] for e in resp.json()["entries"]}
+        names = {e["name"] for e in resp.json()["entries"]}
+        # Junk dotfile and hidden directory (and anything inside it) must be excluded.
+        assert ".DS_Store" not in names
+        assert ".hidden" not in names
+        assert not any(p.startswith(".hidden") for p in paths)
+        # Real content is still listed.
+        assert "note.md" in paths
+
     async def test_empty_when_dir_missing(
         self, src_client: AsyncClient, src_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
     ) -> None:
