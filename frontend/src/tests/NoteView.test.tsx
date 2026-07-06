@@ -396,9 +396,7 @@ describe("NoteView", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    // Expand the collapsible metadata tier (WS-D7).
-    act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
-
+    // Metadata is always visible (WS-D7: header scrolls with the body, no collapse).
     await waitFor(() => screen.getByTestId("note-updated-iso"));
 
     // The label should contain the ISO string
@@ -414,8 +412,7 @@ describe("NoteView", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    // Even with meta expanded, updated_at is absent so the element must not render.
-    act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
+    // Metadata is always visible, but updated_at is absent so the ISO line must not render.
     await waitFor(() => screen.getByTestId("note-meta-expanded"));
     expect(screen.queryByTestId("note-updated-iso")).toBeNull();
   });
@@ -424,10 +421,8 @@ describe("NoteView", () => {
 // ─── R1: Tag overflow ─────────────────────────────────────────────────────────
 // WS-D7: tags live in the collapsible Tier 2 — helpers expand meta before testing.
 
-/** Expand the metadata section by clicking the chevron toggle. */
+/** Metadata is always visible (WS-D7: header scrolls with the body, no collapse). */
 async function expandMeta() {
-  await waitFor(() => screen.getByTestId("note-meta-toggle"));
-  act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
   await waitFor(() => screen.getByTestId("note-meta-expanded"));
 }
 
@@ -515,36 +510,17 @@ describe("NoteView — R1 tag overflow", () => {
     expect(screen.getByTestId("note-tags-more")).toBeTruthy();
   });
 
-  // ── WS-D7: meta toggle behavior ──────────────────────────────────────────────
+  // ── WS-D7: metadata scrolls with the body (not sticky, not collapsible) ───────
 
-  it("WS-D7: meta section is collapsed by default (no note-meta-expanded)", async () => {
+  it("WS-D7: metadata section is always visible with no collapse toggle", async () => {
     mockedFetch.mockResolvedValue(PAGE_CONTENT);
 
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    // Tier 2 wrapper must not be in DOM when collapsed
-    expect(screen.queryByTestId("note-meta-expanded")).toBeNull();
-    // Toggle button present
-    expect(screen.getByTestId("note-meta-toggle")).toBeDefined();
-  });
-
-  it("WS-D7: clicking the toggle expands and collapses the meta section", async () => {
-    mockedFetch.mockResolvedValue(PAGE_CONTENT);
-
-    render(<NoteView />);
-    await waitFor(() => screen.getByTestId("note-edit-btn"));
-
-    // Click to expand
-    act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
+    // Metadata (tags/sources/related) is always rendered — it scrolls with the body.
     await waitFor(() => screen.getByTestId("note-meta-expanded"));
-    expect(screen.getByTestId("note-meta-toggle").getAttribute("aria-expanded")).toBe("true");
-
-    // Click to collapse
-    act(() => { fireEvent.click(screen.getByTestId("note-meta-toggle")); });
-    await waitFor(() => {
-      expect(screen.queryByTestId("note-meta-expanded")).toBeNull();
-    });
-    expect(screen.getByTestId("note-meta-toggle").getAttribute("aria-expanded")).toBe("false");
+    // The collapse toggle no longer exists.
+    expect(screen.queryByTestId("note-meta-toggle")).toBeNull();
   });
 });

@@ -291,10 +291,6 @@ export function NoteView() {
   const [mode, setMode] = useState<NoteViewMode>("read");
   const [isSaving, setIsSaving] = useState(false);
 
-  // WS-D7: collapsible metadata tier. Collapsed by default so the reading area
-  // gets the majority of the viewport. Navigating to a new page resets to collapsed.
-  const [metaExpanded, setMetaExpanded] = useState(false);
-
   // ── R7-4: Dirty state ──────────────────────────────────────────────────────
   // isDirty is true when the editor buffer differs from the last saved content.
   // We do NOT store the live editor content in React state (I3: no per-keystroke
@@ -392,8 +388,6 @@ export function NoteView() {
       setState({ phase: "loading", data: null, errorMessage: null });
       setMode("read");
       setIsDirty(false);
-      // Collapse metadata on navigation so the reading area opens full-height.
-      setMetaExpanded(false);
       // Reset related state whenever we navigate to a new page.
       setRelatedState({ phase: "idle", items: [], total: 0 });
 
@@ -759,28 +753,6 @@ export function NoteView() {
                   {data.title ?? data.file_path}
                 </h2>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  {/* Chevron toggle for Tier 2 metadata */}
-                  <button
-                    type="button"
-                    data-testid="note-meta-toggle"
-                    aria-expanded={metaExpanded}
-                    aria-label={metaExpanded ? t("noteView.metaCollapse") : t("noteView.metaExpand")}
-                    onClick={() => setMetaExpanded((v) => !v)}
-                    style={META_TOGGLE_STYLE}
-                    title={metaExpanded ? t("noteView.metaCollapse") : t("noteView.metaExpand")}
-                  >
-                    <span
-                      style={{
-                        display: "inline-block",
-                        transition: "transform 0.18s ease",
-                        transform: metaExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                        fontSize: 12,
-                      }}
-                      aria-hidden="true"
-                    >
-                      ▾
-                    </span>
-                  </button>
                   {isStale && (
                     <button
                       type="button"
@@ -814,9 +786,8 @@ export function NoteView() {
                 </div>
               )}
 
-              {/* ── Tier 2: collapsible metadata (ISO line + tags + sources + related) ── */}
-              {metaExpanded && (
-                <div data-testid="note-meta-expanded">
+              {/* ── Metadata (ISO line + tags + sources + related) — scrolls with the body ── */}
+              <div data-testid="note-meta-expanded">
                   {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
                   {data.updated_at && (
                     <div
@@ -889,7 +860,6 @@ export function NoteView() {
                     onSelect={handleRelatedSelect}
                   />
                 </div>
-              )}
 
             </div>
           </div>
@@ -1021,36 +991,15 @@ const SCROLL_AREA_STYLE: CSSProperties = {
 
 // ─── Card header layout ───────────────────────────────────────────────────────
 
-// WS-D7: Sticky header — stays at the top while the markdown body scrolls.
-// Solid background prevents text from showing through on scroll.
+// WS-D7: Header block — scrolls together with the markdown body. NOT sticky and
+// NOT collapsible: the whole note (metadata header + body) is one scroll flow, so
+// the header scrolls up out of view as the reader moves down.
 const STICKY_HEADER_STYLE: CSSProperties = {
-  position: "sticky",
-  top: 0,
-  zIndex: 10,
   padding: "12px 16px 0",
-  background: "var(--syn-bg)",
-};
-
-// Chevron toggle button for the collapsible metadata tier.
-const META_TOGGLE_STYLE: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 28,
-  height: 28,
-  borderRadius: "var(--syn-radius-sm)",
-  border: "1px solid var(--syn-border)",
-  background: "transparent",
-  color: "var(--syn-text-muted)",
-  cursor: "pointer",
-  flexShrink: 0,
-  padding: 0,
 };
 
 const CARD_INNER_STYLE: CSSProperties = {
-  // WS-D7: reduced bottom padding so the compact collapsed header is tighter.
-  // The collapsible tier adds its own spacing when expanded.
-  padding: "12px 20px 10px",
+  padding: "12px 20px 14px",
 };
 
 const CARD_TITLE_ROW_STYLE: CSSProperties = {
