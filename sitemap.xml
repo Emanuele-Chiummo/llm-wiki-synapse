@@ -241,6 +241,22 @@
          <lastmod>2026-07-06</lastmod>
     </url>
     <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0058-lint-parity-extension/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0059-chat-composer-parity/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0060-graph-visual-parity/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0061-mcp-expansion-and-skill/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/api/</loc>
          <lastmod>2026-07-06</lastmod>
     </url>
@@ -274,6 +290,10 @@
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/SYNAPSE-VS-LLMWIKI-PARITY/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UI-ALIGNMENT-PLAN-2026-07/</loc>
          <lastmod>2026-07-06</lastmod>
     </url>
     <url>
@@ -326,6 +346,10 @@
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.3/</loc>
+         <lastmod>2026-07-06</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.4/</loc>
          <lastmod>2026-07-06</lastmod>
     </url>
     <url>

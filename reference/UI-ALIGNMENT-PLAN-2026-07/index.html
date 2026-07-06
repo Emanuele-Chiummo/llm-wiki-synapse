@@ -1,0 +1,1323 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UI-ALIGNMENT-PLAN-2026-07/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse ⇄ llm_wiki — UI/UX Alignment Plan (2026-07) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-llm_wiki-uiux-alignment-plan-2026-07" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse ⇄ llm_wiki — UI/UX Alignment Plan (2026-07)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#batch-overview-proposed-execution-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch overview (proposed execution order)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b1-lint-p0-owner-beaife-status-shipped-featb1-lint-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B1 — LINT (P0) — owner: [BE]+[AI]+[FE] — STATUS: ✅ SHIPPED feat/b1-lint-parity
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b2-chat-composer-p0-owner-aibefe-sa-adr-status-shipped-featb2-chat-composer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B2 — CHAT COMPOSER (P0) — owner: [AI]+[BE]+[FE] (+[SA] ADR) — STATUS: ✅ SHIPPED feat/b2-chat-composer
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b3-graph-header-p1-owner-febe-status-shipped-featb3-graph-look" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B3 — GRAPH HEADER (P1) — owner: [FE]+[BE] — STATUS: ✅ SHIPPED feat/b3-graph-look
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="B3 — GRAPH HEADER (P1) — owner: [FE]+[BE] — STATUS: ✅ SHIPPED feat/b3-graph-look">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b3-look-graph-visual-parity-levers-why-synapses-graph-looks-different-from-llm_wiki" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B3-LOOK — Graph visual-parity levers (why Synapse's graph "looks different" from llm_wiki)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b3b-sources-p1-owner-febe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B3b — SOURCES (P1) — owner: [FE]+[BE]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b4-reader-p2-owner-fe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B4 — READER (P2) — owner: [FE]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#b5-readme-delta-llm_wiki-has-evolved-past-the-audit-baseline-v054" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B5 — README delta (llm_wiki has evolved past the audit baseline v0.5.4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions-do-not-mirror-this-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions &amp; do-not-mirror (this plan)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-per-batch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance (per batch)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-llm_wiki-uiux-alignment-plan-2026-07">Synapse ⇄ llm_wiki — UI/UX Alignment Plan (2026-07)<a class="headerlink" href="#synapse-llm_wiki-uiux-alignment-plan-2026-07" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Purpose:</strong> close every user-visible gap found by the 5-area screenshot-driven audit
+(2026-07-06) so Synapse behaves <strong>exactly like nashsu/llm_wiki</strong> (feature-for-feature),
+keeping Synapse's superior internals (I1–I9). Companion to
+<code>SYNAPSE-VS-LLMWIKI-PARITY.md</code> (backend/behavioral parity — closed at v1.3); this plan
+covers the <strong>UI affordances</strong> the live llm_wiki screens revealed as still missing.</p>
+<p><strong>Method:</strong> 5 parallel code audits (Lint, Graph, Reader, Sources, Chat) against the
+Synapse codebase + llm_wiki source (<code>chat-input.tsx</code>, <code>lint-view.tsx</code>, <code>lint-fixes.ts</code>).
+Every gap below is code-anchored: PRESENT items are NOT re-listed.</p>
+<p><strong>Rule inherited from the parity program:</strong> mirror the user-facing PROCESS; keep the
+better internals; real backend — no UI stubs.</p>
+</blockquote>
+<hr />
+<h2 id="batch-overview-proposed-execution-order">Batch overview (proposed execution order)<a class="headerlink" href="#batch-overview-proposed-execution-order" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Batch</th>
+<th>Area</th>
+<th>Priority</th>
+<th>Why first</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>B1</strong></td>
+<td>Lint overhaul</td>
+<td><strong>P0</strong></td>
+<td>Largest visible gap; the live llm_wiki screen (1161 issues, batch bar, suggested targets) has no Synapse equivalent</td>
+</tr>
+<tr>
+<td><strong>B2</strong></td>
+<td>Chat composer</td>
+<td><strong>P0</strong></td>
+<td>Attach image + Web search + retrieval modes — the entire composer toolbar is missing</td>
+</tr>
+<tr>
+<td><strong>B3</strong></td>
+<td>Graph header + Sources</td>
+<td>P1</td>
+<td>Header stats/search/filter; folder import/delete + footer count</td>
+</tr>
+<tr>
+<td><strong>B4</strong></td>
+<td>Reader polish</td>
+<td>P2</td>
+<td>Tag overflow, updated-line; smallest gaps</td>
+</tr>
+</tbody>
+</table>
+<p>Every batch: green tests + preview-verified (live browser) + docs gate (I8) before merge.</p>
+<hr />
+<h2 id="b1-lint-p0-owner-beaife-status-shipped-featb1-lint-parity">B1 — LINT (P0) — owner: [BE]+[AI]+[FE] — STATUS: ✅ SHIPPED feat/b1-lint-parity<a class="headerlink" href="#b1-lint-p0-owner-beaife-status-shipped-featb1-lint-parity" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Batch closed 2026-07-06.</strong> All 10 lint gaps (L1–L10) shipped in branch
+<code>feat/b1-lint-parity</code>. Governing ADR: ADR-0058 (accepted 2026-07-06).
+Parity doc updated: section 19b added to <code>SYNAPSE-VS-LLMWIKI-PARITY.md</code>.
+Sequence diagram updated: <code>docs/sequences/lint-fix.mmd</code>.</p>
+</blockquote>
+<p>llm_wiki reference: header <code>issue-count badge</code> + <code>Semantic (LLM)</code> checkbox + <code>Run Lint</code>;
+batch bar <code>Select all / Fix selected / Send selected to Review / Ignore selected</code>;
+severity group headers (<code>⚠ Warnings (741)</code>); per-row <code>Open</code> + <code>Fix</code>; green
+<code>Suggested target:</code> strip; <code>Delete</code> on orphans.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Deliverable</th>
+<th>Closure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>L1</strong></td>
+<td>No <code>broken-wikilink</code> category — dangling links tracked in DB but never surfaced</td>
+<td>New <strong>deterministic</strong> finding category <code>broken-wikilink</code> derived from <code>links.dangling=True</code> (<code>backend/app/wiki/links.py</code>). Zero LLM cost (I7). This is what fills llm_wiki's "741 warnings".</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/ops/lint.py</code> · ADR-0058 §2.1</td>
+</tr>
+<tr>
+<td><strong>L2</strong></td>
+<td>No structured suggested target</td>
+<td>New columns on <code>lint_findings</code>: <code>suggested_target</code> (text) + <code>suggested_page_id</code> (FK pages, nullable) — computed at scan time via the tolerant resolver. Green strip in UI. Alembic migration 0024 + <code>make er</code> (I8).</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/models.py</code> + migration 0024 · ADR-0058 §3</td>
+</tr>
+<tr>
+<td><strong>L3</strong></td>
+<td><code>Fix</code> for broken-wikilink</td>
+<td><code>apply_lint_fix</code> new branch: rewrite dangling <code>[[target]]</code> → suggested title (one link, one page, one bump — I1/I5). No suggestion → flag-only.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/ops/lint.py</code> · ADR-0058 §2.2</td>
+</tr>
+<tr>
+<td><strong>L4</strong></td>
+<td>No <code>Open</code> (navigate to page)</td>
+<td>Per-row <code>Open</code> button wired to <code>selectPage(target_page_id, "tree")</code> (wire-only; seam already existed). For broken-wikilink: opens referencing page.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>frontend/src/components/lint/LintView.tsx</code> · ADR-0058 §2.6</td>
+</tr>
+<tr>
+<td><strong>L5</strong></td>
+<td>No multi-select + batch bar</td>
+<td><code>selectedFindings: Set&lt;id&gt;</code> in lintStore + <code>Select all</code> + batch bar. Backend: <code>POST /lint/findings/batch {ids[], action}</code> (cap ≤ 200, sequential — I7).</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/routers/lint.py</code> + <code>frontend/src/components/lint/LintView.tsx</code> · ADR-0058 §2.3</td>
+</tr>
+<tr>
+<td><strong>L6</strong></td>
+<td>No lint→Review bridge</td>
+<td><code>POST /lint/findings/{id}/send-to-review</code> → <code>review.enqueue_review()</code> (category→item_type map); FNV-1a idempotent.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/routers/lint.py</code> · ADR-0058 §2.3–§2.4</td>
+</tr>
+<tr>
+<td><strong>L7</strong></td>
+<td>No severity group headers</td>
+<td><code>Errors (N) / Warnings (N) / Info (N)</code> synthetic rows inside TanStack-virtualised list (I4).</td>
+<td>✅ shipped feat/b1-lint-parity · <code>frontend/src/components/lint/LintView.tsx</code> · ADR-0058 §2.6</td>
+</tr>
+<tr>
+<td><strong>L8</strong></td>
+<td>No <code>Semantic (LLM)</code> toggle</td>
+<td><code>POST /lint/scan?semantic=bool</code> (default true); <code>false</code> → deterministic-only, free. Checkbox in header, persisted in settingsStore.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/routers/lint.py</code> · ADR-0058 §2.3</td>
+</tr>
+<tr>
+<td><strong>L9</strong></td>
+<td>No <code>Delete</code> for orphan pages</td>
+<td><code>DELETE /pages/{id}</code>: two-stage UI confirm; soft-delete + Qdrant remove + file delete + index.md/log.md cleanup + dead-wikilink→plain-text (cascade-delete seam, I5); one bump (I1). K8-safe.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/routers/pages.py</code> · ADR-0058 §2.5</td>
+</tr>
+<tr>
+<td><strong>L10</strong></td>
+<td>No category/severity filters</td>
+<td><code>GET /lint/findings?category=&amp;severity=</code> enum-validated params + filter chips in UI.</td>
+<td>✅ shipped feat/b1-lint-parity · <code>backend/app/routers/lint.py</code> + <code>frontend/src/components/lint/LintView.tsx</code> · ADR-0058 §2.3</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants:</strong> I1 (single-page edits, one bump), I4 (virtualized+headers), I5 (body-only
+wikilink writes), I6 (semantic pass stays provider-neutral), I7 (batch caps; L1 is free),
+K8 (delete = human double-confirm; fixes stay human-gated).
+<strong>ADR:</strong> ADR-0058 (accepted 2026-07-06) — extends ADR-0037; see <code>docs/adr/ADR-0058-lint-parity-extension.md</code>.</p>
+<p><strong>Live-preview findings (2026-07-06, 986-page real vault):</strong>
+- ✅ <strong>Fixed in-session:</strong> deterministic findings were being crushed by the semantic cost-cap
+  (<code>LINT_MAX_FINDINGS=50</code>) — broken-wikilink (150 findings) was truncated to zero behind 109
+  orphans. Cap now bounds the semantic tail only; broken-wikilink ordered first. (ADR-0058 §2.1a;
+  <code>backend/app/ops/lint.py</code>.) Re-verified: 150 broken-wikilink + 109 orphan render, grouped,
+  batch bar + Open/Send-to-review/Delete all present, cost $0.0000 (semantic off).
+- 🟡 <strong>Follow-up L11 (P2):</strong> severity group header shows <em>loaded</em> count (50) not the per-severity
+  <em>total</em> (llm_wiki shows "Warnings (741)" = total). Needs <code>GET /lint/findings</code> to return
+  per-severity totals, or the header to read <code>findingsTotal</code>. Frontend-only. [FE]
+- ℹ️ <strong>Suggested-target strip:</strong> correct but data-dependent — this vault's remaining 150 dangling
+  links are genuinely unresolvable (the resolvable ones were already reconnected by a prior
+  <code>POST /links/reresolve</code>), so <code>suggested_target</code> is NULL for all. The green strip is proven by
+  frontend unit tests; it will render live on any vault with near-miss dangling links.</p>
+<hr />
+<h2 id="b2-chat-composer-p0-owner-aibefe-sa-adr-status-shipped-featb2-chat-composer">B2 — CHAT COMPOSER (P0) — owner: [AI]+[BE]+[FE] (+[SA] ADR) — STATUS: ✅ SHIPPED feat/b2-chat-composer<a class="headerlink" href="#b2-chat-composer-p0-owner-aibefe-sa-adr-status-shipped-featb2-chat-composer" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Batch closed 2026-07-06.</strong> C1/C2/C3 shipped; C4 declined (⛔ do-not-mirror). Governing
+ADR: ADR-0059 (accepted, NO OBJECTIONS). Parity doc §19c added; sequence diagram
+<code>docs/sequences/chat-retrieval-web.mmd</code>. Code: <code>backend/app/ingest/provider/*</code> (vision
+gate + Message.images), <code>backend/app/chat/web_context.py</code> + <code>rag/retrieval.py</code> presets +
+<code>routers/chat.py</code> (request schema) + <code>routers/status.py</code> (supports_vision), migration
+<strong>0025</strong> (messages.images, chained on B1's 0024 — merge B2 after B1),
+<code>frontend/src/components/chat/MessageInput.tsx</code> + <code>MarkdownView.tsx</code> + <code>decorateCitations.ts</code>.</p>
+<p><strong>Live-preview verified (986-page real vault):</strong> composer renders all 3 controls
+(Allega immagine / Web / Veloce·Standard·Profondo·Locale prima); attach-image enabled via
+<code>GET /status supports_vision:true</code> (CLI/claude-haiku); <strong>C3 end-to-end</strong> — a "Profondo"
+query returned 200 OK with deep retrieval (200 citations, <code>[14]</code>/<code>[185]</code> rendered).
+Deferred to full-infra env: C1 image round-trip (file upload + vision call) and C2 web
+search (SearXNG lives on TrueNAS, unreachable from local Docker). Tests: 51 backend
+(35 composer + 16 provider images) + 1822 frontend, all green.
+<strong>Note (I3):</strong> the <code>[G3]</code> dev-guard fires on the test conversation's two identical "ciao"
+messages (same content × StrictMode &gt; 2) — MarkdownView is I3-clean (renderMarkdown once,
+decorations are string-passes); pre-existing guard sensitivity, not a B2 regression (P3).</p>
+</blockquote>
+<p>llm_wiki reference (<code>chat-input.tsx</code>): Attach image (multimodal, previews, count/size
+caps) · Web search toggle (emerald dot) · AnyTxt toggle (Windows-only, greyed when
+unavailable) · agent-mode segmented <code>Fast | Standard | Deep | Local first</code> · Send/Stop.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Deliverable</th>
+<th>Design notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>C1</strong></td>
+<td>No image attach in chat</td>
+<td>Composer "Attach image" (picker + inline thumbnails + caps <code>CHAT_MAX_IMAGES</code>, <code>CHAT_MAX_IMAGE_BYTES</code>); <code>ChatMessageIn.images[]</code> (base64+mime) in <code>POST /chat/stream</code>; provider <code>chat()</code> passes images only when <code>capabilities().supports_vision</code> — otherwise composer button disabled with tooltip (capability-aware, I6). Persist images ref in <code>messages</code> row for history/regenerate.</td>
+<td>Vision plumbing exists in ingest (<code>caption_image</code>) — reuse the provider surface, do NOT duplicate</td>
+</tr>
+<tr>
+<td><strong>C2</strong></td>
+<td>No Web-search toggle</td>
+<td>Toggle in composer → <code>use_web_search: bool</code> on ChatStreamRequest. When on: bounded SearXNG call (<code>ops/searxng.py</code>, I9) → top-N results fetched/stripped (reuse deep-research <code>_fetch_max_chars</code>) → injected as a <strong>separate, labeled context block</strong> with its own citation namespace (<code>[W1]…</code>). Bounds: <code>CHAT_WEB_MAX_RESULTS</code>, <code>CHAT_WEB_FETCH_MAX_CHARS</code>, cost logged (I7).</td>
+<td><strong>ADR required:</strong> amends ADR-0050 (wiki-only retrieval) — web block is additive and clearly separated; wiki citations <code>[n]</code> unchanged</td>
+</tr>
+<tr>
+<td><strong>C3</strong></td>
+<td>No retrieval modes</td>
+<td>Segmented <code>Fast / Standard / Deep / Local first</code> → <code>retrieval_mode</code> on ChatStreamRequest, mapped to <strong>deterministic presets</strong> (keeps Synapse's ⭐ single-pass pipeline; llm_wiki uses agent rounds — we mirror the user-facing effect, not the internals): <strong>Fast</strong> = vector-only k=4, no expansion; <strong>Standard</strong> = today (k=8, depth 1); <strong>Deep</strong> = k=12, depth 2 (hard max), larger retrieval slice of the F14 budget; <strong>Local first</strong> = web-search suppressed unless local retrieval returns &lt; threshold results (only meaningful with C2 on). Persisted per-conversation default in settingsStore.</td>
+<td><strong>ADR required:</strong> mode-preset table frozen in ADR (no per-request arbitrary depths — I7). Deep respects <code>expansion_depth ≤ 2</code> hard cap</td>
+</tr>
+<tr>
+<td><strong>C4</strong></td>
+<td>AnyTXT toggle</td>
+<td><strong>DO-NOT-MIRROR (documented).</strong> AnyTXT is a Windows-only local indexing service; Synapse targets TrueNAS/Docker + macOS. Parity doc gets a ⛔/N-A row with rationale. (Optional future: ripgrep-based raw/ full-text search — out of scope.)</td>
+<td>Decision row only, no code</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants:</strong> I3 (images never re-render per token; thumbnails static), I6 (vision gated
+on capabilities, no isinstance), I7 (web fetch + image caps bounded, cost logged), I9
+(SearXNG only). <strong>ADR:</strong> new ADR "Chat retrieval modes + web context block" ([SA]).</p>
+<hr />
+<h2 id="b3-graph-header-p1-owner-febe-status-shipped-featb3-graph-look">B3 — GRAPH HEADER (P1) — owner: [FE]+[BE] — STATUS: ✅ SHIPPED feat/b3-graph-look<a class="headerlink" href="#b3-graph-header-p1-owner-febe-status-shipped-featb3-graph-look" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Shipped 2026-07-06 (same branch as B3-LOOK).</strong> GR1 stats chips
+(<code>{shown}/{total_nodes} pagine · {shown}/{edges.length} link · {hidden} nascosti</code>; backend
+<code>GET /graph</code> gains <code>total_nodes</code>/<code>total_edges</code>, <code>routers/graph.py</code>), GR2 in-graph search
+(find + camera-center), GR3 type filter (client visibility, I2-safe — hides nodes+incident
+edges; <code>graphStore.filterNodeTypes</code>), GR4 Reset, GR7 fullscreen, GR5 legend counts. Also a
+<strong>declutter pass</strong> on B3-LOOK (user feedback "più caotico"): hub K 10→6, labels truncated
+to ≤18ch, <code>labelRenderedSizeThreshold</code> 8→11, edge-cull 0.22→0.30 / 0.32→0.42.
+<strong>Link-chip denominator = <code>edges.length</code></strong> (full graph edge set 4213), NOT backend
+<code>total_edges</code> (link-rows 3397) — the graph edge set is a wikilink∪source superset (ADR-0016).
+<strong>Live-verified:</strong> at rest legible clusters; filter→Entity shows 176/986 pages, 810 nascosti,
+clean subgraph. Tests: 93 frontend (26 new graphHeader) + 22 backend green.
+<strong>Open polish (P3):</strong> at-rest link chip shows <code>4213/4213</code> (GL1-culled edges not counted as
+"hidden" — only filter is); Insights panel open-by-default covers ~1/3 screen (default-collapse).</p>
+<p><strong>GR9 — "Comunità" mode groups by DOMAIN, merged (SHIPPED, user follow-ups "duplicati" +
+"non aggiungere una nuova voce"):</strong> the second color toggle stays labeled "Comunità" but now
+colors + aggregates by the node's own domain (<code>GraphNode.domain</code> = first in-vocab <code>domain/*</code>
+tag, backend). Legend = ONE row per domain (SAM/Procurement/ServiceNow/Regolamentazioni/TPRM +
+"Senza dominio"), no duplicate Louvain rows. Default color mode = this. No third toggle added.
+Centroid overlays label per-domain. Louvain community still computed (used by Insights only).
+Also: <strong>Insights panel collapsed by default</strong> (was covering ~1/3 of the canvas). Live-verified:
+2 toggles, 6 clean domain rows, no raw i18n. <strong>P3 polish:</strong> a domain centroid label near the top
+edge can overlap the header (clamp to canvas). Tests: 62 backend + 1861 frontend green.</p>
+<p><strong>GR8 — Named communities (superseded by GR9 for the color toggle; per-community
+<code>dominant_domain</code>/<code>label</code> still computed for Insights). Original: user request "le comunità nominative come i domini"):</strong>
+each Louvain community is labeled by its <strong>dominant domain</strong> (F18 <code>domain/*</code> tags →
+<code>effective_domain_vocabulary</code>), fallback = top-degree page title, else "Comunità {id}".
+Backend: <code>engine.py</code> step 4f computes label/dominant_domain/top_page in recompute (I1/I2 —
+no extra scan, cached); <code>GraphCommunityResponse</code> gains those fields. Frontend: Community-mode
+legend shows the names + <code>graphCommunityUtils.computeCommunityCentroids</code> renders per-cluster
+HTML label overlays projected via <code>sigma.graphToViewport</code> (rAF-throttled, I2 — never mutates
+coords). Live-verified: SAM/Procurement/Regolamentazioni/TPRM in legend + on clusters.
+<strong>Also fixed:</strong> GR1's <code>total_edges</code> COUNT broke <code>test_louvain_community.py</code> (fixture lacked
+<code>links</code> table + <code>tags</code> column) — fixture repaired (21/21 green).</p>
+</blockquote>
+<p>llm_wiki reference: header <code>801/804 pages · 2438/2823 links · 3 hidden</code> + Search +
+Filter + Reset + Type/Community + <code>Insights 13</code> + refresh; collapsible Node-Types legend
+with per-type counts; permanent labels on hubs.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Deliverable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GR1</strong></td>
+<td>No header stats</td>
+<td><code>GraphHeader.tsx</code> above the canvas: <code>shown/total pages</code>, <code>shown/total links</code>, orange <code>N hidden</code> chip. Backend: add <code>total_nodes</code>, <code>total_edges</code> to <code>GET /graph</code> (routers/graph.py:186 — counts of live pages/links pre-filter). Shown = post-filter client counts.</td>
+</tr>
+<tr>
+<td><strong>GR2</strong></td>
+<td>No in-graph search</td>
+<td>Header search input (prefix/fuzzy on node titles, client-side — nodes already in store) → select + animated camera center on match; Esc clears.</td>
+</tr>
+<tr>
+<td><strong>GR3</strong></td>
+<td>No type/community filter</td>
+<td>Filter popover: multi-select node types + communities → client-side visibility (hide nodes + incident edges). <strong>I2-safe: visibility only, never re-layout.</strong> Store slice <code>filterNodeTypes/filterCommunities</code>. Hidden count feeds GR1.</td>
+</tr>
+<tr>
+<td><strong>GR4</strong></td>
+<td>No Reset</td>
+<td>Header <code>Reset</code> = clear filters + camera fit (compose existing <code>handleFit</code>).</td>
+</tr>
+<tr>
+<td><strong>GR5</strong></td>
+<td>Legend: no counts, not collapsible</td>
+<td>Per-type node counts in legend rows (client reduce) + collapse/expand header (matches llm_wiki bottom-left panel).</td>
+</tr>
+<tr>
+<td><strong>GR6</strong></td>
+<td>No permanent hub labels</td>
+<td><code>forceLabel=true</code> for top-K degree nodes (K≈8, threshold configurable) — matches llm_wiki's always-visible labels on hubs.</td>
+</tr>
+<tr>
+<td><strong>GR7</strong></td>
+<td>No fullscreen</td>
+<td>Fullscreen button (browser Fullscreen API on graph container).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants:</strong> I2 (filtering = render-visibility only; FA2 stays server-side), I3.</p>
+<h3 id="b3-look-graph-visual-parity-levers-why-synapses-graph-looks-different-from-llm_wiki">B3-LOOK — Graph visual-parity levers (why Synapse's graph "looks different" from llm_wiki)<a class="headerlink" href="#b3-look-graph-visual-parity-levers-why-synapses-graph-looks-different-from-llm_wiki" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p><strong>GL1/GL2/GL3 SHIPPED feat/b3-graph-look (2026-07-06). ADR-0060.</strong> Render-only, I2 preserved
+(no client layout). <code>frontend/src/api/graphTransform.ts</code> (<code>edgeVisibilityThreshold</code>,
+<code>computeTopKHubs</code>, <code>densityScale</code>) + <code>GraphViewer.tsx</code> (edgeReducer hide/hover-reveal, hub
+<code>forceLabel</code>, <code>labelRenderedSizeThreshold</code> 13→8). Tests: 47 graph-transform + 22 no-client-layout
++ 142 graph green. <strong>Live-verified (816-node real vault):</strong> hub labels visible
+(Category Management Framework, SAM ITAM Overview…), nodes down-scaled, weak edges culled →
+legible clusters instead of the uniform "ball". Remaining spherical envelope = GL4 (seed),
+deferred spike. GL5/GL6 declined (see rows).</p>
+<p>Root-caused 2026-07-06 (code-anchored, <code>engine.py:_forceatlas2_layout</code> + <code>graphTransform.ts</code>
+vs llm_wiki <code>graph-view.tsx</code>). <strong>The data is the same</strong> (identical 4-signal weights
+<code>3·direct + 4·source + 1.5·AA + 1·type</code>; ~6 avg degree post-dangling-fix). The gulf is
+<strong>render/layout</strong>, not content. Architect verdict: do the 3 safe high-ROI levers now;
+treat the seed change as a measured spike; do NOT touch the edge-set model or the FA2 lib.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Lever</th>
+<th>Do it?</th>
+<th>Change</th>
+<th>Prio</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GL1</strong></td>
+<td><strong>Cull weak edges</strong></td>
+<td>✅ <strong>yes — highest ROI</strong></td>
+<td><code>edgeReducer</code> (or build-time) hides edges with <code>normalizedWeight &lt; edgeVisibilityThreshold(n)</code> — revealed on hover/highlight. Mirrors llm_wiki. Render-only → <strong>I2-safe</strong> (no layout/coord/weight change). Turns the hazy ball into legible clusters; alone closes ~60-70% of the perceived gap.</td>
+<td><strong>P1</strong></td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>GL2</strong></td>
+<td><strong>Hub labels + lower at-rest threshold</strong></td>
+<td>✅ yes (= GR6)</td>
+<td><code>forceLabel=true</code> on top-K degree nodes; drop <code>labelRenderedSizeThreshold</code> 13→~8 at fit-view. Anonymous dots → readable map.</td>
+<td><strong>P1</strong></td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>GL3</strong></td>
+<td><strong>Node density down-scale</strong></td>
+<td>✅ yes (bundle)</td>
+<td>Multiply node size by <code>√(150/n)</code> for large graphs (llm_wiki parity), reducing overlap. Modest but cheap+safe.</td>
+<td><strong>P2</strong></td>
+<td>Low</td>
+</tr>
+<tr>
+<td><strong>GL4</strong></td>
+<td><strong>Seed: circle → seeded random-in-disc</strong></td>
+<td>⚠️ <strong>spike only</strong></td>
+<td>The circular <code>layout_circle()</code> seed is what leaves the spherical envelope — BUT it is a deliberate <strong>ADR-0045 determinism</strong> choice (enables server-side coord cache, I2, no-jump). Replace with a <strong>numpy-seeded</strong> random-in-disc init to keep determinism; <strong>measure</strong> (60 iters at ~800 nodes may not escape the ring regardless — may also need an iteration bump for the 400-1000 bucket). Requires an <strong>ADR-0045 amendment</strong>. Not a blind change.</td>
+<td><strong>P2 (spike)</strong></td>
+<td>Med (touches ADR-0045/I2)</td>
+</tr>
+<tr>
+<td><strong>GL5</strong></td>
+<td><strong>Edge-set = wikilink ∪ shared-source</strong></td>
+<td>❌ <strong>no</strong> (opt. view toggle)</td>
+<td>ADR-0016; deliberate, improves retrieval. Do NOT change the model for looks. GL1 already hides the weak source-clique noise. At most a P2 "wikilinks-only" <strong>view toggle</strong> in the graph header (render filter, I2-safe).</td>
+<td>P2 (toggle only)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>GL6</strong></td>
+<td><strong>Swap FA2 library</strong> (fa2_modified → graphology)</td>
+<td>❌ <strong>no</strong></td>
+<td>High risk, marginal gain. The library is not the problem.</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Sequence:</strong> GL1 → GL2 → GL3 (safe, do together), then GL4 as a measured spike behind an
+ADR-0045 amendment. <strong>GL5/GL6 are deliberately declined</strong> (do not degrade superior internals
+for appearance). Owner: [FE] (GL1/GL2/GL3/GL5-toggle), [BE]+[SA] (GL4 spike + ADR).
+<strong>Acceptance:</strong> side-by-side preview vs the llm_wiki graph screenshot; I2 preserved (coords
+still server-side/cached, deterministic); no change to edge weights or the 4-signal formula.</p>
+<hr />
+<h2 id="b3b-sources-p1-owner-febe">B3b — SOURCES (P1) — owner: [FE]+[BE]<a class="headerlink" href="#b3b-sources-p1-owner-febe" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Deliverable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S1</strong></td>
+<td>No "+ Folder" import</td>
+<td>Header <code>+ Folder</code> button: <code>&lt;input webkitdirectory&gt;</code> → client walks FileList → sequential multipart uploads preserving relative paths (<code>POST /ingest/upload</code> gains optional <code>rel_dir</code>, path-safe via <code>resolve_under_sources</code>); reuses bulk-progress bar. Watcher/ingest picks files up as today.</td>
+</tr>
+<tr>
+<td><strong>S2</strong></td>
+<td>No per-folder delete</td>
+<td>Trash on folder rows → two-stage confirm ("N files") → <code>DELETE /sources?path=&lt;dir&gt;</code> extended to directories (recursive, bounded <code>SOURCES_DELETE_MAX_FILES</code>, cascade per file — reuses existing per-file cascade path; I7 cap).</td>
+</tr>
+<tr>
+<td><strong>S3</strong></td>
+<td>No footer total</td>
+<td>Footer bar: <code>{total} sources</code> (field already in <code>GET /sources</code> response — display-only) + existing Refresh.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants:</strong> I1 (deletes cascade per file through the existing seam), I7 (recursive
+delete capped).</p>
+<hr />
+<h2 id="b4-reader-p2-owner-fe">B4 — READER (P2) — owner: [FE]<a class="headerlink" href="#b4-reader-p2-owner-fe" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Gap</th>
+<th>Deliverable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>R1</strong></td>
+<td>Tags overflow (100 tags wrap forever)</td>
+<td>Show first N (≈24) + <code>More (+K)</code> expander chip toggling full list (mirrors llm_wiki overview.md card).</td>
+</tr>
+<tr>
+<td><strong>R2</strong></td>
+<td>No monospace <code>updated:</code> line</td>
+<td>Collapsible "More" metadata footer under the card: monospace <code>updated: &lt;ISO&gt;</code> (+ any extra frontmatter fields) — matches llm_wiki. <code>created_at</code> optional (needs API field — only if cheap).</td>
+</tr>
+<tr>
+<td><strong>R3</strong></td>
+<td>No filename bar + close X</td>
+<td><strong>Optional / design-review:</strong> Synapse navigates via tree; llm_wiki uses overlay-reader with close. Adopt slim filename bar (<code>file_path</code> + X → back to tree selection none) for visual parity. [SA] to confirm.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="b5-readme-delta-llm_wiki-has-evolved-past-the-audit-baseline-v054">B5 — README delta (llm_wiki has evolved past the audit baseline v0.5.4)<a class="headerlink" href="#b5-readme-delta-llm_wiki-has-evolved-past-the-audit-baseline-v054" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>The current llm_wiki README (2026-07) reveals features <strong>newer than the audit baseline</strong>
+(<code>c03c6be</code>). Verified against Synapse code 2026-07-06.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>llm_wiki (README)</th>
+<th>Synapse today</th>
+<th>Verdict / deliverable</th>
+<th>Prio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>D1</strong></td>
+<td>Multimodal image ingestion: extract embedded images <strong>from PDFs</strong> (min 100px, cap/doc), vision captions, <strong>image-aware search results with lightbox + jump-to-source</strong></td>
+<td>Vision captions for standalone image files only (G-P2-1); <code>extract.py</code> has NO embedded-PDF image extraction; no image results/lightbox in SearchView</td>
+<td>New pipeline: pypdf/Marker image extraction → assets + caption (reuse <code>image_captions</code> SHA-256 cache, <code>VISION_MAX_IMAGES_PER_RUN</code> I7) → captions embedded → SearchView image results + lightbox + jump-to-source. [AI]+[BE]+[FE]</td>
+<td>P1</td>
+</tr>
+<tr>
+<td><strong>D2</strong></td>
+<td>Local HTTP API <code>127.0.0.1:19828</code> token-protected: projects, files read, <strong>reviews export/PATCH/bulk-resolve</strong>, hybrid search, graph, sources rescan + <strong>MCP server</strong> with same surface + <strong>installable agent skill</strong> (<code>npx skills add llm_wiki_skill</code>)</td>
+<td>REST is richer overall (full FastAPI + Bearer ADR-0052), but <strong>MCP exposes only 4 tools</strong> (<code>search_wiki, write_page, get_page, list_pages</code> — mcp/server.py:386-489); review has NO bulk-resolve/PATCH; no agent-skill package</td>
+<td>(a) Extend FastMCP: <code>get_graph_neighborhood</code>, <code>list_reviews(status)</code>, <code>resolve_review(s)</code>, <code>trigger_source_rescan</code>, <code>read_source_file</code> (read-only default, write gated as today). (b) <code>POST /review/queue/bulk-resolve</code> + <code>PATCH /review/queue/{id}</code>. (c) Publish a <strong>synapse-skill</strong> repo (Claude Code/Codex skill hitting the REST/MCP surface, trigger-disciplined like llm_wiki_skill). [BE]+[AI]</td>
+<td>P1</td>
+</tr>
+<tr>
+<td><strong>D3</strong></td>
+<td>Deep Research from Graph Insights: LLM-optimized topic + <strong>editable confirmation dialog</strong> (topic + queries) before start</td>
+<td>Gap button navigates only; <code>researchStore</code> has no seed/confirm (verified — no prefill)</td>
+<td>Seed action: insight → LLM topic optimization (reads overview+purpose, bounded I7) → editable confirm dialog → run. Upgrades the parity-doc P2 leftover. [FE]+[AI]</td>
+<td>P1</td>
+</tr>
+<tr>
+<td><strong>D4</strong></td>
+<td>Multi-project: projects API, clipper project picker, create-project wizard</td>
+<td>Single vault per instance (<code>vault_id="default"</code>, config.py:110; <code>vault_id</code> plumbed in DB)</td>
+<td><strong>Decision required:</strong> keep single-vault-per-deployment (documented ⭐, Docker-native) vs implement multi-vault. Recommendation: keep; revisit post-2.0. [SA]</td>
+<td>decision</td>
+</tr>
+<tr>
+<td><strong>D5</strong></td>
+<td>KaTeX auto-wrap bare <code>\begin{env}</code></td>
+<td>Known P2 leftover (G-P1-2 note)</td>
+<td>Fold into <strong>B4</strong> (R4). [FE]</td>
+<td>P2</td>
+</tr>
+<tr>
+<td><strong>D6</strong></td>
+<td>Tauri: macOS close-to-hide; Win/Linux close confirmation</td>
+<td>No close-behavior config found in src-tauri</td>
+<td>Small Tauri polish item. [FE]</td>
+<td>P2</td>
+</tr>
+<tr>
+<td><strong>D7</strong></td>
+<td>Search "both wiki/ AND raw/sources/" (README claim — was FALSE at v0.5.4; may be true now)</td>
+<td>ADR-0050: wiki-only (mirrors v0.5.4 actual behavior)</td>
+<td>Re-verify against <strong>current</strong> llm_wiki code; if now real, consider opt-in raw/ scope in the Search view only (chat citations stay wiki-only). [SA]</td>
+<td>verify</td>
+</tr>
+<tr>
+<td><strong>D8</strong></td>
+<td>Providers: OpenAI, Anthropic, <strong>Google</strong>, Ollama, Custom</td>
+<td>ApiProvider = Anthropic + OpenAI-compatible <code>base_url</code> (Gemini reachable via its OpenAI-compat endpoint)</td>
+<td>Parity via base_url — document in USER.md; no code.</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>D9</strong></td>
+<td>Web fetch "no truncation"; 15-min timeout; LanceDB optional vector</td>
+<td>Synapse: bounded fetch 20k (I7 ⭐), 60s configurable timeout ⭐, Qdrant/bge-m3 always-on with lexical fallback ⭐</td>
+<td>Already better — no action.</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ README reliability: the v0.5.4 audit proved several README claims false (2-hop decay,
+green edges, edge hover labels, raw/ search). Treat README-only claims as <strong>unverified</strong>
+until re-audited against current main (D7). Recommend re-baselining the llm_wiki audit.</p>
+</blockquote>
+<hr />
+<h2 id="decisions-do-not-mirror-this-plan">Decisions &amp; do-not-mirror (this plan)<a class="headerlink" href="#decisions-do-not-mirror-this-plan" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AnyTXT</td>
+<td>⛔ do-not-mirror (Windows-only service; platform N/A). Documented in parity doc.</td>
+</tr>
+<tr>
+<td>Agentic chat rounds (llm_wiki 3–5 decision rounds)</td>
+<td>Keep Synapse deterministic single-pass (⭐, cost-predictable); mirror the <em>user-facing</em> modes via presets (C3).</td>
+</tr>
+<tr>
+<td>Graph filter</td>
+<td>Client-side visibility only — never touches server layout (I2).</td>
+</tr>
+<tr>
+<td>Lint auto-fixes</td>
+<td>Still human-gated (K8); broken-wikilink Fix is the same safety class as missing-xref (bounded body edit).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="acceptance-per-batch">Acceptance (per batch)<a class="headerlink" href="#acceptance-per-batch" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Feature-for-feature match with the reference screenshots (side-by-side preview check).</li>
+<li>pytest + vitest green; new endpoints in regenerated <code>docs/api/openapi.json</code> (I8).</li>
+<li>ER regenerated if migrations (L2) — <code>make er</code>.</li>
+<li>ADRs: ADR-0037 amendment (B1), new chat-modes/web-block ADR (B2).</li>
+<li>Parity doc updated: new rows for L<em>/C</em>/GR<em>/S</em>/R* marked closed as they ship.</li>
+</ul>
+<p><em>End of plan.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

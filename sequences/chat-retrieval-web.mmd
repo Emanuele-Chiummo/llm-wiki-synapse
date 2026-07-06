@@ -1,0 +1,59 @@
+<!-- Generated: v1.3 sprint B2 | 2026-07-06 -->
+sequenceDiagram
+    %% Chat retrieval-mode + web-search block — B2 / ADR-0059
+    %% Shows: retrieval_mode preset → retrieve(); use_web_search → SearXNG → [W] block → done event
+    %% Invariants: I3 (no per-token parse), I6 (capability gate), I7 (bounded), I9 (SearXNG only)
+
+    participant Client as Web UI / MCP Client
+    participant Router as FastAPI (routers/chat.py)
+    participant Preset as Preset mapper (ADR-0059 §2.3)
+    participant Retrieval as retrieve() — rag/retrieval.py (ADR-0022)
+    participant WebCtx as web_context.py (C2 — ADR-0059 §2.2)
+    participant SearXNG as SearXNG (ops/searxng.py — I9)
+    participant Provider as InferenceProvider chat() — I6
+    participant Stream as ThinkScanner + NDJSON stream (ADR-0019)
+    participant DB as Postgres (messages, conversations)
+
+    %% ── Request boundary ──────────────────────────────────────────────────────
+    Client->>Router: POST /chat/stream {messages, retrieval_mode, use_web_search, images?}
+    Router->>Router: Validate ChatRequest — retrieval_mode enum (422 on unknown, Do-NOT #2)
+    Router->>Router: Validate images: count ≤ CHAT_MAX_IMAGES=4, bytes ≤ 5 MB each (422, Do-NOT #10)
+
+    %% ── Phase A: Retrieval-mode preset → retrieve() ───────────────────────────
+    Router->>Preset: resolve_preset(retrieval_mode)
+    Note over Preset: FROZEN table (ADR-0059 §2.3 — authoritative)<br/>fast:  k=4, depth=0, budget=0.20<br/>standard: k=8, depth=1, budget=0.20  ← current defaults<br/>deep:  k=12, depth=2 (HARD cap), budget=0.30<br/>local_first: k=8, depth=1, budget=0.20, web_gated
+    Preset-->>Router: (k, expansion_depth, budget_fraction, web_gated)
+
+    Router->>Retrieval: retrieve(query, k, expansion_depth)
+    Note over Retrieval: Phase 1 — bge-m3 vector + lexical seeds (Qdrant / ILIKE)<br/>Phase 2 — BFS graph expansion, depth ≤ _MAX_EXPANSION_DEPTH=2 (re-clamped, ADR-0022)<br/>Phase 3 — token budget gate (budget_fraction × context_window)<br/>Phase 4 — context assembly with [n] citation map (wiki/ only, ADR-0050)
+    Retrieval-->>Router: (wiki_context_block, citations: [{n, title, page_id}])
+
+    %% ── Phase B: Web-search block (opt-in, single-shot — C2) ─────────────────
+    alt use_web_search=true AND (not web_gated OR local_hits < LOCAL_FIRST_MIN_HITS=3)
+        Router->>WebCtx: build_web_context(query)
+        WebCtx->>SearXNG: GET /search?q=query (CHAT_WEB_MAX_RESULTS=5, I9 — never Tavily)
+        SearXNG-->>WebCtx: SearchHit[] {url, title, snippet}
+        WebCtx->>WebCtx: httpx GET each URL — _fetch_and_extract() (deep-research helper, reused)
+        Note over WebCtx: Per-result cap: CHAT_WEB_FETCH_MAX_CHARS=8000<br/>Single-shot — NO assess→refine loop (that is deep-research, ADR-0024)<br/>Cost logged: structured log records web-search ran + result count (I7)
+        WebCtx-->>Router: web_block: "## Web results (external)\n[W1] ...\n[W2] ..."
+        Note over Router: wiki_context_block FIRST, then web_block APPENDED<br/>[n] namespace (wiki) and [Wn] namespace (web) are DISTINCT — Do-NOT #6<br/>Never interleaved, never renumbered into each other
+    else use_web_search=false OR (web_gated AND local_hits ≥ LOCAL_FIRST_MIN_HITS)
+        Note over Router: Web block skipped — default behaviour (wiki-only context)
+    end
+
+    %% ── Phase C: Provider chat() — I6 vision gate ────────────────────────────
+    Router->>Provider: chat(messages + wiki_context + web_block?, images?)
+    Note over Provider: Gate: self.capabilities().supports_vision (I6 — NOT isinstance)<br/>supports_vision=True  → include images in model call<br/>supports_vision=False → drop images silently (defense-in-depth)<br/>No class-name / provider_type branch — Do-NOT #5
+
+    %% ── Phase D: Streaming (I3 — no per-token heavy work) ────────────────────
+    Provider-->>Stream: raw token stream / reasoning deltas
+    Note over Stream: ThinkScanner splits {type:"token"} / {type:"think"} server-side (ADR-0019)<br/>Markdown and LaTeX parsed at stream END — never per-token (I3 / G3 guard)<br/>Images are static thumbnails already in history — never re-rendered per token
+    Stream-->>Client: NDJSON events: {type:"token"}, {type:"think"}, ...
+
+    %% ── Phase E: done event — dual citation namespaces ────────────────────────
+    Stream-->>Client: {type:"done", citations:[{n,title,page_id}], web_citations:[{index,title,url}]?}
+    Note over Client: citations → wiki [n] markers resolve to navigable wiki pages<br/>web_citations → [Wn] markers resolve to external URLs<br/>Two DISTINCT fields — Do-NOT #6 (ADR-0059 §2.2)
+
+    %% ── Phase F: Persistence ──────────────────────────────────────────────────
+    Router->>DB: INSERT messages {content (RAW, incl. think tags — AC-F7-2), citations JSONB, images JSONB}
+    Note over DB: images JSONB mirrors the MessageImage list — Regenerate re-sends same payload<br/>web_citations are transient per-turn (not persisted — external URLs, not wiki facts)

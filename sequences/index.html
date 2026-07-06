@@ -526,6 +526,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#chat-retrieval-mode-web-search-block-b2-adr-0059" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat retrieval mode + web-search block (B2 / ADR-0059)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -769,6 +780,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#chat-retrieval-mode-web-search-block-b2-adr-0059" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat retrieval mode + web-search block (B2 / ADR-0059)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -860,6 +882,15 @@
 <li><strong>Propose fixes</strong> — generate corrected pages</li>
 <li><strong>Human gate</strong> — show fixes to the user for approval</li>
 <li><strong>Apply</strong> — update pages with approved fixes (bounded loop, max iterations)</li>
+</ol>
+<h3 id="chat-retrieval-mode-web-search-block-b2-adr-0059">Chat retrieval mode + web-search block (B2 / ADR-0059)<a class="headerlink" href="#chat-retrieval-mode-web-search-block-b2-adr-0059" title="Permanent link">&para;</a></h3>
+<p>The chat turn retrieval pipeline with B2 composer controls:</p>
+<ol>
+<li><strong>Retrieval-mode preset</strong> — <code>retrieval_mode</code> enum maps to frozen <code>(k, expansion_depth, budget)</code> table</li>
+<li><strong>4-phase retrieve()</strong> — vector/lexical seeds → BFS graph expansion (depth ≤ 2) → budget gate → context assembly with <code>[n]</code> wiki citations</li>
+<li><strong>Web-search block (opt-in)</strong> — <code>use_web_search=true</code> triggers one bounded SearXNG call; results assembled as <code>## Web results (external)</code> with <code>[W1]…[Wn]</code> namespace; appended AFTER wiki block; single-shot, no loop</li>
+<li><strong>Provider chat()</strong> — capability gate (<code>supports_vision</code>) decides whether images are included; stream carries text deltas only (I3)</li>
+<li><strong>done event</strong> — dual citation fields: <code>citations</code> (wiki <code>[n]</code>) and <code>web_citations</code> (<code>[Wn]</code> external); distinct namespaces never interleaved</li>
 </ol>
 <hr />
 <h2 id="diagram-files">Diagram files<a class="headerlink" href="#diagram-files" title="Permanent link">&para;</a></h2>

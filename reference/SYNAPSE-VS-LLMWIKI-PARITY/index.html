@@ -839,6 +839,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#19b-b1-lint-ui-parity-ui-alignment-plan-2026-07-b1-adr-0058-2026-07-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19b. B1 — Lint UI parity (UI-ALIGNMENT-PLAN-2026-07 §B1, ADR-0058, 2026-07-06)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#20-prioritized-gap-closure-backlog" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -888,6 +899,34 @@
     <span class="md-ellipsis">
       
         Phase 2 — Polish and enhancement opportunities (future sprints)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#19c-b2-chat-composer-ui-parity-featb2-chat-composer-2026-07-06" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        19c. B2 — Chat composer UI parity (feat/b2-chat-composer, 2026-07-06)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="19c. B2 — Chat composer UI parity (feat/b2-chat-composer, 2026-07-06)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b2-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B2 invariant compliance
       
     </span>
   </a>
@@ -2616,6 +2655,100 @@ is the typeAffinity cross-type matrix (row below, still P1).</p>
 </tbody>
 </table>
 <hr />
+<h2 id="19b-b1-lint-ui-parity-ui-alignment-plan-2026-07-b1-adr-0058-2026-07-06">19b. B1 — Lint UI parity (UI-ALIGNMENT-PLAN-2026-07 §B1, ADR-0058, 2026-07-06)<a class="headerlink" href="#19b-b1-lint-ui-parity-ui-alignment-plan-2026-07-b1-adr-0058-2026-07-06" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>llm_wiki reference (<code>lint-view.tsx</code> / <code>lint-fixes.ts</code>): issue-count badge, <code>Semantic (LLM)</code>
+checkbox, severity group headers (<code>⚠ Warnings (741)</code>), multi-select batch bar
+(<code>Select all / Fix selected / Send selected to Review / Ignore selected</code>), per-row <code>Open</code> /
+<code>Fix</code>, green <code>Suggested target:</code> strip, <code>Delete</code> on orphan rows.
+All gaps closed in branch <code>feat/b1-lint-parity</code>. ADR-0058 is the governing decision.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Feature / sub-behavior</th>
+<th>llm_wiki behavior</th>
+<th>Synapse state (code ref)</th>
+<th>Verdict</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>broken-wikilink</code> finding category (L1)</td>
+<td><code>lint-view.tsx</code> — "Warnings (741)" are structurally broken wikilinks</td>
+<td><code>backend/app/ops/lint.py</code> — <code>broken-wikilink</code> added to <code>_VALID_CATEGORIES</code>; deterministic phase reads <code>links.dangling=True</code> (indexed scan, <code>links.py</code>); zero LLM cost (I7); dedup on <code>(vault_id, referencing_page_id, target_text)</code>. <code>severity=warning</code> matches llm_wiki grouping.</td>
+<td>✅</td>
+<td><strong>L1 CLOSED (2026-07-06 / B1).</strong> The "741 warnings" gap closed for free — existing DB signal turned into surfaced findings. ADR-0058 §2.1.</td>
+</tr>
+<tr>
+<td><code>suggested_target</code> green strip + DB columns (L2)</td>
+<td><code>lint-view.tsx</code> — green <code>Suggested target:</code> strip per broken-wikilink row</td>
+<td><code>backend/app/models.py</code> / Alembic migration 0024 — <code>lint_findings.suggested_target</code> (Text, nullable) + <code>lint_findings.suggested_page_id</code> (UUID FK→pages, nullable). Computed at scan time via tolerant resolver (exact→case-insensitive→slug, same as <code>reresolve_dangling_links</code>). <code>NULL</code> when no plausible match. ER regenerated (<code>docs/er/schema.mmd</code>). <code>frontend/src/components/lint/LintView.tsx</code> — green strip renders <code>suggested_target</code> when present.</td>
+<td>✅</td>
+<td><strong>L2 CLOSED (2026-07-06 / B1).</strong> Two new nullable columns, migration 0024. ADR-0058 §2.2 + §3.</td>
+</tr>
+<tr>
+<td><code>Fix</code> for broken-wikilink rewrite (L3)</td>
+<td><code>lint-fixes.ts</code> — fix rewrites the dangling <code>[[target]]</code> to the suggested title</td>
+<td><code>backend/app/ops/lint.py:apply_lint_fix</code> — new <code>broken-wikilink</code> branch: when <code>suggested_target != NULL</code> rewrites <code>[[dangling]]</code> → <code>[[suggested_target]]</code> (alias-preserving, frontmatter-preserving round-trip, I5); re-persists links for the referencing page (<code>dangling→False</code>); one <code>data_version</code> bump (I1). When <code>suggested_target == NULL</code> → flag-only (no file write). Same safety class as <code>missing-xref</code>.</td>
+<td>✅</td>
+<td><strong>L3 CLOSED (2026-07-06 / B1).</strong> One link, one page, one bump. ADR-0058 §2.2.</td>
+</tr>
+<tr>
+<td>Per-row <code>Open</code> (navigate to page) (L4)</td>
+<td><code>lint-view.tsx</code> — <code>Open</code> button navigates to the referencing page</td>
+<td><code>frontend/src/components/lint/LintView.tsx</code> — per-row <code>Open</code> button wired to <code>selectPage(target_page_id, "tree")</code> (<code>graphStore.ts:296</code> — existing seam). For <code>broken-wikilink</code>, navigates to the <strong>referencing</strong> page (the page containing the broken link).</td>
+<td>✅</td>
+<td><strong>L4 CLOSED (2026-07-06 / B1).</strong> Wire-only; no new backend surface. ADR-0058 §2.6.</td>
+</tr>
+<tr>
+<td>Multi-select batch bar (L5)</td>
+<td><code>lint-view.tsx</code> — <code>Select all</code> + <code>Fix selected / Ignore selected / Send selected to Review</code> batch bar</td>
+<td><code>frontend/src/store/lintStore.ts</code> — <code>selectedFindings: Set&lt;id&gt;</code>; <code>frontend/src/components/lint/LintView.tsx</code> — checkboxes, <code>Select all</code>, batch bar. <code>backend/app/routers/lint.py</code> — <code>POST /lint/findings/batch</code> <code>{ids: UUID[], action: "apply"|"dismiss"|"send-to-review"}</code>; cap <code>ids ≤ 200</code> (&gt;200 → 422, I7); sequential server-side; per-id result list.</td>
+<td>✅</td>
+<td><strong>L5 CLOSED (2026-07-06 / B1).</strong> New endpoint <code>POST /lint/findings/batch</code>. ADR-0058 §2.3.</td>
+</tr>
+<tr>
+<td>Lint→Review bridge (L6)</td>
+<td><code>lint-view.tsx</code> — "Send selected to Review" feeds the review queue</td>
+<td><code>backend/app/routers/lint.py</code> — <code>POST /lint/findings/{id}/send-to-review</code> calls <code>ops/review.enqueue_review()</code> with category→item_type mapping (<code>broken-wikilink</code>→<code>missing-page</code>, <code>contradiction</code>→<code>contradiction</code>, etc.); FNV-1a idempotent (re-bridge = NO-OP); finding <code>status→applied</code> + <code>resolution_note</code> carrying <code>review_item_id</code>.</td>
+<td>✅</td>
+<td><strong>L6 CLOSED (2026-07-06 / B1).</strong> Reuses existing <code>enqueue_review</code> seam. ADR-0058 §2.3 + §2.4.</td>
+</tr>
+<tr>
+<td>Severity group headers (L7)</td>
+<td><code>lint-view.tsx</code> — sticky <code>⚠ Warnings (741)</code> / <code>Errors (N)</code> / <code>Info (N)</code> group headers</td>
+<td><code>frontend/src/components/lint/LintView.tsx</code> — severity group headers as <strong>synthetic rows</strong> inside the existing TanStack-virtualised list (I4); no de-virtualisation; groups <code>Errors / Warnings / Info</code> with per-group counts.</td>
+<td>✅</td>
+<td><strong>L7 CLOSED (2026-07-06 / B1).</strong> Synthetic-row approach preserves I4. ADR-0058 §2.6.</td>
+</tr>
+<tr>
+<td><code>Semantic (LLM)</code> toggle + <code>?semantic=false</code> path (L8)</td>
+<td><code>lint-view.tsx</code> — <code>Semantic (LLM)</code> checkbox; unchecked = free deterministic-only scan</td>
+<td><code>backend/app/routers/lint.py</code> — <code>POST /lint/scan?semantic=bool</code> (default <code>true</code>); <code>false</code> → skip provider pass entirely (I6/I7). <code>frontend/src/components/lint/LintView.tsx</code> — checkbox persisted in <code>settingsStore</code>; disabled+tooltip when no provider configured.</td>
+<td>✅</td>
+<td><strong>L8 CLOSED (2026-07-06 / B1).</strong> <code>?semantic=false</code> runs only deterministic phase (orphan-page + broken-wikilink). Zero provider cost. ADR-0058 §2.3.</td>
+</tr>
+<tr>
+<td><code>Delete</code> on orphan pages (L9)</td>
+<td><code>lint-view.tsx</code> — <code>Delete</code> button on orphan rows; two-stage confirm</td>
+<td><code>backend/app/routers/pages.py</code> — <code>DELETE /pages/{id}</code>: scope guard (wiki/ only; index/log/overview → 409); soft-delete row (<code>deleted_at</code>); Qdrant point removed; file deleted; index.md regenerated; dead wikilinks → plain text (reuse cascade-delete seam, I5); log.md appended; one <code>data_version</code> bump (I1). <strong>UI-only, human-double-confirmed; never callable from any loop</strong> (K8, ADR-0058 Do-NOT #11).</td>
+<td>✅</td>
+<td><strong>L9 CLOSED (2026-07-06 / B1).</strong> Reuses cascade-delete cleanup seams. K8 preserved end-to-end. ADR-0058 §2.5.</td>
+</tr>
+<tr>
+<td>Category/severity filters (L10)</td>
+<td><code>lint-view.tsx</code> — category and severity filter chips</td>
+<td><code>backend/app/routers/lint.py</code> — <code>GET /lint/findings?category=&amp;severity=</code> — enum-validated filters (values from <code>_VALID_CATEGORIES</code> / <code>_VALID_SEVERITIES</code>; invalid → 422); composes with existing <code>status</code> filter and cap-200 pagination. <code>frontend/src/components/lint/LintView.tsx</code> — filter chips in header.</td>
+<td>✅</td>
+<td><strong>L10 CLOSED (2026-07-06 / B1).</strong> Enum-validated query params. ADR-0058 §2.3.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Invariants:</strong> I1 (single-page edits, one bump) · I4 (virtualised headers, synthetic rows) · I5 (body-only wikilink writes) · I6 (semantic pass provider-neutral; <code>?semantic=false</code> resolves no provider) · I7 (batch cap ≤ 200; broken-wikilink is zero-cost; <code>?semantic=false</code> is free) · K8 (delete = human double-confirm; no automated path).
+<strong>ADR:</strong> ADR-0058 (accepted 2026-07-06) — governs this entire section.</p>
+<hr />
 <h2 id="20-prioritized-gap-closure-backlog">20. Prioritized Gap-Closure Backlog<a class="headerlink" href="#20-prioritized-gap-closure-backlog" title="Permanent link">&para;</a></h2>
 <h3 id="v07-closure-note-2026-07-03">v0.7 closure note (2026-07-03)<a class="headerlink" href="#v07-closure-note-2026-07-03" title="Permanent link">&para;</a></h3>
 <p>The following items that were open at the v0.6 gate are now <strong>CLOSED</strong> by commits in
@@ -2909,6 +3042,91 @@ the table summary follows.</p>
 <td>✅ <strong>CLOSED (2026-07-03 / v0.9.0).</strong> Community cohesion score + warning marker: <code>GET /graph/communities/{id}</code> returns cohesion score; score &lt; <code>GRAPH_COHESION_WARN</code> (default 0.15) triggers a warning indicator in the community drill-down panel. Mirrors llm_wiki <code>graph-insights.ts:78-88</code>.</td>
 <td>[BE]/[FE]</td>
 <td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="19c-b2-chat-composer-ui-parity-featb2-chat-composer-2026-07-06">19c. B2 — Chat composer UI parity (feat/b2-chat-composer, 2026-07-06)<a class="headerlink" href="#19c-b2-chat-composer-ui-parity-featb2-chat-composer-2026-07-06" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p><strong>Sprint:</strong> v1.3 UI-alignment batch <strong>B2 — Chat composer</strong>.
+<strong>Branch:</strong> <code>feat/b2-chat-composer</code>.
+<strong>ADR:</strong> ADR-0059 (<code>docs/adr/ADR-0059-chat-composer-parity.md</code>).
+<strong>Amends:</strong> ADR-0050 (additive, non-superseding — wiki-only retrieval stands).
+<strong>UI-alignment plan:</strong> <code>docs/reference/UI-ALIGNMENT-PLAN-2026-07.md</code> §B2.</p>
+</blockquote>
+<p>The llm_wiki <code>chat-input.tsx</code> composer toolbar exposes four controls. Three are
+portable (C1–C3) and are now shipped. One (C4 AnyTXT) is a Windows-only daemon that
+is a documented principled decline.</p>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>llm_wiki behavior</th>
+<th>Synapse current state</th>
+<th>Verdict</th>
+<th>Code refs</th>
+<th>ADR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>C1 — Attach image</strong> (vision in chat, capability-gated)</td>
+<td>Attach button with inline previews; count cap 4; size cap 5 MB; sends images in message to LLM</td>
+<td><code>ChatMessageIn.images: list[MessageImage] = []</code> (additive); <code>Message.images</code> mirrors it; <code>chat()</code> in every provider reads <code>self.capabilities().supports_vision</code> (I6 — NOT <code>isinstance</code>); images dropped when <code>False</code>; <code>GET /status</code> exposes <code>supports_vision</code> → composer button gated; bounds: <code>CHAT_MAX_IMAGES=4</code>, <code>CHAT_MAX_IMAGE_BYTES=5 MB</code> → 422; images persisted as <code>JSONB</code> on <code>messages</code> row; Regenerate re-sends same payload; I3: static thumbnails, never in stream</td>
+<td>✅ shipped feat/b2-chat-composer</td>
+<td><code>backend/app/ingest/schemas.py</code> (<code>MessageImage</code>, <code>Message.images</code>), <code>backend/app/routers/chat.py</code> (<code>ChatMessageIn.images</code>, <code>run_chat_stream</code>), <code>backend/app/ingest/provider/*.py</code> (vision gate in <code>chat()</code>), <code>frontend/src/components/chat/MessageInput.tsx</code> (Attach button), <code>frontend/src/components/chat/MarkdownView.tsx</code> (thumbnail render)</td>
+<td>ADR-0059 §2.1</td>
+</tr>
+<tr>
+<td><strong>C2 — Web-search toggle</strong> (SearXNG, <code>[W]</code> namespace, amends ADR-0050)</td>
+<td>Emerald-dot toggle; one SearXNG search per turn; results appended as context; separate citation namespace</td>
+<td><code>ChatRequest.use_web_search: bool = False</code> (default OFF); when ON: one bounded call via <code>backend/app/chat/web_context.py</code> → <code>ops/searxng.py::searxng_search()</code> (I9 — never Tavily); cap <code>CHAT_WEB_MAX_RESULTS=5</code>; fetch+strip via deep-research helper, cap <code>CHAT_WEB_FETCH_MAX_CHARS=8000</code>; injected as <code>## Web results (external)</code> block with <code>[W1]…[Wn]</code> namespace AFTER wiki block; <code>done</code> event gains <code>web_citations: [{index, title, url}]</code> field; ADR-0050 <code>_load_page_meta</code> filter and wiki <code>[n]</code> namespace are untouched; single-shot (no assess→refine loop); cost logged per turn (I7)</td>
+<td>✅ shipped feat/b2-chat-composer</td>
+<td><code>backend/app/chat/web_context.py</code> (web block assembly), <code>backend/app/ops/searxng.py</code> (search seam, unchanged), <code>backend/app/routers/chat.py</code> (<code>ChatRequest.use_web_search</code>, <code>done</code> event <code>web_citations</code>), <code>frontend/src/components/chat/MessageInput.tsx</code> (toggle), <code>frontend/src/components/chat/MarkdownView.tsx</code> (<code>[W]</code> citation render)</td>
+<td>ADR-0059 §2.2, amends ADR-0050</td>
+</tr>
+<tr>
+<td><strong>C3 — Retrieval modes</strong> (<code>Fast|Standard|Deep|Local first</code> preset selector)</td>
+<td>Segmented agent-mode selector; LLM router decides retrieval depth per turn</td>
+<td><code>ChatRequest.retrieval_mode: "fast"│"standard"│"deep"│"local_first" = "standard"</code> (enum; invalid → 422); maps to FROZEN preset table: <code>fast=(k=4,depth=0)</code>, <code>standard=(k=8,depth=1)</code> (current defaults — unchanged), <code>deep=(k=12,depth=2 HARD cap)</code>, <code>local_first=(k=8,depth=1, web gated at LOCAL_FIRST_MIN_HITS=3)</code>; <code>_MAX_EXPANSION_DEPTH=2</code> re-clamps in <code>retrieve()</code> regardless; <code>standard</code> is exactly today's behaviour (existing tests stay green); no raw <code>k</code>/<code>depth</code> on wire (I7); mode persisted as per-conversation presentation state in <code>settingsStore</code></td>
+<td>✅ shipped feat/b2-chat-composer (mirrors modes, NOT llm_wiki's agentic-router internals — Synapse stays deterministic single-pass, ADR-0022 ⭐)</td>
+<td><code>backend/app/rag/retrieval.py</code> (<code>_MAX_EXPANSION_DEPTH</code>, <code>retrieve(k, expansion_depth)</code>), <code>backend/app/routers/chat.py</code> (<code>ChatRequest.retrieval_mode</code>, preset-to-knob map), <code>frontend/src/components/chat/MessageInput.tsx</code> (segmented selector)</td>
+<td>ADR-0059 §2.3, ADR-0022</td>
+</tr>
+<tr>
+<td><strong>C4 — AnyTXT toggle</strong> (Windows-only local full-text search daemon)</td>
+<td>Toggle for AnyTXT Searcher — a Windows background daemon; greyed on non-Windows</td>
+<td>Windows-only service; Synapse targets TrueNAS SCALE / Docker + macOS — AnyTXT does not run there. No cross-platform equivalent. Shipping a permanently-greyed toggle would be I9 violation. <strong>DO-NOT-MIRROR.</strong> No toggle, no code. Optional future: ripgrep-based raw-file search as its own ADR (Search surface, not chat).</td>
+<td>⛔ do-not-mirror (I9, principled decline)</td>
+<td>N/A</td>
+<td>ADR-0059 §2.4</td>
+</tr>
+</tbody>
+</table>
+<h3 id="b2-invariant-compliance">B2 invariant compliance<a class="headerlink" href="#b2-invariant-compliance" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I3</strong> (no per-token heavy work in chat)</td>
+<td>HOLDS — images are static thumbnails decoded once; never re-rendered per streamed token; stream carries text deltas only.</td>
+</tr>
+<tr>
+<td><strong>I6</strong> (capability-aware, no isinstance)</td>
+<td>HOLDS — vision gate reads <code>self.capabilities().supports_vision</code> ONLY; no <code>isinstance</code>/<code>type()</code>/class-name branch.</td>
+</tr>
+<tr>
+<td><strong>I7</strong> (bounded loops)</td>
+<td>HOLDS — <code>CHAT_MAX_IMAGES=4</code>, <code>CHAT_MAX_IMAGE_BYTES=5 MB</code>, <code>CHAT_WEB_MAX_RESULTS=5</code>, <code>CHAT_WEB_FETCH_MAX_CHARS=8000</code>, retrieval preset table frozen, <code>expansion_depth ≤ 2</code> hard-clamped; no new loop introduced.</td>
+</tr>
+<tr>
+<td><strong>I9</strong> (SearXNG only, do not reinvent)</td>
+<td>HOLDS — C2 uses <code>ops/searxng.py::searxng_search()</code> seam, never Tavily; C4 AnyTXT explicitly declined.</td>
 </tr>
 </tbody>
 </table>

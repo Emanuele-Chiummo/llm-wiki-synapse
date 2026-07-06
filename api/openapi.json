@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.3.3"
+    "version": "1.3.4"
   },
   "paths": {
     "/sources": {
@@ -11,9 +11,27 @@
         "tags": [
           "sources"
         ],
-        "summary": "List raw-sources tree",
-        "description": "Recursively lists all files and directories under vault/raw/sources/. Returns SourceEntry objects with path (relative to raw/sources/), name, is_dir, size_bytes, ext (lowercased), mtime (ISO-8601). Read-only (I1). Capped at SOURCES_LIST_MAX=5000 entries (I7); truncated=true if hit. Returns empty list when raw/sources/ does not exist.",
+        "summary": "List raw-sources or wiki tree",
+        "description": "Recursively lists all files and directories under the chosen root. root='sources' (default): vault/raw/sources/ \u2014 the original behaviour. root='wiki': vault/wiki/ \u2014 read-only wiki file tree; hidden entries (dotfiles, .obsidian) are excluded automatically (I5). Returns SourceEntry objects with path (relative to the chosen root), name, is_dir, size_bytes, ext (lowercased), mtime (ISO-8601). Read-only (I1). Capped at SOURCES_LIST_MAX=5000 entries (I7); truncated=true if hit. Returns empty list when the root directory does not exist.",
         "operationId": "list_sources_sources_get",
+        "parameters": [
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Directory listing (may be empty or truncated)",
@@ -21,6 +39,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SourcesListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -36,8 +64,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Delete a raw source file and cascade-delete its derived pages",
-        "description": "Deletes the raw source file from disk and cascade-deletes all derived wiki pages (soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). Reuses the existing cascade-delete machinery (ops/cascade_delete.py \u2014 F13/ADR-0026). Bumps data_version + notifies GraphCache (I2). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). 404 when path escapes or file is absent. If the source has no derived pages, the raw file is still deleted. To re-ingest: POST /ingest/trigger with {\"file_path\": \"<absolute-or-relative-path>\"}.",
+        "summary": "Delete a raw source file or directory and cascade-delete derived pages",
+        "description": "Deletes the raw source file or directory (S2, B3b) from disk and cascade-deletes all derived wiki pages for each contained file (soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). Reuses the existing cascade-delete machinery (ops/cascade_delete.py \u2014 F13/ADR-0026). Bumps data_version + notifies GraphCache (I2). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). 404 when path escapes or target does not exist. \n\nFILE delete (is_dir=False): existing behaviour unchanged \u2014 cascade then remove file. If the source has no derived pages, the raw file is still deleted. Returns {deleted_source, files_deleted:1, pages_cascaded:N}. \n\nDIRECTORY delete (is_dir=True, S2): enumerates all files in the subtree, runs the SAME per-file cascade for each, then removes files + empty dirs from disk. Bounded at SOURCES_DELETE_MAX_FILES (env, default 500); if the subtree contains more files, returns 409 with a clear message (I7 \u2014 no unbounded cascade). Returns {deleted_source, files_deleted:K, pages_cascaded:M}. \n\nPath-safety: resolve_under_sources() for all paths (ADR-0020 \u00a72.2).",
         "operationId": "delete_source_sources_delete",
         "parameters": [
           {
@@ -64,7 +92,10 @@
             }
           },
           "404": {
-            "description": "Source file not found or path outside raw/sources/"
+            "description": "Source file or directory not found or path outside raw/sources/"
+          },
+          "409": {
+            "description": "Directory exceeds SOURCES_DELETE_MAX_FILES limit (I7)"
           },
           "422": {
             "description": "Path traversal attempt"
@@ -82,8 +113,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Metadata + preview payload for one source file",
-        "description": "Returns metadata and preview payload for a single raw source file. path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if path escapes or file is absent. category: one of text/markdown/image/pdf/document/data/code/av/other. For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13).",
+        "summary": "Metadata + preview payload for one source or wiki file",
+        "description": "Returns metadata and preview payload for a single file. root='sources' (default): path relative to vault/raw/sources/. root='wiki': path relative to vault/wiki/ (read-only; no derived-page pivot). path resolved via containment check (ADR-0020 \u00a72.2 traversal guard). 404 if path escapes, is hidden (root=wiki), or file is absent. category: one of text/markdown/image/pdf/document/data/code/av/other. For text/markdown/code/data: includes raw text (capped at SOURCES_TEXT_MAX_CHARS). For pdf/docx/pptx/xlsx: includes extracted text (via ingest/extract.py, F12). For image/av/other: no text, is_text=false (use GET /sources/raw for bytes). ingested + page_ids: derived-page linkage via sources[] JSONB pivot (K6/F13); always ingested=false + page_ids=[] when root='wiki'.",
         "operationId": "source_content_sources_content_get",
         "parameters": [
           {
@@ -92,10 +123,26 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Relative path under vault/raw/sources/",
+              "description": "Relative path under the chosen root directory",
               "title": "Path"
             },
-            "description": "Relative path under vault/raw/sources/"
+            "description": "Relative path under the chosen root directory"
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
           }
         ],
         "responses": {
@@ -110,7 +157,7 @@
             }
           },
           "404": {
-            "description": "File not found or path outside raw/sources/"
+            "description": "File not found or path outside chosen root"
           },
           "422": {
             "description": "Path traversal attempt"
@@ -128,8 +175,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Stream raw bytes of a source file for inline preview",
-        "description": "Streams the raw bytes of a source file for inline browser preview (images, PDFs, text). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources() (ADR-0020 \u00a72.2 traversal guard). 404 if absent/outside. Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES=52428800 bytes (I7). Content-Type derived from extension. Content-Disposition: inline.",
+        "summary": "Stream raw bytes of a source or wiki file for inline preview",
+        "description": "Streams the raw bytes of a file for inline browser preview (images, PDFs, text). root='sources' (default): path relative to vault/raw/sources/. root='wiki': path relative to vault/wiki/ (read-only; hidden files rejected). path resolved via containment check (ADR-0020 \u00a72.2 traversal guard). 404 if absent/outside chosen root. Returns 413 if file exceeds SOURCES_RAW_MAX_BYTES=52428800 bytes (I7). Content-Type derived from extension. Content-Disposition: inline.",
         "operationId": "source_raw_sources_raw_get",
         "parameters": [
           {
@@ -138,10 +185,26 @@
             "required": true,
             "schema": {
               "type": "string",
-              "description": "Relative path under vault/raw/sources/",
+              "description": "Relative path under the chosen root directory",
               "title": "Path"
             },
-            "description": "Relative path under vault/raw/sources/"
+            "description": "Relative path under the chosen root directory"
+          },
+          {
+            "name": "root",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "sources",
+                "wiki"
+              ],
+              "type": "string",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "default": "sources",
+              "title": "Root"
+            },
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
           }
         ],
         "responses": {
@@ -154,7 +217,7 @@
             }
           },
           "404": {
-            "description": "File not found or path outside raw/sources/"
+            "description": "File not found or path outside chosen root"
           },
           "413": {
             "description": "File exceeds SOURCES_RAW_MAX_BYTES limit"
@@ -716,7 +779,7 @@
     "/status": {
       "get": {
         "summary": "Service health + data_version",
-        "description": "Returns vault_id, current data_version (monotonic ingest counter), service started_at, and uptime_seconds. (AC-REST-1, AC-F16dv-3)",
+        "description": "Returns vault_id, current data_version (monotonic ingest counter), service started_at, uptime_seconds, and supports_vision (B2-C1). (AC-REST-1, AC-F16dv-3)",
         "operationId": "get_status_status_get",
         "responses": {
           "200": {
@@ -926,7 +989,7 @@
       },
       "delete": {
         "summary": "Cascade-delete a wiki page and clean up dead wikilinks",
-        "description": "F13 Cascade Delete (ADR-0026, AC-F13-1..7). Single-pass, inference-free operation: soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). Makes ZERO inference calls, ZERO FA2 calls. 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 \u00a76 \u2014 mandatory dry-run).",
+        "description": "F13 Cascade Delete (ADR-0026, AC-F13-1..7) + L9 (lint-initiated delete). wiki/ pages only \u2014 409 for meta pages (index.md, log.md, overview.md). Single-pass, inference-free operation: soft-deletes the page (deleted_at=now()); hard-deletes its Qdrant point; rewrites all dead [[Target]] wikilinks to plain text (body-only, frontmatter-safe, I5); removes the index.md catalogue entry; deletes the raw/sources/ file (AQ-v0.5-5); appends 'DELETED | path' to log.md (K4); bumps data_version EXACTLY ONCE (I2); fires the debounced graph recompute (I2). Makes ZERO inference calls, ZERO FA2 calls. 404 on non-existent or already-soft-deleted page (idempotent double-delete, AC-F13-5c). Use POST /pages/{id}/cascade-delete/preview first (ADR-0026 \u00a76 \u2014 mandatory dry-run). NEVER called from any automated path (K8 \u2014 explicit human action only).",
         "operationId": "delete_page_pages__page_id__delete",
         "parameters": [
           {
@@ -953,6 +1016,9 @@
           },
           "404": {
             "description": "Page not found or already deleted (AC-F13-5c)"
+          },
+          "409": {
+            "description": "Meta page (index.md / log.md / overview.md) cannot be deleted via this endpoint"
           },
           "422": {
             "description": "Validation Error",
@@ -1299,7 +1365,7 @@
     "/ingest/upload": {
       "post": {
         "summary": "Upload a document for async watcher-driven ingest (F12 multi-format)",
-        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}. 429 if per-IP rate limit exceeded (R13-9).",
+        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2) + S1 folder-upload support (B3b). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). Optional 'rel_dir' form field: when supplied by the frontend '+ Folder' picker, the file is written under vault/raw/sources/<rel_dir>/<name> so the subfolder structure is preserved. rel_dir is sanitized segment-by-segment (same rules as safe_source_name) and containment-checked via resolve_under_sources \u2014 422 on any path-traversal attempt. When rel_dir is absent, behaviour is unchanged (writes flat). For text: writes to vault/raw/sources/[rel_dir/]<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/[rel_dir/]<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md (in the same rel_dir subdirectory) with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename or unsafe rel_dir. 202 {file_path, status:'queued', overwritten}. 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "upload_ingest_ingest_upload_post",
         "requestBody": {
           "content": {
@@ -1329,7 +1395,7 @@
             "description": "Unsupported file type"
           },
           "422": {
-            "description": "Filename is empty or unsafe after sanitization"
+            "description": "Filename or rel_dir is empty or unsafe after sanitization"
           },
           "429": {
             "description": "Per-IP rate limit exceeded (R13-9)"
@@ -3173,6 +3239,46 @@
         ]
       }
     },
+    "/research/optimize-topic": {
+      "post": {
+        "summary": "Optimize a seed topic + propose search queries before a Deep Research run",
+        "description": "B5/D3 pre-run optimization (llm_wiki parity). ONE bounded provider.chat() call (I6 provider-neutral, I7 single call + timeout + token budget + cost logged) that reads the vault overview.md + purpose.md and rephrases the seed `topic` into a domain-specific research topic plus 3-5 web-search-optimized queries. LLM-only \u2014 no web/SearXNG call here (I9 not engaged; the actual run happens later via POST /research/start with the edited topic/queries). GRACEFUL: when NO provider is configured (or the call times out / errors) it returns 200 with {optimized_topic: <topic>, queries: [<topic>]} so the confirm dialog still works offline \u2014 it does NOT 503/500. 429 if per-IP rate limit exceeded (R13-9).",
+        "operationId": "research_optimize_topic_research_optimize_topic_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchOptimizeTopicRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Optimized topic + queries (or graceful echo fallback)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchOptimizeTopicResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error (empty topic)"
+          },
+          "429": {
+            "description": "Per-IP rate limit exceeded (R13-9)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/research/runs": {
       "get": {
         "summary": "List deep-research run history",
@@ -3762,6 +3868,95 @@
         ]
       }
     },
+    "/review/queue/bulk-resolve": {
+      "post": {
+        "summary": "Bulk-resolve review items by id list (B5/D2 \u2014 llm_wiki parity)",
+        "description": "F9 HITL Review Queue \u2014 per-item bulk resolve (B5/D2). Distinct from POST /review/queue/bulk (vault-scoped action-typed bulk): this endpoint accepts a flat id list and applies the action (skip|dismiss) to each via the EXACT per-item ops.review function (same seam as the REST /{id}/skip and /{id}/dismiss endpoints \u2014 I9, no second writer). len(ids) capped at 200 (I7 \u2014 422 beyond). action must be skip or dismiss (exact tokens from ops/review.py \u2014 422 on unknown). Already-terminal or not-found ids are counted and silently skipped.",
+        "operationId": "bulk_resolve_review_queue_review_queue_bulk_resolve_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bulk resolve complete; {resolved, not_found, count}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkResolveResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ids exceed 200 cap, or unknown action (I7)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/review/queue/{item_id}": {
+      "patch": {
+        "summary": "Resolve or reopen a single review item (B5/D2 \u2014 llm_wiki parity)",
+        "description": "F9 HITL Review Queue \u2014 single-item PATCH (B5/D2 llm_wiki parity). resolved=true (default): apply action (skip|dismiss) via the per-item ops.review seam. resolved=false: reopen the item to pending (clears status, resolution, reviewed_at). action must be skip|dismiss (422 on unknown); ignored when resolved=false. Routes through the exact ops.review._set_status primitive \u2014 no second writer (I9). 404 if item_id is unknown.",
+        "operationId": "patch_review_item_review_queue__item_id__patch",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchReviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Item patched; returns updated ReviewItemResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review item not found"
+          },
+          "422": {
+            "description": "Unknown action"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/lint/scan": {
       "post": {
         "summary": "Run a bounded lint scan (K2 \u2014 produces findings, never auto-fixes)",
@@ -3925,7 +4120,7 @@
     "/lint/findings": {
       "get": {
         "summary": "List lint findings",
-        "description": "Paginated, created_at ASC list of lint_findings rows (ADR-0037 \u00a76). vault_id: required. status: optional filter (open|applied|dismissed; default open). limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0.",
+        "description": "Paginated, created_at ASC list of lint_findings rows (ADR-0037 \u00a76). vault_id: required. status: optional filter (open|applied|dismissed; default open). category: optional filter (orphan-page|broken-wikilink|missing-xref|contradiction|stale-claim|missing-page; 422 on invalid). severity: optional filter (info|warning|error; 422 on invalid). L10 / ADR-0037 B1. limit: default 50, max 200 (I7 \u2014 bounded page size). offset: >=0.",
         "operationId": "list_lint_findings_endpoint_lint_findings_get",
         "parameters": [
           {
@@ -3957,6 +4152,42 @@
               "title": "Status"
             },
             "description": "open | applied | dismissed; null/omit for all statuses"
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by category: orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page. 422 on invalid value. L10.",
+              "title": "Category"
+            },
+            "description": "Filter by category: orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page. 422 on invalid value. L10."
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by severity: info | warning | error. 422 on invalid value. L10.",
+              "title": "Severity"
+            },
+            "description": "Filter by severity: info | warning | error. 422 on invalid value. L10."
           },
           {
             "name": "limit",
@@ -3998,7 +4229,7 @@
             }
           },
           "422": {
-            "description": "Validation error (limit out of range, missing vault_id)"
+            "description": "Validation error (limit out of range, invalid category/severity)"
           }
         },
         "security": [
@@ -4103,6 +4334,95 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/lint/findings/{finding_id}/send-to-review": {
+      "post": {
+        "summary": "Bridge a lint finding to the F9 HITL review queue",
+        "description": "L6 / ADR-0037 B1. Maps finding category \u2192 review item_type and calls ops/review.enqueue_review(). Category mapping: broken-wikilink \u2192 missing-page; missing-page \u2192 missing-page; contradiction \u2192 contradiction; stale-claim \u2192 suggestion; orphan-page \u2192 suggestion; missing-xref \u2192 suggestion. proposed_title = suggested_target when present (broken-wikilink), else target_title. On success: finding status \u2192 'applied', resolution_note = 'sent to review (<id>)'. 409 if the finding is not open. 404 if finding_id is unknown.",
+        "operationId": "send_to_review_endpoint_lint_findings__finding_id__send_to_review_post",
+        "parameters": [
+          {
+            "name": "finding_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Finding Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finding sent to review; status \u2192 applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintFindingResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lint finding not found"
+          },
+          "409": {
+            "description": "Finding not open"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/lint/findings/batch": {
+      "post": {
+        "summary": "Batch apply|dismiss|send-to-review for multiple lint findings",
+        "description": "L5 / ADR-0037 B1. Apply a single action to multiple findings sequentially. Actions: apply | dismiss | send-to-review. Cap: ids \u2264 200 (I7 \u2014 422 beyond). Per-id failure does NOT abort the batch \u2014 all ids are attempted. Response: {results: [{id, status: ok|error, detail}], ok_count, error_count}.",
+        "operationId": "batch_findings_endpoint_lint_findings_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchFindingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Batch processed; see results for per-id status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchFindingsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "ids exceeds cap of 200, or invalid action"
           }
         },
         "security": [
@@ -4410,6 +4730,90 @@
         "title": "BackfillDomainsStatusResponse",
         "description": "GET /ops/backfill-domains \u2014 single-flight state + last completed summary."
       },
+      "BatchFindingsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "List of finding UUIDs to act on. Cap: <= 200 (I7 \u2014 bounded; 422 beyond)."
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Action to apply: apply | dismiss | send-to-review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "action"
+        ],
+        "title": "BatchFindingsRequest",
+        "description": "Request body for POST /lint/findings/batch (L5 / ADR-0037 B1)."
+      },
+      "BatchFindingsResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchItemResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "ok_count": {
+            "type": "integer",
+            "title": "Ok Count"
+          },
+          "error_count": {
+            "type": "integer",
+            "title": "Error Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results",
+          "ok_count",
+          "error_count"
+        ],
+        "title": "BatchFindingsResponse",
+        "description": "Response for POST /lint/findings/batch (L5 / ADR-0037 B1)."
+      },
+      "BatchItemResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "ok | error"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "BatchItemResult",
+        "description": "Per-id result within POST /lint/findings/batch response (L5)."
+      },
       "Body_convert_marker_ingest_convert_marker_post": {
         "properties": {
           "files": {
@@ -4435,6 +4839,18 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "description": "The document to upload"
+          },
+          "rel_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rel Dir",
+            "description": "Optional relative subdirectory under vault/raw/sources/ for folder uploads (S1, B3b). Use forward slashes as separator (e.g. 'projects/notes'). Each segment is sanitized like safe_source_name. Path-traversal attempts ('..') \u2192 422. When absent, file is written flat under vault/raw/sources/ (unchanged behaviour)."
           }
         },
         "type": "object",
@@ -4442,6 +4858,63 @@
           "file"
         ],
         "title": "Body_upload_ingest_ingest_upload_post"
+      },
+      "BulkResolveRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "Review item id strings (UUID) to resolve; capped at 200 (I7 \u2014 422 beyond cap)."
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Resolution action: skip | dismiss (exact tokens from ops/review.py; 422 on unknown)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ids",
+          "action"
+        ],
+        "title": "BulkResolveRequest",
+        "description": "Request body for POST /review/queue/bulk-resolve (B5/D2 \u2014 llm_wiki parity).",
+        "example": {
+          "action": "skip",
+          "ids": [
+            "00000000-0000-0000-0000-000000000001"
+          ]
+        }
+      },
+      "BulkResolveResponse": {
+        "properties": {
+          "resolved": {
+            "type": "integer",
+            "title": "Resolved",
+            "description": "Items successfully resolved via the per-item action"
+          },
+          "not_found": {
+            "type": "integer",
+            "title": "Not Found",
+            "description": "ids that had no matching review item"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "Total ids supplied (= resolved + not_found + terminal_skipped)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "resolved",
+          "not_found",
+          "count"
+        ],
+        "title": "BulkResolveResponse",
+        "description": "Response for POST /review/queue/bulk-resolve (B5/D2)."
       },
       "CascadeDeleteResponse": {
         "properties": {
@@ -4464,6 +4937,12 @@
             },
             "type": "array",
             "title": "Shared Entity Warnings"
+          },
+          "cleaned_references": {
+            "type": "integer",
+            "title": "Cleaned References",
+            "description": "Number of referencing pages whose dead wikilinks were neutralised. Mirrors wikilinks_cleaned (L9 \u2014 same value). Returned as a convenience alias for the lint batch L9 consumer.",
+            "default": 0
           }
         },
         "type": "object",
@@ -4474,7 +4953,7 @@
           "shared_entity_warnings"
         ],
         "title": "CascadeDeleteResponse",
-        "description": "DELETE /pages/{id} response (ADR-0026 \u00a76.1, AC-F13-5).\n\ndeleted_page_id: the page that was deleted.\nwikilinks_cleaned: total [[Target]] spans neutralised.\nindex_entry_removed: True when index.md was successfully regenerated.\nshared_entity_warnings: advisory list of source-overlap pages."
+        "description": "DELETE /pages/{id} response (ADR-0026 \u00a76.1, AC-F13-5 / L9).\n\ndeleted_page_id: the page that was deleted.\nwikilinks_cleaned: total [[Target]] spans neutralised.\nindex_entry_removed: True when index.md was successfully regenerated.\nshared_entity_warnings: advisory list of source-overlap pages.\ncleaned_references: alias for wikilinks_cleaned (L9 contract)."
       },
       "CascadePreviewResponse": {
         "properties": {
@@ -4566,6 +5045,29 @@
         "title": "CascadePreviewResponse",
         "description": "POST /pages/{id}/cascade-delete/preview response (ADR-0026 \u00a76.1, DRY-RUN).\n\nRead-only: mutates nothing \u2014 no soft-delete, no Qdrant delete, no file write,\nno data_version bump.  Returns the full CascadePlan as JSON."
       },
+      "ChatImageIn": {
+        "properties": {
+          "mime": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Mime",
+            "description": "IANA media type, e.g. 'image/png'"
+          },
+          "data_base64": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Data Base64",
+            "description": "base64 image payload WITHOUT a data-URI prefix"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mime",
+          "data_base64"
+        ],
+        "title": "ChatImageIn",
+        "description": "One image attachment for a chat message (B2-C1, F17/I6 vision surface).\n\n`mime` is the IANA media type (e.g. ``\"image/png\"``). `data_base64` is the\nbase64-encoded payload WITHOUT a ``data:...;base64,`` URI prefix.\nSize must be capped by the client before sending; the backend passes this through\ninto the provider-neutral :class:`~app.ingest.schemas.MessageImage` DTO without\nre-validating size (the provider layer handles/ignores per its ``supports_vision``\ncapability \u2014 B2-C1 cross-layer contract)."
+      },
       "ChatMessageIn": {
         "properties": {
           "role": {
@@ -4577,6 +5079,21 @@
             "type": "string",
             "minLength": 1,
             "title": "Content"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatImageIn"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images",
+            "description": "B2-C1: optional image attachments for this message turn. Passed through to the provider's chat() only when the active provider advertises supports_vision=True. Non-vision providers silently drop these (defense-in-depth, I6)."
           }
         },
         "type": "object",
@@ -4759,6 +5276,24 @@
             "title": "Regenerate",
             "description": "AC-F6-4: delete the last assistant message before re-streaming",
             "default": false
+          },
+          "use_web_search": {
+            "type": "boolean",
+            "title": "Use Web Search",
+            "description": "B2-C2: when True, make ONE bounded SearXNG search and append a [W]-namespaced web-context block to the retrieval context (I9 \u2014 SearXNG only, no loop). For local_first retrieval_mode, web search fires only when wiki hits < LOCAL_FIRST_MIN_HITS. web_citations in the done event.",
+            "default": false
+          },
+          "retrieval_mode": {
+            "type": "string",
+            "enum": [
+              "fast",
+              "standard",
+              "deep",
+              "local_first"
+            ],
+            "title": "Retrieval Mode",
+            "description": "B2-C3: frozen retrieval preset. fast=k4/depth0 \u00b7 standard=k8/depth2 (default) \u00b7 deep=k12/depth2 \u00b7 local_first=k8/depth2+web-gate. expansion_depth is always clamped to \u22642 (I7).",
+            "default": "standard"
           }
         },
         "type": "object",
@@ -4766,7 +5301,7 @@
           "messages"
         ],
         "title": "ChatRequest",
-        "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently."
+        "description": "Request body for POST /chat/stream (ADR-0019 \u00a72.2, B2-C1/C2/C3).\n\nThe server NEVER accepts provider_type / model_id (I6 / Do-NOT #4): the backend resolves\n`resolve_provider_config(\"chat\", vault_id)`. `operation` is fixed to \"chat\" so the same\nabstraction can route ingest-vs-chat differently.\n\nB2 additions (additive, non-breaking for existing clients):\n  - ``use_web_search``: trigger a single-shot SearXNG fetch (C2, I9). [W] namespace.\n  - ``retrieval_mode``: one of four frozen presets controlling k + expansion_depth (C3, I7)."
       },
       "CliAuthConfigRequest": {
         "properties": {
@@ -5367,6 +5902,35 @@
             "type": "number",
             "title": "Cohesion",
             "description": "Intra-edge density [0,1]; 0 for singletons"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human-readable community name for Community Mode (F18). Priority: dominant_domain \u2192 top_page.title \u2192 'Comunit\u00e0 {id}'. Computed server-side alongside cohesion (I2).",
+            "default": ""
+          },
+          "dominant_domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dominant Domain",
+            "description": "Most-frequent in-vocabulary domain/* tag among community members (F18). Prefix 'domain/' is stripped. None when no valid domain tags are present."
+          },
+          "top_page": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GraphCommunityTopPageResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Highest-degree member page {id, title, slug} \u2014 used for label fallback and tooltip (F18). None when the community has no members."
           }
         },
         "type": "object",
@@ -5376,12 +5940,52 @@
           "cohesion"
         ],
         "title": "GraphCommunityResponse",
-        "description": "Per-community summary in the GET /graph response (G-P0-2).\n\nid      : re-numbered Louvain community id (0 = largest community).\nsize    : number of member nodes.\ncohesion: intra-edge density in [0, 1]; 0 for singleton communities.\n          Low cohesion (<0.1) signals a loosely-connected community\n          suitable for a warning in the client legend.",
+        "description": "Per-community summary in the GET /graph response (G-P0-2, F18).\n\nid             : re-numbered Louvain community id (0 = largest community).\nsize           : number of member nodes.\ncohesion       : intra-edge density in [0, 1]; 0 for singleton communities.\n                 Low cohesion (<0.1) signals a loosely-connected community\n                 suitable for a warning in the client legend.\nlabel          : human-readable display name for Community Mode (F18).\n                 Priority: dominant_domain \u2192 top_page.title \u2192 \"Comunit\u00e0 {id}\".\n                 Computed server-side in recompute() \u2014 no client computation (I2).\ndominant_domain: most-frequent in-vocab \"domain/<Name>\" tag among members (F18).\n                 None when no valid domain tags are present.\ntop_page       : highest-degree member page {id, title, slug} for disambiguation\n                 and tooltip (F18). None for communities with no members.",
         "example": {
           "cohesion": 0.42,
+          "dominant_domain": "SAM",
           "id": 0,
-          "size": 12
+          "label": "SAM",
+          "size": 12,
+          "top_page": {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "slug": "software-asset-management",
+            "title": "Software Asset Management"
+          }
         }
+      },
+      "GraphCommunityTopPageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Page UUID"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title",
+            "description": "Page title"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "description": "URL-safe slug derived from title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "slug"
+        ],
+        "title": "GraphCommunityTopPageResponse",
+        "description": "Highest-degree member page of a community \u2014 disambiguation + tooltip (F18)."
       },
       "GraphEdgeResponse": {
         "properties": {
@@ -5512,6 +6116,18 @@
             "title": "Community",
             "description": "Louvain community id (G-P0-2, I2). Re-numbered by size (0 = largest). -1 when not yet assigned (first recompute pending).",
             "default": -1
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain",
+            "description": "The node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2). Prefix 'domain/' is stripped. None when the page has no in-vocab domain tags. Tie-break: when \u22652 in-vocab domain tags are present, the one with the smallest index in the active vocabulary list wins (deterministic). Computed inside the graph recompute \u2014 no extra query (I1), cached with the snapshot (I2). Additive field \u2014 backward-compatible (default None)."
           }
         },
         "type": "object",
@@ -5523,10 +6139,11 @@
           "y"
         ],
         "title": "GraphNodeResponse",
-        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.",
+        "description": "One graph node in the GET /graph response (ADR-0014 \u00a76, AC-F4-3, ADR-0016 \u00a74).\n\nRequired: id, title, type, x, y.\nOptional rendering hints (derived server-side): size, degree.\ncommunity: Louvain community id (G-P0-2); -1 when not yet assigned.\ndomain: the node page's own dominant in-vocabulary domain (F18, ADR-0054 \u00a72.2).\n  Stripped of the \"domain/\" prefix.  None when the page has no in-vocab domain tags.\n  Tie-break: when \u22652 in-vocab domain tags exist, first in vocabulary order wins.\n  Backward-compatible additive field (default None).",
         "example": {
           "community": 0,
           "degree": 3,
+          "domain": "SAM",
           "id": "00000000-0000-0000-0000-000000000001",
           "size": 2.1,
           "title": "Alpha",
@@ -5566,6 +6183,18 @@
             "type": "array",
             "title": "Communities",
             "description": "Per-community summary (G-P0-2, I2): id, size, cohesion. Ordered by id (0 = largest). Empty until first graph recompute."
+          },
+          "total_nodes": {
+            "type": "integer",
+            "title": "Total Nodes",
+            "description": "Count of ALL live (non-deleted) pages in the vault (the full denominator). Use len(nodes) for the in-graph numerator: e.g. '816/986 pages' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
+          },
+          "total_edges": {
+            "type": "integer",
+            "title": "Total Edges",
+            "description": "Count of ALL link rows for this vault (the full wikilink denominator). Use len(edges) for the in-graph numerator: e.g. '1024/4213 edges' (GR1). Computed via a bounded indexed COUNT query \u2014 I1.",
+            "default": 0
           }
         },
         "type": "object",
@@ -5582,8 +6211,15 @@
           "communities": [
             {
               "cohesion": 1.0,
+              "dominant_domain": "SAM",
               "id": 0,
-              "size": 2
+              "label": "SAM",
+              "size": 2,
+              "top_page": {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "slug": "alpha",
+                "title": "Alpha"
+              }
             }
           ],
           "data_version": 7,
@@ -5599,6 +6235,7 @@
             {
               "community": 0,
               "degree": 3,
+              "domain": "SAM",
               "id": "00000000-0000-0000-0000-000000000001",
               "size": 2.1,
               "title": "Alpha",
@@ -5606,7 +6243,9 @@
               "x": 1.23,
               "y": -0.45
             }
-          ]
+          ],
+          "total_edges": 4213,
+          "total_nodes": 986
         }
       },
       "HTTPValidationError": {
@@ -6155,6 +6794,14 @@
           "offset": {
             "type": "integer",
             "title": "Offset"
+          },
+          "severity_totals": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Severity Totals",
+            "description": "COUNT(*) per severity (info/warning/error) over the same vault + status + category predicate as 'total', but IGNORING the severity filter and pagination. Use this to render accurate group-header counts (e.g. 'Warnings (N)') even when a severity filter is active. Keys present only for severities with at least one matching finding."
           }
         },
         "type": "object",
@@ -6186,7 +6833,7 @@
           "category": {
             "type": "string",
             "title": "Category",
-            "description": "orphan-page | missing-xref | contradiction | stale-claim | missing-page"
+            "description": "orphan-page | broken-wikilink | missing-xref | contradiction | stale-claim | missing-page"
           },
           "severity": {
             "type": "string",
@@ -6247,6 +6894,31 @@
               }
             ],
             "title": "Resolution Note"
+          },
+          "suggested_target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Target",
+            "description": "Title of the best-matching existing page (broken-wikilink only). Displayed as the green 'Suggested target:' strip in the lint UI (L2)."
+          },
+          "suggested_page_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Page Id",
+            "description": "FK \u2192 pages.id for the suggested_target page (L2)."
           },
           "created_at": {
             "type": "string",
@@ -6432,6 +7104,12 @@
             ],
             "title": "Token Budget",
             "description": "Token budget (1_000..1_000_000); null \u2192 LINT_TOKEN_BUDGET default"
+          },
+          "semantic": {
+            "type": "boolean",
+            "title": "Semantic",
+            "description": "When False, skip the provider pass entirely (deterministic findings only; zero LLM cost). L8 / ADR-0037 B1.",
+            "default": true
           }
         },
         "type": "object",
@@ -6439,7 +7117,7 @@
           "vault_id"
         ],
         "title": "LintScanRequest",
-        "description": "Request body for POST /lint/scan (ADR-0037 \u00a76).\n\nmax_iter and token_budget are optional \u2014 env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)\napply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).\nServer-side validators cap the range so callers cannot request an unbounded run (I7).",
+        "description": "Request body for POST /lint/scan (ADR-0037 \u00a76).\n\nmax_iter and token_budget are optional \u2014 env defaults (LINT_MAX_ITER / LINT_TOKEN_BUDGET)\napply when omitted. Both are FROZEN onto the lint_runs row before the scan runs (I7).\nServer-side validators cap the range so callers cannot request an unbounded run (I7).\nsemantic: when False, skip the provider pass entirely (deterministic findings only;\nrun records iterations_used=0, cost=0). L8 / ADR-0037 B1.",
         "example": {
           "max_iter": 3,
           "token_budget": 20000,
@@ -7263,6 +7941,29 @@
         ],
         "title": "PatchPositionResponse",
         "description": "Response for PATCH /pages/{page_id}/position (Feature A)."
+      },
+      "PatchReviewRequest": {
+        "properties": {
+          "resolved": {
+            "type": "boolean",
+            "title": "Resolved",
+            "description": "True \u2192 resolve (action required); False \u2192 reopen to pending. Default True.",
+            "default": true
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "description": "Resolution action when resolved=True: skip | dismiss (exact tokens from ops/review.py; 422 on unknown). Ignored when resolved=False (reopen).",
+            "default": "skip"
+          }
+        },
+        "type": "object",
+        "title": "PatchReviewRequest",
+        "description": "Request body for PATCH /review/queue/{id} (B5/D2 \u2014 llm_wiki parity).",
+        "example": {
+          "action": "skip",
+          "resolved": true
+        }
       },
       "ProviderConfigCreate": {
         "properties": {
@@ -8089,6 +8790,69 @@
           "remaining_dangling": 7
         }
       },
+      "ResearchOptimizeTopicRequest": {
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Topic",
+            "description": "Seed research topic (non-empty)"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Vault scope used to resolve the provider AND to load overview.md/purpose.md context. null \u2192 the server's default vault_id (settings.vault_id)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "topic"
+        ],
+        "title": "ResearchOptimizeTopicRequest",
+        "description": "Request body for POST /research/optimize-topic (B5/D3).\n\nA seed topic (typically taken from a Graph Insight) to be rephrased into a domain-specific\nresearch topic + web-search-optimized queries before the user confirms a Deep Research run.",
+        "example": {
+          "topic": "container networking",
+          "vault_id": "default"
+        }
+      },
+      "ResearchOptimizeTopicResponse": {
+        "properties": {
+          "optimized_topic": {
+            "type": "string",
+            "title": "Optimized Topic",
+            "description": "Domain-specific rephrasing of the seed topic"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Queries",
+            "description": "3..5 web-search-optimized SearXNG queries (or [topic] on the fallback path)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "optimized_topic"
+        ],
+        "title": "ResearchOptimizeTopicResponse",
+        "description": "200 response for POST /research/optimize-topic (B5/D3).\n\noptimized_topic prefills the editable topic field; queries prefill the editable query list.\nOn the no-provider / degraded path optimized_topic echoes the seed topic and queries is\n[topic] \u2014 the dialog still opens (never a 500).",
+        "example": {
+          "optimized_topic": "Kubernetes container networking (CNI) \u2014 Calico vs Cilium",
+          "queries": [
+            "Kubernetes CNI comparison Calico Cilium",
+            "Calico BGP networking Kubernetes",
+            "Cilium eBPF networking Kubernetes"
+          ]
+        }
+      },
       "ResearchRunDetail": {
         "properties": {
           "id": {
@@ -8389,6 +9153,22 @@
             ],
             "title": "Token Budget",
             "description": "Token budget (1_000..1_000_000); null \u2192 DEEP_RESEARCH_TOKEN_BUDGET default"
+          },
+          "queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 10
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queries",
+            "description": "Optional caller-supplied SearXNG queries (B5/D3). When present (non-empty) the FIRST iteration uses these VERBATIM instead of the provider query-gen round-trip \u2014 the same seed_queries seam a review item uses (bounded to DEEP_RESEARCH_MAX_QUERIES). This is how the 'optimize + confirm' dialog passes the user-edited queries. null/[] \u2192 generate queries from scratch (default, unchanged behavior)."
           }
         },
         "type": "object",
@@ -8400,6 +9180,10 @@
         "description": "Request body for POST /research/start (ADR-0024 \u00a78.1, AC-F10-4).\n\nmax_iter and token_budget are optional \u2014 env defaults apply when omitted.\nBoth are FROZEN onto the deep_research_runs row before the background task starts\n(AQ-v0.5-4, I7). Server-side validators cap the range so callers cannot request an\nunbounded run (I7 / Do-NOT #1/#2).",
         "example": {
           "max_iter": 3,
+          "queries": [
+            "Calico CNI BGP mode",
+            "Kubernetes NetworkPolicy Calico"
+          ],
           "token_budget": 100000,
           "topic": "Kubernetes networking with Calico",
           "vault_id": "default"
@@ -9168,18 +9952,28 @@
             "type": "string",
             "title": "Deleted Source"
           },
+          "files_deleted": {
+            "type": "integer",
+            "title": "Files Deleted",
+            "default": 1
+          },
+          "pages_cascaded": {
+            "type": "integer",
+            "title": "Pages Cascaded",
+            "default": 0
+          },
           "pages_deleted": {
             "type": "integer",
-            "title": "Pages Deleted"
+            "title": "Pages Deleted",
+            "default": 0
           }
         },
         "type": "object",
         "required": [
-          "deleted_source",
-          "pages_deleted"
+          "deleted_source"
         ],
         "title": "SourceDeleteResponse",
-        "description": "Response for DELETE /sources."
+        "description": "Response for DELETE /sources.\n\nSingle-file delete:  deleted_source=<rel_path>, files_deleted=1, pages_cascaded=N,\n                     pages_deleted=N (backward-compat alias; always equals pages_cascaded).\nDirectory delete:    deleted_source=<rel_dir>,  files_deleted=K, pages_cascaded=M,\n                     pages_deleted=M."
       },
       "SourceDerivedPage": {
         "properties": {
@@ -9335,6 +10129,12 @@
             "title": "Review Pending",
             "description": "Count of pending review-queue items \u2014 feeds the NavRail badge via the existing /status poll (no dedicated poller, I3). Additive, non-breaking.",
             "default": 0
+          },
+          "supports_vision": {
+            "type": "boolean",
+            "title": "Supports Vision",
+            "description": "B2-C1: True when the active chat provider reports capabilities().supports_vision. The frontend uses this to gate the attach-image button. Additive, non-breaking \u2014 defaults False so existing clients without the field read as vision-disabled.",
+            "default": false
           }
         },
         "type": "object",
@@ -9350,6 +10150,7 @@
           "data_version": 3,
           "review_pending": 5,
           "started_at": "2026-06-28T10:00:00Z",
+          "supports_vision": false,
           "uptime_seconds": 42.7,
           "vault_id": "default",
           "version": "1.2.0"
