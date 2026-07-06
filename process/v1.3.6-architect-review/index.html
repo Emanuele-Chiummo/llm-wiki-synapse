@@ -1,0 +1,1113 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/v1.3.6-architect-review/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>v1.3.6 — Solution-Architect Review (Invariant & Coherence Gate) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#v136-solution-architect-review-invariant-coherence-gate" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              v1.3.6 — Solution-Architect Review (Invariant &amp; Coherence Gate)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-verification-evidence-local-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Verification evidence (local run)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-per-workstream-verdicts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Per-workstream verdicts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Per-workstream verdicts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ws-a-real-time-freshness-f16f4f18-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-A — Real-time freshness [F16/F4/F18] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-b-review-queue-status-filter-f9-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-B — Review queue status-filter [F9] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-c-ingest-progress-visibility-f3f16-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-C — Ingest progress visibility [F3/F16] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d7-wiki-note-single-scroll-header-overlap-k6i5-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D7 — Wiki note single-scroll / header overlap [K6/I5] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d8-vaultmeta-tree-node-schemamd-purposemd-k1i5-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D8 — Vault/Meta tree node (schema.md + purpose.md) [K1/I5] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-g-automations-functional-verification-i7-pass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-G — Automations functional verification [I7] — PASS
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-invariant-compliance-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Invariant compliance table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-adr-decision-aq-m136-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ADR decision (AQ-M136-3)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-nits-non-blocking-do-not-gate-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Nits (non-blocking — do not gate merge)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-overall-merge-verdict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Overall merge verdict
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="v136-solution-architect-review-invariant-coherence-gate">v1.3.6 — Solution-Architect Review (Invariant &amp; Coherence Gate)<a class="headerlink" href="#v136-solution-architect-review-invariant-coherence-gate" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Reviewer: solution-architect
+Branch: sprint/v1.3.6
+Date: 2026-07-06
+Scope reviewed: WS-A, WS-B, WS-C, WS-D7, WS-D8, WS-G (per SPRINT-v1.3.6-SCOPE.md §3)
+Inputs: docs/sprints/SPRINT-v1.3.6-SCOPE.md, docs/sprints/PHASE0-FINDINGS-v1.3.6.md, CLAUDE.md §3
+Verdict: <strong>APPROVE-WITH-NITS</strong> (all nits are non-blocking; see §Nits)
+ADR required? <strong>NO</strong> — a code comment suffices (see §ADR decision).</p>
+</blockquote>
+<p>This is a review-only pass. No application code was modified. Checks were run against the
+working tree (uncommitted per Rule 1 — no git operations performed).</p>
+<hr />
+<h2 id="0-verification-evidence-local-run">0. Verification evidence (local run)<a class="headerlink" href="#0-verification-evidence-local-run" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Command</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frontend types</td>
+<td><code>npx tsc --noEmit</code></td>
+<td>PASS (exit 0)</td>
+</tr>
+<tr>
+<td>Frontend lint</td>
+<td><code>npm run lint</code> (eslint, --max-warnings 0)</td>
+<td>PASS</td>
+</tr>
+<tr>
+<td>Frontend tests (in-scope)</td>
+<td><code>vitest run</code> on the 7 touched specs</td>
+<td>PASS — 235/235</td>
+</tr>
+<tr>
+<td>Backend lint</td>
+<td><code>ruff check app tests</code></td>
+<td>PASS ("All checks passed!")</td>
+</tr>
+<tr>
+<td>Backend format</td>
+<td><code>black --check app tests</code></td>
+<td>PASS (188 files unchanged)</td>
+</tr>
+<tr>
+<td>Backend types (touched)</td>
+<td><code>mypy app/routers/vault_meta.py app/main.py</code></td>
+<td>PASS (no issues)</td>
+</tr>
+<tr>
+<td>Backend tests (new)</td>
+<td><code>pytest tests/test_vault_meta.py tests/test_wsg_automations_verification.py</code></td>
+<td>PASS — 20/20</td>
+</tr>
+<tr>
+<td>OpenAPI drift (D4)</td>
+<td><code>python scripts/generate_openapi.py</code> then <code>git status</code></td>
+<td>Regen produces NO new drift; <code>/vault/meta</code> present; openapi.json already staged</td>
+</tr>
+<tr>
+<td>ER drift (D2)</td>
+<td><code>git status docs/er/schema.mmd</code></td>
+<td>Unmodified (correct — no migration; WS-D8 adds no table/column)</td>
+</tr>
+</tbody>
+</table>
+<p>Note: NoteView vitest emits pre-existing <code>act(...)</code> warnings; these are harness noise, not
+failures (all 16 NoteView tests green). Full CI matrix (mmdc, full pytest suite, full mypy)
+is owned by devops/QA per EC-M136-10 — this review confirms the in-scope subset is green.</p>
+<hr />
+<h2 id="1-per-workstream-verdicts">1. Per-workstream verdicts<a class="headerlink" href="#1-per-workstream-verdicts" title="Permanent link">&para;</a></h2>
+<h3 id="ws-a-real-time-freshness-f16f4f18-pass">WS-A — Real-time freshness [F16/F4/F18] — <strong>PASS</strong><a class="headerlink" href="#ws-a-real-time-freshness-f16f4f18-pass" title="Permanent link">&para;</a></h3>
+<p>Files: <code>store/statusStore.ts</code>, <code>components/activity/ActivityBar.tsx</code>,
+<code>components/home/HomeDashboard.tsx</code>, <code>components/GraphViewer.tsx</code>.</p>
+<ul>
+<li><strong>Mechanism is correct and minimal.</strong> <code>dataVersion</code> is added as a scalar to <code>statusStore</code>
+  (<code>statusStore.ts:55</code>, selector <code>selectStatusDataVersion</code> at <code>:112</code>). It is populated by the
+  <strong>existing</strong> ActivityBar <code>/status</code> poll (<code>ActivityBar.tsx:416</code> → <code>setDataVersion(res.data_version ?? null)</code>),
+  which runs on the pre-existing <code>STATUS_POLL_MS = 30_000</code> timer (<code>ActivityBar.tsx:64</code>). No new
+  poller, no WebSocket, no new endpoint. Confirmed by diff grep: zero new <code>setInterval</code>/<code>setTimeout</code>
+  in HomeDashboard/GraphViewer. <strong>AC-WS-A-4 satisfied.</strong></li>
+<li><strong>I2 (server-side layout) HELD.</strong> GraphViewer's freshness effect (<code>GraphViewer.tsx:1791</code>) calls
+  ONLY <code>fetchGraph(vaultId, …)</code> and stores the returned precomputed coords via <code>setGraph(...)</code>.
+  No FA2, no d3-force, no force/circlepack/noverlap layout added — confirmed by diff grep against
+  the GraphViewer patch (NONE). The frontend detects the version bump and re-pulls
+  server-computed coordinates; it never computes a layout.</li>
+<li><strong>I3 (no per-tick heavy work) HELD.</strong> Both subscribers gate on a scalar version compare before
+  doing anything:</li>
+<li>GraphViewer: <code>if (statusDataVersion === lastFetchedGraphVersionRef.current) return;</code>
+    (<code>GraphViewer.tsx:1794</code>); effect dep is the scalar <code>[statusDataVersion]</code>.</li>
+<li>HomeDashboard: <code>if (statusDataVersion === lastFetchedVersionRef.current) return;</code>
+    (<code>HomeDashboard.tsx:1155</code>); <code>loadStats</code> is a stable <code>useCallback([])</code> reading the live version
+    via <code>statusDataVersionRef</code> (<code>HomeDashboard.tsx:1128</code>), so a same-version tick produces zero
+    fetches and zero re-render. This is the correct Zustand-selector + ref pattern.</li>
+<li><strong>Null/sentinel handling is sound.</strong> Pre-WS-A backends (absent <code>data_version</code>) → <code>null</code>, and the
+  guard <code>if (statusDataVersion === null) return;</code> prevents spurious fetches. HomeDashboard uses a
+  <code>-1</code> sentinel when recording a null-version fetch so it never loops.</li>
+</ul>
+<p>Verdict: <strong>PASS.</strong> Textbook implementation of the version-gated refresh pattern. I2 and I3 upheld.</p>
+<h3 id="ws-b-review-queue-status-filter-f9-pass">WS-B — Review queue status-filter [F9] — <strong>PASS</strong><a class="headerlink" href="#ws-b-review-queue-status-filter-f9-pass" title="Permanent link">&para;</a></h3>
+<p>Files: <code>components/review/ReviewQueueView.tsx</code> (only — <code>store/reviewStore.ts</code> correctly UNCHANGED).</p>
+<ul>
+<li>Phase 0 (P0-1) reframed this from a "filter" bug to a <strong>presentation/logic</strong> bug: resolved/dismissed
+  items rendered with the pending card UI (Crea / Salta / Ignora / Ricerca Profonda), which is a
+  genuine logic hazard (re-creating an already-created page). The fix is correctly keyed on
+  <code>item.status</code>.</li>
+<li><strong>Terminal-vs-pending branch is correct.</strong> <code>isPending(status)</code> returns true only for <code>"pending"</code>
+  (<code>ReviewQueueView.tsx:216</code>). Non-pending items take an <strong>early return</strong> to a read-only card
+  (<code>ReviewQueueView.tsx:401</code>) that renders a <code>ResolutionBadge</code> + <code>reviewed_at</code> timestamp + optional
+  "View page" link and <strong>emits none of the action buttons</strong>. No invalid action can be dispatched on a
+  terminal item — the actionable card is unreachable for non-pending status.</li>
+<li><strong>Badge map covers the full enum.</strong> <code>ReviewItemStatus</code> = pending | created | skipped | dismissed |
+  deep_researched | auto_resolved (<code>api/types.ts:333</code>). <code>STATUS_BADGE_STYLE</code> covers all five terminal
+  values (<code>ReviewQueueView.tsx:173</code>) and falls back gracefully for any unmapped status. Both EN and IT
+  carry the <code>review.statusBadge.*</code>, <code>resolvedAt</code>, <code>viewCreatedPage</code> keys.</li>
+<li><code>data-status={item.status}</code> is now emitted on both card variants — good for the Playwright/vitest
+  disjoint-set assertion (AC-WS-B-3).</li>
+</ul>
+<p>Nit (non-blocking): <code>handleOpenCreatedPage</code> currently only switches the section
+(<code>ReviewQueueView.tsx:1078</code>, <code>void pageId</code>) and does not yet call <code>graphStore.selectPage(pageId)</code>; the
+"View page" link lands on the pages section but not the specific page. This is acknowledged in-code as
+future wiring and does not violate any invariant. Recommend a follow-up to complete the deep-link.</p>
+<p>Verdict: <strong>PASS.</strong></p>
+<h3 id="ws-c-ingest-progress-visibility-f3f16-pass">WS-C — Ingest progress visibility [F3/F16] — <strong>PASS</strong><a class="headerlink" href="#ws-c-ingest-progress-visibility-f3f16-pass" title="Permanent link">&para;</a></h3>
+<p>File: <code>components/home/HomeDashboard.tsx</code> (<code>ActiveJobsBlock</code>).</p>
+<ul>
+<li><strong>I3 (CSS-only, no per-tick heavy work) HELD.</strong> The progress bar is a pure DOM <code>&lt;div&gt;</code> with a
+  CSS <code>width: ${pct}%</code> fill (<code>HomeDashboard.tsx:701</code>) and a <code>role="progressbar"</code> with aria-value<em>.
+  No canvas, no animation library — only a CSS <code>transition: width 0.4s ease</code>. The polling source is the
+  </em><em>existing</em>* ActivityBar 1.5s tick feeding <code>activityStore</code> — no new loop (AC-WS-C-5, I3).</li>
+<li><strong>Arithmetic is pure and derived from existing store data</strong> (<code>useActivityBatch</code>, <code>useActivityTasks</code>
+  confirmed to exist in <code>store/activityStore.ts:227/232/253</code>). Batch mode: <code>round(done/total*100)</code>;
+  single-file mode: mean of per-task <code>progress</code>, min non-null <code>eta_seconds</code>.</li>
+<li><strong>Null-safety on batch is correct.</strong> The batch branch is guarded by
+  <code>ingestBatch !== null &amp;&amp; ingestBatch.total &gt; 0</code> (<code>HomeDashboard.tsx:614</code>), which prevents both the
+  null-deref and a divide-by-zero. Single-file fallback filters to tasks with non-null progress before
+  averaging. ETA is hidden when null (<code>ingestEtaSeconds !== null &amp;&amp;</code>, AC-WS-C-2).</li>
+<li><strong>No backend contract change.</strong> Confirmed: OpenAPI regen produces no <code>/ingest/queue</code> schema drift;
+  this is pure frontend wiring onto ADR-0046 fields. i18n keys <code>ingestBatchCount</code>, <code>ingestEta</code>,
+  <code>ingestProgressLabel</code> present in EN and IT.</li>
+</ul>
+<p>Verdict: <strong>PASS.</strong></p>
+<h3 id="ws-d7-wiki-note-single-scroll-header-overlap-k6i5-pass">WS-D7 — Wiki note single-scroll / header overlap [K6/I5] — <strong>PASS</strong><a class="headerlink" href="#ws-d7-wiki-note-single-scroll-header-overlap-k6i5-pass" title="Permanent link">&para;</a></h3>
+<p>File: <code>components/wiki/NoteView.tsx</code>.</p>
+<ul>
+<li><strong>Root cause (P0-2: two nested <code>overflow:auto</code> panes) is correctly removed.</strong> <code>MarkdownBody</code> no
+  longer sets <code>overflowY:auto</code> (<code>NoteView.tsx:120</code> — now only <code>padding</code>), and <code>SCROLL_AREA_STYLE</code> is
+  now the SOLE scroll container (<code>NoteView.tsx:1017</code>, <code>overflowY:auto</code>, flex/column removed). The card
+  header is <code>position:sticky; top:0; z-index:10</code> with a solid <code>--syn-bg</code> background
+  (<code>STICKY_HEADER_STYLE</code>, <code>NoteView.tsx:1029</code>) — anchored, opaque, no bleed-through. This is exactly the
+  Phase-0 fix direction.</li>
+<li><strong>Bonus (in-scope) collapsible metadata tier</strong> reduces the oversized static header that ate ~46% of
+  the viewport; collapsed-by-default and reset on navigation (<code>setMetaExpanded(false)</code> at
+  <code>NoteView.tsx:396</code>). Toggle has proper <code>aria-expanded</code>/<code>aria-label</code>. This is a presentation change
+  only.</li>
+<li><strong>I4 (CodeMirror) HELD.</strong> The change is confined to the <code>mode === "read"</code> branch. The edit branch
+  (<code>mode !== "read"</code>, CodeMirror path) is untouched by this diff. No WYSIWYG, no ProseMirror.</li>
+<li><strong>I5 (Obsidian rendering) HELD.</strong> Body still renders via <code>renderMarkdown</code> → DOMPurify
+  (<code>dangerouslySetInnerHTML</code>); frontmatter is still stripped upstream (<code>stripLeadingFrontmatter</code>,
+  <code>renderMarkdown.ts:190</code>, unchanged). No YAML leaks into the body. Files on disk are untouched — this
+  is a rendering-only fix; the vault remains a valid Obsidian vault.</li>
+</ul>
+<p>Verdict: <strong>PASS.</strong></p>
+<h3 id="ws-d8-vaultmeta-tree-node-schemamd-purposemd-k1i5-pass">WS-D8 — Vault/Meta tree node (schema.md + purpose.md) [K1/I5] — <strong>PASS</strong><a class="headerlink" href="#ws-d8-vaultmeta-tree-node-schemamd-purposemd-k1i5-pass" title="Permanent link">&para;</a></h3>
+<p>Files: <code>backend/app/routers/vault_meta.py</code> (new), <code>backend/app/main.py</code>,
+<code>frontend/src/api/vaultMetaClient.ts</code> (new), <code>components/wiki/MetaFileView.tsx</code> (new),
+<code>nav/useNavTreeData.ts</code>, <code>nav/NavTree.tsx</code>, <code>frontend/vite.config.ts</code>.</p>
+<ul>
+<li><strong>I1 (incremental index / no rescan) HELD — this is the load-bearing check.</strong> <code>GET /vault/meta</code>
+  reads exactly two <strong>hardcoded</strong> filenames from <code>settings.vault_root</code>
+  (<code>vault_meta.py:39</code> <code>_META_FILES = (("schema.md",…),("purpose.md",…))</code>, iterated at <code>:86</code>). There is:</li>
+<li>NO glob / <code>os.walk</code> / <code>rglob</code> (verified in source; explicitly forbidden in the module docstring),</li>
+<li>NO Postgres write and NO new table/column (the router imports no models/session),</li>
+<li>NO Qdrant upsert,</li>
+<li>NO watcher/ingest-pipeline extension.
+  Files that don't exist are omitted (<code>:88</code>, AC-WS-D8-6). This is a read-only, on-demand disk read of
+  two fixed paths — fully I1-compatible. schema.md/purpose.md are never promoted to Page records.</li>
+<li><strong>No path-traversal surface.</strong> The two filenames are module constants; the <code>vault_id</code> query param is
+  accepted for forward-compat but explicitly ignored (single-vault model). No user input reaches the
+  path join.</li>
+<li><strong>Decoupled from NoteView.</strong> Meta files open in a separate <code>MetaFileView</code> <code>PanelDrawer</code>
+  (<code>NavTree.tsx:573</code>) — NOT the DB-backed NoteView center-panel router. This keeps the WS-D7 NoteView
+  refactor and WS-D8 cleanly separated (two agents, no collision). Tree rows are new discriminated-union
+  kinds (<code>vault-meta-group</code>, <code>meta</code>) appended to the SAME virtualized <code>TreeRow[]</code>
+  (<code>useNavTreeData.ts:151</code>), so <strong>I4 virtualization is preserved</strong> (rows flow through the existing
+  <code>useVirtualizer</code>; no un-virtualized list introduced).</li>
+<li><strong>I5 HELD.</strong> <code>MetaFileView</code> renders via <code>renderMarkdown</code> → DOMPurify, memoized once per content
+  (<code>MetaFileView.tsx:106</code>, I3), strips frontmatter, single scroll pane, read-only (no edit/delete →
+  no write path → no watcher/ingest interaction). Files remain valid Obsidian Markdown.</li>
+<li><strong>Graceful degradation.</strong> <code>fetchVaultMeta</code> treats 404 and malformed JSON as <code>{files: []}</code>
+  (<code>vaultMetaClient.ts:59/77</code>); <code>useNavTreeData</code> catches meta failure to <code>{files: []}</code> and omits the
+  section silently (<code>useNavTreeData.ts:199</code>). Fresh-install-before-bootstrap is safe.</li>
+<li><strong>vite proxy</strong> correctly adds <code>/vault</code> to both <code>API_PREFIXES</code> and the dev <code>server.proxy</code> map
+  (<code>vite.config.ts:40, 205</code>) targeting <code>BACKEND_PROXY_TARGET</code> — matches the env/proxy contract.</li>
+<li><strong>D4 (I8) satisfied.</strong> The new endpoint is present in the regenerated <code>docs/api/openapi.json</code>
+  (already staged); re-running the generator produces no further drift.</li>
+</ul>
+<p>Verdict: <strong>PASS.</strong></p>
+<h3 id="ws-g-automations-functional-verification-i7-pass">WS-G — Automations functional verification [I7] — <strong>PASS</strong><a class="headerlink" href="#ws-g-automations-functional-verification-i7-pass" title="Permanent link">&para;</a></h3>
+<p>File: <code>backend/tests/test_wsg_automations_verification.py</code> (new, tests only).</p>
+<ul>
+<li><strong>I7 (bounded, no runaway cost) HELD.</strong> No new loops introduced anywhere. The suite is verification
+  only: <code>lint</code> is exercised with <code>semantic=False</code> (deterministic scan, <code>total_cost_usd == 0.0</code>
+  asserted at <code>:232</code>); backfill/reclassify/schema_review are exercised via mocked/round-trip paths with
+  <strong>no live provider calls</strong> (stated in the module docstring and confirmed in-source). This respects the
+  I7 cost-control mandate for the controlled QA run.</li>
+<li>The tests target the real v1.3.5 regression risks (log.md format, frontmatter timestamp round-trip,
+  schema.md completeness) and assert the four ops import, run, and preserve <code>created/updated/lang/tags</code>.
+  T-WSG-010 additionally locks in the correct architecture: scheduled ops must read Postgres, not parse
+  log.md content (guards against a future format-change regression) — good defensive assertion.</li>
+<li>Caveat (carried, not a code defect): Phase-0 P0-6 recorded WS-G as SMOKE-ONLY on the live vault (all
+  four ops <code>schedule:"off"</code>, <code>last_run_at:null</code>). This test file provides the code-path proof; the
+  <strong>live run-now confirmation on the real vault is owned by qa-test-engineer</strong> (EC-M136-7). This review
+  does not sign off the live functional run — only that the code paths and the verification harness are
+  sound and I7-compliant.</li>
+</ul>
+<p>Verdict: <strong>PASS</strong> (architect scope). Live run-now sign-off remains with QA (EC-M136-7).</p>
+<hr />
+<h2 id="2-invariant-compliance-table">2. Invariant compliance table<a class="headerlink" href="#2-invariant-compliance-table" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Exercised by</th>
+<th>Verdict</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong> — incremental index only, no rescan</td>
+<td>WS-D8</td>
+<td><strong>PASS</strong></td>
+<td><code>vault_meta.py:39/86</code> reads 2 fixed filenames; no glob/walk, no Postgres write, no Qdrant, no watcher change. WS-G T-WSG-010 asserts ops don't parse log.md.</td>
+</tr>
+<tr>
+<td><strong>I2</strong> — server-side cached graph layout, no client force layout</td>
+<td>WS-A</td>
+<td><strong>PASS</strong></td>
+<td><code>GraphViewer.tsx:1791</code> freshness effect calls only <code>fetchGraph</code> (precomputed coords). Diff grep: zero force/FA2/d3-force added.</td>
+</tr>
+<tr>
+<td><strong>I3</strong> — no per-tick / per-token heavy work; selectors + shallow eq</td>
+<td>WS-A, WS-C, WS-D8</td>
+<td><strong>PASS</strong></td>
+<td>Version-scalar guards in HomeDashboard (<code>:1155</code>) + GraphViewer (<code>:1794</code>), stable <code>useCallback</code> + refs; WS-C progress bar is CSS-only pure arithmetic; MetaFileView <code>useMemo</code>. No new poller.</td>
+</tr>
+<tr>
+<td><strong>I4</strong> — CodeMirror editor, virtualized long lists</td>
+<td>WS-D7, WS-D8</td>
+<td><strong>PASS</strong></td>
+<td>NoteView change confined to read-mode; CodeMirror edit path untouched. WS-D8 meta rows flow through the existing <code>useVirtualizer</code> <code>TreeRow[]</code>.</td>
+</tr>
+<tr>
+<td><strong>I5</strong> — Obsidian compatibility</td>
+<td>WS-D7, WS-D8</td>
+<td><strong>PASS</strong></td>
+<td>Rendering-only NoteView fix; MetaFileView uses <code>renderMarkdown</code>+DOMPurify, strips frontmatter, read-only; vault files untouched on disk.</td>
+</tr>
+<tr>
+<td><strong>I6</strong> — pluggable inference, no hardcoded provider</td>
+<td>(not touched)</td>
+<td><strong>N/A</strong></td>
+<td>No provider/inference code in this sprint's scope.</td>
+</tr>
+<tr>
+<td><strong>I7</strong> — bounded loops + token budget + cost log</td>
+<td>WS-G</td>
+<td><strong>PASS</strong></td>
+<td>No new loops. <code>lint semantic=False</code> → cost 0.0 asserted; other ops mocked, no live calls.</td>
+</tr>
+<tr>
+<td><strong>I8</strong> — docs-as-DoD (D2 ER, D4 OpenAPI)</td>
+<td>WS-D8</td>
+<td><strong>PASS</strong></td>
+<td><code>/vault/meta</code> in regenerated openapi.json (no residual drift); ER unchanged (no migration — correct).</td>
+</tr>
+<tr>
+<td><strong>I9</strong> — do not reinvent existing infra</td>
+<td>(not touched)</td>
+<td><strong>N/A</strong></td>
+<td>No new search/vector/embedding backend introduced.</td>
+</tr>
+</tbody>
+</table>
+<p>No invariant is traded for convenience anywhere in the six workstreams.</p>
+<hr />
+<h2 id="3-adr-decision-aq-m136-3">3. ADR decision (AQ-M136-3)<a class="headerlink" href="#3-adr-decision-aq-m136-3" title="Permanent link">&para;</a></h2>
+<p><strong>No new ADR is required. A code comment suffices — and already exists.</strong></p>
+<p>Rationale:
+1. The dataVersion-polling refresh strategy introduces <strong>no new architectural seam</strong>: no new table,
+   no new column, no new endpoint, no new contract, no new dependency. It reuses (a) the existing
+   <code>/status</code> response field <code>data_version</code> (<code>status.py:41</code>, already covered by the F16dv work and
+   AC-F16dv-<em>), (b) the existing ActivityBar <code>STATUS_POLL_MS</code> poll, and (c) the existing server-side
+   graph cache decision already recorded in </em><em>ADR-0045 (ForceAtlas2 server-side layout)</em>*.
+2. The decision it embodies — "detect a version bump and re-pull, never push, never compute layout
+   client-side" — is a direct application of invariants I2/I3 that are already ADR-backed; writing a
+   new ADR would restate settled decisions.
+3. The sprint scope (§8 anti-scope-creep) explicitly lists "Any new ADR" as out-of-scope unless
+   architect-initiated as a WS-F pre-study. This strategy is not that.
+4. The pattern is already self-documenting in-code with invariant-cited comments at the three touch
+   points: <code>statusStore.ts:13</code>/<code>:46</code>, <code>GraphViewer.tsx:1664</code>, <code>HomeDashboard.tsx:1082</code>. That is the
+   appropriate weight for a bounded, invariant-derived implementation detail.</p>
+<p>If a future sprint introduces true push (WebSocket/SSE) or a dedicated freshness endpoint, THAT change
+would warrant an ADR. The current polling approach does not.</p>
+<hr />
+<h2 id="4-nits-non-blocking-do-not-gate-merge">4. Nits (non-blocking — do not gate merge)<a class="headerlink" href="#4-nits-non-blocking-do-not-gate-merge" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>WS-B deep-link incomplete.</strong> <code>handleOpenCreatedPage</code> (<code>ReviewQueueView.tsx:1078</code>) switches to the
+   pages section but does not yet <code>selectPage(pageId)</code>; the created-page link lands on the section, not
+   the page. Acknowledged in-code as future wiring. Recommend a follow-up ticket. No invariant impact.</li>
+<li><strong>Frontend <code>act(...)</code> warnings</strong> in NoteView specs are pre-existing harness noise (tests pass);
+   worth a cleanup pass but out of scope here.</li>
+<li><strong>WS-C single-file "progress" averaging</strong> assumes per-task <code>progress</code> is a 0..1 fraction
+   (<code>Math.round(avg*100)</code>). If any producer emits 0..100, the bar would read 100% early. Confirm the
+   <code>activityStore</code> task <code>progress</code> unit is a fraction (ADR-0046) — the batch path is unaffected. Low
+   risk; recommend a one-line assertion or clamp <code>Math.min(100, …)</code> in a follow-up.</li>
+</ol>
+<hr />
+<h2 id="5-overall-merge-verdict">5. Overall merge verdict<a class="headerlink" href="#5-overall-merge-verdict" title="Permanent link">&para;</a></h2>
+<p><strong>APPROVE-WITH-NITS.</strong></p>
+<p>All six in-scope workstreams uphold every applicable invariant (I1–I5, I7, I8); I6/I9 are not
+exercised. In-scope local checks are green (tsc, eslint, ruff, black, mypy-on-touched, 235 frontend
+tests, 20 new backend tests). No ADR is required — the dataVersion polling strategy is an
+invariant-derived detail, correctly documented in-code (§3). The three nits are non-blocking follow-ups.</p>
+<p>Remaining gates (outside architect scope, per EC-M136):
+- EC-M136-7: WS-G <strong>live run-now</strong> confirmation on the real vault — <strong>qa-test-engineer</strong> (Phase-0 P0-6
+  left it SMOKE-ONLY; this review signs off code paths + I7 only, not the live functional run).
+- EC-M136-8: tech-writer docs gate (D4 already regenerated; BACKLOG/DOCS_STATUS entries).
+- EC-M136-10: full CI matrix (mmdc, full pytest, full mypy) — devops-engineer.
+- EC-M136-HCP: human checkpoint — Emanuele.</p>
+<p>Architect gate (EC-M136-9): <strong>SIGNED OFF</strong> for the reviewed workstreams.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

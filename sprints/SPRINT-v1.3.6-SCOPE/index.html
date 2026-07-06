@@ -1,0 +1,1592 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.3.6-SCOPE/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Sprint v1.3.6 — PM Scope Lock - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#sprint-v136-pm-scope-lock" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Sprint v1.3.6 — PM Scope Lock
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-engineer-ground-rules-read-before-touching-any-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sprint-goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Sprint Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-release-split-decision-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Release split decision record
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Release split decision record">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-v136-ws-h-ws-a-ws-b-ws-c-ws-d-ws-g" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why v1.3.6 = WS-H + WS-A + WS-B + WS-C + WS-D + WS-G
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-v137-ws-e-domain-wizard-ws-f-settings-restructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why v1.3.7 = WS-E (domain wizard) + WS-F (settings restructure)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-scope-decision-record-per-workstream" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Scope decision record — per workstream
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Scope decision record — per workstream">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ws-h-diagnostics-phase-0-prerequisite-f1-f9-f4-f18-k2-f16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-H — Diagnostics (Phase 0, prerequisite) [F1, F9, F4, F18, K2, F16]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-a-real-time-freshness-f16-f4-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-A — Real-time freshness [F16, F4, F18]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-b-review-queue-status-filter-bug-f9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-B — Review queue status-filter bug [F9]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-c-ingest-progress-visibility-f3-f16-adr-0046" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-C — Ingest progress visibility [F3, F16, ADR-0046]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d-wiki-view-bugs-k1-k5-k6-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D — Wiki-view bugs [K1, K5, K6, I5]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-g-automations-functional-verification-k2-f3-f16-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-G — Automations functional verification [K2, F3, F16, F18]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance criteria
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Acceptance criteria">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ws-h-acceptance-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-H acceptance criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-a-acceptance-criteria-f16-f4-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-A acceptance criteria [F16, F4, F18]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-b-acceptance-criteria-f9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-B acceptance criteria [F9]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-c-acceptance-criteria-f3-f16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-C acceptance criteria [F3, F16]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d8-acceptance-criteria-k1-k6-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D(8) acceptance criteria [K1, K6, I5]
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-g-acceptance-criteria-k2-f3-f16-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-G acceptance criteria [K2, F3, F16, F18]
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-dependencies-and-sequencing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Dependencies and sequencing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-deferred-items-v137" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Deferred items (v1.3.7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-exit-criteria-m136" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Exit criteria — M136
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-anti-scope-creep-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Anti-scope-creep gate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-velocity-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Velocity note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="sprint-v136-pm-scope-lock">Sprint v1.3.6 — PM Scope Lock<a class="headerlink" href="#sprint-v136-pm-scope-lock" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Milestone: M136 — "Diagnostics, Real-time &amp; Stability"
+Author: product-manager
+Date: 2026-07-06
+Branch: sprint/v1.3.6 (to be cut from main after v1.3.5 tag)
+Prerequisite: v1.3.5 shipped and tagged on main before this sprint starts.
+Sprint duration: 2–3 weeks</p>
+</blockquote>
+<hr />
+<h2 id="0-engineer-ground-rules-read-before-touching-any-file">0. Engineer ground rules (READ BEFORE TOUCHING ANY FILE)<a class="headerlink" href="#0-engineer-ground-rules-read-before-touching-any-file" title="Permanent link">&para;</a></h2>
+<p><strong>Rule 1 — No destructive git operations.</strong>
+No git restore, git checkout, git stash, or any command that discards working-tree
+changes. Other agents on the same branch may have uncommitted edits that are
+legitimate in-progress work. If you find changes in a file you need to edit, read them
+first and integrate. Do NOT discard. Escalate to orchestrator if you cannot resolve
+ownership of an uncommitted change.</p>
+<p><strong>Rule 2 — QA gate runs ci.yml's EXACT commands.</strong>
+The QA-test-engineer MUST run the following commands verbatim (matching ci.yml jobs)
+before signing off on any item. No proxy commands, no shortcuts:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Backend lint + type check (ci.yml jobs: lint, typecheck)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>black<span class="w"> </span>--check<span class="w"> </span>app<span class="w"> </span>tests
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mypy<span class="w"> </span>app
+
+<span class="c1"># Frontend (ci.yml job: frontend)</span>
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span>lint
+<span class="nb">cd</span><span class="w"> </span>frontend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>run<span class="w"> </span><span class="nb">test</span>
+
+<span class="c1"># Docs gate — ER + OpenAPI drift check (ci.yml job: docs)</span>
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_er.py
+<span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_openapi.py
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/er/schema.mmd
+git<span class="w"> </span>diff<span class="w"> </span>--exit-code<span class="w"> </span>docs/api/openapi.json
+
+<span class="c1"># Mermaid validation loop (ci.yml job: docs — validate Mermaid diagrams step)</span>
+<span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>docs/architecture/*.mmd<span class="w"> </span>docs/er/*.mmd<span class="w"> </span>docs/sequences/*.mmd<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<span class="w">  </span><span class="o">[</span><span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">]</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="k">continue</span>
+<span class="w">  </span>mmdc<span class="w"> </span>-p<span class="w"> </span>/tmp/puppeteer.json<span class="w"> </span>-i<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$f</span><span class="s2">&quot;</span><span class="w"> </span>-o<span class="w"> </span>/tmp/mmdc-check.svg<span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+<span class="k">done</span>
+</code></pre></div>
+<p>All six command groups must exit 0 before any item's ACs are marked green.</p>
+<hr />
+<h2 id="1-sprint-goal">1. Sprint Goal<a class="headerlink" href="#1-sprint-goal" title="Permanent link">&para;</a></h2>
+<p>Make the running application stable, observable, and correct before taking on
+design-heavy work. This sprint is exclusively bug fixes, real-time updates, ingest
+visibility, and automation verification — all grounded in the live-app diagnostic
+session that runs first (WS-H Phase 0). No new features, no UX redesigns, no
+backend contract changes.</p>
+<p>The sprint has seven committed items:</p>
+<ul>
+<li>WS-H: Diagnostics session (Phase 0 — prerequisite)</li>
+<li>WS-A: Real-time freshness for Home dashboard + Graph viewer [F16, F4, F18]</li>
+<li>WS-B: Review queue status-filter bug [F9]</li>
+<li>WS-C: Ingest progress visibility (batch %, ETA) [F3, F16]</li>
+<li>WS-D: Wiki-view bugs (frontmatter overlay + vault-meta tree node) [K1, K5, K6, I5]</li>
+<li>WS-G: Automations functional verification [K2, F3, F16]</li>
+<li>Docs gate update (I8)</li>
+</ul>
+<p><strong>Items explicitly NOT in this sprint:</strong>
+- WS-E: Domain/Groups wizard (deferred to v1.3.7 — see §6)
+- WS-F: Settings IA restructure (deferred to v1.3.7 — see §6)
+- Any new backend REST contract changes beyond WS-C (which uses the existing
+  /ingest/queue snapshot already specified in ADR-0046)
+- Any new ADR beyond one optional WS-F pre-study ADR (if architect initiates it
+  independently; it does not gate this sprint)
+- Multi-vault work (v2.0 territory)</p>
+<hr />
+<h2 id="2-release-split-decision-record">2. Release split decision record<a class="headerlink" href="#2-release-split-decision-record" title="Permanent link">&para;</a></h2>
+<h3 id="why-v136-ws-h-ws-a-ws-b-ws-c-ws-d-ws-g">Why v1.3.6 = WS-H + WS-A + WS-B + WS-C + WS-D + WS-G<a class="headerlink" href="#why-v136-ws-h-ws-a-ws-b-ws-c-ws-d-ws-g" title="Permanent link">&para;</a></h3>
+<p><strong>Rationale:</strong></p>
+<ol>
+<li>
+<p>WS-H (diagnostics) must run first. It is the confirmation engine for the
+   unconfirmed bugs (WS-B review filter, WS-D frontmatter overlay). Engineering
+   effort on WS-B and WS-D without live reproduction is wasted speculation.
+   Making Phase 0 the first delivery of v1.3.6 is therefore mandatory, not optional.</p>
+</li>
+<li>
+<p>WS-A (real-time freshness) is a precision, bounded bug fix: add lightweight
+   dataVersion polling (GET /status response already carries data_version) to the
+   Home dashboard and the Graph viewer. No WebSocket, no new endpoint, no graph
+   layout change. Fully respects I2 (server-side layout, cached) and I3 (no
+   per-token heavy work). Complexity: S–M. Risk: low.</p>
+</li>
+<li>
+<p>WS-B (review queue filter) is a single-bug investigation and fix. Root cause
+   is unconfirmed (response cache keying vs DB status values); Phase 0 will confirm
+   it. Fix is bounded to the frontend filter hook and/or the backend cache decorator.
+   Complexity: S. Risk: low once root cause is confirmed.</p>
+</li>
+<li>
+<p>WS-C (ingest progress) uses only the already-specified ADR-0046 snapshot fields
+   (batch.done, batch.total, batch.eta_seconds, per-task phase/progress). The API
+   contract is not being extended — only the UI is being wired to fields that already
+   exist. Complexity: M. Risk: low.</p>
+</li>
+<li>
+<p>WS-D (wiki-view) contains two sub-items: (7) frontmatter overlay edge-case and
+   (8) vault-meta tree node. Item (7) is an unconfirmed edge case — Phase 0 either
+   confirms or closes it. Item (8) is an architectural gap (schema.md and purpose.md
+   are never indexed as Page records) requiring a thin read-from-disk "Vault/Meta"
+   tree section. This is contained, does not touch the ingest pipeline, does not
+   mutate vault state, and preserves I5 (files remain valid Obsidian vault files).
+   Complexity: S+M. Risk: low.</p>
+</li>
+<li>
+<p>WS-G (automations verification) is a verification exercise, not feature
+   development. If regressions from v1.3.5 (log.md format change, frontmatter
+   timestamps, schema.md completeness) broke any of the four scheduled ops (lint,
+   backfill-domains, schema_review, reclassify), they must be found and fixed before
+   v1.3.6 ships. This is the exit criterion for correctness. Complexity: S per fix
+   found. Risk: medium (unknown until verified).</p>
+</li>
+</ol>
+<p><strong>Total scope: small-to-medium bug sweep + diagnostics. Appropriate for 2–3 weeks.</strong></p>
+<h3 id="why-v137-ws-e-domain-wizard-ws-f-settings-restructure">Why v1.3.7 = WS-E (domain wizard) + WS-F (settings restructure)<a class="headerlink" href="#why-v137-ws-e-domain-wizard-ws-f-settings-restructure" title="Permanent link">&para;</a></h3>
+<ol>
+<li>
+<p>WS-E (full domain wizard) introduces: a guided creation flow with AI-match
+   preview, promote-tag-to-domain, rename/merge, AND a backend /search filter
+   contract change (domain/community filter params added to GET /search + FilterBar
+   chips). The /search contract change requires a new ADR (architect sign-off
+   mandatory per I3/I6 invariant gate). The wizard is a new multi-step UI component.
+   Combining this with a bug-fix sprint would bloat scope and obscure regression
+   signal from WS-A/B/C/D/G.</p>
+</li>
+<li>
+<p>WS-F (full settings restructure) is the largest UX architecture change since the
+   v1.2.4 Settings split (ADR-0055). Moving provider-auth config to a per-provider
+   end-to-end flow changes the Settings information architecture root. It requires an
+   ADR (the task brief explicitly says so). The ADR must be written and accepted by
+   solution-architect before frontend-engineer implements anything. Adding this to
+   v1.3.6 would push the sprint past 3 weeks and create an ADR-gated blocker that
+   could strand the bug-fix items.</p>
+</li>
+<li>
+<p>Sequencing WS-F after WS-G is also strategically correct: the automations
+   verification (WS-G) may surface provider-config issues that inform the WS-F
+   redesign. Diagnosing (WS-H + WS-G) before redesigning (WS-F) is the right order.</p>
+</li>
+</ol>
+<p><strong>PM verdict: the proposed split is APPROVED with the rationale above.</strong></p>
+<hr />
+<h2 id="3-scope-decision-record-per-workstream">3. Scope decision record — per workstream<a class="headerlink" href="#3-scope-decision-record-per-workstream" title="Permanent link">&para;</a></h2>
+<h3 id="ws-h-diagnostics-phase-0-prerequisite-f1-f9-f4-f18-k2-f16">WS-H — Diagnostics (Phase 0, prerequisite) [F1, F9, F4, F18, K2, F16]<a class="headerlink" href="#ws-h-diagnostics-phase-0-prerequisite-f1-f9-f4-f18-k2-f16" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE. Must complete before any WS-B, WS-D(7), WS-G engineering begins.</strong></p>
+<p>A senior-tester Chrome session against the running v1.3.5 app:
+- Console, network, and debug tools open throughout.
+- Mandatory targets: reproduce or close WS-B (review filter returns identical
+  results), reproduce or close WS-D(7) (frontmatter YAML overlay), verify
+  WS-G automations are firing correctly (check scheduler logs, inspect output files,
+  confirm log.md entries, confirm frontmatter timestamps after v1.3.5 change).
+- Deliverable: a structured defect report filed in docs/process/BACKLOG.md as a
+  new Phase-0 finding table. Every finding is either CONFIRMED (root cause identified)
+  or CLOSED (unable to reproduce; conditions noted).
+- The WS-B and WS-D(7) engineering items are BLOCKED on Phase-0 output. If a bug
+  cannot be reproduced in Phase 0, its engineering item is CLOSED (no fix needed
+  in this sprint) and a note is added to the backlog.
+- The UI usability index (second deliverable from WS-H) is a scored checklist
+  (Nielson 1–5 heuristics; 1-to-5 per screen; totals per section). This is a
+  reference document only — it does NOT gate sprint completion. It is handed to
+  the orchestrator as input for v1.3.7 UX work (WS-E/F).</p>
+<p><strong>Anti-scope-creep note:</strong> The diagnostics session MUST NOT trigger live fixes during
+the session. Find first, then engineering addresses in a separate commit. Mixing
+diagnostic and fix work blurs the root-cause record.</p>
+<h3 id="ws-a-real-time-freshness-f16-f4-f18">WS-A — Real-time freshness [F16, F4, F18]<a class="headerlink" href="#ws-a-real-time-freshness-f16-f4-f18" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE.</strong></p>
+<p>Home dashboard (F18) and Graph viewer (F4) are both one-shot fetch-on-mount today.
+The ActivityBar already polls at 1.5s/5s intervals. This workstream adds the same
+lightweight dataVersion polling pattern to the two stale components.</p>
+<p><strong>PM decisions (locked):</strong>
+- Poll mechanism: GET /status at an interval to be decided by the architect (suggested
+  10s for Home dashboard, existing 5s for Graph — architect may unify). Compare
+  data_version to the value at last fetch. Only re-fetch the section data if the
+  version has changed.
+- No WebSocket. No new endpoint. No graph recompute triggered by the frontend.
+  The graph layout (FA2, igraph) remains server-side and is computed only when
+  dataVersion changes (I2). The frontend polls to detect the version change and then
+  calls the existing GET /graph endpoint.
+- I3 compliance: the polling tick does NOT cause a re-render on every tick. Only
+  a version-change causes a data refetch, which then causes a targeted section update
+  via Zustand selectors + shallow equality (existing pattern).
+- I2 compliance: no client-side layout computation introduced. None.
+- The Home dashboard update on dataVersion change re-fetches GET /stats/overview
+  and GET /stats/sections only.
+- The Graph viewer update on dataVersion change re-fetches GET /graph only (existing
+  endpoint; returns precomputed coords).</p>
+<p><strong>What this is NOT:</strong> a WebSocket implementation, a push notification system, a
+polling interval &lt;5s, a new REST endpoint, a change to graph layout computation,
+or a change to the ActivityBar polling (leave it alone).</p>
+<h3 id="ws-b-review-queue-status-filter-bug-f9">WS-B — Review queue status-filter bug [F9]<a class="headerlink" href="#ws-b-review-queue-status-filter-bug-f9" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE. BLOCKED on WS-H Phase-0 reproduction.</strong></p>
+<p>The "In attesa" (pending) and "Risolti" (resolved) tabs in the Review queue UI show
+identical results. Static analysis found the frontend filter path looks correct
+(status is passed to GET /review/queue) and the backend _status_filter_values
+mapping looks correct. Root cause is unconfirmed.</p>
+<p><strong>PM decisions (locked):</strong>
+- Engineering on this item does NOT start until Phase 0 confirms or closes it.
+- If Phase 0 CLOSES it (cannot reproduce): this item is removed from the sprint and
+  the backlog is updated with a "Cannot reproduce in v1.3.5" note.
+- If Phase 0 CONFIRMS it: engineer identifies the actual root cause (one of:
+  response cache not keyed by query param; DB status enum values mismatched to filter
+  strings; frontend query param not reaching the backend; other). Fix is bounded to
+  the smallest possible change that corrects the filter.
+- No UI restructuring of the Review section in this fix. The fix is purely
+  correctness — same layout, same tabs, same affordances.
+- Test: a Playwright or vitest spec that verifies the two tabs return different item
+  sets when both pending and resolved items exist in the DB.</p>
+<p><strong>What this is NOT:</strong> a Review UI redesign, a new proposal type, a new action on
+review items, or any change to the review queue depth of F9's HITL flow.</p>
+<h3 id="ws-c-ingest-progress-visibility-f3-f16-adr-0046">WS-C — Ingest progress visibility [F3, F16, ADR-0046]<a class="headerlink" href="#ws-c-ingest-progress-visibility-f3-f16-adr-0046" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE.</strong></p>
+<p>The "Lavori attivi" widget on the Home dashboard currently shows only "3 in corso"
+(a snapshot of snapshot.processing count, concurrency=3 hardcoded). ADR-0046 already
+specifies a richer snapshot payload: batch.done, batch.total, batch.eta_seconds, and
+per-task phase/progress fields. These fields exist in the backend; the frontend does
+not surface them.</p>
+<p><strong>PM decisions (locked):</strong>
+- The backend contract (GET /ingest/queue snapshot schema from ADR-0046) is NOT
+  extended. This is purely a frontend wiring change.
+- The Home dashboard "Lavori attivi" widget is updated to show:
+  - An overall progress bar: (batch.done / batch.total) * 100, with batch.total shown
+    as the denominator.
+  - An ETA display: "ETA ~Xs" computed from batch.eta_seconds, shown in the user's
+    locale (IT/EN) and hidden if eta_seconds is null.
+  - The per-task phase is shown inline per active task (e.g., "Analisi...",
+    "Generazione...") using existing i18n keys where available; new i18n strings
+    added for any phase labels not yet in the translation files.
+- The ActivityBar polling interval feeds this update (existing 1.5s interval is
+  acceptable for ingest progress; no new polling loop is added).
+- I3 compliance: the progress bar is a pure CSS/DOM element, no canvas, no animation
+  library. ETA is a formatted string. No heavy rerender per polling tick.
+- I7 compliance: no new loop is added. The polling is the existing ActivityBar loop.</p>
+<p><strong>What this is NOT:</strong> a new backend endpoint, a change to the ADR-0046 queue schema,
+a real-time WebSocket push, a change to the ingest concurrency model, or an overhaul
+of the IngestView.</p>
+<h3 id="ws-d-wiki-view-bugs-k1-k5-k6-i5">WS-D — Wiki-view bugs [K1, K5, K6, I5]<a class="headerlink" href="#ws-d-wiki-view-bugs-k1-k5-k6-i5" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE. WS-D(7) is BLOCKED on WS-H Phase-0 reproduction. WS-D(8) is NOT blocked.</strong></p>
+<p>Two sub-items:</p>
+<p><strong>WS-D(7) — Frontmatter YAML overlay (edge case):</strong>
+Static analysis found that renderMarkdown.ts:190 already strips frontmatter before
+rendering. The reported visual — YAML appearing fixed/overlapping while the body
+scrolls — is therefore an unconfirmed edge case. Phase 0 must reproduce it.
+- If Phase 0 CLOSES it: engineering item is dropped. Note added to backlog.
+- If Phase 0 CONFIRMS it: engineer finds the specific file/condition that triggers
+  the rendering artifact and fixes it in renderMarkdown.ts or the relevant component
+  without introducing YAML into the rendered body. No parser change.</p>
+<p><strong>WS-D(8) — Vault/Meta tree node (schema.md + purpose.md not indexed):</strong>
+schema.md and purpose.md are created at bootstrap but never indexed as Page records.
+They do not appear in the wiki tree. This is an architectural gap — not a rendering
+bug — and does NOT require Phase-0 confirmation. Engineering can begin immediately.
+- Solution: a thin "Vault / Meta" tree section (always present, at the bottom of
+  the tree) that reads schema.md and purpose.md directly from disk (no Postgres query
+  needed — they are fixed paths). When either file is clicked, the existing file-read
+  path (GET /pages/{id}/content or equivalent) renders it in the editor/preview panel.
+- I5 compliance: both files are already valid Obsidian-compatible Markdown with YAML
+  frontmatter. The tree node is read-only from the tree; the editor can still edit
+  them if the user navigates to them.
+- I1 compliance: no new ingest pipeline, no Postgres write, no Qdrant upsert for
+  these meta files. They are read from disk on demand.
+- The solution must NOT index schema.md and purpose.md as regular Page records via
+  the watcher or ingest path. They are vault-meta, not wiki content. Escalate to
+  solution-architect if the proposed implementation would require indexing them.</p>
+<p><strong>What this is NOT:</strong> a new page type, a change to the ingest pipeline, a change to
+the Postgres pages table, a watcher extension, or any modification to the existing
+wiki tree sorting/filtering logic beyond the addition of the meta section.</p>
+<h3 id="ws-g-automations-functional-verification-k2-f3-f16-f18">WS-G — Automations functional verification [K2, F3, F16, F18]<a class="headerlink" href="#ws-g-automations-functional-verification-k2-f3-f16-f18" title="Permanent link">&para;</a></h3>
+<p><strong>IN SCOPE.</strong></p>
+<p>Four scheduled operations: lint, backfill-domains, schema_review, reclassify.
+All are non-stub and wired (confirmed in the R13 audit). The v1.3.5 release changed
+log.md format, frontmatter timestamps, and schema.md completeness. This workstream
+verifies that none of these changes introduced regressions in the four ops.</p>
+<p><strong>PM decisions (locked):</strong>
+- Phase 0 diagnostic session is the primary verification vehicle. The tester checks
+  scheduler logs, inspects output artifacts (log.md entries, pages.updated_at
+  timestamps, domain tags on pages, lint_findings rows), and confirms each op
+  completes without error after v1.3.5.
+- If regressions are found: engineering fixes them. Each fix is bounded to the
+  minimum change that restores the op to its pre-v1.3.5 behavior. No feature
+  additions to the scheduler ops in this sprint.
+- WS-G verification must be complete and each op confirmed before the sprint exit
+  criteria are met.
+- Verification is documented in the Phase-0 defect report (WS-H deliverable) with
+  one row per op: op name, trigger type (scheduled / manual run-now), output
+  inspected, verdict (PASS / FAIL + root cause if FAIL).</p>
+<p><strong>What this is NOT:</strong> new scheduled operations, changes to op logic beyond regression
+repair, changes to the scheduler persistence model (R13-4 settled that), or a
+redesign of the automation UX.</p>
+<hr />
+<h2 id="4-acceptance-criteria">4. Acceptance criteria<a class="headerlink" href="#4-acceptance-criteria" title="Permanent link">&para;</a></h2>
+<h3 id="ws-h-acceptance-criteria">WS-H acceptance criteria<a class="headerlink" href="#ws-h-acceptance-criteria" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-H-1</td>
+<td>Phase-0 diagnostic session completed against live v1.3.5 app; console and network logs captured.</td>
+</tr>
+<tr>
+<td>AC-WS-H-2</td>
+<td>Structured defect report present in docs/process/BACKLOG.md as Sprint 14 / v1.3.6 Phase-0 finding table; every finding is CONFIRMED or CLOSED with conditions noted.</td>
+</tr>
+<tr>
+<td>AC-WS-H-3</td>
+<td>WS-B status (CONFIRMED or CLOSED) recorded; engineering proceed/drop decision documented.</td>
+</tr>
+<tr>
+<td>AC-WS-H-4</td>
+<td>WS-D(7) status (CONFIRMED or CLOSED) recorded; engineering proceed/drop decision documented.</td>
+</tr>
+<tr>
+<td>AC-WS-H-5</td>
+<td>WS-G automation verification rows present (one per op: lint, backfill-domains, schema_review, reclassify); each has verdict PASS or FAIL.</td>
+</tr>
+<tr>
+<td>AC-WS-H-6</td>
+<td>UI usability index document produced and handed to orchestrator (does not gate sprint; reference input for v1.3.7).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ws-a-acceptance-criteria-f16-f4-f18">WS-A acceptance criteria [F16, F4, F18]<a class="headerlink" href="#ws-a-acceptance-criteria-f16-f4-f18" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-A-1</td>
+<td>Home dashboard re-fetches GET /stats/overview and GET /stats/sections when dataVersion changes; content updates without a full page reload.</td>
+</tr>
+<tr>
+<td>AC-WS-A-2</td>
+<td>Graph viewer re-fetches GET /graph when dataVersion changes; graph updates without triggering a client-side layout recompute (I2).</td>
+</tr>
+<tr>
+<td>AC-WS-A-3</td>
+<td>Polling does NOT cause a re-render on every tick when dataVersion has not changed (I3). Verified by Zustand shallow-equality selector guard.</td>
+</tr>
+<tr>
+<td>AC-WS-A-4</td>
+<td>No WebSocket, no new REST endpoint, no new polling loop introduced. Existing GET /status interval polling is the only mechanism.</td>
+</tr>
+<tr>
+<td>AC-WS-A-5</td>
+<td>Polling interval is architect-approved and documented (default recommendation: 10s for Home dashboard, 5s for Graph viewer matching existing ActivityBar).</td>
+</tr>
+<tr>
+<td>AC-WS-A-6</td>
+<td>vitest spec asserts: dataVersion-unchanged tick produces zero data fetches; dataVersion-changed tick produces exactly one fetch per data endpoint.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ws-b-acceptance-criteria-f9">WS-B acceptance criteria [F9]<a class="headerlink" href="#ws-b-acceptance-criteria-f9" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-B-0</td>
+<td>GATE: WS-H Phase-0 confirms WS-B bug before any of AC-WS-B-1 through AC-WS-B-3 can be marked green. If Phase-0 CLOSES the bug, all WS-B ACs are marked N/A and the item is removed from the sprint.</td>
+</tr>
+<tr>
+<td>AC-WS-B-1</td>
+<td>Root cause identified and documented in the Phase-0 defect report (one of: cache keying, DB enum mismatch, query param routing, or other).</td>
+</tr>
+<tr>
+<td>AC-WS-B-2</td>
+<td>Fix applied; "In attesa" tab returns only items with status=pending; "Risolti" tab returns only items with status=resolved.</td>
+</tr>
+<tr>
+<td>AC-WS-B-3</td>
+<td>Playwright or vitest spec verifies the two tabs return disjoint item sets when both pending and resolved review items exist.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ws-c-acceptance-criteria-f3-f16">WS-C acceptance criteria [F3, F16]<a class="headerlink" href="#ws-c-acceptance-criteria-f3-f16" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-C-1</td>
+<td>"Lavori attivi" widget shows a progress bar: (batch.done / batch.total) * 100, rounded to nearest integer.</td>
+</tr>
+<tr>
+<td>AC-WS-C-2</td>
+<td>ETA is displayed as "ETA ~Xs" (or equivalent localized form in IT/EN) when batch.eta_seconds is non-null; hidden when null.</td>
+</tr>
+<tr>
+<td>AC-WS-C-3</td>
+<td>Per-active-task phase label is displayed for each in-progress task using existing i18n keys; new keys added to both EN and IT translation files for any missing phase labels.</td>
+</tr>
+<tr>
+<td>AC-WS-C-4</td>
+<td>No new backend endpoint, no change to ADR-0046 queue schema. Verified by: OpenAPI drift check shows zero diff.</td>
+</tr>
+<tr>
+<td>AC-WS-C-5</td>
+<td>Progress bar is a CSS element (no canvas, no animation library). I3 holds — no heavy rerender per polling tick.</td>
+</tr>
+<tr>
+<td>AC-WS-C-6</td>
+<td>vitest spec: snapshot with batch={done:2, total:5, eta_seconds:30} renders "40%" bar and "ETA ~30s".</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ws-d8-acceptance-criteria-k1-k6-i5">WS-D(8) acceptance criteria [K1, K6, I5]<a class="headerlink" href="#ws-d8-acceptance-criteria-k1-k6-i5" title="Permanent link">&para;</a></h3>
+<p>(WS-D(7) ACs are conditional on Phase-0 confirmation — see AC-WS-D7 table)</p>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-D8-1</td>
+<td>"Vault / Meta" tree section appears at the bottom of the wiki tree; contains exactly two entries: schema.md and purpose.md.</td>
+</tr>
+<tr>
+<td>AC-WS-D8-2</td>
+<td>Clicking schema.md or purpose.md in the tree navigates to the file content in the editor/preview panel using the existing file-read path.</td>
+</tr>
+<tr>
+<td>AC-WS-D8-3</td>
+<td>schema.md and purpose.md are NOT indexed as Page records in Postgres and NOT vectorised in Qdrant. Verified by: DB query shows zero rows for these paths in pages table; Qdrant point count unchanged.</td>
+</tr>
+<tr>
+<td>AC-WS-D8-4</td>
+<td>I5 holds: both files render correctly in the editor (valid Obsidian Markdown with YAML frontmatter). No YAML leaks into the rendered body.</td>
+</tr>
+<tr>
+<td>AC-WS-D8-5</td>
+<td>I1 holds: no watcher extension, no ingest pipeline change.</td>
+</tr>
+<tr>
+<td>AC-WS-D8-6</td>
+<td>If either file is absent from disk (edge case: fresh install before bootstrap completes), the tree section shows a placeholder "Not yet generated" label — no crash.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>WS-D(7) conditional ACs (only if Phase-0 CONFIRMS the bug):</strong></p>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-D7-1</td>
+<td>Specific file or rendering condition that triggers the YAML overlay is documented in the Phase-0 report.</td>
+</tr>
+<tr>
+<td>AC-WS-D7-2</td>
+<td>Fix applied in renderMarkdown.ts or the rendering component; the YAML block does not appear in the rendered body for the confirmed trigger file.</td>
+</tr>
+<tr>
+<td>AC-WS-D7-3</td>
+<td>Existing renderMarkdown unit tests remain green; no regression in frontmatter stripping for well-formed files.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ws-g-acceptance-criteria-k2-f3-f16-f18">WS-G acceptance criteria [K2, F3, F16, F18]<a class="headerlink" href="#ws-g-acceptance-criteria-k2-f3-f16-f18" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>Criterion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-G-1</td>
+<td>lint op: runs to completion (no uncaught exception), produces lint_findings rows, writes findings to the DB. Verified against live v1.3.5 vault.</td>
+</tr>
+<tr>
+<td>AC-WS-G-2</td>
+<td>backfill-domains op: runs to completion, classifies at least one page into a domain tag, logs total_cost_usd. Verified against live vault with non-empty domain vocabulary.</td>
+</tr>
+<tr>
+<td>AC-WS-G-3</td>
+<td>schema_review op: runs to completion, either produces a schema-suggestion ReviewItem or logs "no suggestions" — no silent failure.</td>
+</tr>
+<tr>
+<td>AC-WS-G-4</td>
+<td>reclassify op: runs to completion, re-tags at least one page (or logs "nothing to reclassify") without error.</td>
+</tr>
+<tr>
+<td>AC-WS-G-5</td>
+<td>If a regression is found for any op: the fix is bounded to restoring pre-v1.3.5 behavior. No logic changes beyond the regression repair.</td>
+</tr>
+<tr>
+<td>AC-WS-G-6</td>
+<td>All four ops produce correct log.md entries in the v1.3.5 format (updated timestamps, valid frontmatter).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="5-dependencies-and-sequencing">5. Dependencies and sequencing<a class="headerlink" href="#5-dependencies-and-sequencing" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>Phase 0 (WS-H)
+  ├── confirms/closes WS-B → WS-B engineering (or drop)
+  ├── confirms/closes WS-D(7) → WS-D(7) engineering (or drop)
+  └── verifies WS-G automation health → WS-G regression fixes (if any)
+
+WS-A, WS-C, WS-D(8)
+  └── NOT blocked on Phase 0; engineering can begin immediately
+
+WS-G regression fixes (if needed)
+  └── Must complete before sprint exit criteria
+</code></pre></div>
+<p><strong>Dependency flags:</strong>
+- WS-B depends on: Phase-0 confirmation AND architect confirmation of fix approach
+  if root cause is a backend cache keying issue (touches caching layer).
+- WS-D(8) depends on: solution-architect sign-off if the implementation approach
+  requires touching the Postgres pages table (escalation required per §3 note).
+- WS-E (out of scope): depends on ADR for /search filter contract extension.
+  That ADR has NOT been initiated. Do not start WS-E work in this sprint.
+- WS-F (out of scope): depends on ADR for Settings IA restructure.
+  That ADR has NOT been initiated. Do not start WS-F work in this sprint.</p>
+<hr />
+<h2 id="6-deferred-items-v137">6. Deferred items (v1.3.7)<a class="headerlink" href="#6-deferred-items-v137" title="Permanent link">&para;</a></h2>
+<p>The following items from the user feedback are explicitly deferred to v1.3.7.
+No engineering work on these items is permitted in this sprint. Any code proposed
+for these items must be escalated to the orchestrator and blocked.</p>
+<table>
+<thead>
+<tr>
+<th>Workstream</th>
+<th>Deferred item</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WS-E</td>
+<td>Domain/Groups wizard: guided creation, AI-match preview, promote-tag, rename/merge, click-domain-to-search filter, FilterBar chips</td>
+<td>Requires ADR for /search contract change; requires new multi-step wizard component; design-heavy; not a bug fix.</td>
+</tr>
+<tr>
+<td>WS-E</td>
+<td>/search domain/community filter params</td>
+<td>Requires architect ADR before any backend contract change. Not in scope until ADR is accepted.</td>
+</tr>
+<tr>
+<td>WS-F</td>
+<td>Settings IA full restructure (per-provider end-to-end config, plain-language descriptions, configured/missing states, base/advanced modes, per-provider wizard)</td>
+<td>Requires ADR (explicitly noted in task brief); WS-G diagnosis may inform the design; must sequence after v1.3.6.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-exit-criteria-m136">7. Exit criteria — M136<a class="headerlink" href="#7-exit-criteria-m136" title="Permanent link">&para;</a></h2>
+<p>All of the following must be MET before PM sign-off and human checkpoint:</p>
+<table>
+<thead>
+<tr>
+<th>EC ID</th>
+<th>Criterion</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M136-1</td>
+<td>Phase-0 defect report present in BACKLOG.md with all five WS-H ACs green.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-2</td>
+<td>WS-A: all six AC-WS-A ACs green; CI suite green.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-3</td>
+<td>WS-B: either all three AC-WS-B ACs green (if confirmed + fixed), or N/A verdict with Phase-0 closure note (if not reproduced).</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-4</td>
+<td>WS-C: all six AC-WS-C ACs green; OpenAPI drift check shows zero diff.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-5</td>
+<td>WS-D(8): all six AC-WS-D8 ACs green.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-6</td>
+<td>WS-D(7): conditional ACs green (if confirmed), or N/A verdict with Phase-0 closure note.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-7</td>
+<td>WS-G: all six AC-WS-G ACs green; all four ops verified on live vault.</td>
+<td>qa-test-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-8</td>
+<td>Docs gate: D2 (ER) regenerated if any migration landed; D4 (OpenAPI) regenerated; D7 ADR indexed if any ADR was written; BACKLOG.md updated; DOCS_STATUS.md gate entry added. Tech-writer sign-off.</td>
+<td>tech-writer</td>
+</tr>
+<tr>
+<td>EC-M136-9</td>
+<td>Architect review: all invariant compliance notes in this scope lock are verified by solution-architect (I1/I2/I3/I5 per workstream).</td>
+<td>solution-architect</td>
+</tr>
+<tr>
+<td>EC-M136-10</td>
+<td>All CI jobs green on the sprint/v1.3.6 branch (ruff, black, mypy, tsc, eslint, vitest, docs drift, mmdc).</td>
+<td>devops-engineer</td>
+</tr>
+<tr>
+<td>EC-M136-HCP</td>
+<td>Human checkpoint: Emanuele reviews the live app on v1.3.6, confirms real-time freshness (WS-A), ingest progress (WS-C), vault-meta tree (WS-D8), and review tabs (WS-B if fixed). Explicitly approves the sprint before v1.3.7 planning begins.</td>
+<td>Emanuele</td>
+</tr>
+</tbody>
+</table>
+<p><strong>All 4 sign-offs required before PM milestone sign-off:</strong>
+- QA green (EC-M136-1 through EC-M136-7 and EC-M136-10)
+- Architect review (EC-M136-9)
+- Tech-writer docs gate (EC-M136-8)
+- PM sign-off (this document, updated at sprint end)</p>
+<hr />
+<h2 id="8-anti-scope-creep-gate">8. Anti-scope-creep gate<a class="headerlink" href="#8-anti-scope-creep-gate" title="Permanent link">&para;</a></h2>
+<p>Any engineering proposal not listed in §3 MUST be escalated to the orchestrator
+before any code is written. The following are confirmed out-of-scope for v1.3.6:</p>
+<ul>
+<li>WS-E domain wizard (any sub-item) — deferred to v1.3.7</li>
+<li>WS-F settings restructure (any sub-item) — deferred to v1.3.7</li>
+<li>New backend REST endpoints beyond existing paths</li>
+<li>WebSocket implementation</li>
+<li>Any change to graph layout computation (FA2, igraph, Louvain) — I2</li>
+<li>Any change to the ingest pipeline beyond WS-G regression repair</li>
+<li>Any new ADR (unless initiated by solution-architect independently as WS-F
+  pre-study; does not gate this sprint)</li>
+<li>Multi-vault work</li>
+</ul>
+<p>If an engineer identifies a P1 bug during the sprint that is not in the above
+workstreams, they MUST escalate to the orchestrator. The orchestrator decides:
+include as a bounded hotfix (with PM approval) or defer to a v1.3.5.x patch.</p>
+<hr />
+<h2 id="9-velocity-note">9. Velocity note<a class="headerlink" href="#9-velocity-note" title="Permanent link">&para;</a></h2>
+<p>v1.3 (Sprint 13) was ON SCOPE. v1.3.5 (carrying the llm_wiki parity program
+including K1/K4/F3 changes) appears to have introduced regressions in scheduled ops
+(WS-G). This sprint absorbs that cost as a verification + repair cycle. The deferred
+WS-E and WS-F items represent approximately 3–4 weeks of additional work (L effort
+each), correctly sequenced to v1.3.7. Sprint v1.3.6 is calibrated at S/M scope
+across 6 workstreams, appropriate for 2–3 weeks of evenings with agent assistance.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

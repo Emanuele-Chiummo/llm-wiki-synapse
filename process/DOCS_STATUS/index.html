@@ -558,6 +558,89 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v136-docs-gate-ec-m136-8-verdict-all-up-to-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d4-endpoint-verification-v136-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D4 — Endpoint verification (v1.3.6 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-er-verification-v136-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2 — ER verification (v1.3.6 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-sequence-diagrams-unchanged-v136-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 — Sequence diagrams unchanged (v1.3.6 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invariant-compliance-check-v136-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant compliance check (v1.3.6 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-outstanding-screenshots-pending-live-v136-additions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 — Outstanding screenshots (PENDING-LIVE, v1.3.6 additions)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docs-gate-verdict-v136" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DOCS GATE VERDICT — v1.3.6
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#b1-lint-parity-docs-gate-verdict-all-up-to-date" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2697,6 +2780,253 @@
 <blockquote>
 <p>Tech-writer sign-off. Phases appended chronologically; most recent phase at top.</p>
 </blockquote>
+<hr />
+<h2 id="v136-docs-gate-ec-m136-8-verdict-all-up-to-date">v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v136-docs-gate-ec-m136-8-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Gate run: 2026-07-06
+Branch: <code>sprint/v1.3.6</code>
+Release: v1.3.6 — "Diagnostics, Real-time &amp; Stability" (M136)
+Scope: WS-A (Home/Graph dataVersion polling), WS-B (review resolved/dismissed distinct card),
+  WS-C (ingest % + ETA in Home widget), WS-D7 (NoteView single-scroll sticky header),
+  WS-D8 (GET /vault/meta + Vault/Meta tree node + read-only drawer),
+  WS-G (automations verified, no regressions).
+  Proxy fix: frontend/vite.config.ts /vault route.
+  MetaFileView shared CSS class (synapse-markdown__body prose).
+No new ADR in this sprint. WS-E/WS-F deferred to v1.3.7.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Artifact</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/</code> (context/container/component)</td>
+<td>UP-TO-DATE (no change)</td>
+<td>v1.3.6 adds no new container, port, or external service. WS-D8 GET /vault/meta is a thin read-only route inside the existing FastAPI service boundary. WS-A polling uses existing GET /status endpoint. C4 topology unchanged from v1.3.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>docs/er/schema.mmd</code></td>
+<td>UP-TO-DATE (verified unchanged)</td>
+<td>No SQLAlchemy model change in v1.3.6. WS-D8 does NOT write to Postgres (I1 — no new table, no new column). WS-G automation verification produced no migration. <code>make er</code> re-run confirmed zero diff vs committed file. 15 tables unchanged.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>docs/sequences/</code></td>
+<td>UP-TO-DATE (no change)</td>
+<td>v1.3.6 introduces no new multi-actor bounded loop requiring a new sequence diagram. WS-A dataVersion polling is a client-side interval over the existing GET /status route (no new actor). WS-D8 is a single-step disk read (no loop, no new swimlane). WS-B card state change is frontend-only. WS-C progress bar wires to existing ADR-0046 snapshot fields. All five committed sequence diagrams remain current.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><code>docs/api/openapi.json</code></td>
+<td>REGENERATED (this gate)</td>
+<td><code>backend/.venv/bin/python backend/scripts/generate_openapi.py</code> executed successfully. New endpoint confirmed present: <code>GET /vault/meta</code> (WS-D8, K1, I1, I5). Schemas added: <code>VaultMetaFile</code>, <code>VaultMetaResponse</code>. Path count: 83 (was 82 before WS-D8). WS-C uses no new endpoint (ADR-0046 GET /ingest/queue unchanged — AC-WS-C-4 holds). BearerAuth security check passed (all non-exempt routes reference BearerAuth; /status + /health/detailed carry security:[]). All 38 required-path sanity checks pass.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><code>docs/screens/</code></td>
+<td>PENDING-LIVE (carry-forward)</td>
+<td>v1.3.6 changes UI affordances: NoteView single-scroll sticky header (WS-D7), Vault/Meta tree section (WS-D8), ingest % + ETA widget (WS-C), resolved/dismissed card distinct state (WS-B), Home dataVersion polling (WS-A). Screenshots require a live-stack Playwright session. Non-blocking for code gate per established policy; blocking for EC-M136-HCP.</td>
+</tr>
+<tr>
+<td>D6a</td>
+<td><code>docs/USER.md</code></td>
+<td>UP-TO-DATE (no change required this gate)</td>
+<td>v1.3.6 is a bug-fix + observability sprint. No new top-level user workflow. The Vault/Meta tree node (WS-D8), the ingest progress widget (WS-C), and the review card fix (WS-B) are incremental improvements to existing flows documented in USER.md. A focused update pass is recommended at the v1.3.7 gate when screenshots are refreshed. Non-blocking.</td>
+</tr>
+<tr>
+<td>D6b</td>
+<td><code>docs/DEPLOY.md</code></td>
+<td>UP-TO-DATE (no change required)</td>
+<td>v1.3.6 introduces no new env vars. GET /vault/meta reads from the existing <code>vault_root</code> setting (already documented). WS-A polling interval is a frontend constant (no env var). WS-C ETA display uses existing batch fields from ADR-0046 (no new env var). No DEPLOY.md update needed.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/index.md</code></td>
+<td>UP-TO-DATE (no new ADR)</td>
+<td>No new ADR was initiated in this sprint (WS-E and WS-F deferred; WS-D8 is read-only disk access, not an architectural decision requiring an ADR). ADR index unchanged from the B1/B2 gates.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d4-endpoint-verification-v136-gate">D4 — Endpoint verification (v1.3.6 gate)<a class="headerlink" href="#d4-endpoint-verification-v136-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Present in openapi.json</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/vault/meta</code></td>
+<td>GET</td>
+<td>YES</td>
+<td>WS-D8: returns schema.md + purpose.md from disk. VaultMetaFile + VaultMetaResponse schemas present. [K1, I1, I5]</td>
+</tr>
+<tr>
+<td><code>/ingest/queue</code></td>
+<td>GET</td>
+<td>YES (unchanged)</td>
+<td>WS-C: frontend wires to existing batch.done/batch.total/batch.eta_seconds fields. AC-WS-C-4 holds — no new endpoint.</td>
+</tr>
+<tr>
+<td>All 38 required paths from generate_openapi.py sanity check</td>
+<td>GET/POST/etc</td>
+<td>YES</td>
+<td>generate_openapi.py sanity check passed with exit 0.</td>
+</tr>
+</tbody>
+</table>
+<p>Total paths in openapi.json: 83 (was 82). Net addition: 1 path (<code>/vault/meta</code>).</p>
+<h3 id="d2-er-verification-v136-gate">D2 — ER verification (v1.3.6 gate)<a class="headerlink" href="#d2-er-verification-v136-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>generate_er.py</code> exit code</td>
+<td>0</td>
+</tr>
+<tr>
+<td><code>git diff docs/er/schema.mmd</code></td>
+<td>EMPTY — no drift</td>
+</tr>
+<tr>
+<td>Tables confirmed present</td>
+<td>15 (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES, CONVERSATIONS, MESSAGES, IMPORT_SCHEDULES, DEEP_RESEARCH_RUNS, DEEP_RESEARCH_SOURCES, REVIEW_ITEMS, APP_CONFIG, LINT_RUNS, LINT_FINDINGS)</td>
+</tr>
+<tr>
+<td>Any new migration in v1.3.6</td>
+<td>NO — WS-D8 is disk-only (I1); WS-G produced no regressions requiring a schema change</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d3-sequence-diagrams-unchanged-v136-gate">D3 — Sequence diagrams unchanged (v1.3.6 gate)<a class="headerlink" href="#d3-sequence-diagrams-unchanged-v136-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/sequences/ingest-loop.mmd</code></td>
+<td>UP-TO-DATE (no change)</td>
+</tr>
+<tr>
+<td><code>docs/sequences/query-4phase.mmd</code></td>
+<td>UP-TO-DATE (no change)</td>
+</tr>
+<tr>
+<td><code>docs/sequences/deep-research.mmd</code></td>
+<td>UP-TO-DATE (no change)</td>
+</tr>
+<tr>
+<td><code>docs/sequences/cascade-delete.mmd</code></td>
+<td>UP-TO-DATE (no change)</td>
+</tr>
+<tr>
+<td><code>docs/sequences/lint-fix.mmd</code></td>
+<td>UP-TO-DATE (no change — last updated B1 gate)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="invariant-compliance-check-v136-gate">Invariant compliance check (v1.3.6 gate)<a class="headerlink" href="#invariant-compliance-check-v136-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong> (incremental index only)</td>
+<td>HOLDS — WS-D8 GET /vault/meta reads two fixed paths from disk; zero Postgres writes, zero Qdrant upserts (AC-WS-D8-3). WS-G regression repair (if any) bounded to restoring pre-v1.3.5 behavior.</td>
+</tr>
+<tr>
+<td><strong>I2</strong> (graph layout server-side)</td>
+<td>HOLDS — WS-A dataVersion polling never triggers a client-side graph layout recompute; frontend calls existing GET /graph only when version changes (AC-WS-A-2).</td>
+</tr>
+<tr>
+<td><strong>I3</strong> (no per-token heavy work in chat)</td>
+<td>HOLDS — WS-A polling tick does not cause re-render when dataVersion unchanged (Zustand shallow-equality guard, AC-WS-A-3). WS-C progress bar is a pure CSS element (AC-WS-C-5).</td>
+</tr>
+<tr>
+<td><strong>I5</strong> (Obsidian compatibility)</td>
+<td>HOLDS — WS-D7 sticky header is presentation-only; WS-D8 reads schema.md and purpose.md without indexing them as Page records (AC-WS-D8-3). Both files remain valid Obsidian Markdown (AC-WS-D8-4).</td>
+</tr>
+<tr>
+<td><strong>I7</strong> (bounded loops)</td>
+<td>HOLDS — WS-A polling uses the existing ActivityBar interval (no new loop). WS-C uses existing loop. No new unbounded loop introduced.</td>
+</tr>
+<tr>
+<td><strong>I8</strong> (docs-as-DoD)</td>
+<td>HOLDS — D4 regenerated (1 new path); D2 verified unchanged; D3 unchanged; D7 no new ADR needed. This gate entry filed.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d5-outstanding-screenshots-pending-live-v136-additions">D5 — Outstanding screenshots (PENDING-LIVE, v1.3.6 additions)<a class="headerlink" href="#d5-outstanding-screenshots-pending-live-v136-additions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Status</th>
+<th>Blocking?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NoteView with single-scroll sticky header (WS-D7)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M136-HCP only</td>
+</tr>
+<tr>
+<td>Vault/Meta tree section with schema.md + purpose.md nodes (WS-D8)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M136-HCP only</td>
+</tr>
+<tr>
+<td>Home widget with ingest % progress bar + ETA (WS-C)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M136-HCP only</td>
+</tr>
+<tr>
+<td>Review queue Risolti tab with distinct resolved card state (WS-B)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M136-HCP only</td>
+</tr>
+<tr>
+<td>All prior PENDING-LIVE items (v1.3, B1, B2 carry-forward)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-M136-HCP only</td>
+</tr>
+</tbody>
+</table>
+<h3 id="docs-gate-verdict-v136">DOCS GATE VERDICT — v1.3.6<a class="headerlink" href="#docs-gate-verdict-v136" title="Permanent link">&para;</a></h3>
+<p><strong>ALL UP-TO-DATE</strong></p>
+<p>D4 (OpenAPI) regenerated via <code>backend/.venv/bin/python backend/scripts/generate_openapi.py</code>:
+<code>GET /vault/meta</code> now present (WS-D8, +94 lines, 83 total paths).
+D2 (ER) verified unchanged: <code>git diff docs/er/schema.mmd</code> returned empty; <code>generate_er.py</code>
+passed with all 15 tables confirmed — no migration in v1.3.6.
+D3 (sequences) unchanged: no new multi-actor loop; all five diagrams current.
+D7 (ADR index) unchanged: no new ADR required this sprint.
+D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M136-HCP).
+WS-E and WS-F explicitly deferred to v1.3.7 — no documentation debt from deferral.</p>
+<p><strong>Signed: tech-writer (claude-sonnet-4-6) | 2026-07-06 | v1.3.6 docs gate (EC-M136-8)</strong></p>
 <hr />
 <h2 id="b1-lint-parity-docs-gate-verdict-all-up-to-date">B1-Lint Parity Docs Gate — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#b1-lint-parity-docs-gate-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
 <blockquote>

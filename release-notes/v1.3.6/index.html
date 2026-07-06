@@ -1,0 +1,818 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.6/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse 1.3.6 — Diagnostics, Real-time & Stability - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-136-diagnostics-real-time-stability" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse 1.3.6 — Diagnostics, Real-time &amp; Stability
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-A — Aggiornamento in tempo reale (Home + Grafo) [F16, F4, F18]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ws-b-coda-revisione-card-resolveddismissed-distinte-f9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-B — Coda Revisione: card resolved/dismissed distinte [F9]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ws-c-visibilita-progresso-ingest-eta-f3-f16" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-C — Visibilità progresso ingest (% + ETA) [F3, F16]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D7 — NoteView: scroll singolo, header che scorre col testo [K1, K6, I5]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D8 — Nodo albero "Vault / Meta" (schema.md + purpose.md) [K1, K6, I5]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-G — Verifica automazioni pianificate [K2, F3, F16, F18]
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#artefatti-documentazione-i8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Artefatti documentazione (I8)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-136-diagnostics-real-time-stability">Synapse 1.3.6 — Diagnostics, Real-time &amp; Stability<a class="headerlink" href="#synapse-136-diagnostics-real-time-stability" title="Permanent link">&para;</a></h1>
+<p>Release di <strong>correzione e osservabilità</strong>: sei workstream di bug-fix e verifica su Home dashboard,
+coda Revisione, ingest, wiki viewer e automazioni pianificate. Nessuna nuova feature di rilievo;
+nessuna modifica al contratto API tranne l'aggiunta di <code>GET /vault/meta</code> (WS-D8, read-only).
+WS-E (wizard Domani/Gruppi) e WS-F (ristrutturazione Settings) rimandati a v1.3.7.</p>
+<hr />
+<h2 id="ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18">WS-A — Aggiornamento in tempo reale (Home + Grafo) [F16, F4, F18]<a class="headerlink" href="#ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18" title="Permanent link">&para;</a></h2>
+<p>Home dashboard e Graph viewer erano aggiornati solo al mount. Aggiunto <strong>polling leggero di
+<code>dataVersion</code></strong> tramite <code>GET /status</code> a intervallo (10 s Home, 5 s Grafo):</p>
+<ul>
+<li>I dati vengono ri-fetchati solo se <code>data_version</code> cambia rispetto all'ultima lettura.</li>
+<li>Il tick di polling non causa re-render se la versione non cambia (guardia Zustand
+  shallow-equality, I3).</li>
+<li>Nessun WebSocket, nessun endpoint nuovo, nessun ricalcolo layout client-side (I2).</li>
+<li>Home ri-fetcha <code>GET /stats/overview</code> e <code>GET /stats/sections</code>; Grafo ri-fetcha <code>GET /graph</code>
+  (coords pre-calcolate lato server, I2 preservato).</li>
+</ul>
+<h2 id="ws-b-coda-revisione-card-resolveddismissed-distinte-f9">WS-B — Coda Revisione: card resolved/dismissed distinte [F9]<a class="headerlink" href="#ws-b-coda-revisione-card-resolveddismissed-distinte-f9" title="Permanent link">&para;</a></h2>
+<p>I tab "In attesa" e "Risolti" restituivano dati corretti dal backend (confermato in Phase 0)
+ma le card resolved/dismissed erano visivamente identiche a quelle pending:</p>
+<ul>
+<li>Rimosso il prompt <em>"Proposte dell'AI — crea una pagina…"</em> dalle card già risolte.</li>
+<li>Rimossi i pulsanti <strong>Crea / Salta / Ignora / Ricerca Profonda</strong> dalle card resolved/dismissed
+  (offrirli su item già risolti era un bug logico — nessuna re-creazione accidentale).</li>
+<li>Aggiunto <strong>badge di stato risoluzione</strong> (es. "auto-risolto") + timestamp + link alla pagina
+  creata quando disponibile.</li>
+<li>Card resolved/dismissed ora mostrano un'affordance read-only / "riapri" al posto delle azioni.</li>
+</ul>
+<h2 id="ws-c-visibilita-progresso-ingest-eta-f3-f16">WS-C — Visibilità progresso ingest (% + ETA) [F3, F16]<a class="headerlink" href="#ws-c-visibilita-progresso-ingest-eta-f3-f16" title="Permanent link">&para;</a></h2>
+<p>Il widget "Lavori attivi" in Home mostrava solo il conteggio <code>processing</code>. Ora espone i campi
+già presenti nel payload ADR-0046 <code>GET /ingest/queue</code>:</p>
+<ul>
+<li><strong>Barra di progresso</strong> CSS: <code>(batch.done / batch.total) × 100</code>, arrotondata all'intero.</li>
+<li><strong>ETA</strong>: "ETA ~Xs" dal campo <code>batch.eta_seconds</code>; nascosta se <code>null</code>.</li>
+<li><strong>Etichetta fase</strong> per ogni task attivo (<code>phase</code>/<code>progress</code> dal campo <code>tasks[]</code>) con chiavi
+  i18n IT/EN (chiavi nuove aggiunte ai file di traduzione per le fasi mancanti).</li>
+<li>Nessun endpoint nuovo, nessuna modifica allo schema ADR-0046 (AC-WS-C-4 — OpenAPI drift zero
+  su <code>/ingest/queue</code>). Il polling è quello esistente dell'ActivityBar.</li>
+</ul>
+<h2 id="ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5">WS-D7 — NoteView: scroll singolo, header che scorre col testo [K1, K6, I5]<a class="headerlink" href="#ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5" title="Permanent link">&para;</a></h2>
+<p>Phase 0 ha confermato che su <strong>ogni pagina</strong> il body scorreva in un contenitore annidato
+separato rispetto all'header metadati (titolo, tipo, SORGENTI, CORRELATE), causando collisione
+visiva del testo con il blocco SORGENTI/CORRELATE:</p>
+<ul>
+<li>Collassato a un <strong>singolo contenitore di scroll</strong> per la nota.</li>
+<li>L'header metadati <strong>scorre insieme al body</strong> come un normale blocco in cima: <strong>non</strong> è sticky
+  e <strong>non</strong> è collassabile — esce dalla vista verso l'alto man mano che si legge.</li>
+<li>Rimossa la doppia coppia <code>overflow: auto</code> annidata (root cause confermata dal DOM).</li>
+<li>Compatibilità I5 preservata: nessuna modifica al rendering del frontmatter o al body Markdown.</li>
+</ul>
+<h2 id="ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5">WS-D8 — Nodo albero "Vault / Meta" (schema.md + purpose.md) [K1, K6, I5]<a class="headerlink" href="#ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5" title="Permanent link">&para;</a></h2>
+<p><code>schema.md</code> e <code>purpose.md</code> sono scritti al bootstrap ma non erano mai indicizzati come Page
+record, quindi non comparivano nell'albero:</p>
+<ul>
+<li>Nuova sezione <strong>"Vault / Meta"</strong> in fondo all'albero wiki, sempre presente, con due voci
+  fisse: <code>schema.md</code> e <code>purpose.md</code>.</li>
+<li>Clic sulla voce → contenuto del file nel pannello editor/preview tramite il path di lettura
+  esistente.</li>
+<li>Nuovo endpoint <strong><code>GET /vault/meta?vault_id=default</code></strong> che legge i due file direttamente da
+  disco (nessuna query Postgres, nessun upsert Qdrant, nessuna pipeline ingest — I1 preservato).</li>
+<li>Se uno dei file è assente (fresh install prima del bootstrap), la voce mostra
+  "Not yet generated" senza crash (AC-WS-D8-6).</li>
+<li>I file rimangono Markdown Obsidian-valid con frontmatter YAML (I5); il drawer è read-only
+  dall'albero.</li>
+<li><code>MetaFileView</code> usa la classe condivisa <code>synapse-markdown__body prose</code> (allineamento CSS).</li>
+<li>Il proxy Vite dev (<code>frontend/vite.config.ts</code>) ora instrada correttamente <code>/vault</code> verso il
+  backend (il path mancava, causando 404 in sviluppo).</li>
+</ul>
+<h2 id="ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18">WS-G — Verifica automazioni pianificate [K2, F3, F16, F18]<a class="headerlink" href="#ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18" title="Permanent link">&para;</a></h2>
+<p>Verificata la funzionalità delle quattro operazioni pianificate (<code>lint</code>, <code>backfill-domains</code>,
+<code>schema_review</code>, <code>reclassify</code>) dopo le modifiche di formato di v1.3.5 (log.md narrativo,
+frontmatter timestamps, schema.md completo). Nessuna regressione rilevata; eventuali fix
+applicati sono stati circoscritti al ripristino del comportamento pre-v1.3.5.</p>
+<hr />
+<h2 id="artefatti-documentazione-i8">Artefatti documentazione (I8)<a class="headerlink" href="#artefatti-documentazione-i8" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>docs/api/openapi.json</code> — rigenerato via <code>make openapi</code>: <code>GET /vault/meta</code> ora presente
+  (83 path totali, +1 rispetto a v1.3.5).</li>
+<li><code>docs/er/schema.mmd</code> — invariato (nessuna migration in v1.3.6; verifica <code>git diff</code> vuota).</li>
+<li>Diagrammi di sequenza — invariati (nessun nuovo loop multi-attore).</li>
+</ul>
+<hr />
+<h2 id="note">Note<a class="headerlink" href="#note" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>WS-E</strong> (wizard Domani/Gruppi) e <strong>WS-F</strong> (ristrutturazione Settings) rimandati a <strong>v1.3.7</strong>.
+  Richiedono ciascuno un ADR (filtro <code>/search</code> per WS-E; IA Settings per WS-F) che non è stato
+  avviato in questo sprint.</li>
+<li>L'endpoint <code>GET /vault/meta</code> accetta il param <code>vault_id</code> per compatibilità futura con
+  il modello multi-vault (v2.0), ma attualmente lo ignora — path risolto sempre da
+  <code>settings.vault_root</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

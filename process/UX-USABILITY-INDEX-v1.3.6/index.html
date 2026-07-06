@@ -1,0 +1,993 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/UX-USABILITY-INDEX-v1.3.6/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse — UI Usability & Intuitiveness Index (baseline @ v1.3.6) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-ui-usability-intuitiveness-index-baseline-v136" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse — UI Usability &amp; Intuitiveness Index (baseline @ v1.3.6)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overall-index-33-5-capable-but-expert-oriented" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overall index: 3.3 / 5 — "capable but expert-oriented"
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-heuristic-findings-evidence-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-heuristic findings (evidence-based)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-heuristic findings (evidence-based)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#h1-system-status-40" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H1 — System status · 4.0 ▲
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h2-naming-clarity-25-top-priority-cheap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H2 — Naming clarity · 2.5 ⚠ (top-priority, cheap)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h3-consistency-40" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H3 — Consistency · 4.0 ▲
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h4-error-prevention-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H4 — Error prevention · 3.5 ▲
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h5-discoverability-25-top-priority" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H5 — Discoverability · 2.5 ⚠ (top-priority)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h6-flexibility-efficiency-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H6 — Flexibility &amp; efficiency · 3.5
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h7-reading-comfort-35" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H7 — Reading comfort · 3.5 ▲
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h8-settings-ia-25-v137-ws-f" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H8 — Settings IA · 2.5 ⚠ (v1.3.7 WS-F)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#h9-onboarding-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        H9 — Onboarding · 3.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prioritised-backlog-for-future-releases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prioritised backlog for future releases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#method-caveats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method &amp; caveats
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-ui-usability-intuitiveness-index-baseline-v136">Synapse — UI Usability &amp; Intuitiveness Index (baseline @ v1.3.6)<a class="headerlink" href="#synapse-ui-usability-intuitiveness-index-baseline-v136" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Heuristic evaluation from a live senior-tester session on the running app (real vault:
+986 pages, 32 communities, 109 review items). Scores are 1–5 (5 = excellent). This is a
+planning baseline to prioritise UX work across v1.3.6 → v1.3.7+. Date: 2026-07-06.</p>
+<p>Each heuristic notes what v1.3.6 already improved and what remains.</p>
+</blockquote>
+<h2 id="overall-index-33-5-capable-but-expert-oriented">Overall index: <strong>3.3 / 5</strong> — "capable but expert-oriented"<a class="headerlink" href="#overall-index-33-5-capable-but-expert-oriented" title="Permanent link">&para;</a></h2>
+<p>The app is feature-dense and internally consistent for a power user who knows the model
+(vault / ingest / review / graph). The friction is concentrated in <strong>discoverability</strong>,
+<strong>naming</strong>, and <strong>settings information architecture</strong> — i.e. the gap between "works" and
+"a non-expert can find and understand it". v1.3.6 closed the biggest <strong>feedback</strong> and
+<strong>consistency</strong> gaps; v1.3.7 (settings restructure + domain wizard) targets the rest.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Heuristic</th>
+<th style="text-align: center;">Score</th>
+<th>Trend after v1.3.6</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1</td>
+<td>Visibility of system status (freshness, progress)</td>
+<td style="text-align: center;">4.0</td>
+<td>▲ from 2.5 (WS-A real-time, WS-C ingest %/ETA)</td>
+</tr>
+<tr>
+<td>H2</td>
+<td>Match to real world / naming clarity</td>
+<td style="text-align: center;">2.5</td>
+<td>—</td>
+</tr>
+<tr>
+<td>H3</td>
+<td>Consistency &amp; standards</td>
+<td style="text-align: center;">4.0</td>
+<td>▲ from 3.0 (WS-B distinct review states)</td>
+</tr>
+<tr>
+<td>H4</td>
+<td>Error prevention</td>
+<td style="text-align: center;">3.5</td>
+<td>▲ from 2.5 (WS-B: no invalid actions on resolved items)</td>
+</tr>
+<tr>
+<td>H5</td>
+<td>Recognition over recall / discoverability</td>
+<td style="text-align: center;">2.5</td>
+<td>~ (WS-D8 surfaced meta files, but buried)</td>
+</tr>
+<tr>
+<td>H6</td>
+<td>Flexibility &amp; efficiency</td>
+<td style="text-align: center;">3.5</td>
+<td>—</td>
+</tr>
+<tr>
+<td>H7</td>
+<td>Aesthetic &amp; minimalist design / reading comfort</td>
+<td style="text-align: center;">3.5</td>
+<td>▲ from 2.5 (WS-D7 note header no longer eats 46%)</td>
+</tr>
+<tr>
+<td>H8</td>
+<td>Settings information architecture</td>
+<td style="text-align: center;">2.5</td>
+<td>— (WS-F deferred to v1.3.7)</td>
+</tr>
+<tr>
+<td>H9</td>
+<td>Help &amp; onboarding</td>
+<td style="text-align: center;">3.0</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="per-heuristic-findings-evidence-based">Per-heuristic findings (evidence-based)<a class="headerlink" href="#per-heuristic-findings-evidence-based" title="Permanent link">&para;</a></h2>
+<h3 id="h1-system-status-40">H1 — System status · 4.0 ▲<a class="headerlink" href="#h1-system-status-40" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fixed in v1.3.6:</strong> Home/Graph now auto-refresh on <code>dataVersion</code> bump (was stale until manual reload); the "Lavori attivi" widget now shows overall % + ETA instead of a bare "3 in corso".</li>
+<li><strong>Remaining:</strong> the ingest progress widget only appears while a batch is active — no persistent "last run finished" affordance. Consider a brief completion toast.</li>
+</ul>
+<h3 id="h2-naming-clarity-25-top-priority-cheap">H2 — Naming clarity · 2.5 ⚠ (top-priority, cheap)<a class="headerlink" href="#h2-naming-clarity-25-top-priority-cheap" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>"Cerca" vs "Ricerca"</strong> are two different nav items (wiki search vs deep research) with near-synonymous Italian labels — a classic confusion. Rename one (e.g. "Ricerca" → "Ricerca approfondita" / "Deep Research").</li>
+<li>"Sorgenti" (sources) vs "Import" vs "Converti" — three ingestion-adjacent entries; their distinction isn't obvious pre-click.</li>
+<li><strong>Recommendation:</strong> a naming/terminology pass across the nav rail; group ingestion actions.</li>
+</ul>
+<h3 id="h3-consistency-40">H3 — Consistency · 4.0 ▲<a class="headerlink" href="#h3-consistency-40" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fixed in v1.3.6:</strong> review resolved/dismissed items now render a distinct dimmed card with an <code>AUTO-RISOLTO</code> badge instead of looking identical to pending proposals.</li>
+<li><strong>Remaining:</strong> the review section subtitle ("Proposte dell'AI — crea una pagina…") still shows on the Risolti/Ignorati tabs, where creation is not the action. Make the subtitle tab-aware.</li>
+</ul>
+<h3 id="h4-error-prevention-35">H4 — Error prevention · 3.5 ▲<a class="headerlink" href="#h4-error-prevention-35" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fixed in v1.3.6:</strong> resolved items no longer expose Crea / Ricerca Profonda (which would re-create an already-created page).</li>
+<li><strong>Remaining:</strong> destructive actions (cascade delete) — confirm the confirmation copy states shared-entity preservation clearly.</li>
+</ul>
+<h3 id="h5-discoverability-25-top-priority">H5 — Discoverability · 2.5 ⚠ (top-priority)<a class="headerlink" href="#h5-discoverability-25-top-priority" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The new <strong>Vault / Meta</strong> section (schema.md, purpose.md) sits at the very bottom of a virtualised tree — invisible until you scroll past 400+ concept nodes. Consider pinning it to the top, or a dedicated affordance.</li>
+<li><strong>Domain backfill</strong> is a hidden manual step: setting the domain vocabulary doesn't tell the user they must trigger a backfill to tag existing pages (feeds v1.3.7 WS-E: end-of-ingest auto-backfill + visible "Regenerate").</li>
+<li><strong>Group/domain creation</strong> is a comma-separated text field buried in settings (feeds v1.3.7 WS-E wizard).</li>
+<li>Clicking a domain/group on the Home dashboard navigates to Wiki with a localStorage filter, but there is no visible filter chip explaining why the list changed (feeds v1.3.7 WS-E: land in Search with a visible filter).</li>
+</ul>
+<h3 id="h6-flexibility-efficiency-35">H6 — Flexibility &amp; efficiency · 3.5<a class="headerlink" href="#h6-flexibility-efficiency-35" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Command palette exists (good for power users). Resizable panels. Keyboard shortcuts present.</li>
+<li><strong>Remaining:</strong> the meta files open in a read-only drawer (v1.3.6) — fine; a future "open in center pane" option would help longer reads.</li>
+</ul>
+<h3 id="h7-reading-comfort-35">H7 — Reading comfort · 3.5 ▲<a class="headerlink" href="#h7-reading-comfort-35" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fixed in v1.3.6:</strong> the note metadata header (title/tags/sources/related) no longer occupies ~46% of the pane and no longer double-scrolls; it's a compact sticky header with a collapsible detail tier. Reading area is now generous.</li>
+<li><strong>Fixed in v1.3.6:</strong> meta-file drawer now uses the shared prose stylesheet (tables/lists/code render correctly).</li>
+</ul>
+<h3 id="h8-settings-ia-25-v137-ws-f">H8 — Settings IA · 2.5 ⚠ (v1.3.7 WS-F)<a class="headerlink" href="#h8-settings-ia-25-v137-ws-f" title="Permanent link">&para;</a></h3>
+<ul>
+<li>17 pages across 6 groups. To wire the CLI provider you select it under "Provider LLM" but generate its token under "API e MCP" — one task, two tabs.</li>
+<li>No configured/missing state indicators; dense for a non-expert.</li>
+<li><strong>Deferred to v1.3.7 (WS-F, full restructure):</strong> per-provider end-to-end config in one place, plain-language descriptions, base/advanced modes, configured/missing badges.</li>
+</ul>
+<h3 id="h9-onboarding-30">H9 — Onboarding · 3.0<a class="headerlink" href="#h9-onboarding-30" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A first-run wizard exists (FirstRunWizard) and a re-openable "Configurazione guidata". Good baseline.</li>
+<li><strong>Remaining:</strong> no contextual empty-state guidance in secondary sections; no inline explanation of the vault/raw/wiki model for newcomers.</li>
+</ul>
+<h2 id="prioritised-backlog-for-future-releases">Prioritised backlog for future releases<a class="headerlink" href="#prioritised-backlog-for-future-releases" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: center;">Priority</th>
+<th>Item</th>
+<th>Heuristic</th>
+<th style="text-align: center;">Effort</th>
+<th>Target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">P1</td>
+<td>Rename "Cerca"/"Ricerca"; group ingestion nav items</td>
+<td>H2</td>
+<td style="text-align: center;">S</td>
+<td>v1.3.7</td>
+</tr>
+<tr>
+<td style="text-align: center;">P1</td>
+<td>Pin Vault/Meta section to top of tree</td>
+<td>H5</td>
+<td style="text-align: center;">S</td>
+<td>v1.3.7</td>
+</tr>
+<tr>
+<td style="text-align: center;">P1</td>
+<td>Settings restructure (per-provider, plain language, base/advanced)</td>
+<td>H8</td>
+<td style="text-align: center;">L</td>
+<td>v1.3.7 (WS-F)</td>
+</tr>
+<tr>
+<td style="text-align: center;">P1</td>
+<td>Domain/group wizard + visible search filter + auto-backfill</td>
+<td>H5</td>
+<td style="text-align: center;">L</td>
+<td>v1.3.7 (WS-E)</td>
+</tr>
+<tr>
+<td style="text-align: center;">P2</td>
+<td>Tab-aware review subtitle</td>
+<td>H3</td>
+<td style="text-align: center;">S</td>
+<td>v1.3.7</td>
+</tr>
+<tr>
+<td style="text-align: center;">P2</td>
+<td>Ingest completion toast / persistent last-run status</td>
+<td>H1</td>
+<td style="text-align: center;">S</td>
+<td>v1.3.7</td>
+</tr>
+<tr>
+<td style="text-align: center;">P3</td>
+<td>Contextual empty-states + vault-model explainer</td>
+<td>H9</td>
+<td style="text-align: center;">M</td>
+<td>v1.4</td>
+</tr>
+<tr>
+<td style="text-align: center;">P3</td>
+<td>"Open meta file in center pane" option</td>
+<td>H6</td>
+<td style="text-align: center;">S</td>
+<td>v1.4</td>
+</tr>
+</tbody>
+</table>
+<h2 id="method-caveats">Method &amp; caveats<a class="headerlink" href="#method-caveats" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Heuristic (expert-inspection) evaluation, not a user study. Scores are directional.</li>
+<li>Evaluated on desktop (1440×900) and the default narrow layout; a dedicated mobile pass is recommended separately.</li>
+<li>v1.3.6 fixes (WS-A/B/C/D7/D8) were verified live; their score bumps reflect the shipped state.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

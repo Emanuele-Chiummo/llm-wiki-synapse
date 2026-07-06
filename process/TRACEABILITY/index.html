@@ -1804,6 +1804,122 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#sprint-14-v136-coverage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sprint 14 — v1.3.6 Coverage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sprint 14 — v1.3.6 Coverage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ws-a-real-time-freshness-for-home-dashboard-and-graph-viewer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-A — Real-time freshness for Home dashboard and Graph viewer
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-b-review-queue-resolveddismissed-card-distinction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-B — Review queue resolved/dismissed card distinction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-c-ingest-progress-visibility-batch-and-eta-in-lavori-attivi-widget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-C — Ingest progress visibility (batch % and ETA in Lavori-attivi widget)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d7-noteview-nested-scroll-and-metadata-header-overlap-all-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D(7) — NoteView nested-scroll and metadata header overlap (all pages)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-d8-vaultmeta-tree-node-schemamd-and-purposemd-accessible-from-tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-D(8) — Vault/Meta tree node (schema.md and purpose.md accessible from tree)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ws-g-automations-functional-verification-lint-backfill-domains-schema_review-reclassify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        WS-G — Automations functional verification (lint, backfill-domains, schema_review, reclassify)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#m136-exit-criteria-coverage-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        M136 Exit Criteria coverage summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gap-register-m136" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap register (M136)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ambiguities-requiring-resolution-before-engineering-begins-m136" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ambiguities requiring resolution before engineering begins (M136)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -8992,6 +9108,883 @@ insets applied. i18n EN/IT strings added for drawer labels. ADR-0057 accepted.</
 <td>EC-M13-HCP</td>
 <td>arm64 image pull requires Actions runner with ARM capacity or QEMU buildx</td>
 <td>PENDING — "da validare al primo run Actions" per R13-8 roadmap note.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sprint-14-v136-coverage">Sprint 14 — v1.3.6 Coverage<a class="headerlink" href="#sprint-14-v136-coverage" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Milestone: M136 — "Diagnostics, Real-time &amp; Stability"
+Scope lock: docs/sprints/SPRINT-v1.3.6-SCOPE.md (authoritative)
+Phase-0 root causes: docs/sprints/PHASE0-FINDINGS-v1.3.6.md (authoritative)
+Branch: sprint/v1.3.6
+Date authored: 2026-07-06
+Author: functional-analyst</p>
+<p>In-scope workstreams: WS-A, WS-B, WS-C, WS-D(7), WS-D(8), WS-G
+Explicitly deferred (do NOT write tests): WS-E (domain wizard), WS-F (settings restructure)</p>
+<p>Column guide (same as prior sprints):
+  Feature ID  — K1–K8 / F1–F17 per CLAUDE.md §4
+  User Story  — US-<label> defined in this section
+  AC ID       — AC-WS-<X>-<N> as defined in SPRINT-v1.3.6-SCOPE.md §4
+  EC          — M136 Exit Criterion (EC-M136-1 … EC-M136-HCP)
+  D-artifacts — D1–D7 touched by this AC
+  Invariants  — I1–I9 directly exercised
+  Planned test file — path relative to backend/tests/ or frontend/tests/
+  Test ID     — filled by qa-test-engineer after tests are written
+  PR          — PR number (filled by engineer)
+  Status      — PENDING / GREEN / MANUAL / LIVE-SMOKE / N/A (conditional)</p>
+</blockquote>
+<hr />
+<h3 id="ws-a-real-time-freshness-for-home-dashboard-and-graph-viewer">WS-A — Real-time freshness for Home dashboard and Graph viewer<a class="headerlink" href="#ws-a-real-time-freshness-for-home-dashboard-and-graph-viewer" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> F16, F4, F18
+<strong>Invariants touched:</strong> I2 (server-side layout cached; no client-side FA2), I3 (no re-render per polling tick)
+<strong>D-artifacts:</strong> D4 (OpenAPI must show zero drift), D5 (screenshots refreshed if UI changes)</p>
+<p><strong>User Story US-WS-A:</strong>
+As a Synapse user, I want the Home dashboard statistics cards and the Graph viewer to automatically reflect the latest data without a manual page refresh, so that I always see an accurate picture of the vault state after ingest or other operations complete.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-A-1: When <code>GET /status</code> returns a <code>data_version</code> value different from the one recorded at the previous polling tick, the Home dashboard re-fetches <code>GET /stats/overview</code> AND <code>GET /stats/sections</code>; the rendered KPI cards update in the same render cycle without a full page reload.</li>
+<li>QA test type: vitest (unit/component). Mock the fetch calls; assert that a version bump triggers exactly two fetch calls (overview + sections) and that a stable version triggers zero.</li>
+<li>
+<p>Binary pass/fail: assert fetch call count equals expected value.</p>
+</li>
+<li>
+<p>AC-WS-A-2: When <code>data_version</code> changes, the Graph viewer re-fetches <code>GET /graph</code> and renders the updated precomputed coordinates. No client-side force-layout computation (FA2 or any spring/force algorithm) is invoked during or after the re-fetch.</p>
+</li>
+<li>QA test type: vitest. Assert no call to any layout function (e.g., <code>sigma.refresh()</code> with layout side-effects, or any <code>igraph</code>/<code>graphology-layout-forceatlas2</code> entry point) occurs on graph re-fetch. The assertion is a mock-call-count check: layout function call count === 0.</li>
+<li>
+<p>I2 compliance verified by code inspection + test.</p>
+</li>
+<li>
+<p>AC-WS-A-3: When <code>data_version</code> is unchanged between two consecutive polling ticks, neither the Home dashboard nor the Graph viewer triggers a data fetch, and no component re-renders due to the tick alone.</p>
+</li>
+<li>QA test type: vitest. Assert fetch call count === 0 for a stable-version tick. Assert Zustand selector output reference identity is preserved (shallow equality guard holds: <code>Object.is(prev, next) === true</code>).</li>
+<li>
+<p>I3 compliance verified by this assertion.</p>
+</li>
+<li>
+<p>AC-WS-A-4: No WebSocket connection, no new REST endpoint, and no additional polling loop are introduced by this workstream. The only polling mechanism is the existing <code>GET /status</code> interval call.</p>
+</li>
+<li>
+<p>QA test type: static analysis (CI). OpenAPI drift check <code>git diff --exit-code docs/api/openapi.json</code> exits 0. A grep for <code>new WebSocket</code> / <code>WebSocket(</code> in the diff of frontend source files returns 0 matches.</p>
+</li>
+<li>
+<p>AC-WS-A-5: The polling interval for the Home dashboard dataVersion check is 10 seconds; for the Graph viewer it is 5 seconds (matching the existing ActivityBar interval). Both values are named constants in the frontend source, not magic numbers, and are documented in the commit or ADR note filed by the architect.</p>
+</li>
+<li>
+<p>QA test type: static analysis + code review. Grep for hardcoded numeric literals (e.g., <code>10000</code>, <code>5000</code>) in the component files; assert zero raw literals — only the named constant references.</p>
+</li>
+<li>
+<p>AC-WS-A-6: A dedicated vitest spec asserts the full state-machine contract: given a mock that alternates stable/bumped <code>data_version</code>, the sequence of fetch calls matches exactly [0, 1, 1, 0, 1] (5 ticks: stable, bump, bump, stable, bump) for the endpoint under test.</p>
+</li>
+<li>QA test type: vitest. Binary assertion on mock call history array.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-A-1</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>D4, D5</td>
+<td>I2, I3</td>
+<td>frontend/tests/homePolling.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-A-2</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>D4</td>
+<td>I2</td>
+<td>frontend/tests/graphPolling.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-A-3</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>—</td>
+<td>I2, I3</td>
+<td>frontend/tests/homePolling.spec.ts, frontend/tests/graphPolling.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-A-4</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>D4</td>
+<td>I2, I3</td>
+<td>CI: git diff --exit-code docs/api/openapi.json; grep WebSocket in diff</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-A-5</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>—</td>
+<td>I2</td>
+<td>CI: static grep for raw numeric literals in polling components</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-A-6</td>
+<td>US-WS-A</td>
+<td>EC-M136-2</td>
+<td>—</td>
+<td>I2, I3</td>
+<td>frontend/tests/homePolling.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ws-b-review-queue-resolveddismissed-card-distinction">WS-B — Review queue resolved/dismissed card distinction<a class="headerlink" href="#ws-b-review-queue-resolveddismissed-card-distinction" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> F9
+<strong>Invariants touched:</strong> (none from I1–I9 directly; correctness-only fix)
+<strong>D-artifacts:</strong> D5 (screenshot of review tabs), D4 (no contract change)
+<strong>Phase-0 root cause (P0-1):</strong> Backend returns correct disjoint sets per status. Defect is pure frontend: resolved/dismissed items render the identical card UI as pending items, exposing Crea/Ricerca Profonda actions and showing no resolution badge. Both tabs appear identical to the user.
+<strong>Gate:</strong> AC-WS-B-0 must be satisfied before AC-WS-B-1..3 are green. Phase-0 confirms the bug (CONFIRMED per PHASE0-FINDINGS-v1.3.6.md §P0-1).</p>
+<p><strong>User Story US-WS-B:</strong>
+As a Synapse user reviewing the Review queue, I want resolved and dismissed items to show a visually distinct card state with a resolution badge, timestamp, and link to the created page (if applicable), and without Crea/Ricerca Profonda action buttons, so that I can clearly distinguish what has been addressed from what still needs my attention.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-B-0 (GATE): Phase-0 CONFIRMS the bug (satisfied — see PHASE0-FINDINGS-v1.3.6.md §P0-1). All subsequent ACs are unblocked.</li>
+<li>
+<p>Evidence: direct API calls in Phase-0 session confirmed <code>status=pending</code> → 109 items, <code>status=resolved</code> → 2 items; tabs showed visually identical cards.</p>
+</li>
+<li>
+<p>AC-WS-B-1: The review item card component applies a distinct visual variant (e.g., CSS class <code>card--resolved</code> or <code>card--dismissed</code>) when <code>item.status</code> is <code>resolved</code> or <code>auto_resolved</code> or <code>dismissed</code>. This variant replaces the primary action row (Crea / Salta / Ignora / Ricerca Profonda) with a read-only resolution badge showing the resolution status label and the <code>resolved_at</code> timestamp (formatted per user locale IT/EN).</p>
+</li>
+<li>
+<p>QA test type: vitest component test. Render the card with <code>status="auto_resolved"</code> and assert: (a) no element matching <code>[data-testid="action-crea"]</code> is present; (b) no element matching <code>[data-testid="action-ricerca-profonda"]</code> is present; (c) an element with <code>[data-testid="resolution-badge"]</code> is present; (d) the badge text contains the formatted timestamp.</p>
+</li>
+<li>
+<p>AC-WS-B-2: When a resolved item has a <code>created_page_id</code> (i.e., the review action created a wiki page), the resolution badge includes a navigable link (anchor or router-link) to that page. When <code>created_page_id</code> is null, no broken link is rendered.</p>
+</li>
+<li>
+<p>QA test type: vitest component test. Two cases: (a) with <code>created_page_id</code> set — assert one <code>&lt;a&gt;</code> or <code>&lt;Link&gt;</code> with href containing the page ID; (b) with <code>created_page_id = null</code> — assert zero such links.</p>
+</li>
+<li>
+<p>AC-WS-B-3: A Playwright or vitest integration spec seeds the mock review store with at least one pending item and at least one resolved item, clicks "In attesa" tab, asserts Crea button is visible for the pending card AND absent for the resolved card; then clicks "Risolti" tab and asserts the resolved card has the resolution badge AND the pending card's Crea button is not visible.</p>
+</li>
+<li>QA test type: Playwright (preferred, uses real DOM) or vitest (using Testing Library queries). Binary assertion on DOM presence.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-B-0</td>
+<td>US-WS-B</td>
+<td>EC-M136-3</td>
+<td>—</td>
+<td>—</td>
+<td>Evidence: PHASE0-FINDINGS-v1.3.6.md §P0-1</td>
+<td>—</td>
+<td>—</td>
+<td>CONFIRMED</td>
+</tr>
+<tr>
+<td>AC-WS-B-1</td>
+<td>US-WS-B</td>
+<td>EC-M136-3</td>
+<td>D5</td>
+<td>—</td>
+<td>frontend/tests/reviewCard.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-B-2</td>
+<td>US-WS-B</td>
+<td>EC-M136-3</td>
+<td>D5</td>
+<td>—</td>
+<td>frontend/tests/reviewCard.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-B-3</td>
+<td>US-WS-B</td>
+<td>EC-M136-3</td>
+<td>D5</td>
+<td>—</td>
+<td>frontend/tests/review.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ws-c-ingest-progress-visibility-batch-and-eta-in-lavori-attivi-widget">WS-C — Ingest progress visibility (batch % and ETA in Lavori-attivi widget)<a class="headerlink" href="#ws-c-ingest-progress-visibility-batch-and-eta-in-lavori-attivi-widget" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> F3, F16
+<strong>Invariants touched:</strong> I3 (no heavy rerender per tick), I7 (no new loop; existing ActivityBar 1.5s loop only)
+<strong>D-artifacts:</strong> D4 (OpenAPI must show zero drift — no new endpoint)
+<strong>Phase-0 root cause (P0-5):</strong> <code>/ingest/queue</code> already returns <code>batch</code> (with <code>done</code>, <code>total</code>, <code>eta_seconds</code>) and <code>tasks[]</code> (with per-task <code>phase</code>/<code>progress</code>). The Home "Lavori attivi" widget only surfaces <code>processing</code> count. No backend change needed.</p>
+<p><strong>User Story US-WS-C:</strong>
+As a Synapse user, I want the "Lavori attivi" widget on the Home dashboard to show an overall progress bar and ETA when a batch ingest is running, and a per-task phase label for each active task, so that I can understand how far along the current ingest operation is without navigating away.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-C-1: When the <code>/ingest/queue</code> snapshot contains <code>batch.total &gt; 0</code>, the "Lavori attivi" widget renders a progress bar whose filled width equals <code>Math.round((batch.done / batch.total) * 100)</code>%. The percentage is also displayed as a numeric label (e.g., "40%"). When <code>batch</code> is null or <code>batch.total === 0</code>, the progress bar is hidden (no empty bar rendered).</li>
+<li>
+<p>QA test type: vitest component test. Render with <code>batch={done:2, total:5, eta_seconds:30}</code> and assert the progress element has <code>style.width</code> === "40%" (or equivalent aria/role attribute) and text "40%". Render with <code>batch=null</code> and assert no progress element in DOM.</p>
+</li>
+<li>
+<p>AC-WS-C-2: The ETA display shows the string "ETA ~30s" (EN) or "Stima ~30s" (IT — or equivalent localized form using existing i18n keys) when <code>batch.eta_seconds === 30</code>. When <code>batch.eta_seconds</code> is null, the ETA element is not rendered (display:none or not mounted).</p>
+</li>
+<li>
+<p>QA test type: vitest component test. Assert text content for each locale. Assert absence when <code>eta_seconds=null</code>.</p>
+</li>
+<li>
+<p>AC-WS-C-3: For each entry in <code>tasks[]</code> where <code>task.status === "processing"</code>, the widget renders a phase label inline using the i18n key corresponding to <code>task.phase</code> (e.g., <code>"analyze"</code> → "Analisi..." in IT, "Analysis..." in EN). Phase keys not yet present in the i18n translation files for both EN and IT must be added before the PR is merged.</p>
+</li>
+<li>
+<p>QA test type: vitest. Assert that for a task with <code>phase="analyze"</code>, the rendered text matches the i18n-resolved string. Assert that the i18n files (<code>frontend/src/i18n/en.json</code> and <code>frontend/src/i18n/it.json</code>) contain all phase keys used by the component (static key enumeration check).</p>
+</li>
+<li>
+<p>AC-WS-C-4: No new backend REST endpoint is introduced. The OpenAPI spec is unchanged. The CI docs-gate command <code>git diff --exit-code docs/api/openapi.json</code> exits 0 after the PR lands.</p>
+</li>
+<li>
+<p>QA test type: CI docs-gate (automated). Binary: exit code 0 = pass.</p>
+</li>
+<li>
+<p>AC-WS-C-5: The progress bar is implemented as a CSS <code>&lt;div&gt;</code> or <code>&lt;progress&gt;</code> element — no canvas, no animation library import added to the bundle. The component does not trigger a re-render on every ActivityBar polling tick when the batch data has not changed (Zustand selector with shallow equality guards the update).</p>
+</li>
+<li>
+<p>QA test type: vitest (render count assertion) + static analysis (grep for <code>canvas</code> or animation library import in the component file). Assert render count === 1 for two consecutive identical snapshots fed to the component.</p>
+</li>
+<li>
+<p>AC-WS-C-6: A vitest spec covers the canonical batch snapshot: <code>batch={done:2, total:5, eta_seconds:30}</code> produces a rendered widget containing "40%", "ETA ~30s" (or locale-equivalent), and at least one task phase label. Assert all three are present in the same render.</p>
+</li>
+<li>QA test type: vitest. Single spec, three assertions, one render call.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-C-1</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>D4</td>
+<td>I3</td>
+<td>frontend/tests/lavoriAttiviWidget.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-C-2</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>D4</td>
+<td>I3</td>
+<td>frontend/tests/lavoriAttiviWidget.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-C-3</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>—</td>
+<td>I3</td>
+<td>frontend/tests/lavoriAttiviWidget.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-C-4</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>D4</td>
+<td>I7</td>
+<td>CI: git diff --exit-code docs/api/openapi.json</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-C-5</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>—</td>
+<td>I3, I7</td>
+<td>frontend/tests/lavoriAttiviWidget.spec.ts; CI: grep canvas in component diff</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-C-6</td>
+<td>US-WS-C</td>
+<td>EC-M136-4</td>
+<td>—</td>
+<td>I3</td>
+<td>frontend/tests/lavoriAttiviWidget.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ws-d7-noteview-nested-scroll-and-metadata-header-overlap-all-pages">WS-D(7) — NoteView nested-scroll and metadata header overlap (all pages)<a class="headerlink" href="#ws-d7-noteview-nested-scroll-and-metadata-header-overlap-all-pages" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> K6, K5, I5 (read: F1 for layout component)
+<strong>Invariants touched:</strong> I5 (Obsidian compatibility must hold — rendered output unchanged), I4 (editor is CodeMirror 6; no WYSIWYG change)
+<strong>D-artifacts:</strong> D5 (NoteView screenshot refreshed after fix)
+<strong>Phase-0 root cause (P0-2):</strong> CONFIRMED. Root cause is two nested <code>overflow:auto</code> containers in NoteView — the metadata header (~379px, 46% of the 824px note area) is a static flex sibling, and <code>.note-view__body</code> is a separate inner scroll pane. The ancestor also has <code>overflow:auto</code>. Result: double-scroll on every page; body text visually collides with the SORGENTI/CORRELATE block. This is NOT a frontmatter parsing bug.
+<strong>Note:</strong> WS-D(7) is no longer conditional — Phase-0 CONFIRMED the bug. All ACs are active.</p>
+<p><strong>User Story US-WS-D7:</strong>
+As a Synapse user reading a wiki page in the NoteView panel, I want the page content to scroll smoothly in a single scroll container so that the body text never overlaps or collides with the title, type, sources, or related-pages metadata header while scrolling.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-D7-1: The NoteView component uses exactly one scroll container for the full note area (metadata header + body). The fix removes the double <code>overflow:auto</code> nesting: either (a) the metadata header is <code>position:sticky; top:0</code> with a solid background and z-index above the body, placed above a single scrollable body; or (b) both header and body are siblings inside one scrolling parent with no inner <code>overflow:auto</code> on the body element.</li>
+<li>
+<p>QA test type: Playwright E2E. Navigate to any wiki page; assert that the DOM has at most one ancestor element with <code>overflow: auto</code> or <code>overflow: scroll</code> in the note panel subtree. (Use <code>page.evaluate</code> to walk the ancestor chain and count scroll containers.)</p>
+</li>
+<li>
+<p>AC-WS-D7-2: After scrolling the note body to a position where the body text would previously have collided with the metadata block, no text content from the body overlaps the bounding box of the metadata header section. This is verified visually via a Playwright screenshot comparison or by asserting that the top edge of the first body paragraph's bounding rect is below the bottom edge of the metadata header's bounding rect.</p>
+</li>
+<li>
+<p>QA test type: Playwright. <code>page.locator('.note-view__header').boundingBox()</code> bottom &lt;= <code>page.locator('.note-view__body p:first-child').boundingBox()</code> top. Binary assertion.</p>
+</li>
+<li>
+<p>AC-WS-D7-3: The metadata header height does not exceed 50% of the visible note panel height (825px reference viewport). If the metadata header exceeds this threshold, it must be collapsible (toggle button) so the user can hide it and expose more of the body. Collapsed state is the default when the panel height is below 700px.</p>
+</li>
+<li>
+<p>QA test type: Playwright. At 1280x824 viewport, assert <code>header.boundingBox().height &lt;= 412</code>. If collapsible: assert that clicking the toggle sets the header to collapsed (height ≤ 48px) and that the body is fully visible below.</p>
+</li>
+<li>
+<p>AC-WS-D7-4: Existing renderMarkdown unit tests remain green. The fix touches only the NoteView layout component (CSS/JSX), not renderMarkdown.ts or the frontmatter-stripping logic. No YAML content appears in the rendered body for any test fixture page.</p>
+</li>
+<li>QA test type: vitest (<code>npm run test</code> suite green). <code>renderMarkdown</code> unit tests must all pass without modification.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-D7-1</td>
+<td>US-WS-D7</td>
+<td>EC-M136-6</td>
+<td>D5</td>
+<td>I4, I5</td>
+<td>frontend/tests/noteViewScroll.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D7-2</td>
+<td>US-WS-D7</td>
+<td>EC-M136-6</td>
+<td>D5</td>
+<td>I5</td>
+<td>frontend/tests/noteViewScroll.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D7-3</td>
+<td>US-WS-D7</td>
+<td>EC-M136-6</td>
+<td>D5</td>
+<td>I4</td>
+<td>frontend/tests/noteViewScroll.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D7-4</td>
+<td>US-WS-D7</td>
+<td>EC-M136-6</td>
+<td>—</td>
+<td>I5</td>
+<td>frontend/tests/renderMarkdown.spec.ts (existing, must stay green)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="ws-d8-vaultmeta-tree-node-schemamd-and-purposemd-accessible-from-tree">WS-D(8) — Vault/Meta tree node (schema.md and purpose.md accessible from tree)<a class="headerlink" href="#ws-d8-vaultmeta-tree-node-schemamd-and-purposemd-accessible-from-tree" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> K1, K6
+<strong>Invariants touched:</strong> I1 (no new ingest pipeline, no Postgres write, no Qdrant upsert), I5 (files remain valid Obsidian Markdown)
+<strong>D-artifacts:</strong> D4 (new GET /vault/meta endpoint must appear in OpenAPI), D5 (screenshot of tree with Vault/Meta node)
+<strong>Phase-0 root cause (P0-3):</strong> CONFIRMED. <code>schema.md</code> and <code>purpose.md</code> are bootstrap-written but never indexed as Page records. They are unreachable from the wiki tree.</p>
+<p><strong>User Story US-WS-D8:</strong>
+As a Synapse user, I want to see and open schema.md and purpose.md from the wiki tree under a dedicated "Vault / Meta" section, so that I can read the vault rules and purpose statement without navigating the raw filesystem.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-D8-1: A "Vault / Meta" section is always present at the bottom of the wiki file tree. It contains exactly two entries: <code>schema.md</code> and <code>purpose.md</code> (display names localized: "Schema" and "Scopo" in IT; "Schema" and "Purpose" in EN, or approved i18n strings). The section is present even when the rest of the tree is empty.</li>
+<li>
+<p>QA test type: Playwright. Navigate to the app; assert one element with <code>[data-testid="tree-section-vault-meta"]</code> is present; assert it contains exactly two child items whose <code>data-path</code> attributes equal the fixed paths for schema.md and purpose.md.</p>
+</li>
+<li>
+<p>AC-WS-D8-2: Clicking the <code>schema.md</code> entry navigates to its content in the editor/preview panel, served by <code>GET /vault/meta?file=schema</code> (or equivalent endpoint). The same applies to <code>purpose.md</code>. The rendered content is the raw Markdown of the file (YAML frontmatter stripped from the rendered view per existing renderMarkdown logic).</p>
+</li>
+<li>
+<p>QA test type: Playwright. Click the schema.md tree node; assert that the preview panel contains text that matches a known string from the actual schema.md file (e.g., the <code>type</code> field definition). Binary text-presence assertion.</p>
+</li>
+<li>
+<p>AC-WS-D8-3: <code>schema.md</code> and <code>purpose.md</code> do NOT appear as rows in the <code>pages</code> Postgres table (verified by querying <code>SELECT count(*) FROM pages WHERE file_path LIKE '%schema.md' OR file_path LIKE '%purpose.md'</code>). No new Qdrant point is created for either file.</p>
+</li>
+<li>QA test type: backend pytest. In a test with an in-memory SQLite DB (StaticPool), bootstrap the vault, run the watcher scan, and assert the pages table contains 0 rows matching the two fixed paths. Optionally, assert FakeQdrantClient upsert_points was not called for these paths.</li>
+<li>
+<p>I1 compliance verified by this test.</p>
+</li>
+<li>
+<p>AC-WS-D8-4: The <code>GET /vault/meta</code> endpoint (or equivalent) is accessible without authentication (matching the existing GET /pages behavior) and returns a JSON body containing at minimum <code>{"file": "schema", "content": "&lt;raw markdown string&gt;"}</code>. The endpoint appears in the OpenAPI spec (docs/api/openapi.json regenerated).</p>
+</li>
+<li>
+<p>QA test type: backend pytest (ASGI TestClient). Assert status 200 for <code>GET /vault/meta?file=schema</code> and <code>GET /vault/meta?file=purpose</code>. Assert response body has <code>content</code> key with non-empty string value. CI docs-gate: <code>git diff --exit-code docs/api/openapi.json</code> exits 1 (diff expected for new endpoint), then after regeneration exits 0.</p>
+</li>
+<li>
+<p>AC-WS-D8-5: I5 holds: both files remain valid Obsidian Markdown with YAML frontmatter. The "Vault / Meta" tree node is read-only from the tree perspective (no inline rename, delete, or create operations exposed on these two entries). The existing editor can still open and edit them if the user navigates to them directly.</p>
+</li>
+<li>
+<p>QA test type: static assertion + Playwright. Assert that no rename/delete context menu option is present on the vault-meta tree entries (Playwright right-click assertion). Backend: assert that <code>schema.md</code> on disk still contains a valid YAML frontmatter block (<code>---</code> … <code>---</code>) after the feature is added (no file mutation).</p>
+</li>
+<li>
+<p>AC-WS-D8-6: If either file is absent from disk at the time of the tree request (edge case: fresh install before bootstrap completes), the corresponding entry in the "Vault / Meta" section shows the label "Not yet generated" (or i18n equivalent) and is non-clickable (no navigation triggered). No 500 error is thrown.</p>
+</li>
+<li>QA test type: backend pytest. Mock the file-read to raise <code>FileNotFoundError</code> for schema.md; call <code>GET /vault/meta?file=schema</code>; assert status 200 with <code>{"file": "schema", "content": null, "missing": true}</code> (or equivalent agreed schema). Frontend: vitest component test — render the tree node with <code>missing=true</code>; assert text "Not yet generated" and no click handler attached.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-D8-1</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>D5</td>
+<td>I1, I5</td>
+<td>frontend/tests/vaultMetaTree.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D8-2</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>D5</td>
+<td>I5</td>
+<td>frontend/tests/vaultMetaTree.spec.ts (Playwright)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D8-3</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>—</td>
+<td>I1</td>
+<td>backend/tests/test_vault_meta.py</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D8-4</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>D4</td>
+<td>I8</td>
+<td>backend/tests/test_vault_meta.py; CI: generate_openapi.py + git diff</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D8-5</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>—</td>
+<td>I1, I5</td>
+<td>frontend/tests/vaultMetaTree.spec.ts (Playwright right-click); backend/tests/test_vault_meta.py</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-D8-6</td>
+<td>US-WS-D8</td>
+<td>EC-M136-5</td>
+<td>—</td>
+<td>I1</td>
+<td>backend/tests/test_vault_meta.py; frontend/tests/vaultMetaTree.spec.ts</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Ambiguity flag AQ-M136-1:</strong> The SPRINT-v1.3.6-SCOPE.md §3 WS-D(8) states the solution must NOT index these files via the watcher or ingest path. However, the file-read path for <code>GET /vault/meta</code> requires reading from a known fixed disk location. If the implementation approach requires storing the absolute vault path in a new config key beyond what is already in <code>VAULT_PATH</code> env var, the backend-engineer must confirm with solution-architect before writing the endpoint. Escalation trigger: any approach that touches <code>app/models.py</code> or adds a column to an existing table.</p>
+<hr />
+<h3 id="ws-g-automations-functional-verification-lint-backfill-domains-schema_review-reclassify">WS-G — Automations functional verification (lint, backfill-domains, schema_review, reclassify)<a class="headerlink" href="#ws-g-automations-functional-verification-lint-backfill-domains-schema_review-reclassify" title="Permanent link">&para;</a></h3>
+<p><strong>Feature IDs:</strong> K2, F3, F16, F18
+<strong>Invariants touched:</strong> I7 (all ops must respect bounded loops and log <code>total_cost_usd</code>), I1 (ops must not trigger full re-scan), I5 (ops must not corrupt vault Markdown)
+<strong>D-artifacts:</strong> D4 (OpenAPI unchanged), D7 (ADR referenced if regression root cause is architectural)
+<strong>Phase-0 root cause (P0-6):</strong> All four ops confirmed healthy at the endpoint level (<code>GET /ops/schedules</code> returns 200); however, all have <code>last_run_at: null</code> on this vault — they have never been run against the production vault. Functional verification requires controlled runs. <code>lint</code> can be run as a free smoke; <code>backfill-domains</code>, <code>schema_review</code>, <code>reclassify</code> require controlled QA runs with provider cost awareness (I7).</p>
+<p><strong>User Story US-WS-G:</strong>
+As a Synapse operator, I want to confirm that the four scheduled automations (lint, backfill-domains, schema_review, reclassify) each complete successfully after the v1.3.5 changes (log.md format, frontmatter timestamps, schema.md completeness), so that I can trust the nightly scheduler to maintain vault quality without silent failures.</p>
+<p><strong>Acceptance criteria — engineering notes:</strong></p>
+<ol>
+<li>AC-WS-G-1: The <code>lint</code> operation runs to completion when triggered via <code>POST /ops/run-now</code> with <code>op="lint"</code> against the live vault (986 pages). It does not raise an uncaught exception. It produces at least one row in the <code>lint_findings</code> table (or logs "no findings" with exit status OK). The <code>last_status</code> field on the schedules record is updated to <code>"success"</code> (not null, not <code>"error"</code>).</li>
+<li>QA test type: LIVE-SMOKE (run against live TrueNAS vault). qa-test-engineer triggers via API call; inspects response and DB row. Also covered by backend unit test using mock provider (mock returns a pre-canned lint report; assert <code>lint_findings</code> upsert is called with expected payload).</li>
+<li>
+<p>Backend unit test file: <code>backend/tests/test_ops_lint.py</code> (mock provider path).</p>
+</li>
+<li>
+<p>AC-WS-G-2: The <code>backfill-domains</code> operation runs to completion when triggered via <code>POST /ops/run-now</code> with <code>op="backfill_domains"</code>. It classifies at least one page into a non-null domain tag (or logs "nothing to backfill" if all pages already have domains — acceptable). It logs <code>total_cost_usd</code> to the <code>ingest_runs</code> table. The <code>last_status</code> is <code>"success"</code>.</p>
+</li>
+<li>QA test type: backend unit test (mock provider, pre-seeded pages table with pages missing domain tags) + LIVE-SMOKE (controlled: verify <code>total_cost_usd</code> &gt; 0 in <code>ingest_runs</code> after run). I7: assert the op respects the configured <code>max_iter</code> cap (unit test: inject <code>max_iter=2</code> and verify loop exits after 2 iterations).</li>
+<li>
+<p>Backend unit test file: <code>backend/tests/test_ops_backfill.py</code>.</p>
+</li>
+<li>
+<p>AC-WS-G-3: The <code>schema_review</code> operation runs to completion when triggered via <code>POST /ops/run-now</code> with <code>op="schema_review"</code>. It either produces a <code>ReviewItem</code> of type <code>schema_suggestion</code> in the <code>review_items</code> table, or logs a "no suggestions" message with exit status OK. It does NOT silently discard a non-empty provider response. The <code>last_status</code> is <code>"success"</code>.</p>
+</li>
+<li>QA test type: backend unit test (mock provider returns a non-empty suggestion; assert <code>review_items</code> insert is called with <code>item_type="schema_suggestion"</code>). LIVE-SMOKE: confirm <code>last_status</code> via API.</li>
+<li>
+<p>Backend unit test file: <code>backend/tests/test_ops_schema_review.py</code>.</p>
+</li>
+<li>
+<p>AC-WS-G-4: The <code>reclassify</code> operation runs to completion when triggered via <code>POST /ops/run-now</code> with <code>op="reclassify"</code>. It either re-tags at least one page (updates <code>pages.domain</code> column) or logs "nothing to reclassify". It does not exit with an unhandled exception. The <code>last_status</code> is <code>"success"</code>.</p>
+</li>
+<li>QA test type: backend unit test (mock provider + pre-seeded stale pages) + LIVE-SMOKE. I7: assert <code>total_cost_usd</code> logged in <code>ingest_runs</code>.</li>
+<li>
+<p>Backend unit test file: <code>backend/tests/test_ops_reclassify.py</code>.</p>
+</li>
+<li>
+<p>AC-WS-G-5: If any of the four ops produces a regression specific to v1.3.5 changes (log.md format, frontmatter timestamp field name, schema.md field set), the fix is bounded to restoring the pre-v1.3.5 behavior. No logic is added to the op beyond the minimum change. The fix must be accompanied by a regression test that would have caught the original breakage.</p>
+</li>
+<li>
+<p>QA test type: backend pytest (regression test added to the relevant test_ops_*.py file). The test must fail on the pre-fix code and pass on the fixed code.</p>
+</li>
+<li>
+<p>AC-WS-G-6: After each op runs successfully, the <code>log.md</code> file in the vault contains a new append entry in the v1.3.5 format (ISO 8601 timestamp in frontmatter <code>updated</code> field; entry body identifies the op by name; no raw Python exception traceback in the log entry).</p>
+</li>
+<li>QA test type: backend unit test. Mock the <code>log_md_append</code> function; assert it is called once per op run with a payload matching the v1.3.5 format regex (timestamp + op name). LIVE-SMOKE: grep <code>log.md</code> for the new entry after the live run.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>AC ID</th>
+<th>User Story</th>
+<th>EC</th>
+<th>D-artifacts</th>
+<th>Invariants</th>
+<th>Planned test file</th>
+<th>Test ID</th>
+<th>PR</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AC-WS-G-1</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I1, I5, I7</td>
+<td>backend/tests/test_ops_lint.py; LIVE-SMOKE</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-G-2</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I1, I7</td>
+<td>backend/tests/test_ops_backfill.py; LIVE-SMOKE</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-G-3</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I7</td>
+<td>backend/tests/test_ops_schema_review.py; LIVE-SMOKE</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-G-4</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I1, I7</td>
+<td>backend/tests/test_ops_reclassify.py; LIVE-SMOKE</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-G-5</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I7</td>
+<td>backend/tests/test_ops_{lint,backfill,schema_review,reclassify}.py (regression tests)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>AC-WS-G-6</td>
+<td>US-WS-G</td>
+<td>EC-M136-7</td>
+<td>—</td>
+<td>I5</td>
+<td>backend/tests/test_ops_lint.py (log format assertion)</td>
+<td>—</td>
+<td>—</td>
+<td>PENDING</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="m136-exit-criteria-coverage-summary">M136 Exit Criteria coverage summary<a class="headerlink" href="#m136-exit-criteria-coverage-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>EC</th>
+<th>Description</th>
+<th>Covering ACs</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EC-M136-1</td>
+<td>Phase-0 defect report in BACKLOG.md (WS-H)</td>
+<td>Evidence: PHASE0-FINDINGS-v1.3.6.md filed; WS-B CONFIRMED; WS-D(7) CONFIRMED</td>
+<td>GREEN (Phase-0 complete)</td>
+</tr>
+<tr>
+<td>EC-M136-2</td>
+<td>WS-A: all 6 ACs green; CI suite green</td>
+<td>AC-WS-A-1..6</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-3</td>
+<td>WS-B: all 3 ACs green (bug CONFIRMED + fixed)</td>
+<td>AC-WS-B-0..3</td>
+<td>PENDING (B-0 CONFIRMED; B-1..3 pending engineering)</td>
+</tr>
+<tr>
+<td>EC-M136-4</td>
+<td>WS-C: all 6 ACs green; OpenAPI drift = 0</td>
+<td>AC-WS-C-1..6</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-5</td>
+<td>WS-D(8): all 6 ACs green</td>
+<td>AC-WS-D8-1..6</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-6</td>
+<td>WS-D(7): all 4 ACs green (bug CONFIRMED, unconditional)</td>
+<td>AC-WS-D7-1..4</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-7</td>
+<td>WS-G: all 6 ACs green; all 4 ops verified on live vault</td>
+<td>AC-WS-G-1..6</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-8</td>
+<td>Docs gate: D2/D4 regenerated; D7 indexed if ADR written; BACKLOG.md updated; DOCS_STATUS.md gate entry added</td>
+<td>D2, D4, D7</td>
+<td>PENDING (tech-writer sign-off required)</td>
+</tr>
+<tr>
+<td>EC-M136-9</td>
+<td>Architect review: I1/I2/I3/I5 invariant notes verified per workstream</td>
+<td>Invariant columns above</td>
+<td>PENDING (MANUAL — architect sign-off)</td>
+</tr>
+<tr>
+<td>EC-M136-10</td>
+<td>All CI jobs green (ruff, black, mypy, tsc, eslint, vitest, docs drift, mmdc)</td>
+<td>All automated ACs</td>
+<td>PENDING</td>
+</tr>
+<tr>
+<td>EC-M136-HCP</td>
+<td>Human checkpoint: Emanuele confirms WS-A, WS-B, WS-C, WS-D(8) on live v1.3.6 app</td>
+<td>MANUAL</td>
+<td>PENDING (MANUAL — Emanuele)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="gap-register-m136">Gap register (M136)<a class="headerlink" href="#gap-register-m136" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Gap ID</th>
+<th>AC ID</th>
+<th>Issue</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GAP-M136-1</td>
+<td>AC-WS-G-1..6</td>
+<td>Four ops have <code>last_run_at: null</code> on the production vault — they have never been run against it. Full live functional verification requires a controlled run on TrueNAS (provider cost for backfill/schema_review/reclassify).</td>
+<td>qa-test-engineer runs <code>lint</code> as free smoke first; runs remaining ops with mock provider for unit tests; schedules one controlled live run per op before EC-M136-7 sign-off. Log <code>total_cost_usd</code> for each live run per I7.</td>
+</tr>
+<tr>
+<td>GAP-M136-2</td>
+<td>AC-WS-D8-4</td>
+<td>The <code>GET /vault/meta</code> endpoint is new — OpenAPI will drift after implementation. The docs-gate must be re-run after the endpoint is added, and the regenerated <code>openapi.json</code> committed before CI can pass.</td>
+<td>Engineer runs <code>python scripts/generate_openapi.py</code> and commits the updated <code>docs/api/openapi.json</code> as part of the WS-D(8) PR.</td>
+</tr>
+<tr>
+<td>GAP-M136-3</td>
+<td>AC-WS-D7-3</td>
+<td>The collapsible metadata header requirement (if height &gt; 50%) may be disputed as out-of-scope UX work. If architect deems it a new feature beyond the scroll-fix, AC-WS-D7-3 is descoped to a DEFERRED entry and only AC-WS-D7-1/2/4 remain mandatory.</td>
+<td>Escalate to solution-architect before implementing the collapsible; if rejected, mark AC-WS-D7-3 as DEFERRED and remove from EC-M136-6 gate.</td>
+</tr>
+<tr>
+<td>GAP-M136-4</td>
+<td>AC-WS-B-3</td>
+<td>Playwright requires a running frontend+backend stack. If the CI suite does not run Playwright E2E for this spec, the test is LIVE only.</td>
+<td>If no E2E job is configured for review tab tests, classify AC-WS-B-3 as LIVE-SMOKE and require a manual Playwright run against the live stack before EC-M136-3 sign-off.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ambiguities-requiring-resolution-before-engineering-begins-m136">Ambiguities requiring resolution before engineering begins (M136)<a class="headerlink" href="#ambiguities-requiring-resolution-before-engineering-begins-m136" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>AQ ID</th>
+<th>Blocks ACs</th>
+<th>Question</th>
+<th>Recommended resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AQ-M136-1</td>
+<td>AC-WS-D8-3..6</td>
+<td>The <code>GET /vault/meta</code> endpoint reads schema.md/purpose.md from disk. What is the authoritative disk path? Is it always <code>{VAULT_PATH}/schema.md</code> and <code>{VAULT_PATH}/purpose.md</code> at vault root, or can they be nested?</td>
+<td>Confirm with solution-architect: fixed paths <code>{VAULT_PATH}/schema.md</code> and <code>{VAULT_PATH}/purpose.md</code> only. If not found at root, return <code>missing:true</code>. No recursive search.</td>
+</tr>
+<tr>
+<td>AQ-M136-2</td>
+<td>AC-WS-D8-6</td>
+<td>What is the agreed response schema for the <code>/vault/meta</code> endpoint when a file is missing? <code>{"file": "schema", "content": null, "missing": true}</code> is recommended.</td>
+<td>Frontend-engineer and backend-engineer must agree before implementation; functional-analyst recommendation is the <code>missing:true</code> payload above.</td>
+</tr>
+<tr>
+<td>AQ-M136-3</td>
+<td>AC-WS-A-5</td>
+<td>Who documents the polling interval decision — architect via ADR note or engineer via code comment?</td>
+<td>If architect decides to deviate from the 10s/5s defaults, a brief ADR note (not a full ADR) is sufficient. If the defaults are accepted as-is, a code comment in the polling hook is sufficient. Confirm before merging.</td>
+</tr>
+<tr>
+<td>AQ-M136-4</td>
+<td>AC-WS-D7-3</td>
+<td>Is the collapsible metadata header part of the scroll-fix or a separate UX feature?</td>
+<td>Escalate to solution-architect. If it is a UX feature, defer to v1.3.7. See GAP-M136-3.</td>
 </tr>
 </tbody>
 </table>
