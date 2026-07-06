@@ -1545,3 +1545,293 @@ class TestDeleteSourceDirectory:
         assert not empty_dir.exists()
         # _bump_version_no_derived must be called once for the empty-dir case
         assert bumped
+
+
+# ── T-SRC-036..T-SRC-040: root=wiki param on read endpoints ──────────────────
+#
+# Tests for the new root="wiki" capability added to GET /sources, /sources/content,
+# /sources/raw. Exercises:
+#   T-SRC-036  GET /sources?root=wiki lists wiki files+dirs; excludes .obsidian
+#   T-SRC-037  GET /sources/content?root=wiki&path= returns wiki file text
+#   T-SRC-038  GET /sources/raw?root=wiki&path= streams wiki file bytes
+#   T-SRC-039  Traversal root=wiki&path=../raw/... → 404 (path safety)
+#   T-SRC-040  root=wiki hides hidden entries (.obsidian, dotfiles); content/raw reject them
+#   T-SRC-041  root=sources behaviour UNCHANGED (regression)
+#   T-SRC-042  GET /sources?root=wiki with non-existent wiki dir → empty list (graceful)
+#   T-SRC-043  GET /sources/content?root=wiki returns ingested=False + page_ids=[]
+
+
+class TestWikiRoot:
+    """
+    T-SRC-036..T-SRC-043 — root=wiki param on GET /sources, /sources/content, /sources/raw.
+
+    Uses the existing src_env fixture which already populates wiki/ with:
+      log.md, .obsidian/app.json
+    We seed additional files (index.md, concepts/foo.md) inside the test.
+    """
+
+    # ── T-SRC-036: listing ────────────────────────────────────────────────────
+
+    async def test_wiki_listing_returns_wiki_files(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-036a: GET /sources?root=wiki lists files in vault/wiki/."""
+        wiki_dir: Path = src_env["wiki_dir"]
+
+        # Seed extra wiki content
+        (wiki_dir / "index.md").write_text(
+            "---\ntype: index\ntitle: Index\n---\n\n# Index\n", encoding="utf-8"
+        )
+        concepts_dir = wiki_dir / "concepts"
+        concepts_dir.mkdir(exist_ok=True)
+        (concepts_dir / "foo.md").write_text(
+            "---\ntype: concept\ntitle: Foo\n---\n\nFoo content.\n", encoding="utf-8"
+        )
+
+        resp = await src_client.get("/sources", params={"root": "wiki"})
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        assert "entries" in data
+        assert data["truncated"] is False
+
+        paths = {e["path"] for e in data["entries"]}
+        # Root-level files (log.md was created by fixture; index.md added above)
+        assert "log.md" in paths
+        assert "index.md" in paths
+        # concepts/ subdirectory
+        assert "concepts" in paths
+        # File inside concepts/
+        assert "concepts/foo.md" in paths
+
+    async def test_wiki_listing_excludes_obsidian_and_dotfiles(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-036b: GET /sources?root=wiki excludes .obsidian and dotfiles (I5)."""
+        wiki_dir: Path = src_env["wiki_dir"]
+        # .obsidian already exists in the fixture; add a dotfile at root level
+        (wiki_dir / ".hidden_file").write_text("secret\n", encoding="utf-8")
+
+        resp = await src_client.get("/sources", params={"root": "wiki"})
+        assert resp.status_code == 200
+        paths = {e["path"] for e in resp.json()["entries"]}
+
+        # .obsidian dir AND its children must NOT appear
+        assert ".obsidian" not in paths
+        assert not any(p.startswith(".obsidian") for p in paths)
+        # Root-level dotfile must NOT appear
+        assert ".hidden_file" not in paths
+
+    async def test_wiki_listing_does_not_leak_sources_files(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-036c: wiki listing does not contain any raw/sources/ file paths."""
+        resp = await src_client.get("/sources", params={"root": "wiki"})
+        assert resp.status_code == 200
+        paths = {e["path"] for e in resp.json()["entries"]}
+
+        # Files that exist in raw/sources/ must NOT appear in the wiki listing
+        for sources_only in ("note.md", "plain.txt", "image.png", "subdir"):
+            assert sources_only not in paths, (
+                f"{sources_only!r} should not appear in wiki listing"
+            )
+
+    # ── T-SRC-037: /sources/content with root=wiki ────────────────────────────
+
+    async def test_wiki_content_returns_text_for_md(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-037: GET /sources/content?root=wiki&path=log.md returns markdown text."""
+        # log.md is seeded by the fixture
+        resp = await src_client.get(
+            "/sources/content", params={"root": "wiki", "path": "log.md"}
+        )
+        assert resp.status_code == 200, f"Expected 200: {resp.text}"
+        data = resp.json()
+        assert data["path"] == "log.md"
+        assert data["category"] == "markdown"
+        assert data["is_text"] is True
+        assert data["text"] is not None
+        assert "Synapse Ingest Log" in data["text"]
+
+    async def test_wiki_content_ingested_always_false(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-043: root=wiki always returns ingested=False + page_ids=[]."""
+        resp = await src_client.get(
+            "/sources/content", params={"root": "wiki", "path": "log.md"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ingested"] is False
+        assert data["page_ids"] == []
+
+    async def test_wiki_content_absent_file_returns_404(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-037b: absent wiki file → 404."""
+        resp = await src_client.get(
+            "/sources/content", params={"root": "wiki", "path": "nonexistent.md"}
+        )
+        assert resp.status_code == 404
+
+    async def test_wiki_content_nested_file(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-037c: GET /sources/content?root=wiki&path=concepts/foo.md returns content."""
+        wiki_dir: Path = src_env["wiki_dir"]
+        concepts_dir = wiki_dir / "concepts"
+        concepts_dir.mkdir(exist_ok=True)
+        (concepts_dir / "bar.md").write_text(
+            "---\ntype: concept\ntitle: Bar\n---\n\nBar body.\n", encoding="utf-8"
+        )
+
+        resp = await src_client.get(
+            "/sources/content", params={"root": "wiki", "path": "concepts/bar.md"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["path"] == "concepts/bar.md"
+        assert "Bar body." in data["text"]
+
+    # ── T-SRC-038: /sources/raw with root=wiki ────────────────────────────────
+
+    async def test_wiki_raw_returns_bytes(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-038: GET /sources/raw?root=wiki&path=log.md streams bytes."""
+        resp = await src_client.get("/sources/raw", params={"root": "wiki", "path": "log.md"})
+        assert resp.status_code == 200, f"Expected 200: {resp.text}"
+        ct = resp.headers.get("content-type", "")
+        assert "markdown" in ct or "text" in ct
+        assert len(resp.content) > 0
+        assert b"Synapse Ingest Log" in resp.content
+
+    # ── T-SRC-039: traversal with root=wiki → 404 ─────────────────────────────
+
+    async def test_wiki_traversal_listing_is_bounded(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-039a: root=wiki listing has no path param — cannot traverse (read-only)."""
+        resp = await src_client.get("/sources", params={"root": "wiki"})
+        assert resp.status_code == 200
+        paths = {e["path"] for e in resp.json()["entries"]}
+        assert not any("/etc" in p or "passwd" in p for p in paths)
+
+    async def test_wiki_content_traversal_rejected(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-039b: root=wiki&path=../../raw/sources/note.md → 404 (traversal blocked)."""
+        resp = await src_client.get(
+            "/sources/content",
+            params={"root": "wiki", "path": "../../raw/sources/note.md"},
+        )
+        assert resp.status_code == 404, (
+            f"Expected 404 for traversal attempt, got {resp.status_code}"
+        )
+
+    async def test_wiki_raw_traversal_rejected(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-039c: root=wiki&path=../raw/sources/note.md for raw → 404."""
+        resp = await src_client.get(
+            "/sources/raw",
+            params={"root": "wiki", "path": "../raw/sources/note.md"},
+        )
+        assert resp.status_code == 404, (
+            f"Expected 404 for traversal attempt, got {resp.status_code}"
+        )
+
+    # ── T-SRC-040: hidden entries rejected ────────────────────────────────────
+
+    async def test_wiki_content_hidden_file_rejected(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-040a: root=wiki + path to .obsidian/app.json → 404 (hidden)."""
+        resp = await src_client.get(
+            "/sources/content",
+            params={"root": "wiki", "path": ".obsidian/app.json"},
+        )
+        assert resp.status_code == 404, (
+            f"Expected 404 for hidden .obsidian path, got {resp.status_code}"
+        )
+
+    async def test_wiki_raw_hidden_file_rejected(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-040b: root=wiki + raw request for .obsidian/app.json → 404."""
+        resp = await src_client.get(
+            "/sources/raw",
+            params={"root": "wiki", "path": ".obsidian/app.json"},
+        )
+        assert resp.status_code == 404, (
+            f"Expected 404 for hidden .obsidian path (raw), got {resp.status_code}"
+        )
+
+    async def test_wiki_content_root_dotfile_rejected(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-040c: root-level dotfile in wiki/ is also rejected by content endpoint."""
+        wiki_dir: Path = src_env["wiki_dir"]
+        (wiki_dir / ".dotfile").write_text("secret\n", encoding="utf-8")
+
+        resp = await src_client.get(
+            "/sources/content", params={"root": "wiki", "path": ".dotfile"}
+        )
+        assert resp.status_code == 404
+
+    # ── T-SRC-041: root=sources unchanged (regression) ───────────────────────
+
+    async def test_sources_root_listing_unchanged(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-041a: GET /sources?root=sources returns raw/sources/ files (unchanged)."""
+        resp = await src_client.get("/sources", params={"root": "sources"})
+        assert resp.status_code == 200
+        paths = {e["path"] for e in resp.json()["entries"]}
+        assert "note.md" in paths
+        assert "plain.txt" in paths
+        assert "image.png" in paths
+
+    async def test_sources_root_default_unchanged(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-041b: GET /sources (no root param) = same as root=sources."""
+        resp_no_param = await src_client.get("/sources")
+        resp_explicit = await src_client.get("/sources", params={"root": "sources"})
+        assert resp_no_param.status_code == 200
+        assert resp_explicit.status_code == 200
+        paths_no_param = {e["path"] for e in resp_no_param.json()["entries"]}
+        paths_explicit = {e["path"] for e in resp_explicit.json()["entries"]}
+        assert paths_no_param == paths_explicit
+
+    async def test_sources_content_root_default_unchanged(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """T-SRC-041c: /sources/content?path=note.md still works without root param."""
+        resp = await src_client.get("/sources/content", params={"path": "note.md"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["path"] == "note.md"
+        assert data["category"] == "markdown"
+
+    # ── T-SRC-042: missing wiki dir → empty list ─────────────────────────────
+
+    async def test_wiki_listing_empty_when_dir_missing(
+        self,
+        src_client: AsyncClient,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-042: GET /sources?root=wiki returns empty list when wiki/ does not exist."""
+        from app import config as cfg
+
+        missing_wiki = src_env["vault_root"] / "wiki_nonexistent"
+        monkeypatch.setattr(
+            type(cfg.settings), "wiki_dir", property(lambda self: missing_wiki)
+        )
+
+        resp = await src_client.get("/sources", params={"root": "wiki"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["entries"] == []
+        assert data["total"] == 0

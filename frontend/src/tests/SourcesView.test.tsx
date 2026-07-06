@@ -10,6 +10,10 @@
  *   - Empty state shows when no entries
  *   - Source-preview renders for selected path
  *   - Index All button: click calls ingestAllSources, shows progress, handles 409, stops polling
+ *   - Tab toggle: "Wiki" tab switches root → re-fetches with root="wiki", hides write affordances
+ *   - Tab toggle: "Sources" tab restores default affordances
+ *   - Footer + Refresh present in both tabs
+ *   - SourcePreview passes root to getSourceContent
  *
  * INVARIANT I4: TanStack Virtual mocked for jsdom (no layout engine).
  * INVARIANT I3: mocks return fixed data; no real network calls; single poll chain tested via fake timers.
@@ -111,6 +115,9 @@ vi.mock("react-i18next", () => ({
     t: (key: string, params?: Record<string, unknown>) => {
       const map: Record<string, string> = {
         "sources.title": "Sources",
+        "sources.tabSources": "Sources",
+        "sources.tabWiki": "Wiki",
+        "sources.wikiReadOnly": "Read-only",
         "sources.import": "Import",
         "sources.importFolder": "+ Folder",
         "sources.refresh": "Refresh",
@@ -256,7 +263,9 @@ describe("SourcesView — rendering", () => {
 
   it("shows 'Sources' header", async () => {
     render(<SourcesView />);
-    expect(screen.getByText("Sources")).toBeTruthy();
+    // "Sources" appears in both the tab toggle and the header title.
+    // getAllByText handles the duplicate without error.
+    expect(screen.getAllByText("Sources").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows Refresh button", async () => {
@@ -800,6 +809,195 @@ describe("SourcesView — S1 folder upload button", () => {
       expect(screen.getByTestId("source-import-folder")).toBeTruthy();
     });
     expect(screen.getByText("+ Folder")).toBeTruthy();
+  });
+});
+
+// ─── Wiki tab toggle ──────────────────────────────────────────────────────────
+
+describe("SourcesView — Wiki tab toggle", () => {
+  it("renders both tab buttons", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-tab-sources")).toBeTruthy();
+      expect(screen.getByTestId("sources-tab-wiki")).toBeTruthy();
+    });
+  });
+
+  it("defaults to Sources tab (sources-ingest-all visible)", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+  });
+
+  it("switching to Wiki tab calls listSources with root=wiki", async () => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [],
+      total: 0,
+      truncated: false,
+    });
+    render(<SourcesView />);
+    // Wait for initial mount fetch to settle
+    await waitFor(() => {
+      expect(sourcesClient.listSources).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      // Second call with root="wiki"
+      expect(sourcesClient.listSources).toHaveBeenCalledTimes(2);
+    });
+    // The second call must have been invoked with root="wiki" as second arg
+    const calls = vi.mocked(sourcesClient.listSources).mock.calls;
+    const secondCall = calls[1];
+    expect(secondCall?.[1]).toBe("wiki");
+  });
+
+  it("Wiki tab hides Index-all button", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("sources-ingest-all")).toBeNull();
+    });
+  });
+
+  it("Wiki tab hides Import button", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByText("Import")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Import")).toBeNull();
+    });
+  });
+
+  it("Wiki tab hides + Folder button", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("source-import-folder")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("source-import-folder")).toBeNull();
+    });
+  });
+
+  it("Wiki tab hides per-file Ingest and Delete buttons", async () => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [SAMPLE_ENTRIES[0]!],
+      total: 1,
+      truncated: false,
+    });
+    render(<SourcesView />);
+
+    // Switch to wiki tab
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    // Wait for the re-fetch with wiki entries
+    await waitFor(() => {
+      expect(sourcesClient.listSources).toHaveBeenCalledTimes(2);
+    });
+
+    // Entries from wiki tab (same mock entries, backend-agnostic for this test)
+    // The ingest + delete buttons must not be rendered
+    await waitFor(() => {
+      expect(screen.queryByTestId("source-ingest")).toBeNull();
+      expect(screen.queryByTestId("source-delete")).toBeNull();
+    });
+  });
+
+  it("Wiki tab hides bulk-select checkbox", async () => {
+    vi.mocked(sourcesClient.listSources).mockResolvedValue({
+      entries: [SAMPLE_ENTRIES[0]!, SAMPLE_ENTRIES[1]!],
+      total: 2,
+      truncated: false,
+    });
+    render(<SourcesView />);
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("sources-select-all")).toBeNull();
+      expect(screen.queryByTestId("source-row-checkbox")).toBeNull();
+    });
+  });
+
+  it("Wiki tab shows Refresh button and footer", async () => {
+    render(<SourcesView />);
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("source-refresh")).toBeTruthy();
+      expect(screen.getByTestId("sources-footer")).toBeTruthy();
+    });
+  });
+
+  it("switching back to Sources tab restores Index-all button", async () => {
+    render(<SourcesView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-wiki"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("sources-ingest-all")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("sources-tab-sources"));
+    await waitFor(() => {
+      expect(screen.getByTestId("sources-ingest-all")).toBeTruthy();
+    });
+  });
+});
+
+// ─── SourcePreview — root prop threading ─────────────────────────────────────
+
+describe("SourcePreview — root prop threads to getSourceContent", () => {
+  it("calls getSourceContent with root=wiki when root='wiki'", async () => {
+    vi.mocked(sourcesClient.getSourceContent).mockResolvedValue(
+      makeContent({ category: "markdown", text: "# Wiki page", ingested: false }),
+    );
+    render(<SourcePreview path="concepts/my-concept.md" root="wiki" />);
+    await waitFor(() => {
+      expect(sourcesClient.getSourceContent).toHaveBeenCalledWith(
+        "concepts/my-concept.md",
+        expect.anything(), // AbortSignal
+        "wiki",
+      );
+    });
+  });
+
+  it("calls getSourceContent with default root=sources when root omitted", async () => {
+    vi.mocked(sourcesClient.getSourceContent).mockResolvedValue(makeContent());
+    render(<SourcePreview path="doc1.md" />);
+    await waitFor(() => {
+      expect(sourcesClient.getSourceContent).toHaveBeenCalledWith(
+        "doc1.md",
+        expect.anything(),
+        "sources",
+      );
+    });
+  });
+
+  it("does NOT call getSourceDerivedPages when root=wiki", async () => {
+    vi.mocked(sourcesClient.getSourceContent).mockResolvedValue(
+      makeContent({ category: "markdown", text: "# Wiki page" }),
+    );
+    render(<SourcePreview path="index.md" root="wiki" />);
+    await waitFor(() => {
+      expect(sourcesClient.getSourceContent).toHaveBeenCalled();
+    });
+    expect(sourcesClient.getSourceDerivedPages).not.toHaveBeenCalled();
   });
 });
 
