@@ -613,6 +613,20 @@
       "max_iter_reached": "Max iterations",
       "budget_exhausted": "Budget exhausted",
       "error": "Error"
+    },
+    "topicDialog": {
+      "title": "Start Deep Research",
+      "optimizing": "Optimizing topic and generating queries…",
+      "optimizeUnavailable": "Topic optimization unavailable — edit the topic and queries manually.",
+      "topicLabel": "Topic",
+      "topicPlaceholder": "Enter a research topic…",
+      "queriesLabel": "Queries",
+      "queryPlaceholder": "Enter a search query…",
+      "noQueries": "No queries yet — click Add query or the LLM will generate them at runtime.",
+      "addQuery": "Add query",
+      "removeQuery": "Remove query",
+      "start": "Start Research",
+      "cancel": "Cancel"
     }
   },
   "review": {

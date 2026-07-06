@@ -44,6 +44,18 @@ export function isTerminal(status: string): boolean {
 
 // ─── State / Actions ─────────────────────────────────────────────────────────
 
+// ─── Prefill slice (B5/D3) ────────────────────────────────────────────────────
+
+/**
+ * Prefill payload written by Graph Insights' Deep Research button (B5/D3).
+ * Consumed by DeepSearchView to seed the ResearchTopicDialog on mount.
+ * Cleared immediately after the dialog opens or is cancelled.
+ */
+export interface ResearchPrefill {
+  topic: string;
+  queries: string[];
+}
+
 interface ResearchState {
   /** Paginated run list (summary rows, started_at DESC). */
   runs: ResearchRunSummary[];
@@ -64,6 +76,13 @@ interface ResearchState {
   /** Whether a "start research" request is in-flight. */
   starting: boolean;
   startError: string | null;
+
+  /**
+   * Prefill data written by Graph Insights (B5/D3).
+   * Non-null signals DeepSearchView to open the ResearchTopicDialog on mount.
+   * Cleared on dialog open, confirm, or cancel.
+   */
+  prefill: ResearchPrefill | null;
 }
 
 interface ResearchActions {
@@ -82,6 +101,8 @@ interface ResearchActions {
   startRun: (params: {
     vault_id: string;
     topic: string;
+    /** Optional seed queries from the ResearchTopicDialog (B5/D3). */
+    queries?: string[];
     max_iter?: number;
     token_budget?: number;
   }) => Promise<string>; // returns run_id on success
@@ -95,6 +116,11 @@ interface ResearchActions {
   startPollingDetail: (runId: string) => () => void;
 
   clearStartError: () => void;
+
+  /** Write prefill data so DeepSearchView opens the confirm dialog on next mount (B5/D3). */
+  setResearchPrefill: (prefill: ResearchPrefill) => void;
+  /** Clear the prefill slice (called when dialog opens, cancels, or confirms). */
+  clearResearchPrefill: () => void;
 }
 
 export type ResearchStore = ResearchState & ResearchActions;
@@ -123,6 +149,8 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
 
   starting: false,
   startError: null,
+
+  prefill: null,
 
   // ── fetchFresh ─────────────────────────────────────────────────────────────
   fetchFresh: async (vaultId, signal) => {
@@ -255,6 +283,10 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
   },
 
   clearStartError: () => set({ startError: null }),
+
+  // ── prefill (B5/D3) ───────────────────────────────────────────────────────
+  setResearchPrefill: (prefill) => set({ prefill }),
+  clearResearchPrefill: () => set({ prefill: null }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -317,6 +349,19 @@ export function selectClearStartError(
   s: ResearchStore,
 ): ResearchActions["clearStartError"] {
   return s.clearStartError;
+}
+export function selectResearchPrefill(s: ResearchStore): ResearchPrefill | null {
+  return s.prefill;
+}
+export function selectSetResearchPrefill(
+  s: ResearchStore,
+): ResearchActions["setResearchPrefill"] {
+  return s.setResearchPrefill;
+}
+export function selectClearResearchPrefill(
+  s: ResearchStore,
+): ResearchActions["clearResearchPrefill"] {
+  return s.clearResearchPrefill;
 }
 
 /** Hook: runs array — shallow equality (I3). */

@@ -70,6 +70,26 @@ class ResearchStartRequest(BaseModel):
         le=1_000_000,
         description="Token budget (1_000..1_000_000); null → DEEP_RESEARCH_TOKEN_BUDGET default",
     )
+    queries: list[str] | None = Field(
+        default=None,
+        max_length=10,
+        description=(
+            "Optional caller-supplied SearXNG queries (B5/D3). When present (non-empty) the FIRST "
+            "iteration uses these VERBATIM instead of the provider query-gen round-trip — the "
+            "same seed_queries seam a review item uses (bounded to DEEP_RESEARCH_MAX_QUERIES). "
+            "This is how the 'optimize + confirm' dialog passes the user-edited queries. "
+            "null/[] → generate queries from scratch (default, unchanged behavior)."
+        ),
+    )
+
+    @field_validator("queries")
+    @classmethod
+    def _strip_queries(cls, v: list[str] | None) -> list[str] | None:
+        """Drop empty/whitespace-only queries; collapse to None when nothing remains (I7)."""
+        if v is None:
+            return None
+        cleaned = [q.strip() for q in v if q and q.strip()]
+        return cleaned or None
 
     model_config = {
         "json_schema_extra": {
@@ -78,6 +98,7 @@ class ResearchStartRequest(BaseModel):
                 "topic": "Kubernetes networking with Calico",
                 "max_iter": 3,
                 "token_budget": 100000,
+                "queries": ["Calico CNI BGP mode", "Kubernetes NetworkPolicy Calico"],
             }
         }
     }
@@ -90,6 +111,57 @@ class ResearchStartResponse(BaseModel):
 
     model_config = {
         "json_schema_extra": {"example": {"run_id": "00000000-0000-0000-0000-000000000001"}}
+    }
+
+
+class ResearchOptimizeTopicRequest(BaseModel):
+    """
+    Request body for POST /research/optimize-topic (B5/D3).
+
+    A seed topic (typically taken from a Graph Insight) to be rephrased into a domain-specific
+    research topic + web-search-optimized queries before the user confirms a Deep Research run.
+    """
+
+    topic: str = Field(..., min_length=1, description="Seed research topic (non-empty)")
+    vault_id: str | None = Field(
+        default=None,
+        description=(
+            "Vault scope used to resolve the provider AND to load overview.md/purpose.md context. "
+            "null → the server's default vault_id (settings.vault_id)."
+        ),
+    )
+
+    model_config = {
+        "json_schema_extra": {"example": {"topic": "container networking", "vault_id": "default"}}
+    }
+
+
+class ResearchOptimizeTopicResponse(BaseModel):
+    """
+    200 response for POST /research/optimize-topic (B5/D3).
+
+    optimized_topic prefills the editable topic field; queries prefill the editable query list.
+    On the no-provider / degraded path optimized_topic echoes the seed topic and queries is
+    [topic] — the dialog still opens (never a 500).
+    """
+
+    optimized_topic: str = Field(..., description="Domain-specific rephrasing of the seed topic")
+    queries: list[str] = Field(
+        default_factory=list,
+        description="3..5 web-search-optimized SearXNG queries (or [topic] on the fallback path)",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "optimized_topic": "Kubernetes container networking (CNI) — Calico vs Cilium",
+                "queries": [
+                    "Kubernetes CNI comparison Calico Cilium",
+                    "Calico BGP networking Kubernetes",
+                    "Cilium eBPF networking Kubernetes",
+                ],
+            }
+        }
     }
 
 
@@ -271,6 +343,9 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
             max_iter=frozen_max_iter,
             token_budget=frozen_token_budget,
             run_id=run_id,
+            # B5/D3: caller-edited queries seed the FIRST iteration verbatim (bounded to
+            # DEEP_RESEARCH_MAX_QUERIES inside run_deep_research). None → generate from scratch.
+            seed_queries=body.queries,
         )
     )
 
@@ -283,6 +358,57 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
         frozen_token_budget,
     )
     return ResearchStartResponse(run_id=run_id)
+
+
+@router.post(
+    "/research/optimize-topic",
+    response_model=ResearchOptimizeTopicResponse,
+    summary="Optimize a seed topic + propose search queries before a Deep Research run",
+    description=(
+        "B5/D3 pre-run optimization (llm_wiki parity). ONE bounded provider.chat() call "
+        "(I6 provider-neutral, I7 single call + timeout + token budget + cost logged) that reads "
+        "the vault overview.md + purpose.md and rephrases the seed `topic` into a domain-specific "
+        "research topic plus 3-5 web-search-optimized queries. LLM-only — no web/SearXNG call here "
+        "(I9 not engaged; the actual run happens later via POST /research/start with the edited "
+        "topic/queries). "
+        "GRACEFUL: when NO provider is configured (or the call times out / errors) it returns 200 "
+        "with {optimized_topic: <topic>, queries: [<topic>]} so the confirm dialog still works "
+        "offline — it does NOT 503/500. 429 if per-IP rate limit exceeded (R13-9)."
+    ),
+    responses={
+        200: {"description": "Optimized topic + queries (or graceful echo fallback)"},
+        422: {"description": "Validation error (empty topic)"},
+        429: {"description": "Per-IP rate limit exceeded (R13-9)"},
+    },
+    dependencies=[Depends(rate_limit)],
+)
+async def research_optimize_topic(
+    body: ResearchOptimizeTopicRequest,
+) -> ResearchOptimizeTopicResponse:
+    """
+    POST /research/optimize-topic — B5/D3 pre-run optimize + confirm surface.
+
+    Delegates to ops.deep_research.optimize_topic (single bounded provider call, I6/I7). The
+    endpoint NEVER 500s on provider issues: optimize_topic swallows provider errors and returns
+    the naive echo fallback so the UI dialog always prefills. This handler only maps the domain
+    OptimizedTopic to the response model.
+    """
+    from app.ops.deep_research import optimize_topic
+
+    vault_id = body.vault_id or settings.vault_id
+    result = await optimize_topic(vault_id=vault_id, topic=body.topic)
+
+    logger.info(
+        "research_optimize_topic: vault=%s topic=%r → optimized=%r queries=%d",
+        vault_id,
+        body.topic,
+        result.optimized_topic,
+        len(result.queries),
+    )
+    return ResearchOptimizeTopicResponse(
+        optimized_topic=result.optimized_topic,
+        queries=result.queries,
+    )
 
 
 @router.get(

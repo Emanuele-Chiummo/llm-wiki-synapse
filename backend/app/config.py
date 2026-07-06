@@ -204,6 +204,22 @@ class Settings(BaseSettings):
     Env var: DEEP_RESEARCH_FETCH_MAX_CHARS.
     """
 
+    deep_research_optimize_timeout_seconds: float = 30.0
+    """
+    Timeout (seconds) for the single pre-run topic-optimization provider call
+    (B5/D3, F10). One bounded provider.chat() turn — no loop (I7). On timeout the
+    endpoint degrades to the naive {optimized_topic: topic, queries: [topic]} fallback
+    (never 500). Env var: DEEP_RESEARCH_OPTIMIZE_TIMEOUT_SECONDS.
+    """
+
+    deep_research_optimize_token_budget: int = 2_000
+    """
+    Token budget for the single topic-optimization call (B5/D3, F10, I7). Small: the
+    overview/purpose excerpt + a rephrased topic + 3-5 queries fits comfortably in 2K.
+    Surfaced as a provider hint only; the hard bound is the single call + wait_for timeout.
+    Env var: DEEP_RESEARCH_OPTIMIZE_TOKEN_BUDGET.
+    """
+
     # ── F9: Review queue (ADR-0025 §3.2) ────────────────────────────────────────
 
     review_query_timeout_seconds: float = 30.0

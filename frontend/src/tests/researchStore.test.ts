@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useResearchStore, isTerminal } from "../store/researchStore";
 import type { ResearchRunListResponse, ResearchRunDetail, ResearchStartResponse } from "../api/types";
+import type { ResearchPrefill } from "../store/researchStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ beforeEach(() => {
     runningCount: 0,
     starting: false,
     startError: null,
+    prefill: null,
   });
 });
 
@@ -273,6 +275,44 @@ describe("startRun", () => {
     const state = useResearchStore.getState();
     expect(state.startError).toBe("503 SEARXNG not configured");
     expect(state.starting).toBe(false);
+  });
+});
+
+// ─── prefill slice (B5/D3) ────────────────────────────────────────────────────
+
+describe("prefill slice", () => {
+  it("starts null", () => {
+    expect(useResearchStore.getState().prefill).toBeNull();
+  });
+
+  it("setResearchPrefill writes topic and queries", () => {
+    const payload: ResearchPrefill = {
+      topic: "Kubernetes CNI deep dive",
+      queries: ["Calico vs Cilium", "eBPF networking"],
+    };
+    useResearchStore.getState().setResearchPrefill(payload);
+
+    const state = useResearchStore.getState();
+    expect(state.prefill).not.toBeNull();
+    expect(state.prefill?.topic).toBe("Kubernetes CNI deep dive");
+    expect(state.prefill?.queries).toHaveLength(2);
+  });
+
+  it("clearResearchPrefill resets to null", () => {
+    useResearchStore.getState().setResearchPrefill({ topic: "test", queries: [] });
+    expect(useResearchStore.getState().prefill).not.toBeNull();
+
+    useResearchStore.getState().clearResearchPrefill();
+    expect(useResearchStore.getState().prefill).toBeNull();
+  });
+
+  it("setResearchPrefill overwrites an existing prefill", () => {
+    useResearchStore.getState().setResearchPrefill({ topic: "first", queries: ["q1"] });
+    useResearchStore.getState().setResearchPrefill({ topic: "second", queries: ["q2", "q3"] });
+
+    const state = useResearchStore.getState();
+    expect(state.prefill?.topic).toBe("second");
+    expect(state.prefill?.queries).toEqual(["q2", "q3"]);
   });
 });
 
