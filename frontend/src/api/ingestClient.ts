@@ -157,19 +157,27 @@ export async function resumeIngestQueue(signal?: AbortSignal): Promise<ResumeQue
 
 /**
  * Upload a document file to the vault.
- * POST /ingest/upload (multipart/form-data, field "file")
+ * POST /ingest/upload (multipart/form-data, field "file", optional field "rel_dir")
  * Returns 202 Accepted { file_path, status:'queued', overwritten } — ingest runs async via the watcher.
  * Errors: 415 (unsupported type), 413 (too large), 422 (unsafe filename).
  *
  * IMPORTANT: do NOT set Content-Type manually — the browser sets the
  * multipart boundary automatically when using FormData.
  *
+ * rel_dir (optional): relative sub-directory under raw/sources/ where the file should be placed.
+ * Used by the "+ Folder" upload to preserve nested directory structure (S1).
+ *
  * ADR-0020 §3 / Feature U.
  */
-export async function uploadDocument(file: File, signal?: AbortSignal): Promise<UploadResponse> {
+export async function uploadDocument(
+  file: File,
+  signal?: AbortSignal,
+  relDir?: string,
+): Promise<UploadResponse> {
   const url = `${apiBase()}/ingest/upload`;
   const form = new FormData();
   form.append("file", file);
+  if (relDir) form.append("rel_dir", relDir);
   const res = await apiFetch(url, {
     method: "POST",
     body: form,

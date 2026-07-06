@@ -36,8 +36,8 @@
         "tags": [
           "sources"
         ],
-        "summary": "Delete a raw source file and cascade-delete its derived pages",
-        "description": "Deletes the raw source file from disk and cascade-deletes all derived wiki pages (soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). Reuses the existing cascade-delete machinery (ops/cascade_delete.py \u2014 F13/ADR-0026). Bumps data_version + notifies GraphCache (I2). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). 404 when path escapes or file is absent. If the source has no derived pages, the raw file is still deleted. To re-ingest: POST /ingest/trigger with {\"file_path\": \"<absolute-or-relative-path>\"}.",
+        "summary": "Delete a raw source file or directory and cascade-delete derived pages",
+        "description": "Deletes the raw source file or directory (S2, B3b) from disk and cascade-deletes all derived wiki pages for each contained file (soft-delete pages, remove Qdrant points, clean dead [[wikilinks]], update index.md). Reuses the existing cascade-delete machinery (ops/cascade_delete.py \u2014 F13/ADR-0026). Bumps data_version + notifies GraphCache (I2). path must be relative to vault/raw/sources/ \u2014 resolved via resolve_under_sources(). 404 when path escapes or target does not exist. \n\nFILE delete (is_dir=False): existing behaviour unchanged \u2014 cascade then remove file. If the source has no derived pages, the raw file is still deleted. Returns {deleted_source, files_deleted:1, pages_cascaded:N}. \n\nDIRECTORY delete (is_dir=True, S2): enumerates all files in the subtree, runs the SAME per-file cascade for each, then removes files + empty dirs from disk. Bounded at SOURCES_DELETE_MAX_FILES (env, default 500); if the subtree contains more files, returns 409 with a clear message (I7 \u2014 no unbounded cascade). Returns {deleted_source, files_deleted:K, pages_cascaded:M}. \n\nPath-safety: resolve_under_sources() for all paths (ADR-0020 \u00a72.2).",
         "operationId": "delete_source_sources_delete",
         "parameters": [
           {
@@ -64,7 +64,10 @@
             }
           },
           "404": {
-            "description": "Source file not found or path outside raw/sources/"
+            "description": "Source file or directory not found or path outside raw/sources/"
+          },
+          "409": {
+            "description": "Directory exceeds SOURCES_DELETE_MAX_FILES limit (I7)"
           },
           "422": {
             "description": "Path traversal attempt"
@@ -1302,7 +1305,7 @@
     "/ingest/upload": {
       "post": {
         "summary": "Upload a document for async watcher-driven ingest (F12 multi-format)",
-        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). For text: writes directly to vault/raw/sources/<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename. 202 {file_path, status:'queued', overwritten}. 429 if per-IP rate limit exceeded (R13-9).",
+        "description": "Feature U (ADR-0020 \u00a72, M4-EXT) + F12 Multi-format ingest (ADR-0025 \u00a74.2) + S1 folder-upload support (B3b). Accepts text/markdown (.md/.txt/.markdown), binary formats (.pdf/.docx/.pptx/.xlsx), and placeholder formats (.png/.jpg/.jpeg/.gif/.webp/.mp3/.mp4/.wav/.m4a). Optional 'rel_dir' form field: when supplied by the frontend '+ Folder' picker, the file is written under vault/raw/sources/<rel_dir>/<name> so the subfolder structure is preserved. rel_dir is sanitized segment-by-segment (same rules as safe_source_name) and containment-checked via resolve_under_sources \u2014 422 on any path-traversal attempt. When rel_dir is absent, behaviour is unchanged (writes flat). For text: writes to vault/raw/sources/[rel_dir/]<name>; watcher ingests asynchronously. For binary/placeholder: (1) writes original binary to vault/raw/sources/[rel_dir/]<name>.<ext> (preserved, I5/K1); (2) synchronously extracts text \u2192 companion <stem>.extracted.md (in the same rel_dir subdirectory) with valid YAML frontmatter (I5); (3) returns 202. The watcher ingests ONLY the companion (.md is in _ALLOWED_EXTENSIONS); the binary is ignored by the watcher (I1). Extraction is upload-time, NEVER in the watcher. 413 on oversize (MAX_UPLOAD_BYTES). 415 for truly unknown types. 422 for unsafe filename or unsafe rel_dir. 202 {file_path, status:'queued', overwritten}. 429 if per-IP rate limit exceeded (R13-9).",
         "operationId": "upload_ingest_ingest_upload_post",
         "requestBody": {
           "content": {
@@ -1332,7 +1335,7 @@
             "description": "Unsupported file type"
           },
           "422": {
-            "description": "Filename is empty or unsafe after sanitization"
+            "description": "Filename or rel_dir is empty or unsafe after sanitization"
           },
           "429": {
             "description": "Per-IP rate limit exceeded (R13-9)"
@@ -4647,6 +4650,18 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "description": "The document to upload"
+          },
+          "rel_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rel Dir",
+            "description": "Optional relative subdirectory under vault/raw/sources/ for folder uploads (S1, B3b). Use forward slashes as separator (e.g. 'projects/notes'). Each segment is sanitized like safe_source_name. Path-traversal attempts ('..') \u2192 422. When absent, file is written flat under vault/raw/sources/ (unchanged behaviour)."
           }
         },
         "type": "object",
@@ -9577,18 +9592,28 @@
             "type": "string",
             "title": "Deleted Source"
           },
+          "files_deleted": {
+            "type": "integer",
+            "title": "Files Deleted",
+            "default": 1
+          },
+          "pages_cascaded": {
+            "type": "integer",
+            "title": "Pages Cascaded",
+            "default": 0
+          },
           "pages_deleted": {
             "type": "integer",
-            "title": "Pages Deleted"
+            "title": "Pages Deleted",
+            "default": 0
           }
         },
         "type": "object",
         "required": [
-          "deleted_source",
-          "pages_deleted"
+          "deleted_source"
         ],
         "title": "SourceDeleteResponse",
-        "description": "Response for DELETE /sources."
+        "description": "Response for DELETE /sources.\n\nSingle-file delete:  deleted_source=<rel_path>, files_deleted=1, pages_cascaded=N,\n                     pages_deleted=N (backward-compat alias; always equals pages_cascaded).\nDirectory delete:    deleted_source=<rel_dir>,  files_deleted=K, pages_cascaded=M,\n                     pages_deleted=M."
       },
       "SourceDerivedPage": {
         "properties": {

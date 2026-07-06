@@ -1142,3 +1142,406 @@ class TestOpenAPIIngestAllPaths:
                 f"openapi.json must include {required!r} (I8/D4). "
                 f"Present /sources/* paths: {sorted(p for p in paths if p.startswith('/sources'))}"
             )
+
+
+# ── T-SRC-027..T-SRC-030: S1 — folder upload with rel_dir ────────────────────
+#
+# These tests exercise the new optional rel_dir form field in POST /ingest/upload.
+# They call the endpoint directly via httpx (no real DB/provider needed — the upload
+# handler writes the file and returns 202; the watcher/ingest is mocked away).
+
+
+class TestFolderUploadRelDir:
+    """
+    T-SRC-027  rel_dir present → file written under raw/sources/<rel_dir>/<name>
+    T-SRC-028  rel_dir=None    → file written flat (existing behaviour, unchanged)
+    T-SRC-029  rel_dir with traversal '..' → 422
+    T-SRC-030  rel_dir with backslash separator → 422
+    """
+
+    async def test_upload_with_rel_dir_writes_to_subdir(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-027: file uploaded with rel_dir is written under the correct subdirectory."""
+        from httpx import ASGITransport, AsyncClient
+
+        # Disable rate limiting for test
+        monkeypatch.setattr("app.rate_limit.rate_limit", lambda: None, raising=False)
+
+        sources_dir: Path = src_env["sources_dir"]
+        app = src_env["app"]
+
+        content = b"# Folder upload test\n"
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/ingest/upload",
+                files={"file": ("upload_test.md", content, "text/markdown")},
+                data={"rel_dir": "projects/notes"},
+            )
+
+        assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        # The returned file_path should include the rel_dir segment
+        assert "projects/notes" in data["file_path"], (
+            f"Expected 'projects/notes' in file_path but got: {data['file_path']!r}"
+        )
+        # File must exist on disk at the correct location
+        expected_path = sources_dir / "projects" / "notes" / "upload_test.md"
+        assert expected_path.exists(), (
+            f"Expected file at {expected_path} but it does not exist. "
+            f"sources_dir contents: {list(sources_dir.rglob('*'))}"
+        )
+        assert expected_path.read_bytes() == content
+
+    async def test_upload_without_rel_dir_writes_flat(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-028: file uploaded WITHOUT rel_dir still writes flat (behaviour unchanged)."""
+        from httpx import ASGITransport, AsyncClient
+
+        monkeypatch.setattr("app.rate_limit.rate_limit", lambda: None, raising=False)
+
+        sources_dir: Path = src_env["sources_dir"]
+        app = src_env["app"]
+
+        content = b"# Flat upload test\n"
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/ingest/upload",
+                files={"file": ("flat_upload.md", content, "text/markdown")},
+                # no rel_dir field — omit entirely
+            )
+
+        assert resp.status_code == 202, f"Expected 202, got {resp.status_code}: {resp.text}"
+        # File written flat (directly under sources_dir)
+        expected_path = sources_dir / "flat_upload.md"
+        assert expected_path.exists(), (
+            f"Expected file at {expected_path} but it does not exist."
+        )
+        assert expected_path.read_bytes() == content
+
+    async def test_upload_rel_dir_traversal_rejected(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-029: rel_dir containing '..' → 422 (path traversal rejected)."""
+        from httpx import ASGITransport, AsyncClient
+
+        monkeypatch.setattr("app.rate_limit.rate_limit", lambda: None, raising=False)
+
+        app = src_env["app"]
+        content = b"# traversal attempt\n"
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/ingest/upload",
+                files={"file": ("evil.md", content, "text/markdown")},
+                data={"rel_dir": "../../etc"},
+            )
+
+        assert resp.status_code == 422, (
+            f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
+        )
+
+    async def test_upload_rel_dir_dot_dot_segment_rejected(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-029b: rel_dir with a '..' segment among valid segments → 422."""
+        from httpx import ASGITransport, AsyncClient
+
+        monkeypatch.setattr("app.rate_limit.rate_limit", lambda: None, raising=False)
+
+        app = src_env["app"]
+        content = b"# traversal attempt\n"
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(
+                "/ingest/upload",
+                files={"file": ("evil.md", content, "text/markdown")},
+                data={"rel_dir": "valid/../../etc"},
+            )
+
+        assert resp.status_code == 422, (
+            f"Expected 422 for traversal rel_dir, got {resp.status_code}: {resp.text}"
+        )
+
+
+# ── T-SRC-031: S1 — _sanitize_rel_dir unit tests ─────────────────────────────
+
+
+class TestSanitizeRelDir:
+    """Unit tests for _sanitize_rel_dir (S1 helper)."""
+
+    def test_valid_single_segment(self) -> None:
+        """Single valid segment is returned as-is."""
+        from app.routers.ingest import _sanitize_rel_dir
+
+        assert _sanitize_rel_dir("projects") == "projects"
+
+    def test_valid_nested_segments(self) -> None:
+        """Nested valid segments are joined with forward slash."""
+        from app.routers.ingest import _sanitize_rel_dir
+
+        assert _sanitize_rel_dir("projects/notes") == "projects/notes"
+        assert _sanitize_rel_dir("a/b/c") == "a/b/c"
+
+    def test_dot_dot_rejected(self) -> None:
+        """'..' segment → HTTPException(422)."""
+        from app.routers.ingest import _sanitize_rel_dir
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _sanitize_rel_dir("..")
+        assert exc_info.value.status_code == 422
+
+    def test_dot_segment_rejected(self) -> None:
+        """'.' segment → HTTPException(422)."""
+        from app.routers.ingest import _sanitize_rel_dir
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _sanitize_rel_dir(".")
+        assert exc_info.value.status_code == 422
+
+    def test_traversal_in_middle_rejected(self) -> None:
+        """'valid/../secret' → HTTPException(422) (..' segment caught regardless of position)."""
+        from app.routers.ingest import _sanitize_rel_dir
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _sanitize_rel_dir("valid/../secret")
+        assert exc_info.value.status_code == 422
+
+    def test_empty_string_rejected(self) -> None:
+        """Empty string → HTTPException(422)."""
+        from app.routers.ingest import _sanitize_rel_dir
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _sanitize_rel_dir("")
+        assert exc_info.value.status_code == 422
+
+    def test_only_slashes_rejected(self) -> None:
+        """A string with only slashes (no valid segments) → HTTPException(422)."""
+        from app.routers.ingest import _sanitize_rel_dir
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException) as exc_info:
+            _sanitize_rel_dir("///")
+        assert exc_info.value.status_code == 422
+
+    def test_leading_trailing_slashes_stripped(self) -> None:
+        """Leading/trailing slashes are tolerated and stripped from output."""
+        from app.routers.ingest import _sanitize_rel_dir
+
+        result = _sanitize_rel_dir("/projects/notes/")
+        assert result == "projects/notes"
+
+
+# ── T-SRC-032..T-SRC-035: S2 — directory delete ──────────────────────────────
+#
+# These tests exercise DELETE /sources?path=<dir> (the new S2/B3b path).
+# The cascade_delete machinery is patched (same as T-SRC-015) to avoid Postgres UUID ops.
+
+
+class TestDeleteSourceDirectory:
+    """
+    T-SRC-032  Directory delete cascades each contained file + removes dirs from disk.
+    T-SRC-033  Directory delete respects SOURCES_DELETE_MAX_FILES cap → 409.
+    T-SRC-034  Single-file delete unchanged (dispatch on is_dir=False; backward compat).
+    T-SRC-035  Directory delete on empty directory returns files_deleted=0, pages_cascaded=0.
+    """
+
+    async def test_directory_delete_cascades_files_and_removes_dirs(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-032: DELETE /sources?path=subdir removes files, cascades pages, removes dir."""
+        from sqlalchemy import text as sa_text
+
+        sources_dir: Path = src_env["sources_dir"]
+        # Seed a derived page for subdir/child.txt (already present in src_env fixture)
+        page_id = await _seed_derived_page(src_env, "subdir/child.txt", "Child Derived")
+
+        cascade_calls: list[str] = []
+
+        async def _fake_cascade(page_uuid: uuid.UUID) -> None:  # type: ignore[override]
+            cascade_calls.append(str(page_uuid))
+            session_factory = src_env["session_factory"]
+            async with session_factory() as sess:
+                await sess.execute(
+                    sa_text("UPDATE pages SET deleted_at = datetime('now') WHERE id = :id"),
+                    {"id": str(page_uuid)},
+                )
+                await sess.commit()
+
+            from app.ops.cascade_delete import CascadeResult
+
+            return CascadeResult(
+                deleted_page_id=page_uuid,
+                wikilinks_cleaned=0,
+                index_entry_removed=False,
+                shared_entity_warnings=[],
+                files_written=0,
+                data_version_after=1,
+            )
+
+        monkeypatch.setattr("app.sources._cascade_delete_page", _fake_cascade)
+
+        # stub _bump_version_no_derived (async) for files with no derived pages
+        async def _fake_bump_noop() -> None:
+            pass
+
+        monkeypatch.setattr("app.sources._bump_version_no_derived", _fake_bump_noop)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=src_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.delete("/sources", params={"path": "subdir"})
+
+        assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
+        data = resp.json()
+
+        # deleted_source should be the directory rel path
+        assert data["deleted_source"] == "subdir"
+        # 1 file in subdir (child.txt)
+        assert data["files_deleted"] == 1
+        # 1 derived page cascaded
+        assert data["pages_cascaded"] == 1
+        # backward-compat field
+        assert data["pages_deleted"] == 1
+
+        # Directory and file must be gone from disk
+        assert not (sources_dir / "subdir" / "child.txt").exists()
+        assert not (sources_dir / "subdir").exists()
+
+        # Cascade was called with the correct page UUID
+        assert str(page_id) in cascade_calls
+
+    async def test_directory_delete_cap_returns_409(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-033: directory with > SOURCES_DELETE_MAX_FILES → 409 (I7)."""
+        import app.sources as src_module
+
+        sources_dir: Path = src_env["sources_dir"]
+
+        # Create a test directory with 3 files, then lower the cap to 2
+        test_dir = sources_dir / "many_files"
+        test_dir.mkdir()
+        for i in range(3):
+            (test_dir / f"file{i}.txt").write_text(f"content {i}\n", encoding="utf-8")
+
+        # Lower the cap so 3 files exceeds it
+        monkeypatch.setattr(src_module, "SOURCES_DELETE_MAX_FILES", 2)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=src_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.delete("/sources", params={"path": "many_files"})
+
+        assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
+        detail = resp.json()["detail"]
+        assert "SOURCES_DELETE_MAX_FILES" in detail or "files" in detail.lower()
+
+        # Directory must still exist (no partial deletion before the cap check)
+        assert test_dir.exists()
+
+    async def test_single_file_delete_unchanged_after_s2(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-034: single-file delete still works exactly as before (backward compat)."""
+        from sqlalchemy import text as sa_text
+
+        page_id = await _seed_derived_page(src_env, "note.md", "Note For S2 Compat")
+
+        cascade_calls: list[str] = []
+
+        async def _fake_cascade(page_uuid: uuid.UUID) -> None:  # type: ignore[override]
+            cascade_calls.append(str(page_uuid))
+            session_factory = src_env["session_factory"]
+            async with session_factory() as sess:
+                await sess.execute(
+                    sa_text("UPDATE pages SET deleted_at = datetime('now') WHERE id = :id"),
+                    {"id": str(page_uuid)},
+                )
+                await sess.commit()
+
+            from app.ops.cascade_delete import CascadeResult
+
+            return CascadeResult(
+                deleted_page_id=page_uuid,
+                wikilinks_cleaned=0,
+                index_entry_removed=False,
+                shared_entity_warnings=[],
+                files_written=0,
+                data_version_after=1,
+            )
+
+        monkeypatch.setattr("app.sources._cascade_delete_page", _fake_cascade)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=src_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.delete("/sources", params={"path": "note.md"})
+
+        assert resp.status_code == 200, f"Expected 200: {resp.text}"
+        data = resp.json()
+        assert data["deleted_source"] == "note.md"
+        assert data["files_deleted"] == 1
+        assert data["pages_cascaded"] == 1
+        assert data["pages_deleted"] == 1  # backward-compat
+
+        assert not (src_env["sources_dir"] / "note.md").exists()
+        assert str(page_id) in cascade_calls
+
+    async def test_empty_directory_delete_returns_zero_counts(
+        self,
+        src_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """T-SRC-035: deleting an empty directory returns files_deleted=0, pages_cascaded=0."""
+        sources_dir: Path = src_env["sources_dir"]
+        empty_dir = sources_dir / "empty_folder"
+        empty_dir.mkdir()
+
+        bumped: list[bool] = []
+
+        async def _fake_bump() -> None:
+            bumped.append(True)
+
+        monkeypatch.setattr("app.sources._bump_version_no_derived", _fake_bump)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=src_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.delete("/sources", params={"path": "empty_folder"})
+
+        assert resp.status_code == 200, f"Expected 200: {resp.text}"
+        data = resp.json()
+        assert data["files_deleted"] == 0
+        assert data["pages_cascaded"] == 0
+        assert data["deleted_source"] == "empty_folder"
+        assert not empty_dir.exists()
+        # _bump_version_no_derived must be called once for the empty-dir case
+        assert bumped

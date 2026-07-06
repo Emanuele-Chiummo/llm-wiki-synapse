@@ -193,6 +193,58 @@ const RelatedPanel = memo(function RelatedPanel({
   );
 });
 
+// ─── TagOverflow — R1 ─────────────────────────────────────────────────────────
+//
+// Renders up to MAX_VISIBLE_TAGS chips then a "More (+K)" toggle button.
+// Collapsed by default; click expands, click again collapses.
+// Memoised so re-renders on unrelated state changes are cheap (I3).
+
+const MAX_VISIBLE_TAGS = 24;
+
+interface TagOverflowProps {
+  tags: string[];
+}
+
+const TagOverflow = memo(function TagOverflow({ tags }: TagOverflowProps) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+
+  const visible = expanded ? tags : tags.slice(0, MAX_VISIBLE_TAGS);
+  const overflow = tags.length - MAX_VISIBLE_TAGS;
+
+  return (
+    <div data-testid="note-meta-row" style={META_ROW_STYLE}>
+      {visible.map((tag) => (
+        <span key={tag} data-testid="note-tag-chip" className="syn-chip">
+          #{tag}
+        </span>
+      ))}
+      {overflow > 0 && !expanded && (
+        <button
+          data-testid="note-tags-more"
+          className="syn-chip"
+          style={{ cursor: "pointer", border: "none", background: "var(--syn-surface-sunken)" }}
+          onClick={() => setExpanded(true)}
+          aria-expanded={false}
+        >
+          {t("noteView.tagsMore", { count: overflow })}
+        </button>
+      )}
+      {expanded && (
+        <button
+          data-testid="note-tags-collapse"
+          className="syn-chip"
+          style={{ cursor: "pointer", border: "none", background: "var(--syn-surface-sunken)" }}
+          onClick={() => setExpanded(false)}
+          aria-expanded={true}
+        >
+          {t("noteView.tagsCollapse")}
+        </button>
+      )}
+    </div>
+  );
+});
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type NoteViewMode = "read" | "edit";
@@ -722,19 +774,24 @@ export function NoteView() {
                 </div>
               )}
 
-              {/* ── Metadata row (type + sources + tags) ── */}
-              {/* SEAM: <TagChips page={data} /> goes here (future tags phase). */}
-              {(effectiveType || sources || tags) && (
-                <div data-testid="note-meta-row" style={META_ROW_STYLE}>
-                  {/* Tag chips */}
-                  {tags &&
-                    tags.map((tag) => (
-                      <span key={tag} data-testid="note-tag-chip" className="syn-chip">
-                        #{tag}
-                      </span>
-                    ))}
+              {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
+              {data.updated_at && (
+                <div
+                  data-testid="note-updated-iso"
+                  style={{
+                    fontFamily: "var(--syn-font-mono, monospace)",
+                    fontSize: 11,
+                    color: "var(--syn-text-dim)",
+                    marginBottom: 6,
+                  }}
+                >
+                  {t("noteView.updatedLabel", { iso: data.updated_at })}
                 </div>
               )}
+
+              {/* ── Metadata row (type + sources + tags) ── */}
+              {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
+              {tags && <TagOverflow tags={tags} />}
 
               {/* Sources subsection */}
               {sources && (
