@@ -1166,7 +1166,10 @@ async def _apply_missing_page(finding: LintFinding) -> str:
 
     origin_source = f"lint:{finding.id}"
     try:
-        wiki_page = await _run_generation(
+        # Capability-aware (I6): _run_generation delegates to an agentic provider (which writes
+        # the page itself via MCP write_page) or runs the orchestrated loop (returning a WikiPage
+        # this caller writes once). Exactly one write per page either way (I1) — never double.
+        outcome = await _run_generation(
             vault_id=finding.vault_id,
             proposed_title=title,
             proposed_page_type=None,  # heuristic at generation time (ADR-0034 §5.2)
@@ -1174,7 +1177,16 @@ async def _apply_missing_page(finding: LintFinding) -> str:
             origin_source=origin_source,
             provider_config_row=provider_config_row,
         )
-        created_page = await write_wiki_page(None, wiki_page, origin_source)
+        if outcome.created_page_id is not None:
+            # Delegated route: the agent already wrote the page — do NOT write again (I1).
+            created_page_id = outcome.created_page_id
+        elif outcome.wiki_page is not None:
+            # Orchestrated route: write the produced page once via the single incremental seam.
+            created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+            created_page_id = str(created_page.id)
+        else:
+            # Defensive: _run_generation raises rather than returning an empty outcome.
+            raise RuntimeError("page generation produced no page")
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -1189,7 +1201,7 @@ async def _apply_missing_page(finding: LintFinding) -> str:
         ) from exc
 
     return (
-        f"missing-page: created page {title!r} (page_id={created_page.id}; "
+        f"missing-page: created page {title!r} (page_id={created_page_id}; "
         "one data_version bump, I1)."
     )
 
