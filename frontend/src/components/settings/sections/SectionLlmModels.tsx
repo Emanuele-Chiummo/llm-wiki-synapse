@@ -6,7 +6,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
+import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY, GroupDivider } from "../ui";
+import { SectionCliAuth } from "./SectionCliAuth";
 import {
   useProviderStore,
   selectProviderList,
@@ -74,7 +75,10 @@ export function SectionLlmModels() {
 
   return (
     <div>
-      <SectionHeader title={t("settings.nav.llmModels")} desc={t("settings.llmModels.desc")} />
+      <SectionHeader title={t("settings.nav.providers")} desc={t("settings.llmModels.desc")} />
+      <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--syn-text-muted)", lineHeight: 1.6 }}>
+        {t("settings.llmModels.introGuide")}
+      </p>
 
       {successMsg && (
         <div style={{ marginBottom: 12, padding: "6px 12px", background: "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-green)" }}>
@@ -232,6 +236,9 @@ export function SectionLlmModels() {
           + {t("settings.llmModels.addProvider")}
         </button>
       )}
+
+      <GroupDivider />
+      <SectionCliAuth />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 /**
  * SettingsPanel.tsx — 2-level nav shell (ADR-0055).
  *
- * 6 groups × 18 pages. Group headers are non-clickable labels.
+ * 5 groups × 18 pages. Group headers are non-clickable labels with a short
+ * description for novice orientation (v1.3.9 IA redesign).
  * Page items are buttons with data-testid="settings-nav-<pageId>",
  * data-settings-section={pageId}, and aria-current on active.
- * Default active: "appearance".
+ * Advanced pages show a subtle badge.
+ * Default active: "providers".
  *
  * Deep-link: listens to CustomEvent "synapse:settingsSection" with detail.section = pageId.
  * Arrow keys traverse only the 18 page items (skip group headers).
@@ -39,30 +41,29 @@ import {
 } from "./ui";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
-// 17 stable page IDs — one per leaf page in the 2-level nav.
+// 18 stable page IDs — one per leaf page in the 2-level nav.
 
 type SettingsPage =
-  // Group: Generale
+  // Group: essentials
+  | "providers"
   | "appearance"
   | "setup"
-  // Group: AI e modelli
-  | "providers"
-  | "scenarios"
-  | "context"
-  | "embeddings"
-  | "webSearch"
-  // Group: Contenuti wiki
-  | "generation"
-  | "automation"
-  | "limits"
-  // Group: Sorgenti e import
+  // Group: content
   | "sourceWatch"
   | "clipper"
   | "pdf"
-  // Group: Connessioni
-  | "apiMcp"
+  | "generation"
+  | "scenarios"
+  // Group: aiBehavior (advanced)
+  | "context"
+  | "embeddings"
+  | "webSearch"
+  | "automation"
+  | "limits"
+  // Group: access
   | "security"
-  // Group: Sistema
+  | "apiMcp"
+  // Group: system
   | "costs"
   | "maintenance"
   | "about";
@@ -72,6 +73,7 @@ type SettingsPage =
 interface NavGroup {
   id: string;
   labelKey: string;
+  descKey: string;
   pages: NavPage[];
 }
 
@@ -79,57 +81,57 @@ interface NavPage {
   id: SettingsPage;
   labelKey: string;
   icon: ReactNode;
+  advanced?: boolean;
 }
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    id: "generale",
-    labelKey: "settings.nav.groupGeneral",
+    id: "essentials",
+    labelKey: "settings.nav.groupEssentials",
+    descKey: "settings.nav.groupEssentialsDesc",
     pages: [
+      { id: "providers",  labelKey: "settings.nav.providers",  icon: <IconCpu /> },
       { id: "appearance", labelKey: "settings.nav.appearance", icon: <IconPalette /> },
       { id: "setup",      labelKey: "settings.nav.setup",      icon: <IconWand /> },
     ],
   },
   {
-    id: "aiModelli",
-    labelKey: "settings.nav.groupAiModelsNew",
-    pages: [
-      { id: "providers",  labelKey: "settings.nav.providers",  icon: <IconCpu /> },
-      { id: "scenarios",  labelKey: "settings.nav.scenarios",  icon: <IconBolt /> },
-      { id: "context",    labelKey: "settings.nav.context",    icon: <IconSliders /> },
-      { id: "embeddings", labelKey: "settings.nav.embeddings2", icon: <IconVectors /> },
-      { id: "webSearch",  labelKey: "settings.nav.webSearch2", icon: <IconGlobe /> },
-    ],
-  },
-  {
-    id: "wikiContent",
-    labelKey: "settings.nav.groupWikiContent",
-    pages: [
-      { id: "generation", labelKey: "settings.nav.generation", icon: <IconBook /> },
-      { id: "automation", labelKey: "settings.nav.automation", icon: <IconClock /> },
-      { id: "limits",     labelKey: "settings.nav.limits",     icon: <IconShield /> },
-    ],
-  },
-  {
-    id: "sourcesImport",
-    labelKey: "settings.nav.groupSourcesImport",
+    id: "content",
+    labelKey: "settings.nav.groupContent",
+    descKey: "settings.nav.groupContentDesc",
     pages: [
       { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <IconFolder /> },
       { id: "clipper",     labelKey: "settings.nav.clipper",      icon: <IconScissors /> },
       { id: "pdf",         labelKey: "settings.nav.pdf",          icon: <IconFileText /> },
+      { id: "generation",  labelKey: "settings.nav.generation",   icon: <IconBook /> },
+      { id: "scenarios",   labelKey: "settings.nav.scenarios",    icon: <IconBolt /> },
     ],
   },
   {
-    id: "connections",
-    labelKey: "settings.nav.groupConnections",
+    id: "aiBehavior",
+    labelKey: "settings.nav.groupAiBehavior",
+    descKey: "settings.nav.groupAiBehaviorDesc",
     pages: [
-      { id: "apiMcp",   labelKey: "settings.nav.apiMcp2",   icon: <IconLink /> },
+      { id: "context",    labelKey: "settings.nav.context",     icon: <IconSliders />, advanced: true },
+      { id: "embeddings", labelKey: "settings.nav.embeddings2", icon: <IconVectors />, advanced: true },
+      { id: "webSearch",  labelKey: "settings.nav.webSearch2",  icon: <IconGlobe />,   advanced: true },
+      { id: "automation", labelKey: "settings.nav.automation",  icon: <IconClock />,   advanced: true },
+      { id: "limits",     labelKey: "settings.nav.limits",      icon: <IconShield />,  advanced: true },
+    ],
+  },
+  {
+    id: "access",
+    labelKey: "settings.nav.groupAccess",
+    descKey: "settings.nav.groupAccessDesc",
+    pages: [
       { id: "security", labelKey: "settings.nav.security2", icon: <IconLock /> },
+      { id: "apiMcp",   labelKey: "settings.nav.apiMcp2",   icon: <IconLink /> },
     ],
   },
   {
     id: "system",
     labelKey: "settings.nav.groupSystem",
+    descKey: "settings.nav.groupSystemDesc",
     pages: [
       { id: "costs",       labelKey: "settings.nav.costs2",       icon: <IconDollar /> },
       { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <IconWrench /> },
@@ -144,7 +146,7 @@ const ALL_PAGES: SettingsPage[] = NAV_GROUPS.flatMap((g) => g.pages.map((p) => p
 // ─── SettingsPanel ─────────────────────────────────────────────────────────────
 
 export function SettingsPanel() {
-  const [activePage, setActivePage] = useState<SettingsPage>("appearance");
+  const [activePage, setActivePage] = useState<SettingsPage>("providers");
   const { t } = useTranslation();
   const pageRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -228,7 +230,7 @@ export function SettingsPanel() {
             {/* Group header — non-clickable label */}
             <p
               style={{
-                margin: "12px 12px 4px",
+                margin: "12px 12px 2px",
                 fontSize: 10,
                 fontWeight: 700,
                 letterSpacing: "0.08em",
@@ -238,6 +240,18 @@ export function SettingsPanel() {
               }}
             >
               {t(group.labelKey)}
+            </p>
+            {/* Group description — novice guidance */}
+            <p
+              style={{
+                margin: "0 12px 4px",
+                fontSize: 10,
+                color: "var(--syn-text-dim)",
+                opacity: 0.65,
+                lineHeight: 1.4,
+              }}
+            >
+              {t(group.descKey)}
             </p>
 
             {/* Page items */}
@@ -286,6 +300,25 @@ export function SettingsPanel() {
                     {page.icon}
                   </span>
                   {t(page.labelKey)}
+                  {page.advanced && (
+                    <span
+                      aria-label={t("settings.nav.advancedBadge")}
+                      style={{
+                        marginLeft: "auto",
+                        fontSize: 9,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                        color: "var(--syn-text-dim)",
+                        opacity: 0.6,
+                        border: "1px solid var(--syn-border)",
+                        borderRadius: 3,
+                        padding: "1px 4px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {t("settings.nav.advancedBadge")}
+                    </span>
+                  )}
                 </button>
               );
             })}
