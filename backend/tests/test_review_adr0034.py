@@ -20,7 +20,7 @@ Tests:
   T-0034-016  sweep_reviews Pass-1: does NOT touch contradiction/suggestion/confirm
   T-0034-017  create_page_from_review → 409 when item not pending
   T-0034-018  create_page_from_review → 409 when no ingest provider
-  T-0034-019  create_page_from_review → 502 while _run_generation is stub (NotImplementedError)
+  T-0034-019  create_page_from_review → 502 when real generation fails (provider error, pending)
   T-0034-020  migration 0013: upgrade adds new columns, drops pre_generated_query
   T-0034-021  migration 0013: downgrade restores pre_generated_query, drops new columns
   T-0034-022  migration 0013 data step: legacy new_page rows are left-shifted to skipped
@@ -598,19 +598,20 @@ class TestGetReviewQueue0034:
 
 
 class TestCreateAction0034:
-    """T-0034-006..009: Create action (approve/create alias) — AI seam pending."""
+    """T-0034-006..009: Create action (approve/create alias) — generation failure handling."""
 
-    async def test_approve_returns_502_when_ai_seam_stub(
+    async def test_approve_returns_502_when_generation_fails(
         self,
         review_env_0034: dict[str, Any],
         review_client_0034: AsyncClient,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
-        T-0034-006: POST /review/queue/{id}/approve → 502 while _run_generation is stub.
+        T-0034-006: POST /review/queue/{id}/approve → 502 when real generation fails.
 
-        The generation stub raises NotImplementedError → Create handler catches → 502.
-        The item remains pending (not consumed on failure — §5.3).
+        The bogus provider_config (no valid provider_type) makes _run_generation's
+        resolve_provider() raise → Create handler catches → 502. The item remains pending
+        (not consumed on failure — §5.3).
         """
         item_id = await _insert_proposal(review_env_0034)
 
@@ -721,26 +722,50 @@ class TestCreateAction0034:
                 await create_page_from_review(item_uuid)
             assert exc_info.value.status_code == 409
 
-    async def test_create_page_from_review_502_stub(
+    async def test_create_page_from_review_502_on_generation_failure(
         self,
         review_env_0034: dict[str, Any],
     ) -> None:
-        """T-0034-019: create_page_from_review → 502 from NotImplementedError stub."""
+        """
+        T-0034-019: create_page_from_review → 502 when real generation fails; item stays pending.
+
+        _run_generation runs for real (no stub). We force a deterministic generation failure by
+        making resolve_provider() raise (provider layer error) — the Create handler converts it
+        to 502 and leaves the item pending (§5.3 — no partial create).
+        """
         from fastapi import HTTPException
 
         item_id_str = await _insert_proposal(review_env_0034, status="pending")
         item_uuid = uuid.UUID(item_id_str)
 
         fake_cfg = MagicMock()
-        with patch(
-            "app.provider_config_service.resolve_provider_config",
-            new=AsyncMock(return_value=fake_cfg),
+        fake_cfg.max_iter = 3
+        fake_cfg.token_budget = 60_000
+        with (
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new=AsyncMock(return_value=fake_cfg),
+            ),
+            patch(
+                "app.ingest.provider.resolve_provider",
+                side_effect=ValueError("no provider (I6 — no hardcoded default)"),
+            ),
         ):
             from app.ops.review import create_page_from_review
 
             with pytest.raises(HTTPException) as exc_info:
                 await create_page_from_review(item_uuid)
             assert exc_info.value.status_code == 502
+
+        # Item must stay pending on failure (§5.3 — not consumed).
+        async with review_env_0034["session_factory"]() as sess:
+            row = (
+                await sess.execute(
+                    sa_text("SELECT status FROM review_items WHERE id=:id"),
+                    {"id": item_id_str},
+                )
+            ).one()
+        assert row.status == "pending"
 
 
 # ── T-0034-010..011: Skip action ───────────────────────────────────────────────
