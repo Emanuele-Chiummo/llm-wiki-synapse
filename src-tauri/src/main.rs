@@ -11,6 +11,12 @@
 
 fn main() {
     tauri::Builder::default()
+        // tauri-plugin-http: routes JS fetch() calls through the native HTTP stack so
+        // cross-origin requests (e.g. to a CF-Access-protected backend) bypass the
+        // webview CORS/preflight machinery.  CF-Access-Client-Id/Secret headers trigger
+        // a preflight OPTIONS that Cloudflare Access rejects with 403 in the webview;
+        // the native path sends them directly, no preflight. [F15][ADR-0047]
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())

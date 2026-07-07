@@ -18,7 +18,7 @@ import { useState, useCallback, useEffect, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import logoUrl from "../../assets/synapse-logo.svg";
-import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor, cfAccessHeaders } from "../../api/base";
+import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor, cfAccessHeaders, platformFetch } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
 
 const PROBE_TIMEOUT_MS = 6_000;
@@ -53,7 +53,9 @@ export function ConnectScreen() {
     const timeoutId = window.setTimeout(() => {
       controller.abort();
     }, DETECT_TIMEOUT_MS);
-    void fetch(`${LOCAL_DETECT_URL}/status`, { signal: controller.signal })
+    // Use platformFetch so the local-detect probe also goes through native HTTP
+    // on desktop (consistent with the main connect probe, avoids webview quirks).
+    void platformFetch(`${LOCAL_DETECT_URL}/status`, { signal: controller.signal })
       .then((res) => {
         if (res.ok) {
           setUrl((current) => (current === "http://" ? LOCAL_DETECT_URL : current));
@@ -113,7 +115,10 @@ export function ConnectScreen() {
         // probe too, else fetch follows the 302 to the CF login page and the
         // "/status" call silently succeeds against the wrong origin.
         const statusHeaders = { ...cfAccessHeaders(), ...bearerHeadersFor(token) };
-        const statusRes = await fetch(`${trimmed}/status`, {
+        // Use platformFetch (not global fetch) so the CF-Access-Client-Id/Secret
+        // headers bypass the webview CORS preflight on desktop.  A native HTTP
+        // request has no preflight, so CF Access accepts the service token.
+        const statusRes = await platformFetch(`${trimmed}/status`, {
           signal: controller.signal,
           headers: statusHeaders,
         });

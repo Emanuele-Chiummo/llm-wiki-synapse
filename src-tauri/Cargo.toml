@@ -24,6 +24,7 @@ tauri = { version = "2", features = [
     "image-ico",
     "image-png",
 ] }
+tauri-plugin-http = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
