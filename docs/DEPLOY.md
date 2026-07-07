@@ -522,6 +522,64 @@ In [claude.ai](https://claude.ai/new):
    - **Token:** Paste `<your-MCP_AUTH_TOKEN>` (without the "Bearer " prefix — claude.ai adds it)
 5. Click **Connect**. Claude should report "Connected" and list the available tools.
 
+### 5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)
+
+As of **v1.3.9** the recommended production posture puts **Cloudflare Access (Zero
+Trust)** in front of the *entire* app, not just optionally on `/mcp/server`. This closes
+the "public API in the clear" exposure: every request is gated at the Cloudflare edge
+*before* it reaches Synapse.
+
+- **Browser / PWA:** interactive login (One-time PIN or an IdP). The `CF_Authorization`
+  cookie then carries same-origin requests through. Nothing to configure in-app.
+- **Non-browser clients** (native iOS app, Chrome clipper, `curl`/scripts): they carry no
+  CF cookie, so they must send a Cloudflare Access **service token** — two headers on
+  every request:
+
+  ```
+  CF-Access-Client-Id:     <client-id>.access
+  CF-Access-Client-Secret: <client-secret>
+  ```
+
+  Create the token in **Zero Trust → Access → Service Auth → Service Tokens**, then add a
+  policy to the Synapse Access application with **Action = "Service Auth"** and
+  Include → Service Token. Recommendation: **one token per client** so any single one can
+  be revoked without touching the others. The iOS app (Settings) and the Chrome clipper
+  (Options) each expose fields to paste their Client ID + Secret (v1.3.9); the web
+  frontend exposes them under **Settings › Sicurezza / Security**.
+
+#### Remote MCP behind Cloudflare Access
+
+The remote MCP surface (`/mcp/server`) already has its **own** independent auth
+(`MCP_AUTH_TOKEN`, Bearer), so you have two options once CF Access gates the app:
+
+- **Claude Desktop (JSON `mcpServers` config)** — this transport lets you set custom
+  headers, so add the service token there alongside the Bearer token:
+
+  ```jsonc
+  {
+    "mcpServers": {
+      "synapse_remote": {
+        "type": "http",
+        "url": "https://synapse.yourdomain.com/mcp/server",
+        "headers": {
+          "Authorization": "Bearer <MCP_AUTH_TOKEN>",
+          "CF-Access-Client-Id": "<client-id>.access",
+          "CF-Access-Client-Secret": "<client-secret>"
+        }
+      }
+    }
+  }
+  ```
+
+- **claude.ai remote-MCP connector** — its UI only supports a **Bearer token**, so it
+  cannot send the CF-Access headers. Since `/mcp/server` is already protected by its own
+  `MCP_AUTH_TOKEN`, the clean answer is to **exclude that path from the CF Access
+  application**: add an Access policy with **Action = "Bypass"** (or a separate,
+  unenforced Access app) scoped to `/mcp/server`. The MCP bearer token remains the gate
+  for that path — no downgrade in protection, and the connector keeps working. The same
+  applies to the clipper ingress `POST /clip` if you prefer a bypass over the in-app
+  service-token headers.
+
 ### 5.7 Enable remote writes (optional, not recommended)
 
 By default, only the three read tools are exposed. To allow `write_page` (so claude.ai

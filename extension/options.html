@@ -164,6 +164,28 @@
     </div>
   </div>
 
+  <p class="section-title">Cloudflare Access (optional)</p>
+
+  <div class="field">
+    <label for="cfClientId">CF Access Client ID</label>
+    <input type="text" id="cfClientId" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.access" autocomplete="off" />
+    <div class="hint">
+      The <code>CF-Access-Client-Id</code> for the service token issued in your
+      Cloudflare Zero Trust dashboard (ends in <code>.access</code>).
+      Only required when your Synapse backend is behind Cloudflare Access.
+      Clear this field and save to disable Cloudflare Access headers.
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="cfClientSecret">CF Access Client Secret</label>
+    <input type="password" id="cfClientSecret" placeholder="Paste client secret here" autocomplete="new-password" />
+    <div class="hint">
+      The <code>CF-Access-Client-Secret</code> value. Stored encrypted by Chrome.
+      Leave blank to keep the currently saved value.
+    </div>
+  </div>
+
   <div class="actions">
     <button id="saveBtn">Save Settings</button>
     <button id="testBtn">Test Connection</button>

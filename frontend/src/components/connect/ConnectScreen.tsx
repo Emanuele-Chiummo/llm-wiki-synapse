@@ -18,7 +18,7 @@ import { useState, useCallback, useEffect, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import logoUrl from "../../assets/synapse-logo.svg";
-import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor } from "../../api/base";
+import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor, cfAccessHeaders } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
 
 const PROBE_TIMEOUT_MS = 6_000;
@@ -108,7 +108,11 @@ export function ConnectScreen() {
         // so apiFetch's apiBase() would resolve wrong. Pass the token header manually
         // here only (ADR-0052: this is the ONLY place outside base.ts where we handle
         // the raw header construction during the initial connect flow).
-        const statusHeaders = bearerHeadersFor(token);
+        // Merge Cloudflare Access service-token headers (edge auth) with the
+        // Bearer header (app auth): a gated backend needs the CF headers on the
+        // probe too, else fetch follows the 302 to the CF login page and the
+        // "/status" call silently succeeds against the wrong origin.
+        const statusHeaders = { ...cfAccessHeaders(), ...bearerHeadersFor(token) };
         const statusRes = await fetch(`${trimmed}/status`, {
           signal: controller.signal,
           headers: statusHeaders,
