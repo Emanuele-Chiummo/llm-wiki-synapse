@@ -332,35 +332,33 @@ function renderPanel() {
 }
 
 // All 18 page IDs in traversal order (must match ALL_PAGES in SettingsPanel.tsx)
-// Groups: Generale(2) + AI e modelli(5) + Contenuti wiki(3) + Sorgenti e import(3)
-//         + Connessioni(2) + Sistema(3) = 18 total.
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
 const EXPECTED_PAGE_IDS = [
+  "providers",
   "appearance",
   "setup",
-  "providers",
+  "sourceWatch",
+  "clipper",
+  "pdf",
+  "generation",
   "scenarios",
   "context",
   "embeddings",
   "webSearch",
-  "generation",
   "automation",
   "limits",
-  "sourceWatch",
-  "clipper",
-  "pdf",
-  "apiMcp",
   "security",
+  "apiMcp",
   "costs",
   "maintenance",
   "about",
 ] as const;
 
 // ─── 1. All 18 page nav items render (A2.1 / ADR-0055) ──────────────────────
-// AC-R11-2-11 updated: 2-level nav, 18 page buttons, 6 non-clickable group headers.
-// Groups: Generale(2) + AI e modelli(5) + Contenuti wiki(3) + Sorgenti e import(3)
-//         + Connessioni(2) + Sistema(3) = 18 total.
+// AC-R11-2-11 updated: 2-level nav, 18 page buttons, 5 non-clickable group headers.
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
 
-describe("SettingsPanel — 17 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
+describe("SettingsPanel — 18 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
   beforeEach(() => {
     renderPanel();
   });
@@ -389,11 +387,11 @@ describe("SettingsPanel — 17 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / A
   });
 
   it("group headers are NOT buttons (non-clickable labels)", () => {
-    // The aside has buttons only for pages (17), not for group headers
+    // The aside has buttons only for pages (18), not for group headers
     const aside = document.querySelector("aside")!;
     const buttons = aside.querySelectorAll("button");
     // None of the buttons should have a data-settings-section that is a group ID
-    const groupIds = ["generale", "aiModelli", "wikiContent", "sourcesImport", "connections", "system"];
+    const groupIds = ["essentials", "content", "aiBehavior", "access", "system"];
     buttons.forEach((btn) => {
       const section = btn.getAttribute("data-settings-section");
       if (section) {
@@ -458,17 +456,17 @@ describe("SettingsPanel — page switching (AC-HARD-SET-2 + ADR-0055)", () => {
     expect(document.querySelector('[data-testid="theme-btn-dark"]')).not.toBeNull();
   });
 
-  it("active button has aria-current='true' (default = appearance)", () => {
+  it("active button has aria-current='true' (default = providers)", () => {
     renderPanel();
-    // Default active page is "appearance"
-    const appearanceBtn = document.querySelector('[data-settings-section="appearance"]');
-    expect(appearanceBtn?.getAttribute("aria-current")).toBe("true");
+    // Default active page is "providers"
+    const providersBtn = document.querySelector('[data-settings-section="providers"]');
+    expect(providersBtn?.getAttribute("aria-current")).toBe("true");
   });
 
   it("non-active buttons do NOT have aria-current", () => {
     renderPanel();
-    const providersBtn = document.querySelector('[data-settings-section="providers"]');
-    expect(providersBtn?.getAttribute("aria-current")).toBeNull();
+    const appearanceBtn = document.querySelector('[data-settings-section="appearance"]');
+    expect(appearanceBtn?.getAttribute("aria-current")).toBeNull();
   });
 
   it("after clicking 'providers', providers button has aria-current='true'", () => {
@@ -588,54 +586,54 @@ describe("SettingsPanel — Add button disabled when model_id empty (architect C
 
 // ─── 7. Arrow-key nav switches pages (ITEM 4 / DEFECT-M4H-005) ──────────────
 // ADR-0055: 18 pages total. Arrow keys skip group headers (only traverse page buttons).
-// NAV order (ALL_PAGES): appearance(0) setup(1) providers(2) scenarios(3) context(4)
-//   embeddings(5) webSearch(6) generation(7) automation(8) limits(9) sourceWatch(10)
-//   clipper(11) pdf(12) apiMcp(13) security(14) costs(15) maintenance(16) about(17)
+// NAV order (ALL_PAGES): providers(0) appearance(1) setup(2) sourceWatch(3) clipper(4) pdf(5)
+//   generation(6) scenarios(7) context(8) embeddings(9) webSearch(10) automation(11) limits(12)
+//   security(13) apiMcp(14) costs(15) maintenance(16) about(17)
 
 describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005 / ADR-0055)", () => {
-  it("ArrowDown from 'appearance' (index 0) moves to 'setup' (index 1)", () => {
+  it("ArrowDown from 'providers' (index 0) moves to 'appearance' (index 1)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Initial active = appearance
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    // Initial active = providers (new default)
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
 
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    // After ArrowDown, setup should be active
-    expect(document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current")).toBe("true");
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBeNull();
+    // After ArrowDown, appearance should be active
+    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last, index 17) back to 'appearance' (first, index 0)", () => {
+  it("ArrowDown cycles past 'about' (last, index 17) back to 'providers' (first, index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 17) — 17 ArrowDown presses from "appearance"
+    // Navigate to "about" (index 17) — 17 ArrowDown presses from "providers"
     for (let i = 0; i < 17; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
 
-    // One more ArrowDown should wrap to "appearance"
+    // One more ArrowDown should wrap to "providers"
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("ArrowUp from 'appearance' (index 0) wraps to 'about' (last index)", () => {
+  it("ArrowUp from 'providers' (index 0) wraps to 'about' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowUp" });
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("Home key moves focus to 'appearance' (index 0)", () => {
+  it("Home key moves focus to 'providers' (index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Move to providers first
+    // Move to setup first (ArrowDown twice from providers → appearance → setup)
     fireEvent.keyDown(aside, { key: "ArrowDown" });
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current")).toBe("true");
 
     fireEvent.keyDown(aside, { key: "Home" });
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
   });
 
   it("End key moves focus to 'about' (last index)", () => {
@@ -649,15 +647,15 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "Tab" });
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
   });
 
-  it("ArrowDown twice from 'appearance' reaches 'providers' (index 2)", () => {
+  it("ArrowDown twice from 'providers' reaches 'setup' (index 2)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowDown" });
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current")).toBe("true");
   });
 });
 
@@ -666,8 +664,8 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
 describe("SettingsPanel — deep-link via synapse:settingsSection CustomEvent (ADR-0055)", () => {
   it("dispatching synapse:settingsSection with detail.section='providers' activates providers page", async () => {
     renderPanel();
-    // Default is appearance
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    // Default is providers
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
 
     window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "providers" } }));
 
@@ -692,9 +690,9 @@ describe("SettingsPanel — deep-link via synapse:settingsSection CustomEvent (A
 
     window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "nonExistentPage" } }));
 
-    // appearance remains active (unknown section ignored)
+    // providers remains active (unknown section ignored)
     await new Promise((r) => setTimeout(r, 30));
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
+    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
   });
 
   it("dispatching synapse:settingsSection with detail.section='security' activates security page", async () => {
@@ -1671,13 +1669,13 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
 // Covers: posture badges render; Save calls PUT {token}; Clear calls PUT {clear:true};
 // token value never persisted/rendered; password field discarded after save;
 // clear button visible only when token_configured=true; error state.
-// Note: SectionCliAuth is embedded inside SectionApiMcp (page "apiMcp").
+// Note: SectionCliAuth is now embedded inside SectionLlmModels (page "providers").
 
 describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
-  // Helper: navigate to apiMcp page and wait for the CLI auth sub-block to appear.
+  // Helper: navigate to providers page and wait for the CLI auth sub-block to appear.
   async function navigateToCliAuthAndWait() {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
@@ -1690,11 +1688,10 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
 
   it("shows loading state immediately after navigation (before fetch resolves)", () => {
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
     // The CLI auth sub-block shows "loading" while getCliAuthConfig is pending.
     // i18n mock: "settings.cliAuth.loading" → "loading"
-    // (apiMcp also shows "loading" for fetchMcpInfo — both resolve async)
     expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
 
@@ -1868,15 +1865,14 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     (mockGet as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
 
     renderPanel();
-    const btn = document.querySelector('[data-settings-section="apiMcp"]');
+    const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
 
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
     });
-    // i18n mock: "settings.cliAuth.error" → "error" (same key as other error strings)
+    // i18n mock: "settings.cliAuth.error" → "error"
     await waitFor(() => {
-      // At least one "error" text should be visible (could be from apiMcp or cliAuth)
       expect(screen.getAllByText("error").length).toBeGreaterThanOrEqual(1);
     });
   });
@@ -2014,12 +2010,13 @@ describe("SettingsPanel — Runtime Config i18n labels non-empty (AC-R11-2-7)", 
   });
 });
 
-// AC-R11-2-11: 6 top-level groups render; no control is lost (representative
+// AC-R11-2-11: 5 top-level groups render; no control is lost (representative
 //              controls from each original section are still reachable via the new IA).
 describe("SettingsPanel — All original controls still reachable in 2-level IA (AC-R11-2-11 / ADR-0055)", () => {
   it("appearance page: theme buttons present (SectionInterface)", () => {
     renderPanel();
-    // appearance is the default — no click needed
+    // providers is the new default — must click appearance to reach it
+    fireEvent.click(document.querySelector('[data-settings-section="appearance"]')!);
     expect(document.querySelector('[data-testid="theme-btn-system"]')).not.toBeNull();
   });
 
