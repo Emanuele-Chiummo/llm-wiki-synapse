@@ -381,6 +381,54 @@ export function cfAccessHeaders(): Record<string, string> {
   };
 }
 
+// ─── platformFetch — native HTTP bypass for Tauri desktop (v1.3.10) ─────────
+//
+// Problem: the Tauri desktop app (origin tauri://localhost) calls a backend that
+// may be behind Cloudflare Access.  Adding CF-Access-Client-Id/Secret to a
+// cross-origin request triggers a CORS preflight OPTIONS, which CF Access rejects
+// with 403 — the app can't reach the backend at all.
+//
+// Fix: when running inside Tauri, route all HTTP calls through the native HTTP
+// plugin (@tauri-apps/plugin-http).  Native requests bypass the webview's
+// CORS/preflight machinery entirely, so the service-token headers reach the
+// backend correctly.
+//
+// Implementation notes:
+//   - Dynamic import inside isTauri() branch → the web/PWA bundle never loads
+//     the Tauri plugin module; vitest (jsdom) never hits this branch.
+//   - Web build: isTauri() is always false → global fetch is used unchanged.
+//   - Streaming caveat: live per-token streaming (res.body.getReader()) may
+//     buffer until response completion on some tauri-plugin-http versions.
+//     The message arrives complete; streaming appearance in the chat panel may
+//     be absent on desktop.  Known caveat, not a blocker for v1.3.10.
+
+/**
+ * platformFetch — transparent fetch wrapper for the Tauri desktop.
+ *
+ * On Tauri: uses `@tauri-apps/plugin-http`'s fetch (native HTTP stack, no CORS
+ * preflight) so CF-Access service-token headers reach CF-protected backends.
+ * On web/PWA/test: falls through to the global `fetch` unchanged.
+ *
+ * The dynamic import is intentionally inside the isTauri() guard so bundlers
+ * (Vite) emit it only as a separate on-demand chunk and the web build never
+ * resolves or loads the Tauri module.
+ *
+ * Exported so ConnectScreen can use it for its raw /status probes (which do
+ * NOT go through apiFetch because the server URL is not yet persisted there).
+ */
+export async function platformFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  if (isTauri()) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return tauriFetch(input as any, init as any) as unknown as Promise<Response>;
+  }
+  return fetch(input, init);
+}
+
 // ─── 401 callback (module-level, registered once by AppShell) ────────────────
 
 /**
@@ -429,7 +477,7 @@ export async function apiFetch(
     },
   };
 
-  const res = await fetch(input, merged);
+  const res = await platformFetch(input, merged);
 
   if (res.status === 401) {
     // Clear the stale stored token (the server rotated it or it was wrong)

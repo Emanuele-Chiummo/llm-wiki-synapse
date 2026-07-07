@@ -47,6 +47,17 @@ vi.mock("react-i18next", () => ({
 // Mock the SVG asset (Vite handles SVGs as URLs; jsdom can't import them)
 vi.mock("../../assets/synapse-logo.svg", () => ({ default: "/synapse-logo.svg" }));
 
+// Mock @tauri-apps/plugin-http so that Tauri-mode tests (those that set
+// __TAURI_INTERNALS__) work in jsdom.  platformFetch() dynamically imports this
+// module when isTauri() is true; in tests the Tauri IPC is not available, so the
+// real module would throw.  This mock delegates to globalThis.fetch (which is
+// replaced per-test via vi.stubGlobal("fetch", mockFn)), keeping all existing
+// fetch-call assertions unchanged — they still fire on the same mock function.
+vi.mock("@tauri-apps/plugin-http", () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetch: (input: any, init?: any) => (globalThis as any).fetch(input, init) as unknown,
+}));
+
 // Capture the storeSetServerUrl mock so we can assert on it
 const mockStoreSetServerUrl = vi.fn();
 
