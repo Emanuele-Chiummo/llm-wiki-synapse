@@ -208,6 +208,26 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+      # Portable Windows build: the raw, self-contained Tauri executable (the whole
+      # frontend is embedded). No installer, no registry — runs from any folder / USB
+      # stick; only needs the WebView2 runtime (present on Win10 21H2+/Win11). Does NOT
+      # auto-update (that path belongs to the NSIS installer). Windows runner + v* tag only.
+      - name: Publish portable Windows exe
+        if: matrix.runner == 'windows-latest' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SRC="src-tauri/target/release/Synapse.exe"
+          if [ ! -f "$SRC" ]; then
+            SRC=$(find src-tauri/target/release -maxdepth 1 -name '*.exe' | head -1)
+          fi
+          OUT="Synapse-${VERSION}-portable-x64.exe"
+          cp "$SRC" "$OUT"
+          ls -lh "$OUT"
+          gh release upload "${GITHUB_REF_NAME}" "$OUT" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
