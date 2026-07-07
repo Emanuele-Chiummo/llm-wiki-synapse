@@ -690,7 +690,12 @@ class TestApply:
         assert enrich_calls[0][1] == "test-vault"
 
     async def test_apply_missing_page_uses_generation_seam(self, lint_env: dict[str, Any]) -> None:
-        """T-LINT-008: missing-page apply delegates to _run_generation + write_wiki_page."""
+        """
+        T-LINT-008: missing-page apply delegates to _run_generation; ORCHESTRATED outcome
+        (wiki_page set) is written once via write_wiki_page (I1).
+        """
+        from app.ops.review import GenerationOutcome
+
         finding_id = await _insert_finding(
             lint_env,
             category="missing-page",
@@ -699,12 +704,15 @@ class TestApply:
         )
 
         gen_calls: list[Any] = []
+        write_calls: list[Any] = []
 
         async def _fake_run_generation(**kwargs: Any) -> Any:
             gen_calls.append(kwargs)
-            return MagicMock()
+            # Orchestrated route: caller writes the produced WikiPage via write_wiki_page.
+            return GenerationOutcome(wiki_page=MagicMock(), created_page_id=None, converged=True)
 
         async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
             written = MagicMock()
             written.id = uuid.uuid4()
             return written
@@ -727,6 +735,53 @@ class TestApply:
         assert finding.status == "applied"
         assert len(gen_calls) == 1, "missing-page apply must call _run_generation"
         assert gen_calls[0]["proposed_title"] == "Kubernetes"
+        assert len(write_calls) == 1, "orchestrated outcome must be written once (I1)"
+
+    async def test_apply_missing_page_delegated_skips_write(self, lint_env: dict[str, Any]) -> None:
+        """
+        T-LINT-008b: for an AGENTIC (delegated) provider, _run_generation returns a
+        GenerationOutcome with created_page_id set — the agent already wrote via MCP write_page,
+        so the lint caller MUST NOT call write_wiki_page again (I1 — one write per page).
+        """
+        from app.ops.review import GenerationOutcome
+
+        finding_id = await _insert_finding(
+            lint_env,
+            category="missing-page",
+            target_title="Helm",
+            description="Helm is mentioned but has no page.",
+        )
+
+        already_written_id = str(uuid.uuid4())
+        write_calls: list[Any] = []
+
+        async def _fake_run_generation(**kwargs: Any) -> Any:
+            return GenerationOutcome(
+                wiki_page=None, created_page_id=already_written_id, converged=True
+            )
+
+        async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
+            return MagicMock(id=uuid.uuid4())
+
+        async def _fake_resolve(operation: str, vault_id: str) -> Any:
+            return MagicMock(token_budget=20_000, max_iter=3)
+
+        with (
+            patch("app.ops.review._run_generation", side_effect=_fake_run_generation),
+            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                side_effect=_fake_resolve,
+            ),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(finding_id))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 0, "delegated path must NOT call write_wiki_page (I1)"
+        assert already_written_id in (finding.resolution_note or "")
 
 
 # ── T-LINT-009/010: dismiss + error paths ─────────────────────────────────────

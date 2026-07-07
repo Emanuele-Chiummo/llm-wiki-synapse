@@ -4,8 +4,11 @@ F9 HITL Review Queue — ADR-0034 [AI] (ai-agent-engineer) scope tests.
 Covers the three filled AI seams in app/ops/review.py:
   _llm_propose_reviews  (§4.3)  — single bounded provider call, capped, degrade-on-timeout.
   _llm_sweep_judge      (§6.3)  — conservative default-to-keep; never resolves `confirm`.
-  _run_generation       (§5)    — bounded run_orchestrated_loop; returns a WikiPage written
-                                  through write_wiki_page (I1).
+  _run_generation       (§5)    — capability-aware (I6): orchestrated route returns a
+                                  GenerationOutcome(wiki_page=...) the caller writes via
+                                  write_wiki_page; delegated (agentic) route returns
+                                  GenerationOutcome(created_page_id=...) — the agent already
+                                  wrote via MCP write_page, caller skips the write (I1).
 
 Tests (ADR-0034 §11.2 [AI]):
   T-AI-001  anti-spam gate skips the LLM call on a trivial run (zero proposals, zero cost)
@@ -279,7 +282,10 @@ class TestCreateGeneration:
 
         provider = MagicMock()
         provider.bind_accumulator = MagicMock()
-        provider.capabilities = MagicMock(return_value=MagicMock(name="prov", mode="local"))
+        # Orchestrated route (I6): supports_agentic_loop is False → analyze→generate loop.
+        _caps = MagicMock(mode="local", supports_agentic_loop=False)
+        _caps.name = "prov"
+        provider.capabilities = MagicMock(return_value=_caps)
         provider.analyze = AsyncMock(return_value=analysis)
         provider.generate = AsyncMock(return_value=[wiki_page])
 
@@ -331,7 +337,10 @@ class TestCreateGeneration:
 
         provider = MagicMock()
         provider.bind_accumulator = MagicMock()
-        provider.capabilities = MagicMock(return_value=MagicMock(name="prov", mode="local"))
+        # Orchestrated route (I6): supports_agentic_loop is False → analyze→generate loop.
+        _caps = MagicMock(mode="local", supports_agentic_loop=False)
+        _caps.name = "prov"
+        provider.capabilities = MagicMock(return_value=_caps)
         provider.analyze = AsyncMock(side_effect=RuntimeError("provider exploded"))
 
         write_called = {"n": 0}
@@ -362,6 +371,122 @@ class TestCreateGeneration:
                 )
             ).one()
         assert row.status == "pending", "item must stay pending on failure (§5.3)"
+
+    async def test_create_delegated_uses_agent_written_id_skips_write(
+        self,
+        review_env_0034: dict[str, Any],
+    ) -> None:
+        """
+        T-AI-006b: an AGENTIC provider (capabilities().supports_agentic_loop=True) routes to the
+        DELEGATED path (I6). The agent already wrote the page via MCP write_page; _run_generation
+        resolves the created id from the written ids (preferring the title match) and the caller
+        MUST NOT call write_wiki_page again (I1 — one write per page).
+        """
+        from app.ops import review as review_mod
+
+        # The page the delegated agent "wrote" via MCP write_page (title == proposed title).
+        page_id = await _insert_page(review_env_0034, title="Quantum Computing")
+
+        item_id_str = await _insert_proposal(
+            review_env_0034,
+            item_type="missing-page",
+            proposed_title="Quantum Computing",
+            proposed_page_type="concept",
+            rationale="Referenced but absent",
+        )
+
+        provider = MagicMock()
+        provider.bind_accumulator = MagicMock()
+        # Delegated route (I6): supports_agentic_loop is True → delegate the whole ingest.
+        _caps = MagicMock(mode="cli", supports_agentic_loop=True)
+        _caps.name = "CliAgentProvider"
+        provider.capabilities = MagicMock(return_value=_caps)
+
+        # _delegate_ingest returns (converged, pages_written, written_page_ids).
+        delegate_mock = AsyncMock(return_value=(True, 1, [page_id]))
+
+        write_called = {"n": 0}
+
+        async def fake_write(session: Any, page: Any, origin_source: str) -> Any:
+            write_called["n"] += 1
+            return MagicMock(id=uuid.uuid4())
+
+        with (
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new=AsyncMock(return_value=_fake_config_row()),
+            ),
+            patch("app.ingest.provider.resolve_provider", return_value=provider),
+            patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
+            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+        ):
+            result = await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+
+        # Delegated path was taken (analyze/generate never touched — they'd raise on a CLI provider).
+        delegate_mock.assert_awaited_once()
+        # The caller did NOT double-write — the agent already wrote via MCP write_page (I1).
+        assert write_called["n"] == 0, "delegated path must NOT call write_wiki_page (I1)"
+        assert result.status == "created"
+        assert result.resolution == "created"
+        # created_page_id is the agent-written page (title match preferred).
+        assert str(result.created_page_id) == page_id
+
+    async def test_create_delegated_empty_writes_502_item_pending(
+        self,
+        review_env_0034: dict[str, Any],
+    ) -> None:
+        """
+        T-AI-007b: a delegated run where the agent writes NOTHING (empty written_page_ids) →
+        HTTPException(502); item left pending; no write in the caller (§5.3 — no partial create).
+        """
+        from app.ops import review as review_mod
+        from fastapi import HTTPException
+
+        item_id_str = await _insert_proposal(
+            review_env_0034,
+            item_type="missing-page",
+            proposed_title="Nothing Written",
+            proposed_page_type="concept",
+        )
+
+        provider = MagicMock()
+        provider.bind_accumulator = MagicMock()
+        _caps = MagicMock(mode="cli", supports_agentic_loop=True)
+        _caps.name = "CliAgentProvider"
+        provider.capabilities = MagicMock(return_value=_caps)
+
+        # Agent ran but wrote no pages → empty written_page_ids.
+        delegate_mock = AsyncMock(return_value=(False, 0, []))
+
+        write_called = {"n": 0}
+
+        async def fake_write(session: Any, page: Any, origin_source: str) -> Any:
+            write_called["n"] += 1
+            return MagicMock(id=uuid.uuid4())
+
+        with (
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new=AsyncMock(return_value=_fake_config_row()),
+            ),
+            patch("app.ingest.provider.resolve_provider", return_value=provider),
+            patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
+            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+
+        assert exc_info.value.status_code == 502
+        assert write_called["n"] == 0, "no write when the delegated agent produced nothing (§5.3)"
+
+        async with review_env_0034["session_factory"]() as sess:
+            row = (
+                await sess.execute(
+                    sa_text("SELECT status FROM review_items WHERE id=:id"),
+                    {"id": item_id_str},
+                )
+            ).one()
+        assert row.status == "pending", "item must stay pending on delegated failure (§5.3)"
 
 
 # ── T-AI-008..010: sweep Pass-2 conservative judgment ────────────────────────

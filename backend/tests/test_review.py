@@ -585,10 +585,11 @@ class TestReviewQueueEndpoints:
     async def test_approve_returns_502_ai_seam(
         self, review_env: dict[str, Any], review_client: AsyncClient
     ) -> None:
-        """T-RV-009: POST /review/queue/{id}/approve → 502 (AI seam stub, ADR-0034 §5.3).
+        """T-RV-009: POST /review/queue/{id}/approve → 409/502 (ADR-0034 §5.3).
 
-        The Create action invokes _run_generation which raises NotImplementedError until
-        ai-agent-engineer fills the stub. The item must remain pending (no state change on 502).
+        The Create action invokes _run_generation (real, capability-aware generation). With no
+        configured provider the handler returns 409; if a provider resolves but generation fails
+        it returns 502. Either way the item must remain pending (no state change on failure).
         """
         item_id = await _insert_review_item(review_env, proposed_title="Galaxy Formation")
 

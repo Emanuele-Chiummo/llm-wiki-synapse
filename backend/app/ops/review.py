@@ -427,6 +427,68 @@ async def _llm_sweep_judge(
     }
 
 
+@dataclass
+class GenerationOutcome:
+    """
+    Result of _run_generation — capability-aware (I6). Exactly ONE of the two page channels
+    is populated so the caller writes each page exactly once (I1):
+
+      - Orchestrated route (supports_agentic_loop is False): `wiki_page` is the produced page
+        and the CALLER writes it via write_wiki_page (`created_page_id` is None).
+      - Delegated route (supports_agentic_loop is True): the agentic provider ALREADY wrote the
+        page via MCP write_page (→ write_wiki_page); `created_page_id` is that page id and the
+        caller MUST NOT write again (`wiki_page` is None).
+    """
+
+    wiki_page: WikiPage | None
+    created_page_id: str | None
+    converged: bool
+
+
+async def _resolve_delegated_created_page_id(
+    written_page_ids: list[str], proposed_title: str
+) -> str | None:
+    """
+    Resolve which page the delegated (agentic) agent created for a Create action.
+
+    The CLI agent writes one or more pages via MCP write_page (recorded ids, ADR-0044 §4.2).
+    Prefer the page whose title equals `proposed_title` (casefold+strip compare); otherwise fall
+    back to the first written id. Returns None ONLY when the agent wrote nothing — the caller
+    then raises → 502, item left pending (no partial create).
+
+    Dialect-portable read (cast id → TEXT) mirrors _propose_reviews_for_delegated (SQLite tests
+    store id as TEXT; Postgres native-UUID columns stay matchable). Bounded indexed read by id
+    (I1 — no vault re-scan).
+    """
+    if not written_page_ids:
+        return None
+
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast as _sa_cast
+
+    id_strs = [str(i) for i in written_page_ids]
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(Page.id, Page.title).where(
+                        _sa_cast(Page.id, _SAString).in_(id_strs),
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            ).all()
+        )
+    title_by_id = {str(pid): (title or "") for pid, title in rows}
+
+    norm_target = proposed_title.casefold().strip()
+    for pid in id_strs:
+        title = title_by_id.get(pid)
+        if title is not None and title.casefold().strip() == norm_target:
+            return pid
+    # No title match → the first page the agent wrote (its ids are already all real writes).
+    return id_strs[0]
+
+
 async def _run_generation(
     *,
     vault_id: str,
@@ -435,9 +497,20 @@ async def _run_generation(
     rationale: str | None,
     origin_source: str,
     provider_config_row: object,
-) -> WikiPage:
+) -> GenerationOutcome:
     """
-    Bounded run_orchestrated_loop on-demand for lazy Create (ADR-0034 §5, implemented).
+    Bounded on-demand page generation for lazy Create (ADR-0034 §5, implemented).
+
+    CAPABILITY-AWARE ROUTING (I6 — mirrors orchestrator.run_ingest_pipeline):
+      caps = provider.capabilities()
+      - caps.supports_agentic_loop is True  → DELEGATED: hand the whole single-page create to the
+        agentic provider via orchestrator._delegate_ingest(); the agent writes the page through
+        MCP write_page (→ write_wiki_page, I1). Resolve the created page id from the written ids;
+        the caller MUST NOT write again. Returns GenerationOutcome(created_page_id=...).
+      - otherwise                            → ORCHESTRATED: run the bounded
+        analyze→generate→validate→retry loop; the CALLER writes the produced WikiPage via
+        write_wiki_page. Returns GenerationOutcome(wiki_page=...).
+    NEVER isinstance/provider_type/class-name branching (I6) — route ONLY via capabilities().
 
     Runs the bounded orchestrated loop (ingest/loop.py::run_orchestrated_loop) with a
     single-page-target prompt: "generate the wiki page titled <proposed_title> of type
@@ -452,20 +525,23 @@ async def _run_generation(
          - default → concept
       'source' is reserved for ingested raw documents; Create NEVER produces a source page.
 
-    Bounds (I7):
+    Bounds (I7 — both routes):
       - max_iter + token_budget from provider_config_row (I7).
       - Wrapped in asyncio.wait_for(timeout).
-      - An ingest_runs row records tokens + total_cost_usd + the $1 anomaly check
-        (reusing the existing finalize path — same as any other orchestrated run).
-      - On loop failure / provider error → raise (the caller handles → 502; item stays pending).
+      - ONE ingest_runs row per run records tokens + total_cost_usd + the $1 anomaly check
+        (route='orchestrated' or 'delegated' — same standalone finalize seam, _write_ingest_run).
+      - On loop / delegate failure / provider error → raise (the caller handles → 502; item stays
+        pending). Delegated route producing zero pages also raises (nothing to mark created).
 
     Returns:
-      WikiPage (the produced page; caller writes it via write_wiki_page).
-      Or raises on failure (caller converts to 502; item left pending — no partial write).
+      GenerationOutcome — orchestrated → wiki_page set (caller writes it via write_wiki_page);
+      delegated → created_page_id set (already written by the agent; caller skips the write).
+      Raises on failure (caller converts to 502; item left pending — no partial write).
     """
     from app.ingest.loop import run_orchestrated_loop
     from app.ingest.orchestrator import (
         COST_ANOMALY_THRESHOLD_USD,
+        _delegate_ingest,
         _ensure_source_summary,
         _load_vault_context,
         _write_ingest_run,
@@ -500,7 +576,106 @@ async def _run_generation(
         f"the title above; cite {origin_source!r} in its frontmatter sources[] (F3)."
     )
 
+    model_id = str(getattr(provider_config_row, "model_id", ""))
     started_at = datetime.now(UTC)
+
+    # ── ROUTE: the single capability check (I6) — mirrors run_ingest_pipeline ─────
+    if caps.supports_agentic_loop:
+        # DELEGATED (CLI/agentic): the provider runs its own bounded agent loop and writes the
+        # page through MCP write_page (→ write_wiki_page, I1). We pass the same vault context the
+        # orchestrator's delegated path passes as system_prompt so the agent links to existing
+        # pages. The caller MUST NOT write again — the agent already wrote (I1: one write/page).
+        delegated_converged = False
+        written_page_ids: list[str] = []
+        delegate_error: BaseException | None = None
+        try:
+            delegated_converged, _pages_written, written_page_ids = await asyncio.wait_for(
+                _delegate_ingest(
+                    provider=provider,
+                    source_text=source_text,
+                    origin_source=origin_source,
+                    system_prompt=vault_context,
+                ),
+                timeout=timeout_s,
+            )
+        except TimeoutError as exc:
+            delegate_error = exc
+        except Exception as exc:  # noqa: BLE001
+            delegate_error = exc
+
+        finished_at = datetime.now(UTC)
+        # Cost/tokens come from the run-scoped accumulator bound above — the CLI provider records
+        # its SDK-reported usage into it (DelegatedIngestResult.usage → _record_usage), exactly
+        # as run_ingest_pipeline's delegated route folds cost into the same ledger (I7).
+        total_tokens = accumulator.total_tokens
+        total_cost_usd = round(accumulator.total_cost_usd, 4)
+        cost_anomaly = total_cost_usd > COST_ANOMALY_THRESHOLD_USD
+
+        created_page_id: str | None = None
+        if delegate_error is None:
+            created_page_id = await _resolve_delegated_created_page_id(
+                written_page_ids, proposed_title
+            )
+
+        # ── Record ONE ingest_runs row (route='delegated') — same standalone seam ─
+        try:
+            await _write_ingest_run(
+                page_id=None,
+                provider_name=caps.name,
+                provider_type=caps.mode,
+                model_id=model_id,
+                route="delegated",
+                max_iter_used=0,  # delegated: the agent owns its own (opaque) loop count (I6)
+                total_tokens=total_tokens,
+                total_cost_usd=total_cost_usd,
+                converged=delegated_converged,
+                cost_anomaly=cost_anomaly,
+                started_at=started_at,
+                finished_at=finished_at,
+                pages_created=1 if created_page_id is not None else 0,
+                error_message=(
+                    (str(delegate_error) or delegate_error.__class__.__name__)
+                    if delegate_error is not None
+                    else None
+                ),
+            )
+        except Exception as run_exc:  # noqa: BLE001
+            logger.warning(
+                "_run_generation: ingest_runs audit write failed (non-fatal): %s", run_exc
+            )
+
+        logger.info(
+            "review_create run: provider=%s route=delegated converged=%s tokens=%d "
+            "cost_usd=%.4f title=%r",
+            caps.name,
+            delegated_converged,
+            total_tokens,
+            total_cost_usd,
+            proposed_title,
+        )
+        if cost_anomaly:
+            logger.warning(
+                "COST ANOMALY: review Create run total_cost_usd=%.4f exceeds $%.2f "
+                "(provider=%s title=%r) — investigate runaway/misconfiguration",
+                total_cost_usd,
+                COST_ANOMALY_THRESHOLD_USD,
+                caps.name,
+                proposed_title,
+            )
+
+        # Failure → raise (caller → 502, item left pending; no partial write, §5.3).
+        if delegate_error is not None:
+            raise delegate_error
+        if created_page_id is None:
+            raise RuntimeError(
+                "delegated agent wrote no pages for the Create action (I6 delegated path) — "
+                "nothing to mark created (item left pending)"
+            )
+        return GenerationOutcome(
+            wiki_page=None, created_page_id=created_page_id, converged=delegated_converged
+        )
+
+    # ── ORCHESTRATED (API/Local): bounded analyze→generate→validate→retry (§5) ────
     converged = False
     iterations = 0
     wiki_page: WikiPage | None = None
@@ -541,7 +716,7 @@ async def _run_generation(
             page_id=None,
             provider_name=caps.name,
             provider_type=caps.mode,
-            model_id=str(getattr(provider_config_row, "model_id", "")),
+            model_id=model_id,
             route="orchestrated",
             max_iter_used=iterations,
             total_tokens=total_tokens,
@@ -582,7 +757,7 @@ async def _run_generation(
         raise error
     if wiki_page is None:
         raise RuntimeError("orchestrated loop produced no page and no fallback (unexpected — §5)")
-    return wiki_page
+    return GenerationOutcome(wiki_page=wiki_page, created_page_id=None, converged=converged)
 
 
 # ── R9-3: purpose.md scope-drift suggestion (v0.9) ───────────────────────────────
@@ -1899,8 +2074,11 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     Flow:
       1. Load the review item (404 if absent; 409 if status != 'pending').
       2. Resolve the ingest provider (409 if none configured — I6).
-      3. Call _run_generation (NotImplementedError → 502, item stays pending).
-      4. Write the produced WikiPage via write_wiki_page (I1 — one data_version bump).
+      3. Call _run_generation — capability-aware (I6). On any failure (generation error, or the
+         delegated agent writing zero pages) → 502, item stays pending (no partial write).
+      4. Resolve the created page id (I1 — exactly one write):
+         - delegated route → the agent ALREADY wrote via MCP write_page; use its returned id.
+         - orchestrated route → write the produced WikiPage via write_wiki_page now.
       5. Set status=created, resolution=created, created_page_id, reviewed_at, reviewed_by.
       6. Fire-and-forget sweep so sibling proposals that this page satisfies are closed.
 
@@ -2054,9 +2232,9 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     else:
         origin_source = f"review:{item_id_str}"
 
-    # ── 4. Run generation (AI seam — NotImplementedError propagates as 502) ───
+    # ── 4. Run generation (AI seam — capability-aware; any failure → 502) ─────
     try:
-        wiki_page = await _run_generation(
+        outcome = await _run_generation(
             vault_id=vault_id,
             proposed_title=proposed_title,
             proposed_page_type=proposed_page_type,
@@ -2087,24 +2265,41 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
             detail=(f"Page generation failed: {exc}. " "Item left pending — retry or skip."),
         ) from exc
 
-    # ── 5. Write the page via the single incremental seam (I1) ───────────────
-    from app.ingest.orchestrator import write_wiki_page
+    # ── 5. Resolve the created page id (I1 — exactly one write per page) ──────
+    # Delegated route: the agentic provider ALREADY wrote the page via MCP write_page — use its
+    # id, do NOT write again (never double-write, I1). Orchestrated route: write the produced
+    # WikiPage now via the single incremental seam.
+    if outcome.created_page_id is not None:
+        created_page_id_str = outcome.created_page_id
+    elif outcome.wiki_page is not None:
+        from app.ingest.orchestrator import write_wiki_page
 
-    try:
-        created_page = await write_wiki_page(None, wiki_page, origin_source)
-    except Exception as exc:  # noqa: BLE001
+        try:
+            created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "create_page_from_review: write_wiki_page failed for item=%s: %s — item pending",
+                item_id_str,
+                exc,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=(f"Failed to write page to wiki: {exc}. Item left pending — retry or skip."),
+            ) from exc
+        created_page_id_str = str(created_page.id)
+    else:
+        # Defensive: _run_generation raises rather than returning an empty outcome. Guard anyway
+        # so a future regression surfaces as a clean 502 (item left pending) — never a partial.
         logger.error(
-            "create_page_from_review: write_wiki_page failed for item=%s: %s — item left pending",
+            "create_page_from_review: generation produced no page for item=%s — item pending",
             item_id_str,
-            exc,
         )
         raise HTTPException(
             status_code=502,
-            detail=(f"Failed to write page to wiki: {exc}. " "Item left pending — retry or skip."),
-        ) from exc
+            detail="Page generation produced no page. Item left pending — retry or skip.",
+        )
 
     # ── 6. Set item to created ─────────────────────────────────────────────────
-    created_page_id_str = str(created_page.id)
     async with get_session() as session:
         row2 = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
         item2 = row2.scalar_one_or_none()
