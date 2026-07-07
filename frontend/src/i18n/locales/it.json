@@ -10,7 +10,7 @@
     "graph": "Grafo",
     "lint": "Lint",
     "review": "Revisione",
-    "deepSearch": "Ricerca",
+    "deepSearch": "Ricerca profonda",
     "deepSearchShort": "Ricerca Profonda",
     "toolsGroup": "Strumenti",
     "convert": "Converti",
@@ -167,6 +167,8 @@
       "groupAccessDesc": "Chi può raggiungere Synapse e come collegare altri strumenti.",
       "groupSystemDesc": "Costi, manutenzione e informazioni.",
       "advancedBadge": "Avanzate",
+      "searchPlaceholder": "Cerca impostazione…",
+      "noResults": "Nessuna impostazione trovata.",
       "appearance": "Aspetto",
       "setup": "Configurazione",
       "providers": "AI e provider",
@@ -1103,7 +1105,8 @@
   "previewPanel": {
     "connectedTo": "Collegata a {{count}} altre pagine",
     "connectedTo_one": "Collegata a 1 altra pagina",
-    "technicalDetails": "Dettagli tecnici"
+    "technicalDetails": "Dettagli tecnici",
+    "bodyHint": "Apri la pagina nella Wiki per leggerne il contenuto completo."
   },
   "palette": {
     "placeholder": "Cerca sezioni e pagine…",
@@ -1324,7 +1327,8 @@
     "activity": {
       "ariaLabel": "Attività recenti",
       "title": "Attività recenti",
-      "empty": "Nessuna attività recente."
+      "empty": "Nessuna attività recente.",
+      "untitled": "Senza titolo"
     },
     "sections": {
       "ariaLabel": "Sezioni dominio",

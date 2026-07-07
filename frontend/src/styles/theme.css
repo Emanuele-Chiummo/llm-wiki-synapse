@@ -46,7 +46,7 @@
   /* ── Text ── */
   --syn-text: #1f2328; /* primary near-black */
   --syn-text-muted: #59636e;
-  --syn-text-dim: #8b949e;
+  --syn-text-dim: #68717a; /* WCAG AA: 4.96:1 on #fff, 4.63:1 on bg-soft (was #8b949e = 3.08:1, failed) */
 
   /* ── Accent (blue links / active) ── */
   --syn-accent: #2563eb;
@@ -140,7 +140,7 @@
   /* ── Text ── */
   --syn-text: #e6edf3;
   --syn-text-muted: #8b949e;
-  --syn-text-dim: #484f58;
+  --syn-text-dim: #7d8590; /* WCAG AA: 5.07:1 on #0d1117, 4.64:1 on bg-soft (was #484f58 = 2.28:1, failed) */
 
   /* ── Accent ── */
   --syn-accent: #58a6ff;
@@ -851,4 +851,33 @@ button {
 
 .activity-bar {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Skeleton loading shimmer ──────────────────────────────────────────────
+ * A neutral placeholder block that sweeps a subtle highlight, used while data
+ * loads so the layout appears instantly (perceived-speed win over a bare
+ * "Loading…" label). Honours prefers-reduced-motion. */
+@keyframes syn-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.syn-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--syn-bg-soft) 25%,
+    var(--syn-surface-hover) 37%,
+    var(--syn-bg-soft) 63%
+  );
+  background-size: 200% 100%;
+  animation: syn-skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--syn-radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .syn-skeleton {
+    animation: none;
+  }
 }
