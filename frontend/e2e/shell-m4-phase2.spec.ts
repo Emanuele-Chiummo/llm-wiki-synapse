@@ -299,12 +299,16 @@ test.describe("Settings panel", () => {
 
   test("CHECK-SETTINGS-3: language toggle shows EN/IT", async ({ page }) => {
     await gotoSettings(page);
+    // The language toggle lives on the "appearance" sub-page. SettingsPanel's default
+    // page is "providers" (ADR-0055 IA redesign), so navigate to appearance first.
+    await page.locator("[data-testid='settings-nav-appearance']").click();
     await expect(page.getByRole("button", { name: /english/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /italian/i })).toBeVisible();
   });
 
   test("CHECK-SETTINGS-4: clicking Italian changes language toggle state", async ({ page }) => {
     await gotoSettings(page);
+    await page.locator("[data-testid='settings-nav-appearance']").click();
     const itBtn = page.getByRole("button", { name: /italian/i });
     await itBtn.click();
     // IT button should be pressed
