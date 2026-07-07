@@ -421,7 +421,6 @@ export async function platformFetch(
   init?: RequestInit,
 ): Promise<Response> {
   if (isTauri()) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { fetch: tauriFetch } = await import("@tauri-apps/plugin-http");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return tauriFetch(input as any, init as any) as unknown as Promise<Response>;
