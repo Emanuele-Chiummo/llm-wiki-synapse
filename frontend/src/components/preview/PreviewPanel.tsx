@@ -382,18 +382,18 @@ export function PreviewPanel() {
           </section>
         )}
 
-        {/* Document body placeholder — rendered content is Phase 3 scope */}
+        {/* The full content viewer lives in the Wiki editor; here we only surface a
+            subtle pointer instead of the old dev-facing "Phase 3" placeholder. */}
         <p
           style={{
             marginTop: 20,
-            fontSize: 11,
-            color: "var(--syn-border)",
+            fontSize: 12,
+            color: "var(--syn-text-dim)",
             fontStyle: "italic",
             userSelect: "none",
           }}
-          aria-hidden="true"
         >
-          No document body — demo node (full content viewer: Phase 3)
+          {t("previewPanel.bodyHint")}
         </p>
       </div>
     </div>

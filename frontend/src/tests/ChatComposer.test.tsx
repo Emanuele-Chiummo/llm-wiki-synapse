@@ -235,12 +235,13 @@ describe("D — retrieval-mode segmented control", () => {
     expect(screen.getByTestId("retrieval-mode-local_first")).toBeTruthy();
   });
 
-  it("default mode is standard (aria-pressed=true)", () => {
+  it("default mode is standard (radio aria-checked=true)", () => {
     renderComposer();
     const standardBtn = screen.getByTestId("retrieval-mode-standard");
-    expect(standardBtn.getAttribute("aria-pressed")).toBe("true");
+    expect(standardBtn.getAttribute("role")).toBe("radio");
+    expect(standardBtn.getAttribute("aria-checked")).toBe("true");
     const fastBtn = screen.getByTestId("retrieval-mode-fast");
-    expect(fastBtn.getAttribute("aria-pressed")).toBe("false");
+    expect(fastBtn.getAttribute("aria-checked")).toBe("false");
   });
 
   it("clicking fast changes settingsStore.retrievalMode to fast", () => {
