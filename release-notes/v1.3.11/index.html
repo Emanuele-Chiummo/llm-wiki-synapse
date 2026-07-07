@@ -12,29 +12,27 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.11/">
       
       
-      
-        <link rel="next" href="USER/">
       
       
         
       
       
-      <link rel="icon" href="assets/synapse-appicon.svg">
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
     
     
       
-        <title>Synapse</title>
+        <title>Synapse v1.3.11 — Rifinitura UI/UX, accessibilità e guida utente - Synapse</title>
       
     
     
-      <link rel="stylesheet" href="assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
       
         
-        <link rel="stylesheet" href="assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -53,7 +51,7 @@
       
     
     
-    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -78,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synapse" class="md-skip">
+        <a href="#synapse-v1311-rifinitura-uiux-accessibilita-e-guida-utente" class="md-skip">
           Skip to content
         </a>
       
@@ -94,9 +92,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
       
-  <img src="assets/synapse-appicon.svg" alt="logo">
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -113,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Home
+              Synapse v1.3.11 — Rifinitura UI/UX, accessibilità e guida utente
             
           </span>
         </div>
@@ -219,9 +217,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
       
-  <img src="assets/synapse-appicon.svg" alt="logo">
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
 
     </a>
     Synapse
@@ -233,37 +231,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Home
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="." class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
         
   
   
@@ -279,92 +250,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-does" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it does
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#quick-start-server" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Quick start (server)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#desktop-app" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Desktop app
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stack
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#resources" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Resources
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#license" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        License
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -376,7 +261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="USER/" class="md-nav__link">
+      <a href="../../USER/" class="md-nav__link">
         
   
   
@@ -403,7 +288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="DEPLOY/" class="md-nav__link">
+      <a href="../../DEPLOY/" class="md-nav__link">
         
   
   
@@ -430,7 +315,7 @@
   
   
     <li class="md-nav__item">
-      <a href="architecture/" class="md-nav__link">
+      <a href="../../architecture/" class="md-nav__link">
         
   
   
@@ -457,7 +342,7 @@
   
   
     <li class="md-nav__item">
-      <a href="adr/" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -484,7 +369,7 @@
   
   
     <li class="md-nav__item">
-      <a href="api/" class="md-nav__link">
+      <a href="../../api/" class="md-nav__link">
         
   
   
@@ -511,7 +396,7 @@
   
   
     <li class="md-nav__item">
-      <a href="sequences/" class="md-nav__link">
+      <a href="../../sequences/" class="md-nav__link">
         
   
   
@@ -590,7 +475,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
         
   
   
@@ -618,7 +503,7 @@
   
   
     <li class="md-nav__item">
-      <a href="reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
         
   
   
@@ -673,10 +558,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#what-it-does" class="md-nav__link">
+  <a href="#fix" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What it does
+        🐛 Fix
       
     </span>
   </a>
@@ -684,10 +569,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#quick-start-server" class="md-nav__link">
+  <a href="#accessibilita-wcag-22" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Quick start (server)
+        ♿ Accessibilità (WCAG 2.2)
       
     </span>
   </a>
@@ -695,10 +580,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#desktop-app" class="md-nav__link">
+  <a href="#grafica" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Desktop app
+        🎨 Grafica
       
     </span>
   </a>
@@ -706,10 +591,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#stack" class="md-nav__link">
+  <a href="#navigazione-impostazioni" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Stack
+        🧭 Navigazione &amp; Impostazioni
       
     </span>
   </a>
@@ -717,10 +602,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#resources" class="md-nav__link">
+  <a href="#documentazione" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Resources
+        📖 Documentazione
       
     </span>
   </a>
@@ -728,10 +613,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#license" class="md-nav__link">
+  <a href="#aggiornamento" class="md-nav__link">
     <span class="md-ellipsis">
       
-        License
+        ⬆️ Aggiornamento
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#artifact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        📎 Artifact
       
     </span>
   </a>
@@ -755,94 +651,70 @@
 
 
 
-<h1 id="synapse">Synapse<a class="headerlink" href="#synapse" title="Permanent link">&para;</a></h1>
-<div align="center">
-<p><img alt="Synapse logo" src="assets/synapse-appicon.svg" width="110" /></p>
-<p><strong>Self-hosted AI wiki that organizes itself.</strong></p>
-<p>Drop in raw documents — Synapse reads them, writes interlinked wiki pages,
-builds a weighted knowledge graph, and lets you chat with your own knowledge base, with citations.</p>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">New in v1.3.11</p>
-<p>A refreshed dashboard and graph, WCAG-AA contrast, and a fully rewritten
-<strong><a href="USER/">User Guide</a></strong> — including a detailed section on reaching Synapse from
-outside your network with <strong>Tailscale</strong> and <strong>Cloudflare Access</strong>.</p>
-</div>
-<hr />
-<h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>📥 <strong>Ingest anything</strong></td>
-<td>Markdown, PDF, DOCX, PPTX, XLSX — via file watcher, upload, scheduled folder import, or the Chrome web clipper. An LLM analyzes each source and writes typed, interlinked wiki pages.</td>
-</tr>
-<tr>
-<td>🕸️ <strong>Knowledge graph</strong></td>
-<td>4-signal edge weighting, server-side ForceAtlas2 layout, Louvain communities, WebGL rendering (sigma.js). Never freezes your browser.</td>
-</tr>
-<tr>
-<td>💬 <strong>Chat with citations</strong></td>
-<td>4-phase retrieval (vector → graph expansion → token budget → assembly) over your wiki, streamed answers with <code>[n]</code> citations, save-to-wiki.</td>
-</tr>
-<tr>
-<td>🔍 <strong>Deep research</strong></td>
-<td>Bounded agentic loop over SearXNG web search → synthesized, cited pages, auto-ingested.</td>
-</tr>
-<tr>
-<td>🧑‍⚖️ <strong>Human in the loop</strong></td>
-<td>Review queue for AI proposals, bounded lint-fix loop with human-gated apply, cascade delete with dry-run.</td>
-</tr>
-<tr>
-<td>🔌 <strong>Bring your own AI</strong></td>
-<td>Pluggable inference provider: <strong>Local</strong> (Ollama), <strong>API</strong> (Anthropic / OpenAI-compatible), <strong>CLI</strong> (claude-agent-sdk). Switch per vault or per operation.</td>
-</tr>
-<tr>
-<td>📦 <strong>Obsidian-compatible</strong></td>
-<td>The <code>wiki/</code> folder is a valid Obsidian vault: YAML frontmatter, <code>[[wikilinks]]</code>, auto-generated <code>.obsidian/</code>.</td>
-</tr>
-<tr>
-<td>🖥️ <strong>Desktop app</strong></td>
-<td>Native macOS/Windows app (Tauri v2, ~6 MB) with auto-update from GitHub Releases. Point it at your server and go.</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="quick-start-server">Quick start (server)<a class="headerlink" href="#quick-start-server" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/Emanuele-Chiummo/llm-wiki-synapse.git
-<span class="nb">cd</span><span class="w"> </span>llm-wiki-synapse
-cp<span class="w"> </span>.env.example<span class="w"> </span>.env<span class="w">        </span><span class="c1"># configure DB, Ollama/Qdrant endpoints, provider</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-</code></pre></div>
-<p>Open <code>http://localhost:8000</code> (API) — serve the frontend with <code>make dev</code> or any static host.
-Requires: Docker, plus the services you already run — Ollama (inference/embeddings, bge-m3), Qdrant (vectors), optionally SearXNG (web search).</p>
-<hr />
-<h2 id="desktop-app">Desktop app<a class="headerlink" href="#desktop-app" title="Permanent link">&para;</a></h2>
-<p>Download the latest <strong><code>.dmg</code> (macOS)</strong> or <strong><code>.exe</code> (Windows)</strong> from <a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest">Releases</a>.
-First launch: enter your backend URL (local servers are auto-detected). Builds are unsigned for now — macOS: right-click → Open; Windows: "More info" → "Run anyway". The app checks GitHub for updates at startup and offers to install them.</p>
-<hr />
-<h2 id="stack">Stack<a class="headerlink" href="#stack" title="Permanent link">&para;</a></h2>
-<p>FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vite · CodeMirror 6 · sigma.js · Zustand — Tauri v2.</p>
-<hr />
-<h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
+<h1 id="synapse-v1311-rifinitura-uiux-accessibilita-e-guida-utente">Synapse v1.3.11 — Rifinitura UI/UX, accessibilità e guida utente<a class="headerlink" href="#synapse-v1311-rifinitura-uiux-accessibilita-e-guida-utente" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Release <strong>solo frontend</strong>: niente modifiche al backend, <strong>nessuna migrazione DB</strong>.
+Una passata ampia di polish (dashboard, grafo, sorgenti, impostazioni), fix di
+accessibilità WCAG e una <strong>guida utente completamente riscritta</strong> con l'accesso da
+rete esterna (Tailscale / Cloudflare). Basta ripullare l'immagine <strong>frontend</strong>.</p>
+</blockquote>
+<h2 id="fix">🐛 Fix<a class="headerlink" href="#fix" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><a href="USER/">User Guide</a></strong> — complete walkthrough of all features</li>
-<li><strong><a href="DEPLOY/">Deploy Guide</a></strong> — TrueNAS SCALE setup, environment config, troubleshooting</li>
-<li><strong><a href="architecture/">Architecture</a></strong> — C4 diagrams (system context, containers, components)</li>
-<li><strong><a href="adr/">ADRs</a></strong> — Architecture Decision Records documenting design choices</li>
-<li><strong><a href="api/">API Reference</a></strong> — OpenAPI specification of all endpoints</li>
-<li><strong><a href="reference/ROADMAP-v0.7-v1.0/">Roadmap</a></strong> — feature roadmap and development status</li>
+<li><strong>Grafo — niente più "testo fantasma" sopra «Rigenera grafo»</strong> — in alcuni stati di
+  camera tutte le etichette delle community si impilavano nell'angolo in alto a sinistra,
+  sovrapponendosi alla toolbar. Ora le etichette <strong>partono nascoste</strong> e vengono rivelate solo
+  quando <code>project()</code> le posiziona, con <strong>de-overlap</strong> delle vicine: l'angolo resta pulito
+  all'apertura e al rientro nella vista.</li>
+<li><strong>Home — righe vuote in «Attività recenti»</strong> — le pagine salvate prima del titolo non
+  compaiono più come icona nuda: fallback in corsivo <em>«Senza titolo»</em>.</li>
+<li><strong>Anteprima pagina — via il placeholder di sviluppo</strong> — il testo <code>demo node (Phase 3)</code>
+  che trapelava nel pannello destro è sostituito da un suggerimento pulito.</li>
+<li><strong>Sorgenti — nomi file leggibili</strong> — troncatura <strong>centrale</strong> (<code>01_Stra…report.md</code>): prefisso
+  ed estensione restano visibili; la data si sposta nel tooltip per dare spazio al nome.</li>
+<li><strong>Rail — etichetta «Strumenti»</strong> non si tronca più in «TRUMENT».</li>
 </ul>
-<hr />
-<h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/LICENSE">MIT</a> © 2026 Emanuele Chiummo</p>
-<hr />
-<p><strong>Based on the <a href="https://karpathy.ai/llm_wiki">LLM Wiki pattern by Andrej Karpathy</a> (<a href="https://github.com/nashsu/llm_wiki">nashsu/llm_wiki</a>), re-engineered for performance and self-hosting.</strong></p>
+<h2 id="accessibilita-wcag-22">♿ Accessibilità (WCAG 2.2)<a class="headerlink" href="#accessibilita-wcag-22" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Contrasto del testo secondario</strong> portato ad <strong>AA</strong> in chiaro e scuro (era ~3:1 in light,
+  ~2.3:1 in dark → ora ≥ 4.5:1).</li>
+<li><strong>Chat — modalità di recupero</strong> (Veloce/Standard/Profondo/Locale) ora è un vero
+  <code>radiogroup</code> a selezione singola, separato visivamente dal toggle <strong>Web</strong>.</li>
+<li><strong>KPI Revisione/Lint</strong> sono ora <strong>pulsanti navigabili</strong> (aprono la coda relativa) con focus ring.</li>
+<li><strong>Campo token CLI</strong> con toggle <strong>mostra/nascondi</strong> 👁, coerente con la pagina Sicurezza.</li>
+</ul>
+<h2 id="grafica">🎨 Grafica<a class="headerlink" href="#grafica" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Griglia KPI</strong> allineata e <strong>palette dei tipi unificata</strong>: <code>entity/concept/source/…</code> hanno
+  lo <strong>stesso colore</strong> su mini-barre della Home, badge del wiki e grafo.</li>
+<li><strong>Sparkline dei costi</strong> sotto «Spesa mensile» (ultimi 30 giorni, dati reali).</li>
+<li><strong>Elevazione discreta</strong> sulle card + <strong>skeleton loader</strong> durante il caricamento della Home.</li>
+<li><strong>Grafo — anello di selezione persistente</strong> sul nodo cliccato (non solo in hover).</li>
+</ul>
+<h2 id="navigazione-impostazioni">🧭 Navigazione &amp; Impostazioni<a class="headerlink" href="#navigazione-impostazioni" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>«Ricerca» → «Ricerca profonda»</strong> (Deep Research): risolta la collisione con <strong>«Cerca»</strong>;
+  la label del rail va a capo su due righe e il tooltip mostra il nome completo.</li>
+<li><strong>Ricerca rapida nelle Impostazioni</strong> — filtra al volo tra le 18 pagine.</li>
+</ul>
+<h2 id="documentazione">📖 Documentazione<a class="headerlink" href="#documentazione" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Guida utente riscritta da zero</strong> (<code>docs/USER.md</code>), allineata alle implementazioni 1.3.x, con
+  una nuova sezione dettagliata su <strong>accesso da rete esterna</strong>: <strong>Tailscale</strong> (privato), <strong>Cloudflare
+  Tunnel</strong> (pubblico) e <strong>Cloudflare Access</strong> — login browser via cookie/OTP, <strong>service token</strong>
+  (<code>CF-Access-Client-Id/Secret</code>) per i client non-browser (desktop, iOS, clipper), più il <strong>bearer
+  token</strong> del backend.</li>
+</ul>
+<h2 id="aggiornamento">⬆️ Aggiornamento<a class="headerlink" href="#aggiornamento" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Solo frontend.</strong> Ripulla <code>ghcr.io/emanuele-chiummo/llm-wiki-synapse-frontend:v1.3.11</code>.
+  Backend/Marker invariati, <strong>nessuna migrazione DB</strong>.</li>
+<li><strong>App desktop:</strong> nuovo build macOS/Windows allegato alla release.</li>
+</ul>
+<h2 id="artifact">📎 Artifact<a class="headerlink" href="#artifact" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Bundle desktop macOS/Windows + updater <code>latest.json</code>.</li>
+<li>Immagini GHCR <code>:v1.3.11</code> + <code>:latest</code> (backend/marker/frontend) come di consueto.</li>
+</ul>
 
 
 
@@ -898,10 +770,10 @@ First launch: enter your backend URL (local servers are auto-detected). Builds a
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
       
     
   </body>
