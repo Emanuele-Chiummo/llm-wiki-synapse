@@ -327,14 +327,18 @@ class CliAgentProvider(InferenceProvider):
         # Materialize any attached images to a scoped temp dir (empty list when none / vision off).
         image_paths, tmp_dir = _materialize_chat_images(messages, vision)
         allowed_tools = ["Read"] if image_paths else []  # scoped Read ONLY when images present
-        options = options_cls(
-            model=self._model,  # from provider_config (I6)
-            system_prompt=retrieval_context,  # light header + retrieved context (ADR-0022 §2.7)
-            permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
-            allowed_tools=allowed_tools,  # [] text-only; ["Read"] scoped to tmp_dir for images
-            max_turns=max_turns,  # third I7 bound (CHAT_AGENT_MAX_TURNS)
-            **({"cwd": tmp_dir} if tmp_dir is not None else {}),  # scope Read to the temp dir
-        )
+        base_kwargs: dict[str, Any] = {
+            "model": self._model,  # from provider_config (I6)
+            "system_prompt": retrieval_context,  # light header + retrieved context (ADR-0022 §2.7)
+            "permission_mode": "acceptEdits",  # non-interactive (CLAUDE.md §5)
+            "allowed_tools": allowed_tools,  # [] text-only; ["Read"] scoped to tmp_dir for images
+            "max_turns": max_turns,  # third I7 bound (CHAT_AGENT_MAX_TURNS)
+        }
+        if tmp_dir is not None:
+            base_kwargs["cwd"] = tmp_dir  # scope Read to the temp dir
+        # v1.3.10: enable token-by-token partial-message streaming (SDK-version-guarded — see
+        # _build_chat_stream_options). This is the CHAT session only; delegate_ingest is untouched.
+        options = _build_chat_stream_options(options_cls, base_kwargs)
 
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         sdk_cost_usd: float | None = None
@@ -347,10 +351,29 @@ class CliAgentProvider(InferenceProvider):
             with _cli_subscription_env_scope(db_token):
                 async with client_cls(options=options) as client:
                     await client.query(_build_chat_prompt(messages, image_paths))
+                    # v1.3.10 no-duplication contract: with include_partial_messages=True the SDK
+                    # yields BOTH incremental partial StreamEvents (text_delta) AND, at the end, the
+                    # COMPLETE AssistantMessage repeating the full text. We stream the partial
+                    # text_delta pieces and, once any partial has been seen, SKIP the complete
+                    # AssistantMessage text (it is the duplicate). If NO partial ever arrives (older
+                    # SDK ignored the flag, or partial streaming was unavailable), `saw_partial`
+                    # stays False and we fall back to yielding the complete message text once —
+                    # preserving the previous single-delta behaviour (back-compat).
+                    saw_partial = False
                     async for message in client.receive_response():
-                        for delta in _extract_text_deltas(message):
-                            if delta:
-                                yield delta
+                        partial_deltas = _extract_partial_text_deltas(message)
+                        if partial_deltas:
+                            saw_partial = True
+                            for delta in partial_deltas:
+                                if delta:
+                                    yield delta
+                        elif not saw_partial:
+                            # No partials seen yet → yield the complete AssistantMessage text once.
+                            for delta in _extract_text_deltas(message):
+                                if delta:
+                                    yield delta
+                        # else: partial streaming active — the complete AssistantMessage duplicates
+                        # the already-streamed deltas; skip its text (NO double-yield).
                         usage = _merge_sdk_usage(usage, message)
                         msg_cost = _extract_sdk_cost(message)
                         if msg_cost is not None:
@@ -650,6 +673,65 @@ def _materialize_chat_images(
     return paths, tmp_dir
 
 
+def _build_chat_stream_options(options_cls: Any, base_kwargs: dict[str, Any]) -> Any:
+    """
+    Build the CHAT-session ClaudeAgentOptions with token-by-token streaming enabled (v1.3.10).
+
+    `include_partial_messages=True` makes claude-agent-sdk's `receive_response()` emit incremental
+    partial StreamEvents (content_block_delta / text_delta) AS the model generates, instead of a
+    single complete AssistantMessage at the end. Only the CHAT path opts in — delegate_ingest and
+    caption_image build their own options WITHOUT this flag and are unaffected.
+
+    SDK-version robustness: `include_partial_messages` is accepted by claude-agent-sdk >=0.2 (the
+    range this module targets, >=0.2,<0.3). If a different/older build's ClaudeAgentOptions does not
+    accept the kwarg, its constructor raises TypeError; we catch it and fall back to options WITHOUT
+    the flag — degrading gracefully to the previous message-granularity behaviour (one delta) rather
+    than hard-crashing chat. The flag can't be verified locally (the SDK isn't in this repo's venv;
+    it runs in the container), so the try/except is the guard.
+    """
+    try:
+        return options_cls(**base_kwargs, include_partial_messages=True)
+    except TypeError:
+        logger.warning(
+            "claude-agent-sdk ClaudeAgentOptions does not accept include_partial_messages — "
+            "falling back to message-granularity chat streaming (one delta). Upgrade the SDK to "
+            ">=0.2 for token-by-token deltas (v1.3.10)."
+        )
+        return options_cls(**base_kwargs)
+
+
+def _extract_partial_text_deltas(message: Any) -> list[str]:
+    """
+    Extract incremental assistant text from a claude-agent-sdk partial StreamEvent (v1.3.10,
+    emitted only when include_partial_messages=True). A StreamEvent carries the raw Anthropic
+    streaming event on its `event` attribute; a text delta looks like:
+        {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "<piece>"}}
+    Returns the incremental `text` piece for content_block_delta/text_delta events, else [].
+
+    This is the ONLY source of streamed chat text when partials are active — the terminal complete
+    AssistantMessage (whose TextBlock repeats the FULL answer) is SKIPPED by the caller so the text
+    is not yielded twice. Non-text StreamEvents (message_start, content_block_start/stop, ping,
+    message_delta, etc.) and non-StreamEvent messages (AssistantMessage / ResultMessage) return [].
+    Read defensively (attr or dict) because the SDK message shape may evolve (R3).
+    """
+    event = getattr(message, "event", None)
+    if event is None and isinstance(message, dict):
+        event = message.get("event")
+    if not isinstance(event, dict):
+        return []
+    if event.get("type") != "content_block_delta":
+        return []
+    delta = event.get("delta")
+    if not isinstance(delta, dict):
+        return []
+    if delta.get("type") != "text_delta":
+        return []
+    text = delta.get("text")
+    if isinstance(text, str) and text:
+        return [text]
+    return []
+
+
 def _extract_text_deltas(message: Any) -> list[str]:
     """
     Best-effort extraction of assistant text from an SDK message, yielded verbatim as chat deltas
@@ -783,7 +865,9 @@ __all__ = [
     "DelegatedIngestResult",
     "MCP_TOOL_NAMES",
     "UsageAccumulator",
+    "_build_chat_stream_options",
     "_build_cli_child_env",
+    "_extract_partial_text_deltas",
     "_cli_subscription_env_override",
     "_cli_subscription_env_scope",
     "_resolve_cli_auth_mode",
