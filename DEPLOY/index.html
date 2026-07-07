@@ -674,6 +674,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remote-mcp-behind-cloudflare-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remote MCP behind Cloudflare Access
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#57-enable-remote-writes-optional-not-recommended" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2274,6 +2302,34 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#remote-mcp-behind-cloudflare-access" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remote MCP behind Cloudflare Access
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -4123,6 +4179,58 @@ rides the same tunnel as the REST API. Add an ingress rule if needed:</p>
 <li><strong>Token:</strong> Paste <code>&lt;your-MCP_AUTH_TOKEN&gt;</code> (without the "Bearer " prefix — claude.ai adds it)</li>
 <li>Click <strong>Connect</strong>. Claude should report "Connected" and list the available tools.</li>
 </ol>
+<h3 id="56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139">5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)<a class="headerlink" href="#56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139" title="Permanent link">&para;</a></h3>
+<p>As of <strong>v1.3.9</strong> the recommended production posture puts <strong>Cloudflare Access (Zero
+Trust)</strong> in front of the <em>entire</em> app, not just optionally on <code>/mcp/server</code>. This closes
+the "public API in the clear" exposure: every request is gated at the Cloudflare edge
+<em>before</em> it reaches Synapse.</p>
+<ul>
+<li><strong>Browser / PWA:</strong> interactive login (One-time PIN or an IdP). The <code>CF_Authorization</code>
+  cookie then carries same-origin requests through. Nothing to configure in-app.</li>
+<li><strong>Non-browser clients</strong> (native iOS app, Chrome clipper, <code>curl</code>/scripts): they carry no
+  CF cookie, so they must send a Cloudflare Access <strong>service token</strong> — two headers on
+  every request:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>CF-Access-Client-Id:     &lt;client-id&gt;.access
+CF-Access-Client-Secret: &lt;client-secret&gt;
+</code></pre></div>
+<p>Create the token in <strong>Zero Trust → Access → Service Auth → Service Tokens</strong>, then add a
+  policy to the Synapse Access application with <strong>Action = "Service Auth"</strong> and
+  Include → Service Token. Recommendation: <strong>one token per client</strong> so any single one can
+  be revoked without touching the others. The iOS app (Settings) and the Chrome clipper
+  (Options) each expose fields to paste their Client ID + Secret (v1.3.9); the web
+  frontend exposes them under <strong>Settings › Sicurezza / Security</strong>.</p>
+<h4 id="remote-mcp-behind-cloudflare-access">Remote MCP behind Cloudflare Access<a class="headerlink" href="#remote-mcp-behind-cloudflare-access" title="Permanent link">&para;</a></h4>
+<p>The remote MCP surface (<code>/mcp/server</code>) already has its <strong>own</strong> independent auth
+(<code>MCP_AUTH_TOKEN</code>, Bearer), so you have two options once CF Access gates the app:</p>
+<ul>
+<li><strong>Claude Desktop (JSON <code>mcpServers</code> config)</strong> — this transport lets you set custom
+  headers, so add the service token there alongside the Bearer token:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>{
+  &quot;mcpServers&quot;: {
+    &quot;synapse_remote&quot;: {
+      &quot;type&quot;: &quot;http&quot;,
+      &quot;url&quot;: &quot;https://synapse.yourdomain.com/mcp/server&quot;,
+      &quot;headers&quot;: {
+        &quot;Authorization&quot;: &quot;Bearer &lt;MCP_AUTH_TOKEN&gt;&quot;,
+        &quot;CF-Access-Client-Id&quot;: &quot;&lt;client-id&gt;.access&quot;,
+        &quot;CF-Access-Client-Secret&quot;: &quot;&lt;client-secret&gt;&quot;
+      }
+    }
+  }
+}
+</code></pre></div>
+<ul>
+<li><strong>claude.ai remote-MCP connector</strong> — its UI only supports a <strong>Bearer token</strong>, so it
+  cannot send the CF-Access headers. Since <code>/mcp/server</code> is already protected by its own
+  <code>MCP_AUTH_TOKEN</code>, the clean answer is to <strong>exclude that path from the CF Access
+  application</strong>: add an Access policy with <strong>Action = "Bypass"</strong> (or a separate,
+  unenforced Access app) scoped to <code>/mcp/server</code>. The MCP bearer token remains the gate
+  for that path — no downgrade in protection, and the connector keeps working. The same
+  applies to the clipper ingress <code>POST /clip</code> if you prefer a bypass over the in-app
+  service-token headers.</li>
+</ul>
 <h3 id="57-enable-remote-writes-optional-not-recommended">5.7 Enable remote writes (optional, not recommended)<a class="headerlink" href="#57-enable-remote-writes-optional-not-recommended" title="Permanent link">&para;</a></h3>
 <p>By default, only the three read tools are exposed. To allow <code>write_page</code> (so claude.ai
 can create/edit pages in your vault), set:</p>
