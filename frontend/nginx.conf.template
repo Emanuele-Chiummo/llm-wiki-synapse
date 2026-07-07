@@ -16,6 +16,26 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
+    # ── Security response headers (audit finding C3) ─────────────────────────
+    # Note: "Always Use HTTPS" and HSTS preload are enforced at the Cloudflare
+    # edge (dashboard → SSL/TLS → Edge Certificates → HSTS toggle). The HSTS
+    # header below is the origin-level complement for non-CF connections.
+    #
+    # Nginx add_header inheritance: a location block only inherits add_header
+    # directives from the parent server block when the location itself defines
+    # NONE of its own. Neither location block below currently defines any
+    # add_header, so these server-level directives are inherited by both the
+    # SPA (location /) and the API proxy. If any location ever gains its own
+    # add_header, the full security set MUST be repeated there as well.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options    "nosniff"                              always;
+    add_header X-Frame-Options           "DENY"                                 always;
+    # frame-ancestors only — a full default-src/script-src CSP would break
+    # the SPA's inline styles and is out of scope for this change.
+    add_header Content-Security-Policy   "frame-ancestors 'none'"               always;
+    add_header Referrer-Policy           "no-referrer"                          always;
+    add_header Permissions-Policy        "geolocation=(), microphone=(), camera=(), interest-cohort=()" always;
+
     # Docker embedded DNS: resolve the backend service name at request time, so a
     # backend container restart (new IP) is picked up without an nginx reload.
     resolver 127.0.0.11 ipv6=off valid=30s;
