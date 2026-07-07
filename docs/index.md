@@ -1,6 +1,6 @@
 # Synapse
 
-<div align="center">
+<div align="center" markdown>
 
 ![Synapse logo](assets/synapse-appicon.svg){ width="110" }
 
@@ -10,6 +10,11 @@ Drop in raw documents — Synapse reads them, writes interlinked wiki pages,
 builds a weighted knowledge graph, and lets you chat with your own knowledge base, with citations.
 
 </div>
+
+!!! tip "New in v1.3.11"
+    A refreshed dashboard and graph, WCAG-AA contrast, and a fully rewritten
+    **[User Guide](USER.md)** — including a detailed section on reaching Synapse from
+    outside your network with **Tailscale** and **Cloudflare Access**.
 
 ---
 

@@ -147,8 +147,17 @@ const ALL_PAGES: SettingsPage[] = NAV_GROUPS.flatMap((g) => g.pages.map((p) => p
 
 export function SettingsPanel() {
   const [activePage, setActivePage] = useState<SettingsPage>("providers");
+  const [query, setQuery] = useState("");
   const { t } = useTranslation();
   const pageRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Client-side filter over the ~18 pages by their translated label. With this many
+  // settings a "jump to" search is faster than scanning five groups.
+  const q = query.trim().toLowerCase();
+  const groupsToRender = NAV_GROUPS.map((group) => ({
+    group,
+    pages: q ? group.pages.filter((p) => t(p.labelKey).toLowerCase().includes(q)) : group.pages,
+  })).filter((g) => g.pages.length > 0);
 
   // Deep-link: listen to synapse:settingsSection CustomEvent (same pattern as synapse:openWizard)
   useEffect(() => {
@@ -225,7 +234,36 @@ export function SettingsPanel() {
           {t("settings.title")}
         </p>
 
-        {NAV_GROUPS.map((group) => (
+        {/* Quick filter over all settings pages */}
+        <div style={{ margin: "0 12px 8px" }}>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("settings.nav.searchPlaceholder")}
+            aria-label={t("settings.nav.searchPlaceholder")}
+            data-testid="settings-nav-search"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "5px 8px",
+              fontSize: 12,
+              color: "var(--syn-text)",
+              background: "var(--syn-surface)",
+              border: "1px solid var(--syn-border)",
+              borderRadius: "var(--syn-radius-sm)",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {groupsToRender.length === 0 && (
+          <p style={{ margin: "8px 12px", fontSize: 11, color: "var(--syn-text-dim)" }}>
+            {t("settings.nav.noResults")}
+          </p>
+        )}
+
+        {groupsToRender.map(({ group, pages }) => (
           <div key={group.id}>
             {/* Group header — non-clickable label */}
             <p
@@ -254,8 +292,8 @@ export function SettingsPanel() {
               {t(group.descKey)}
             </p>
 
-            {/* Page items */}
-            {group.pages.map((page) => {
+            {/* Page items (filtered by the quick search) */}
+            {pages.map((page) => {
               const globalIdx = ALL_PAGES.indexOf(page.id);
               const isActive = activePage === page.id;
               return (

@@ -17,6 +17,7 @@ export function SectionCliAuth() {
   const [posture, setPosture] = useState<CliAuthConfig | null>(null);
   const [err, setErr] = useState(false);
   const [tokenInput, setTokenInput] = useState("");
+  const [showToken, setShowToken] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
@@ -98,7 +99,27 @@ export function SectionCliAuth() {
               {t("settings.cliAuth.tokenHelp")}
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input type="password" data-testid="cli-auth-token-input" value={tokenInput} onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }} placeholder={t("settings.cliAuth.tokenPlaceholder")} autoComplete="off" style={{ ...INPUT_STYLE, flex: 1, minWidth: 200 }} />
+              <div style={{ position: "relative", flex: 1, minWidth: 200, display: "flex" }}>
+                <input type={showToken ? "text" : "password"} data-testid="cli-auth-token-input" value={tokenInput} onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }} placeholder={t("settings.cliAuth.tokenPlaceholder")} autoComplete="off" style={{ ...INPUT_STYLE, flex: 1, minWidth: 0, paddingRight: 36 }} />
+                <button
+                  type="button"
+                  onClick={() => setShowToken((v) => !v)}
+                  aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
+                >
+                  {showToken ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                      <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
               <button data-testid="cli-auth-save-btn" onClick={() => { void handleSave(); }} disabled={busy} style={{ ...BTN_PRIMARY, opacity: busy ? 0.4 : 1, cursor: busy ? "not-allowed" : "pointer", flexShrink: 0 }}>
                 {busy ? "…" : t("settings.cliAuth.saveButton")}
               </button>

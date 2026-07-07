@@ -1154,6 +1154,37 @@ interface FileRowItemProps {
   onDelete: (path: string) => Promise<void>;
 }
 
+/**
+ * Filename with MIDDLE truncation. End-ellipsis on a narrow column eats the most
+ * informative part of a source name — "01_Strategic_brief.md" collapses to
+ * "01_Str…", indistinguishable from its siblings. Here the numeric/topic prefix
+ * AND the extension stay pinned; only the middle collapses ("01_Strateg…brief.md").
+ * Pure CSS: a flex row of two spans, no width measurement.
+ */
+const NAME_TAIL_LEN = 9;
+function FileName({ name, selected, title }: { name: string; selected: boolean; title: string }) {
+  const useMiddle = name.length > NAME_TAIL_LEN * 2;
+  const tail = useMiddle ? name.slice(-NAME_TAIL_LEN) : "";
+  const head = useMiddle ? name.slice(0, name.length - NAME_TAIL_LEN) : name;
+  return (
+    <span
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: "flex",
+        fontSize: 12,
+        color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
+      }}
+      title={title}
+    >
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+        {head}
+      </span>
+      {tail && <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{tail}</span>}
+    </span>
+  );
+}
+
 function FileRowItem({
   row,
   selected,
@@ -1207,30 +1238,22 @@ function FileRowItem({
       <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>
         {fileIcon(row.ext)}
       </span>
-      {/* Name */}
-      <span
-        style={{
-          flex: 1,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          fontSize: 12,
-          color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
-        }}
-        title={row.path}
-      >
-        {row.name}
-      </span>
+      {/* Name — middle-truncated so prefix + extension stay legible. The date moved
+          into the tooltip so it no longer starves the (narrow) name column; the size
+          stays inline as the one metric worth scanning at a glance. */}
+      <FileName
+        name={row.name}
+        selected={selected}
+        title={
+          row.mtime !== undefined
+            ? `${row.path}\n${formatMtime(row.mtime)}`
+            : row.path
+        }
+      />
       {/* Size */}
       {row.size_bytes !== undefined && (
         <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
           {formatBytes(row.size_bytes)}
-        </span>
-      )}
-      {/* Mtime */}
-      {row.mtime !== undefined && (
-        <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, marginRight: 2 }}>
-          {formatMtime(row.mtime)}
         </span>
       )}
 
