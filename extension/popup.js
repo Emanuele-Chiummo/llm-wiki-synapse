@@ -2,16 +2,22 @@
  * Synapse Web Clipper — popup.js (Chrome MV3)
  *
  * Flow:
- * 1. On popup open, load options (baseURL, token) from chrome.storage.sync.
+ * 1. On popup open, load options (baseURL, token, CF Access credentials) from
+ *    chrome.storage.sync.
  * 2. Inject Readability + Turndown into the active tab via scripting.executeScript.
  * 3. Extract the article; show the title (editable by the user).
  * 4. On "Clip" click: POST JSON {url, title, markdown} to {baseURL}/clip with
  *    Authorization: Bearer {token} and Origin: chrome-extension://<id>.
+ *    If both cfClientId and cfClientSecret are set, also sends:
+ *      CF-Access-Client-Id: <cfClientId>
+ *      CF-Access-Client-Secret: <cfClientSecret>
+ *    These headers are required when the Synapse backend is behind Cloudflare Access.
+ *    They are omitted entirely when unset (local/Tailscale access still works).
  * 5. Show success/error to the user.
  *
  * Security:
- * - Token read from chrome.storage.sync (encrypted at rest by Chrome; never
- *   logged or displayed in full after save).
+ * - Token and CF Access credentials read from chrome.storage.sync (encrypted
+ *   at rest by Chrome; never logged or displayed in full after save).
  * - Origin header is automatically set by Chrome on cross-origin fetches from
  *   extensions (chrome-extension://<extension_id>).
  * - The server validates the token AND the Origin allowlist before writing.
@@ -27,7 +33,7 @@ const statusEl = document.getElementById("status");
 /* ── State ───────────────────────────────────────────────────────────────── */
 let _markdown = "";
 let _url = "";
-let _settings = { baseURL: "", token: "" };
+let _settings = { baseURL: "", token: "", cfClientId: "", cfClientSecret: "" };
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function setStatus(msg, cls = "inf") {
@@ -48,12 +54,19 @@ function setReady(msg) {
 /* ── Load settings ───────────────────────────────────────────────────────── */
 async function loadSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(["synapseBaseURL", "synapseToken"], (items) => {
-      resolve({
-        baseURL: (items.synapseBaseURL || "").replace(/\/$/, ""),
-        token: items.synapseToken || "",
-      });
-    });
+    chrome.storage.sync.get(
+      ["synapseBaseURL", "synapseToken", "cfClientId", "cfClientSecret"],
+      (items) => {
+        resolve({
+          baseURL: (items.synapseBaseURL || "").replace(/\/$/, ""),
+          token: items.synapseToken || "",
+          // Cloudflare Access service-token credentials (both must be present
+          // to pass the CF Access edge; omit both for local/Tailscale use).
+          cfClientId: items.cfClientId || "",
+          cfClientSecret: items.cfClientSecret || "",
+        });
+      }
+    );
   });
 }
 
@@ -143,16 +156,26 @@ async function doClip() {
     markdown: _markdown,
   };
 
+  // ── Build request headers ──────────────────────────────────────────────
+  // CF-Access-Client-Id / CF-Access-Client-Secret are only added when BOTH
+  // values are configured in Settings.  Omitting them leaves the standard
+  // bearer-token path intact for local/Tailscale deployments.
+  const headers = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${_settings.token}`,
+    // Chrome sets Origin automatically for cross-origin extension fetches.
+    // When posting to localhost (same-site from extension perspective) it may
+    // be omitted — the server's allow-without-origin path covers this.
+  };
+  if (_settings.cfClientId && _settings.cfClientSecret) {
+    headers["CF-Access-Client-Id"] = _settings.cfClientId;
+    headers["CF-Access-Client-Secret"] = _settings.cfClientSecret;
+  }
+
   try {
     const resp = await fetch(`${_settings.baseURL}/clip`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${_settings.token}`,
-        // Chrome sets Origin automatically for cross-origin extension fetches.
-        // When posting to localhost (same-site from extension perspective) it may
-        // be omitted — the server's allow-without-origin path covers this.
-      },
+      headers,
       body: JSON.stringify(body),
     });
 

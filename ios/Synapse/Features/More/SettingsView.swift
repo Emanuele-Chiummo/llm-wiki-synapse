@@ -16,6 +16,7 @@ struct SettingsView: View {
                 BackHeader(title: "Impostazioni", backLabel: "Altro")
 
                 serverSection
+                cloudflareAccessSection
                 appearanceSection
                 providerSection
                 vaultSection
@@ -86,6 +87,62 @@ struct SettingsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 20)
+                .padding(.top, 10)
+            }
+        }
+    }
+
+    // MARK: Cloudflare Access (service token)
+
+    private var cloudflareAccessSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeader(text: "Cloudflare Access")
+            Card {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Client ID (opzionale)")
+                        .font(.system(size: 13)).foregroundStyle(Theme.label2)
+                    TextField("xxxxxxxx.access", text: $settings.cfAccessClientID)
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.label)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .submitLabel(.done)
+                }
+                .padding(14)
+                RowDivider()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Client Secret (opzionale)")
+                        .font(.system(size: 13)).foregroundStyle(Theme.label2)
+                    SecureField("Service-token secret", text: $settings.cfAccessClientSecret)
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.label)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+                .padding(14)
+            }
+            .padding(.horizontal, 16)
+
+            Text("Necessario solo se il backend è protetto da Cloudflare Access. "
+                + "Entrambi i campi vengono inviati come header su ogni richiesta; "
+                + "lascia vuoto per l’uso locale / Tailscale.")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.label2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+
+            if !settings.cfAccessClientID.isEmpty || !settings.cfAccessClientSecret.isEmpty {
+                Button {
+                    settings.cfAccessClientID = ""
+                    settings.cfAccessClientSecret = ""
+                } label: {
+                    Text("Cancella token Cloudflare")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.destructive)
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 20)
                 .padding(.top, 10)
             }
