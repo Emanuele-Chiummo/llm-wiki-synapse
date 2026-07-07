@@ -55,6 +55,10 @@ struct SynapseClient {
     let baseURL: URL
     let token: String
     let vaultID: String
+    /// Cloudflare Access service-token pair. Both must be non-empty for the
+    /// headers to be sent; leave empty for local / Tailscale use.
+    var cfAccessClientID: String = ""
+    var cfAccessClientSecret: String = ""
     var session: URLSession = .shared
 
     // MARK: JSON coding
@@ -100,6 +104,13 @@ struct SynapseClient {
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if !token.isEmpty {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        // Cloudflare Access service-token headers — sent only when both halves
+        // are present, so requests to a plain local / Tailscale backend (no
+        // Cloudflare Access) carry nothing extra.
+        if !cfAccessClientID.isEmpty, !cfAccessClientSecret.isEmpty {
+            req.setValue(cfAccessClientID, forHTTPHeaderField: "CF-Access-Client-Id")
+            req.setValue(cfAccessClientSecret, forHTTPHeaderField: "CF-Access-Client-Secret")
         }
         return req
     }
@@ -286,6 +297,11 @@ extension AppSettings {
     /// missing / unparseable.
     func makeClient() -> SynapseClient? {
         guard let url = baseURL else { return nil }
-        return SynapseClient(baseURL: url, token: authToken, vaultID: vaultID)
+        return SynapseClient(
+            baseURL: url,
+            token: authToken,
+            vaultID: vaultID,
+            cfAccessClientID: cfAccessClientID.trimmingCharacters(in: .whitespacesAndNewlines),
+            cfAccessClientSecret: cfAccessClientSecret.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 }

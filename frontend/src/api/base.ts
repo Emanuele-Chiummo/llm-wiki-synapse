@@ -292,6 +292,95 @@ export function authHeaders(): Record<string, string> {
   return { Authorization: `Bearer ${token}` };
 }
 
+// ─── Cloudflare Access service token (edge auth — parallel to Bearer) ─────────
+//
+// A SEPARATE layer from the app Bearer token above: these headers are consumed
+// by Cloudflare Access at the edge (before the request ever reaches Synapse),
+// not by the Synapse backend. Needed only for NON-BROWSER clients (Tauri
+// desktop, iOS, clipper) whose cross-origin requests carry no CF_Authorization
+// cookie. In the browser/PWA build the interactive-login cookie handles the
+// gate and these stay unset. Created in Cloudflare Zero Trust → Access →
+// Service Auth; the matching Access policy uses the "Service Auth" action.
+//
+// Stored like the Bearer token: localStorage, read at request time, never in
+// Zustand, never logged. Both values are required together — one without the
+// other is meaningless, so getCfAccessCreds() returns null unless both exist.
+
+const LS_CF_CLIENT_ID = "synapse.cfAccessClientId";
+const LS_CF_CLIENT_SECRET = "synapse.cfAccessClientSecret";
+
+export interface CfAccessCreds {
+  clientId: string;
+  clientSecret: string;
+}
+
+/**
+ * getCfAccessCreds — read the stored Cloudflare Access service-token pair.
+ * Returns null unless BOTH the Client ID and Client Secret are present
+ * (a lone value would produce a 403 at the edge, so treat it as "unset").
+ * Read at request time — never cached.
+ */
+export function getCfAccessCreds(): CfAccessCreds | null {
+  try {
+    const id = localStorage.getItem(LS_CF_CLIENT_ID);
+    const secret = localStorage.getItem(LS_CF_CLIENT_SECRET);
+    if (id && id.trim().length > 0 && secret && secret.trim().length > 0) {
+      return { clientId: id.trim(), clientSecret: secret.trim() };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * setCfAccessCreds — store the service-token pair. Passing an empty value for
+ * either field clears BOTH (there is no valid half-configured state).
+ * Called by Settings › Security. Never logs the secret.
+ */
+export function setCfAccessCreds(clientId: string, clientSecret: string): void {
+  try {
+    const id = clientId.trim();
+    const secret = clientSecret.trim();
+    if (id.length > 0 && secret.length > 0) {
+      localStorage.setItem(LS_CF_CLIENT_ID, id);
+      localStorage.setItem(LS_CF_CLIENT_SECRET, secret);
+    } else {
+      localStorage.removeItem(LS_CF_CLIENT_ID);
+      localStorage.removeItem(LS_CF_CLIENT_SECRET);
+    }
+  } catch {
+    // ignore — storage unavailable
+  }
+}
+
+/**
+ * clearCfAccessCreds — remove the stored service-token pair.
+ */
+export function clearCfAccessCreds(): void {
+  try {
+    localStorage.removeItem(LS_CF_CLIENT_ID);
+    localStorage.removeItem(LS_CF_CLIENT_SECRET);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * cfAccessHeaders — return the Cloudflare Access service-token headers for the
+ * current client. Returns { "CF-Access-Client-Id", "CF-Access-Client-Secret" }
+ * when both are stored, {} otherwise. The ONLY place these headers are built.
+ * Consumed by apiFetch() and by the ConnectScreen bootstrap probe.
+ */
+export function cfAccessHeaders(): Record<string, string> {
+  const creds = getCfAccessCreds();
+  if (!creds) return {};
+  return {
+    "CF-Access-Client-Id": creds.clientId,
+    "CF-Access-Client-Secret": creds.clientSecret,
+  };
+}
+
 // ─── 401 callback (module-level, registered once by AppShell) ────────────────
 
 /**
@@ -332,6 +421,9 @@ export async function apiFetch(
   const merged: RequestInit = {
     ...init,
     headers: {
+      // Edge auth (Cloudflare Access) first, then app auth (Bearer), then the
+      // caller's explicit headers — callers always win on collision.
+      ...cfAccessHeaders(),
       ...authHeaders(),
       ...(init.headers as Record<string, string> | undefined ?? {}),
     },

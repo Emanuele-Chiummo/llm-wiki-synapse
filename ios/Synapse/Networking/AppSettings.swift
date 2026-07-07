@@ -35,6 +35,20 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(authToken, forKey: Keys.token) }
     }
 
+    /// Cloudflare Access service-token Client ID (e.g. `<id>.access`). Sent as
+    /// `CF-Access-Client-Id` when both halves are present, so the app can pass
+    /// the Cloudflare Access gate in front of the production backend. Leave both
+    /// empty for local / Tailscale use without Cloudflare Access.
+    @Published var cfAccessClientID: String {
+        didSet { defaults.set(cfAccessClientID, forKey: Keys.cfClientID) }
+    }
+
+    /// Cloudflare Access service-token Client Secret. Sent as
+    /// `CF-Access-Client-Secret`. Sensitive — masked in the UI.
+    @Published var cfAccessClientSecret: String {
+        didSet { defaults.set(cfAccessClientSecret, forKey: Keys.cfClientSecret) }
+    }
+
     @Published var appearance: Appearance {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
     }
@@ -51,6 +65,8 @@ final class AppSettings: ObservableObject {
         static let token = "synapse.authToken"
         static let appearance = "synapse.appearance"
         static let vault = "synapse.vaultID"
+        static let cfClientID = "synapse.cfAccessClientID"
+        static let cfClientSecret = "synapse.cfAccessClientSecret"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -60,6 +76,8 @@ final class AppSettings: ObservableObject {
         self.appearance = Appearance(rawValue: defaults.string(forKey: Keys.appearance) ?? "")
             ?? .system
         self.vaultID = defaults.string(forKey: Keys.vault) ?? "default"
+        self.cfAccessClientID = defaults.string(forKey: Keys.cfClientID) ?? ""
+        self.cfAccessClientSecret = defaults.string(forKey: Keys.cfClientSecret) ?? ""
     }
 
     /// The normalised base URL (trailing slash stripped), or nil if unparseable.
