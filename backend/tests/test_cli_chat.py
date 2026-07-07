@@ -27,7 +27,12 @@ from typing import Any
 
 import pytest
 from app.ingest.provider.base import UsageAccumulator
-from app.ingest.provider.cli import CliAgentProvider, _build_chat_prompt
+from app.ingest.provider.cli import (
+    CliAgentProvider,
+    _build_chat_prompt,
+    _build_chat_stream_options,
+    _extract_partial_text_deltas,
+)
 from app.ingest.provider.config import ProviderSettings
 from app.ingest.schemas import Message
 
@@ -52,6 +57,26 @@ class _FakeAssistantMessage:
     def __init__(self, *texts: str, input_tokens: int = 120, output_tokens: int = 80) -> None:
         self.content = [_FakeTextBlock(t) for t in texts]
         self.usage = _FakeUsage(input_tokens=input_tokens, output_tokens=output_tokens)
+
+
+class _FakeStreamEvent:
+    """
+    A claude-agent-sdk partial StreamEvent (include_partial_messages=True). Carries the raw
+    Anthropic streaming event on `.event`; a text delta looks like
+    {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "<piece>"}}.
+    """
+
+    def __init__(self, event: dict[str, Any]) -> None:
+        self.event = event
+
+    @classmethod
+    def text_delta(cls, text: str) -> _FakeStreamEvent:
+        return cls({"type": "content_block_delta", "delta": {"type": "text_delta", "text": text}})
+
+    @classmethod
+    def other(cls, event_type: str) -> _FakeStreamEvent:
+        """A non-text StreamEvent (message_start, content_block_start/stop, ping, ...)."""
+        return cls({"type": event_type})
 
 
 class _FakeResultMessage:
@@ -457,3 +482,127 @@ async def test_chat_db_token_scrubs_child_env_and_restores_parent(
     assert captured["api_key_present"] is False  # scrubbed (§2.3 crux)
     assert acc.total_cost_usd == 0.0  # subscription → $0 by convention
     assert dict(os.environ) == before  # parent os.environ restored exactly
+
+
+# ── v1.3.10: token-by-token partial-message streaming (no duplication) ───────────
+
+
+def test_extract_partial_text_deltas_reads_text_delta_events() -> None:
+    """A content_block_delta/text_delta StreamEvent yields its incremental text piece."""
+    assert _extract_partial_text_deltas(_FakeStreamEvent.text_delta("Hel")) == ["Hel"]
+    # Non-text StreamEvents carry no assistant text.
+    assert _extract_partial_text_deltas(_FakeStreamEvent.other("message_start")) == []
+    assert _extract_partial_text_deltas(_FakeStreamEvent.other("content_block_stop")) == []
+    # A complete AssistantMessage is NOT a StreamEvent → [] (its text is handled separately).
+    assert _extract_partial_text_deltas(_FakeAssistantMessage("full text")) == []
+    # ResultMessage → [].
+    assert _extract_partial_text_deltas(_FakeResultMessage(total_cost_usd=0.0)) == []
+    # Dict-shaped event is tolerated too (defensive, R3).
+    assert _extract_partial_text_deltas(
+        {"event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "x"}}}
+    ) == ["x"]
+
+
+def test_build_chat_stream_options_enables_partials_when_supported() -> None:
+    """When ClaudeAgentOptions accepts the kwarg, include_partial_messages=True is set."""
+
+    def _options(**kwargs: Any) -> dict[str, Any]:
+        return dict(kwargs)
+
+    opts = _build_chat_stream_options(_options, {"model": "m", "allowed_tools": []})
+    assert opts["include_partial_messages"] is True
+    assert opts["model"] == "m"
+
+
+def test_build_chat_stream_options_degrades_when_kwarg_unsupported(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An older SDK whose options reject the kwarg → fall back WITHOUT it (no hard crash)."""
+
+    def _old_options(**kwargs: Any) -> dict[str, Any]:
+        if "include_partial_messages" in kwargs:
+            raise TypeError("unexpected keyword argument 'include_partial_messages'")
+        return dict(kwargs)
+
+    with caplog.at_level(logging.WARNING):
+        opts = _build_chat_stream_options(_old_options, {"model": "m"})
+    assert "include_partial_messages" not in opts
+    assert opts["model"] == "m"
+    assert any("message-granularity chat streaming" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_chat_streams_partials_incrementally_without_duplication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    v1.3.10 core: a sequence of partial text_delta StreamEvents followed by the COMPLETE
+    AssistantMessage (repeating the full text) + ResultMessage → the pieces are yielded
+    INCREMENTALLY (multiple deltas) and the final AssistantMessage text is NOT re-yielded
+    (no duplication). Concatenation equals the full answer exactly once.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    recorder = _Recorder()
+    _install_fake_sdk(
+        monkeypatch,
+        [
+            _FakeStreamEvent.other("message_start"),
+            _FakeStreamEvent.other("content_block_start"),
+            _FakeStreamEvent.text_delta("The "),
+            _FakeStreamEvent.text_delta("quick "),
+            _FakeStreamEvent.text_delta("brown fox"),
+            _FakeStreamEvent.other("content_block_stop"),
+            # The complete AssistantMessage repeats the FULL text — must be SKIPPED.
+            _FakeAssistantMessage("The quick brown fox"),
+            _FakeResultMessage(total_cost_usd=0.01),
+        ],
+        recorder,
+    )
+
+    provider = CliAgentProvider(_settings())
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+    deltas = await _drain(await provider.chat([Message(role="user", content="hi")], "ctx"))
+
+    # Streamed incrementally as separate pieces (more than one delta) …
+    assert deltas == ["The ", "quick ", "brown fox"]
+    # … and NO duplication: the final AssistantMessage text was not re-yielded.
+    assert "".join(deltas) == "The quick brown fox"
+    assert deltas.count("The quick brown fox") == 0
+    # partial streaming was requested on the options (v1.3.10).
+    assert recorder.options is not None
+    assert recorder.options["include_partial_messages"] is True
+    # Usage/cost still recorded off the AssistantMessage + ResultMessage.
+    assert acc.total_cost_usd == pytest.approx(0.01)
+    assert acc.input_tokens == 120
+    assert acc.output_tokens == 80
+
+
+@pytest.mark.asyncio
+async def test_chat_backcompat_complete_message_only_yields_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Old-SDK / no-partial path: only a complete AssistantMessage is yielded (no StreamEvents) →
+    the full text is still yielded exactly once (back-compat preserved).
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    recorder = _Recorder()
+    _install_fake_sdk(
+        monkeypatch,
+        [
+            _FakeAssistantMessage("Hello ", "world"),
+            _FakeResultMessage(total_cost_usd=0.02),
+        ],
+        recorder,
+    )
+
+    provider = CliAgentProvider(_settings())
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+    deltas = await _drain(await provider.chat([Message(role="user", content="hi")], "ctx"))
+
+    assert deltas == ["Hello ", "world"]  # yielded once, as before
+    assert acc.total_cost_usd == pytest.approx(0.02)
+    assert acc.input_tokens == 120
+    assert acc.output_tokens == 80
