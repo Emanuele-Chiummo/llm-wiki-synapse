@@ -74,6 +74,7 @@ import {
   type BackfillDomainStatus,
 } from "../../api/statsClient";
 import { fetchResearchRuns } from "../../api/researchClient";
+import { fetchCostsSummary } from "../../api/costsClient";
 import type { ResearchRunSummary } from "../../api/types";
 import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import {
@@ -136,43 +137,117 @@ interface TypeBarProps {
   total: number;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  concept: "var(--syn-accent)",
-  entity: "#22c55e",
-  source: "#f59e0b",
-  synthesis: "#8b5cf6",
-  comparison: "#06b6d4",
-  untyped: "var(--syn-text-dim)",
-};
+/**
+ * Single source of truth for page-type colour: the same --syn-type-* tokens the
+ * wiki type badges and the graph use. Previously this component carried its OWN
+ * ad-hoc hex map (entity=green, concept=blue…) that disagreed with those tokens,
+ * so one page type read as different colours across the app. Now they match.
+ */
+export function typeColor(type: string): string {
+  const known = new Set([
+    "concept",
+    "entity",
+    "source",
+    "synthesis",
+    "comparison",
+    "query",
+    "overview",
+  ]);
+  return known.has(type) ? `var(--syn-type-${type})` : "var(--syn-type-other)";
+}
 
 function TypeBar({ pagesByType, total }: TypeBarProps) {
   if (total === 0) return null;
-  const entries = Object.entries(pagesByType);
-  let x = 0;
+  const entries = Object.entries(pagesByType).filter(([, count]) => count > 0);
+  return (
+    // HTML flex bar (not SVG) so segments carry a real 2px surface gap and their
+    // own rounded ends — the dataviz "gap between fills" spec — and colour resolves
+    // from CSS tokens directly.
+    <div
+      aria-hidden="true"
+      style={{ display: "flex", gap: 2, height: 6, width: "100%" }}
+    >
+      {entries.map(([type, count]) => (
+        <div
+          key={type}
+          style={{
+            flexGrow: count,
+            flexBasis: 0,
+            minWidth: 2,
+            background: typeColor(type),
+            borderRadius: 2,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Skeleton ──────────────────────────────────────────────────────────────────
+
+/** A single shimmering placeholder block (see .syn-skeleton in theme.css). */
+function Skeleton({
+  width,
+  height,
+  radius = 8,
+}: {
+  width?: number | string;
+  height: number | string;
+  radius?: number;
+}) {
+  return (
+    <div
+      className="syn-skeleton"
+      aria-hidden="true"
+      style={{ width: width ?? "100%", height, borderRadius: radius }}
+    />
+  );
+}
+
+// ─── Sparkline ─────────────────────────────────────────────────────────────────
+
+/**
+ * Tiny inline trend line for a KPI (e.g. daily cost over the last 30 days).
+ * Stretched to the card width; non-scaling stroke keeps the line crisp.
+ */
+function Sparkline({ values, color = "var(--syn-accent)" }: { values: number[]; color?: string }) {
+  if (values.length < 2) return null;
+  const W = 100;
+  const H = 22;
+  const PAD = 1.5;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const stepX = (W - PAD * 2) / (values.length - 1);
+  const pts = values.map((v, i) => {
+    const x = PAD + i * stepX;
+    const y = PAD + (H - PAD * 2) * (1 - (v - min) / range);
+    return [x, y] as const;
+  });
+  const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const last = pts[pts.length - 1] ?? [0, 0];
+  const first = pts[0] ?? [0, 0];
+  const area = `${line} L${last[0].toFixed(1)} ${H} L${first[0].toFixed(1)} ${H} Z`;
   return (
     <svg
       width="100%"
-      height="6"
-      viewBox="0 0 100 6"
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
       aria-hidden="true"
-      style={{ borderRadius: 3, overflow: "hidden", display: "block" }}
+      style={{ display: "block", overflow: "visible" }}
     >
-      {entries.map(([type, count]) => {
-        const w = (count / total) * 100;
-        const rect = (
-          <rect
-            key={type}
-            x={x}
-            y={0}
-            width={w}
-            height={6}
-            fill={TYPE_COLORS[type] ?? "var(--syn-text-dim)"}
-          />
-        );
-        x += w;
-        return rect;
-      })}
+      <path d={area} fill={color} opacity={0.1} />
+      <path
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        vectorEffect="non-scaling-stroke"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <circle cx={last[0]} cy={last[1]} r={2} fill={color} vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
@@ -819,24 +894,28 @@ interface KpiCardProps {
   value: string | number;
   accent?: boolean;
   testId?: string;
+  /** When set the card becomes a real navigation control (button + hover + focus ring). */
+  onClick?: () => void;
+  /** Optional trend series rendered as a sparkline under the value. */
+  sparkline?: number[] | undefined;
 }
 
-function KpiCard({ icon, label, value, accent, testId }: KpiCardProps) {
-  return (
-    <div
-      data-testid={testId ?? `kpi-${label}`}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        padding: "12px 14px",
-        borderRadius: "var(--syn-radius-md)",
-        border: `1px solid ${accent ? "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" : "var(--syn-border)"}`,
-        background: accent ? "var(--syn-accent-soft)" : "var(--syn-bg-soft)",
-        minWidth: 0,
-        flex: "1 1 110px",
-      }}
-    >
+function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: KpiCardProps) {
+  const baseStyle: import("react").CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "12px 14px",
+    borderRadius: "var(--syn-radius-md)",
+    border: `1px solid ${accent ? "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" : "var(--syn-border)"}`,
+    background: accent ? "var(--syn-accent-soft)" : "var(--syn-bg-soft)",
+    boxShadow: "var(--syn-shadow-soft)",
+    minWidth: 0,
+    flex: "1 1 110px",
+  };
+
+  const body = (
+    <>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ color: accent ? "var(--syn-accent)" : "var(--syn-text-dim)", flexShrink: 0 }}>
           {icon}
@@ -856,7 +935,43 @@ function KpiCard({ icon, label, value, accent, testId }: KpiCardProps) {
       >
         {value}
       </span>
-    </div>
+      {sparkline && sparkline.length >= 2 && (
+        <div style={{ marginTop: 4 }}>
+          <Sparkline values={sparkline} />
+        </div>
+      )}
+    </>
+  );
+
+  // Non-interactive by default: a plain <div> so the card never *looks* clickable
+  // unless it actually navigates somewhere.
+  if (!onClick) {
+    return (
+      <div data-testid={testId ?? `kpi-${label}`} style={baseStyle}>
+        {body}
+      </div>
+    );
+  }
+
+  // Interactive: a real <button> — cursor, hover, and the global :focus-visible ring.
+  return (
+    <button
+      type="button"
+      data-testid={testId ?? `kpi-${label}`}
+      onClick={onClick}
+      aria-label={`${label}: ${value}`}
+      style={{ ...baseStyle, cursor: "pointer", textAlign: "left", transition: "border-color 0.12s ease, background 0.12s ease" }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = accent
+          ? "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)"
+          : "var(--syn-border)";
+      }}
+    >
+      {body}
+    </button>
   );
 }
 
@@ -884,6 +999,7 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
         borderRadius: "var(--syn-radius-md)",
         border: "1px solid var(--syn-border)",
         background: isUntagged ? "var(--syn-surface-sunken)" : "var(--syn-bg-soft)",
+        boxShadow: "var(--syn-shadow-soft)",
         cursor: "pointer",
         textAlign: "left",
         transition: "border-color 0.12s ease, background 0.12s ease",
@@ -935,7 +1051,14 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
       {typeEntries.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
           {typeEntries.map(([type, count]) => (
-            <span key={type} style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
+            <span
+              key={type}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--syn-text-dim)" }}
+            >
+              <span
+                aria-hidden="true"
+                style={{ width: 6, height: 6, borderRadius: 2, background: typeColor(type), flexShrink: 0 }}
+              />
               {count} {type}
             </span>
           ))}
@@ -995,6 +1118,7 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
         borderRadius: "var(--syn-radius-md)",
         border: "1px solid var(--syn-border)",
         background: "var(--syn-bg-soft)",
+        boxShadow: "var(--syn-shadow-soft)",
         cursor: "pointer",
         textAlign: "left",
         transition: "border-color 0.12s ease, background 0.12s ease",
@@ -1040,7 +1164,14 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
       {typeEntries.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
           {typeEntries.map(([type, count]) => (
-            <span key={type} style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
+            <span
+              key={type}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--syn-text-dim)" }}
+            >
+              <span
+                aria-hidden="true"
+                style={{ width: 6, height: 6, borderRadius: 2, background: typeColor(type), flexShrink: 0 }}
+              />
               {count} {type}
             </span>
           ))}
@@ -1110,6 +1241,9 @@ export function HomeDashboard() {
   const [sections, setSections] = useState<StatsSections | null | undefined>(undefined);
   const [groups, setGroups] = useState<StatsGroups | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Daily-cost series for the monthly-cost KPI sparkline (last 30 days). Fetched
+  // separately and non-blocking: a costs error must never break the dashboard.
+  const [costByDay, setCostByDay] = useState<number[] | null>(null);
 
   // Track the last data_version for which we successfully fetched stats.
   // WS-A: only re-fetch when the version advances — no spurious re-renders (I3).
@@ -1151,6 +1285,21 @@ export function HomeDashboard() {
     loadStats(ac.signal);
     return () => ac.abort();
   }, [loadStats]);
+
+  // Daily cost series for the sparkline — fetch once on mount, best-effort.
+  useEffect(() => {
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const summary = await fetchCostsSummary(null, ac.signal);
+        if (ac.signal.aborted) return;
+        setCostByDay(summary.by_day.map((d) => d.total_usd));
+      } catch {
+        // Non-fatal: leave the KPI without a sparkline.
+      }
+    })();
+    return () => ac.abort();
+  }, []);
 
   // WS-A [AC-WS-A-1, AC-WS-A-3]: re-fetch stats when data_version bumps.
   // Guard: skip if version hasn't changed from last fetch, skip initial null.
@@ -1212,9 +1361,36 @@ export function HomeDashboard() {
     return (
       <div
         data-testid="home-dashboard-loading"
-        style={{ padding: 40, color: "var(--syn-text-muted)", fontSize: 13 }}
+        aria-busy="true"
+        aria-label={t("common.loading")}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 24,
+          padding: "28px 32px 48px",
+          width: "100%",
+          boxSizing: "border-box",
+        }}
       >
-        {t("common.loading")}
+        {/* Title */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Skeleton width={220} height={24} radius={6} />
+          <Skeleton width={300} height={14} radius={4} />
+        </div>
+        {/* System status */}
+        <Skeleton height={72} radius={8} />
+        {/* KPI grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <Skeleton key={i} height={78} radius={8} />
+          ))}
+        </div>
+        {/* Section cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} height={150} radius={8} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -1314,8 +1490,8 @@ export function HomeDashboard() {
       <section aria-label={t("home.kpi.ariaLabel")}>
         <div
           style={{
-            display: "flex",
-            flexWrap: "wrap",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
             gap: 10,
           }}
         >
@@ -1343,6 +1519,7 @@ export function HomeDashboard() {
             label={t("home.kpi.reviewPending")}
             value={overview.review_pending}
             accent={overview.review_pending > 0}
+            onClick={() => setActiveSection("review")}
           />
           <KpiCard
             testId="kpi-lint-open"
@@ -1350,12 +1527,14 @@ export function HomeDashboard() {
             label={t("home.kpi.lintOpen")}
             value={overview.lint_open}
             accent={overview.lint_open > 0}
+            onClick={() => setActiveSection("lint")}
           />
           <KpiCard
             testId="kpi-monthly-cost"
             icon={<DollarSign size={14} aria-hidden="true" />}
             label={t("home.kpi.monthlyCost")}
             value={formatCost(overview.monthly_cost_usd)}
+            sparkline={costByDay ?? undefined}
           />
           <KpiCard
             testId="kpi-data-version"
@@ -1550,7 +1729,11 @@ export function HomeDashboard() {
             data-testid="home-recent-activity"
             style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}
           >
-            {overview.recent_activity.map((item) => (
+            {overview.recent_activity.map((item) => {
+              // A page can be persisted before its title is generated; fall back to a
+              // muted placeholder so the row never renders as a blank icon + date.
+              const label = item.title.trim();
+              return (
               <li key={item.page_id}>
                 <button
                   data-testid={`home-activity-item-${item.slug}`}
@@ -1576,15 +1759,16 @@ export function HomeDashboard() {
                   }}
                 >
                   <FileText size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: "var(--syn-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {item.title}
+                  <span style={{ flex: 1, fontSize: 13, color: label ? "var(--syn-text)" : "var(--syn-text-dim)", fontStyle: label ? "normal" : "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {label || t("home.activity.untitled")}
                   </span>
                   <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
                     {formatDate(item.updated_at)}
                   </span>
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

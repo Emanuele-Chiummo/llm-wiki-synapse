@@ -183,11 +183,18 @@ export function NavRail() {
             style={{
               fontSize: 9,
               fontWeight: 600,
-              letterSpacing: "0.08em",
+              // Tightened + width-constrained so "STRUMENTI" fits the ~64px rail
+              // instead of clipping to "TRUMENT" at the edges.
+              letterSpacing: "0.02em",
               textTransform: "uppercase",
               color: "var(--syn-text-dim)",
               opacity: 0.7,
-              padding: "2px 0 2px",
+              padding: "2px 2px",
+              maxWidth: "100%",
+              textAlign: "center",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
               userSelect: "none",
             }}
           >
@@ -283,11 +290,15 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
         className="nav-rail__label"
         style={{
           fontSize: 10,
-          lineHeight: 1.2,
+          lineHeight: 1.15,
           textAlign: "center",
-          whiteSpace: "nowrap",
+          // Allow up to 2 lines so multi-word labels ("Ricerca profonda") stay
+          // legible instead of being ellipsis-clipped in the narrow rail.
+          whiteSpace: "normal",
+          display: "-webkit-box",
+          WebkitBoxOrient: "vertical",
+          WebkitLineClamp: 2,
           overflow: "hidden",
-          textOverflow: "ellipsis",
           maxWidth: "100%",
           userSelect: "none",
         }}

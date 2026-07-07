@@ -412,9 +412,16 @@ export function MessageInput({
           {t("chat.webSearch")}
         </button>
 
-        {/* Retrieval mode segmented control (B2) */}
+        {/* Divider: separates the action/toggle cluster (attach, Web) from the
+            single-select retrieval-mode control so the two don't read as one group. */}
+        <span
+          aria-hidden="true"
+          style={{ width: 1, alignSelf: "stretch", margin: "2px 2px", background: "var(--syn-border)" }}
+        />
+
+        {/* Retrieval mode segmented control (B2) — single-select ⇒ radiogroup */}
         <div
-          role="group"
+          role="radiogroup"
           aria-label={t("chat.retrievalModeLabel")}
           style={{
             display: "flex",
@@ -432,7 +439,8 @@ export function MessageInput({
                 data-testid={`retrieval-mode-${mode.key}`}
                 onClick={() => setRetrievalMode(mode.key)}
                 disabled={isInputDisabled}
-                aria-pressed={isActive}
+                role="radio"
+                aria-checked={isActive}
                 title={t(mode.labelKey)}
                 style={{
                   padding: "4px 8px",
