@@ -1406,14 +1406,41 @@ const CentroidOverlay: React.FC<CentroidOverlayProps> = ({ centroids, sigmaRef, 
       // P3: clamp projected viewport (x, y) so labels never escape the canvas or
       // render behind the toolbar. ONLY the on-screen CSS position is clamped —
       // centroid.x / centroid.y (graph coords from server) are never mutated (I2).
+      //
+      // De-overlap: in some camera states many centroids project to nearly the SAME
+      // point (e.g. a dense cluster panned into a corner), stacking every community
+      // label into one illegible "ghost" of text over the toolbar. We greedily place
+      // labels in Map order (largest community first) and HIDE any that would land on
+      // top of one already placed — so a stack collapses to a single readable label.
+      const placed: Array<[number, number]> = [];
+      const MIN_SEP = 22; // px; labels closer than this collapse to the first-placed one
       for (const [cid, centroid] of centroids) {
         const el = overlay.querySelector<HTMLElement>(`[data-cid="${String(cid)}"]`);
         if (!el) continue;
         const vp = s.graphToViewport({ x: centroid.x, y: centroid.y });
-        // Clamp to [PAD, max] so labels don't bleed above the top or outside the canvas.
         const cx = Math.max(CENTROID_LABEL_PAD, Math.min(maxX, vp.x));
         const cy = Math.max(CENTROID_LABEL_PAD, Math.min(maxY, vp.y));
-        // Translate so the label is centered on the (clamped) centroid position.
+        // If clamping had to MOVE the label, its centroid lies OUTSIDE the on-canvas
+        // safe zone ([PAD, max]) — HIDE it instead of stranding it at the edge.
+        if (cx !== vp.x || cy !== vp.y) {
+          el.style.display = "none";
+          continue;
+        }
+        // Collapse near-coincident labels (declutter + kill the corner pile-up).
+        let collides = false;
+        for (const [px, py] of placed) {
+          if (Math.abs(px - cx) < MIN_SEP && Math.abs(py - cy) < MIN_SEP) {
+            collides = true;
+            break;
+          }
+        }
+        if (collides) {
+          el.style.display = "none";
+          continue;
+        }
+        placed.push([cx, cy]);
+        el.style.display = "";
+        // Translate so the label is centered on the centroid's viewport position.
         el.style.transform = `translate(calc(${cx}px - 50%), calc(${cy}px - 50%))`;
       }
     }
@@ -1472,6 +1499,12 @@ const CentroidOverlay: React.FC<CentroidOverlayProps> = ({ centroids, sigmaRef, 
             position: "absolute",
             top: 0,
             left: 0,
+            // Hidden until project() positions it. Otherwise, before sigma is ready
+            // (or right after a React re-render resets this inline style), every label
+            // sits at the container origin (0,0) and they pile into an illegible blob
+            // over the top-left toolbar. project() flips display back to "" once it has
+            // a real, de-overlapped on-canvas position.
+            display: "none",
             // transform is set dynamically in the effect
             transform: "translate(-50%, -50%)",
             fontSize: 11,
@@ -1654,6 +1687,10 @@ export const GraphViewer: React.FC = () => {
   // Use a ref so the sigma reducers always read the latest filter without rebuilding sigma.
   const filterNodeTypes = useGraphStore(selectFilterNodeTypes);
   const filterNodeTypesRef = useRef<Set<string>>(filterNodeTypes);
+  // Persistent selection: nodeReducer reads this ref so the clicked node keeps a
+  // ring + label at rest (not just on hover). Ref (not state) so the reducer sees
+  // the latest value without rebuilding sigma — same pattern as filterNodeTypesRef.
+  const selectedNodeIdRef = useRef<string | null>(null);
   const toggleFilterNodeType = useGraphStore(selectToggleFilterNodeType);
   const clearFilterNodeTypes = useGraphStore(selectClearFilterNodeTypes);
   // GR1: total vault pages from backend (null = old server)
@@ -2023,6 +2060,15 @@ export const GraphViewer: React.FC = () => {
                 : "#30363d"; // dark mode: close to --syn-border dark
             res["zIndex"] = 0;
           }
+        } else if (selectedNodeIdRef.current !== null && node === selectedNodeIdRef.current) {
+          // Persistent selection ring at REST (no hover active). Reuses sigma's
+          // hover renderer (makeDrawHaloNodeHover) via highlighted:true, so the
+          // clicked node keeps a ring + full label until another node is selected.
+          // Hover always wins: this branch only runs when hoveredNeighbors === null.
+          res["highlighted"] = true;
+          res["forceLabel"] = true;
+          res["label"] = data["label"] as string;
+          res["zIndex"] = 2;
         }
 
         return res as Partial<NodeDisplayData>;
@@ -2245,8 +2291,12 @@ export const GraphViewer: React.FC = () => {
   // ── Sync selectedNodeId from store → announcement (aria-live) ────────────
 
   useEffect(() => {
+    // Keep the reducer's ref in sync so the persistent selection ring follows the store.
+    selectedNodeIdRef.current = selectedNodeId;
     if (!selectedNodeId) {
       setAnnouncement("");
+      // Clear the ring: re-run reducers now that nothing is selected.
+      sigmaRef.current?.refresh({ skipIndexation: true });
       return;
     }
     if (!sigmaRef.current) return;
