@@ -719,12 +719,17 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
                 ).all()
             )
 
-            # Resolved incoming-link target ids (in-degree >= 1).
+            # Resolved incoming-link target ids (in-degree >= 1), counting only links
+            # whose source is a live page in THIS vault. Without the vault join a
+            # cross-vault link to a same-id target would mask a genuinely-orphaned page.
             target_rows = list(
                 (
                     await session.execute(
-                        select(func.distinct(Link.target_page_id)).where(
-                            Link.target_page_id.isnot(None)
+                        select(func.distinct(Link.target_page_id))
+                        .join(Page, Link.source_page_id == Page.id)
+                        .where(
+                            Page.vault_id == vault_id,
+                            Link.target_page_id.isnot(None),
                         )
                     )
                 ).scalars()
