@@ -299,7 +299,7 @@ async def get_stats_sections() -> JSONResponse:
         # and do Python-side grouping — same portability rationale as costs.py.
         page_rows: Sequence[Any] = (
             await session.execute(
-                select(Page.id, Page.page_type, Page.tags, Page.updated_at).where(
+                select(Page.id, Page.page_type, Page.tags, Page.updated_at, Page.title).where(
                     Page.vault_id == vault_id,
                     Page.deleted_at.is_(None),
                 )
@@ -343,16 +343,10 @@ async def get_stats_sections() -> JSONResponse:
         for row in tgt_rows:
             degree_map[row.pid] = degree_map.get(row.pid, 0) + row.cnt
 
-        # ── Fetch page titles for top_pages lookup ────────────────────────────
-        title_rows = (
-            await session.execute(
-                select(Page.id, Page.title).where(
-                    Page.vault_id == vault_id,
-                    Page.deleted_at.is_(None),
-                )
-            )
-        ).all()
-        title_map: dict[str, str] = {str(r.id): (r.title or "") for r in title_rows}
+    # ── Page titles for top_pages lookup ──────────────────────────────────────
+    # Derived from the page_rows scan above (Page.title is now selected there) — no
+    # second full-table scan of pages for the same live rows.
+    title_map: dict[str, str] = {str(r.id): (r.title or "") for r in page_rows}
 
     # ── Build membership sets ─────────────────────────────────────────────────
     # For each domain D, collect page ids where "domain/"+D ∈ page.tags.
@@ -364,13 +358,14 @@ async def get_stats_sections() -> JSONResponse:
     # domain_name → set of page row indices
     domain_pages: dict[str, list[Any]] = {d: [] for d in vocab}
     untagged_pages: list[Any] = []
+    vocab_set = set(vocab)  # hoisted: constant across the per-page loop below
 
     for row in page_rows:
         tags: list[str] = row.tags if isinstance(row.tags, list) else []
         domain_tags_in_vocab: list[str] = [
             t[len(domain_prefix) :]
             for t in tags
-            if t.startswith(domain_prefix) and t[len(domain_prefix) :] in set(vocab)
+            if t.startswith(domain_prefix) and t[len(domain_prefix) :] in vocab_set
         ]
         has_any_domain = any(t.startswith(domain_prefix) for t in tags)
 
