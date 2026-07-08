@@ -11,6 +11,7 @@ No model is loaded in-process; no subprocess is spawned (AC-WATCH-6, AC-QD-4).
 from __future__ import annotations
 
 import abc
+import asyncio
 import logging
 
 import httpx
@@ -99,6 +100,11 @@ class HttpEmbeddingClient(EmbeddingClient):
         # but we must not let a constructor None override a settings-provided key.
         self._api_key = api_key if api_key is not None else settings.embedding_api_key
         self._timeout = timeout
+        # Persistent connection pool. Reused across every embed() call (retrieval Phase-1,
+        # ingest, concurrent watcher workers) instead of doing a fresh TCP+TLS handshake per
+        # call. Created lazily on first use so no event loop is required at construction time.
+        self._client: httpx.AsyncClient | None = None
+        self._client_lock = asyncio.Lock()
 
     def _headers(self) -> dict[str, str]:
         """Build request headers; add bearer auth only when a key is configured.
@@ -152,20 +158,34 @@ class HttpEmbeddingClient(EmbeddingClient):
             )
             text = text[:max_chars]
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            try:
-                resp = await client.post(
-                    self._url,
-                    json=self._build_body(text),
-                    headers=self._headers(),
-                )
-                resp.raise_for_status()
-            except httpx.HTTPError as exc:
-                raise EmbeddingError(
-                    f"Embedding service at {self._url} returned an error: {exc}"
-                ) from exc
+        client = await self._ensure_client()
+        try:
+            resp = await client.post(
+                self._url,
+                json=self._build_body(text),
+                headers=self._headers(),
+            )
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise EmbeddingError(
+                f"Embedding service at {self._url} returned an error: {exc}"
+            ) from exc
 
         return self._parse_response(resp.json())
+
+    async def _ensure_client(self) -> httpx.AsyncClient:
+        """Return the shared AsyncClient, creating it under a lock on first use."""
+        if self._client is None:
+            async with self._client_lock:
+                if self._client is None:  # double-checked: another coroutine may have won
+                    self._client = httpx.AsyncClient(timeout=self._timeout)
+        return self._client
+
+    async def aclose(self) -> None:
+        """Close the shared connection pool (called from the FastAPI lifespan shutdown)."""
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
 
     async def probe_dimension(self) -> int:
         """
@@ -230,3 +250,11 @@ def set_embedding_client(client: EmbeddingClient) -> None:
     """Override the active embedding client (test / CI injection point — GAP-4)."""
     global _default_client  # noqa: PLW0603
     _default_client = client
+
+
+async def aclose_embedding_client() -> None:
+    """Close the default client's connection pool if it holds one (lifespan shutdown)."""
+    if _default_client is not None:
+        aclose = getattr(_default_client, "aclose", None)
+        if callable(aclose):
+            await aclose()

@@ -99,7 +99,7 @@ from app.config_overrides import (
     load_overrides,
 )
 from app.db import dispose_engine, get_session
-from app.embeddings import EmbeddingError, get_embedding_client
+from app.embeddings import EmbeddingError, aclose_embedding_client, get_embedding_client
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler
@@ -917,6 +917,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if _graph_cache is not None:
         _graph_cache.stop_background_loop()
     stop_watcher()
+    await aclose_embedding_client()
     await dispose_engine()
 
 
