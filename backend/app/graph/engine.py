@@ -366,18 +366,26 @@ class GraphEngine:
         """
 
         async def _run(sess: AsyncSession) -> None:
-            # Update coords + community for each node (G-P0-2: community persisted alongside x/y)
-            for row in coord_rows:
+            # Update coords + community per node (G-P0-2: community persisted alongside x/y).
+            # One executemany instead of one round-trip per node — the SQL text is byte-for-byte
+            # unchanged (Postgres semantics identical), only the DBAPI batches it. At 1000 nodes
+            # this collapses ~1000 sequential asyncpg round-trips into a single executemany.
+            if coord_rows:
+                coord_params = [
+                    {
+                        "id": str(row["id"]),
+                        "x": row["x"],
+                        "y": row["y"],
+                        "community": row.get("community", -1),
+                    }
+                    for row in coord_rows
+                ]
                 await sess.execute(
                     sa_text(
                         "UPDATE pages SET x = :x, y = :y, community = :community"
                         " WHERE id = CAST(:id AS uuid)"
-                    ).bindparams(
-                        id=str(row["id"]),
-                        x=row["x"],
-                        y=row["y"],
-                        community=row.get("community", -1),
-                    )
+                    ),
+                    coord_params,
                 )
 
             # Replace edges for this vault (delete-then-insert)
@@ -392,18 +400,20 @@ class GraphEngine:
                 "(CAST(:id AS uuid), :vault_id, CAST(:source_page_id AS uuid),"
                 " CAST(:target_page_id AS uuid), :weight, CAST(:signals AS jsonb), :kind, now())"
             )
-            for row in edge_rows:
-                await sess.execute(
-                    sa_text(_INSERT_EDGE).bindparams(
-                        id=str(uuid.uuid4()),
-                        vault_id=row["vault_id"],
-                        source_page_id=str(row["source_page_id"]),
-                        target_page_id=str(row["target_page_id"]),
-                        weight=row["weight"],
-                        signals=_json_dumps(row["signals"]),
-                        kind=row.get("kind", "link"),
-                    )
-                )
+            if edge_rows:
+                edge_params = [
+                    {
+                        "id": str(uuid.uuid4()),
+                        "vault_id": row["vault_id"],
+                        "source_page_id": str(row["source_page_id"]),
+                        "target_page_id": str(row["target_page_id"]),
+                        "weight": row["weight"],
+                        "signals": _json_dumps(row["signals"]),
+                        "kind": row.get("kind", "link"),
+                    }
+                    for row in edge_rows
+                ]
+                await sess.execute(sa_text(_INSERT_EDGE), edge_params)
 
         if session is not None:
             await _run(session)
