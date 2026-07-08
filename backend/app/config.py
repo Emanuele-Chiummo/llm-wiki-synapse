@@ -212,6 +212,15 @@ class Settings(BaseSettings):
     (never 500). Env var: DEEP_RESEARCH_OPTIMIZE_TIMEOUT_SECONDS.
     """
 
+    deep_research_provider_timeout_seconds: float = 120.0
+    """
+    Per-call timeout (seconds) for the three in-loop deep-research provider turns
+    (query generation, sufficiency assessment, synthesis). Enforces the I7 per-call
+    time ceiling so a hung provider can never wedge a run at status='running' forever;
+    on timeout each step degrades gracefully (empty result / insufficient) and the
+    bounded loop proceeds or exits. Env var: DEEP_RESEARCH_PROVIDER_TIMEOUT_SECONDS.
+    """
+
     deep_research_optimize_token_budget: int = 2_000
     """
     Token budget for the single topic-optimization call (B5/D3, F10, I7). Small: the
