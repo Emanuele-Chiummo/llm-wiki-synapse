@@ -173,17 +173,23 @@ export function useChatStream(): UseChatStreamReturn {
               totalCostUsd: event.total_cost_usd,
             };
 
-            // I7: log cost per run (structured)
-            console.warn("[chat] turn done", {
-              conversation_id: event.conversation_id,
-              message_id: event.message_id,
-              input_tokens: event.input_tokens,
-              output_tokens: event.output_tokens,
-              total_cost_usd: event.total_cost_usd,
-              iterations_used: event.iterations_used,
-              finish_reason: event.finish_reason,
-              citations_count: event.citations?.length ?? 0,
-            });
+            // I7: structured per-run cost telemetry. Dev-only (import.meta.env.DEV is
+            // statically false in prod builds → dead-code eliminated, same pattern as
+            // api/base.ts) so it never floods a user's console; console.info keeps it
+            // below warn level so genuine stream warnings stay visible in DevTools.
+            if (import.meta.env.DEV) {
+              // eslint-disable-next-line no-console -- dev-only structured cost telemetry
+              console.info("[chat] turn done", {
+                conversation_id: event.conversation_id,
+                message_id: event.message_id,
+                input_tokens: event.input_tokens,
+                output_tokens: event.output_tokens,
+                total_cost_usd: event.total_cost_usd,
+                iterations_used: event.iterations_used,
+                finish_reason: event.finish_reason,
+                citations_count: event.citations?.length ?? 0,
+              });
+            }
 
             // Build the settled message from the accumulated streaming buffer.
             // We read directly from the store snapshot here (not a selector) because
