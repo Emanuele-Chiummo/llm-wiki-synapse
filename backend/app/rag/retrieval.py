@@ -73,6 +73,7 @@ R8-5 — type filter + date sort (AC-R8-5-1, AC-R8-5-2, F5):
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -668,7 +669,7 @@ async def _phase4_assemble(
             continue  # page vanished (soft-deleted/race) — skip, do not cite
 
         title = info["title"]
-        passage = _load_passage(info["file_path"], cap=per_passage_cap)
+        passage = await _load_passage(info["file_path"], cap=per_passage_cap)
         if not passage:
             continue  # unreadable/empty source — skip rather than cite an empty passage
 
@@ -723,22 +724,32 @@ def _trim_to_boundary(passage: str, allowance: int) -> str:
     return cut.rstrip()
 
 
-def _load_passage(file_path: str, *, cap: int) -> str:
+async def _load_passage(file_path: str, *, cap: int) -> str:
     """
     Read the body of a single source file (targeted I1-safe read — one file, no vault walk),
     capped to *cap* chars on a whitespace boundary. Returns '' on any read error.
+
+    The blocking filesystem read runs in a worker thread (``asyncio.to_thread``) so Phase-4
+    assembly — which reads up to ``k``×depth files in sequence — never blocks the event loop
+    and stall concurrent chat streams / watcher events (I3).
     """
     if cap <= 0:
         return ""
     full = (settings.vault_root / file_path).resolve()
-    try:
+
+    def _read() -> str | None:
         if not full.is_file():
-            return ""
-        body = full.read_text(encoding="utf-8", errors="replace")
+            return None
+        return full.read_text(encoding="utf-8", errors="replace")
+
+    try:
+        raw = await asyncio.to_thread(_read)
     except OSError as exc:  # pragma: no cover - filesystem edge
         logger.warning("retrieval: could not read source %s: %s", file_path, exc)
         return ""
-    body = body.strip()
+    if raw is None:
+        return ""
+    body = raw.strip()
     return _trim_to_boundary(body, cap) if len(body) > cap else body
 
 
