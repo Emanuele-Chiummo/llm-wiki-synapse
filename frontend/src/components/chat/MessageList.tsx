@@ -186,7 +186,6 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
                 <MessageRow
                   msg={msg}
                   msgIndex={virtualItem.index}
-                  allMessages={messages}
                   isLast={isLast}
                   onRegenerate={isLast && msg.role === "assistant" ? onRegenerate : undefined}
                   showCost={isLast && msg.role === "assistant" && lastUsage !== null}
@@ -257,10 +256,8 @@ function deriveSaveTitle(msg: ChatMessage, msgIndex: number, allMessages: ChatMe
 
 interface MessageRowProps {
   msg: ChatMessage;
-  /** Index of this message in the allMessages array — used to walk back to user question. */
+  /** Index of this message in the settled messages array — used to walk back to user question. */
   msgIndex: number;
-  /** Full settled messages array — needed to derive the save title from prior user msg. */
-  allMessages: ChatMessage[];
   isLast: boolean;
   onRegenerate?: (() => void) | undefined;
   showCost: boolean;
@@ -279,7 +276,6 @@ interface MessageRowProps {
 const MessageRow = memo(function MessageRow({
   msg,
   msgIndex,
-  allMessages,
   isLast,
   onRegenerate,
   showCost,
@@ -295,7 +291,11 @@ const MessageRow = memo(function MessageRow({
     if (saveState.kind === "loading") return;
     setSaveState({ kind: "loading" });
     try {
-      // Derive title from the user question preceding this assistant message (AC-F6-5)
+      // Derive title from the user question preceding this assistant message (AC-F6-5).
+      // Read the settled messages from the store at click time instead of taking the array
+      // as a prop — a new `messages` reference on every appended token would otherwise bust
+      // this row's React.memo (and recreate this callback) for all visible rows (I3).
+      const allMessages = useChatStore.getState().messages;
       const title = deriveSaveTitle(msg, msgIndex, allMessages);
       // Collect source page-ids from citations if available
       const sources =
@@ -315,7 +315,7 @@ const MessageRow = memo(function MessageRow({
       setSaveState({ kind: "error", message });
       showToast(t("chat.saveToWikiErrorToast"), "error");
     }
-  }, [saveState.kind, msg, msgIndex, allMessages, vaultId, conversationId, t]);
+  }, [saveState.kind, msg, msgIndex, vaultId, conversationId, t]);
 
   return (
     <div>
