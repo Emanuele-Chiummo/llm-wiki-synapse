@@ -55,16 +55,31 @@ _ANTHROPIC_VERSION = "2023-06-01"
 _DEFAULT_MAX_CONTEXT = 200_000
 _DEFAULT_MAX_TOKENS = 4096
 
+# One-time guard so the "no price map" warning fires once per process, not once per
+# ApiProvider instance (which is constructed per ingest/chat run).
+_price_map_warned = False
+
 
 def _load_price_map() -> dict[str, dict[str, float]]:
     """
     Load the per-model price map from PROVIDER_PRICE_MAP (USD per token, keyed by model_id).
 
     Prices live in env-sourced config, NEVER as literals in app code (AC-F17-8, ADR-0009).
-    Absent/malformed → empty map → cost computed as 0.0 with a one-time warning.
+    Absent/malformed → empty map → cost computed as 0.0 with a one-time warning. Because
+    this is the *billed* provider path, a missing map means every ingest/chat records
+    ``total_cost_usd=0.0`` and the I7 cost-anomaly gate can never fire — so warn loudly
+    (once) rather than degrade silently.
     """
+    global _price_map_warned
     raw = os.environ.get(_PRICE_MAP_ENV)
     if not raw:
+        if not _price_map_warned:
+            logger.warning(
+                "PROVIDER_PRICE_MAP is unset — ApiProvider is a billed backend but "
+                "total_cost_usd will be recorded as 0.0 for every run, disabling the I7 "
+                "cost-anomaly gate. Set PROVIDER_PRICE_MAP to price per-model tokens."
+            )
+            _price_map_warned = True
         return {}
     try:
         parsed = json.loads(raw)
