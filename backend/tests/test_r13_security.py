@@ -621,3 +621,61 @@ class TestRateLimitSourceInspection:
         assert (
             "rate_limit" in src
         ), "app/routers/research.py must apply rate_limit to POST /research/start"
+
+
+# ===========================================================================
+# H3 — rate-limit keying is trusted-proxy-aware (ADR-0033 resolver reuse)
+# ===========================================================================
+
+
+def _asgi_request(peer_ip: str, xff: str | None = None):  # noqa: ANN202 - starlette Request
+    """Build a real ASGI-scope Request (not a MagicMock) so resolve_source_ip runs for real."""
+    from starlette.requests import Request
+
+    headers: list[tuple[bytes, bytes]] = []
+    if xff is not None:
+        headers.append((b"x-forwarded-for", xff.encode()))
+    return Request({"type": "http", "client": (peer_ip, 12345), "headers": headers})
+
+
+class TestRateLimiterKeying:
+    """H3: behind a trusted proxy the limiter keys per proxy-attested client, not one bucket."""
+
+    async def test_trusted_proxy_keys_per_xff_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.config import settings
+        from app.rate_limit import _FixedWindowLimiter
+        from fastapi import HTTPException
+
+        # Peer 10.0.0.1 is the trusted tunnel; the real client is the XFF last hop.
+        monkeypatch.setattr(settings, "mcp_trusted_proxies", "10.0.0.1")
+        limiter = _FixedWindowLimiter()
+        req_a = _asgi_request("10.0.0.1", xff="203.0.113.1")
+        req_b = _asgi_request("10.0.0.1", xff="203.0.113.2")
+
+        # Exhaust client A's window.
+        for _ in range(2):
+            await limiter.check(req_a, requests=2, window_seconds=60, _now=1000.0)
+        with pytest.raises(HTTPException) as exc:
+            await limiter.check(req_a, requests=2, window_seconds=60, _now=1000.0)
+        assert exc.value.status_code == 429
+
+        # Client B (different XFF) has its OWN bucket — must NOT be rejected. Before H3 both
+        # shared the single 10.0.0.1 bucket and B would have been 429'd here.
+        await limiter.check(req_b, requests=2, window_seconds=60, _now=1000.0)
+
+    async def test_untrusted_peer_ignores_forged_xff(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.config import settings
+        from app.rate_limit import _FixedWindowLimiter
+        from fastapi import HTTPException
+
+        # No trusted proxies → XFF is untrusted; both requests key on the same peer IP.
+        monkeypatch.setattr(settings, "mcp_trusted_proxies", "")
+        limiter = _FixedWindowLimiter()
+        req1 = _asgi_request("198.51.100.5", xff="1.1.1.1")
+        req2 = _asgi_request("198.51.100.5", xff="2.2.2.2")  # spoofed XFF must not split buckets
+
+        await limiter.check(req1, requests=2, window_seconds=60, _now=5000.0)
+        await limiter.check(req2, requests=2, window_seconds=60, _now=5000.0)
+        with pytest.raises(HTTPException) as exc:
+            await limiter.check(req1, requests=2, window_seconds=60, _now=5000.0)
+        assert exc.value.status_code == 429
