@@ -300,9 +300,14 @@ async def _method_b_slug(
             return results
 
         source_ids = list({r[0] for r in candidate_rows})
+        # Scope source-page resolution to the current vault. Method (b) matches on
+        # slugify(target_title), which can collide across vaults; without this guard a
+        # cross-vault backlink would be resolved and its file scrubbed. (Latent today —
+        # single-vault deployment — but a correctness bug the moment we go multi-vault.)
         page_rows = await session.execute(
             select(Page.id, Page.file_path).where(
                 Page.id.in_(source_ids),
+                Page.vault_id == settings.vault_id,
                 Page.deleted_at.is_(None),
             )
         )
