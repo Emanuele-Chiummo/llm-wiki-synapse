@@ -228,11 +228,13 @@ struct SynapseClient {
 
     // MARK: Chat streaming (NDJSON)
 
-    private struct RawStreamEvent: Decodable {
-        let token: String?
-        let think: String?
-        let error: String?
-        let done: ChatDone?
+    /// Envelope for one NDJSON line. The backend tags every event with `type`
+    /// and carries token/think text in `delta`; `done`/`error` fields sit at the
+    /// top level of the same object (see backend `chat/stream.py`).
+    private struct StreamEnvelope: Decodable {
+        let type: String?
+        let delta: String?
+        let message: String?
     }
 
     /// Streams a chat turn, invoking `onEvent` for each NDJSON line. Runs until
@@ -266,13 +268,25 @@ struct SynapseClient {
         for try await line in bytes.lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty, let data = trimmed.data(using: .utf8) else { continue }
-            guard let raw = try? Self.decoder.decode(RawStreamEvent.self, from: data) else {
+            guard let env = try? Self.decoder.decode(StreamEnvelope.self, from: data) else {
                 continue
             }
-            if let t = raw.token { onEvent(.token(t)) }
-            else if let th = raw.think { onEvent(.think(th)) }
-            else if let d = raw.done { onEvent(.done(d)) }
-            else if let e = raw.error { onEvent(.error(e)) }
+            switch env.type {
+            case "token":
+                if let delta = env.delta { onEvent(.token(delta)) }
+            case "think":
+                if let delta = env.delta { onEvent(.think(delta)) }
+            case "done":
+                // The `done` payload's fields (message_id, citations, cost) are
+                // decoded from the whole line, not the envelope.
+                if let done = try? Self.decoder.decode(ChatDone.self, from: data) {
+                    onEvent(.done(done))
+                }
+            case "error":
+                onEvent(.error(env.message ?? "Errore durante la risposta."))
+            default:
+                continue
+            }
         }
     }
 
