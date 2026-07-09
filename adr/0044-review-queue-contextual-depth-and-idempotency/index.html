@@ -917,6 +917,78 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#13-review-sweep-parity-corrections-v1313-incremental-amendment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Review sweep parity corrections (v1.3.13 — incremental amendment)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="13. Review sweep parity corrections (v1.3.13 — incremental amendment)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#131-duplicate-sweep-semantics-inverted-r-bug1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.1 Duplicate sweep semantics inverted (R-bug1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#132-missing-page-slug-match-in-pass-1-r4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.2 Missing-page slug match in Pass-1 (R4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#133-prefix-stripping-in-_normalize_title-r5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.3 Prefix-stripping in _normalize_title (R5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#134-_content_key-excludes-target-anchor-r7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.4 _content_key excludes target anchor (R7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#135-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13.5 Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1570,6 +1642,88 @@ step). Interface contracts (§3–§7) → backend-engineer [BE] + ai-agent-engi
 frontend-engineer [FE] per §11. PR verdicts → orchestrator. This ADR extends ADR-0034 (the F9
 proposal model stands; this adds contextual depth, idempotency, and bulk triage).</p>
 </blockquote>
+<hr />
+<h2 id="13-review-sweep-parity-corrections-v1313-incremental-amendment">13. Review sweep parity corrections (v1.3.13 — incremental amendment)<a class="headerlink" href="#13-review-sweep-parity-corrections-v1313-incremental-amendment" title="Permanent link">&para;</a></h2>
+<p>Four parity gaps versus nashsu/llm_wiki <code>sweep-reviews.ts</code> and <code>review-utils.ts</code> were found and
+fixed. None changes the human-gate model or the <code>confirm</code> non-dedup semantics (Do-NOT #10).
+None requires a DB migration. The deliberate Synapse improvements (deterministic dangling-link Pass-1
+in <code>propose_reviews</code>, purpose-suggestion default, wikilink resolution model) are all preserved.</p>
+<h3 id="131-duplicate-sweep-semantics-inverted-r-bug1">13.1 Duplicate sweep semantics inverted (R-bug1)<a class="headerlink" href="#131-duplicate-sweep-semantics-inverted-r-bug1" title="Permanent link">&para;</a></h3>
+<p>The original Pass-1 treated <code>duplicate</code> the same as <code>missing-page</code>: it auto-resolved when a page
+with the proposed title NOW EXISTS. This is <strong>semantically inverted</strong>: a duplicate conflict is
+resolved when one of the duplicate pages is GONE (merged/deleted), not when a new page is created.</p>
+<p><strong>Fix:</strong> <code>duplicate</code> is removed from the <code>missing-page</code> Pass-1 branch. A new <strong>Pass-1b</strong> handles
+<code>duplicate</code> items only. It collects "affected page ids" (the <code>page_id</code> primary FK plus any ids in
+<code>referenced_page_ids</code>) and resolves the item to <code>auto_resolved</code> ONLY when at least one of those pages
+no longer exists as a live page (<code>deleted_at IS NULL</code>). If all affected pages are still alive, the
+item stays <code>pending</code>. Mirrors <code>sweep-reviews.ts:376-391</code> (<code>!allStillExist</code>).</p>
+<p>Preserved: <code>confirm</code> is never auto-resolved (Do-NOT #10 / ADR-0034 Do-NOT #7).</p>
+<h3 id="132-missing-page-slug-match-in-pass-1-r4">13.2 Missing-page slug match in Pass-1 (R4)<a class="headerlink" href="#132-missing-page-slug-match-in-pass-1-r4" title="Permanent link">&para;</a></h3>
+<p>Pass-1 previously matched <code>proposed_title</code> only by normalized exact title against <code>Page.title</code>. A
+page created as <code>wiki/concepts/attention-mechanism.md</code> with title "The Attention Mechanism" would
+NOT resolve a <code>missing-page</code> proposal with <code>proposed_title="Attention Mechanism"</code> — even though
+the slug derived from the proposed title matches the file path.</p>
+<p><strong>Fix:</strong> after the exact-title check fails, Pass-1 now tries a slug match:
+<div class="highlight"><pre><span></span><code>slug = normalize(proposed_title).replace(&quot; &quot;, &quot;-&quot;)
+→ Page.file_path LIKE &#39;%/{slug}.md&#39; AND Page.deleted_at IS NULL
+</code></pre></div>
+Mirrors <code>sweep-reviews.ts:110-116</code> (byId slug lookup). Both checks remain bounded single indexed
+reads (I1).</p>
+<h3 id="133-prefix-stripping-in-_normalize_title-r5">13.3 Prefix-stripping in <code>_normalize_title</code> (R5)<a class="headerlink" href="#133-prefix-stripping-in-_normalize_title-r5" title="Permanent link">&para;</a></h3>
+<p><code>_normalize_title</code> now strips common LLM-prepended prefixes before lowercasing:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_REVIEW_TITLE_PREFIX_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+    <span class="sa">r</span><span class="s2">&quot;^(?:missing[\s\-]?page[:：]\s*|duplicate[\s\-]?page[:：]\s*&quot;</span>
+    <span class="sa">r</span><span class="s2">&quot;|possible[\s\-]?duplicate[:：]\s*|缺失页面[:：]\s*|缺少页面[:：]\s*&quot;</span>
+    <span class="sa">r</span><span class="s2">&quot;|重复页面[:：]\s*|疑似重复[:：]\s*)&quot;</span><span class="p">,</span>
+    <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>A <code>content_key</code> computed from "Missing page: Widget" and one from "Widget" now produce the same
+hash — preventing duplicate review items when the LLM prepends a type-hint prefix to the title.
+Mirrors <code>review-utils.ts normalizeReviewTitle</code> + <code>REVIEW_TITLE_PREFIX_RE</code>.</p>
+<h3 id="134-_content_key-excludes-target-anchor-r7">13.4 <code>_content_key</code> excludes target anchor (R7)<a class="headerlink" href="#134-_content_key-excludes-target-anchor-r7" title="Permanent link">&para;</a></h3>
+<p>The §3.2 formula included <code>target_page_title-or-page_id</code> as a "conflict anchor". This caused two
+<code>contradiction</code> or <code>duplicate</code> items about the same concept but different conflicting pages to get
+different keys and never dedup — the opposite of the intended behavior.</p>
+<p><strong>Fix:</strong> the payload is now:
+<div class="highlight"><pre><span></span><code>vault_id + &quot;\x1f&quot; + item_type + &quot;\x1f&quot; + normalize(proposed_title)
+</code></pre></div></p>
+<p><code>target_page_title</code> and <code>page_id</code> parameters are kept in the function signature for call-site
+backward compatibility but are <strong>silently ignored</strong>. This supersedes the §3.2 formula's conflict-
+anchor component. The <code>confirm → NULL</code> rule (Do-NOT #10) is unchanged.</p>
+<p>Mirrors <code>review-utils.ts normalizeReviewTitle</code>: the reference keys only on type + title.</p>
+<h3 id="135-tests">13.5 Tests<a class="headerlink" href="#135-tests" title="Permanent link">&para;</a></h3>
+<p>New tests in <code>backend/tests/test_review_adr0044.py</code> (Phase F):</p>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>test_pass1_duplicate_resolves_on_gone_page</code></td>
+<td>R-bug1: <code>duplicate</code> resolves when <code>page_id</code> page is soft-deleted</td>
+</tr>
+<tr>
+<td><code>test_pass1_duplicate_stays_pending_when_all_pages_exist</code></td>
+<td>R-bug1: <code>duplicate</code> stays pending when all pages alive</td>
+</tr>
+<tr>
+<td><code>test_pass1_missing_page_resolves_by_slug</code></td>
+<td>R4: slug match resolves missing-page via file_path</td>
+</tr>
+<tr>
+<td><code>test_normalize_title_strips_prefixes</code></td>
+<td>R5: prefix stripping before lowercase</td>
+</tr>
+<tr>
+<td><code>test_content_key_ignores_target</code></td>
+<td>R7: same key regardless of target_page_title/page_id</td>
+</tr>
+</tbody>
+</table>
 
 
 

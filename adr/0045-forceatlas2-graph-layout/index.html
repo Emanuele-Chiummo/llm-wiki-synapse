@@ -651,6 +651,89 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#b1-revised-fa2-parameters-supersedes-1-parameter-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.1 Revised FA2 parameters (supersedes §1 parameter table)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b2-revised-iteration-taper-supersedes-1-iteration-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.2 Revised iteration taper (supersedes §1 iteration table)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b3-outlier-clamp-removed-from-engine-path-supersedes-5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.3 Outlier clamp REMOVED from engine path (supersedes §5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b4-node-size-formula-cross-reference-adr-0016-amendment-a3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.4 Node size formula (cross-reference ADR-0016 Amendment §A.3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b5-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.5 Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#b6-test-suite-impact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        B.6 Test suite impact
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -857,6 +940,180 @@ unchanged, applying this clamp. Still one inline FA2 run under the in-flight gua
   function only; new <code>TestFA2LayoutHelper</code> class added for <code>_forceatlas2_layout</code> unit tests
   including a determinism assertion.</li>
 </ul>
+<hr />
+<h2 id="amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313">Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)<a class="headerlink" href="#amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Status: Accepted (amends ADR-0045 §1 parameter table, §1 iteration taper, and §5)</li>
+<li>Decider: backend-engineer (solution-architect notified; I2/I7 compliance verified below)</li>
+<li>Related: ADR-0016 amendment (same sprint — edge set narrows to wikilink-only)</li>
+</ul>
+<h3 id="b1-revised-fa2-parameters-supersedes-1-parameter-table">B.1 Revised FA2 parameters (supersedes §1 parameter table)<a class="headerlink" href="#b1-revised-fa2-parameters-supersedes-1-parameter-table" title="Permanent link">&para;</a></h3>
+<p>The reference implementation (nashsu/llm_wiki <code>graph-layout-worker.ts</code>, graphology-layout-
+forceatlas2 v0.5.x, <code>inferSettings(graph)</code>) uses:</p>
+<div class="highlight"><pre><span></span><code>outboundAttractionDistribution = false   ← THE biggest visual shape lever
+edgeWeightInfluence             = 1.0
+gravity                         = 1.0
+scalingRatio                    = n&gt;400 ? 3 : 2
+strongGravityMode               = true
+barnesHutOptimize               = n&gt;50
+barnesHutTheta                  = 0.5
+adjustSizes                     = false
+slowDown                        = 1 + ln(n)   (graphology&#39;s inferSettings formula)
+</code></pre></div>
+<p>fa2_modified (the Python package used server-side) does not expose <code>slowDown</code> or
+<code>linLogMode</code> parameters. The closest equivalent to graphology's <code>slowDown</code> is
+<code>jitterTolerance</code>, which controls the convergence speed/stability threshold in
+<code>adjustSpeedAndApplyForces</code>. The mapping used:</p>
+<div class="highlight"><pre><span></span><code><span class="n">jitter_tolerance</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>   <span class="c1"># mirrors 1 + ln(n) for n&gt;=2</span>
+</code></pre></div>
+<p>fa2_modified asserts <code>linLogMode == False</code> internally; no explicit parameter needed.</p>
+<p><strong>Complete FA2 constructor call in engine.py</strong> (<code>_forceatlas2_layout</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="n">jitter_tolerance</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+<span class="n">fa</span> <span class="o">=</span> <span class="n">ForceAtlas2</span><span class="p">(</span>
+    <span class="n">outboundAttractionDistribution</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>   <span class="c1"># WAS True — the key shape change</span>
+    <span class="n">edgeWeightInfluence</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">gravity</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">scalingRatio</span><span class="o">=</span><span class="mf">3.0</span> <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;</span> <span class="mi">400</span> <span class="k">else</span> <span class="mf">2.0</span><span class="p">,</span>
+    <span class="n">strongGravityMode</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">barnesHutOptimize</span><span class="o">=</span><span class="p">(</span><span class="n">n</span> <span class="o">&gt;</span> <span class="mi">50</span><span class="p">),</span>
+    <span class="n">barnesHutTheta</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>                     <span class="c1"># NEW (was fa2_modified default 1.2)</span>
+    <span class="n">adjustSizes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>                      <span class="c1"># explicit; was fa2_modified default</span>
+    <span class="n">jitterTolerance</span><span class="o">=</span><span class="n">jitter_tolerance</span><span class="p">,</span>       <span class="c1"># mirrors slowDown=1+ln(n)</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><strong>Key parameter rationale:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Old value</th>
+<th>New value</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>outboundAttractionDistribution</code></td>
+<td><code>True</code></td>
+<td><code>False</code></td>
+<td>Hubs attracted inward (False) vs. pushed outward (True). False gives the natural llm_wiki cluster shape where high-degree nodes anchor communities.</td>
+</tr>
+<tr>
+<td><code>barnesHutTheta</code></td>
+<td>(default 1.2)</td>
+<td><code>0.5</code></td>
+<td>Tighter approximation accuracy. 1.2 is fast but introduces visible error on medium-sized graphs; 0.5 matches llm_wiki's precision.</td>
+</tr>
+<tr>
+<td><code>adjustSizes</code></td>
+<td>(default False)</td>
+<td><code>False</code></td>
+<td>Explicit; ensures no node-repulsion-by-size adjustment that could conflict with server-side size values.</td>
+</tr>
+<tr>
+<td><code>jitterTolerance</code></td>
+<td>(default 1.0)</td>
+<td><code>1+ln(n)</code></td>
+<td>Mirrors graphology's <code>slowDown</code>. Larger tolerance = more aggressive convergence damping on large graphs.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="b2-revised-iteration-taper-supersedes-1-iteration-table">B.2 Revised iteration taper (supersedes §1 iteration table)<a class="headerlink" href="#b2-revised-iteration-taper-supersedes-1-iteration-table" title="Permanent link">&para;</a></h3>
+<p>llm_wiki <code>graph-layout-worker.ts</code> uses <code>layoutIterations</code> thresholds at 250/600/1200/2500
+nodes. The previous taper (ADR-0045 §1) used 100/400/1000/2500. Updated to match:</p>
+<table>
+<thead>
+<tr>
+<th>Range</th>
+<th>Constant</th>
+<th>Iterations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>n ≤ 250</td>
+<td><code>FA2_ITERS_SMALL</code></td>
+<td>140</td>
+</tr>
+<tr>
+<td>250 &lt; n ≤ 600</td>
+<td><code>FA2_ITERS_MEDIUM</code></td>
+<td>90</td>
+</tr>
+<tr>
+<td>600 &lt; n ≤ 1200</td>
+<td><code>FA2_ITERS_LARGE</code></td>
+<td>65</td>
+</tr>
+<tr>
+<td>1200 &lt; n ≤ 2500</td>
+<td><code>FA2_ITERS_XLARGE</code></td>
+<td>40</td>
+</tr>
+<tr>
+<td>n &gt; 2500</td>
+<td><code>FA2_ITERS_HUGE</code></td>
+<td>28</td>
+</tr>
+</tbody>
+</table>
+<p>All values remain bounded (I7). The change increases iterations for small-to-medium
+vaults (250→90 vs. 100→100 at medium range), improving convergence quality without
+changing the asymptotic worst case.</p>
+<h3 id="b3-outlier-clamp-removed-from-engine-path-supersedes-5">B.3 Outlier clamp REMOVED from engine path (supersedes §5)<a class="headerlink" href="#b3-outlier-clamp-removed-from-engine-path-supersedes-5" title="Permanent link">&para;</a></h3>
+<p>ADR-0045 §5 added <code>_clamp_outliers(coords)</code> as the last step of the coordinate pipeline,
+after pinned-node restore. This clamp was a corrective measure for runaway FA2 nodes
+caused by <code>outboundAttractionDistribution=True</code> pushing low-connectivity nodes to extreme
+positions.</p>
+<p>With <code>outboundAttractionDistribution=False</code> (B.1 above) the runaway-outlier failure mode
+disappears: attraction no longer distributes along hub spokes, so isolated nodes are held
+in place by <code>strongGravityMode=True</code> rather than being launched outward. Matching llm_wiki
+also requires no equivalent post-pass (it has none).</p>
+<p><strong>Change:</strong> <code>_clamp_outliers</code> is NOT called by <code>_compute_graph_sync</code>. The post-FA2
+coordinate pipeline is:</p>
+<div class="highlight"><pre><span></span><code><span class="n">coords</span> <span class="o">=</span> <span class="n">_forceatlas2_layout</span><span class="p">(</span><span class="n">g_weighted</span><span class="p">,</span> <span class="n">edge_weights</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>   <span class="c1"># FA2 output</span>
+<span class="c1"># pinned-node restore (unchanged)</span>
+<span class="k">for</span> <span class="n">pid</span><span class="p">,</span> <span class="p">(</span><span class="n">px</span><span class="p">,</span> <span class="n">py</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pinned_lookup</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">coords</span><span class="p">[</span><span class="n">id_to_idx</span><span class="p">[</span><span class="n">pid</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[</span><span class="n">px</span><span class="p">,</span> <span class="n">py</span><span class="p">]</span>
+<span class="c1"># NO _clamp_outliers call</span>
+</code></pre></div>
+<p>The <code>_clamp_outliers</code> function is <strong>retained in engine.py</strong> for backward-compatible
+standalone testing (<code>TestFeatureBDiscEnvelope</code> tests reference it directly). Its docstring
+is updated to note it is no longer called by the engine.</p>
+<h3 id="b4-node-size-formula-cross-reference-adr-0016-amendment-a3">B.4 Node size formula (cross-reference ADR-0016 Amendment §A.3)<a class="headerlink" href="#b4-node-size-formula-cross-reference-adr-0016-amendment-a3" title="Permanent link">&para;</a></h3>
+<p>The node size formula changed concurrently with the FA2 params as part of the same llm_wiki
+parity pass. See ADR-0016 Amendment §A.3 for the full specification:</p>
+<div class="highlight"><pre><span></span><code>size = 8.0 + sqrt(degree / max_degree) * 20.0
+</code></pre></div>
+<p>This is a server-side value; FA2 layout is unaffected by it (size is applied after
+coordinate computation). No FA2 parameter changes for node size.</p>
+<h3 id="b5-invariant-compliance">B.5 Invariant compliance<a class="headerlink" href="#b5-invariant-compliance" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I2</strong></td>
+<td>FA2 still runs in <code>asyncio.to_thread</code> inside <code>_compute_graph_sync</code>, server-side; coords written to Postgres. No client layout introduced.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>Iteration counts B.2 are bounded. Removing <code>_clamp_outliers</code> reduces O(n log n) post-pass; net effect: slightly faster recompute.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="b6-test-suite-impact">B.6 Test suite impact<a class="headerlink" href="#b6-test-suite-impact" title="Permanent link">&para;</a></h3>
+<p>Tests updated in <code>backend/tests/test_graph_engine.py</code>:
+- <code>TestClampRemovedFromEnginePath.test_extreme_pinned_coords_not_clamped</code>: pins a node at
+  (1_000_000, 1_000_000) and asserts coords survive unmodified post-FA2 (|x − 1_000_000| &lt; 1.0).
+- <code>TestFA2Determinism</code> and <code>TestFA2LayoutHelper</code>: no changes needed (determinism mechanism unchanged).
+- <code>TestFeatureBDiscEnvelope</code>: unchanged (tests standalone <code>_clamp_outliers</code>; engine no longer calls it).
+- Suite result: <strong>2164 passed, 4 skipped</strong> after all parity changes.</p>
 
 
 

@@ -662,6 +662,78 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-edge-creation-wikilink-only-reverses-1s-shared-source-structural-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.1 EDGE CREATION — WIKILINK-ONLY (reverses §1's shared-source structural status)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-node-inclusion-exclude-type-query-nodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.2 NODE INCLUSION — exclude type == "query" nodes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a3-node-size-normalized-against-max-degree-supersedes-adr-0016-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.3 NODE SIZE — normalized against max degree (supersedes ADR-0016 §2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a4-invariant-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.4 Invariant compliance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a5-test-suite-impact" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.5 Test suite impact
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -962,6 +1034,120 @@ functional-analyst must update the type-only fixture expectation from "weight ==
 <li>(−) Coordinates will differ from the pre-change layout (fewer edges → different FR result).
   Expected and acceptable per ADR-0013 §4 (coords are not stable across recomputes); D5
   screenshots regenerate.</li>
+</ul>
+<hr />
+<h2 id="amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313">Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)<a class="headerlink" href="#amendment-2026-07-09-llm_wiki-060-parity-sprint-v1313" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Status: Accepted (amends ADR-0016 §1 and §2; all other sections remain in force)</li>
+<li>Decider: backend-engineer (solution-architect notified; I2/I1/I7/I8 compliance verified below)</li>
+<li>Related: ADR-0045 amendment (same sprint), ADR-0013 §3/§4/§5 (coord storage — unchanged)</li>
+</ul>
+<h3 id="a1-edge-creation-wikilink-only-reverses-1s-shared-source-structural-status">A.1 EDGE CREATION — WIKILINK-ONLY (reverses §1's shared-source structural status)<a class="headerlink" href="#a1-edge-creation-wikilink-only-reverses-1s-shared-source-structural-status" title="Permanent link">&para;</a></h3>
+<p>ADR-0016 §1 defined two structural edge generators: <strong>direct wikilink</strong> AND <strong>shared
+source</strong> (<code>shared_source_count &gt; 0</code>). Analysis of nashsu/llm_wiki 0.6.0 (<code>wiki-graph.ts</code>
+lines 219-231) shows that llm_wiki creates edges <strong>exclusively for resolved <code>[[wikilinks]]</code></strong>
+— provenance proximity is NOT treated as a structural relation in the reference
+implementation.</p>
+<p><strong>Revised edge rule (supersedes ADR-0016 §1 second bullet):</strong></p>
+<div class="highlight"><pre><span></span><code>edge (A,B) EXISTS  iff  direct_link_count(A,B) &gt; 0   (wikilink-only)
+
+weight(A,B)        =  3.0·direct_link_count(A,B)      # unchanged arithmetic
+                   +  4.0·shared_source_count(A,B)    # WEIGHT contribution preserved
+                   +  1.5·adamic_adar(A,B)
+                   +  1.0·type_affinity(A,B)
+</code></pre></div>
+<p>Key clarification: <strong>shared-source count still contributes +4.0 per shared source to the
+weight of a wikilink edge.</strong> Two pages that both link to each other AND share a source
+document receive a higher spring strength in FA2, pulling them closer. Shared-source
+influence is preserved as a <em>weight modulator</em> — it is no longer an <em>edge creator</em>.</p>
+<p>Rationale:
+- <strong>parity with llm_wiki 0.6.0</strong> (R1 / the reference implementation): the goal is for the
+  Synapse graph to produce the same edge topology as llm_wiki given the same vault.
+- <strong>source cliques problem</strong>: <code>shared_source_count &gt; 0</code> generates a clique over all pages
+  derived from the same source document. A source with 30 extracted pages yields C(30,2) =
+  435 source-only edges — identical in hairball pressure to the original type-clique defect
+  that ADR-0016 was written to fix. Removing it as an edge generator eliminates this class
+  of cliques.
+- <strong>explainability</strong>: a user can point at an edge and say "there is a <code>[[wikilink]]</code> here".
+  Provenance-only edges lack that grounding.</p>
+<p><strong><code>kind</code> field update:</strong> <code>kind="source"</code> is retired. All edges are now <code>kind="link"</code>. The
+field remains on <code>EdgeSnapshot</code> and <code>GraphEdgeResponse</code> for backward wire compatibility;
+the value is always <code>"link"</code>. Clients that styled dashed edges for <code>kind="source"</code> can
+treat the absence of source-kind edges as the graph being cleaner (intentional regression).</p>
+<h3 id="a2-node-inclusion-exclude-type-query-nodes">A.2 NODE INCLUSION — exclude <code>type == "query"</code> nodes<a class="headerlink" href="#a2-node-inclusion-exclude-type-query-nodes" title="Permanent link">&para;</a></h3>
+<p><code>engine.py</code> now filters out pages whose <code>page_type == "query"</code> before building the node
+index. This mirrors llm_wiki <code>wiki-graph.ts:204-209</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_HIDDEN_TYPES</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;query&quot;</span><span class="p">})</span>
+<span class="c1"># applied after node_index load, before directed_links and candidate_pairs</span>
+<span class="n">node_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">node_index</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+              <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;page_type&quot;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_HIDDEN_TYPES</span><span class="p">}</span>
+</code></pre></div>
+<p>Rationale: query pages are transient research artifacts (saved chat answers); the entities
+and concepts extracted from them are ingested as proper wiki pages. Including query nodes
+would scatter them across the graph as low-connectivity leaves, adding noise without
+knowledge-structure signal.</p>
+<p>Wikilinks from/to query nodes are also dropped (they reference a node that no longer
+participates in the graph). This is correct: the useful signal from a query page is already
+captured in the ingested entities it spawned.</p>
+<h3 id="a3-node-size-normalized-against-max-degree-supersedes-adr-0016-2">A.3 NODE SIZE — normalized against max degree (supersedes ADR-0016 §2)<a class="headerlink" href="#a3-node-size-normalized-against-max-degree-supersedes-adr-0016-2" title="Permanent link">&para;</a></h3>
+<p>ADR-0016 §2 defined <code>size = 1.0 + 2.5 * sqrt(structural_degree)</code>. llm_wiki
+<code>graph-view.tsx:232-237</code> normalizes against the maximum-degree node:</p>
+<div class="highlight"><pre><span></span><code>size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) - BASE(8))
+</code></pre></div>
+<p>The Synapse server-side implementation mirrors this:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_BASE_SIZE</span> <span class="o">=</span> <span class="mf">8.0</span>
+<span class="n">_MAX_SIZE</span>  <span class="o">=</span> <span class="mf">28.0</span>
+<span class="n">max_degree_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">structural_degrees</span><span class="p">)</span>  <span class="c1"># 0 if no edges</span>
+
+<span class="c1"># per-node:</span>
+<span class="k">if</span> <span class="n">max_degree_val</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">node_size</span> <span class="o">=</span> <span class="n">_BASE_SIZE</span>                                    <span class="c1"># isolated: minimum size</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">ratio</span> <span class="o">=</span> <span class="n">deg</span> <span class="o">/</span> <span class="n">max_degree_val</span>
+    <span class="n">node_size</span> <span class="o">=</span> <span class="n">_BASE_SIZE</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">_MAX_SIZE</span> <span class="o">-</span> <span class="n">_BASE_SIZE</span><span class="p">)</span>
+    <span class="c1"># → 8.0 + sqrt(deg / max_deg) * 20.0</span>
+</code></pre></div>
+<p>Properties:
+- Maximum-degree node always gets <code>size = 28.0</code> (fully-saturated).
+- Isolated node (deg=0, or only node in graph) gets <code>size = 8.0</code>.
+- Normalized <code>sqrt</code> gives readable graduation: at 25% of max → 14.0; at 50% → 22.2.
+- <code>structural_degree</code> used (count of distinct incident wikilink edges, same as §1/A.1).</p>
+<p>The client-side <code>×5</code> display multiplier (graphTransform.ts) is REMOVED as a consequence:
+server now sends absolute sigma sizes (8–28 px range), not a sub-1 value to multiply.
+Frontend-engineer must drop the multiplier in the same sprint to avoid ×5 inflation.</p>
+<h3 id="a4-invariant-compliance">A.4 Invariant compliance<a class="headerlink" href="#a4-invariant-compliance" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I2</strong></td>
+<td>Layout (FA2) still runs only server-side via igraph/fa2_modified; coords stored in Postgres; no client layout introduced.</td>
+</tr>
+<tr>
+<td><strong>I1</strong></td>
+<td>Engine reads only <code>pages</code> + <code>links</code> from Postgres; no vault rescan.</td>
+</tr>
+<tr>
+<td><strong>I7</strong></td>
+<td>Single bounded FA2 pass; edge count is now lower (fewer candidate pairs → faster).</td>
+</tr>
+<tr>
+<td><strong>I8</strong></td>
+<td>This amendment is the D7 update; D4 (OpenAPI) unchanged (<code>kind</code> field retained, value always "link"); D2 (ER) unchanged (no new columns).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="a5-test-suite-impact">A.5 Test suite impact<a class="headerlink" href="#a5-test-suite-impact" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>TestWikilinkEdgeCount</code>: expects 3 edges (P1-P2, P1-P4, P3-P4); P2-P4 (shared-source only) absent.</li>
+<li><code>TestLlmWikiParityEdgeRule</code>: 3 new tests — no source-kind edges, query nodes excluded, shared-source weight still contributes on wikilink edges.</li>
+<li><code>TestClampRemovedFromEnginePath</code>: verifies extreme pinned coords survive unmodified (no clamping).</li>
+<li>Suite result: <strong>2164 passed, 4 skipped</strong> (net +4 from new parity tests).</li>
 </ul>
 
 

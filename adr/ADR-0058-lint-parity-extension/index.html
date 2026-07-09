@@ -706,6 +706,139 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#7-v1313-lint-parity-extensions-l1l5-adr-0058-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#l1-no-outlinks-deterministic-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L1 — no-outlinks deterministic category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l2-suggestion-semantic-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L2 — suggestion semantic category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L3 — Fuzzy suggested_target/suggested_page_id on no-outlinks and orphan-page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L4 — Auto-fixes for no-outlinks, orphan-page, and stub-less broken-wikilink
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l5-severity-corrections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L5 — Severity corrections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_valid_categories-final-v1313" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _VALID_CATEGORIES (final, v1.3.13)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-not-additions-extends-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do-NOT additions (extends §6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-parity-corrections-v1313-incremental-amendment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Parity corrections (v1.3.13 — incremental amendment)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Parity corrections (v1.3.13 — incremental amendment)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-orphan-detection-source-filter-l-bug1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Orphan detection source filter (L-bug1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-missing-xref-excluded-from-semantic-pass-parser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 missing-xref excluded from semantic-pass parser
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1072,6 +1205,144 @@ UI page size). If a future ADR raises it, it must stay a bounded constant.</p>
 <li>Do <strong>not</strong> compute <code>suggested_target</code> at apply/render time — it is resolved once <strong>at scan time</strong>
     and stored, so <code>Fix</code> never triggers a fresh vault-wide resolve.</li>
 </ol>
+<hr />
+<h2 id="7-v1313-lint-parity-extensions-l1l5-adr-0058-7">7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)<a class="headerlink" href="#7-v1313-lint-parity-extensions-l1l5-adr-0058-7" title="Permanent link">&para;</a></h2>
+<p>Closes five gaps versus nashsu/llm_wiki <code>lint.ts</code> 0.6.0. No DB migration; no new Alembic revision;
+no invariant loosened.</p>
+<h3 id="l1-no-outlinks-deterministic-category">L1 — <code>no-outlinks</code> deterministic category<a class="headerlink" href="#l1-no-outlinks-deterministic-category" title="Permanent link">&para;</a></h3>
+<p>A live <code>wiki/%</code> page with <strong>zero</strong> outgoing wikilinks (no <code>links</code> row with <code>source_page_id ==
+page.id</code>). Detected in the same deterministic phase as <code>orphan-page</code> and <code>broken-wikilink</code>, with
+its own I7 scan cap (<code>_NO_OUTLINKS_SCAN_MAX_PAGES = 1000</code>). Reads the <code>pages</code> and <code>links</code> tables
+only (I1 — no vault walk). index.md / log.md / overview.md excluded. Severity: <strong>info</strong> (L5).
+Added to <code>_VALID_CATEGORIES</code> and wired into <code>run_lint_scan</code> after <code>_detect_orphans</code>.</p>
+<p>Reference: <code>lint.ts:267-276</code>.</p>
+<h3 id="l2-suggestion-semantic-category">L2 — <code>suggestion</code> semantic category<a class="headerlink" href="#l2-suggestion-semantic-category" title="Permanent link">&para;</a></h3>
+<p>A question or source worth adding to the wiki. Added to <code>_VALID_CATEGORIES</code>, to the <code>category:</code>
+enumeration in <code>_build_semantic_instruction</code>, and to the Definitions line (<code>suggestion = a question
+or source worth adding to the wiki</code>). <code>_parse_findings</code> accepts it from the model. It is
+<strong>flag-only</strong> (added to <code>_FLAG_ONLY_CATEGORIES</code>); no deterministic fix exists. <code>_CATEGORY_TO_ITEM_TYPE</code>
+maps it to <code>"suggestion"</code>.</p>
+<p>Reference: <code>lint.ts:376-381</code> (semantic type list).</p>
+<h3 id="l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page">L3 — Fuzzy suggested_target/suggested_page_id on no-outlinks and orphan-page<a class="headerlink" href="#l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page" title="Permanent link">&para;</a></h3>
+<p>Port of <code>lint.ts::tokenizeForSuggestion</code> + <code>suggestRelatedPage</code>. Three new private helpers:
+<code>_tokenize_for_suggestion</code>, <code>_fuzzy_score</code>, <code>_fuzzy_suggest_page</code>, plus a bounded DB loader
+<code>_load_candidate_pages_fuzzy</code> (reads <code>(id, title, file_path)</code> from <code>pages</code>, capped at
+<code>_CANDIDATE_TITLES_MAX = 500</code>; I7). Called once per <code>_detect_orphans</code> / <code>_detect_no_outlinks</code>
+invocation, not per finding (I1 — no N+1).</p>
+<ul>
+<li><strong><code>no-outlinks</code></strong>: <code>suggested_target</code> = title of the best related page to link TO (direction=
+  "target"). <code>suggested_page_id</code> = that page's id.</li>
+<li><strong><code>orphan-page</code></strong>: <code>suggested_target</code> = title of the best SOURCE page (direction="source"); the
+  one that should link to the orphan. <code>suggested_page_id</code> = its id.</li>
+</ul>
+<p>Min score threshold: <code>_RELATED_PAGE_SUGGESTION_MIN_SCORE = 0.08</code>. Score = token-overlap /
+sqrt(|A| × |B|) + 0.08 same-folder bonus. CJK single chars weighted at 0.35.</p>
+<h3 id="l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink">L4 — Auto-fixes for <code>no-outlinks</code>, <code>orphan-page</code>, and stub-less <code>broken-wikilink</code><a class="headerlink" href="#l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink" title="Permanent link">&para;</a></h3>
+<p>Three new apply paths, each doing exactly <strong>one</strong> <code>data_version</code> bump (I1), <strong>body-only</strong> edit
+(I5), and 502 on failure (finding left open):</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Condition</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>no-outlinks</code></td>
+<td><code>suggested_target</code> present</td>
+<td>Append <code>- [[suggested_target]]</code> under <code>## Related</code> in the page body (<code>_apply_no_outlinks</code>).</td>
+</tr>
+<tr>
+<td><code>no-outlinks</code></td>
+<td>no suggestion</td>
+<td>Flag-only acknowledgement (no write).</td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td><code>suggested_page_id</code> present</td>
+<td>Append <code>- [[&lt;orphan title&gt;]]</code> under <code>## Related</code> in the suggested SOURCE page (<code>_apply_orphan_page</code>).</td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td>no suggestion</td>
+<td>Flag-only acknowledgement (no write — same behaviour as pre-L4).</td>
+</tr>
+<tr>
+<td><code>broken-wikilink</code></td>
+<td>no <code>suggested_target</code></td>
+<td>Create a type=query, tags=[stub, lint] stub page under <code>queries/</code> via <code>write_wiki_page</code>, then call <code>reresolve_dangling_links</code> so the link connects (<code>_create_broken_link_stub</code>).</td>
+</tr>
+<tr>
+<td><code>broken-wikilink</code></td>
+<td><code>suggested_target</code> present</td>
+<td>Existing rewrite path unchanged.</td>
+</tr>
+</tbody>
+</table>
+<p><code>orphan-page</code> is removed from <code>_FLAG_ONLY_CATEGORIES</code>; it now routes through <code>_apply_orphan_page</code>
+which has an internal flag-only fallback. A shared body helper <code>_append_wikilink_to_body</code> (port of
+<code>lint-fixes.ts::appendWikilink</code>) and <code>_write_body_back</code> (persist links + bump) are factored out for
+reuse by both <code>_apply_no_outlinks</code> and <code>_apply_orphan_page</code>.</p>
+<h3 id="l5-severity-corrections">L5 — Severity corrections<a class="headerlink" href="#l5-severity-corrections" title="Permanent link">&para;</a></h3>
+<p><code>orphan-page</code> and <code>no-outlinks</code> now emit <code>severity="info"</code> (was <code>"warning"</code> for orphan-page),
+matching the reference lint.ts categorization. <code>broken-wikilink</code> retains <code>severity="warning"</code>
+(no change).</p>
+<h3 id="_valid_categories-final-v1313">_VALID_CATEGORIES (final, v1.3.13)<a class="headerlink" href="#_valid_categories-final-v1313" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">_VALID_CATEGORIES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;broken-wikilink&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;missing-xref&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;contradiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;stale-claim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;missing-page&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span>   <span class="c1"># L1</span>
+    <span class="s2">&quot;suggestion&quot;</span><span class="p">,</span>    <span class="c1"># L2</span>
+<span class="p">})</span>
+</code></pre></div>
+<h3 id="do-not-additions-extends-6">Do-NOT additions (extends §6)<a class="headerlink" href="#do-not-additions-extends-6" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Do <strong>not</strong> emit <code>no-outlinks</code> from the semantic pass — it is deterministic-only; <code>_parse_findings</code>
+    explicitly excludes it from <code>semantic_categories</code> (alongside <code>orphan-page</code>).</li>
+<li>Do <strong>not</strong> run the fuzzy scorer without the <code>_CANDIDATE_TITLES_MAX</code> cap — the candidate pool
+    is always bounded by the existing constant (I7).</li>
+<li>Do <strong>not</strong> call <code>_write_body_back</code> when the target link already exists in the body —
+    <code>_append_wikilink_to_body</code> is idempotent; the apply seam must not write if the body is unchanged.</li>
+<li>Do <strong>not</strong> call <code>write_wiki_page</code> for a broken-wikilink stub more than once per finding —
+    exactly one page, one bump (I1).</li>
+</ol>
+<hr />
+<h2 id="8-parity-corrections-v1313-incremental-amendment">8. Parity corrections (v1.3.13 — incremental amendment)<a class="headerlink" href="#8-parity-corrections-v1313-incremental-amendment" title="Permanent link">&para;</a></h2>
+<p>Three correctness gaps were found and fixed during parity review. None requires a DB migration,
+none loosens any invariant, and none changes the semantic loop or the human-gate model.</p>
+<h3 id="81-orphan-detection-source-filter-l-bug1">8.1 Orphan detection source filter (L-bug1)<a class="headerlink" href="#81-orphan-detection-source-filter-l-bug1" title="Permanent link">&para;</a></h3>
+<p>See ADR-0037 §9.1. The <code>_detect_orphans</code> <code>linked_ids</code> query was unfiltered; links from <code>index.md</code>
+and <code>log.md</code> counted as inbound edges, making almost no page appear as an orphan.</p>
+<p><strong>Fix:</strong> <code>linked_ids</code> joins <code>Link → Page</code> and restricts to live content pages in the vault
+(<code>vault_id</code>, <code>deleted_at IS NULL</code>, <code>LIKE 'wiki/%'</code>, <code>NOT LIKE '%/index.md'</code>, <code>NOT LIKE '%/log.md'</code>).
+Matches <code>lint.ts</code> orphan-detection semantics.</p>
+<h3 id="82-missing-xref-excluded-from-semantic-pass-parser">8.2 <code>missing-xref</code> excluded from semantic-pass parser<a class="headerlink" href="#82-missing-xref-excluded-from-semantic-pass-parser" title="Permanent link">&para;</a></h3>
+<p><code>_build_semantic_instruction</code> deliberately omits <code>missing-xref</code> from the model's category list
+(this ADR's §7 L2 is the <code>suggestion</code> category — <code>missing-xref</code> is a separate deterministic-only
+category). However, <code>_parse_findings</code> was still accepting <code>missing-xref</code> from model output if the
+model happened to hallucinate it.</p>
+<p><strong>Fix:</strong> <code>_parse_findings</code> computes:
+<div class="highlight"><pre><span></span><code><span class="n">semantic_categories</span> <span class="o">=</span> <span class="n">_VALID_CATEGORIES</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span> <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span> <span class="s2">&quot;missing-xref&quot;</span><span class="p">}</span>
+</code></pre></div>
+Any finding whose <code>category</code> is not in <code>semantic_categories</code> is silently dropped. <code>missing-xref</code>
+remains in <code>_VALID_CATEGORIES</code> for <code>apply_lint_fix</code> / DB compatibility — it is only excluded from
+model-output parsing. This matches the existing treatment of <code>orphan-page</code> and <code>no-outlinks</code> (Do-NOT</p>
+<h1 id="21-in-6">21 in §6).<a class="headerlink" href="#21-in-6" title="Permanent link">&para;</a></h1>
+<p><strong>Do-NOT addition:</strong>
+25. Do <strong>not</strong> accept <code>missing-xref</code> from model output in <code>_parse_findings</code> — it is a deterministic-
+    only category and is excluded from <code>semantic_categories</code> (same rule as <code>orphan-page</code>/<code>no-outlinks</code>,
+    Do-NOT #21).</p>
+<h3 id="83-overviewmd-eligibility-for-orphan-and-no-outlinks-detection-l4-parity">8.3 <code>overview.md</code> eligibility for orphan and no-outlinks detection (L4 parity)<a class="headerlink" href="#83-overviewmd-eligibility-for-orphan-and-no-outlinks-detection-l4-parity" title="Permanent link">&para;</a></h3>
+<p>See ADR-0037 §9.2. <code>overview.md</code> was incorrectly excluded from <code>_detect_orphans</code> and
+<code>_detect_no_outlinks</code>. Only <code>index.md</code> and <code>log.md</code> are navigation roots; <code>overview.md</code> is a
+generated wiki page that must participate in health detection. The exclusion set in both detectors
+is now <code>{"index.md", "log.md"}</code>.</p>
 
 
 
