@@ -360,3 +360,47 @@ _VALID_CATEGORIES = frozenset({
     `_append_wikilink_to_body` is idempotent; the apply seam must not write if the body is unchanged.
 24. Do **not** call `write_wiki_page` for a broken-wikilink stub more than once per finding —
     exactly one page, one bump (I1).
+
+---
+
+## 8. Parity corrections (v1.3.13 — incremental amendment)
+
+Three correctness gaps were found and fixed during parity review. None requires a DB migration,
+none loosens any invariant, and none changes the semantic loop or the human-gate model.
+
+### 8.1 Orphan detection source filter (L-bug1)
+
+See ADR-0037 §9.1. The `_detect_orphans` `linked_ids` query was unfiltered; links from `index.md`
+and `log.md` counted as inbound edges, making almost no page appear as an orphan.
+
+**Fix:** `linked_ids` joins `Link → Page` and restricts to live content pages in the vault
+(`vault_id`, `deleted_at IS NULL`, `LIKE 'wiki/%'`, `NOT LIKE '%/index.md'`, `NOT LIKE '%/log.md'`).
+Matches `lint.ts` orphan-detection semantics.
+
+### 8.2 `missing-xref` excluded from semantic-pass parser
+
+`_build_semantic_instruction` deliberately omits `missing-xref` from the model's category list
+(this ADR's §7 L2 is the `suggestion` category — `missing-xref` is a separate deterministic-only
+category). However, `_parse_findings` was still accepting `missing-xref` from model output if the
+model happened to hallucinate it.
+
+**Fix:** `_parse_findings` computes:
+```python
+semantic_categories = _VALID_CATEGORIES - {"orphan-page", "no-outlinks", "missing-xref"}
+```
+Any finding whose `category` is not in `semantic_categories` is silently dropped. `missing-xref`
+remains in `_VALID_CATEGORIES` for `apply_lint_fix` / DB compatibility — it is only excluded from
+model-output parsing. This matches the existing treatment of `orphan-page` and `no-outlinks` (Do-NOT
+#21 in §6).
+
+**Do-NOT addition:**
+25. Do **not** accept `missing-xref` from model output in `_parse_findings` — it is a deterministic-
+    only category and is excluded from `semantic_categories` (same rule as `orphan-page`/`no-outlinks`,
+    Do-NOT #21).
+
+### 8.3 `overview.md` eligibility for orphan and no-outlinks detection (L4 parity)
+
+See ADR-0037 §9.2. `overview.md` was incorrectly excluded from `_detect_orphans` and
+`_detect_no_outlinks`. Only `index.md` and `log.md` are navigation roots; `overview.md` is a
+generated wiki page that must participate in health detection. The exclusion set in both detectors
+is now `{"index.md", "log.md"}`.

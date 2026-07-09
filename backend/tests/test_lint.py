@@ -523,6 +523,87 @@ class TestOrphanDetection:
         findings = await _detect_orphans("test-vault")
         assert findings == []
 
+    async def test_orphan_index_link_excluded_from_inbound_count(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L-bug1: a link FROM index.md does NOT count as an inbound link for orphan detection."""
+        from app.ops.lint import _detect_orphans
+
+        page_index = await _insert_page(lint_env, title="Index", file_path="wiki/index.md")
+        page_content = await _insert_page(lint_env, title="Some Page")
+
+        # index.md links to Some Page — under the old (buggy) code this would make Some Page
+        # appear linked. Under the fixed code, index.md sources are excluded and Some Page is
+        # still an orphan.
+        await _insert_link(
+            lint_env,
+            source_page_id=page_index,
+            target_title="Some Page",
+            target_page_id=page_content,
+        )
+
+        findings = await _detect_orphans("test-vault")
+        titles = {f.target_title for f in findings}
+        # Some Page has only an inbound link from index.md → still an orphan (L-bug1 fix).
+        assert "Some Page" in titles
+        # index.md is excluded from candidate set → not an orphan candidate itself.
+        assert "Index" not in titles
+
+    async def test_orphan_log_link_excluded_from_inbound_count(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L-bug1: a link FROM log.md does NOT count as an inbound link for orphan detection."""
+        from app.ops.lint import _detect_orphans
+
+        page_log = await _insert_page(lint_env, title="Log", file_path="wiki/log.md")
+        page_content = await _insert_page(lint_env, title="Another Page")
+
+        await _insert_link(
+            lint_env,
+            source_page_id=page_log,
+            target_title="Another Page",
+            target_page_id=page_content,
+        )
+
+        findings = await _detect_orphans("test-vault")
+        titles = {f.target_title for f in findings}
+        assert "Another Page" in titles  # still an orphan (log.md link excluded)
+        assert "Log" not in titles
+
+    async def test_orphan_content_page_link_counts_as_inbound(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L-bug1: a link from a content page (not index/log) DOES count as inbound."""
+        from app.ops.lint import _detect_orphans
+
+        page_src = await _insert_page(lint_env, title="Source Page")
+        page_tgt = await _insert_page(lint_env, title="Target Page")
+
+        await _insert_link(
+            lint_env,
+            source_page_id=page_src,
+            target_title="Target Page",
+            target_page_id=page_tgt,
+        )
+
+        findings = await _detect_orphans("test-vault")
+        titles = {f.target_title for f in findings}
+        # Target Page linked by a content page → NOT an orphan.
+        assert "Target Page" not in titles
+        # Source Page has no inbound → IS an orphan.
+        assert "Source Page" in titles
+
+    async def test_orphan_overview_is_eligible(self, lint_env: dict[str, Any]) -> None:
+        """L4: overview.md is eligible for orphan detection (no longer excluded)."""
+        from app.ops.lint import _detect_orphans
+
+        await _insert_page(lint_env, title="Overview", file_path="wiki/overview.md")
+
+        findings = await _detect_orphans("test-vault")
+        titles = {f.target_title for f in findings}
+        # overview.md has no inbound content links → IS an orphan (L4 parity fix).
+        assert "Overview" in titles
+
 
 # ── T-LINT-002/003/004/016: I7 bounds ─────────────────────────────────────────
 
@@ -1633,15 +1714,25 @@ class TestNoOutlinksDetection:
         assert all(f.category == "no-outlinks" for f in findings)
 
     async def test_no_outlinks_excludes_navigation_roots(self, lint_env: dict[str, Any]) -> None:
-        """L1: index.md / log.md / overview.md excluded from no-outlinks."""
+        """L1/L4: only index.md and log.md are excluded from no-outlinks (L4 parity fix)."""
         from app.ops.lint import _detect_no_outlinks
 
         await _insert_page(lint_env, title="Index", file_path="wiki/index.md")
         await _insert_page(lint_env, title="Log", file_path="wiki/log.md")
-        await _insert_page(lint_env, title="Overview", file_path="wiki/overview.md")
 
         findings = await _detect_no_outlinks("test-vault")
         assert findings == []
+
+    async def test_no_outlinks_overview_is_eligible(self, lint_env: dict[str, Any]) -> None:
+        """L4: overview.md is eligible for no-outlinks detection (no longer excluded)."""
+        from app.ops.lint import _detect_no_outlinks
+
+        await _insert_page(lint_env, title="Overview", file_path="wiki/overview.md")
+
+        findings = await _detect_no_outlinks("test-vault")
+        titles = {f.target_title for f in findings}
+        # overview.md has no outgoing links → IS a no-outlinks finding (L4 parity fix).
+        assert "Overview" in titles
 
     async def test_no_outlinks_in_scan_endpoint(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
@@ -1726,6 +1817,37 @@ class TestSuggestionCategory:
         )
         results = _parse_findings(raw)
         assert results == [], "no-outlinks must not be accepted from the model"
+
+    def test_parse_findings_rejects_missing_xref_from_model(self) -> None:
+        """L2 parity: _parse_findings must NOT accept missing-xref from the model.
+        missing-xref is handled deterministically; llm_wiki has no such category."""
+        import json
+
+        from app.ops.lint import _parse_findings
+
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "category": "missing-xref",
+                        "severity": "warning",
+                        "description": "Page A mentions B but does not link it.",
+                        "target_title": "B",
+                    }
+                ]
+            }
+        )
+        results = _parse_findings(raw)
+        assert results == [], "missing-xref must not be accepted from the model (L2 parity fix)"
+
+    def test_missing_xref_still_in_valid_categories(self) -> None:
+        """missing-xref stays in _VALID_CATEGORIES for apply/send-to-review; just excluded from
+        model output. This is a conservative approach — the apply seam still works."""
+        from app.ops.lint import _VALID_CATEGORIES
+
+        assert "missing-xref" in _VALID_CATEGORIES, (
+            "missing-xref must remain in _VALID_CATEGORIES for existing DB findings / apply"
+        )
 
     async def test_suggestion_category_filter_works(
         self, lint_env: dict[str, Any], lint_client: AsyncClient

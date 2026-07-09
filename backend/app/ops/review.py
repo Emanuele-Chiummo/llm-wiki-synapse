@@ -43,6 +43,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from sqlalchemy import String as _SA_String
+from sqlalchemy import cast as _sa_cast
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
 
@@ -108,6 +110,20 @@ _PURPOSE_SUGGESTION_TYPE = "purpose-suggestion"
 _SCHEMA_ADDITION_MARKER = "\n\n--- SUGGESTED schema.md ADDITION ---\n\n"
 _SCHEMA_SUGGESTION_TYPE = "schema-suggestion"
 
+# ── R5 parity: title prefix stripping (review-utils.ts normalizeReviewTitle) ────────
+# Common prefixes the LLM may prepend to review titles. Stripped before normalization
+# so dedup + sweep agree on what "the same concept" means regardless of prefix presence.
+_REVIEW_TITLE_PREFIX_RE: re.Pattern[str] = re.compile(
+    r"^(?:missing[\s\-]?page[:：]\s*"
+    r"|duplicate[\s\-]?page[:：]\s*"
+    r"|possible[\s\-]?duplicate[:：]\s*"
+    r"|缺失页面[:：]\s*"
+    r"|缺少页面[:：]\s*"
+    r"|重复页面[:：]\s*"
+    r"|疑似重复[:：]\s*)",
+    re.IGNORECASE,
+)
+
 
 # ── ADR-0044 §3.2: stable content-derived idempotency key (FNV-1a, no new dep) ──
 
@@ -136,28 +152,27 @@ def _content_key(
     vault_id: str,
     item_type: str,
     proposed_title: str | None,
-    target_page_title: str | None = None,
-    page_id: str | None = None,
+    target_page_title: str | None = None,  # kept for call-site compat; NOT included in key (R7)
+    page_id: str | None = None,  # kept for call-site compat; NOT included in key (R7)
 ) -> str | None:
     """
     Stable content-derived idempotency key (ADR-0044 §3.2).
 
-    Returns a 16-hex FNV-1a digest over
-      vault_id + item_type + normalize(proposed_title) + (normalize(target_page_title) | page_id).
+    Returns a 16-hex FNV-1a digest over vault_id + item_type + normalize(proposed_title).
+
+    R7 parity fix: target_page_title / page_id are intentionally NOT included.
+    llm_wiki (review-utils.ts normalizeReviewTitle) keys only on type + normalizedTitle;
+    including the conflict anchor caused different items about the same concept (but
+    different target pages) to appear as distinct and never dedup. Parameters are kept
+    for backward call-site compatibility but are silently ignored.
 
     `confirm` items get content_key = NULL (never deduped — every confirmation is a distinct
-    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9 — no reinvent).
+    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9).
     """
     if item_type == "confirm":
         return None
     norm_title = _normalize_title(proposed_title) if proposed_title else ""
-    if target_page_title:
-        anchor = _normalize_title(target_page_title)
-    elif page_id:
-        anchor = str(page_id)
-    else:
-        anchor = ""
-    payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title, anchor])
+    payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title])
     return _fnv1a_16hex(payload)
 
 
@@ -1933,6 +1948,12 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
     llm_resolved = 0
 
     # ── Pass 1: rule-based ─────────────────────────────────────────────────────
+    # ── Pass 1a: missing-page rule resolution ──────────────────────────────────
+    # Resolves when a live page now exists matching the proposed_title by:
+    #   1. Exact normalised title (existing behaviour)
+    #   2. Slug match: proposed_title → spaces-to-dashes slug → file_path basename
+    #      (R4 parity: llm_wiki byId slug check, sweep-reviews.ts:110-116)
+    # R-bug1 fix: `duplicate` is removed from this pass — it has its own logic below.
     try:
         async with get_session() as session:
             stmt = (
@@ -1940,7 +1961,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                 .where(
                     ReviewItem.vault_id == vault_id,
                     ReviewItem.status == "pending",
-                    ReviewItem.item_type.in_(["missing-page", "duplicate"]),
+                    ReviewItem.item_type == "missing-page",
                     ReviewItem.proposed_title.isnot(None),
                 )
                 .order_by(ReviewItem.created_at.asc())
@@ -1952,7 +1973,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
             if not item.proposed_title:
                 continue
             normalized_title = _normalize_title(item.proposed_title)
-            # Bounded indexed read: does a live page with this title now exist?
+            # Check 1: exact normalised title match.
             async with get_session() as session:
                 existing = (
                     await session.execute(
@@ -1967,6 +1988,25 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                     )
                 ).scalar_one_or_none()
 
+            # Check 2: slug match (R4 parity — llm_wiki checks byId via slug).
+            # Handles the case where the page was created with a different title but
+            # the same slug (e.g. proposed_title="Attention Mechanism" created as
+            # wiki/concepts/attention-mechanism.md with title "The Attention Mechanism").
+            if existing is None:
+                slug = normalized_title.replace(" ", "-")
+                async with get_session() as session:
+                    existing = (
+                        await session.execute(
+                            select(Page.id)
+                            .where(
+                                Page.vault_id == vault_id,
+                                Page.file_path.like(f"%/{slug}.md"),
+                                Page.deleted_at.is_(None),
+                            )
+                            .limit(1)
+                        )
+                    ).scalar_one_or_none()
+
             if existing is not None:
                 await _set_status(
                     uuid.UUID(str(item.id)),
@@ -1976,7 +2016,78 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                 )
                 rule_resolved += 1
     except Exception as exc:  # noqa: BLE001
-        logger.warning("sweep_reviews: Pass-1 failed (non-fatal): %s", exc)
+        logger.warning("sweep_reviews: Pass-1 missing-page failed (non-fatal): %s", exc)
+
+    # ── Pass 1b: duplicate rule resolution (R-bug1 fix) ────────────────────────
+    # R-bug1 parity: in llm_wiki (sweep-reviews.ts:376-391), a `duplicate` item is
+    # auto-resolved ONLY when an affected page NO LONGER EXISTS — NOT when a page with
+    # the proposed title now exists (which was the old, inverted Synapse behaviour).
+    # Logic: collect all "affected" page ids (page_id primary FK + referenced_page_ids),
+    # then resolve if ANY of them is no longer alive (deleted or removed).
+    try:
+        async with get_session() as session:
+            dup_stmt = (
+                select(ReviewItem)
+                .where(
+                    ReviewItem.vault_id == vault_id,
+                    ReviewItem.status == "pending",
+                    ReviewItem.item_type == "duplicate",
+                )
+                .order_by(ReviewItem.created_at.asc())
+                .limit(_SWEEP_PASS1_MAX_ITEMS)
+            )
+            dup_rows = list((await session.execute(dup_stmt)).scalars().all())
+
+        for item in dup_rows:
+            # Collect affected page ids: primary conflict (page_id) + referenced set.
+            affected_ids: list[str] = []
+            if item.page_id is not None:
+                affected_ids.append(str(item.page_id))
+            ref_ids: list[str] | None = item.referenced_page_ids
+            if isinstance(ref_ids, list):
+                affected_ids.extend(str(r) for r in ref_ids)
+            elif isinstance(ref_ids, str):
+                try:
+                    parsed = json.loads(ref_ids)
+                    if isinstance(parsed, list):
+                        affected_ids.extend(str(r) for r in parsed)
+                except Exception:  # noqa: BLE001,S110
+                    pass  # malformed JSON in referenced_page_ids → skip; non-fatal
+
+            if not affected_ids:
+                continue  # no affected pages to check → can't rule-resolve
+
+            # Check if ALL affected pages still exist as live pages.
+            # Use CAST(id AS TEXT) == string for SQLite/Postgres portability (raw-SQL test
+            # inserts store UUID strings with dashes; UUID(as_uuid=True).hex would strip them).
+            all_still_exist = True
+            for page_id_str in affected_ids:
+                async with get_session() as session:
+                    still_alive = (
+                        await session.execute(
+                            select(Page.id)
+                            .where(
+                                _sa_cast(Page.id, _SA_String) == page_id_str,
+                                Page.deleted_at.is_(None),
+                            )
+                            .limit(1)
+                        )
+                    ).scalar_one_or_none()
+                if still_alive is None:
+                    all_still_exist = False
+                    break
+
+            # Resolve only when at least one affected page is gone (!allStillExist).
+            if not all_still_exist:
+                await _set_status(
+                    uuid.UUID(str(item.id)),
+                    "auto_resolved",
+                    resolution="rule_resolved",
+                    reviewed_by="auto-sweep",
+                )
+                rule_resolved += 1
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sweep_reviews: Pass-1 duplicate failed (non-fatal): %s", exc)
 
     # ── Pass 2: conservative LLM sweep ───────────────────────────────────────
     sweep_llm_enabled = bool(getattr(settings, "review_sweep_llm_enabled", True))
@@ -3204,8 +3315,16 @@ def _resolve_create_page_type(
 
 
 def _normalize_title(title: str) -> str:
-    """Case- and whitespace-normalized title for rule-based sweep matching."""
-    return re.sub(r"\s+", " ", title.strip()).lower()
+    """
+    Case- and whitespace-normalized title for rule-based sweep matching and dedup.
+
+    R5 parity (review-utils.ts normalizeReviewTitle): strips common LLM prefixes
+    (Missing page:, Duplicate page:, possible duplicate:, CJK equivalents) before
+    normalizing, so dedup and sweep agree on what 'the same concept' means regardless
+    of whether the LLM prepended a prefix to the title.
+    """
+    stripped = _REVIEW_TITLE_PREFIX_RE.sub("", title.lstrip())
+    return re.sub(r"\s+", " ", stripped.strip()).lower()
 
 
 async def _set_status(

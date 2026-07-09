@@ -730,9 +730,17 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
     Detect orphan pages: live wiki pages with graph in-degree 0 (ADR-0037 §3.1).
 
     in-degree 0 = no RESOLVED incoming wikilink (links.target_page_id == page.id,
-    dangling=false). Reads only the pages + links tables (I1 — no vault walk).
-    Bounded at _ORPHAN_SCAN_MAX_PAGES. index.md / log.md / overview.md are excluded
-    (they are navigation roots, not orphans).
+    dangling=false) from a content wiki page. Reads only the pages + links tables
+    (I1 — no vault walk). Bounded at _ORPHAN_SCAN_MAX_PAGES.
+
+    L-bug1 parity fix: inbound links are counted ONLY from content pages (source page
+    must be a live wiki/* page whose basename is NOT index.md or log.md). Links from
+    index.md/log.md do NOT count as inbound — they are navigation roots and linking
+    nearly everything, which made almost nothing appear as an orphan under the old
+    unfiltered query. overview.md is intentionally NOT excluded (L4 parity).
+
+    index.md / log.md are excluded from the candidate set (they are navigation roots).
+    overview.md is eligible (L4 parity with lint.ts:160-162 which only excludes index/log).
 
     L3: each orphan finding includes a `suggested_target` + `suggested_page_id` pointing
     to the page that *should* link to the orphan (token-overlap fuzzy scorer, port of
@@ -762,11 +770,22 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
             )
 
             # Resolved incoming-link target ids (in-degree >= 1).
+            # L-bug1 fix: only count links whose SOURCE page is a live wiki content
+            # page that is not index.md or log.md (basename-based exclusion so
+            # subdirectory index/log variants are also excluded). This prevents
+            # index.md linking nearly everything from masking true orphans.
             target_rows = list(
                 (
                     await session.execute(
-                        select(func.distinct(Link.target_page_id)).where(
-                            Link.target_page_id.isnot(None)
+                        select(func.distinct(Link.target_page_id))
+                        .join(Page, Link.source_page_id == Page.id)
+                        .where(
+                            Page.vault_id == vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.file_path.like("wiki/%"),
+                            Page.file_path.not_like("%/index.md"),
+                            Page.file_path.not_like("%/log.md"),
+                            Link.target_page_id.isnot(None),
                         )
                     )
                 ).scalars()
@@ -779,7 +798,9 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
         for pid, title, file_path in page_rows:
             rel = (file_path or "").lower()
             base = rel.rsplit("/", 1)[-1]
-            if base in {"index.md", "log.md", "overview.md"}:
+            # L4 parity: exclude only index.md and log.md (navigation roots).
+            # overview.md is now eligible for orphan detection (lint.ts:160-162).
+            if base in {"index.md", "log.md"}:
                 continue
             if str(pid) in linked_ids:
                 continue
@@ -997,7 +1018,9 @@ async def _detect_no_outlinks(vault_id: str) -> list[FindingDTO]:
         for pid, title, file_path in page_rows:
             rel = (file_path or "").lower()
             base = rel.rsplit("/", 1)[-1]
-            if base in {"index.md", "log.md", "overview.md"}:
+            # L4 parity: exclude only index.md and log.md (navigation roots).
+            # overview.md is now eligible for no-outlinks detection (lint.ts:160-162).
+            if base in {"index.md", "log.md"}:
                 continue
 
             # L3: suggest a TARGET page to link to (direction="target").
@@ -2041,17 +2064,16 @@ def _build_semantic_instruction(
         f"# Already-reported findings (do NOT repeat these)\n{already_block}\n\n"
         'Return ONLY a JSON object with a single key "findings" whose value is a list of '
         "objects. Each object has keys:\n"
-        "  category: one of missing-xref | contradiction | stale-claim | "
-        "missing-page | suggestion\n"
+        "  category: one of contradiction | stale-claim | missing-page | suggestion\n"
         "  severity: one of info | warning | error\n"
         "  description: a short string explaining the problem\n"
-        "  target_title: the existing page title the finding is about (for missing-xref / "
-        "stale-claim), OR the title that SHOULD exist (for missing-page); omit or null if "
+        "  target_title: the existing page title the finding is about (for stale-claim), "
+        "OR the title that SHOULD exist (for missing-page); omit or null if "
         "none applies\n\n"
-        "Definitions: missing-xref = a page that mentions an existing page but does not link "
-        "it; contradiction = conflicting claims across pages; stale-claim = superseded "
+        "Definitions: contradiction = conflicting claims across pages; stale-claim = superseded "
         "information; missing-page = a concept mentioned with no page; "
         "suggestion = a question or source worth adding to the wiki. "
+        "(Note: missing-xref is handled deterministically; do NOT emit it.) "
         f"Keep the output well under {token_budget} tokens. Return no prose, only the JSON "
         "object."
     )
@@ -2077,9 +2099,14 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
     if not isinstance(items_raw, list):
         return []
 
-    # Semantic categories only — orphan-page and no-outlinks are deterministic and must not
-    # come from the model (ADR-0037 §3.1 / ADR-0058 §L1).
-    semantic_categories = _VALID_CATEGORIES - {"orphan-page", "no-outlinks"}
+    # Semantic categories accepted from the model.
+    # Excluded (deterministic-only — must never come from the model):
+    #   orphan-page  — ADR-0037 §3.1 / ADR-0058 §L1
+    #   no-outlinks  — ADR-0058 §L1 (Do-NOT #21)
+    #   missing-xref — L2 parity fix: llm_wiki does not have this category; it is
+    #                  handled deterministically via links.dangling in the enrich seam.
+    #                  Silently drop it if a model emits it anyway.
+    semantic_categories = _VALID_CATEGORIES - {"orphan-page", "no-outlinks", "missing-xref"}
 
     out: list[FindingDTO] = []
     for entry in items_raw:
@@ -2096,9 +2123,7 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
             severity = "warning"
         target_title = _clean_str(entry.get("target_title"))
         proposed_action: str | None = None
-        if category == "missing-xref" and target_title:
-            proposed_action = f"Add a [[{target_title}]] wikilink to the referencing page."
-        elif category == "missing-page" and target_title:
+        if category == "missing-page" and target_title:
             proposed_action = f"Create a wiki page titled {target_title!r}."
         out.append(
             FindingDTO(
