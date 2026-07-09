@@ -105,18 +105,16 @@ const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 // Edges below threshold are HIDDEN (sigma hidden:true) — never removed from the
 // graph so the edgeReducer can reveal them on hover (I2-safe: render only).
 //
-// Buckets (declutter pass 2026-07, raised to reduce hairball on dense graphs):
-//   n ≤ 150         → 0.00  (show all — small graphs are already legible)
-//   150 < n ≤ 600   → 0.12  (cull weakest ~12% tail)
-//   600 < n ≤ 1200  → 0.30  (was 0.22 — raised to cut more clutter in mid-large)
-//   n > 1200        → 0.42  (was 0.32 — raised for very dense graphs)
+// Buckets — 1:1 with nashsu/llm_wiki 0.6.0 (graph-view.tsx edgeVisibilityThreshold):
+//   n ≤ 700          → 0.00  (show all)
+//   700 < n ≤ 1200   → 0.05
+//   1200 < n ≤ 2500  → 0.10
+//   n > 2500         → 0.16
 export function edgeVisibilityThreshold(nodeCount: number): number {
-  // Obsidian-like "flow": show (almost) all edges so clusters stay CONNECTED rather than
-  // reading as detached islands. Only the very weakest tail is culled on very dense graphs.
-  // (Was 0.12/0.30/0.42 — that culling made clusters look like separate islands.)
-  if (nodeCount <= 600) return 0;
-  if (nodeCount <= 1200) return 0.03;
-  return 0.06;
+  if (nodeCount <= 700) return 0;
+  if (nodeCount <= 1200) return 0.05;
+  if (nodeCount <= 2500) return 0.1;
+  return 0.16;
 }
 
 // ─── GL2: Hub label truncation ────────────────────────────────────────────────

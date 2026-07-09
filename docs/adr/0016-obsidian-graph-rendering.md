@@ -300,3 +300,123 @@ functional-analyst must update the type-only fixture expectation from "weight ==
 - (−) Coordinates will differ from the pre-change layout (fewer edges → different FR result).
   Expected and acceptable per ADR-0013 §4 (coords are not stable across recomputes); D5
   screenshots regenerate.
+
+---
+
+## Amendment — 2026-07-09 (llm_wiki 0.6.0 parity, sprint v1.3.13)
+
+- Status: Accepted (amends ADR-0016 §1 and §2; all other sections remain in force)
+- Decider: backend-engineer (solution-architect notified; I2/I1/I7/I8 compliance verified below)
+- Related: ADR-0045 amendment (same sprint), ADR-0013 §3/§4/§5 (coord storage — unchanged)
+
+### A.1 EDGE CREATION — WIKILINK-ONLY (reverses §1's shared-source structural status)
+
+ADR-0016 §1 defined two structural edge generators: **direct wikilink** AND **shared
+source** (`shared_source_count > 0`). Analysis of nashsu/llm_wiki 0.6.0 (`wiki-graph.ts`
+lines 219-231) shows that llm_wiki creates edges **exclusively for resolved `[[wikilinks]]`**
+— provenance proximity is NOT treated as a structural relation in the reference
+implementation.
+
+**Revised edge rule (supersedes ADR-0016 §1 second bullet):**
+
+```
+edge (A,B) EXISTS  iff  direct_link_count(A,B) > 0   (wikilink-only)
+
+weight(A,B)        =  3.0·direct_link_count(A,B)      # unchanged arithmetic
+                   +  4.0·shared_source_count(A,B)    # WEIGHT contribution preserved
+                   +  1.5·adamic_adar(A,B)
+                   +  1.0·type_affinity(A,B)
+```
+
+Key clarification: **shared-source count still contributes +4.0 per shared source to the
+weight of a wikilink edge.** Two pages that both link to each other AND share a source
+document receive a higher spring strength in FA2, pulling them closer. Shared-source
+influence is preserved as a *weight modulator* — it is no longer an *edge creator*.
+
+Rationale:
+- **parity with llm_wiki 0.6.0** (R1 / the reference implementation): the goal is for the
+  Synapse graph to produce the same edge topology as llm_wiki given the same vault.
+- **source cliques problem**: `shared_source_count > 0` generates a clique over all pages
+  derived from the same source document. A source with 30 extracted pages yields C(30,2) =
+  435 source-only edges — identical in hairball pressure to the original type-clique defect
+  that ADR-0016 was written to fix. Removing it as an edge generator eliminates this class
+  of cliques.
+- **explainability**: a user can point at an edge and say "there is a `[[wikilink]]` here".
+  Provenance-only edges lack that grounding.
+
+**`kind` field update:** `kind="source"` is retired. All edges are now `kind="link"`. The
+field remains on `EdgeSnapshot` and `GraphEdgeResponse` for backward wire compatibility;
+the value is always `"link"`. Clients that styled dashed edges for `kind="source"` can
+treat the absence of source-kind edges as the graph being cleaner (intentional regression).
+
+### A.2 NODE INCLUSION — exclude `type == "query"` nodes
+
+`engine.py` now filters out pages whose `page_type == "query"` before building the node
+index. This mirrors llm_wiki `wiki-graph.ts:204-209`:
+
+```python
+_HIDDEN_TYPES: frozenset[str] = frozenset({"query"})
+# applied after node_index load, before directed_links and candidate_pairs
+node_index = {k: v for k, v in node_index.items()
+              if v.get("page_type") not in _HIDDEN_TYPES}
+```
+
+Rationale: query pages are transient research artifacts (saved chat answers); the entities
+and concepts extracted from them are ingested as proper wiki pages. Including query nodes
+would scatter them across the graph as low-connectivity leaves, adding noise without
+knowledge-structure signal.
+
+Wikilinks from/to query nodes are also dropped (they reference a node that no longer
+participates in the graph). This is correct: the useful signal from a query page is already
+captured in the ingested entities it spawned.
+
+### A.3 NODE SIZE — normalized against max degree (supersedes ADR-0016 §2)
+
+ADR-0016 §2 defined `size = 1.0 + 2.5 * sqrt(structural_degree)`. llm_wiki
+`graph-view.tsx:232-237` normalizes against the maximum-degree node:
+
+```
+size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) - BASE(8))
+```
+
+The Synapse server-side implementation mirrors this:
+
+```python
+_BASE_SIZE = 8.0
+_MAX_SIZE  = 28.0
+max_degree_val = max(structural_degrees)  # 0 if no edges
+
+# per-node:
+if max_degree_val == 0:
+    node_size = _BASE_SIZE                                    # isolated: minimum size
+else:
+    ratio = deg / max_degree_val
+    node_size = _BASE_SIZE + math.sqrt(ratio) * (_MAX_SIZE - _BASE_SIZE)
+    # → 8.0 + sqrt(deg / max_deg) * 20.0
+```
+
+Properties:
+- Maximum-degree node always gets `size = 28.0` (fully-saturated).
+- Isolated node (deg=0, or only node in graph) gets `size = 8.0`.
+- Normalized `sqrt` gives readable graduation: at 25% of max → 14.0; at 50% → 22.2.
+- `structural_degree` used (count of distinct incident wikilink edges, same as §1/A.1).
+
+The client-side `×5` display multiplier (graphTransform.ts) is REMOVED as a consequence:
+server now sends absolute sigma sizes (8–28 px range), not a sub-1 value to multiply.
+Frontend-engineer must drop the multiplier in the same sprint to avoid ×5 inflation.
+
+### A.4 Invariant compliance
+
+| Invariant | Status |
+|-----------|--------|
+| **I2** | Layout (FA2) still runs only server-side via igraph/fa2_modified; coords stored in Postgres; no client layout introduced. |
+| **I1** | Engine reads only `pages` + `links` from Postgres; no vault rescan. |
+| **I7** | Single bounded FA2 pass; edge count is now lower (fewer candidate pairs → faster). |
+| **I8** | This amendment is the D7 update; D4 (OpenAPI) unchanged (`kind` field retained, value always "link"); D2 (ER) unchanged (no new columns). |
+
+### A.5 Test suite impact
+
+- `TestWikilinkEdgeCount`: expects 3 edges (P1-P2, P1-P4, P3-P4); P2-P4 (shared-source only) absent.
+- `TestLlmWikiParityEdgeRule`: 3 new tests — no source-kind edges, query nodes excluded, shared-source weight still contributes on wikilink edges.
+- `TestClampRemovedFromEnginePath`: verifies extreme pinned coords survive unmodified (no clamping).
+- Suite result: **2164 passed, 4 skipped** (net +4 from new parity tests).

@@ -12,49 +12,59 @@ Invariant compliance:
   I7 — Single bounded pass; logs node/edge count + wall-clock duration.
   I9 — python-igraph for Adamic-Adar; fa2_modified for ForceAtlas2 layout (R9).
 
-Edge INCLUSION rule (ADR-0016 — supersedes ADR-0012 §3):
+Edge INCLUSION rule (ADR-0016 amendment 2026-07-09 — llm_wiki 0.6.0 parity):
   An edge (A,B) EXISTS iff:
-    direct_link_count(A,B) > 0  OR  shared_source_count(A,B) > 0
-  AA and type-affinity are MODULATORS only — they adjust the weight of already-structural
-  edges but NEVER create an edge on their own.  This prevents type-cliques (hairball).
+    direct_link_count(A,B) > 0  (a resolved [[wikilink]] exists)
+  shared_source_count, Adamic-Adar, and type-affinity are WEIGHT MODULATORS on wikilink
+  edges — they NEVER create a standalone edge.  This matches nashsu/llm_wiki 0.6.0
+  wiki-graph.ts:219-231 exactly and supersedes the previous "direct OR shared-source"
+  rule (ADR-0016 §1 as originally written).
+  "source" edges (direct==0, shared>0) are REMOVED from the graph.
 
-Edge-weight formula (ADR-0012 §1/§2 coefficients — applied only to structural pairs):
+Edge-weight formula (ADR-0012 §1/§2 coefficients — unchanged; applied only to wikilink pairs):
   w(A,B) = 3.0·direct_link_count(A,B)
-          + 4.0·shared_source_count(A,B)
-          + 1.5·adamic_adar(A,B)
-          + 1.0·type_affinity(A,B)      # G-P1-7: cross-type matrix (llm_wiki parity),
-                                        # replaces the old binary same_type signal
+          + 4.0·shared_source_count(A,B)   # weight modulator only (no longer an edge creator)
+          + 1.5·adamic_adar(A,B)           # weight modulator only
+          + 1.0·type_affinity(A,B)         # G-P1-7: cross-type matrix (llm_wiki parity)
 
-Per-edge kind (ADR-0016 §4):
-  "link"   — direct_link_count > 0  (wikilink; may also have source/AA/type weight)
-  "source" — direct_link_count == 0 AND shared_source_count > 0 (provenance-only)
+Per-edge kind: all edges are kind="link" (wikilink only; "source" kind removed).
 
-Node size (ADR-0016 §2):
-  size = BASE + GROWTH·sqrt(structural_degree)   BASE=1.0, GROWTH=2.5
-  structural_degree = count of distinct incident structural edges.
+Node inclusion:
+  Excluded from graph: pages with type="query" (llm_wiki HIDDEN_TYPES, wiki-graph.ts:204-209)
+  and pages under raw/* (existing rule). Isolated nodes (no edges) ARE included.
 
-ForceAtlas2 layout (ADR-0045 — supersedes FR in ADR-0013 §1/§2):
-  Algorithm: fa2_modified.ForceAtlas2 with gravity=1.0, strongGravityMode=True,
-    scalingRatio=2.0 (3.0 when n>400), barnesHutOptimize=(n>50), verbose=False.
-  Iterations taper by node count (see FA2_ITERS_* constants below).
+Node size (llm_wiki 0.6.0 parity — graph-view.tsx:232-237):
+  size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) − BASE(8))
+  Normalized against the max-degree node.  Isolated nodes render at BASE=8.
+
+ForceAtlas2 layout (ADR-0045 + amendment 2026-07-09 — llm_wiki 0.6.0 parity):
+  Algorithm: fa2_modified.ForceAtlas2 with:
+    outboundAttractionDistribution=False  (was True — the biggest shape lever)
+    gravity=1.0, strongGravityMode=True
+    scalingRatio=2.0 (3.0 when n>400)
+    barnesHutOptimize=(n>50), barnesHutTheta=0.5  (was 1.2 default)
+    edgeWeightInfluence=1.0, adjustSizes=False
+    jitterTolerance=1+ln(n)  (mirrors graphology inferSettings slowDown=1+Math.log(n);
+      fa2_modified has no slowDown param; jitterTolerance is the closest equivalent)
+    verbose=False
+  NOTE: fa2_modified does NOT implement linLogMode (asserts False, not available).
+  Iterations taper by node count (llm_wiki layoutIterations, graph-view.tsx:239-244):
+    n≤250 → 140, 250<n≤600 → 90, 600<n≤1200 → 65, 1200<n≤2500 → 40, n>2500 → 28.
   Determinism strategy (ADR-0045 §2 — ADR-0013 §1/§2 superseded for layout):
     1. Initial positions from igraph layout_circle() — pure deterministic, no RNG.
     2. numpy.random.seed(FA2_SEED) called immediately before fa2_modified call
        as belt-and-suspenders (FA2 internals may call numpy RNG).
     Identical topology+weights → identical coordinates across any two recomputes.
-  Layout post-processing (Feature B — disc compression) REMOVED (ADR-0045 §3):
-    FA2's organic spread is the desired output; disc compression was fighting it.
-    Raw FA2 output is used directly, EXCEPT for the outlier clamp below.
-  Outlier clamp (ADR-0045 §5 — _clamp_outliers, runs LAST):
-    Pulls a few runaway nodes (|x|,|y| that would collapse the viewer's fit-to-view onto
-    a dot) radially onto a cap = 3× the p90 radius from the median center. In-cap nodes are
-    untouched, so the organic core spread is preserved. Runs AFTER pinning so it also tames
-    runaway pinned coords; the clamped coords are persisted, so bad coords self-heal.
+  Layout post-processing (Feature B — disc compression) REMOVED (ADR-0045 §3).
+  Outlier clamp REMOVED from engine path (llm_wiki 0.6.0 parity — llm_wiki has no clamp):
+    _clamp_outliers() is retained in engine.py for standalone tests but is NO LONGER called
+    by GraphEngine.recompute().  outboundAttractionDistribution=False + strongGravityMode=True
+    produces a round-ball layout without runaway outliers for typical vault sizes.
 
 Node pinning (Feature A):
   pages.pinned=true → engine reads stored (x,y) from DB and overwrites FA2 coords.
-  Applied AFTER FA2 layout (then the outlier clamp runs); PATCH /pages/{id}/position sets
-  the flag. Pinned nodes stay put across every subsequent recompute (within the clamp cap).
+  Applied AFTER FA2 layout; PATCH /pages/{id}/position sets the flag.
+  Pinned nodes stay put across every subsequent recompute (no clamp — coords are exact).
 """
 
 from __future__ import annotations
@@ -80,33 +90,24 @@ logger = logging.getLogger(__name__)
 _DEFAULT_SEED = 42
 FA2_SEED: int = int(os.environ.get("GRAPH_LAYOUT_SEED", str(_DEFAULT_SEED)))
 
-# ── ForceAtlas2 iteration taper by node count (ADR-0045 §1) ──────────────────
-# Mirrors nashsu/llm_wiki layoutIterations tuning: small graphs run more
-# iterations for quality; large graphs are capped to keep recompute bounded (I7).
-FA2_ITERS_SMALL: int = 140  # n <= 100
-FA2_ITERS_MEDIUM: int = 100  # 100 < n <= 400
-FA2_ITERS_LARGE: int = 60  # 400 < n <= 1000
-FA2_ITERS_XLARGE: int = 40  # 1000 < n <= 2500
+# ── ForceAtlas2 iteration taper by node count (ADR-0045 / llm_wiki 0.6.0 parity) ──
+# Mirrors nashsu/llm_wiki layoutIterations (graph-view.tsx:239-244) exactly:
+# small graphs run more iterations for quality; large graphs are capped (I7).
+# Thresholds revised 2026-07-09: n=250/600/1200/2500 (was 100/400/1000/2500).
+FA2_ITERS_SMALL: int = 140  # n <= 250
+FA2_ITERS_MEDIUM: int = 90  # 250 < n <= 600
+FA2_ITERS_LARGE: int = 65  # 600 < n <= 1200
+FA2_ITERS_XLARGE: int = 40  # 1200 < n <= 2500
 FA2_ITERS_HUGE: int = 28  # n > 2500
 
-# scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1)
+# scalingRatio increases for larger graphs to counter crowding (ADR-0045 §1 / llm_wiki parity)
 FA2_SCALING_RATIO_SMALL: float = 2.0  # n <= 400
 FA2_SCALING_RATIO_LARGE: float = 3.0  # n > 400
 
-# ── Outlier clamp (ADR-0045 §5 — tames FA2 runaway nodes without squashing spread) ──
-# FA2 (esp. large graphs with few iterations) can fling a handful of loosely-connected
-# nodes to extreme coordinates (|x|,|y| in the millions).  Sigma's fit-to-view then zooms
-# out so far that the dense core collapses to a dot ("everything collapsed at the center").
-# We clamp ONLY nodes whose radius exceeds FA2_CLAMP_FACTOR × the FA2_CLAMP_PERCENTILE-th
-# percentile radius (measured from the MEDIAN center — robust to the outliers themselves),
-# pulling them radially onto that cap.  Every node inside the cap is left EXACTLY where FA2
-# put it, so the organic core spread (the reason disc-compression was removed) is preserved.
-#
-# Params: the reference is the p90 radius (the EDGE of the dense core — robust to a minority
-# of runaway nodes, which are what we want to tame; a higher percentile like p98 would itself
-# land on an outlier when >2% of nodes run away, making the cap useless). factor=3 keeps a
-# healthy organic layout untouched (nothing sits at 3× the core-edge radius there) while
-# crushing millions-scale runaways down to ~3× the core radius, so the core fills the view.
+# ── Outlier clamp constants (ADR-0045 §5) ────────────────────────────────────
+# NOTE: _clamp_outliers() is NO LONGER called by GraphEngine.recompute() as of the
+# llm_wiki 0.6.0 parity amendment (2026-07-09).  The function is retained in
+# engine.py for standalone unit tests.  These constants remain as the function's defaults.
 FA2_CLAMP_PERCENTILE: float = 90.0
 FA2_CLAMP_FACTOR: float = 3.0
 
@@ -215,12 +216,18 @@ class CommunitySnapshot:
 
 @dataclass
 class EdgeSnapshot:
-    """One graph edge as returned by GET /graph (ADR-0014 §6, ADR-0016 §4)."""
+    """One graph edge as returned by GET /graph (ADR-0014 §6).
+
+    kind: always "link" after the llm_wiki 0.6.0 parity amendment (2026-07-09).
+      The "source" kind (shared-source-only edges) has been removed from the engine.
+      The field is retained for backward compatibility (existing API clients may read it;
+      it will always be "link" for engine-generated edges going forward).
+    """
 
     source: str
     target: str
     weight: float
-    kind: str = "link"  # "link" | "source" (ADR-0016 §4)
+    kind: str = "link"  # always "link" after ADR-0016 amendment (llm_wiki 0.6.0 parity)
 
 
 @dataclass
@@ -468,6 +475,14 @@ def _compute_graph_sync(
         }
         for row in nodes_data
     }
+
+    # ── Hidden types: exclude 'query' nodes (llm_wiki 0.6.0 parity) ──────────
+    # wiki-graph.ts:204-209 HIDDEN_TYPES = {"query"}:
+    #   "Query pages are intermediate research artifacts; the entity/concept pages
+    #    extracted FROM them via auto-ingest are what belong in the knowledge graph."
+    _HIDDEN_TYPES: frozenset[str] = frozenset({"query"})
+    node_index = {k: v for k, v in node_index.items() if v.get("page_type") not in _HIDDEN_TYPES}
+
     node_ids: list[str] = list(node_index.keys())
     id_to_idx: dict[str, int] = {nid: i for i, nid in enumerate(node_ids)}
 
@@ -502,13 +517,16 @@ def _compute_graph_sync(
 
     g_unweighted = igraph.Graph(n=n, edges=unweighted_edges_idx, directed=False)
 
-    # ── 3. Compute 4-signal weight per structural candidate pair (ADR-0016) ──
-    # STRUCTURAL candidate set = (a) direct-link pairs UNION (b) shared-source pairs.
-    # ADR-0016 §1: AA and same-type are WEIGHT MODULATORS only — they never create
-    # a standalone edge.  Blocks (c) AA-pair enumeration and (d) same-type enumeration
-    # are REMOVED from candidate_pairs (they were the source of the type-clique hairball).
-    # AA and type terms still contribute to the weight for pairs already in the
-    # structural set (the additive formula of ADR-0012 §1/§2 is UNCHANGED).
+    # ── 3. Compute 4-signal weight per wikilink candidate pair ───────────────
+    # EDGE CREATION RULE (llm_wiki 0.6.0 parity, ADR-0016 amendment 2026-07-09):
+    #   An edge (A,B) exists iff a resolved [[wikilink]] connects them (direct_link_count > 0).
+    #   shared_source, Adamic-Adar, and type_affinity are WEIGHT MODULATORS on wikilink edges;
+    #   they NEVER create a standalone edge.  This matches wiki-graph.ts:219-231 exactly.
+    #
+    # Previous rule: "direct-link OR shared-source" (ADR-0016 §1 as originally written).
+    #   Removed: (b) shared-source pair enumeration (was the source of "source cliques").
+    #   The 4-signal weight arithmetic (ADR-0012 §1/§2) is UNCHANGED — shared_source_count
+    #   still contributes to the weight of wikilink edges (it just no longer creates edges).
 
     # Neighbour sets for Adamic-Adar weight modulation (per vertex)
     neighbours: list[set[int]] = [set(g_unweighted.neighbors(i)) for i in range(n)]
@@ -516,28 +534,17 @@ def _compute_graph_sync(
     # Degree array for AA denominator: ln(degree); skip degree-0 nodes
     degrees: list[int] = g_unweighted.degree()
 
-    # STRUCTURAL candidate pairs: only (a) + (b) — ADR-0016 §1
+    # Wikilink candidate pairs — the ONLY edge generators (ADR-0016 amendment 2026-07-09)
     candidate_pairs: set[tuple[int, int]] = set()
 
-    # (a) direct-link pairs — always structural
+    # (a) direct-link pairs — wikilink = only structural edge type
     for a, b in seen_undirected:
         candidate_pairs.add((a, b))
 
-    # (b) shared-source pairs — structural (provenance fact, ADR-0016 §1)
-    # Group pages by each source to find overlap efficiently
-    source_to_pages: dict[str, list[int]] = {}
-    for i, nid in enumerate(node_ids):
-        for src in node_index[nid]["sources"]:
-            source_to_pages.setdefault(src, []).append(i)
-    for _src, page_list in source_to_pages.items():
-        for i_pos in range(len(page_list)):
-            for j_pos in range(i_pos + 1, len(page_list)):
-                a, b = page_list[i_pos], page_list[j_pos]
-                candidate_pairs.add((min(a, b), max(a, b)))
-
-    # (c) AA-pair enumeration REMOVED — AA is a weight modulator, not an edge generator.
-    # (d) same-type enumeration REMOVED — type is a weight modulator, not an edge generator.
-    # Both terms still contribute weight for pairs already in candidate_pairs above.
+    # NOTE: shared-source pair enumeration (former block (b)) REMOVED.
+    #   shared_source_count is still computed per pair as a WEIGHT MODULATOR below.
+    # NOTE: AA-pair enumeration (c) and same-type enumeration (d) were already REMOVED
+    #   in ADR-0016 §1; AA and type terms still contribute weight for wikilink pairs.
 
     # Compute Adamic-Adar for all candidate pairs manually
     # AA(A,B) = Σ_{c ∈ N(A)∩N(B)} 1/ln(deg(c))
@@ -553,7 +560,7 @@ def _compute_graph_sync(
                 total += 1.0 / math.log(deg_c)
         return total
 
-    # Build weighted edge list — structural pairs only (ADR-0016 §1)
+    # Build weighted edge list — wikilink pairs only (ADR-0016 amendment 2026-07-09)
     # (a_idx, b_idx, weight, signals, kind)
     weighted_edges: list[tuple[int, int, float, dict[str, float], str]] = []
 
@@ -563,12 +570,13 @@ def _compute_graph_sync(
         key = _canonical_key(nid_a, nid_b)
 
         direct = float(pair_direct.get(key, 0))
+        # shared_source is a WEIGHT MODULATOR on wikilink edges (not an edge creator).
         shared = float(len(node_index[nid_a]["sources"] & node_index[nid_b]["sources"]))
 
-        # Structural gate (ADR-0016 §1): pair must have a real link or shared source.
-        # By construction all pairs in candidate_pairs satisfy this, but make it explicit.
-        if not (direct > 0 or shared > 0):
-            continue  # safety guard — should not be reached after removing (c)/(d)
+        # Wikilink gate: all pairs in candidate_pairs have direct > 0 by construction,
+        # but keep an explicit guard to document and enforce the invariant.
+        if not direct > 0:
+            continue  # safety guard — should never be reached
 
         aa = _aa(a, b)
         type_a = node_index[nid_a]["page_type"]
@@ -577,8 +585,8 @@ def _compute_graph_sync(
         # cross-type pairs, penalizes same-type. Replaces the old binary same_type.
         type_affinity = _type_affinity(type_a, type_b)
 
-        # Weight formula (ADR-0012 §1/§2 coefficients UNCHANGED; 4th term is now
-        # the type-affinity modulator instead of binary same_type — G-P1-7)
+        # Weight formula (ADR-0012 §1/§2 coefficients UNCHANGED):
+        #   3.0·direct + 4.0·shared + 1.5·AA + 1.0·type_affinity
         w = 3.0 * direct + 4.0 * shared + 1.5 * aa + 1.0 * type_affinity
         signals: dict[str, float] = {
             "direct": 3.0 * direct,
@@ -586,8 +594,8 @@ def _compute_graph_sync(
             "aa": 1.5 * aa,
             "type": type_affinity,
         }
-        # Per-edge kind (ADR-0016 §4): "link" wins when both structural signals present
-        kind = "link" if direct > 0 else "source"
+        # All edges are wikilink edges (ADR-0016 amendment — "source" kind removed).
+        kind = "link"
         weighted_edges.append((a, b, w, signals, kind))
 
     # ── 4. Build weighted igraph + ForceAtlas2 → coords (I2, ADR-0045) ──────
@@ -621,15 +629,12 @@ def _compute_graph_sync(
         if nd["pinned"] and nd["stored_x"] is not None and nd["stored_y"] is not None:
             coords[i] = (float(nd["stored_x"]), float(nd["stored_y"]))
 
-    # ── 4d. Outlier clamp (ADR-0045 §5) — LAST, so it also tames runaway PINNED
-    # coords, not just FA2 outliers.  A handful of flung-out nodes (or nodes
-    # accidentally pinned at runaway coords, e.g. a mobile tap-jitter drag) would
-    # otherwise dominate sigma's fit-to-view and collapse the dense core to a dot.
-    # The clamp leaves every in-cap node EXACTLY where it was (organic spread + legit
-    # in-view pins preserved); only nodes beyond the cap are pulled radially onto it.
-    # Running it here (after pinning) makes the layout self-healing: the clamped coords
-    # are what get persisted, so runaway stored coords are repaired on the next recompute.
-    coords = _clamp_outliers(coords)
+    # ── 4d. Outlier clamp REMOVED from engine path (llm_wiki 0.6.0 parity) ──
+    # _clamp_outliers() is retained in engine.py for standalone tests but is no longer
+    # called here.  outboundAttractionDistribution=False + strongGravityMode=True
+    # produces a round-ball layout without runaway outliers for typical vault sizes,
+    # matching the llm_wiki reference which has no post-processing clamp step.
+    # Raw FA2 coords are used directly (pinned coords are overwritten above as exact).
 
     # ── 4e. Louvain community detection (G-P0-2, I2) ─────────────────────
     # Run community_multilevel (Louvain) on the weighted structural graph.
@@ -745,17 +750,19 @@ def _compute_graph_sync(
             cs.label = f"Comunità {cid}"
 
     # ── 5. Assemble result lists ───────────────────────────────────────────
-    # structural_degree = count of distinct incident structural edges (ADR-0016 §2).
-    # After removing (c)/(d) from candidate_pairs, g_weighted IS the structural graph,
-    # so g_weighted.degree() already yields structural_degree.
+    # structural_degree = count of distinct incident wikilink edges.
+    # g_weighted IS the wikilink-only graph (after ADR-0016 amendment), so
+    # g_weighted.degree() yields wikilink degree directly.
     # structural_degrees_pre was already computed in 4f — reuse to avoid a second call.
     structural_degrees = structural_degrees_pre
 
-    # Size formula: BASE + GROWTH·sqrt(structural_degree) (ADR-0016 §2)
-    # BASE=1.0 → isolated nodes render at 1.0 (clearly clickable).
-    # GROWTH=2.5 → degree-30 hub ≈ 14.7, degree-1 leaf ≈ 3.5, degree-3 ≈ 5.3.
-    _BASE = 1.0
-    _GROWTH = 2.5
+    # Size formula: llm_wiki 0.6.0 parity (graph-view.tsx nodeSize(), lines 232-237)
+    #   size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) − BASE(8))
+    # Normalized against the max-degree node (hub = 28.0; isolated node = 8.0).
+    # The formula matches nodeSize() in graph-view.tsx after the 2026-07-09 amendment.
+    _BASE_SIZE = 8.0
+    _MAX_SIZE = 28.0
+    max_degree_val = max(structural_degrees) if structural_degrees else 0
 
     # ── 5a. Per-node domain (F18, ADR-0054 §2.2, no extra query — I1) ────────
     # Reuses the tags already loaded per node (I1) and vocab_set/domain_vocab already
@@ -802,7 +809,11 @@ def _compute_graph_sync(
     for i, nid in enumerate(node_ids):
         nd = node_index[nid]
         deg = structural_degrees[i]
-        node_size: float = max(1.0, _BASE + _GROWTH * math.sqrt(deg))
+        if max_degree_val == 0:
+            node_size: float = _BASE_SIZE
+        else:
+            ratio = deg / max_degree_val
+            node_size = _BASE_SIZE + math.sqrt(ratio) * (_MAX_SIZE - _BASE_SIZE)
         node_snapshots.append(
             NodeSnapshot(
                 id=nid,
@@ -862,6 +873,12 @@ def _forceatlas2_layout(
     """
     Run ForceAtlas2 on g_weighted and return a list of (x, y) coordinates.
 
+    Parameters (llm_wiki 0.6.0 parity, ADR-0045 amendment 2026-07-09):
+      outboundAttractionDistribution=False, gravity=1.0, strongGravityMode=True,
+      scalingRatio=2.0 (3.0 when n>400), barnesHutOptimize=(n>50), barnesHutTheta=0.5,
+      edgeWeightInfluence=1.0, adjustSizes=False,
+      jitterTolerance=1+ln(n)  [mirrors graphology inferSettings slowDown=1+Math.log(n)].
+
     Determinism strategy (ADR-0045 §2):
       1. Initial positions built from igraph layout_circle() — pure deterministic,
          no RNG involved.  Passed as `pos` to fa2_modified so FA2 does not randomize.
@@ -869,9 +886,10 @@ def _forceatlas2_layout(
          belt-and-suspenders (fa2_modified may draw from numpy's global RNG internally).
       Two calls on identical (g_weighted, edge_weights, n) MUST yield identical output.
 
-    Iteration taper (ADR-0045 §1):
-      n<=100 → FA2_ITERS_SMALL (140), n<=400 → FA2_ITERS_MEDIUM (100),
-      n<=1000 → FA2_ITERS_LARGE (60), n<=2500 → FA2_ITERS_XLARGE (40), else FA2_ITERS_HUGE (28).
+    Iteration taper (llm_wiki layoutIterations, graph-view.tsx:239-244):
+      n≤250 → FA2_ITERS_SMALL (140), 250<n≤600 → FA2_ITERS_MEDIUM (90),
+      600<n≤1200 → FA2_ITERS_LARGE (65), 1200<n≤2500 → FA2_ITERS_XLARGE (40),
+      n>2500 → FA2_ITERS_HUGE (28).
 
     Single-node / no-edge graphs return trivial coords without running FA2.
     """
@@ -883,34 +901,45 @@ def _forceatlas2_layout(
     if n == 1:
         return [(0.0, 0.0)]
 
-    # Choose iteration count by node count (taper for I7 bounding)
-    if n <= 100:
+    # Choose iteration count by node count — llm_wiki layoutIterations (graph-view.tsx:239-244)
+    if n <= 250:
         iterations = FA2_ITERS_SMALL
-    elif n <= 400:
+    elif n <= 600:
         iterations = FA2_ITERS_MEDIUM
-    elif n <= 1000:
+    elif n <= 1200:
         iterations = FA2_ITERS_LARGE
     elif n <= 2500:
         iterations = FA2_ITERS_XLARGE
     else:
         iterations = FA2_ITERS_HUGE
 
-    # scalingRatio: larger graphs need more spread to avoid crowding
+    # scalingRatio: llm_wiki uses graphSpacing*(n>400?3:2); server uses spacing=1.0 baseline
     scaling_ratio = FA2_SCALING_RATIO_LARGE if n > 400 else FA2_SCALING_RATIO_SMALL
 
-    # More organic ("flow") layout toward the Obsidian look. NOTE: fa2_modified does NOT
-    # implement linLogMode (asserts False), so the strongest Obsidian lever is unavailable
-    # without a layout-lib swap (GL6, declined). We keep strongGravity for a cohesive core
-    # and add outboundAttractionDistribution (hubs pushed outward / leaves pulled in) for a
-    # more organic distribution. The real "not detached" fix is reducing edge culling (FE).
+    # slowDown is not a parameter of fa2_modified.ForceAtlas2.  The closest equivalent is
+    # jitterTolerance (controls speed/convergence tolerance in adjustSpeedAndApplyForces).
+    # llm_wiki's graphology-layout-forceatlas2 inferSettings() computes:
+    #   slowDown = 1 + Math.log(graph.order)
+    # We mirror this via jitterTolerance to achieve similar convergence behaviour.
+    jitter_tolerance = 1.0 + math.log(max(n, 2))
+
+    # FA2 parameters — llm_wiki 0.6.0 parity (ADR-0045 amendment 2026-07-09):
+    #   outboundAttractionDistribution=False  (was True — biggest shape lever; matches llm_wiki)
+    #   barnesHutTheta=0.5                    (was 1.2 default; matches llm_wiki BH accuracy)
+    #   jitterTolerance=1+ln(n)               (mirrors llm_wiki slowDown from inferSettings)
+    #   adjustSizes=False                     (llm_wiki parity; fa2_modified default)
+    #   NOTE: linLogMode is NOT IMPLEMENTED in fa2_modified (asserts False); not set.
     # Determinism (ADR-0045 §2) preserved: circle-init + numpy seed, params fixed.
     fa = ForceAtlas2(
-        outboundAttractionDistribution=True,
+        outboundAttractionDistribution=False,
         edgeWeightInfluence=1.0,
         gravity=1.0,
         scalingRatio=scaling_ratio,
         strongGravityMode=True,
         barnesHutOptimize=(n > 50),
+        barnesHutTheta=0.5,
+        adjustSizes=False,
+        jitterTolerance=jitter_tolerance,
         verbose=False,
     )
 
@@ -940,6 +969,12 @@ def _clamp_outliers(
 ) -> list[tuple[float, float]]:
     """
     Pull FA2 runaway outliers inward without touching the organic core (ADR-0045 §5).
+
+    NOTE: This function is NO LONGER called by GraphEngine.recompute() as of the
+    llm_wiki 0.6.0 parity amendment (2026-07-09). The function is retained for the
+    TestClampOutliers unit tests which test it as a standalone utility. The engine now
+    uses outboundAttractionDistribution=False + strongGravityMode=True which produces
+    a compact round-ball layout without runaway outliers, matching the llm_wiki reference.
 
     Unlike _compress_to_disc (which radially rescales EVERY node and squashes the spread),
     this leaves every node inside the cap EXACTLY where FA2 placed it and only clamps the

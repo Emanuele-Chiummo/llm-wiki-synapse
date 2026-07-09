@@ -223,20 +223,32 @@ describe("edgeVisibilityThreshold — GL1 bucket boundaries", () => {
     expect(edgeVisibilityThreshold(600)).toBe(0);
   });
 
-  it("returns 0.03 for n=601 (cull only the weakest tail — was 0.30)", () => {
-    expect(edgeVisibilityThreshold(601)).toBe(0.03);
+  it("returns 0 for n=700 (boundary — show all, llm_wiki parity)", () => {
+    expect(edgeVisibilityThreshold(700)).toBe(0);
   });
 
-  it("returns 0.03 for n=1200 (boundary — large graph)", () => {
-    expect(edgeVisibilityThreshold(1200)).toBe(0.03);
+  it("returns 0.05 for n=701 (cull weakest tail)", () => {
+    expect(edgeVisibilityThreshold(701)).toBe(0.05);
   });
 
-  it("returns 0.06 for n=1201 (very dense — was 0.42)", () => {
-    expect(edgeVisibilityThreshold(1201)).toBe(0.06);
+  it("returns 0.05 for n=1200 (boundary — large graph)", () => {
+    expect(edgeVisibilityThreshold(1200)).toBe(0.05);
   });
 
-  it("returns 0.06 for n=5000 (very large graph)", () => {
-    expect(edgeVisibilityThreshold(5000)).toBe(0.06);
+  it("returns 0.1 for n=1201 (very dense)", () => {
+    expect(edgeVisibilityThreshold(1201)).toBe(0.1);
+  });
+
+  it("returns 0.1 for n=2500 (boundary)", () => {
+    expect(edgeVisibilityThreshold(2500)).toBe(0.1);
+  });
+
+  it("returns 0.16 for n=2501 (very large — llm_wiki parity)", () => {
+    expect(edgeVisibilityThreshold(2501)).toBe(0.16);
+  });
+
+  it("returns 0.16 for n=5000 (very large graph)", () => {
+    expect(edgeVisibilityThreshold(5000)).toBe(0.16);
   });
 });
 
@@ -264,23 +276,23 @@ describe("buildGraphologyGraph — GL1 edge hidden flag", () => {
     });
   });
 
-  it("edges below threshold are hidden on graphs with n > 600", () => {
-    // 700 nodes → threshold 0.03 (Obsidian-flow tuning: only the weakest tail is culled)
-    const nodes700 = makeNodes(700);
+  it("edges below threshold are hidden on graphs with n > 700", () => {
+    // 800 nodes → threshold 0.05 (llm_wiki parity: weakest tail culled above 700 nodes)
+    const nodes800 = makeNodes(800);
     // Two edges: one strong (weight much higher than min → high normalizedWeight),
-    // one weak (weight = min → normalizedWeight = 0, below 0.03).
+    // one weak (weight = min → normalizedWeight = 0, below 0.05).
     const edges: GraphEdge[] = [
       { source: "n-0", target: "n-1", weight: 100 }, // strong
       { source: "n-0", target: "n-2", weight: 1 },   // weak (min weight → nw=0)
     ];
-    const graph = buildGraphologyGraph(nodes700, edges);
+    const graph = buildGraphologyGraph(nodes800, edges);
 
     const strongKey = graph.edge("n-0", "n-1");
     const weakKey = graph.edge("n-0", "n-2");
 
     // Strong edge: normalizedWeight = 1.0 → not hidden
     expect(graph.getEdgeAttribute(strongKey, "hidden")).toBe(false);
-    // Weak edge: normalizedWeight = 0.0 < 0.12 → hidden
+    // Weak edge: normalizedWeight = 0.0 < 0.05 → hidden
     expect(graph.getEdgeAttribute(weakKey, "hidden")).toBe(true);
   });
 
