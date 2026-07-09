@@ -1985,6 +1985,12 @@ export const GraphViewer: React.FC = () => {
       labelGridCellSize: 70,
       labelRenderedSizeThreshold: 11,
 
+      // Parity with llm_wiki 0.6.0: suppress labels/edges while the camera moves so
+      // panning/zooming stays legible and light on large graphs (I3). Static hover is
+      // unaffected — only the hovered node forces a label (see nodeReducer).
+      hideLabelsOnMove: true,
+      hideEdgesOnMove: true,
+
       // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
       defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
       defaultDrawNodeHover: makeDrawHaloNodeHover(sigmaThemeColors),
@@ -2046,8 +2052,11 @@ export const GraphViewer: React.FC = () => {
             res["zIndex"] = 2;
             res["size"] = ((data["size"] as number | undefined) ?? 8) * 1.15;
           } else if (isNeighbor) {
-            // Neighbor: show label, raised z, deepened color so cluster pops on light bg
-            res["forceLabel"] = true;
+            // Neighbor: raised z + deepened color so the cluster pops — but do NOT
+            // force its label. Matches llm_wiki 0.6.0 (only the hovered node forces a
+            // label; neighbours are highlighted, not labelled), so hovering a hub no
+            // longer floods the view with every neighbour's title. A neighbour that is
+            // itself a hub still shows its truncated label via the isHub branch above.
             res["zIndex"] = 1;
             // Mix toward black to deepen while preserving hue (light-theme pop)
             res["color"] = deepenColor((data["color"] as string | undefined) ?? DEFAULT_NODE_COLOR);
