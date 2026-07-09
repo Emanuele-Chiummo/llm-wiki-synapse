@@ -348,6 +348,17 @@ class Settings(BaseSettings):
     false drops). Set false to disable the guard. Env var: INGEST_LANGUAGE_GUARD_ENABLED.
     """
 
+    ingest_generation_source_char_budget: int = 24_000
+    """
+    D1 (ADR-0063 §9, nashsu/llm_wiki parity — ingest.ts:926-945/1000-1016) — max characters of the
+    ORIGINAL source document threaded into ``generate()`` alongside the Analysis. llm_wiki passes
+    analysis + the (budget-trimmed) full source to generation so pages are written from the source,
+    not only the lossy Analysis summary. Synapse mirrors this: ``build_generate_prompt`` emits a
+    ``# Source document`` section trimmed to this many characters (I7 — never blow the context
+    window). Set to 0 to DISABLE threading the source into generation (Analysis-only, the pre-D1
+    behaviour). Env var: INGEST_GENERATION_SOURCE_CHAR_BUDGET.
+    """
+
     review_sweep_max_items: int = 200
     """
     Max pending missing-page/duplicate items processed by the sweep Pass-1 rule pass per run

@@ -48,7 +48,7 @@ class _CustomAgentic(InferenceProvider):
         raise AssertionError("analyze() must NOT be called on the delegated route")
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise AssertionError("generate() must NOT be called on the delegated route")
 
@@ -93,7 +93,9 @@ class _CustomLocal(InferenceProvider):
             suggested_pages=[SuggestedPage(title="P", type=PageType.CONCEPT)],
         )
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         self.generate_calls += 1
         self._record_usage(Usage(input_tokens=20, output_tokens=10, total_cost_usd=0.0))
         return [

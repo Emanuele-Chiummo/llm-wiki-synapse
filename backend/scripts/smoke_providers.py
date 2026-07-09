@@ -197,7 +197,9 @@ def _make_mock_non_agentic_provider():  # type: ignore[return]
                 summary="Introduction to vector databases, covering Qdrant and bge-m3.",
             )
 
-        async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+        async def generate(
+            self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+        ) -> list[WikiPage]:
             self._record_usage(Usage(input_tokens=50, output_tokens=30, total_cost_usd=0.0))
             return [
                 WikiPage(
@@ -264,7 +266,7 @@ def _make_mock_agentic_provider():  # type: ignore[return]
             raise AssertionError("analyze must not be called on the delegated path")
 
         async def generate(
-            self, analysis: Analysis, retrieval_context: str
+            self, analysis: Analysis, retrieval_context: str, source_text: str = ""
         ) -> list[WikiPage]:  # pragma: no cover
             raise AssertionError("generate must not be called on the delegated path")
 

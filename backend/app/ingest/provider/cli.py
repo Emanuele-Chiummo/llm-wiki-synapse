@@ -246,7 +246,11 @@ class CliAgentProvider(InferenceProvider):
             "called for an agentic provider (route via capabilities(), ADR-0007 §3)."
         )
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
+        # D1: signature kept consistent with the ABC; the delegated route never calls generate()
+        # (the agent threads the source into its own loop via delegate_ingest — source_text unused).
         raise RuntimeError(
             "CliAgentProvider runs the delegated path (delegate_ingest); generate() is not "
             "called for an agentic provider (route via capabilities(), ADR-0007 §3)."

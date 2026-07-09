@@ -196,7 +196,11 @@ async def run_orchestrated_loop(
         if on_phase is not None:
             on_phase(f"generating ({i}/{max_iter})")
         try:
-            pages = await provider.generate(analysis, ctx)
+            # D1 (ADR-0063 §9): thread the run's source_text into generation so pages are written
+            # from the source, not only the lossy Analysis summary. retrieval_context stays "" for
+            # ingest (llm_wiki's "Source Context" IS the source text, not RAG); the builder
+            # budget-trims the source (I7).
+            pages = await provider.generate(analysis, ctx, source_text)
             if on_phase is not None:
                 on_phase("validating")
             errors = validate_pages(pages, origin_source)

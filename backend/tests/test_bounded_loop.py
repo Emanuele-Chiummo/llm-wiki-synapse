@@ -57,7 +57,9 @@ class _NonConverging(InferenceProvider):
         self._record_usage(Usage(input_tokens=5, output_tokens=5, total_cost_usd=0.0))
         return _analysis()
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         self.generate_calls += 1
         self._record_usage(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
         # Bypass WikiFrontmatter's own non-empty check to produce a page that FAILS the
@@ -134,7 +136,9 @@ class _ConvergingCostly(InferenceProvider):
         self._record_usage(Usage(input_tokens=100, output_tokens=50, total_cost_usd=0.60))
         return _analysis()
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         self._record_usage(Usage(input_tokens=200, output_tokens=100, total_cost_usd=0.50))
         return [
             WikiPage(
@@ -254,7 +258,7 @@ class _FailingProvider(InferenceProvider):
         raise TimeoutError("simulated provider timeout")
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise NotImplementedError
 
@@ -327,7 +331,7 @@ class _HttpStatusFailing(InferenceProvider):
         raise _http_status_error(self._status_code)
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise NotImplementedError
 
@@ -353,7 +357,9 @@ class _Converging(InferenceProvider):
         self._record_usage(Usage(input_tokens=5, output_tokens=5, total_cost_usd=0.0))
         return _analysis()
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         self.generate_calls += 1
         self._record_usage(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
         return [

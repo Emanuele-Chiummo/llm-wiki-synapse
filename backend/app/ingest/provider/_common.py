@@ -132,7 +132,32 @@ def build_analyze_prompt(source_text: str, vault_context: str) -> str:
     )
 
 
-def build_generate_prompt(analysis: Analysis, retrieval_context: str) -> str:
+def _trim_source_for_generation(source_text: str) -> str:
+    """
+    Budget-trim the ORIGINAL source document for the generation prompt (D1, ADR-0063 §9; I7).
+
+    nashsu/llm_wiki threads the (budget-trimmed) full source into generation (ingest.ts:926-945)
+    so pages are written from the source, not the lossy Analysis summary. We mirror that with a
+    bounded character budget read from ``ingest_generation_source_char_budget`` (DB override →
+    env default, config_overrides). A budget of 0 DISABLES the source section (Analysis-only, the
+    pre-D1 behaviour). Over-budget text is head-trimmed with an explicit truncation marker so the
+    model knows the tail was cut (never silently blows the context window — I7).
+    """
+    from app.config import settings
+    from app.config_overrides import effective_int
+
+    budget = effective_int(
+        "ingest_generation_source_char_budget",
+        settings.ingest_generation_source_char_budget,
+    )
+    if budget <= 0 or not source_text:
+        return ""
+    if len(source_text) <= budget:
+        return source_text
+    return source_text[:budget].rstrip() + "\n\n[... source truncated to fit generation budget ...]"
+
+
+def build_generate_prompt(analysis: Analysis, retrieval_context: str, source_text: str = "") -> str:
     # R7-10(b) / F3 language-aware ingest: inject a MANDATORY output-language directive derived
     # from the detected source language (analysis.language). Applies to BOTH orchestrated backends
     # (Ollama + API) because both call this builder — parity with the CLI provider's behaviour.
@@ -147,10 +172,18 @@ def build_generate_prompt(analysis: Analysis, retrieval_context: str) -> str:
             f"language: {lang} (ISO-639-1). Do NOT translate to English unless "
             f"{lang!r} is 'en'.\n\n"
         )
+    # D1 (ADR-0063 §9, nashsu/llm_wiki parity — ingest.ts:1014-1016): thread the ORIGINAL source
+    # document (budget-trimmed) into generation alongside the Analysis, so pages are written from
+    # the source text, not only the lossy Analysis summary. Provider-neutral (I6): both
+    # orchestrated backends call this builder, so the same source section reaches Ollama + API.
+    # Empty section when the caller passes no source or the budget is 0 (Analysis-only fallback).
+    trimmed_source = _trim_source_for_generation(source_text)
+    source_block = f"# Source document\n{trimmed_source}\n\n" if trimmed_source else ""
     return (
         f"{lang_directive}"
         f"# Analysis\n{analysis.model_dump_json(indent=2)}\n\n"
         f"# Retrieval context\n{retrieval_context}\n\n"
+        f"{source_block}"
         # Restate the restricted scaffold at the point of generation (nashsu/llm_wiki parity —
         # ingest.ts:2017-2024/2229) so the model's most recent instruction is the "what to
         # generate" restriction: exactly one source page + entity/concept pages, no

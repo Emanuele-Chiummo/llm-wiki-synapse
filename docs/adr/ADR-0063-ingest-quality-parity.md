@@ -149,6 +149,7 @@ aggregate-repair prohibition (`ingest.ts:2229`), all as **provider-neutral promp
 | `ingest_reingest_merge_enabled` | `true` | `INGEST_REINGEST_MERGE_ENABLED` |
 | `ingest_reingest_merge_timeout_seconds` | `60.0` | `INGEST_REINGEST_MERGE_TIMEOUT_SECONDS` |
 | `ingest_language_guard_enabled` | `true` | `INGEST_LANGUAGE_GUARD_ENABLED` |
+| `ingest_generation_source_char_budget` | `24000` | `INGEST_GENERATION_SOURCE_CHAR_BUDGET` (§9 / D1) |
 
 Setting `ingest_long_source_char_threshold=0` disables chunking; the two `*_enabled` flags disable
 their features (pre-parity behavior). The language guard also respects UI overrides
@@ -224,3 +225,83 @@ reserved follow-up.
    capability is retained, gated behind human review.
 10. Do **not** synthesize a duplicate source page — `_ensure_source_summary` returns the batch
     unchanged when a `source` page already cites the origin (dedupe / no regeneration churn, §2.4).
+
+## 9. Amendment — ingest parity audit (D1 / D3 / D4)
+
+A follow-up audit against `nashsu/llm_wiki` (`src/lib/ingest.ts`, `source-identity.ts`,
+`wiki-graph.ts`) found three deviations from the reference ingest. All three are fixed here; the
+deliberate Synapse **wikilink-enrichment pass** (`enrich_wikilinks`, ADR-0036) is **KEPT, not
+gated** — it is an intentional improvement over llm_wiki, per the "keep improvements" decision.
+
+### 9.1 D1 — generation must SEE the source text (real deficiency)
+
+llm_wiki passes *analysis + the (budget-trimmed) full source document* to the generation step
+(`ingest.ts:926-945` trim, `1000-1016` prompt). Synapse previously passed **only the `Analysis`
+JSON** to `generate()` (`retrieval_context` was hard-set to `""`), so pages were written from the
+lossy analysis summary, not the source.
+
+**Fix.** The `generate()` contract gains a third argument:
+`InferenceProvider.generate(analysis, retrieval_context, source_text="")` (ABC + `ApiProvider` +
+`OllamaProvider`; `CliAgentProvider.generate` keeps the signature but still raises — the CLI route
+delegates and threads the source into the agent's own loop, so `source_text` is unused there). The
+shared, provider-neutral `build_generate_prompt(analysis, retrieval_context, source_text)` emits a
+`# Source document\n<trimmed source>` section (mirrors `ingest.ts:1014-1016`). The orchestrated loop
+(`loop.py`) threads the run's `source_text` into every `generate()` attempt; `retrieval_context`
+stays `""` for ingest (llm_wiki's "Source Context" IS the source text, not RAG — F5 4-phase
+retrieval remains a chat-side concern).
+
+**Bound (I7).** The source is trimmed to `ingest_generation_source_char_budget` (default `24000`
+chars, env `INGEST_GENERATION_SOURCE_CHAR_BUDGET`) with an explicit truncation marker; `0` disables
+the section entirely (Analysis-only fallback). This keeps the generation context bounded regardless
+of source size. The signature default `""` keeps every existing caller/fake back-compatible (I6 —
+a backend is never branched on; the source travels via the builder string).
+
+### 9.2 D3 — synthesized source-summary page matches llm_wiki (deterministic)
+
+`_ensure_source_summary` previously produced title `Source summary: <stem>` → path
+`wiki/sources/source-summary-<stem>.md`. llm_wiki's fallback source page (`ingest.ts:1219-1244`,
+`source-identity.ts:6-24`) uses title `Source: <identity>`, body `# Source: <identity>\n\n<analysis
+text>`, and path `wiki/sources/<stem>.md`, where **identity** = the origin path minus the
+`raw/sources/` prefix (or the suffix after an embedded `/raw/sources/` marker; else the bare
+filename), and **stem** = the identity's filename stem.
+
+**Fix.** New helpers `_source_identity()` / `_source_identity_stem()` implement the identity rule.
+`_ensure_source_summary` now titles the synthesized page `Source: <identity>` with body
+`# Source: <identity>\n\n<analysis.summary | "(Analysis not available)">`. `write_wiki_page`
+special-cases `PageType.SOURCE`: the on-disk slug is derived from the origin's identity **stem**
+(so one raw file → one deterministic `wiki/sources/<stem>.md`) rather than the `Source: …` title
+slug. The dedupe guard and the F3 `sources[]` rule are unchanged. **Caveat:** a model-authored
+source page whose origin carries no `raw/sources/` identity (e.g. some MCP writes) falls back to the
+title-derived slug — documented, low-risk.
+
+### 9.3 D4 — index.md and log.md must be graph nodes (deterministic)
+
+llm_wiki makes a graph node for every `wiki/*.md` except `type:query` (`wiki-graph.ts:182-209`), so
+`index.md` / `log.md` / `overview.md` are all nodes. Synapse persisted only `overview.md` as a
+`Page` row; `index.md` / `log.md` were disk-only and thus **missing from the graph**.
+
+**Fix.** After the per-page writers maintain those files (`update_index` / `append_log` run inside
+`write_wiki_page`), the orchestrator calls `_index_index_and_log_files()` on **both** routes
+(orchestrated after `_update_overview`; delegated after its overview regen). It upserts a `Page` row
+for `wiki/index.md` (type `index`) and `wiki/log.md` (type `log`) mirroring `_index_overview_file`
+(upsert by `(vault_id, file_path)`, hash the exact file bytes, embed the frontmatter-stripped body).
+`LOG_TYPE = "log"` joins the existing `INDEX_TYPE`/`OVERVIEW_TYPE` **string constants** in
+`schemas.py` — they are **deliberately NOT `PageType` enum members** (so they can never be valid
+`suggested_pages` / `WikiPage` provider output) while still being valid `type:` values on their
+`Page` rows. The graph engine excludes only `raw/*` + `type:query`, so index/log/overview render as
+nodes; the just-shipped graph-1:1 change (query excluded) still holds. The helper is degrade-safe
+(missing file → no-op; a failure logs a WARNING and never fails the run — I7).
+
+**Known follow-up (out of this change's scope).** The `index.md` **catalogue** writer
+(`app/wiki/index.py`, `_EXCLUDED_TYPES = {"overview", "index"}`) does **not** exclude `"log"`, so on
+subsequent ingests the new log node would render a stray `## Logs — [[Synapse Ingest Log]]` section
+in `index.md`. The orchestrator's own `_CATALOGUE_EXCLUDED_TYPES` already excludes `"log"`; the
+one-line fix is to add `"log"` to `app/wiki/index.py._EXCLUDED_TYPES` to mirror it. This was left
+unapplied because `app/wiki/**` is outside this change's edit scope.
+
+### 9.4 KEPT — wikilink enrichment is intentional (not a deviation)
+
+The post-write `enrich_wikilinks` pass (`orchestrator.py`, ADR-0036) has **no llm_wiki equivalent**
+but is a deliberate Synapse improvement (restores the F4 "direct link ×3" graph signal by linking
+just-written pages). Per Emanuele's "keep improvements" choice it is **retained and NOT gated** — it
+stays fire-and-forget, never blocking the ingest critical path.

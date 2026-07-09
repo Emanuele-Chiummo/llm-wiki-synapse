@@ -64,7 +64,7 @@ class _CountingProvider(InferenceProvider):
         return _analysis(f"t{idx}", entity=f"e{idx}")
 
     async def generate(  # pragma: no cover - not used here
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise NotImplementedError
 

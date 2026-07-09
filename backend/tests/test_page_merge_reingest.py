@@ -45,7 +45,7 @@ class _MergeProvider(InferenceProvider):
         raise NotImplementedError
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise NotImplementedError
 

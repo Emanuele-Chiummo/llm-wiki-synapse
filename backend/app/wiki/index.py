@@ -41,7 +41,9 @@ _INDEX_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
 _TYPE_ORDER: list[str] = ["entity", "concept", "source", "synthesis", "comparison"]
 
 # Types used by auto-generated files — excluded from the user-content catalogue.
-_EXCLUDED_TYPES: frozenset[str] = frozenset({"overview", "index"})
+# "log" added with D4 (index/log became Page rows) so the log node never renders a
+# stray "## Logs — [[…]]" section in index.md (mirrors orchestrator _CATALOGUE_EXCLUDED_TYPES).
+_EXCLUDED_TYPES: frozenset[str] = frozenset({"overview", "index", "log"})
 
 _FRONTMATTER_HEADER = """\
 ---
