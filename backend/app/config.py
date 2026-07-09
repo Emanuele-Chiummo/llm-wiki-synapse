@@ -276,6 +276,78 @@ class Settings(BaseSettings):
     Env var: REVIEW_PROPOSE_TIMEOUT_SECONDS.
     """
 
+    # ── I1-parity: nashsu/llm_wiki ingest-quality features (ADR-0063) ────────────────
+    # Three orchestrated-route ingest capabilities ported from nashsu/llm_wiki. All three
+    # apply ONLY to the orchestrated (Local / API) route — the delegated/CLI route runs the
+    # agent's own loop and is a documented gap (ADR-0063 §7, mirroring ADR-0037 §7). Every knob
+    # routes its LLM work through the InferenceProvider abstraction (analyze / chat seams — I6),
+    # is bounded (max_iter / max_chunks / single-call+timeout — I7), and degrades safely.
+
+    ingest_long_source_char_threshold: int = 48_000
+    """
+    Feature 1 (ADR-0063 §3) — long-source chunked analysis trigger. When a source's text
+    exceeds this many characters, ``analyze()`` is run per bounded chunk and the resulting
+    Analysis objects are merged (union topics/entities/suggested_pages, concatenate summaries)
+    instead of sending the whole source in one ``analyze()`` call. At/under the threshold the
+    normal single-call path runs unchanged. Set to 0 to DISABLE chunking entirely (always
+    single-call). Routes every chunk through ``provider.analyze()`` (I6). Bounded by
+    ``ingest_long_source_max_chunks`` (I7). Env var: INGEST_LONG_SOURCE_CHAR_THRESHOLD.
+    """
+
+    ingest_long_source_chunk_chars: int = 24_000
+    """
+    Feature 1 (ADR-0063 §3) — target size (characters) of each semantic chunk in the long-source
+    analysis path. Chunks split on paragraph boundaries and pack greedily up to this size, with a
+    small overlap. Clamped to a 4k floor so a tiny value cannot explode the chunk count.
+    Env var: INGEST_LONG_SOURCE_CHUNK_CHARS.
+    """
+
+    ingest_long_source_max_chunks: int = 8
+    """
+    Feature 1 (ADR-0063 §3, I7) — HARD cap on the number of analyze() calls the long-source path
+    makes for one source. If splitting yields more chunks than this, only the first N are analyzed
+    and merged (bounded cost — never one analyze() call per paragraph of a huge document).
+    Env var: INGEST_LONG_SOURCE_MAX_CHUNKS.
+    """
+
+    ingest_long_source_checkpoint_enabled: bool = True
+    """
+    Feature 1 (ADR-0063 §3) — persist a best-effort on-disk checkpoint of completed per-chunk
+    analyses under ``vault_root/.synapse/ingest-progress/`` keyed by source hash, so a mid-way
+    failure (or a retry) resumes from the last completed chunk instead of re-analyzing from
+    scratch. All checkpoint I/O is swallowed on error — it NEVER blocks or fails ingest. Set
+    false to keep only the in-run accumulation. Env var: INGEST_LONG_SOURCE_CHECKPOINT_ENABLED.
+    """
+
+    ingest_reingest_merge_enabled: bool = True
+    """
+    Feature 2 (ADR-0063 §4) — LLM body-merge on re-ingest. When a generated page targets a
+    ``(vault_id, file_path)`` that ALREADY exists with meaningful prior body content, the writer
+    asks the provider (``chat()`` seam — I6) to merge the old + new bodies into one coherent body
+    rather than overwriting. Bounded to a single provider call wrapped by
+    ``ingest_reingest_merge_timeout_seconds`` (I7); on failure/timeout/sanity-reject it degrades
+    to the existing new-body-overwrite behavior. Set false to always overwrite (pre-parity
+    behavior). Env var: INGEST_REINGEST_MERGE_ENABLED.
+    """
+
+    ingest_reingest_merge_timeout_seconds: float = 60.0
+    """
+    Feature 2 (ADR-0063 §4, I7) — timeout (seconds) wrapping the single body-merge provider call.
+    On timeout the merge is abandoned and the writer keeps the new body (degrade-safe).
+    Env var: INGEST_REINGEST_MERGE_TIMEOUT_SECONDS.
+    """
+
+    ingest_language_guard_enabled: bool = True
+    """
+    Feature 3 (ADR-0063 §5) — wrong-language page drop. After ``generate()``, each produced page
+    whose detected body script-family does NOT match the resolved target output language
+    (``Analysis.language``) is DROPPED (logged) before validate/write. Deterministic, script-based
+    detection (no provider call). Exempt: index/overview/log (never in the generated batch) plus
+    ``source`` and ``entity`` pages (they legitimately cite cross-language proper nouns — matches
+    nashsu/llm_wiki). Only cross-script mismatches drop; intra-Latin differences never do (avoids
+    false drops). Set false to disable the guard. Env var: INGEST_LANGUAGE_GUARD_ENABLED.
+    """
+
     review_sweep_max_items: int = 200
     """
     Max pending missing-page/duplicate items processed by the sweep Pass-1 rule pass per run

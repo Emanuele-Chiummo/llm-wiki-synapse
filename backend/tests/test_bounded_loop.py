@@ -172,7 +172,7 @@ async def test_cost_anomaly_warning_and_flag(
 
     import uuid as _uuid_mod
 
-    async def fake_write_wiki_page(session, page, origin):  # type: ignore[no-untyped-def]
+    async def fake_write_wiki_page(session, page, origin, *, provider=None):  # type: ignore[no-untyped-def]
         # Return a stub with .id so record_written() doesn't fail (ADR-0046)
         class _PageStub:
             id = _uuid_mod.uuid4()

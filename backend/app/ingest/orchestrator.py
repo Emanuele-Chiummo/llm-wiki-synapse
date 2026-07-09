@@ -65,6 +65,7 @@ from app.ingest.schemas import (
     INDEX_TYPE,
     OVERVIEW_TYPE,
     Analysis,
+    PageType,
     WikiPage,
     type_subdir,
 )
@@ -607,12 +608,20 @@ async def run_ingest_pipeline(
             analysis = loop_result.analysis
             iterations = loop_result.iterations
             converged = loop_result.converged
-            # Guarantee a source-summary page (F3) even if the provider omitted it.
+            # ── Feature 3 (ADR-0063 §5): wrong-language page drop ────────────────────
+            # Drop pages whose body script-family contradicts the resolved target language BEFORE
+            # the source-summary guarantee (so a batch dropped to empty still gets a source
+            # summary) and before write. Deterministic, no provider call. Exempt source/entity.
+            pages = _drop_wrong_language_pages(pages, analysis)
+            # Guarantee a source-summary page (F3) even if the provider omitted it (or the
+            # language guard dropped everything).
             pages = _ensure_source_summary(pages, analysis, origin_source)
             ingest_queue.set_phase(run_id, "writing")
             written_pages: list[Page] = []
             for page in pages:
-                written_page = await write_wiki_page(None, page, origin_source)
+                # Feature 2 (ADR-0063 §4): pass the run's provider so write_wiki_page can LLM-merge
+                # old+new bodies when the target page already exists (bounded, degrade-safe, I6/I7).
+                written_page = await write_wiki_page(None, page, origin_source, provider=provider)
                 written_pages.append(written_page)
                 # ADR-0046: record the page_id so cancel can cascade-delete it
                 ingest_queue.record_written(run_id, written_page.id)
@@ -1305,6 +1314,8 @@ async def write_wiki_page(
     session: object | None,
     page: WikiPage,
     origin_source: str,
+    *,
+    provider: InferenceProvider | None = None,
 ) -> Page:
     """
     Serialize *page* to vault/wiki/<type-plural>/<slug>.md with valid frontmatter (I5) and
@@ -1365,6 +1376,28 @@ async def write_wiki_page(
     # this is the single shared write seam (ADR-0010 §2). All downstream uses (file bytes, hash,
     # Qdrant text, wikilink parse) use `body` so nothing desyncs.
     body = _strip_leading_frontmatter(page.content)
+    # ── Feature 2 (ADR-0063 §4): LLM body-merge on re-ingest ─────────────────────
+    # When this page targets an EXISTING file with meaningful prior body content, merge old+new
+    # bodies via the provider (chat seam, I6) instead of overwriting — so a second source enriching
+    # an existing entity/concept page does not silently lose the first source's contribution.
+    # Bounded to a single timed provider call; degrade-safe (keeps the new body on any failure).
+    # Only the orchestrated write site passes `provider`; meta/catalogue + MCP/CLI callers pass
+    # None → no merge (the delegated route runs its own agent loop — ADR-0063 §7 documented gap).
+    if provider is not None and abs_path.exists():
+        from app.ingest.page_merge import maybe_merge_page_body
+        from app.ops.enrich_wikilinks import _split_frontmatter
+
+        try:
+            _existing_body = _split_frontmatter(abs_path.read_text(encoding="utf-8"))[1]
+        except OSError:
+            _existing_body = ""
+        body = await maybe_merge_page_body(
+            provider,
+            _existing_body,
+            body,
+            title=page.title,
+            origin_source=origin_source,
+        )
     fm_dump = page.frontmatter.model_dump()
     fm_dump["sources"] = sources
     fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
@@ -1736,6 +1769,57 @@ def _ensure_source_summary(
     )
     fm = WikiFrontmatter(type=PageType.SOURCE, title=title, sources=[origin_source], lang=lang)
     return [WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)]
+
+
+# Page types EXEMPT from the wrong-language drop guard (Feature 3, ADR-0063 §5). `source` is the
+# F3 source-summary (traceability — must never be dropped); `entity` pages legitimately quote
+# cross-language proper nouns which confuse naive script detection (matches nashsu/llm_wiki, which
+# checks only authoritative /concepts/-style content). index/overview/log are never in `pages`.
+_LANGUAGE_GUARD_EXEMPT_TYPES: frozenset[PageType] = frozenset({PageType.SOURCE, PageType.ENTITY})
+
+
+def _drop_wrong_language_pages(pages: list[WikiPage], analysis: Analysis | None) -> list[WikiPage]:
+    """
+    Feature 3 (ADR-0063 §5): drop generated pages whose body script-family contradicts the
+    resolved target output language (``Analysis.language``), before validate/write.
+
+    Deterministic, script-based detection (no provider call, I7-friendly). Only cross-script
+    mismatches drop; intra-Latin differences never do (avoids false drops). Exempt: `source` and
+    `entity` pages (see ``_LANGUAGE_GUARD_EXEMPT_TYPES``). Disabled config, no analysis, or an
+    empty target language → returns *pages* unchanged. NEVER raises into ingest (degrade-safe:
+    on any detection error the page is kept).
+    """
+    from app.config_overrides import effective_bool
+
+    if not effective_bool("ingest_language_guard_enabled", settings.ingest_language_guard_enabled):
+        return pages
+    target = (analysis.language if analysis is not None else "").strip()
+    if not target or not pages:
+        return pages
+
+    from app.ingest.language import body_matches_target_language
+
+    kept: list[WikiPage] = []
+    for page in pages:
+        if page.type in _LANGUAGE_GUARD_EXEMPT_TYPES:
+            kept.append(page)
+            continue
+        try:
+            ok = body_matches_target_language(page.content, target)
+        except Exception as exc:  # noqa: BLE001 — degrade-safe: keep the page on any error
+            logger.debug("language guard: detection error for %r (keeping): %s", page.title, exc)
+            kept.append(page)
+            continue
+        if ok:
+            kept.append(page)
+        else:
+            logger.info(
+                "language guard: DROPPED page %r (type=%s) — body language != target %r (F3/§5)",
+                page.title,
+                page.type.value,
+                target,
+            )
+    return kept
 
 
 OVERVIEW_REL_PATH = "wiki/overview.md"
