@@ -78,16 +78,43 @@ ANALYZE_SYSTEM = (
     "keys: topics (list[str], >=1), entities (list[str]), language (ISO-639-1 string), "
     "suggested_pages (list of {title, type, rationale?} where type is one of "
     "entity|concept|source|synthesis|comparison, >=1 item), summary (short string). "
+    "Restrict suggested_pages to entity, concept, or source types, and only when the source "
+    "actually supports them; never invent synthesis, comparison, goals, habits, journal "
+    "entries, or other pages that aren't in the source (nashsu/llm_wiki parity). "
     "Detect the source language and report it in 'language'. Return no prose, only JSON."
+)
+
+# Provider-neutral generation scaffold (nashsu/llm_wiki parity — ingest.ts:2017-2024 "What to
+# generate" + ingest.ts:2229 synthesis/comparison prohibition). Embedded in GENERATE_SYSTEM for the
+# orchestrated backends (Ollama, API) AND appended to the CLI agent's system_prompt by the
+# orchestrator, so the SAME restriction reaches all three backends (I6 — the policy is prompt text,
+# never provider-branching code). This is the fix for the page-type distribution divergence:
+# without it the model saw 5 flat co-equal types and over-produced synthesis/comparison pages.
+GENERATION_SCAFFOLD = (
+    "## What to generate\n"
+    "Generate ONLY the following pages:\n"
+    "1. EXACTLY ONE source-summary page (type=source) for the origin source. This page ALWAYS "
+    "exists — never omit it — and its frontmatter sources[] MUST include the origin source path.\n"
+    "2. Entity pages (type=entity, or a schema-defined typed page) for the key named things "
+    "(people, systems, organizations, products) identified in the analysis — only when the "
+    "source actually describes them.\n"
+    "3. Concept pages (type=concept, or a schema-defined typed page) for the key ideas, methods, "
+    "techniques, and abstractions in the source — only when the source actually supports them.\n"
+    "The aggregate files (index.md, log.md, overview.md) are maintained separately by the "
+    "pipeline — do NOT emit them here.\n"
+    "Do NOT create synthesis or comparison pages during ingest — those are created only later "
+    "via the review queue when a human requests them. Do NOT invent pages the source does not "
+    "support."
 )
 
 GENERATE_SYSTEM = (
     "You are the generation step of a self-organizing wiki ingest pipeline. "
     "Given the analysis and retrieval context, return ONLY a JSON object with key 'pages': "
     "a list of wiki pages. Each page is "
-    "{title: str, type: entity|concept|source|synthesis|comparison, content: markdown body, "
+    "{title: str, type: entity|concept|source, content: markdown body, "
     "frontmatter: {type, title, sources: non-empty list[str] including the origin source "
     "path, lang: ISO-639-1, tags: 3-6 concise lowercase reusable tags}}. "
+    f"\n\n{GENERATION_SCAFFOLD}\n\n"
     "Every page MUST cite its sources (traceability) and assign 3-6 concise, lowercase, "
     "reusable frontmatter 'tags' for navigation. "
     "'content' is the markdown body WITHOUT the frontmatter block. Return no prose, only JSON."
@@ -124,6 +151,11 @@ def build_generate_prompt(analysis: Analysis, retrieval_context: str) -> str:
         f"{lang_directive}"
         f"# Analysis\n{analysis.model_dump_json(indent=2)}\n\n"
         f"# Retrieval context\n{retrieval_context}\n\n"
+        # Restate the restricted scaffold at the point of generation (nashsu/llm_wiki parity —
+        # ingest.ts:2017-2024/2229) so the model's most recent instruction is the "what to
+        # generate" restriction: exactly one source page + entity/concept pages, no
+        # synthesis/comparison (those are review-only).
+        f"{GENERATION_SCAFFOLD}\n\n"
         "Return the pages JSON now."
     )
 

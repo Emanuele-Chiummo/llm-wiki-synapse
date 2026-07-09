@@ -501,11 +501,25 @@ async def run_ingest_pipeline(
             ingest_queue.set_route(run_id, route)
             # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
             ingest_queue.set_phase(run_id, "agent running")
+            # nashsu/llm_wiki page-type parity: append the SAME restricted generation scaffold the
+            # orchestrated backends get via GENERATE_SYSTEM to the CLI agent's system_prompt, so the
+            # delegated route also produces exactly one source page + entity/concept pages and
+            # avoids auto-generating synthesis/comparison pages (review-only). This is a PROMPT
+            # instruction, not a deterministic post-write guarantee — see the CLI-route gap in
+            # ADR-0063 §7 (_ensure_source_summary is NOT wired into the delegated write path; I6
+            # forbids post-processing the agent's own MCP writes here).
+            from app.ingest.provider._common import GENERATION_SCAFFOLD
+
+            _delegated_system_prompt = (
+                f"{ingest_context}\n\n{GENERATION_SCAFFOLD}"
+                if ingest_context
+                else GENERATION_SCAFFOLD
+            )
             converged, delegated_pages_written, delegated_page_ids = await _delegate_ingest(
                 provider=provider,
                 source_text=source_text,
                 origin_source=origin_source,
-                system_prompt=ingest_context,
+                system_prompt=_delegated_system_prompt,
             )
             # ── ADR-0046 §3: deferred cancel check for delegated route (I6) ──────────
             # We cannot inject a cancel boundary into the provider's own agent loop (I6
@@ -1754,21 +1768,39 @@ def _ensure_source_summary(
     pages: list[WikiPage], analysis: Analysis | None, origin_source: str
 ) -> list[WikiPage]:
     """
-    Guarantee at least one page traceable to the source (F3). If the provider produced no
-    pages (e.g. non-convergence), synthesize a minimal source-summary page from the analysis
-    so the source is never silently dropped.
+    Guarantee EXACTLY one source-summary page traceable to *origin_source* (F3, nashsu/llm_wiki
+    parity — ingest.ts:1209-1244 ``hasSourceSummary`` fallback).
+
+    Semantics changed for llm_wiki page-type parity: previously a source page was synthesized
+    ONLY when the batch was empty, which — combined with the flat 5-type generation prompt —
+    left most raw files without a `source` page and skewed the distribution. Now we ALWAYS
+    ensure a `source`-type page whose sources[] includes *origin_source* exists in the batch:
+
+      • If the model already produced one (dedupe guard) → return *pages* unchanged (no churn,
+        no duplicate).
+      • Otherwise synthesize a minimal source page from the analysis (title/summary) and APPEND
+        it — even when the model produced entity/concept pages but omitted the source summary.
+
+    This restores ~1 source page per raw file (the llm_wiki 132-source distribution). Existing
+    pages are preserved and stay first in the list, so callers that read ``pages[0]`` (review
+    Create path) keep their model-produced page.
     """
-    if pages:
-        return pages
     from app.ingest.schemas import PageType, WikiFrontmatter
+
+    # Dedupe / churn guard (llm_wiki hasSourceSummary): a source page already traceable to the
+    # origin exists → leave the batch untouched.
+    for page in pages:
+        if page.type is PageType.SOURCE and origin_source in (page.frontmatter.sources or []):
+            return pages
 
     lang = analysis.language if analysis is not None else "en"
     title = f"Source summary: {Path(origin_source).stem}"
     summary = (analysis.summary if analysis and analysis.summary else None) or (
-        "Auto-generated source summary (provider produced no pages)."
+        "Auto-generated source summary (provider produced no source page)."
     )
     fm = WikiFrontmatter(type=PageType.SOURCE, title=title, sources=[origin_source], lang=lang)
-    return [WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)]
+    source_page = WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)
+    return [*pages, source_page]
 
 
 # Page types EXEMPT from the wrong-language drop guard (Feature 3, ADR-0063 §5). `source` is the

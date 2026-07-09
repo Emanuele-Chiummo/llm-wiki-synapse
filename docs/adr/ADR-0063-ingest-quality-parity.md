@@ -100,6 +100,44 @@ plus `source` and `entity` pages (F3 traceability + entities legitimately quote 
 proper nouns). If the guard empties the batch, `_ensure_source_summary` still guarantees the F3
 source-summary page. Degrade-safe: any detection error keeps the page.
 
+### 2.4 Feature 4 — restricted generation scaffold + mandatory source page (page-type parity)
+
+**Context.** From identical raw sources + identical model (haiku 4.5), Synapse produced a very
+different page-type distribution than `nashsu/llm_wiki` 0.6.0 — Synapse: Synthesis 78 / Comparison
+55 / Source 76; llm_wiki: Synthesis 4 / Comparison 5 / Source 132. Root cause: Synapse's generation
+prompt offered **5 flat, co-equal page types** (`entity|concept|source|synthesis|comparison`) with
+no "what to generate" scaffold and no guaranteed per-source page, so the model over-produced
+synthesis/comparison pages and frequently omitted the source-summary page. The knowledge graph then
+diverged even though graph *generation* had been made 1:1.
+
+**Decision.** Mirror `nashsu/llm_wiki`'s `buildGenerationPrompt` (`ingest.ts:2017-2024`) and its
+aggregate-repair prohibition (`ingest.ts:2229`), all as **provider-neutral prompt text** (I6):
+
+1. **Restricted "What to generate" scaffold.** `GENERATE_SYSTEM` (and a restatement in
+   `build_generate_prompt`) now instructs the model to generate ONLY — (1) **exactly one**
+   source-summary page (`type=source`) whose `sources[]` includes the origin path, (2) entity (or
+   schema-typed) pages for key named things, (3) concept (or schema-typed) pages for key ideas /
+   methods. The JSON output contract (`{pages:[...]}`) and all frontmatter/sources rules (F3
+   traceability) are unchanged. The scaffold lives in the reusable `GENERATION_SCAFFOLD` constant in
+   `provider/_common.py`.
+2. **Synthesis/comparison are review-only.** Both `GENERATE_SYSTEM` and `ANALYZE_SYSTEM` now
+   explicitly prohibit auto-generating (or suggesting) synthesis/comparison pages at ingest:
+   *"those are created only later via the review queue when a human requests them."* The
+   `ANALYZE_SYSTEM` conservatism clause (mirroring `ingest.ts:1961`) additionally forbids inventing
+   goals/habits/journal entries "that aren't in the source." **The `PageType` enum is unchanged** —
+   `synthesis`/`comparison` remain fully **valid, creatable** types via the review path (F3
+   auto-synthesis capability is *retained*, intentionally **gated behind human review** for llm_wiki
+   parity, not removed). `parse_pages` still validates against the full enum, so a page of any valid
+   type still parses; the change is purely instructional (what the model is *told* to produce).
+3. **Mandatory source-page guarantee.** `orchestrator._ensure_source_summary` changed from "only
+   synthesize a source page when `pages` is empty" to "**ALWAYS** ensure exactly one `source`-type
+   page whose `sources[]` contains the origin exists in the batch" — porting llm_wiki's
+   `hasSourceSummary` fallback (`ingest.ts:1209-1244`). If the model already produced one, the batch
+   is returned unchanged (dedupe / no regeneration churn); otherwise a minimal source page is
+   synthesized from the analysis and **appended** (existing entity/concept pages preserved and kept
+   first, so `pages[0]` readers — the review Create path — are unaffected). This restores ~1 source
+   page per raw file (the llm_wiki 132-source shape).
+
 ## 3. Config knobs (all env-overridable; `app/config.py`)
 
 | Knob | Default | Env var |
@@ -147,12 +185,23 @@ No `isinstance` / `provider_type` / class-name branch is introduced anywhere.
 
 ## 7. Recorded gap — CLI/delegated route
 
-All three features act on the **orchestrated** (Local / API) route. The **delegated/CLI** route
+Features 1–3 act on the **orchestrated** (Local / API) route. The **delegated/CLI** route
 (`CliAgentProvider`, `supports_agentic_loop=True`) runs the agent's own loop and writes pages via
 MCP `write_page` → `write_wiki_page(provider=None)`; it therefore does **not** chunk long sources,
 does **not** LLM-merge on re-ingest, and is **not** language-guarded here. This matches ADR-0037 §7
 and ADR-0036's treatment of the enrichment pass: the CLI agent is trusted to manage its own
 analysis/merge/language within its loop. Closing this gap (e.g. an MCP-side merge hook) is a
+reserved follow-up.
+
+**Feature 4 — partial CLI coverage.** The **generation scaffold + synthesis/comparison prohibition**
+(§2.4 items 1–2) DO reach the CLI route: the orchestrator appends the shared `GENERATION_SCAFFOLD`
+constant to the CLI agent's `system_prompt`, so the delegated agent gets the same "what to generate"
+restriction as the orchestrated backends. However the **mandatory source-page guarantee** (§2.4
+item 3) is a **deterministic post-generation step (`_ensure_source_summary`) that is NOT wired into
+the delegated write path** — the CLI agent writes directly through MCP `write_page` and I6 forbids
+the orchestrator from post-processing the agent's own writes. On the CLI route the source page is
+therefore guaranteed **by prompt instruction only**, not deterministically. Closing this gap (e.g. an
+MCP-side `hasSourceSummary` sweep after the delegated loop, mirroring `ingest.ts:1209-1244`) is a
 reserved follow-up.
 
 ## 8. Do-NOT list
@@ -169,3 +218,9 @@ reserved follow-up.
 7. Do **not** hardcode a backend or branch on `isinstance` / `provider_type` (I6) — use the
    `analyze` / `chat` seams.
 8. Do **not** let checkpoint I/O block or fail ingest — all checkpoint reads/writes are swallowed.
+9. Do **not** remove `synthesis`/`comparison` from the `PageType` enum or block them in
+   `parse_pages`/`write_wiki_page` (§2.4) — they stay valid, creatable types via the review path.
+   The parity change is **instruction-only**: the ingest prompts stop *auto-generating* them; the
+   capability is retained, gated behind human review.
+10. Do **not** synthesize a duplicate source page — `_ensure_source_summary` returns the batch
+    unchanged when a `source` page already cites the origin (dedupe / no regeneration churn, §2.4).
