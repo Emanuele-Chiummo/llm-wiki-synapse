@@ -1,35 +1,40 @@
 /**
  * ConvertPanel.test.tsx — Vitest unit tests for the Marker PDF conversion panel [F12][R11-1][R12-6][A1].
  *
+ * Sprint v1.4 W0 — async marker contract:
+ *   POST /ingest/convert-marker → 202 (batch queued); polled via GET /ingest/convert-marker/status.
+ *
  * Covers:
  *   AC-R11-1-5: "Convert & ingest" button disabled when marker-health returns 503, enabled when 200.
- *   AC-R11-1-6: per-file rows render pending/converting/done/failed; failed file shows 502 detail.
+ *   AC-R11-1-6: per-file rows from polling status; failed file shows detail string.
+ *   Async flow: startConvert (202) → getConvertStatus poll → progress bar + per-file rows.
+ *   Conversion history: appended to history list after batch completes; "Apri" button present.
+ *   Drag-drop: onDragEnter+onDragOver prevent → drop accepted.
  *   R12-6: "Avvia Marker" button — hidden in web build; visible in Tauri+offline; unset command
  *           reveals config field; start click calls shell plugin and begins health polling;
  *           success flips the badge to online.
  *   Client-side rejection of > 10 files and non-.pdf files.
+ *   I3: ephemeral progress in component-local state only; graphStore used ONLY for navigation.
  *
  * Mock strategy:
- *   - vi.mock("../api/convertClient") — stubs getMarkerHealth and convertFiles.
+ *   - vi.mock("../api/convertClient") — stubs getMarkerHealth, startConvert, getConvertStatus.
  *   - vi.mock("../api/base") — stubs isTauri() to control desktop/web context.
- *   - vi.mock("@tauri-apps/plugin-shell") — stubs Command.create + execute (static literal import
- *     required: Vite silently drops dynamic string-variable imports — see repo lesson v0.8.1 hotfix).
+ *   - vi.mock("@tauri-apps/plugin-shell") — stubs Command.create + execute.
+ *   - graphStore NOT mocked — real store used (setActiveSection is a side-effect, not asserted here).
  *   - No real backend involved.
- *   - apiFetch/authHeaders never called (mocked at convertClient level).
- *
- * INVARIANT I3: ConvertPanel uses component-local state only — no Zustand dispatch
- * for ephemeral progress states (verified by absence of Zustand store calls).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { ConvertPanel } from "../components/convert/ConvertPanel";
-import type { MarkerHealthResponse, ConvertFileResult } from "../api/convertClient";
-import { MarkerError } from "../api/convertClient";
+import type {
+  MarkerHealthResponse,
+  ConvertBatchResponse,
+  ConvertStatusResponse,
+} from "../api/convertClient";
+import { ConvertError } from "../api/convertClient";
 
-// ─── Fake localStorage (Node.js 26 / jsdom compat — same pattern as auth-base.test.ts) ──
-// localStorage is not automatically available in Node 26 without --localstorage-file.
-// vi.stubGlobal makes it available for the entire test file.
+// ─── Fake localStorage (Node.js 26 / jsdom compat) ────────────────────────────
 
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
@@ -48,7 +53,6 @@ vi.stubGlobal("localStorage", fakeLocalStorage);
 
 // ─── Module mocks ──────────────────────────────────────────────────────────────
 
-// Mock i18n: returns the last segment of the translation key
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, _params?: Record<string, unknown>) => {
@@ -58,13 +62,14 @@ vi.mock("react-i18next", () => ({
   }),
 }));
 
-// Mock the convert API client — we control health and convert responses per test
+// Mock the convert API client — async contract: startConvert + getConvertStatus
 vi.mock("../api/convertClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/convertClient")>();
   return {
     ...actual,
     getMarkerHealth: vi.fn(),
-    convertFiles: vi.fn(),
+    startConvert: vi.fn(),
+    getConvertStatus: vi.fn(),
   };
 });
 
@@ -73,13 +78,11 @@ vi.mock("../api/base", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/base")>();
   return {
     ...actual,
-    isTauri: vi.fn(() => false), // default: web build
+    isTauri: vi.fn(() => false),
   };
 });
 
-// Mock @tauri-apps/plugin-shell — static string literal import required so Vite
-// bundles the module reference (see repo lesson: dynamic variable strings are silently
-// dropped by the bundler — v0.8.1 hotfix). [R12-6]
+// Mock @tauri-apps/plugin-shell [R12-6]
 const mockExecute = vi.fn().mockResolvedValue(undefined);
 const mockCreate = vi.fn(() => ({ execute: mockExecute }));
 
@@ -89,15 +92,15 @@ vi.mock("@tauri-apps/plugin-shell", () => ({
   },
 }));
 
-// Import the mocked functions after vi.mock
-import { getMarkerHealth, convertFiles } from "../api/convertClient";
+import { getMarkerHealth, startConvert, getConvertStatus } from "../api/convertClient";
 import { isTauri } from "../api/base";
 
 const mockGetMarkerHealth = vi.mocked(getMarkerHealth);
-const mockConvertFiles = vi.mocked(convertFiles);
+const mockStartConvert = vi.mocked(startConvert);
+const mockGetConvertStatus = vi.mocked(getConvertStatus);
 const mockIsTauri = vi.mocked(isTauri);
 
-// Clear the fake localStorage before every test so no command leaks between suites
+// Clear fake localStorage before every test suite
 beforeAll(() => {
   fakeLocalStorage.clear();
 });
@@ -112,10 +115,55 @@ function makeTxt(name = "test.txt"): File {
   return new File(["text content"], name, { type: "text/plain" });
 }
 
+function makeBatchResponse(files: string[]): ConvertBatchResponse {
+  return {
+    batch_id: "batch-1",
+    queued: files.map((f) => ({
+      file: f,
+      safe_stem: f.replace(".pdf", ""),
+      pdf_path: `vault/raw/sources/${f}`,
+    })),
+    total: files.length,
+  };
+}
+
+function makeStatusDone(files: Array<{ file: string; status: "ok" | "failed"; detail?: string }>): ConvertStatusResponse {
+  return {
+    batch_id: "batch-1",
+    running: false,
+    total: files.length,
+    done: files.filter((f) => f.status === "ok").length,
+    eta_seconds: null,
+    files: files.map((f) => ({
+      file: f.file,
+      safe_stem: f.file.replace(".pdf", ""),
+      status: f.status,
+      detail: f.detail ?? null,
+      companion_path: f.status === "ok" ? `vault/raw/sources/${f.file.replace(".pdf", ".md")}` : null,
+    })),
+  };
+}
+
+function makeStatusRunning(files: string[], done = 0): ConvertStatusResponse {
+  return {
+    batch_id: "batch-1",
+    running: true,
+    total: files.length,
+    done,
+    eta_seconds: 10,
+    files: files.map((f, i) => ({
+      file: f,
+      safe_stem: f.replace(".pdf", ""),
+      status: i < done ? "ok" : "converting",
+      detail: null,
+      companion_path: i < done ? `vault/raw/sources/${f.replace(".pdf", ".md")}` : null,
+    })),
+  };
+}
+
 /** Render ConvertPanel and wait for the initial health check to resolve */
 async function renderPanel() {
   const result = render(<ConvertPanel />);
-  // Wait for health check to finish (the loading spinner disappears)
   await waitFor(() => {
     expect(screen.queryByTestId("marker-status-badge")).not.toBeNull();
   });
@@ -140,7 +188,7 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
     vi.resetAllMocks();
   });
 
-  it("disables the Convert button when marker-health returns offline (503 equivalent)", async () => {
+  it("disables the Convert button when marker-health returns offline", async () => {
     mockGetMarkerHealth.mockResolvedValue({
       status: "offline",
       detail: "Connection refused",
@@ -159,29 +207,25 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
     } satisfies MarkerHealthResponse);
 
     await renderPanel();
-
-    // Add a file via drop
     dropFiles([makePdf("a.pdf")]);
 
     const btn = screen.getByTestId("convert-submit-btn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
-  it("enables the Convert button when marker-health returns ok (200 equivalent)", async () => {
+  it("enables the Convert button when marker-health returns ok AND files present", async () => {
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
 
     await renderPanel();
 
-    // The button is still disabled when no files are present (no files yet)
+    // No files yet — still disabled
     const btn = screen.getByTestId("convert-submit-btn") as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
 
-    // Add a file — now it should become enabled
     dropFiles([makePdf("b.pdf")]);
 
     await waitFor(() => {
-      const b = screen.getByTestId("convert-submit-btn") as HTMLButtonElement;
-      expect(b.disabled).toBe(false);
+      expect((screen.getByTestId("convert-submit-btn") as HTMLButtonElement).disabled).toBe(false);
     });
   });
 
@@ -193,11 +237,8 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
 
     await renderPanel();
 
-    // Wait for the async health probe to resolve — the badge shows a loading state
-    // first, then the offline text. Asserting synchronously flakes in slower CI.
     await waitFor(() => {
       const badge = screen.getByTestId("marker-status-badge");
-      // i18n mock returns last key segment: "markerOfflineBadge"
       expect(badge.textContent).toContain("markerOfflineBadge");
     });
   });
@@ -214,16 +255,18 @@ describe("ConvertPanel — Marker health gate (AC-R11-1-5)", () => {
   });
 });
 
-// ─── AC-R11-1-6: per-file status rows ─────────────────────────────────────────
+// ─── AC-R11-1-6: async conversion flow + per-file status rows ─────────────────
 
-describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
+describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-1-6)", () => {
   beforeEach(() => {
     mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
+    fakeLocalStorage.removeItem("synapse.convertHistory");
   });
 
   afterEach(() => {
     vi.resetAllMocks();
+    fakeLocalStorage.removeItem("synapse.convertHistory");
   });
 
   it("renders a pending row after dropping a PDF", async () => {
@@ -237,29 +280,30 @@ describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
     });
   });
 
-  it("renders done rows after successful conversion", async () => {
-    const results: ConvertFileResult[] = [
-      { filename: "doc.pdf", output_path: "vault/raw/sources/doc.extracted.md", status: "ok" },
-    ];
-    mockConvertFiles.mockResolvedValue(results);
+  it("renders ok rows after successful async conversion (poll returns running=false)", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["doc.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "doc.pdf", status: "ok" }]),
+    );
 
     await renderPanel();
     dropFiles([makePdf("doc.pdf")]);
 
-    // Click convert
     const btn = screen.getByTestId("convert-submit-btn");
     await act(async () => {
       fireEvent.click(btn);
     });
 
+    // Wait for the immediate poll to fire and resolve
     await waitFor(() => {
-      expect(screen.getByTestId("convert-file-row-done")).not.toBeNull();
-    });
+      expect(screen.queryByTestId("convert-file-row-ok")).not.toBeNull();
+    }, { timeout: 3000 });
   });
 
-  it("renders failed rows with 502 detail string on Marker error (AC-R11-1-6)", async () => {
-    mockConvertFiles.mockRejectedValue(
-      new MarkerError(502, "Marker service returned 503: Service Unavailable"),
+  it("renders failed rows with detail string on conversion error", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["report.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "report.pdf", status: "failed", detail: "Marker service returned 503" }]),
     );
 
     await renderPanel();
@@ -271,11 +315,66 @@ describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
     });
 
     await waitFor(() => {
-      const failedRow = screen.getByTestId("convert-file-row-failed");
+      const failedRow = screen.queryByTestId("convert-file-row-failed");
       expect(failedRow).not.toBeNull();
-      const errorEl = screen.getByTestId("convert-file-error");
-      expect(errorEl.textContent).toContain("Marker service returned 503");
+      const errorEl = screen.queryByTestId("convert-file-error");
+      expect(errorEl).not.toBeNull();
+      expect(errorEl?.textContent).toContain("Marker service returned 503");
+    }, { timeout: 3000 });
+  });
+
+  it("shows progress bar while batch is running", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["a.pdf", "b.pdf"]));
+    // First poll: running; second poll: done
+    mockGetConvertStatus
+      .mockResolvedValueOnce(makeStatusRunning(["a.pdf", "b.pdf"], 1))
+      .mockResolvedValue(makeStatusDone([
+        { file: "a.pdf", status: "ok" },
+        { file: "b.pdf", status: "ok" },
+      ]));
+
+    await renderPanel();
+    dropFiles([makePdf("a.pdf"), makePdf("b.pdf")]);
+
+    const btn = screen.getByTestId("convert-submit-btn");
+    await act(async () => {
+      fireEvent.click(btn);
     });
+
+    // Progress section should be visible during conversion (converting=true)
+    // OR immediately after (done=true). Either way, the progress bar should appear.
+    await waitFor(() => {
+      const progress = screen.queryByTestId("convert-progress");
+      expect(progress).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  it("shows ETA label when eta_seconds is present", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["a.pdf"]));
+    // First poll: running with ETA; second: done
+    mockGetConvertStatus
+      .mockResolvedValueOnce({
+        batch_id: "b1",
+        running: true,
+        total: 1,
+        done: 0,
+        eta_seconds: 42,
+        files: [{ file: "a.pdf", safe_stem: "a", status: "converting", detail: null, companion_path: null }],
+      })
+      .mockResolvedValue(makeStatusDone([{ file: "a.pdf", status: "ok" }]));
+
+    await renderPanel();
+    dropFiles([makePdf("a.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    // ETA label should appear during the running phase
+    await waitFor(() => {
+      const eta = screen.queryByTestId("convert-eta-label");
+      expect(eta).not.toBeNull();
+    }, { timeout: 3000 });
   });
 
   it("renders multiple file rows when multiple PDFs are dropped", async () => {
@@ -290,9 +389,10 @@ describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
   });
 
   it("shows success hint after all files convert successfully", async () => {
-    mockConvertFiles.mockResolvedValue([
-      { filename: "ok.pdf", output_path: "vault/raw/sources/ok.extracted.md", status: "ok" },
-    ]);
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["ok.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "ok.pdf", status: "ok" }]),
+    );
 
     await renderPanel();
     dropFiles([makePdf("ok.pdf")]);
@@ -302,7 +402,201 @@ describe("ConvertPanel — per-file status rows (AC-R11-1-6)", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("convert-success-hint")).not.toBeNull();
+      expect(screen.queryByTestId("convert-success-hint")).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  it("shows submit error on 409 (batch already running)", async () => {
+    mockStartConvert.mockRejectedValue(new ConvertError(409, "batch already running"));
+
+    await renderPanel();
+    dropFiles([makePdf("doc.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    await waitFor(() => {
+      const errEl = screen.queryByTestId("convert-submit-error");
+      expect(errEl).not.toBeNull();
+      // i18n mock returns last key segment "error409"
+      expect(errEl?.textContent).toContain("error409");
+    });
+  });
+});
+
+// ─── Conversion history ────────────────────────────────────────────────────────
+
+describe("ConvertPanel — conversion history", () => {
+  beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
+    mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
+    fakeLocalStorage.removeItem("synapse.convertHistory");
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+    fakeLocalStorage.removeItem("synapse.convertHistory");
+  });
+
+  it("shows no history section when localStorage is empty", async () => {
+    await renderPanel();
+    expect(screen.queryByTestId("convert-history")).toBeNull();
+  });
+
+  it("adds an ok entry to history after successful conversion", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["hist.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "hist.pdf", status: "ok" }]),
+    );
+
+    await renderPanel();
+    dropFiles([makePdf("hist.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("convert-history-entry-ok")).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  it("adds a failed entry to history after failed conversion", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["fail.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "fail.pdf", status: "failed", detail: "parse error" }]),
+    );
+
+    await renderPanel();
+    dropFiles([makePdf("fail.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("convert-history-entry-failed")).not.toBeNull();
+    }, { timeout: 3000 });
+  });
+
+  it("persists history to localStorage after conversion", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["persist.pdf"]));
+    mockGetConvertStatus.mockResolvedValue(
+      makeStatusDone([{ file: "persist.pdf", status: "ok" }]),
+    );
+
+    await renderPanel();
+    dropFiles([makePdf("persist.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    await waitFor(() => {
+      const raw = fakeLocalStorage.getItem("synapse.convertHistory");
+      expect(raw).not.toBeNull();
+      const entries = JSON.parse(raw!) as Array<{ filename: string }>;
+      expect(entries.some((e) => e.filename === "persist.pdf")).toBe(true);
+    }, { timeout: 3000 });
+  });
+
+  it("shows 'Apri' button only for ok history entries", async () => {
+    // Pre-populate localStorage with one ok and one failed entry
+    const entries = [
+      { id: "1", filename: "ok.pdf", safe_stem: "ok", timestamp: Date.now(), status: "ok", companion_path: "vault/raw/sources/ok.md" },
+      { id: "2", filename: "fail.pdf", safe_stem: "fail", timestamp: Date.now(), status: "failed", companion_path: null },
+    ];
+    fakeLocalStorage.setItem("synapse.convertHistory", JSON.stringify(entries));
+
+    await renderPanel();
+
+    await waitFor(() => {
+      const openBtns = screen.queryAllByTestId("convert-history-open-btn");
+      expect(openBtns).toHaveLength(1); // only ok entry has "Apri"
+    });
+  });
+
+  it("loads history from localStorage on mount (survives refresh)", async () => {
+    const entries = [
+      { id: "x1", filename: "saved.pdf", safe_stem: "saved", timestamp: Date.now(), status: "ok", companion_path: "vault/raw/sources/saved.md" },
+    ];
+    fakeLocalStorage.setItem("synapse.convertHistory", JSON.stringify(entries));
+
+    await renderPanel();
+
+    await waitFor(() => {
+      const histSection = screen.queryByTestId("convert-history");
+      expect(histSection).not.toBeNull();
+      expect(histSection?.textContent).toContain("saved.pdf");
+    });
+  });
+});
+
+// ─── Drag-drop fix ────────────────────────────────────────────────────────────
+
+describe("ConvertPanel — drag-drop (fix: onDragEnter + onDragOver both prevent)", () => {
+  beforeEach(() => {
+    mockIsTauri.mockReturnValue(false);
+    mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
+    fakeLocalStorage.removeItem("synapse.convertHistory");
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("accepts a PDF dropped on the zone and shows a pending row", async () => {
+    await renderPanel();
+
+    const dropZone = screen.getByTestId("convert-drop-zone");
+
+    // dragenter must not be prevented-blocked by the browser (we call preventDefault)
+    fireEvent.dragEnter(dropZone, { dataTransfer: { files: [] } });
+
+    // dragover must allow the drop
+    fireEvent.dragOver(dropZone, { dataTransfer: { files: [] } });
+
+    // actual drop
+    fireEvent.drop(dropZone, { dataTransfer: { files: [makePdf("dropped.pdf")] } });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("convert-file-row-pending")).not.toBeNull();
+      expect(screen.getByTestId("convert-file-row-pending").textContent).toContain("dropped.pdf");
+    });
+  });
+
+  it("does NOT add files when converting is true", async () => {
+    mockStartConvert.mockResolvedValue(makeBatchResponse(["a.pdf"]));
+    // Keep running so converting stays true through the drop
+    mockGetConvertStatus.mockResolvedValue({
+      batch_id: "b1",
+      running: true,
+      total: 1,
+      done: 0,
+      eta_seconds: null,
+      files: [{ file: "a.pdf", safe_stem: "a", status: "converting", detail: null, companion_path: null }],
+    });
+
+    await renderPanel();
+    dropFiles([makePdf("a.pdf")]);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("convert-submit-btn"));
+    });
+
+    // During conversion, drop another file — should be ignored
+    await act(async () => {
+      fireEvent.drop(screen.getByTestId("convert-drop-zone"), {
+        dataTransfer: { files: [makePdf("ignored.pdf")] },
+      });
+    });
+
+    // "ignored.pdf" should not appear in the pre-submit queue
+    await waitFor(() => {
+      const names = Array.from(document.querySelectorAll("[data-testid='convert-file-name']"))
+        .map((el) => el.textContent ?? "");
+      expect(names.every((n) => !n.includes("ignored"))).toBe(true);
     });
   });
 });
@@ -330,7 +624,6 @@ describe("ConvertPanel — client-side rejection: > 10 files", () => {
       expect(msg.textContent).toContain("tooManyFiles");
     });
 
-    // No file rows should be added
     expect(screen.queryByTestId("convert-file-list")).toBeNull();
   });
 
@@ -344,7 +637,6 @@ describe("ConvertPanel — client-side rejection: > 10 files", () => {
       expect(screen.getByTestId("convert-validation-msg")).not.toBeNull();
     });
 
-    // File list must not render
     expect(screen.queryByTestId("convert-file-list")).toBeNull();
   });
 });
@@ -363,7 +655,6 @@ describe("ConvertPanel — client-side rejection: non-.pdf files", () => {
 
   it("shows a validation message when a non-PDF file is dropped", async () => {
     await renderPanel();
-
     dropFiles([makeTxt("document.txt")]);
 
     await waitFor(() => {
@@ -374,7 +665,6 @@ describe("ConvertPanel — client-side rejection: non-.pdf files", () => {
 
   it("does not add a non-PDF file to the list", async () => {
     await renderPanel();
-
     dropFiles([makeTxt("readme.txt")]);
 
     await waitFor(() => {
@@ -386,7 +676,6 @@ describe("ConvertPanel — client-side rejection: non-.pdf files", () => {
 
   it("rejects a mix of PDF and non-PDF files", async () => {
     await renderPanel();
-
     dropFiles([makePdf("ok.pdf"), makeTxt("bad.txt")]);
 
     await waitFor(() => {
@@ -394,35 +683,32 @@ describe("ConvertPanel — client-side rejection: non-.pdf files", () => {
       expect(msg.textContent).toContain("badFileType");
     });
 
-    // No rows added for the PDF either — all-or-nothing validation
     expect(screen.queryByTestId("convert-file-list")).toBeNull();
   });
 });
 
-// ─── I3 invariant: no Zustand store import in ConvertPanel ────────────────────
+// ─── I3: ephemeral progress is component-local; graphStore only for navigation ─
 
-describe("ConvertPanel — I3 invariant: component-local state only", () => {
+describe("ConvertPanel — I3: ephemeral progress local; graphStore navigation only", () => {
   afterEach(() => {
     vi.resetAllMocks();
   });
 
-  it("ConvertPanel module does not import from any Zustand store", async () => {
-    // Structural test: if ConvertPanel renders without needing mocks for
-    // graphStore or ingestStore, it has no store dependency (I3 compliant).
-    // The health check resolves asynchronously; we wait for it to settle.
+  it("ConvertPanel renders without errors when graphStore is not mocked", async () => {
+    // graphStore is used for setActiveSection (navigation) only — not for ephemeral
+    // progress states (I3). The real store is available in tests as a module singleton,
+    // so no mock is needed. Component renders without crash.
     mockIsTauri.mockReturnValue(false);
     mockGetMarkerHealth.mockResolvedValue({ status: "ok" } satisfies MarkerHealthResponse);
     await act(async () => {
       render(<ConvertPanel />);
-      // Allow the useEffect health check to resolve
       await Promise.resolve();
     });
-    // If we reach here without mock errors, ConvertPanel has no store deps.
     expect(true).toBe(true);
   });
 });
 
-// ─── R12-6: "Avvia Marker" button — web build hides it ───────────────────────
+// ─── R12-6: "Avvia Marker" — hidden in web build ─────────────────────────────
 
 describe("ConvertPanel — R12-6: Avvia Marker — hidden in web build", () => {
   afterEach(() => {
@@ -451,7 +737,7 @@ describe("ConvertPanel — R12-6: Avvia Marker — hidden in web build", () => {
   });
 });
 
-// ─── R12-6: "Avvia Marker" button — shown in Tauri + offline ─────────────────
+// ─── R12-6: "Avvia Marker" — shown in Tauri + offline ────────────────────────
 
 describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", () => {
   beforeEach(() => {
@@ -460,7 +746,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       status: "offline",
       detail: "refused",
     } satisfies MarkerHealthResponse);
-    // Clear saved command before each test
     try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
     vi.clearAllMocks();
     mockIsTauri.mockReturnValue(true);
@@ -495,7 +780,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       expect(screen.queryByTestId("start-marker-cmd-field")).not.toBeNull();
     });
 
-    // The save button should be present
     expect(screen.queryByTestId("start-marker-cmd-save")).not.toBeNull();
   });
 
@@ -512,12 +796,9 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       target: { value: "cd /tools && ./.venv/bin/python service.py --port 8555" },
     });
 
-    // Mock the shell plugin's execute for the spawn call
     mockExecute.mockResolvedValue(undefined);
     mockCreate.mockReturnValue({ execute: mockExecute });
 
-    // After save+start we need health to eventually return ok to stop polling
-    // First call = still offline, second = ok (stops the poll)
     mockGetMarkerHealth
       .mockResolvedValueOnce({ status: "offline", detail: "starting" })
       .mockResolvedValueOnce({ status: "ok" });
@@ -526,7 +807,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       fireEvent.click(screen.getByTestId("start-marker-cmd-save"));
     });
 
-    // Command should be persisted
     await waitFor(() => {
       expect(localStorage.getItem("synapse.markerStartCommand")).toBe(
         "cd /tools && ./.venv/bin/python service.py --port 8555",
@@ -535,13 +815,11 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
   });
 
   it("start click with saved command calls the shell plugin with sh -c", async () => {
-    // Pre-save a command
     localStorage.setItem("synapse.markerStartCommand", "TORCH_DEVICE=mps python service.py");
 
     mockExecute.mockResolvedValue(undefined);
     mockCreate.mockReturnValue({ execute: mockExecute });
 
-    // Health returns ok on the second call (the poll tick)
     mockGetMarkerHealth
       .mockResolvedValueOnce({ status: "offline", detail: "refused" })
       .mockResolvedValue({ status: "ok" });
@@ -553,7 +831,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       fireEvent.click(btn);
     });
 
-    // Command.create must be called with "sh" and the -c flag containing the user command
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith(
         "sh",
@@ -561,8 +838,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       );
     });
 
-    // The -c argument must contain the user command + detach suffix
-    // Cast through unknown to avoid TS tuple-width errors on vi.fn() mock types
     const allCalls = mockCreate.mock.calls as unknown as Array<[string, string[]]>;
     const shellArgs = allCalls[0]?.[1] ?? [];
     const shellCmd = shellArgs[1] ?? "";
@@ -576,7 +851,6 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
     mockExecute.mockResolvedValue(undefined);
     mockCreate.mockReturnValue({ execute: mockExecute });
 
-    // First mount health check → offline. Poll tick → ok.
     let callCount = 0;
     mockGetMarkerHealth.mockImplementation(async () => {
       callCount++;
@@ -586,13 +860,11 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
 
     await renderPanel();
 
-    // Click start
     const btn = await screen.findByTestId("start-marker-btn");
     await act(async () => {
       fireEvent.click(btn);
     });
 
-    // Wait for the badge to flip to online
     await waitFor(
       () => {
         const badge = screen.getByTestId("marker-status-badge");
@@ -625,17 +897,14 @@ describe("ConvertPanel — R12-6: cancel hides the config field", () => {
       fireEvent.click(startBtn);
     });
 
-    // Config field is visible
     await waitFor(() => {
       expect(screen.queryByTestId("start-marker-cmd-field")).not.toBeNull();
     });
 
-    // Click cancel
     await act(async () => {
       fireEvent.click(screen.getByTestId("start-marker-cmd-cancel"));
     });
 
-    // Field is gone; shell plugin was never called
     await waitFor(() => {
       expect(screen.queryByTestId("start-marker-cmd-field")).toBeNull();
     });

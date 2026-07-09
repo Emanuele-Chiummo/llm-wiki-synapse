@@ -1106,7 +1106,15 @@
     "startMarkerConfigPlaceholder": "cd /path/to/tools/marker-converter && TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555",
     "startMarkerConfigSave": "Salva e avvia",
     "startMarkerConfigHint": "Inserisci il comando shell per avviare il microservizio Marker. Salvato localmente su questa macchina.",
-    "startMarkerConfigCancel": "Annulla"
+    "startMarkerConfigCancel": "Annulla",
+    "progressLabel": "{{done}} di {{total}} convertiti ({{pct}}%)",
+    "etaLabel": "~{{eta}}s rimanenti",
+    "historyTitle": "Cronologia conversioni",
+    "openBtn": "Apri in Sorgenti",
+    "batchSubmitted": "Conversione in coda — elaborazione in background",
+    "error409": "Una conversione è già in corso. Attendi il completamento.",
+    "error413": "File troppo grande.",
+    "error415": "Sono accettati solo file PDF."
   },
   "panels": {
     "expandPanel": "Espandi pannello",
