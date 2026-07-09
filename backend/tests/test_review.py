@@ -828,3 +828,303 @@ class TestADR0034PreGeneratedQueryDropped:
         assert "def generate_review_queries" not in text, (
             "generate_review_queries was removed in ADR-0034 §10; " "must not exist in review.py"
         )
+
+
+# ── T-RV-019: _extract_missing_page_candidates (ADR-0063) ────────────────────
+
+
+class TestExtractMissingPageCandidates:
+    """
+    T-RV-019: _extract_missing_page_candidates fan-out split (ADR-0063, R1 parity).
+
+    All tests are pure-function unit tests — no DB, no provider, no HTTP.
+    """
+
+    def test_single_candidate_unchanged(self) -> None:
+        """A plain title with no list delimiters returns [proposed_title] unchanged (no regression)."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Quantum Computing")
+        assert result == ["Quantum Computing"]
+
+    def test_comma_split(self) -> None:
+        """ASCII comma splits into multiple candidates."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Galaxy Formation, Star Formation, Nebulae")
+        assert result == ["Galaxy Formation", "Star Formation", "Nebulae"]
+
+    def test_fullwidth_comma_split(self) -> None:
+        """CJK fullwidth comma (，) splits correctly."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Alpha，Beta，Gamma")
+        assert result == ["Alpha", "Beta", "Gamma"]
+
+    def test_japanese_ideographic_comma_split(self) -> None:
+        """Japanese ideographic comma (、) splits correctly."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("量子コンピューティング、機械学習")
+        assert result == ["量子コンピューティング", "機械学習"]
+
+    def test_and_split(self) -> None:
+        """Standalone ' and ' (whole-word, case-insensitive) splits correctly."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Machine Learning and Deep Learning")
+        assert result == ["Machine Learning", "Deep Learning"]
+
+    def test_and_case_insensitive(self) -> None:
+        """' AND ' and ' And ' also split correctly."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Alpha AND Beta")
+        assert result == ["Alpha", "Beta"]
+        result2 = _extract_missing_page_candidates("Alpha And Beta")
+        assert result2 == ["Alpha", "Beta"]
+
+    def test_and_does_not_split_words_containing_and(self) -> None:
+        """'Android', 'Sandy', 'understand' must NOT be split (word-boundary guard)."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Android Development")
+        # Only one candidate → return unchanged
+        assert result == ["Android Development"]
+
+    def test_e_split_italian(self) -> None:
+        """Standalone ' e ' (Italian conjunction) splits correctly."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Machine Learning e Deep Learning")
+        assert result == ["Machine Learning", "Deep Learning"]
+
+    def test_mixed_delimiters(self) -> None:
+        """Comma + 'and' in the same title all split."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("A, B and C")
+        assert result == ["A", "B", "C"]
+
+    def test_semicolon_split(self) -> None:
+        """ASCII semicolon (;) and fullwidth semicolon (；) split."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Alpha;Beta；Gamma")
+        assert result == ["Alpha", "Beta", "Gamma"]
+
+    def test_cap_at_five(self) -> None:
+        """More than _MISSING_PAGE_FANOUT_CAP candidates are capped at 5 (I7)."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("A, B, C, D, E, F, G")
+        assert len(result) == 5
+        # First five preserved in order
+        assert result == ["A", "B", "C", "D", "E"]
+
+    def test_dedup_case_insensitive(self) -> None:
+        """Duplicates (case-insensitive) are dropped; first-seen casing is preserved."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("Alpha, alpha, ALPHA, Beta")
+        assert len(result) == 2
+        assert result[0] == "Alpha"  # first-seen casing
+        assert result[1] == "Beta"
+
+    def test_empty_parts_filtered(self) -> None:
+        """Consecutive delimiters and leading/trailing spaces are cleaned."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("A,, B,  ,C")
+        assert result == ["A", "B", "C"]
+
+    def test_single_candidate_after_strip_unchanged(self) -> None:
+        """If splitting yields exactly one non-empty part, return [proposed_title] unchanged."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("  Single Title  ")
+        # The result is [proposed_title] — note: proposed_title NOT stripped; unchanged semantic
+        assert result == ["  Single Title  "]
+
+    def test_empty_string_returns_original(self) -> None:
+        """Empty string or whitespace-only → returns [proposed_title] unchanged (guard)."""
+        from app.ops.review import _extract_missing_page_candidates
+
+        result = _extract_missing_page_candidates("")
+        assert result == [""]
+
+
+# ── T-RV-020: create_page_from_review fan-out (ADR-0063) ─────────────────────
+
+
+class TestMissingPageFanOut:
+    """
+    T-RV-020: create_page_from_review produces N pages from a list title (ADR-0063).
+
+    Uses mocks for _run_generation and resolve_provider_config so no real provider or
+    network is needed. Verifies:
+      - N generation calls for N candidates
+      - primary (first) page id stored on the review item as created_page_id
+      - item status = 'created'
+      - non-missing-page items are UNCHANGED (single-page path)
+    """
+
+    async def test_fanout_creates_multiple_pages(self, review_env: dict[str, Any]) -> None:
+        """T-RV-020a: 3-candidate comma title → 3 generation calls; primary id recorded."""
+        import asyncio as _asyncio
+        from unittest.mock import AsyncMock, patch
+
+        from app.ops.review import GenerationOutcome, create_page_from_review
+
+        item_id = await _insert_review_item(
+            review_env,
+            item_type="missing-page",
+            proposed_title="Alpha, Beta, Gamma",
+        )
+        item_uuid = uuid.UUID(item_id)
+
+        call_log: list[str] = []
+        fake_ids = ["page-aaa", "page-bbb", "page-ccc"]
+
+        async def mock_run_generation(**kwargs: object) -> GenerationOutcome:
+            call_log.append(str(kwargs.get("proposed_title", "")))
+            idx = len(call_log) - 1
+            return GenerationOutcome(
+                wiki_page=None,
+                created_page_id=fake_ids[idx],
+                converged=True,
+            )
+
+        fake_cfg = object()  # opaque; resolve_provider_config just needs to not raise
+
+        with (
+            patch("app.ops.review._run_generation", side_effect=mock_run_generation),
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new_callable=AsyncMock,
+                return_value=fake_cfg,
+            ),
+            patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
+        ):
+            item = await create_page_from_review(item_uuid)
+
+        assert len(call_log) == 3, f"Expected 3 generation calls, got {len(call_log)}: {call_log}"
+        assert call_log == ["Alpha", "Beta", "Gamma"]
+        assert str(item.created_page_id) == "page-aaa"  # primary
+        assert item.status == "created"
+        assert item.resolution == "created"
+
+    async def test_fanout_primary_returned_on_secondary_failure(
+        self, review_env: dict[str, Any]
+    ) -> None:
+        """T-RV-020b: if secondary candidates fail, primary is still committed."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.ops.review import GenerationOutcome, create_page_from_review
+
+        item_id = await _insert_review_item(
+            review_env,
+            item_type="missing-page",
+            proposed_title="Good Page, Bad Page",
+        )
+        item_uuid = uuid.UUID(item_id)
+
+        call_count = 0
+
+        async def mock_run_generation(**kwargs: object) -> GenerationOutcome:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return GenerationOutcome(wiki_page=None, created_page_id="page-primary", converged=True)
+            raise RuntimeError("Secondary generation failed")
+
+        fake_cfg = object()
+
+        with (
+            patch("app.ops.review._run_generation", side_effect=mock_run_generation),
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new_callable=AsyncMock,
+                return_value=fake_cfg,
+            ),
+            patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
+        ):
+            item = await create_page_from_review(item_uuid)
+
+        assert call_count == 2  # both attempted
+        assert str(item.created_page_id) == "page-primary"
+        assert item.status == "created"
+
+    async def test_non_missing_page_unchanged(self, review_env: dict[str, Any]) -> None:
+        """T-RV-020c: non-missing-page items use single-page path (no fan-out)."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.ops.review import GenerationOutcome, create_page_from_review
+
+        # 'suggestion' type — comma in title must NOT trigger fan-out
+        item_id = await _insert_review_item(
+            review_env,
+            item_type="suggestion",
+            proposed_title="Alpha, Beta, Gamma",  # commas but not missing-page type
+        )
+        item_uuid = uuid.UUID(item_id)
+
+        call_log: list[str] = []
+
+        async def mock_run_generation(**kwargs: object) -> GenerationOutcome:
+            call_log.append(str(kwargs.get("proposed_title", "")))
+            return GenerationOutcome(wiki_page=None, created_page_id="page-single", converged=True)
+
+        fake_cfg = object()
+
+        with (
+            patch("app.ops.review._run_generation", side_effect=mock_run_generation),
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new_callable=AsyncMock,
+                return_value=fake_cfg,
+            ),
+            patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
+        ):
+            item = await create_page_from_review(item_uuid)
+
+        # Only ONE generation call; the full comma-title is passed as-is
+        assert len(call_log) == 1
+        assert call_log[0] == "Alpha, Beta, Gamma"
+        assert item.status == "created"
+
+    async def test_single_title_missing_page_no_fanout(self, review_env: dict[str, Any]) -> None:
+        """T-RV-020d: missing-page with plain title (no list delimiter) → exactly one generation."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.ops.review import GenerationOutcome, create_page_from_review
+
+        item_id = await _insert_review_item(
+            review_env,
+            item_type="missing-page",
+            proposed_title="Single Concept",
+        )
+        item_uuid = uuid.UUID(item_id)
+
+        call_log: list[str] = []
+
+        async def mock_run_generation(**kwargs: object) -> GenerationOutcome:
+            call_log.append(str(kwargs.get("proposed_title", "")))
+            return GenerationOutcome(wiki_page=None, created_page_id="page-one", converged=True)
+
+        fake_cfg = object()
+
+        with (
+            patch("app.ops.review._run_generation", side_effect=mock_run_generation),
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new_callable=AsyncMock,
+                return_value=fake_cfg,
+            ),
+            patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
+        ):
+            item = await create_page_from_review(item_uuid)
+
+        assert len(call_log) == 1
+        assert call_log[0] == "Single Concept"
+        assert item.status == "created"

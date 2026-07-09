@@ -88,6 +88,7 @@ _RESOLVED_STATUSES = frozenset({"created", "auto_resolved", "deep_researched"})
 # Caps (I7 — bounded reads/lists)
 _SWEEP_PASS1_MAX_ITEMS: int = 200  # max pending items processed per sweep Pass-1
 _PROPOSE_MAX_ITEMS: int = 8  # max proposals emitted per run (ADR-0034 §4.3)
+_MISSING_PAGE_FANOUT_CAP: int = 5  # max pages from one missing-page fan-out (I7, ADR-0064)
 
 # ── R9-3 (v0.9): purpose.md drift suggestion ─────────────────────────────────────
 # The `rationale` column carries BOTH the human-readable "why" AND the exact markdown block
@@ -2067,6 +2068,62 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
     return SweepResult(rule_resolved=rule_resolved, llm_resolved=llm_resolved, kept=kept_count)
 
 
+def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
+    """
+    Split a missing-page proposed_title into individual candidate page titles (R1 parity).
+
+    Ports the extractMissingPageCandidates / splitCandidateList logic from the reference
+    (nashsu/llm_wiki src/lib/review-create-page.ts:34), adapted for the Python data model
+    where the input is the item's proposed_title string.
+
+    Split rules (applied in sequence):
+      1. Replace standalone " and " (whole-word, case-insensitive) with ","
+      2. Replace " e " surrounded by whitespace (Italian conjunction) with ","
+         Note: uses whitespace-bounded matching (not word-boundary) so single-letter
+         list items like "A, B, C, D, E, F" are never consumed by this rule.
+      3. Split on: "," / "，" / "、" / ";" / "；"
+    After splitting: strip whitespace; drop empty strings; deduplicate case-insensitively
+    (first-seen casing preserved). Cap at _MISSING_PAGE_FANOUT_CAP (I7 — bounded fan-out).
+    If the result has ≤1 usable candidate, return [proposed_title] unchanged — this preserves
+    existing single-page Create behavior with no regression for ordinary single-title items.
+
+    NOTE on lint/review queue separation: Synapse keeps lint findings OUT of the review
+    queue. The explicit send-to-review bridge already gives parity of capability without the
+    reference's noise. See ADR-0064 §3.
+    """
+    # Normalize list conjunctions to commas.
+    # \band\b: whole-word safe — won't split "Android" or "handle".
+    # \s+e\s+: Italian "e" only when surrounded by whitespace — won't fire on single-letter
+    # list items like "A, B, C, D, E, F" where "E" is adjacent to commas, not spaces.
+    text = re.sub(r"\band\b", ",", proposed_title, flags=re.IGNORECASE)
+    text = re.sub(r"\s+e\s+", ",", text, flags=re.IGNORECASE)  # Italian "e" (surrounded by spaces)
+
+    # Split on list delimiters
+    parts = re.split(r"[,，、;；]+", text)
+
+    # Strip, filter empties, deduplicate (case-insensitive; first-seen casing preserved)
+    seen_lower: set[str] = set()
+    candidates: list[str] = []
+    for part in parts:
+        cleaned = part.strip()
+        if not cleaned:
+            continue
+        lower = cleaned.lower()
+        if lower in seen_lower:
+            continue
+        seen_lower.add(lower)
+        candidates.append(cleaned)
+
+    # Cap (I7 — bounded fan-out; avoids runaway provider calls for pathological titles)
+    candidates = candidates[:_MISSING_PAGE_FANOUT_CAP]
+
+    # Preserve single-page behavior when no real split occurred
+    if len(candidates) <= 1:
+        return [proposed_title]
+
+    return candidates
+
+
 async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     """
     Lazy on-demand Create action (ADR-0034 §5).
@@ -2232,72 +2289,155 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     else:
         origin_source = f"review:{item_id_str}"
 
-    # ── 4. Run generation (AI seam — capability-aware; any failure → 502) ─────
-    try:
-        outcome = await _run_generation(
-            vault_id=vault_id,
-            proposed_title=proposed_title,
-            proposed_page_type=proposed_page_type,
-            rationale=item.rationale,
-            origin_source=origin_source,
-            provider_config_row=provider_config_row,
-        )
-    except NotImplementedError as nie:
-        logger.warning(
-            "create_page_from_review: _run_generation raised NotImplementedError (ADR-0034 §5): %s",
-            nie,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Page generation raised NotImplementedError (ADR-0034 §5). "
-                "Item left pending — retry or skip."
-            ),
-        ) from nie
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "create_page_from_review: generation failed for item=%s: %s — item left pending",
-            item_id_str,
-            exc,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=(f"Page generation failed: {exc}. " "Item left pending — retry or skip."),
-        ) from exc
+    # ── 4. Build candidate list for missing-page fan-out (R1 parity, ADR-0064) ────
+    # For missing-page items the proposed_title may encode a comma/、/"and"/"e" separated
+    # list of pages to create (one per candidate, each exactly one data_version bump — I1,
+    # bounded by _MISSING_PAGE_FANOUT_CAP — I7). All other item types keep the existing
+    # single-page path completely unchanged.
+    if item.item_type == "missing-page":
+        candidates = _extract_missing_page_candidates(proposed_title)
+    else:
+        candidates = [proposed_title]
 
-    # ── 5. Resolve the created page id (I1 — exactly one write per page) ──────
-    # Delegated route: the agentic provider ALREADY wrote the page via MCP write_page — use its
-    # id, do NOT write again (never double-write, I1). Orchestrated route: write the produced
-    # WikiPage now via the single incremental seam.
-    if outcome.created_page_id is not None:
-        created_page_id_str = outcome.created_page_id
-    elif outcome.wiki_page is not None:
-        from app.ingest.orchestrator import write_wiki_page
+    # ── 5. Generate each candidate page (I1 — one write per page; bounded fan-out) ──
+    # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
+    # single-page behavior). Secondary candidate failures are logged and skipped; the primary
+    # is already committed at that point.
+    from app.ingest.orchestrator import write_wiki_page  # lazy; avoids circular at module level
 
+    created_page_ids: list[str] = []
+
+    for _candidate_idx, candidate_title in enumerate(candidates):
+        _is_primary = _candidate_idx == 0
+
+        # Generation AI seam — capability-aware (I6)
         try:
-            created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+            outcome = await _run_generation(
+                vault_id=vault_id,
+                proposed_title=candidate_title,
+                proposed_page_type=proposed_page_type,
+                rationale=item.rationale,
+                origin_source=origin_source,
+                provider_config_row=provider_config_row,
+            )
+        except NotImplementedError as nie:
+            if _is_primary:
+                logger.warning(
+                    "create_page_from_review: _run_generation raised NotImplementedError"
+                    " (ADR-0034 §5): %s",
+                    nie,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "Page generation raised NotImplementedError (ADR-0034 §5). "
+                        "Item left pending — retry or skip."
+                    ),
+                ) from nie
+            logger.warning(
+                "create_page_from_review: secondary candidate %r NotImplementedError"
+                " — skipping: %s",
+                candidate_title,
+                nie,
+            )
+            continue
         except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "create_page_from_review: write_wiki_page failed for item=%s: %s — item pending",
-                item_id_str,
+            if _is_primary:
+                logger.error(
+                    "create_page_from_review: generation failed for item=%s: %s"
+                    " — item left pending",
+                    item_id_str,
+                    exc,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"Page generation failed: {exc}. " "Item left pending — retry or skip."
+                    ),
+                ) from exc
+            logger.warning(
+                "create_page_from_review: secondary candidate %r generation failed"
+                " — skipping: %s",
+                candidate_title,
                 exc,
             )
-            raise HTTPException(
-                status_code=502,
-                detail=(f"Failed to write page to wiki: {exc}. Item left pending — retry or skip."),
-            ) from exc
-        created_page_id_str = str(created_page.id)
-    else:
-        # Defensive: _run_generation raises rather than returning an empty outcome. Guard anyway
-        # so a future regression surfaces as a clean 502 (item left pending) — never a partial.
+            continue
+
+        # Resolve the created page id for this candidate (I1 — exactly one write per page).
+        # Delegated route: agentic provider ALREADY wrote via MCP write_page — use its id,
+        # do NOT write again (never double-write, I1).
+        # Orchestrated route: write the produced WikiPage now via the single incremental seam.
+        if outcome.created_page_id is not None:
+            candidate_page_id_str = outcome.created_page_id
+        elif outcome.wiki_page is not None:
+            try:
+                created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+                candidate_page_id_str = str(created_page.id)
+            except Exception as exc:  # noqa: BLE001
+                if _is_primary:
+                    logger.error(
+                        "create_page_from_review: write_wiki_page failed for item=%s: %s"
+                        " — item pending",
+                        item_id_str,
+                        exc,
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail=(
+                            f"Failed to write page to wiki: {exc}. "
+                            "Item left pending — retry or skip."
+                        ),
+                    ) from exc
+                logger.warning(
+                    "create_page_from_review: secondary candidate %r write failed"
+                    " — skipping: %s",
+                    candidate_title,
+                    exc,
+                )
+                continue
+        else:
+            # Defensive: _run_generation raises rather than returning an empty outcome.
+            # Guard anyway so a future regression surfaces as a clean 502 — never a partial.
+            if _is_primary:
+                logger.error(
+                    "create_page_from_review: generation produced no page for item=%s"
+                    " — item pending",
+                    item_id_str,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Page generation produced no page. Item left pending — retry or skip.",
+                )
+            logger.warning(
+                "create_page_from_review: secondary candidate %r produced no page — skipping",
+                candidate_title,
+            )
+            continue
+
+        created_page_ids.append(candidate_page_id_str)
+        logger.debug(
+            "create_page_from_review: item=%s candidate[%d]=%r → page=%s",
+            item_id_str,
+            _candidate_idx,
+            candidate_title,
+            candidate_page_id_str,
+        )
+
+    # Defensive guard: the primary branch always raises above, so this is unreachable in
+    # practice; kept so a future regression surfaces as a clean 502.
+    if not created_page_ids:
         logger.error(
-            "create_page_from_review: generation produced no page for item=%s — item pending",
+            "create_page_from_review: no pages created for item=%s — item pending",
             item_id_str,
         )
         raise HTTPException(
             status_code=502,
-            detail="Page generation produced no page. Item left pending — retry or skip.",
+            detail="No pages were created. Item left pending — retry or skip.",
         )
+
+    # The primary (first) created page is recorded on the review item for API compatibility
+    # (existing callers expect a single created_page_id — ADR-0064 §4 / I8).
+    created_page_id_str = created_page_ids[0]
 
     # ── 6. Set item to created ─────────────────────────────────────────────────
     async with get_session() as session:
