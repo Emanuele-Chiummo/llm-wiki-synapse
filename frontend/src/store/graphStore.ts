@@ -118,6 +118,13 @@ export interface GraphState {
   activeTab: UiState["activeTab"];
   treeCollapsed: UiState["treeCollapsed"];
   activeSection: UiState["activeSection"];
+
+  /**
+   * Whether the GraphInsightsPanel overlay is currently visible.
+   * Toggled by the Insights toolbar button in GraphHeader (F4 chrome parity).
+   * Scalar: Object.is comparison — no useShallow needed.
+   */
+  showInsightsPanel: boolean;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -149,6 +156,8 @@ export interface GraphActions {
   setActiveTab: UiActions["setActiveTab"];
   toggleGroup: UiActions["toggleGroup"];
   setActiveSection: UiActions["setActiveSection"];
+  /** Show or hide the GraphInsightsPanel overlay (F4 chrome parity). */
+  setShowInsightsPanel: (show: boolean) => void;
 }
 
 export type GraphStore = GraphState & GraphActions;
@@ -173,6 +182,7 @@ const INITIAL_STATE: GraphState = {
   activeTab: "graph",
   treeCollapsed: {},
   activeSection: "home" as Section,
+  showInsightsPanel: false,
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -228,6 +238,9 @@ export const useGraphStore = create<GraphStore>((set) => ({
 
   // ADR-0018 §2
   setActiveSection: (activeSection) => set({ activeSection }),
+
+  // F4 chrome parity: insights panel toggle
+  setShowInsightsPanel: (showInsightsPanel) => set({ showInsightsPanel }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -383,4 +396,14 @@ export function selectActiveSection(s: GraphStore): Section {
 /** Select the setActiveSection action. */
 export function selectSetActiveSection(s: GraphStore): GraphActions["setActiveSection"] {
   return s.setActiveSection;
+}
+
+/** Select the showInsightsPanel flag (scalar — no useShallow needed). */
+export function selectShowInsightsPanel(s: GraphStore): boolean {
+  return s.showInsightsPanel;
+}
+
+/** Select the setShowInsightsPanel action. */
+export function selectSetShowInsightsPanel(s: GraphStore): GraphActions["setShowInsightsPanel"] {
+  return s.setShowInsightsPanel;
 }

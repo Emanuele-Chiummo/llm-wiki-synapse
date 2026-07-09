@@ -547,3 +547,87 @@ shippable, A (idempotency) first.
 > step). Interface contracts (§3–§7) → backend-engineer [BE] + ai-agent-engineer [AI] +
 > frontend-engineer [FE] per §11. PR verdicts → orchestrator. This ADR extends ADR-0034 (the F9
 > proposal model stands; this adds contextual depth, idempotency, and bulk triage).
+
+---
+
+## 13. Review sweep parity corrections (v1.3.13 — incremental amendment)
+
+Four parity gaps versus nashsu/llm_wiki `sweep-reviews.ts` and `review-utils.ts` were found and
+fixed. None changes the human-gate model or the `confirm` non-dedup semantics (Do-NOT #10).
+None requires a DB migration. The deliberate Synapse improvements (deterministic dangling-link Pass-1
+in `propose_reviews`, purpose-suggestion default, wikilink resolution model) are all preserved.
+
+### 13.1 Duplicate sweep semantics inverted (R-bug1)
+
+The original Pass-1 treated `duplicate` the same as `missing-page`: it auto-resolved when a page
+with the proposed title NOW EXISTS. This is **semantically inverted**: a duplicate conflict is
+resolved when one of the duplicate pages is GONE (merged/deleted), not when a new page is created.
+
+**Fix:** `duplicate` is removed from the `missing-page` Pass-1 branch. A new **Pass-1b** handles
+`duplicate` items only. It collects "affected page ids" (the `page_id` primary FK plus any ids in
+`referenced_page_ids`) and resolves the item to `auto_resolved` ONLY when at least one of those pages
+no longer exists as a live page (`deleted_at IS NULL`). If all affected pages are still alive, the
+item stays `pending`. Mirrors `sweep-reviews.ts:376-391` (`!allStillExist`).
+
+Preserved: `confirm` is never auto-resolved (Do-NOT #10 / ADR-0034 Do-NOT #7).
+
+### 13.2 Missing-page slug match in Pass-1 (R4)
+
+Pass-1 previously matched `proposed_title` only by normalized exact title against `Page.title`. A
+page created as `wiki/concepts/attention-mechanism.md` with title "The Attention Mechanism" would
+NOT resolve a `missing-page` proposal with `proposed_title="Attention Mechanism"` — even though
+the slug derived from the proposed title matches the file path.
+
+**Fix:** after the exact-title check fails, Pass-1 now tries a slug match:
+```
+slug = normalize(proposed_title).replace(" ", "-")
+→ Page.file_path LIKE '%/{slug}.md' AND Page.deleted_at IS NULL
+```
+Mirrors `sweep-reviews.ts:110-116` (byId slug lookup). Both checks remain bounded single indexed
+reads (I1).
+
+### 13.3 Prefix-stripping in `_normalize_title` (R5)
+
+`_normalize_title` now strips common LLM-prepended prefixes before lowercasing:
+
+```python
+_REVIEW_TITLE_PREFIX_RE = re.compile(
+    r"^(?:missing[\s\-]?page[:：]\s*|duplicate[\s\-]?page[:：]\s*"
+    r"|possible[\s\-]?duplicate[:：]\s*|缺失页面[:：]\s*|缺少页面[:：]\s*"
+    r"|重复页面[:：]\s*|疑似重复[:：]\s*)",
+    re.IGNORECASE,
+)
+```
+
+A `content_key` computed from "Missing page: Widget" and one from "Widget" now produce the same
+hash — preventing duplicate review items when the LLM prepends a type-hint prefix to the title.
+Mirrors `review-utils.ts normalizeReviewTitle` + `REVIEW_TITLE_PREFIX_RE`.
+
+### 13.4 `_content_key` excludes target anchor (R7)
+
+The §3.2 formula included `target_page_title-or-page_id` as a "conflict anchor". This caused two
+`contradiction` or `duplicate` items about the same concept but different conflicting pages to get
+different keys and never dedup — the opposite of the intended behavior.
+
+**Fix:** the payload is now:
+```
+vault_id + "\x1f" + item_type + "\x1f" + normalize(proposed_title)
+```
+
+`target_page_title` and `page_id` parameters are kept in the function signature for call-site
+backward compatibility but are **silently ignored**. This supersedes the §3.2 formula's conflict-
+anchor component. The `confirm → NULL` rule (Do-NOT #10) is unchanged.
+
+Mirrors `review-utils.ts normalizeReviewTitle`: the reference keys only on type + title.
+
+### 13.5 Tests
+
+New tests in `backend/tests/test_review_adr0044.py` (Phase F):
+
+| Test | Covers |
+|------|--------|
+| `test_pass1_duplicate_resolves_on_gone_page` | R-bug1: `duplicate` resolves when `page_id` page is soft-deleted |
+| `test_pass1_duplicate_stays_pending_when_all_pages_exist` | R-bug1: `duplicate` stays pending when all pages alive |
+| `test_pass1_missing_page_resolves_by_slug` | R4: slug match resolves missing-page via file_path |
+| `test_normalize_title_strips_prefixes` | R5: prefix stripping before lowercase |
+| `test_content_key_ignores_target` | R7: same key regardless of target_page_title/page_id |

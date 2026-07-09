@@ -156,10 +156,15 @@ async def run_orchestrated_loop(
     """
     provider.bind_accumulator(accumulator)
 
-    # analyze() ONCE per run (AQ-v0.2-1).
+    # analyze() ONCE per run (AQ-v0.2-1) — except a LONG source is analyzed per bounded chunk and
+    # the per-chunk Analysis objects are merged (Feature 1, ADR-0063 §3). analyze_source() routes
+    # every call through provider.analyze() (I6), is bounded by ingest_long_source_max_chunks (I7),
+    # and degrades to the single whole-source call under the threshold or on total chunk failure.
+    from app.ingest.long_source import analyze_source
+
     if on_phase is not None:
         on_phase("analyzing")
-    analysis = await provider.analyze(source_text, vault_context)
+    analysis = await analyze_source(provider, source_text, vault_context)
 
     ctx = retrieval_context
     pages: list[WikiPage] = []
@@ -191,7 +196,11 @@ async def run_orchestrated_loop(
         if on_phase is not None:
             on_phase(f"generating ({i}/{max_iter})")
         try:
-            pages = await provider.generate(analysis, ctx)
+            # D1 (ADR-0063 §9): thread the run's source_text into generation so pages are written
+            # from the source, not only the lossy Analysis summary. retrieval_context stays "" for
+            # ingest (llm_wiki's "Source Context" IS the source text, not RAG); the builder
+            # budget-trims the source (I7).
+            pages = await provider.generate(analysis, ctx, source_text)
             if on_phase is not None:
                 on_phase("validating")
             errors = validate_pages(pages, origin_source)

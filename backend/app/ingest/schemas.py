@@ -46,9 +46,14 @@ class PageType(StrEnum):
     QUERY = "query"
 
 
-# Reserved catalogue types — auto-generated only, never provider output (K3/F3).
+# Reserved catalogue types — auto-generated only, never provider output (K3/F3/K4).
+# These are DELIBERATELY string constants, NOT PageType enum members: the catalogue/log writers
+# use them directly so they can never appear as valid `suggested_pages` / `WikiPage` types, while
+# still being VALID `type:` values on their Page rows for the graph (the graph engine excludes only
+# raw/* + type:query, so index/log/overview render as nodes — D4, ADR-0063 §9).
 OVERVIEW_TYPE = "overview"
 INDEX_TYPE = "index"
+LOG_TYPE = "log"
 
 # Map a PageType to its wiki/ subdirectory (matches vault.py bootstrap dirs).
 _TYPE_DIR: dict[PageType, str] = {

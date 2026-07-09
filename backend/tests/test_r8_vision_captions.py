@@ -75,7 +75,7 @@ class _MockVisionProvider(InferenceProvider):
         raise NotImplementedError
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise NotImplementedError
 
@@ -276,7 +276,9 @@ async def test_abc_caption_image_default_raises() -> None:
         async def analyze(self, source_text: str, vault_context: str) -> Analysis:
             raise NotImplementedError
 
-        async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+        async def generate(
+            self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+        ) -> list[WikiPage]:
             raise NotImplementedError
 
         async def chat(self, messages: list[Message], retrieval_context: str):

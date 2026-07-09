@@ -168,10 +168,21 @@ export async function dismissLintFinding(findingId: string): Promise<LintFinding
 }
 
 /**
+ * Server-side per-request cap on batch size (I7 — mirrors _BATCH_MAX_IDS in the
+ * lint router). Selections larger than this are split into successive requests
+ * client-side so "Fix/Ignore/Send selected" works on any number of findings.
+ */
+const BATCH_CHUNK_SIZE = 200;
+
+/**
  * Batch apply / dismiss / send-to-review for multiple findings (B1-L5).
  * POST /lint/findings/batch { ids: string[], action: "apply"|"dismiss"|"send-to-review" }
  * → 200 { results, ok_count, error_count }
- * Bounded: max 200 ids per call (I7).
+ *
+ * The endpoint caps each request at 200 ids (I7). To keep the caller free of that
+ * limit, selections beyond the cap are split into ≤200-id chunks sent sequentially
+ * (the server processes findings sequentially anyway), and the per-chunk responses
+ * are merged into one aggregate response.
  */
 export async function batchLintAction(
   ids: string[],
@@ -179,14 +190,24 @@ export async function batchLintAction(
   signal?: AbortSignal,
 ): Promise<LintBatchResponse> {
   const url = `${apiBase()}/lint/findings/batch`;
-  const res = await apiFetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids, action }),
-    ...(signal !== undefined ? { signal } : {}),
-  });
-  await checkResponse(res);
-  return (await res.json()) as LintBatchResponse;
+  const merged: LintBatchResponse = { results: [], ok_count: 0, error_count: 0 };
+
+  for (let i = 0; i < ids.length; i += BATCH_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + BATCH_CHUNK_SIZE);
+    const res = await apiFetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: chunk, action }),
+      ...(signal !== undefined ? { signal } : {}),
+    });
+    await checkResponse(res);
+    const page = (await res.json()) as LintBatchResponse;
+    merged.results.push(...page.results);
+    merged.ok_count += page.ok_count;
+    merged.error_count += page.error_count;
+  }
+
+  return merged;
 }
 
 /**

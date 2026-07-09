@@ -22,7 +22,7 @@ struct GraphView: View {
 
     var body: some View {
         ZStack {
-            Theme.graphBackground.ignoresSafeArea()
+            AuroraBackground()
 
             if let loadError {
                 ErrorState(message: loadError) { Task { await load() } }
@@ -234,8 +234,9 @@ struct GraphView: View {
                 Text("Apri pagina")
                     .font(.system(size: 16, weight: .semibold)).foregroundStyle(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 13)
-                    .background(Theme.tint)
+                    .background(Theme.signatureGradient)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: Color(hex: 0x6D3BF5).opacity(0.4), radius: 12, y: 5)
             }
             .buttonStyle(.plain)
             .padding(.top, 14)

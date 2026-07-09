@@ -34,7 +34,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, Maximize, Network, Filter, RotateCcw, Tag, Layers, Lightbulb, Search, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { COMMUNITY_PALETTE, LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain } from "./graphPalette";
 import type { ColorMode } from "./graphPalette";
@@ -45,6 +45,7 @@ import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData, PartialButFor } from "sigma/types";
 import { buildGraphologyGraph, edgeVisibilityThreshold } from "../api/graphTransform";
+import { computeGraphInsights } from "./graph/graphInsights";
 import {
   fetchGraph,
   fetchPageDetail,
@@ -71,6 +72,8 @@ import {
   selectClearFilterNodeTypes,
   selectTotalNodes,
   selectSelectPage,
+  selectShowInsightsPanel,
+  selectSetShowInsightsPanel,
   useGraphMeta,
   useGraphStatus,
   useGraphStore,
@@ -124,31 +127,26 @@ function readSigmaThemeColors(): SigmaThemeColors {
 // Color alone MUST NOT be the only differentiator (WCAG 1.4.1).
 // Redundant encoding: legend shows swatch + type NAME; tooltip also shows type text.
 //
-// LIGHT THEME: hex values exactly match --syn-type-* tokens in theme.css.
-// sigma.js cannot resolve CSS custom properties at canvas draw time, so concrete
-// hex strings are required here — this is the one documented exception to token-only usage.
-// If theme.css tokens change, update these values in sync.
-//   --syn-type-concept:    #8250df  (purple)
-//   --syn-type-entity:     #2563eb  (blue)
-//   --syn-type-source:     #e16f24  (orange)
-//   --syn-type-synthesis:  #cf222e  (red)
-//   --syn-type-comparison: #1a7f37  (green)
-//   --syn-type-query:      #16a34a  (green)
-//   --syn-type-overview:   #b8860b  (amber)
-//   --syn-type-other:      #6e7781
-//   DEFAULT (--syn-text-dim): #8b949e
+// Node type palette — aligned to llm_wiki 0.6.0 (Tailwind -400 shades), used for BOTH
+// themes exactly as the reference does. sigma.js cannot resolve CSS custom properties at
+// canvas draw time, so concrete hex strings are required here. These intentionally do NOT
+// track the --syn-type-* badge tokens (which stay tuned for text contrast in lint/wiki
+// badges); the GRAPH mirrors the reference palette. Redundant encoding (legend swatch +
+// type name + tooltip text) keeps it CVD-safe (WCAG 1.4.1).
+//   entity #60a5fa · concept #c084fc · source #fb923c · synthesis #f87171
+//   comparison #2dd4bf (teal) · query #4ade80 · overview #facc15 · other #94a3b8 (slate-400)
 
 const TYPE_COLORS: Record<string, string> = {
-  concept: "#8250df", // matches --syn-type-concept
-  entity: "#2563eb", // matches --syn-type-entity
-  source: "#e16f24", // matches --syn-type-source
-  synthesis: "#cf222e", // matches --syn-type-synthesis
-  comparison: "#1a7f37", // matches --syn-type-comparison
-  query: "#16a34a", // matches --syn-type-query
-  overview: "#b8860b", // matches --syn-type-overview
+  concept: "#c084fc", // purple-400 (llm_wiki parity)
+  entity: "#60a5fa", // blue-400
+  source: "#fb923c", // orange-400
+  synthesis: "#f87171", // red-400
+  comparison: "#2dd4bf", // teal-400
+  query: "#4ade80", // green-400
+  overview: "#facc15", // yellow-400
 };
 
-const DEFAULT_NODE_COLOR = "#6e7781"; // matches --syn-type-other
+const DEFAULT_NODE_COLOR = "#94a3b8"; // slate-400 (llm_wiki "other")
 
 function colorForType(type: string | null): string {
   if (type === null) return DEFAULT_NODE_COLOR;
@@ -230,11 +228,19 @@ function makeDrawHaloNodeLabel(themeColors: SigmaThemeColors) {
 }
 
 /**
- * Build a halo hover drawer that uses the provided theme colors.
- * Draws a highlight ring around the hovered node, then the halo'd label.
+ * Build a pill-style hover drawer that uses the provided theme colors.
+ * Draws a highlight ring around the hovered node, then a dark rounded-rect
+ * "pill" label (reference: nashsu/llm_wiki 0.6.0 pill style).
+ *
+ * Pill uses rgba(15,20,30,0.88) background with a light border and #f1f5f9 text
+ * so it's legible on BOTH light and dark canvas themes without needing CSS vars
+ * (sigma draws on an HTMLCanvasRenderingContext2D — no CSS resolution at draw time).
+ * The hover ring uses themeColors.hoverRingColor for theme-aware contrast.
+ *
+ * roundRect: available Chrome 99+, Firefox 112+, Safari 15.4+ (Tauri v2 = WebView2,
+ * always Chrome-based). Manual fallback for older Safari.
  */
 function makeDrawHaloNodeHover(themeColors: SigmaThemeColors) {
-  const drawLabel = makeDrawHaloNodeLabel(themeColors);
   return function drawHaloNodeHover(
     context: CanvasRenderingContext2D,
     data: LabelDrawData,
@@ -247,7 +253,51 @@ function makeDrawHaloNodeHover(themeColors: SigmaThemeColors) {
     context.strokeStyle = themeColors.hoverRingColor;
     context.stroke();
 
-    drawLabel(context, data, settings);
+    if (!data.label) return;
+
+    // ── Pill label ────────────────────────────────────────────────────────────
+    const fontSize = settings.labelSize ?? 13;
+    const font = `${settings.labelWeight ?? "600"} ${fontSize}px ${settings.labelFont ?? "Inter, system-ui, sans-serif"}`;
+    context.font = font;
+    const textWidth = context.measureText(data.label).width;
+
+    const padX = 8;
+    const padY = 4;
+    const pillR = 5; // border-radius
+    const boxW = textWidth + padX * 2;
+    const boxH = fontSize + padY * 2;
+    // Position pill above the node with a gap
+    const boxX = data.x - boxW / 2;
+    const boxY = data.y - data.size - boxH - 6;
+
+    // Draw pill background (dark in both themes → high contrast with light text)
+    context.beginPath();
+    if (typeof (context as CanvasRenderingContext2D & { roundRect?: (...a: unknown[]) => void }).roundRect === "function") {
+      (context as CanvasRenderingContext2D & { roundRect: (x: number, y: number, w: number, h: number, r: number) => void }).roundRect(boxX, boxY, boxW, boxH, pillR);
+    } else {
+      // Manual rounded-rect fallback for Safari < 15.4
+      const r = Math.min(pillR, boxW / 2, boxH / 2);
+      context.moveTo(boxX + r, boxY);
+      context.arcTo(boxX + boxW, boxY, boxX + boxW, boxY + boxH, r);
+      context.arcTo(boxX + boxW, boxY + boxH, boxX, boxY + boxH, r);
+      context.arcTo(boxX, boxY + boxH, boxX, boxY, r);
+      context.arcTo(boxX, boxY, boxX + boxW, boxY, r);
+      context.closePath();
+    }
+    context.fillStyle = "rgba(15, 20, 30, 0.88)";
+    context.fill();
+
+    // Subtle border (light in both themes — overlaid on dark pill)
+    context.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    context.lineWidth = 1;
+    context.stroke();
+
+    // Label text — always light on the dark pill for maximum readability
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillStyle = "#f1f5f9";
+    context.font = font; // reset after stroke (some browsers reset font on stroke)
+    context.fillText(data.label, data.x, boxY + boxH / 2);
   };
 }
 
@@ -713,19 +763,21 @@ const ALL_NODE_TYPES = [
 ] as const;
 
 // ─── GraphHeader (GR1–GR5, GR7) ─────────────────────────────────────────────
-// Stats chips + in-graph search + filter popover + reset + fullscreen.
-// Sits above the sigma canvas in GraphPanel; all operations are client-side (I2).
+// ONE top toolbar row matching nashsu/llm_wiki 0.6.0 chrome layout.
+// LEFT: Network icon + graph.title + stat pills (pages/links/hidden).
+// RIGHT: icon-button group — Search (expands), Filter, Reset, Type, Community,
+//        Insights (+ count badge), Refresh, Fullscreen.
+// Color-mode toggle, regenerate and insights are consolidated here (removed from canvas overlays).
+// All operations are client-side (I2 — no layout mutation).
 
 interface GraphHeaderProps {
-  /** In-graph nodes from the store payload (GET /graph nodes array, ~816 of 986) */
+  /** In-graph nodes from the store payload (GET /graph nodes array) */
   nodes: GraphNode[];
-  /** In-graph edges from the store payload (full graph edge set including source-overlap) */
+  /** In-graph edges from the store payload (full graph edge set) */
   edges: GraphEdge[];
   /**
    * GR1: All live vault pages (pre-graph-inclusion, from GET /graph total_nodes field).
    * null = old backend that doesn't expose this field yet.
-   * denominator for the pages chip: total_nodes = 986 (in-graph 816 + isolated/dropped 170).
-   * hiddenCount = total_nodes - visibleNodes (covers filtered-out + not-in-graph pages).
    */
   totalNodes: number | null;
   filterNodeTypes: Set<string>;
@@ -735,6 +787,22 @@ interface GraphHeaderProps {
   onReset: () => void;
   onFullscreen: () => void;
   graphContainerRef: React.RefObject<HTMLDivElement | null>;
+  /** Current color mode — drives active state on Type/Community buttons. */
+  colorMode: ColorMode;
+  /** Called when the user toggles color mode. */
+  onSetColorMode: (mode: ColorMode) => void;
+  /** Whether the GraphInsightsPanel overlay is currently visible. */
+  showInsights: boolean;
+  /** Called when the Insights button is clicked. */
+  onToggleInsights: () => void;
+  /** Total insight count for the badge (0 = no badge shown). */
+  insightCount: number;
+  /** Called to regenerate the graph (reconnect + recompute FA2). */
+  onRefresh: () => void;
+  /** True while regeneration is in flight (spins the RefreshCw icon). */
+  regenerating: boolean;
+  /** Optional status message to show briefly after regeneration. */
+  regenMsg: string | null;
 }
 
 const GraphHeader: React.FC<GraphHeaderProps> = ({
@@ -748,11 +816,21 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
   onReset,
   onFullscreen,
   graphContainerRef: _graphContainerRef,
+  colorMode,
+  onSetColorMode,
+  showInsights,
+  onToggleInsights,
+  insightCount,
+  onRefresh,
+  regenerating,
+  regenMsg,
 }) => {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // GR1 — PAGES chip:
   //   denominator = total_nodes (all live vault pages, e.g. 986)
@@ -842,9 +920,17 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
     if (e.key === "Escape") {
       setSearchQuery("");
       onSearch("");
+      setSearchOpen(false);
       (e.currentTarget as HTMLInputElement).blur();
     }
   }, [onSearch]);
+
+  // Focus the search input when the search panel opens
+  useEffect(() => {
+    if (searchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchOpen]);
 
   // GR3: close filter popover on outside click
   useEffect(() => {
@@ -859,50 +945,89 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
   }, [filterOpen]);
 
   const hasActiveFilter = filterNodeTypes.size > 0;
+  const searchActive = searchQuery.length > 0;
+
+  // Shared style factory for icon-only toolbar buttons (ghost / active states).
+  // Following the reference: ghost = subtle bg + muted text; active = accent tint.
+  const iconBtnStyle = (active = false, disabled = false): React.CSSProperties => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    padding: 0,
+    width: 26,
+    height: 26,
+    border: `1px solid ${active ? "var(--syn-accent)" : "var(--syn-border)"}`,
+    borderRadius: 4,
+    background: active
+      ? "color-mix(in srgb, var(--syn-accent) 12%, var(--syn-surface))"
+      : "var(--syn-surface)",
+    color: active ? "var(--syn-accent)" : "var(--syn-text-muted)",
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+  });
 
   return (
     <div
       data-testid="graph-header"
+      role="toolbar"
+      aria-label={t("graph.title")}
       style={{
         display: "flex",
         alignItems: "center",
+        justifyContent: "space-between",
         gap: 8,
-        padding: "6px 10px",
+        padding: "5px 10px",
         borderBottom: "1px solid var(--syn-border)",
         background: "var(--syn-surface)",
         flexShrink: 0,
-        flexWrap: "wrap",
         minHeight: 38,
-        // Must be above the insights panel (z-index:10) and any canvas overlays
+        // Must be above canvas overlays
         position: "relative",
         zIndex: 15,
       }}
     >
-      {/* GR1: Stats chips */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-        {/* Pages: visibleNodes/totalNodes — hidden covers both filtered + not-in-graph */}
-        <span
-          data-testid="graph-header-nodes"
-          style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
-        >
-          {visibleNodes}/{displayTotalNodes} {t("graph.header.pages")}
-        </span>
-        {/* Links: visibleEdges/totalEdgesInGraph — GL1-culled show as "not shown" */}
-        {totalEdgesCount > 0 && (
-          <>
-            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+      {/* LEFT: Network icon + title + stat pills ───────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, minWidth: 0 }}>
+        {/* Title */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+          <Network size={14} style={{ color: "var(--syn-text-muted)", flexShrink: 0 }} aria-hidden="true" />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text)", whiteSpace: "nowrap" }}>
+            {t("graph.title")}
+          </span>
+        </div>
+
+        {/* GR1 stat pills — pages/links/hidden */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span
+            data-testid="graph-header-nodes"
+            style={{
+              fontSize: 11,
+              color: "var(--syn-text-muted)",
+              background: "color-mix(in srgb, var(--syn-border) 40%, transparent)",
+              borderRadius: 3,
+              padding: "1px 5px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {visibleNodes}/{displayTotalNodes} {t("graph.header.pages")}
+          </span>
+          {totalEdgesCount > 0 && (
             <span
               data-testid="graph-header-edges"
-              style={{ fontSize: 11, color: "var(--syn-text-muted)", whiteSpace: "nowrap" }}
+              style={{
+                fontSize: 11,
+                color: "var(--syn-text-muted)",
+                background: "color-mix(in srgb, var(--syn-border) 40%, transparent)",
+                borderRadius: 3,
+                padding: "1px 5px",
+                whiteSpace: "nowrap",
+              }}
             >
               {visibleEdges}/{totalEdgesCount} {t("graph.header.links")}
             </span>
-          </>
-        )}
-        {/* Orange "N hidden" chip — only when filter excludes some nodes */}
-        {hiddenCount > 0 && (
-          <>
-            <span style={{ fontSize: 11, color: "var(--syn-border)" }}>·</span>
+          )}
+          {hiddenCount > 0 && (
             <span
               data-testid="graph-header-hidden"
               style={{
@@ -911,231 +1036,327 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                 background: "color-mix(in srgb, #d97706 12%, transparent)",
                 border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
                 borderRadius: 3,
-                padding: "0px 5px",
+                padding: "1px 5px",
                 whiteSpace: "nowrap",
               }}
             >
               {hiddenCount} {t("graph.header.hidden")}
             </span>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
+      {/* RIGHT: control icon buttons ────────────────────────────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
 
-      {/* GR2: In-graph search */}
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        <input
-          data-testid="graph-search-input"
-          type="text"
-          value={searchQuery}
-          onChange={handleSearchChange}
-          onKeyDown={handleSearchKeyDown}
-          placeholder={t("graph.header.searchPlaceholder")}
-          aria-label={t("graph.header.searchPlaceholder")}
-          style={{
-            fontSize: 11,
-            padding: "3px 22px 3px 7px",
-            border: "1px solid var(--syn-border)",
-            borderRadius: 4,
-            background: "var(--syn-bg)",
-            color: "var(--syn-text)",
-            width: 160,
-            outline: "none",
-          }}
-        />
-        {searchQuery.length > 0 && (
-          <button
-            type="button"
-            onClick={handleSearchClear}
-            aria-label={t("common.close")}
-            style={{
-              position: "absolute",
-              right: 4,
-              top: "50%",
-              transform: "translateY(-50%)",
-              background: "none",
-              border: "none",
-              color: "var(--syn-text-dim)",
-              cursor: "pointer",
-              fontSize: 12,
-              lineHeight: 1,
-              padding: 0,
-            }}
-          >
-            ×
-          </button>
-        )}
-      </div>
-
-      {/* GR3: Filter popover button */}
-      <div ref={filterRef} style={{ position: "relative", flexShrink: 0 }}>
-        <button
-          type="button"
-          data-testid="graph-filter-button"
-          onClick={() => setFilterOpen((o) => !o)}
-          aria-label={t("graph.header.filter")}
-          aria-expanded={filterOpen}
-          style={{
-            fontSize: 11,
-            padding: "3px 8px",
-            border: `1px solid ${hasActiveFilter ? "var(--syn-accent)" : "var(--syn-border)"}`,
-            borderRadius: 4,
-            background: hasActiveFilter ? "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-surface))" : "var(--syn-surface)",
-            color: hasActiveFilter ? "var(--syn-accent)" : "var(--syn-text-muted)",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            fontWeight: hasActiveFilter ? 600 : 400,
-          }}
-        >
-          {t("graph.header.filter")}
-          {hasActiveFilter && ` (${filterNodeTypes.size})`}
-        </button>
-
-        {filterOpen && (
-          <div
-            data-testid="graph-filter-popover"
-            style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              right: 0,
-              background: "var(--syn-surface)",
-              border: "1px solid var(--syn-border)",
-              borderRadius: 6,
-              padding: "8px 10px",
-              zIndex: 20,
-              minWidth: 160,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div
+        {/* GR2: Search — expanding input; collapses back to icon when closed */}
+        {(searchOpen || searchActive) && (
+          <div style={{ position: "relative", flexShrink: 0, marginRight: 2 }}>
+            <Search
+              size={12}
               style={{
-                fontSize: 10,
+                position: "absolute",
+                left: 7,
+                top: "50%",
+                transform: "translateY(-50%)",
                 color: "var(--syn-text-muted)",
-                letterSpacing: "0.06em",
-                fontWeight: 600,
-                marginBottom: 6,
+                pointerEvents: "none",
+              }}
+              aria-hidden="true"
+            />
+            <input
+              ref={searchInputRef}
+              data-testid="graph-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={t("graph.header.searchPlaceholder")}
+              aria-label={t("graph.header.searchPlaceholder")}
+              style={{
+                fontSize: 11,
+                padding: "3px 22px 3px 22px",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 4,
+                background: "var(--syn-bg)",
+                color: "var(--syn-text)",
+                width: 160,
+                outline: "none",
+              }}
+            />
+            {/* Clear / collapse button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (searchActive) {
+                  handleSearchClear();
+                } else {
+                  setSearchOpen(false);
+                }
+              }}
+              aria-label={searchActive ? t("graph.header.clearFilter") : t("common.close")}
+              style={{
+                position: "absolute",
+                right: 4,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                color: "var(--syn-text-dim)",
+                cursor: "pointer",
+                padding: 0,
+                display: "flex",
+                alignItems: "center",
+                lineHeight: 1,
               }}
             >
-              {t("graph.header.filterNodeTypes")}
-            </div>
-            {ALL_NODE_TYPES.map((type) => {
-              const checked = filterNodeTypes.size === 0 || filterNodeTypes.has(type);
-              // Count nodes of this type in the current store nodes
-              const count = nodes.filter((n) => (n.type ?? "other") === type).length;
-              if (count === 0) return null;
-              const color = TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
-              return (
-                <label
-                  key={type}
-                  data-testid={`graph-filter-type-${type}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "3px 2px",
-                    cursor: "pointer",
-                    borderRadius: 3,
-                    fontSize: 11,
-                    color: "var(--syn-text)",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleFilterNodeType(type)}
-                    style={{ width: 12, height: 12, cursor: "pointer", flexShrink: 0 }}
-                  />
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: color,
-                      flexShrink: 0,
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span style={{ flex: 1, textTransform: "capitalize" }}>{type}</span>
-                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
-                    {count}
-                  </span>
-                </label>
-              );
-            })}
-            {hasActiveFilter && (
-              <button
-                type="button"
-                onClick={() => {
-                  clearFilterNodeTypes();
-                  setFilterOpen(false);
-                }}
-                style={{
-                  marginTop: 6,
-                  fontSize: 11,
-                  padding: "3px 8px",
-                  border: "1px solid var(--syn-border)",
-                  borderRadius: 3,
-                  background: "none",
-                  color: "var(--syn-text-muted)",
-                  cursor: "pointer",
-                  width: "100%",
-                }}
-              >
-                {t("graph.header.clearFilter")}
-              </button>
-            )}
+              <X size={11} aria-hidden="true" />
+            </button>
           </div>
         )}
+
+        {/* Search toggle icon */}
+        <button
+          type="button"
+          data-testid="graph-search-toggle"
+          onClick={() => setSearchOpen((o) => !o)}
+          aria-label={t("graph.header.searchPlaceholder")}
+          title={t("graph.header.searchPlaceholder")}
+          style={iconBtnStyle(searchOpen || searchActive)}
+        >
+          <Search size={13} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+
+        {/* GR3: Filter — icon button with expanding popover */}
+        <div ref={filterRef} style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            type="button"
+            data-testid="graph-filter-button"
+            onClick={() => setFilterOpen((o) => !o)}
+            aria-label={t("graph.header.filter")}
+            title={t("graph.header.filter")}
+            aria-expanded={filterOpen}
+            style={iconBtnStyle(hasActiveFilter || filterOpen)}
+          >
+            <Filter size={13} strokeWidth={1.8} aria-hidden="true" />
+          </button>
+
+          {filterOpen && (
+            <div
+              data-testid="graph-filter-popover"
+              style={{
+                position: "absolute",
+                top: "calc(100% + 4px)",
+                right: 0,
+                background: "var(--syn-surface)",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 6,
+                padding: "8px 10px",
+                zIndex: 20,
+                minWidth: 160,
+                boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "var(--syn-text-muted)",
+                  letterSpacing: "0.06em",
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                {t("graph.header.filterNodeTypes")}
+              </div>
+              {ALL_NODE_TYPES.map((type) => {
+                const checked = filterNodeTypes.size === 0 || filterNodeTypes.has(type);
+                const count = nodes.filter((n) => (n.type ?? "other") === type).length;
+                if (count === 0) return null;
+                const color = TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
+                return (
+                  <label
+                    key={type}
+                    data-testid={`graph-filter-type-${type}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "3px 2px",
+                      cursor: "pointer",
+                      borderRadius: 3,
+                      fontSize: 11,
+                      color: "var(--syn-text)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleFilterNodeType(type)}
+                      style={{ width: 12, height: 12, cursor: "pointer", flexShrink: 0 }}
+                    />
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: color,
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span style={{ flex: 1, textTransform: "capitalize" }}>{type}</span>
+                    <span style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                      {count}
+                    </span>
+                  </label>
+                );
+              })}
+              {hasActiveFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearFilterNodeTypes();
+                    setFilterOpen(false);
+                  }}
+                  style={{
+                    marginTop: 6,
+                    fontSize: 11,
+                    padding: "3px 8px",
+                    border: "1px solid var(--syn-border)",
+                    borderRadius: 3,
+                    background: "none",
+                    color: "var(--syn-text-muted)",
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  {t("graph.header.clearFilter")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* GR4: Reset — RotateCcw icon */}
+        <button
+          type="button"
+          data-testid="graph-header-reset"
+          onClick={onReset}
+          aria-label={t("graph.header.reset")}
+          title={t("graph.header.reset")}
+          style={iconBtnStyle()}
+        >
+          <RotateCcw size={13} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+
+        {/* Color mode: Type (Tag icon) */}
+        <button
+          type="button"
+          data-testid="color-mode-type"
+          onClick={() => onSetColorMode("type")}
+          aria-pressed={colorMode === "type"}
+          aria-label={t("graph.colorModeType")}
+          title={t("graph.colorModeType")}
+          style={iconBtnStyle(colorMode === "type")}
+        >
+          <Tag size={13} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+
+        {/* Color mode: Community (Layers icon) */}
+        <button
+          type="button"
+          data-testid="color-mode-community"
+          onClick={() => onSetColorMode("community")}
+          aria-pressed={colorMode === "community"}
+          aria-label={t("graph.colorModeCommunity")}
+          title={t("graph.colorModeCommunity")}
+          style={iconBtnStyle(colorMode === "community")}
+        >
+          <Layers size={13} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+
+        {/* Insights toggle — Lightbulb + count badge (only when nodes exist) */}
+        {nodes.length > 0 && (
+          <button
+            type="button"
+            data-testid="graph-insights-toggle"
+            onClick={onToggleInsights}
+            aria-pressed={showInsights}
+            aria-label={t("graph.insightsButton")}
+            title={t("graph.insightsButton")}
+            style={{
+              ...iconBtnStyle(showInsights),
+              width: "auto",
+              padding: "0 6px",
+              gap: 4,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Lightbulb size={13} strokeWidth={1.8} aria-hidden="true" />
+            {insightCount > 0 && (
+              <span
+                style={{
+                  fontSize: 10,
+                  lineHeight: 1.4,
+                  minWidth: 14,
+                  textAlign: "center",
+                  borderRadius: 8,
+                  padding: "0 4px",
+                  background: showInsights
+                    ? "color-mix(in srgb, var(--syn-accent) 20%, transparent)"
+                    : "color-mix(in srgb, var(--syn-border) 50%, transparent)",
+                  color: showInsights ? "var(--syn-accent)" : "var(--syn-text-muted)",
+                }}
+              >
+                {insightCount}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Optional regen status message (brief; auto-cleared by parent) */}
+        {regenMsg !== null && (
+          <span
+            style={{ fontSize: 10, color: "var(--syn-text-muted)", maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            role="status"
+            aria-live="polite"
+            data-testid="graph-regenerate-msg"
+          >
+            {regenMsg}
+          </span>
+        )}
+
+        {/* Refresh / Regenerate — RefreshCw icon (spins while regenerating) */}
+        <button
+          type="button"
+          data-testid="graph-regenerate"
+          onClick={onRefresh}
+          disabled={regenerating}
+          aria-label={t("graph.regenerate")}
+          title={t("graph.regenerateTitle")}
+          style={iconBtnStyle(false, regenerating)}
+        >
+          <RefreshCw
+            size={13}
+            strokeWidth={1.8}
+            aria-hidden="true"
+            style={regenerating ? { animation: "syn-spin 0.9s linear infinite" } : undefined}
+          />
+        </button>
+
+        {/* GR7: Fullscreen */}
+        <button
+          type="button"
+          data-testid="graph-header-fullscreen"
+          onClick={onFullscreen}
+          aria-label={t("graph.header.fullscreen")}
+          title={t("graph.header.fullscreen")}
+          style={iconBtnStyle()}
+        >
+          <Maximize size={13} strokeWidth={1.8} aria-hidden="true" />
+        </button>
       </div>
-
-      {/* GR4: Reset */}
-      <button
-        type="button"
-        data-testid="graph-header-reset"
-        onClick={onReset}
-        title={t("graph.header.reset")}
-        aria-label={t("graph.header.reset")}
-        style={{
-          fontSize: 11,
-          padding: "3px 8px",
-          border: "1px solid var(--syn-border)",
-          borderRadius: 4,
-          background: "var(--syn-surface)",
-          color: "var(--syn-text-muted)",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          flexShrink: 0,
-        }}
-      >
-        {t("graph.header.reset")}
-      </button>
-
-      {/* GR7: Fullscreen */}
-      <button
-        type="button"
-        data-testid="graph-header-fullscreen"
-        onClick={onFullscreen}
-        title={t("graph.header.fullscreen")}
-        aria-label={t("graph.header.fullscreen")}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 26,
-          height: 26,
-          border: "1px solid var(--syn-border)",
-          borderRadius: 4,
-          background: "var(--syn-surface)",
-          color: "var(--syn-text-muted)",
-          cursor: "pointer",
-          flexShrink: 0,
-          padding: 0,
-        }}
-      >
-        <Maximize size={13} strokeWidth={1.8} aria-hidden="true" />
-      </button>
     </div>
   );
 };
@@ -1158,11 +1379,25 @@ interface GraphLegendProps {
   nodes?: GraphNode[];
 }
 
-const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick: _onCommunityClick, nodes: _nodes = [] }) => {
+const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCommunityClick: _onCommunityClick, nodes = [] }) => {
   const { t } = useTranslation();
   // Collapsible: the community legend can be tall (one row per Louvain cluster) and cover
   // the graph — the header toggles it. Default expanded.
   const [collapsed, setCollapsed] = useState(false);
+
+  // Per-type node counts for the Node Types legend (llm_wiki parity: "Entity 202" etc.).
+  const countsByType = React.useMemo<Record<string, number>>(() => {
+    const m: Record<string, number> = {};
+    for (const n of nodes) {
+      const ty = (n.type as string | null | undefined) ?? "other";
+      m[ty] = (m[ty] ?? 0) + 1;
+    }
+    return m;
+  }, [nodes]);
+  const otherCount = React.useMemo(
+    () => nodes.reduce((acc, n) => (n.type && n.type in TYPE_COLORS ? acc : acc + 1), 0),
+    [nodes],
+  );
 
   // COMMUNITY mode = per-Louvain-community rows.
   // One row per community entry in the communities[] array (server-provided, sorted by size desc).
@@ -1248,6 +1483,9 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
               <span style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}>
                 {type}
               </span>
+              <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--syn-text-dim)", fontVariantNumeric: "tabular-nums" }}>
+                {countsByType[type] ?? 0}
+              </span>
             </div>
           ))}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
@@ -1263,6 +1501,9 @@ const GraphLegend: React.FC<GraphLegendProps> = ({ colorMode, communities, onCom
               aria-hidden="true"
             />
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
+            <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--syn-text-dim)", fontVariantNumeric: "tabular-nums" }}>
+              {otherCount}
+            </span>
           </div>
         </>
       ) : (
@@ -1591,8 +1832,9 @@ const StatusBar: React.FC = () => {
       className="syn-card"
       style={{
         position: "absolute",
-        top: 12,
-        right: 12,
+        bottom: 12,
+        left: "50%",
+        transform: "translateX(-50%)",
         padding: "3px 8px",
         fontSize: 11,
         color: "var(--syn-text-muted)",
@@ -1727,7 +1969,7 @@ export const GraphViewer: React.FC = () => {
   // color per cluster from COMMUNITY_PALETTE) or "type" (colors by page type).
   // Community names in legend + centroid overlay use communityDisplayName(c) which forms
   // "{dominant_domain} · {top_page_subtopic}" — unique per cluster, no duplicate SAM rows.
-  const [colorMode, setColorMode] = useState<ColorMode>("community");
+  const [colorMode, setColorMode] = useState<ColorMode>("type");
 
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -1985,6 +2227,12 @@ export const GraphViewer: React.FC = () => {
       labelGridCellSize: 70,
       labelRenderedSizeThreshold: 11,
 
+      // Parity with llm_wiki 0.6.0: suppress labels/edges while the camera moves so
+      // panning/zooming stays legible and light on large graphs (I3). Static hover is
+      // unaffected — only the hovered node forces a label (see nodeReducer).
+      hideLabelsOnMove: true,
+      hideEdgesOnMove: true,
+
       // Custom halo drawers — built with resolved theme colors (ADR-0048 §T1)
       defaultDrawNodeLabel: makeDrawHaloNodeLabel(sigmaThemeColors),
       defaultDrawNodeHover: makeDrawHaloNodeHover(sigmaThemeColors),
@@ -2046,8 +2294,11 @@ export const GraphViewer: React.FC = () => {
             res["zIndex"] = 2;
             res["size"] = ((data["size"] as number | undefined) ?? 8) * 1.15;
           } else if (isNeighbor) {
-            // Neighbor: show label, raised z, deepened color so cluster pops on light bg
-            res["forceLabel"] = true;
+            // Neighbor: raised z + deepened color so the cluster pops — but do NOT
+            // force its label. Matches llm_wiki 0.6.0 (only the hovered node forces a
+            // label; neighbours are highlighted, not labelled), so hovering a hub no
+            // longer floods the view with every neighbour's title. A neighbour that is
+            // itself a hub still shows its truncated label via the isHub branch above.
             res["zIndex"] = 1;
             // Mix toward black to deepen while preserving hue (light-theme pop)
             res["color"] = deepenColor((data["color"] as string | undefined) ?? DEFAULT_NODE_COLOR);
@@ -2114,7 +2365,8 @@ export const GraphViewer: React.FC = () => {
             // Emphasis color follows the theme — darker on a light canvas,
             // LIGHTER on a dark canvas (a dark emphasis would vanish).
             const dark = document.documentElement.getAttribute("data-theme") === "dark";
-            res["color"] = dark ? "rgba(196,205,220,0.9)" : "rgba(89,99,110,0.85)";
+            // Active-edge highlight — cyan on dark, slate-800 on light (llm_wiki 0.6.0 parity)
+            res["color"] = dark ? "#38bdf8" : "#1e293b";
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
@@ -2388,6 +2640,47 @@ export const GraphViewer: React.FC = () => {
     }
   }, []);
 
+  // ── Insights panel toggle — shared via graphStore (sibling GraphInsightsPanel reads it)
+  const showInsightsPanel = useGraphStore(selectShowInsightsPanel);
+  const setShowInsightsPanel = useGraphStore(selectSetShowInsightsPanel);
+
+  const handleToggleInsights = useCallback(() => {
+    setShowInsightsPanel(!showInsightsPanel);
+  }, [showInsightsPanel, setShowInsightsPanel]);
+
+  // ── insightCount — computed from current nodes/edges/communities (I3: memoized, not per-frame)
+  // I3 / AC-F4-6: computeGraphInsights scans the whole graph (surprising connections +
+  // knowledge gaps) — a >50ms main-thread task on large graphs. It MUST NOT run on the
+  // load/render critical path (it would trip the long-task budget). Compute the toolbar
+  // badge count lazily — only once the user opens the Insights panel — and even then at
+  // idle time. Before first open the badge shows no number; the initial graph render
+  // stays long-task-free.
+  const [insightCount, setInsightCount] = useState(0);
+  useEffect(() => {
+    if (!showInsightsPanel || nodes.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    const compute = () => {
+      if (!cancelled) setInsightCount(computeGraphInsights(nodes, edges, communities).total);
+    };
+    const w = window as typeof window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    let handle: number;
+    if (typeof w.requestIdleCallback === "function") {
+      handle = w.requestIdleCallback(compute, { timeout: 1000 });
+    } else {
+      handle = window.setTimeout(compute, 300);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, [showInsightsPanel, nodes, edges, communities]);
+
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
     // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
@@ -2406,7 +2699,10 @@ export const GraphViewer: React.FC = () => {
         flexDirection: "column",
       }}
     >
-      {/* GR1–GR5, GR7: Graph header with stats, search, filter, reset, fullscreen */}
+      {/* Keyframes for the spinning refresh icon in the toolbar */}
+      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* GR1–GR5, GR7: Graph header with stats, search, filter, reset, fullscreen, color-mode, insights, refresh */}
       <GraphHeader
         nodes={nodes}
         edges={edges}
@@ -2418,6 +2714,14 @@ export const GraphViewer: React.FC = () => {
         onReset={handleReset}
         onFullscreen={handleFullscreen}
         graphContainerRef={graphRootRef}
+        colorMode={colorMode}
+        onSetColorMode={setColorMode}
+        showInsights={showInsightsPanel}
+        onToggleInsights={handleToggleInsights}
+        insightCount={insightCount}
+        onRefresh={handleRegenerate}
+        regenerating={regenerating}
+        regenMsg={regenMsg}
       />
       {/* Canvas area wrapper: flex:1, position:relative so all absolute overlays
           (regenerate, zoom, legend, tooltips) are positioned relative to the canvas
@@ -2459,70 +2763,12 @@ export const GraphViewer: React.FC = () => {
         {announcement}
       </div>
 
-      {/* Regenerate-graph control — top-left (top-right is the Insights panel).
-          Reconnects cross-ingest links + recomputes FA2. */}
+      {/* Zoom / fit control cluster — top-right of canvas area (reference layout) */}
       <div
         className="syn-card"
         style={{
           position: "absolute",
           top: 12,
-          left: 12,
-          padding: "4px 6px",
-          zIndex: 6,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          userSelect: "none",
-        }}
-        data-testid="graph-regenerate-toolbar"
-      >
-        <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
-        {regenMsg !== null && (
-          <span
-            style={{ fontSize: 11, color: "var(--syn-text-muted)" }}
-            data-testid="graph-regenerate-msg"
-            role="status"
-          >
-            {regenMsg}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={handleRegenerate}
-          disabled={regenerating}
-          data-testid="graph-regenerate"
-          aria-label={t("graph.regenerate")}
-          title={t("graph.regenerateTitle")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 11,
-            padding: "4px 10px",
-            border: "1px solid var(--syn-border)",
-            borderRadius: 3,
-            background: "var(--syn-surface)",
-            color: "var(--syn-text)",
-            cursor: regenerating ? "default" : "pointer",
-            opacity: regenerating ? 0.6 : 1,
-          }}
-        >
-          <RefreshCw
-            size={13}
-            strokeWidth={1.8}
-            aria-hidden="true"
-            style={regenerating ? { animation: "syn-spin 0.9s linear infinite" } : undefined}
-          />
-          {regenerating ? t("graph.regenerating") : t("graph.regenerate")}
-        </button>
-      </div>
-
-      {/* Zoom / fit control cluster — bottom-right, above color-mode toolbar */}
-      <div
-        className="syn-card"
-        style={{
-          position: "absolute",
-          bottom: 60,
           right: 12,
           padding: "4px",
           zIndex: 5,
@@ -2603,76 +2849,7 @@ export const GraphViewer: React.FC = () => {
         </button>
       </div>
 
-      {/* Color-mode toolbar — Tipo · Comunità (community is default, colors by Louvain cluster) */}
-      <div
-        className="syn-card"
-        style={{
-          position: "absolute",
-          bottom: 16,
-          right: 12,
-          padding: "4px 6px",
-          zIndex: 5,
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          userSelect: "none",
-        }}
-        aria-label={t("graph.colorModeToggleLabel")}
-        data-testid="color-mode-toolbar"
-      >
-        <span
-          style={{
-            fontSize: 10,
-            color: "var(--syn-text-muted)",
-            marginRight: 2,
-            letterSpacing: "0.05em",
-          }}
-        >
-          {t("graph.colorModeToggleLabel")}
-        </span>
-        {/* Tipo — color by page type */}
-        <button
-          type="button"
-          onClick={() => setColorMode("type")}
-          data-testid="color-mode-type"
-          style={{
-            fontSize: 11,
-            padding: "2px 8px",
-            borderRadius: 3,
-            border: "1px solid var(--syn-border)",
-            cursor: "pointer",
-            background: colorMode === "type" ? "var(--syn-accent)" : "var(--syn-surface)",
-            color: colorMode === "type" ? "#fff" : "var(--syn-text-muted)",
-            fontWeight: colorMode === "type" ? 600 : 400,
-          }}
-          aria-pressed={colorMode === "type"}
-        >
-          {t("graph.colorModeType")}
-        </button>
-        {/* Comunità — colors by Louvain community id (COMMUNITY_PALETTE, 12-color cycle).
-            One distinct color per server-computed cluster — groups topically related pages.
-            Legend rows use communityDisplayName(c) — unique "{domain}·{subtopic}" labels. */}
-        <button
-          type="button"
-          onClick={() => setColorMode("community")}
-          data-testid="color-mode-community"
-          style={{
-            fontSize: 11,
-            padding: "2px 8px",
-            borderRadius: 3,
-            border: "1px solid var(--syn-border)",
-            cursor: "pointer",
-            background: colorMode === "community" ? "var(--syn-accent)" : "var(--syn-surface)",
-            color: colorMode === "community" ? "#fff" : "var(--syn-text-muted)",
-            fontWeight: colorMode === "community" ? 600 : 400,
-          }}
-          aria-pressed={colorMode === "community"}
-        >
-          {t("graph.colorModeCommunity")}
-        </button>
-      </div>
-
-      {/* Status bar overlay */}
+      {/* Status bar overlay — bottom-center so it doesn't conflict with zoom controls top-right */}
       <StatusBar />
 
       {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode.
@@ -2681,6 +2858,7 @@ export const GraphViewer: React.FC = () => {
       <GraphLegend
         colorMode={colorMode}
         communities={communities}
+        nodes={nodes}
       />
 
       {/* Community centroid labels overlay (community mode).

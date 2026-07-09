@@ -105,18 +105,16 @@ const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
 // Edges below threshold are HIDDEN (sigma hidden:true) — never removed from the
 // graph so the edgeReducer can reveal them on hover (I2-safe: render only).
 //
-// Buckets (declutter pass 2026-07, raised to reduce hairball on dense graphs):
-//   n ≤ 150         → 0.00  (show all — small graphs are already legible)
-//   150 < n ≤ 600   → 0.12  (cull weakest ~12% tail)
-//   600 < n ≤ 1200  → 0.30  (was 0.22 — raised to cut more clutter in mid-large)
-//   n > 1200        → 0.42  (was 0.32 — raised for very dense graphs)
+// Buckets — 1:1 with nashsu/llm_wiki 0.6.0 (graph-view.tsx edgeVisibilityThreshold):
+//   n ≤ 700          → 0.00  (show all)
+//   700 < n ≤ 1200   → 0.05
+//   1200 < n ≤ 2500  → 0.10
+//   n > 2500         → 0.16
 export function edgeVisibilityThreshold(nodeCount: number): number {
-  // Obsidian-like "flow": show (almost) all edges so clusters stay CONNECTED rather than
-  // reading as detached islands. Only the very weakest tail is culled on very dense graphs.
-  // (Was 0.12/0.30/0.42 — that culling made clusters look like separate islands.)
-  if (nodeCount <= 600) return 0;
-  if (nodeCount <= 1200) return 0.03;
-  return 0.06;
+  if (nodeCount <= 700) return 0;
+  if (nodeCount <= 1200) return 0.05;
+  if (nodeCount <= 2500) return 0.1;
+  return 0.16;
 }
 
 // ─── GL2: Hub label truncation ────────────────────────────────────────────────
@@ -240,54 +238,28 @@ function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
 }
 
 /**
- * Build resting-state edge color from normalized weight and kind.
- * Light theme: edges are light at rest and darken on hover via edgeReducer.
+ * Build resting-state edge color from normalized weight — NEUTRAL SLATE, llm_wiki 0.6.0
+ * parity (the reference draws every edge in slate-500 with a weight→opacity ramp and makes
+ * no link/source colour distinction). sigma v3's edge program ignores the alpha channel, so
+ * we bake the reference's opacity into the RGB: dim near the canvas background at low weight,
+ * ramping to slate-500 (#64748b) at high weight. "Thicker + brighter = stronger edge." The
+ * hover highlight (cyan) is applied separately in the edgeReducer.
  *
- * IMPORTANT: sigma v3's default edge program renders the edge RGB at full opacity and
- * effectively IGNORES the alpha channel. On a white (#ffffff) canvas we bake weight
- * into the RGB directly: light color at low weight ramping to a darker, more saturated
- * color at high weight. "Thicker + darker = stronger edge" (llm_wiki parity).
- *
- * Resting ramps (light theme):
- *   kind="link"   low=#dde0e4  → high=#7c8598  (slate gray, clearly visible on white)
- *   kind="source" low=#d8dff0  → high=#7d90bf  (slate blue-gray)
- *
- * Two-kind distinction is preserved: link=neutral gray, source=blue-gray tint.
+ * Resting ramps:
+ *   dark  low=#1b212a (near #0d1117 bg) → high=#64748b (slate-500)
+ *   light low=#dfe3e9 (near white)      → high=#64748b (slate-500)
  */
-function edgeColor(
-  normalizedWeight: number,
-  kind: "link" | "source",
-  theme: "light" | "dark" = "light",
-): string {
+function edgeColor(normalizedWeight: number, theme: "light" | "dark" = "light"): string {
   const t = Math.max(0, Math.min(1, normalizedWeight));
   if (theme === "dark") {
-    // DARK THEME: the light-theme ramps read as glaring white on a #0d1117 canvas
-    // (owner report, v1.2). Rest edges stay DIM slate; weight ramps toward a readable
-    // mid-tone, never white. "Thicker + brighter = stronger" (inverted-luminance ramp).
-    if (kind === "source") {
-      // Blue-gray: low=#2a3450 (42,52,80) → high=#5e73a8 (94,115,168)
-      const r = Math.round(42 + 52 * t);
-      const g = Math.round(52 + 63 * t);
-      const b = Math.round(80 + 88 * t);
-      return `rgb(${r},${g},${b})`;
-    }
-    // Neutral slate: low=#2c313c (44,49,60) → high=#6b7688 (107,118,136)
-    const r = Math.round(44 + 63 * t);
-    const g = Math.round(49 + 69 * t);
-    const b = Math.round(60 + 76 * t);
+    const r = Math.round(27 + 73 * t);
+    const g = Math.round(33 + 83 * t);
+    const b = Math.round(42 + 97 * t);
     return `rgb(${r},${g},${b})`;
   }
-  if (kind === "source") {
-    // Blue-gray tint: low=#d8dff0 (r=216,g=223,b=240) → high=#7d90bf (r=125,g=144,b=191)
-    const r = Math.round(216 - 91 * t);
-    const g = Math.round(223 - 79 * t);
-    const b = Math.round(240 - 49 * t);
-    return `rgb(${r},${g},${b})`;
-  }
-  // Neutral slate gray: low=#dde0e4 (r=221,g=224,b=228) → high=#7c8598 (r=124,g=133,b=152)
-  const r = Math.round(221 - 97 * t);
-  const g = Math.round(224 - 91 * t);
-  const b = Math.round(228 - 76 * t);
+  const r = Math.round(223 - 123 * t);
+  const g = Math.round(227 - 111 * t);
+  const b = Math.round(233 - 94 * t);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -377,7 +349,7 @@ export function buildGraphologyGraph(
       weight: edge.weight,
       normalizedWeight: nw,
       size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.5–4 px: thicker + darker = stronger (llm_wiki parity)
-      color: edgeColor(nw, kind, theme),
+      color: edgeColor(nw, theme),
       kind,
       // GL1: hide weak edges at rest; edgeReducer reveals them on hover (I2-safe)
       hidden: nw < edgeThreshold,

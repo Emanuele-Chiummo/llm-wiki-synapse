@@ -48,7 +48,7 @@ class _CustomAgentic(InferenceProvider):
         raise AssertionError("analyze() must NOT be called on the delegated route")
 
     async def generate(  # pragma: no cover
-        self, analysis: Analysis, retrieval_context: str
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
     ) -> list[WikiPage]:
         raise AssertionError("generate() must NOT be called on the delegated route")
 
@@ -93,7 +93,9 @@ class _CustomLocal(InferenceProvider):
             suggested_pages=[SuggestedPage(title="P", type=PageType.CONCEPT)],
         )
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         self.generate_calls += 1
         self._record_usage(Usage(input_tokens=20, output_tokens=10, total_cost_usd=0.0))
         return [
@@ -134,7 +136,7 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     written: list = []
     runs: list = []
 
-    async def fake_write_wiki_page(session, page, origin):  # type: ignore[no-untyped-def]
+    async def fake_write_wiki_page(session, page, origin, *, provider=None):  # type: ignore[no-untyped-def]
         written.append(page)
 
         # Return a stub with .id so record_written() doesn't fail (ADR-0046)
@@ -226,7 +228,15 @@ async def test_non_agentic_provider_runs_orchestrated_loop(
     assert result.converged is True
     assert provider.analyze_calls == 1  # analyze ONCE (AQ-v0.2-1)
     assert provider.generate_calls == 1
-    assert len(_patch_persistence["written"]) == 1
+    # The provider emits a single CONCEPT page and NO source page, so the ADR-0063 §2.4 mandatory
+    # source-page guarantee appends one → 2 written (concept + synthesized source summary).
+    written = _patch_persistence["written"]
+    assert len(written) == 2
+    types = {p.type for p in written}
+    assert PageType.CONCEPT in types
+    assert PageType.SOURCE in types
+    source_page = next(p for p in written if p.type is PageType.SOURCE)
+    assert "raw/sources/x.md" in source_page.frontmatter.sources
     assert len(_patch_persistence["runs"]) == 1
 
 

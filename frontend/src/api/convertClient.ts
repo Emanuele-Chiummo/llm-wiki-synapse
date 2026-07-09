@@ -1,7 +1,7 @@
 /**
  * convertClient.ts — typed API client for Marker PDF conversion endpoints [F12][R11-1].
  *
- * POST /ingest/convert-marker  multipart files[] (1..10 PDFs)
+ * POST /ingest/convert-marker  multipart files (1..10 PDFs)
  * GET  /ingest/marker-health   proxy to Marker service health
  *
  * All calls go through apiFetch (ADR-0052 §4.2 — single auth injection point).
@@ -65,7 +65,7 @@ export class MarkerError extends Error {
 // ─── convertFiles ──────────────────────────────────────────────────────────────
 
 /**
- * convertFiles — POST /ingest/convert-marker with a multipart files[] field.
+ * convertFiles — POST /ingest/convert-marker with a multipart files field.
  *
  * Submits 1..10 PDF files. On success returns the list of converted file results.
  * On Marker error (502) throws MarkerError with the backend detail string.
@@ -83,7 +83,10 @@ export async function convertFiles(
   const url = `${apiBase()}/ingest/convert-marker`;
   const form = new FormData();
   for (const file of files) {
-    form.append("files[]", file);
+    // Field name MUST be "files" (matches the FastAPI param `files: list[UploadFile]`
+    // on POST /ingest/convert-marker). Sending "files[]" leaves the required `files`
+    // field absent → 422 Unprocessable Entity.
+    form.append("files", file);
   }
   const res = await apiFetch(url, {
     method: "POST",

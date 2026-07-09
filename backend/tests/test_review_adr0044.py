@@ -703,3 +703,194 @@ async def test_E_write_capture_records_writes() -> None:
     assert record.ids == ["id-1", "id-2"]
     assert record.titles == ["Title 1", "Title 2"]
     assert _delegated_write_record.get() is None  # restored on exit
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Phase F — parity fixes (R-bug1, R4, R5, R7)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+async def test_pass1_duplicate_resolves_on_gone_page(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R-bug1: sweep_reviews Pass-1b auto-resolves a 'duplicate' item when the affected
+    page is soft-deleted. Mirrors llm_wiki sweep-reviews.ts:376-391 (!allStillExist)."""
+    from app.config import settings
+    from app.ops.review import sweep_reviews
+
+    # Disable LLM sweep so the test is deterministic and fast.
+    monkeypatch.setattr(settings, "review_sweep_llm_enabled", False)
+
+    # Insert a live page and a duplicate review item referencing it via page_id.
+    page_id = await _insert_page(env, title="Duplicate Target")
+    item_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO review_items (id, vault_id, item_type, status, proposed_title, "
+                "page_id, created_at) VALUES (:id, 'test-vault', 'duplicate', 'pending', "
+                ":title, :page_id, datetime('now'))"
+            ),
+            {"id": item_id, "title": "Duplicate Target", "page_id": page_id},
+        )
+        await sess.commit()
+
+    # Soft-delete the affected page (one copy of the duplicate is gone → conflict resolved).
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text("UPDATE pages SET deleted_at=datetime('now') WHERE id=:id"),
+            {"id": page_id},
+        )
+        await sess.commit()
+
+    result = await sweep_reviews("test-vault")
+    assert result.rule_resolved >= 1
+
+    async with env["session_factory"]() as sess:
+        row = (
+            await sess.execute(
+                sa_text("SELECT status, resolution FROM review_items WHERE id=:id"),
+                {"id": item_id},
+            )
+        ).first()
+    assert row[0] == "auto_resolved", "duplicate must be auto_resolved when affected page is gone"
+    assert row[1] == "rule_resolved"
+
+
+async def test_pass1_duplicate_stays_pending_when_all_pages_exist(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R-bug1: sweep_reviews Pass-1b leaves a 'duplicate' item pending when all
+    affected pages are still alive (the duplicate conflict is unresolved)."""
+    from app.config import settings
+    from app.ops.review import sweep_reviews
+
+    monkeypatch.setattr(settings, "review_sweep_llm_enabled", False)
+
+    # Insert a live page — and do NOT delete it.
+    page_id = await _insert_page(env, title="Live Duplicate A")
+    item_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO review_items (id, vault_id, item_type, status, proposed_title, "
+                "page_id, created_at) VALUES (:id, 'test-vault', 'duplicate', 'pending', "
+                ":title, :page_id, datetime('now'))"
+            ),
+            {"id": item_id, "title": "Live Duplicate A", "page_id": page_id},
+        )
+        await sess.commit()
+
+    await sweep_reviews("test-vault")
+
+    async with env["session_factory"]() as sess:
+        row = (
+            await sess.execute(
+                sa_text("SELECT status FROM review_items WHERE id=:id"),
+                {"id": item_id},
+            )
+        ).first()
+    assert row[0] == "pending", "duplicate must stay pending while all affected pages exist"
+
+
+async def test_pass1_missing_page_resolves_by_slug(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """R4: sweep_reviews Pass-1a resolves a 'missing-page' item via slug match when
+    the stored page title differs but the file_path basename slug matches.
+    Mirrors llm_wiki sweep-reviews.ts:110-116 (byId slug check)."""
+    from app.config import settings
+    from app.ops.review import sweep_reviews
+
+    monkeypatch.setattr(settings, "review_sweep_llm_enabled", False)
+
+    # Insert a page at wiki/concepts/attention-mechanism.md with a longer stored title.
+    # The title does NOT exactly match the proposed_title "Attention Mechanism".
+    page_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, title, type, content_hash, pinned, "
+                "created_at, updated_at) VALUES (:id, 'test-vault', "
+                "'wiki/concepts/attention-mechanism.md', 'The Attention Mechanism', "
+                "'concept', 'h', 0, datetime('now'), datetime('now'))"
+            ),
+            {"id": page_id},
+        )
+        await sess.commit()
+
+    # A missing-page proposal: proposed_title "Attention Mechanism" → slug "attention-mechanism"
+    # → matches file_path '%/attention-mechanism.md'.
+    item_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO review_items (id, vault_id, item_type, status, proposed_title, "
+                "created_at) VALUES (:id, 'test-vault', 'missing-page', 'pending', "
+                "'Attention Mechanism', datetime('now'))"
+            ),
+            {"id": item_id},
+        )
+        await sess.commit()
+
+    result = await sweep_reviews("test-vault")
+    assert result.rule_resolved >= 1
+
+    async with env["session_factory"]() as sess:
+        row = (
+            await sess.execute(
+                sa_text("SELECT status, resolution FROM review_items WHERE id=:id"),
+                {"id": item_id},
+            )
+        ).first()
+    assert row[0] == "auto_resolved", "missing-page must resolve via slug match (R4)"
+    assert row[1] == "rule_resolved"
+
+
+def test_normalize_title_strips_prefixes() -> None:
+    """R5: _normalize_title strips common LLM-prepended prefixes before lowercasing.
+    Mirrors llm_wiki review-utils.ts normalizeReviewTitle + REVIEW_TITLE_PREFIX_RE."""
+    from app.ops.review import _normalize_title
+
+    # LLM prefix variants (english).
+    assert _normalize_title("Missing page: Widget") == "widget"
+    assert _normalize_title("Duplicate page: Widget") == "widget"
+    assert _normalize_title("possible duplicate: Widget") == "widget"
+    assert _normalize_title("missing-page: Widget") == "widget"
+    # No prefix → simple lowercase + collapse whitespace.
+    assert _normalize_title("Widget") == "widget"
+    assert _normalize_title("  Multi   Space  ") == "multi space"
+    # Prefix stripping must not bleed into the title body.
+    assert _normalize_title("Missing page: Transformer Model") == "transformer model"
+
+
+def test_content_key_ignores_target() -> None:
+    """R7: _content_key excludes target_page_title and page_id from the hash payload.
+    Two items about the same concept but different conflict targets must share a key,
+    so they dedup correctly (mirrors llm_wiki review-utils.ts normalizeReviewTitle logic)."""
+    from app.ops.review import _content_key
+
+    # Different target_page_title → same key.
+    key_a = _content_key(
+        vault_id="v", item_type="contradiction", proposed_title="X", target_page_title="A"
+    )
+    key_b = _content_key(
+        vault_id="v", item_type="contradiction", proposed_title="X", target_page_title="B"
+    )
+    assert key_a == key_b, "target_page_title must not affect content_key (R7)"
+
+    # Different page_id → same key.
+    key_c = _content_key(
+        vault_id="v", item_type="contradiction", proposed_title="X", page_id="id-1"
+    )
+    key_d = _content_key(
+        vault_id="v", item_type="contradiction", proposed_title="X", page_id="id-2"
+    )
+    assert key_c == key_d, "page_id must not affect content_key (R7)"
+
+    # All four keys for the same vault+type+title must be identical.
+    assert key_a == key_c
+
+    # Different proposed_title → different key (sanity check).
+    key_e = _content_key(vault_id="v", item_type="contradiction", proposed_title="Y")
+    assert key_a != key_e

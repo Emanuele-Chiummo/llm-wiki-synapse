@@ -37,5 +37,9 @@ struct BackHeader: View {
                     .padding(.top, 4)
             }
         }
+        // Without this the VStack hugs its content width and the parent
+        // (a centered VStack) centres the whole header, leaving it visibly
+        // offset from the full-width sections below. Pin it left.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -63,8 +63,10 @@ from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.queue_manager import ingest_queue
 from app.ingest.schemas import (
     INDEX_TYPE,
+    LOG_TYPE,
     OVERVIEW_TYPE,
     Analysis,
+    PageType,
     WikiPage,
     type_subdir,
 )
@@ -500,11 +502,25 @@ async def run_ingest_pipeline(
             ingest_queue.set_route(run_id, route)
             # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
             ingest_queue.set_phase(run_id, "agent running")
+            # nashsu/llm_wiki page-type parity: append the SAME restricted generation scaffold the
+            # orchestrated backends get via GENERATE_SYSTEM to the CLI agent's system_prompt, so the
+            # delegated route also produces exactly one source page + entity/concept pages and
+            # avoids auto-generating synthesis/comparison pages (review-only). This is a PROMPT
+            # instruction, not a deterministic post-write guarantee — see the CLI-route gap in
+            # ADR-0063 §7 (_ensure_source_summary is NOT wired into the delegated write path; I6
+            # forbids post-processing the agent's own MCP writes here).
+            from app.ingest.provider._common import GENERATION_SCAFFOLD
+
+            _delegated_system_prompt = (
+                f"{ingest_context}\n\n{GENERATION_SCAFFOLD}"
+                if ingest_context
+                else GENERATION_SCAFFOLD
+            )
             converged, delegated_pages_written, delegated_page_ids = await _delegate_ingest(
                 provider=provider,
                 source_text=source_text,
                 origin_source=origin_source,
-                system_prompt=ingest_context,
+                system_prompt=_delegated_system_prompt,
             )
             # ── ADR-0046 §3: deferred cancel check for delegated route (I6) ──────────
             # We cannot inject a cancel boundary into the provider's own agent loop (I6
@@ -528,6 +544,18 @@ async def run_ingest_pipeline(
                     "run_ingest_pipeline: F3 delegated overview regen hook failed "
                     "(non-fatal): %s",
                     _ov_exc,
+                )
+            # ── D4 delegated-route index/log graph nodes (nashsu/llm_wiki parity) ────────
+            # The CLI agent's MCP write_page calls maintain index.md/log.md on disk (via the shared
+            # write_wiki_page seam); upsert their Page rows so they render as graph nodes on BOTH
+            # routes (wiki-graph.ts:182-209). Fire-and-forget: NEVER raises into ingest (D4/I7).
+            try:
+                await _index_index_and_log_files()
+            except Exception as _il_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: D4 delegated index/log node hook failed "
+                    "(non-fatal): %s",
+                    _il_exc,
                 )
             # ── F9 delegated-route proposals (ADR-0044 §4.2, closes ADR-0034 §9 risk 1) ─
             # Load the pages the CLI agent wrote through MCP write_page, synthesize a minimal
@@ -607,16 +635,35 @@ async def run_ingest_pipeline(
             analysis = loop_result.analysis
             iterations = loop_result.iterations
             converged = loop_result.converged
-            # Guarantee a source-summary page (F3) even if the provider omitted it.
+            # ── Feature 3 (ADR-0063 §5): wrong-language page drop ────────────────────
+            # Drop pages whose body script-family contradicts the resolved target language BEFORE
+            # the source-summary guarantee (so a batch dropped to empty still gets a source
+            # summary) and before write. Deterministic, no provider call. Exempt source/entity.
+            pages = _drop_wrong_language_pages(pages, analysis)
+            # Guarantee a source-summary page (F3) even if the provider omitted it (or the
+            # language guard dropped everything).
             pages = _ensure_source_summary(pages, analysis, origin_source)
             ingest_queue.set_phase(run_id, "writing")
             written_pages: list[Page] = []
             for page in pages:
-                written_page = await write_wiki_page(None, page, origin_source)
+                # Feature 2 (ADR-0063 §4): pass the run's provider so write_wiki_page can LLM-merge
+                # old+new bodies when the target page already exists (bounded, degrade-safe, I6/I7).
+                written_page = await write_wiki_page(None, page, origin_source, provider=provider)
                 written_pages.append(written_page)
                 # ADR-0046: record the page_id so cancel can cascade-delete it
                 ingest_queue.record_written(run_id, written_page.id)
             await _update_overview(analysis, origin_source)
+            # ── D4 orchestrated-route index/log graph nodes (nashsu/llm_wiki parity) ─────
+            # write_wiki_page maintained index.md/log.md on disk (update_index / append_log);
+            # upsert their Page rows so they render as graph nodes (wiki-graph.ts:182-209).
+            # Fire-and-forget: NEVER raises into ingest (D4/I7).
+            try:
+                await _index_index_and_log_files()
+            except Exception as _il_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: D4 index/log node hook failed (non-fatal): %s",
+                    _il_exc,
+                )
 
             # ── F18 post-write hook: domain auto-tag (ADR-0054 §3) ───────────────────
             # Runs AFTER the write loop + overview (pages exist on disk + DB, I1) and BESIDE the
@@ -1305,6 +1352,8 @@ async def write_wiki_page(
     session: object | None,
     page: WikiPage,
     origin_source: str,
+    *,
+    provider: InferenceProvider | None = None,
 ) -> Page:
     """
     Serialize *page* to vault/wiki/<type-plural>/<slug>.md with valid frontmatter (I5) and
@@ -1325,6 +1374,16 @@ async def write_wiki_page(
     page_type = page.type.value
     subdir = type_subdir(page.type)
     slug = _slugify(page.title)
+    # D3 (ADR-0063 §9, nashsu/llm_wiki parity — source-identity.ts:39-48): a SOURCE page lands at
+    # wiki/sources/<stem>.md, where <stem> is the origin source's identity stem (the raw filename),
+    # NOT the title slug — so one raw file maps deterministically to one source page (`Source:
+    # <identity>` titles otherwise slugify to `source-...`). Falls back to the title slug when the
+    # origin carries no `raw/sources/` identity (model-authored source pages, MCP writes stay
+    # title-driven — documented caveat).
+    if page.type is PageType.SOURCE:
+        _identity_stem = _source_identity_stem(origin_source)
+        if _identity_stem:
+            slug = _slugify(_identity_stem)
     rel_path = f"wiki/{subdir}/{slug}.md"
     abs_path = settings.vault_root / subdir_path(subdir) / f"{slug}.md"
 
@@ -1365,6 +1424,28 @@ async def write_wiki_page(
     # this is the single shared write seam (ADR-0010 §2). All downstream uses (file bytes, hash,
     # Qdrant text, wikilink parse) use `body` so nothing desyncs.
     body = _strip_leading_frontmatter(page.content)
+    # ── Feature 2 (ADR-0063 §4): LLM body-merge on re-ingest ─────────────────────
+    # When this page targets an EXISTING file with meaningful prior body content, merge old+new
+    # bodies via the provider (chat seam, I6) instead of overwriting — so a second source enriching
+    # an existing entity/concept page does not silently lose the first source's contribution.
+    # Bounded to a single timed provider call; degrade-safe (keeps the new body on any failure).
+    # Only the orchestrated write site passes `provider`; meta/catalogue + MCP/CLI callers pass
+    # None → no merge (the delegated route runs its own agent loop — ADR-0063 §7 documented gap).
+    if provider is not None and abs_path.exists():
+        from app.ingest.page_merge import maybe_merge_page_body
+        from app.ops.enrich_wikilinks import _split_frontmatter
+
+        try:
+            _existing_body = _split_frontmatter(abs_path.read_text(encoding="utf-8"))[1]
+        except OSError:
+            _existing_body = ""
+        body = await maybe_merge_page_body(
+            provider,
+            _existing_body,
+            body,
+            title=page.title,
+            origin_source=origin_source,
+        )
     fm_dump = page.frontmatter.model_dump()
     fm_dump["sources"] = sources
     fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
@@ -1717,28 +1798,150 @@ def _read_body_for_classification(page: Page) -> str:
     return _split_frontmatter(text)[1]
 
 
+# D3 (ADR-0063 §9, nashsu/llm_wiki parity — source-identity.ts:1-24). The "source identity" is the
+# origin path with the leading `raw/sources/` prefix removed (case-insensitive), or — if a
+# `raw/sources/` marker appears mid-path — the suffix after it; else the bare filename. It is the
+# stable, human-readable label llm_wiki puts in the source-summary title/body and sources[].
+_RAW_SOURCES_PREFIX = "raw/sources/"
+_RAW_SOURCES_MARKER = "/raw/sources/"
+
+
+def _source_identity(origin_source: str) -> str:
+    """
+    Return the nashsu/llm_wiki "source identity" for *origin_source* (D3, source-identity.ts:6-24).
+
+    Normalizes separators to '/', then strips a leading `raw/sources/` (case-insensitive) or the
+    suffix after an embedded `/raw/sources/` marker; falls back to the bare filename when neither
+    is present. Empty input → "". Used for the synthesized source-summary title/body AND the
+    on-disk slug (see _source_identity_stem).
+    """
+    sp = (origin_source or "").replace("\\", "/").lstrip("/")
+    if not sp:
+        return ""
+    key = sp.lower()
+    if key.startswith(_RAW_SOURCES_PREFIX):
+        return sp[len(_RAW_SOURCES_PREFIX) :]
+    marker = key.find(_RAW_SOURCES_MARKER)
+    if marker >= 0:
+        return sp[marker + len(_RAW_SOURCES_MARKER) :]
+    return Path(sp).name
+
+
+def _source_identity_stem(origin_source: str) -> str:
+    """
+    Return the filename stem of the source identity (D3) — the `<stem>` in llm_wiki's
+    `wiki/sources/<stem>.md` path (source-identity.ts:39-48). "" when there is no identity so the
+    writer can fall back to the title-derived slug (model-authored source pages, MCP writes).
+    """
+    identity = _source_identity(origin_source)
+    return Path(identity).stem if identity else ""
+
+
 def _ensure_source_summary(
     pages: list[WikiPage], analysis: Analysis | None, origin_source: str
 ) -> list[WikiPage]:
     """
-    Guarantee at least one page traceable to the source (F3). If the provider produced no
-    pages (e.g. non-convergence), synthesize a minimal source-summary page from the analysis
-    so the source is never silently dropped.
+    Guarantee EXACTLY one source-summary page traceable to *origin_source* (F3, nashsu/llm_wiki
+    parity — ingest.ts:1209-1244 ``hasSourceSummary`` fallback).
+
+    Semantics changed for llm_wiki page-type parity: previously a source page was synthesized
+    ONLY when the batch was empty, which — combined with the flat 5-type generation prompt —
+    left most raw files without a `source` page and skewed the distribution. Now we ALWAYS
+    ensure a `source`-type page whose sources[] includes *origin_source* exists in the batch:
+
+      • If the model already produced one (dedupe guard) → return *pages* unchanged (no churn,
+        no duplicate).
+      • Otherwise synthesize a minimal source page from the analysis (title/summary) and APPEND
+        it — even when the model produced entity/concept pages but omitted the source summary.
+
+    This restores ~1 source page per raw file (the llm_wiki 132-source distribution). Existing
+    pages are preserved and stay first in the list, so callers that read ``pages[0]`` (review
+    Create path) keep their model-produced page.
+
+    D3 (ADR-0063 §9, nashsu/llm_wiki parity — ingest.ts:1219-1244): the synthesized page's title
+    is ``Source: <identity>`` and its body is ``# Source: <identity>\n\n<analysis text>`` where
+    <identity> is the origin path minus the `raw/sources/` prefix (``_source_identity``). This
+    matches llm_wiki's fallback source page exactly (previously ``Source summary: <stem>``).
     """
-    if pages:
-        return pages
     from app.ingest.schemas import PageType, WikiFrontmatter
 
+    # Dedupe / churn guard (llm_wiki hasSourceSummary): a source page already traceable to the
+    # origin exists → leave the batch untouched.
+    for page in pages:
+        if page.type is PageType.SOURCE and origin_source in (page.frontmatter.sources or []):
+            return pages
+
     lang = analysis.language if analysis is not None else "en"
-    title = f"Source summary: {Path(origin_source).stem}"
-    summary = (analysis.summary if analysis and analysis.summary else None) or (
-        "Auto-generated source summary (provider produced no pages)."
+    identity = _source_identity(origin_source) or Path(origin_source).stem
+    title = f"Source: {identity}"
+    analysis_text = (analysis.summary if analysis and analysis.summary else None) or (
+        "(Analysis not available)"
     )
+    # Body mirrors llm_wiki's fallback: an H1 `# Source: <identity>` heading + the analysis text.
+    body = f"# Source: {identity}\n\n{analysis_text}"
     fm = WikiFrontmatter(type=PageType.SOURCE, title=title, sources=[origin_source], lang=lang)
-    return [WikiPage(title=title, type=PageType.SOURCE, content=summary, frontmatter=fm)]
+    source_page = WikiPage(title=title, type=PageType.SOURCE, content=body, frontmatter=fm)
+    return [*pages, source_page]
+
+
+# Page types EXEMPT from the wrong-language drop guard (Feature 3, ADR-0063 §5). `source` is the
+# F3 source-summary (traceability — must never be dropped); `entity` pages legitimately quote
+# cross-language proper nouns which confuse naive script detection (matches nashsu/llm_wiki, which
+# checks only authoritative /concepts/-style content). index/overview/log are never in `pages`.
+_LANGUAGE_GUARD_EXEMPT_TYPES: frozenset[PageType] = frozenset({PageType.SOURCE, PageType.ENTITY})
+
+
+def _drop_wrong_language_pages(pages: list[WikiPage], analysis: Analysis | None) -> list[WikiPage]:
+    """
+    Feature 3 (ADR-0063 §5): drop generated pages whose body script-family contradicts the
+    resolved target output language (``Analysis.language``), before validate/write.
+
+    Deterministic, script-based detection (no provider call, I7-friendly). Only cross-script
+    mismatches drop; intra-Latin differences never do (avoids false drops). Exempt: `source` and
+    `entity` pages (see ``_LANGUAGE_GUARD_EXEMPT_TYPES``). Disabled config, no analysis, or an
+    empty target language → returns *pages* unchanged. NEVER raises into ingest (degrade-safe:
+    on any detection error the page is kept).
+    """
+    from app.config_overrides import effective_bool
+
+    if not effective_bool("ingest_language_guard_enabled", settings.ingest_language_guard_enabled):
+        return pages
+    target = (analysis.language if analysis is not None else "").strip()
+    if not target or not pages:
+        return pages
+
+    from app.ingest.language import body_matches_target_language
+
+    kept: list[WikiPage] = []
+    for page in pages:
+        if page.type in _LANGUAGE_GUARD_EXEMPT_TYPES:
+            kept.append(page)
+            continue
+        try:
+            ok = body_matches_target_language(page.content, target)
+        except Exception as exc:  # noqa: BLE001 — degrade-safe: keep the page on any error
+            logger.debug("language guard: detection error for %r (keeping): %s", page.title, exc)
+            kept.append(page)
+            continue
+        if ok:
+            kept.append(page)
+        else:
+            logger.info(
+                "language guard: DROPPED page %r (type=%s) — body language != target %r (F3/§5)",
+                page.title,
+                page.type.value,
+                target,
+            )
+    return kept
 
 
 OVERVIEW_REL_PATH = "wiki/overview.md"
+# D4 (ADR-0063 §9, nashsu/llm_wiki parity — wiki-graph.ts:182-209): index.md and log.md are graph
+# nodes too (llm_wiki makes a node for every wiki/*.md except type:query). Synapse previously kept
+# them disk-only, so they were missing from the graph. We upsert a Page row for each after the
+# per-page writers maintain them, mirroring _index_overview_file.
+INDEX_REL_PATH = "wiki/index.md"
+LOG_REL_PATH = "wiki/log.md"
 
 
 async def _update_overview(analysis: Analysis | None, origin_source: str) -> None:
@@ -2098,7 +2301,7 @@ async def _index_overview_file(file_text: str, title: str) -> None:
 
     Reuses the existing live row's id when present (upsert by (vault_id, file_path)); content_hash
     hashes the EXACT file bytes (matches GET /pages/{id}/content recompute). Embeds the body via
-    upsert_vector. Does NOT touch index.md / log.md (those stay disk-only by design).
+    upsert_vector. index.md / log.md get the SAME treatment via _index_index_and_log_files (D4).
     """
     from sqlalchemy import select
 
@@ -2135,6 +2338,78 @@ async def _index_overview_file(file_text: str, title: str) -> None:
         title=title,
         page_type="overview",
     )
+
+
+async def _index_aggregate_file(rel_path: str, page_type: str) -> None:
+    """
+    Upsert a Page row for a disk-maintained aggregate file (D4) — index.md / log.md — mirroring
+    _index_overview_file so it becomes a graph node (wiki-graph.ts:182-209 parity). Reads the file
+    the per-page writers (update_index / append_log) already produced, upserts by
+    (vault_id, file_path) reusing any live row's id, hashes the EXACT file bytes, and embeds the
+    frontmatter-stripped body. Title is read from the frontmatter, falling back to the filename.
+
+    Best-effort: a missing file (nothing written yet) is a no-op; never raises into ingest (the
+    graph node is additive — a failure here must not fail the run, D4 / I7 degrade-safe).
+    """
+    from sqlalchemy import select
+
+    abs_path = settings.vault_root / rel_path
+    if not abs_path.exists():
+        return
+    file_text = abs_path.read_text(encoding="utf-8")
+    try:
+        meta = frontmatter.loads(file_text).metadata
+        title = str(meta.get("title") or Path(rel_path).stem)
+    except Exception:  # noqa: BLE001 — malformed frontmatter → fall back to the filename stem
+        title = Path(rel_path).stem
+
+    async with get_session() as _id_sess:
+        existing = (
+            await _id_sess.execute(
+                select(Page).where(
+                    Page.vault_id == settings.vault_id,
+                    Page.file_path == rel_path,
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+    page_id = existing.id if existing is not None else uuid.uuid4()
+
+    await persist_metadata(
+        page_id=page_id,
+        vault_id=settings.vault_id,
+        file_path=rel_path,
+        title=title,
+        page_type=page_type,
+        sources=None,
+        tags=None,
+        content_hash=_sha256(file_text.encode("utf-8")),
+        source_mtime_ns=0,
+    )
+    await upsert_vector(
+        page_id=page_id,
+        text=_strip_leading_frontmatter(file_text),
+        file_path=rel_path,
+        title=title,
+        page_type=page_type,
+    )
+
+
+async def _index_index_and_log_files() -> None:
+    """
+    Upsert Page rows for wiki/index.md (type=index) and wiki/log.md (type=log) so both render as
+    graph nodes (D4, ADR-0063 §9 — wiki-graph.ts:182-209 makes a node for every wiki/*.md except
+    type:query). Called after the per-page writers maintain those files (update_index / append_log
+    run inside write_wiki_page). Fire-and-forget: each file is indexed independently and a failure
+    on one logs a WARNING without blocking the other or the ingest run (I7 degrade-safe).
+    """
+    for rel_path, page_type in ((INDEX_REL_PATH, INDEX_TYPE), (LOG_REL_PATH, LOG_TYPE)):
+        try:
+            await _index_aggregate_file(rel_path, page_type)
+        except Exception as exc:  # noqa: BLE001 — additive graph node; never fail ingest (D4/I7)
+            logger.warning(
+                "_index_index_and_log_files: failed to index %s (non-fatal): %s", rel_path, exc
+            )
 
 
 async def _index_existing_overview_if_present() -> None:

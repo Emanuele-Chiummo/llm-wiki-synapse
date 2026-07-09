@@ -12,18 +12,26 @@ struct WikiListView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                LargeHeader(title: "Wiki", eyebrow: "Synapse") {
-                    HStack(spacing: 8) {
-                        ThemeToggleButton()
-                        NavigationLink(value: MoreRoute.ingest) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 17, weight: .bold))
-                                .foregroundStyle(.white)
-                                .frame(width: 38, height: 38)
-                                .background(Theme.tint)
-                                .clipShape(Circle())
+                ZStack(alignment: .top) {
+                    NeuralMotif(height: 116)
+                        .frame(maxWidth: .infinity)
+                        .mask(LinearGradient(
+                            colors: [.black, .clear], startPoint: .top, endPoint: .bottom))
+                    LargeHeader(title: "Wiki", eyebrow: "Synapse") {
+                        HStack(spacing: 8) {
+                            ThemeToggleButton()
+                            NavigationLink(value: MoreRoute.ingest) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 38, height: 38)
+                                    .background(Theme.signatureGradient)
+                                    .clipShape(Circle())
+                                    .shadow(color: Color(hex: 0x6D3BF5).opacity(0.5),
+                                            radius: 10, y: 4)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.top, 8)
@@ -57,13 +65,18 @@ struct WikiListView: View {
 
     private var statStrip: some View {
         HStack(spacing: 10) {
-            StatCard(value: stats.map { compact($0.pagesTotal) } ?? "—", label: "Pagine")
-            StatCard(value: stats.map { compact($0.linksTotal) } ?? "—", label: "Collegamenti")
+            StatCard(
+                value: stats.map { compact($0.pagesTotal) } ?? "—",
+                label: "Pagine", icon: "doc.on.doc.fill")
+            StatCard(
+                value: stats.map { compact($0.linksTotal) } ?? "—",
+                label: "Collegamenti", icon: "point.3.connected.trianglepath.dotted",
+                tint: Theme.color(forType: "query"))
             NavigationLink(value: MoreRoute.review) {
                 StatCard(
                     value: "\(app.reviewCount)",
-                    label: "Da rivedere",
-                    valueColor: Theme.tint)
+                    label: "Da rivedere", icon: "checkmark.seal.fill",
+                    gradient: app.reviewCount > 0)
             }
             .buttonStyle(.plain)
         }
@@ -77,7 +90,7 @@ struct WikiListView: View {
     private var recentSection: some View {
         Group {
             SectionHeader(text: "Aggiornate di recente")
-            Card {
+            Card(elevated: true) {
                 let recent = Array(pages.prefix(3))
                 ForEach(Array(recent.enumerated()), id: \.element.id) { idx, p in
                     NavigationLink(value: p.pageRef) {
@@ -99,7 +112,7 @@ struct WikiListView: View {
     private var allSection: some View {
         Group {
             SectionHeader(text: "Tutte le pagine")
-            Card {
+            Card(elevated: true) {
                 ForEach(Array(pages.enumerated()), id: \.element.id) { idx, p in
                     NavigationLink(value: p.pageRef) {
                         PageRow(title: p.displayTitle, type: p.type) {
@@ -153,21 +166,55 @@ struct WikiListView: View {
 private struct StatCard: View {
     let value: String
     let label: String
-    var valueColor: Color = Theme.label
+    var icon: String
+    var tint: Color = Theme.tint
+    var gradient: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        VStack(alignment: .leading, spacing: 6) {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(gradient
+                    ? AnyShapeStyle(Color.white.opacity(0.22))
+                    : AnyShapeStyle(tint.opacity(0.16)))
+                .frame(width: 26, height: 26)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(gradient ? Color.white : tint))
             Text(value)
-                .font(.system(size: 24, weight: .bold))
-                .foregroundStyle(valueColor)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(gradient ? Color.white : Theme.label)
             Text(label)
                 .font(.system(size: 12))
-                .foregroundStyle(Theme.label2)
+                .foregroundStyle(gradient ? Color.white.opacity(0.85) : Theme.label2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Theme.card)
+        .background {
+            if gradient { Theme.signatureGradient } else { Theme.card }
+        }
+        .overlay(alignment: .topTrailing) {
+            if gradient {
+                Circle()
+                    .fill(Color.white.opacity(0.16))
+                    .frame(width: 46, height: 46)
+                    .scaleEffect(pulse ? 1.25 : 0.9)
+                    .offset(x: 16, y: -16)
+                    .allowsHitTesting(false)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onAppear {
+            guard gradient, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
     }
 }
 

@@ -197,10 +197,14 @@ class ApiProvider(InferenceProvider):
         )
         return parse_analysis(raw)
 
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         raw = await self._complete(
             system=GENERATE_SYSTEM,
-            user=build_generate_prompt(analysis, retrieval_context),
+            # D1 (ADR-0063 §9): thread the budget-trimmed source into generation (I6 — the source
+            # travels via the shared provider-neutral builder, not provider-branching code).
+            user=build_generate_prompt(analysis, retrieval_context, source_text),
         )
         return parse_pages(raw)
 

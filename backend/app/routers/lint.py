@@ -359,7 +359,7 @@ async def get_lint_run(run_id: uuid.UUID) -> LintRunResponse:
         "Paginated, created_at ASC list of lint_findings rows (ADR-0037 §6). "
         "vault_id: required. status: optional filter (open|applied|dismissed; default open). "
         "category: optional filter (orphan-page|broken-wikilink|missing-xref|contradiction|"
-        "stale-claim|missing-page; 422 on invalid). "
+        "stale-claim|missing-page|no-outlinks|suggestion; 422 on invalid). "
         "severity: optional filter (info|warning|error; 422 on invalid). L10 / ADR-0037 B1. "
         "limit: default 50, max 200 (I7 — bounded page size). offset: >=0."
     ),
@@ -378,7 +378,8 @@ async def list_lint_findings_endpoint(
         default=None,
         description=(
             "Filter by category: orphan-page | broken-wikilink | missing-xref | "
-            "contradiction | stale-claim | missing-page. 422 on invalid value. L10."
+            "contradiction | stale-claim | missing-page | no-outlinks | suggestion. "
+            "422 on invalid value. L10."
         ),
     ),
     severity: str | None = Query(

@@ -249,8 +249,8 @@ describe("GL1 link-chip culling — visibleEdges with edgeVisibilityThreshold", 
     expect(edgeVisibilityThreshold(600)).toBe(0);
   });
 
-  it("threshold > 0 for large graphs (>600 nodes)", () => {
-    expect(edgeVisibilityThreshold(601)).toBeGreaterThan(0);
+  it("threshold > 0 for large graphs (>700 nodes, llm_wiki parity)", () => {
+    expect(edgeVisibilityThreshold(701)).toBeGreaterThan(0);
     expect(edgeVisibilityThreshold(1200)).toBeGreaterThan(0);
     expect(edgeVisibilityThreshold(2000)).toBeGreaterThan(0);
   });
