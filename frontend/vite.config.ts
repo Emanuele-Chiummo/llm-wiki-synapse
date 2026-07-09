@@ -107,7 +107,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: Number(process.env["PORT"]) || 5173,
     proxy: {
       // In dev, proxy /graph and /pages/* to the FastAPI backend
       "/graph": {
