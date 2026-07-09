@@ -88,6 +88,47 @@ enum Theme {
         color(forType: type).opacity(scheme == .dark ? 0.22 : 0.12)
     }
 
+    // MARK: Type → SF Symbol glyph
+
+    /// SF Symbol per page type — the leading list glyph. Makes lists scannable
+    /// by shape as well as colour. Same synonym coverage as `typeColors`.
+    private static let typeIcons: [String: String] = [
+        "concept": "lightbulb.fill", "concetto": "lightbulb.fill",
+        "entity": "cube.fill",
+        "persona": "person.fill", "person": "person.fill", "people": "person.fill",
+        "source": "doc.text.fill",
+        "documento": "doc.text.fill", "document": "doc.text.fill", "doc": "doc.text.fill",
+        "synthesis": "sparkles",
+        "progetto": "sparkles", "project": "sparkles",
+        "comparison": "arrow.left.arrow.right",
+        "riunione": "arrow.left.arrow.right", "meeting": "arrow.left.arrow.right",
+        "query": "magnifyingglass",
+        "strumento": "wrench.and.screwdriver.fill", "tool": "wrench.and.screwdriver.fill",
+    ]
+
+    /// Glyph for a page `type`; a neutral node symbol for unknown types.
+    static func icon(forType type: String?) -> String {
+        let key = (type ?? "").trimmingCharacters(in: .whitespaces).lowercased()
+        return typeIcons[key] ?? "circle.hexagongrid.fill"
+    }
+
+    // MARK: Signature gradient
+
+    /// The brand gradient (indigo → violet), lighter in dark mode. Used with
+    /// restraint: wordmark, primary CTAs, hero stat, user chat bubble.
+    static let gradStart = dynamic(light: 0x4F46E5, dark: 0x6D63F0)
+    static let gradMid = dynamic(light: 0x7C5CFF, dark: 0x968FF6)
+    static let gradEnd = dynamic(light: 0xA855F7, dark: 0xB98CF9)
+
+    static var signatureGradient: LinearGradient {
+        LinearGradient(
+            colors: [gradStart, gradMid, gradEnd],
+            startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// Aurora blob colours drifting behind the graph (echo the type palette).
+    static let auroraColors: [UInt32] = [0x4F46E5, 0xA855F7, 0x14B8A6, 0x0EA5E9]
+
     // MARK: Helpers
 
     private static func dynamic(light: UInt32, dark: UInt32) -> Color {

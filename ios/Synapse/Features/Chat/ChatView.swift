@@ -80,8 +80,9 @@ struct ChatView: View {
             Image(systemName: "bubble.left.and.text.bubble.right.fill")
                 .font(.system(size: 26)).foregroundStyle(.white)
                 .frame(width: 56, height: 56)
-                .background(Theme.tint)
+                .background(Theme.signatureGradient)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: Color(hex: 0x6D3BF5).opacity(0.4), radius: 14, y: 6)
                 .padding(.bottom, 16)
             Text("Interroga la tua conoscenza")
                 .font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.label)
@@ -119,7 +120,7 @@ struct ChatView: View {
                 Text(message.text)
                     .font(.system(size: 16)).foregroundStyle(.white)
                     .padding(.horizontal, 14).padding(.vertical, 10)
-                    .background(Theme.tint)
+                    .background(Theme.signatureGradient)
                     .clipShape(BubbleShape(isUser: true))
             }
         } else {
@@ -189,7 +190,8 @@ struct ChatView: View {
                 Image(systemName: model.isStreaming ? "stop.fill" : "arrow.up")
                     .font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
                     .frame(width: 40, height: 40)
-                    .background(Theme.tint)
+                    .background(model.isStreaming
+                        ? AnyShapeStyle(Theme.destructive) : AnyShapeStyle(Theme.signatureGradient))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
