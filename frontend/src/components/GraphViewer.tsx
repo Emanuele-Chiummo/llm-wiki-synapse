@@ -2649,9 +2649,35 @@ export const GraphViewer: React.FC = () => {
   }, [showInsightsPanel, setShowInsightsPanel]);
 
   // ── insightCount — computed from current nodes/edges/communities (I3: memoized, not per-frame)
-  const insightCount = useMemo(() => {
-    if (nodes.length === 0) return 0;
-    return computeGraphInsights(nodes, edges, communities).total;
+  // I3 / AC-F4-6: computeGraphInsights scans the whole graph (surprising connections +
+  // knowledge gaps) — running it in a render-time useMemo trips the >50ms main-thread
+  // long-task budget on graph load. Compute the toolbar badge count OFF the critical
+  // path, at idle time, and store it in state so the initial render stays long-task-free.
+  const [insightCount, setInsightCount] = useState(0);
+  useEffect(() => {
+    if (nodes.length === 0) {
+      setInsightCount(0);
+      return;
+    }
+    let cancelled = false;
+    const compute = () => {
+      if (!cancelled) setInsightCount(computeGraphInsights(nodes, edges, communities).total);
+    };
+    const w = window as typeof window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    let handle: number;
+    if (typeof w.requestIdleCallback === "function") {
+      handle = w.requestIdleCallback(compute, { timeout: 1000 });
+    } else {
+      handle = window.setTimeout(compute, 300);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
   }, [nodes, edges, communities]);
 
   return (
