@@ -1410,8 +1410,8 @@
     },
     "/ingest/convert-marker": {
       "post": {
-        "summary": "Convert one or more PDFs through Marker and queue for ingest (R11-1)",
-        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint. Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). For each file: calls Marker microservice, writes <stem>.extracted.md to vault/raw/sources/ with valid YAML frontmatter (I5), lets the watcher ingest incrementally (I1). On ANY Marker error (non-2xx / timeout / connection refused): returns 502 {'error':'marker_unavailable','detail':'...'} and writes NO file. NO silent pypdf fallback on this explicit path (unlike extract.py's CLI path). 400 if > 10 files. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
+        "summary": "Queue one or more PDFs for async Marker conversion (R11-1, W0)",
+        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
         "operationId": "convert_marker_ingest_convert_marker_post",
         "requestBody": {
           "content": {
@@ -1424,12 +1424,12 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "Per-file results (mix of ok / error).",
+          "202": {
+            "description": "Files queued for background Marker conversion.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MarkerConvertResponse"
+                  "$ref": "#/components/schemas/MarkerConvertAcceptResponse"
                 }
               }
             }
@@ -1437,14 +1437,14 @@
           "400": {
             "description": "More than 10 files submitted."
           },
+          "409": {
+            "description": "A Marker conversion batch is already running."
+          },
           "413": {
             "description": "A file exceeds MAX_UPLOAD_BYTES."
           },
           "415": {
             "description": "A non-.pdf file was submitted."
-          },
-          "502": {
-            "description": "Marker microservice is unavailable."
           },
           "422": {
             "description": "Validation Error",
@@ -1452,6 +1452,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ingest/convert-marker/status": {
+      "get": {
+        "summary": "Per-file status of the current (or most-recent) Marker conversion batch",
+        "description": "Returns per-file conversion status for the current or most-recent POST /ingest/convert-marker batch. Status values: 'pending' (not yet started) | 'converting' (Marker call in flight) | 'ok' (companion written; watcher will ingest) | 'failed' (Marker error, detail set). When running=false and total=0, no batch has been submitted this session. Safe to poll every 2-5 s; pure in-memory, no DB I/O.",
+        "operationId": "get_convert_marker_status_ingest_convert_marker_status_get",
+        "responses": {
+          "200": {
+            "description": "Batch status snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkerBatchStatusResponse"
                 }
               }
             }
@@ -7193,24 +7217,173 @@
         "title": "LintScanResponse",
         "description": "200 response for POST /lint/scan (ADR-0037 \u00a76): the run + its findings."
       },
-      "MarkerConvertResponse": {
+      "MarkerBatchStatusFile": {
         "properties": {
-          "results": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Results",
-            "description": "Per-file conversion results. Each entry: {file: str, status: 'ok'|'error', path: str|null, detail: str|null}. status='ok' means .extracted.md was written and watcher will ingest. status='error' means Marker returned an error; no file was written."
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "Original filename (e.g. 'report.pdf')"
+          },
+          "safe_stem": {
+            "type": "string",
+            "title": "Safe Stem",
+            "description": "Sanitised stem (e.g. 'report')"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'pending' | 'converting' | 'ok' | 'failed'"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Error detail when status='failed'; null otherwise"
+          },
+          "companion_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Path",
+            "description": "Vault-relative path to the written .extracted.md (raw/sources/<stem>.extracted.md). Set when status='ok'; null otherwise."
           }
         },
         "type": "object",
         "required": [
-          "results"
+          "file",
+          "safe_stem",
+          "status"
         ],
-        "title": "MarkerConvertResponse",
-        "description": "Response for POST /ingest/convert-marker (R11-1)."
+        "title": "MarkerBatchStatusFile",
+        "description": "Per-file status entry for GET /ingest/convert-marker/status."
+      },
+      "MarkerBatchStatusResponse": {
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id",
+            "description": "UUID of the current/most-recent batch; null if no batch has run"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while the background driver is active"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Files in this batch"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Files completed (ok + failed)"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds",
+            "description": "Estimated seconds remaining (null when done=0 or batch finished)"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/MarkerBatchStatusFile"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "Per-file status entries (empty when no batch has run)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "total",
+          "done",
+          "files"
+        ],
+        "title": "MarkerBatchStatusResponse",
+        "description": "Response for GET /ingest/convert-marker/status.\n\nReturns the current (or most-recent) batch state with per-file detail.\nWhen no batch has ever run this session, running=false and all counts are 0."
+      },
+      "MarkerConvertAcceptResponse": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id",
+            "description": "UUID identifying this conversion batch"
+          },
+          "queued": {
+            "items": {
+              "$ref": "#/components/schemas/MarkerConvertAcceptedFile"
+            },
+            "type": "array",
+            "title": "Queued",
+            "description": "Files accepted and queued for background Marker conversion"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Number of files queued (== len(queued))"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "queued",
+          "total"
+        ],
+        "title": "MarkerConvertAcceptResponse",
+        "description": "202 Accepted response for POST /ingest/convert-marker (W0 async rewrite).\n\nThe Marker calls happen in a background task \u2014 poll\nGET /ingest/convert-marker/status (or GET /ingest/queue .marker_batch) for progress."
+      },
+      "MarkerConvertAcceptedFile": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "Original filename as submitted (e.g. 'report.pdf')"
+          },
+          "safe_stem": {
+            "type": "string",
+            "title": "Safe Stem",
+            "description": "Sanitised stem used for the output paths (e.g. 'report')"
+          },
+          "pdf_path": {
+            "type": "string",
+            "title": "Pdf Path",
+            "description": "Vault-relative path where the raw PDF was saved (raw/sources/<stem>.pdf)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "safe_stem",
+          "pdf_path"
+        ],
+        "title": "MarkerConvertAcceptedFile",
+        "description": "One file entry in the 202 response body of POST /ingest/convert-marker."
       },
       "MarkerHealthResponse": {
         "properties": {
@@ -8391,6 +8564,17 @@
               }
             ],
             "description": "Whole-batch progress for an in-progress POST /sources/ingest-all (else null)"
+          },
+          "marker_batch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueBatchProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whole-batch progress for an in-progress POST /ingest/convert-marker (else null). Poll GET /ingest/convert-marker/status for per-file detail."
           }
         },
         "type": "object",
