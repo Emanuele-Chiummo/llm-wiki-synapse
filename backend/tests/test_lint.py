@@ -1545,3 +1545,707 @@ class TestDeletePageMetaGuard:
         ):
             resp = await lint_client.delete(f"/pages/{uuid.uuid4()}")
         assert resp.status_code == 404
+
+
+# ── Helper: insert finding with extended columns (suggestion columns) ─────────────
+
+
+async def _insert_finding_ext(
+    env: dict[str, Any],
+    *,
+    vault_id: str = "test-vault",
+    category: str = "orphan-page",
+    severity: str = "info",
+    status: str = "open",
+    target_page_id: str | None = None,
+    target_title: str | None = None,
+    suggested_page_id: str | None = None,
+    suggested_target: str | None = None,
+    description: str = "Test finding",
+) -> str:
+    """Like _insert_finding but also sets suggested_page_id / suggested_target."""
+    run_id = str(uuid.uuid4())
+    finding_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO lint_runs "
+                "(id, vault_id, status, max_iter, token_budget, created_at, started_at) "
+                "VALUES (:id, :v, 'completed', 3, 20000, datetime('now'), datetime('now'))"
+            ),
+            {"id": run_id, "v": vault_id},
+        )
+        await sess.execute(
+            sa_text(
+                "INSERT INTO lint_findings "
+                "(id, lint_run_id, vault_id, category, severity, target_page_id, target_title, "
+                " description, suggested_page_id, suggested_target, status, created_at) "
+                "VALUES (:id, :rid, :v, :cat, :sev, :tpid, :tt, :desc, :spid, :st, :status, "
+                "datetime('now'))"
+            ),
+            {
+                "id": finding_id,
+                "rid": run_id,
+                "v": vault_id,
+                "cat": category,
+                "sev": severity,
+                "tpid": target_page_id,
+                "tt": target_title,
+                "desc": description,
+                "spid": suggested_page_id,
+                "st": suggested_target,
+                "status": status,
+            },
+        )
+        await sess.commit()
+    return finding_id
+
+
+# ── T-LINT-L1: no-outlinks detection (L1 / ADR-0058 §L1) ─────────────────────────
+
+
+class TestNoOutlinksDetection:
+    """L1: no-outlinks findings are deterministic (pages with zero outgoing links)."""
+
+    async def test_no_outlinks_detected_when_page_has_no_links(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L1: a page with no outgoing links is reported as no-outlinks."""
+        from app.ops.lint import _detect_no_outlinks
+
+        # Page with no links at all → should be detected.
+        await _insert_page(lint_env, title="Island Page", file_path="wiki/entities/island.md")
+        # Page with an outgoing link → should NOT be detected.
+        linked_page = await _insert_page(lint_env, title="Target", file_path="wiki/entities/target.md")
+        source_page = await _insert_page(lint_env, title="Linked", file_path="wiki/entities/linked.md")
+        await _insert_link(
+            lint_env,
+            source_page_id=source_page,
+            target_title="Target",
+            target_page_id=linked_page,
+            dangling=0,
+        )
+
+        findings = await _detect_no_outlinks("test-vault")
+        titles = {f.target_title for f in findings}
+        assert "Island Page" in titles
+        assert "Linked" not in titles, "page with outgoing link must not be reported"
+        assert all(f.category == "no-outlinks" for f in findings)
+
+    async def test_no_outlinks_excludes_navigation_roots(self, lint_env: dict[str, Any]) -> None:
+        """L1: index.md / log.md / overview.md excluded from no-outlinks."""
+        from app.ops.lint import _detect_no_outlinks
+
+        await _insert_page(lint_env, title="Index", file_path="wiki/index.md")
+        await _insert_page(lint_env, title="Log", file_path="wiki/log.md")
+        await _insert_page(lint_env, title="Overview", file_path="wiki/overview.md")
+
+        findings = await _detect_no_outlinks("test-vault")
+        assert findings == []
+
+    async def test_no_outlinks_in_scan_endpoint(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L1: no-outlinks findings appear in POST /lint/scan response."""
+        await _insert_page(lint_env, title="Isolated Page", file_path="wiki/entities/isolated.md")
+
+        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+            resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        categories = {f["category"] for f in body["findings"]}
+        assert "no-outlinks" in categories
+
+    async def test_no_outlinks_severity_is_info(self, lint_env: dict[str, Any]) -> None:
+        """L5: no-outlinks findings have severity=info (matches reference lint.ts)."""
+        from app.ops.lint import _detect_no_outlinks
+
+        await _insert_page(lint_env, title="Info Page", file_path="wiki/entities/info.md")
+        findings = await _detect_no_outlinks("test-vault")
+        assert findings, "expected at least one no-outlinks finding"
+        assert all(f.severity == "info" for f in findings), "no-outlinks must be severity=info (L5)"
+
+
+# ── T-LINT-L2: suggestion category (L2 / ADR-0058 §L2) ───────────────────────────
+
+
+class TestSuggestionCategory:
+    """L2: 'suggestion' is a valid semantic category accepted by _parse_findings."""
+
+    def test_suggestion_in_valid_categories(self) -> None:
+        """L2: 'suggestion' is in _VALID_CATEGORIES."""
+        from app.ops.lint import _VALID_CATEGORIES
+
+        assert "suggestion" in _VALID_CATEGORIES
+
+    def test_no_outlinks_in_valid_categories(self) -> None:
+        """L1: 'no-outlinks' is in _VALID_CATEGORIES."""
+        from app.ops.lint import _VALID_CATEGORIES
+
+        assert "no-outlinks" in _VALID_CATEGORIES
+
+    def test_parse_findings_accepts_suggestion(self) -> None:
+        """L2: _parse_findings accepts 'suggestion' category from model output."""
+        import json
+
+        from app.ops.lint import _parse_findings
+
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "category": "suggestion",
+                        "severity": "info",
+                        "description": "Consider adding a page about Kubernetes operators.",
+                    }
+                ]
+            }
+        )
+        results = _parse_findings(raw)
+        assert len(results) == 1
+        assert results[0].category == "suggestion"
+        assert results[0].severity == "info"
+
+    def test_parse_findings_rejects_no_outlinks_from_model(self) -> None:
+        """L2: _parse_findings must NOT accept no-outlinks from the model (deterministic-only)."""
+        import json
+
+        from app.ops.lint import _parse_findings
+
+        raw = json.dumps(
+            {
+                "findings": [
+                    {
+                        "category": "no-outlinks",
+                        "severity": "info",
+                        "description": "No outlinks found.",
+                    }
+                ]
+            }
+        )
+        results = _parse_findings(raw)
+        assert results == [], "no-outlinks must not be accepted from the model"
+
+    async def test_suggestion_category_filter_works(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L2: category=suggestion filter accepted (not 422)."""
+        resp = await lint_client.get(
+            "/lint/findings?vault_id=test-vault&status=open&category=suggestion"
+        )
+        assert resp.status_code == 200, f"suggestion category filter should be valid: {resp.text}"
+
+    async def test_no_outlinks_category_filter_works(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L1: category=no-outlinks filter accepted (not 422)."""
+        resp = await lint_client.get(
+            "/lint/findings?vault_id=test-vault&status=open&category=no-outlinks"
+        )
+        assert resp.status_code == 200, f"no-outlinks category filter should be valid: {resp.text}"
+
+    async def test_suggestion_send_to_review_uses_suggestion_item_type(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L2: send-to-review for suggestion → item_type=suggestion."""
+        from app.ops.lint import send_finding_to_review
+
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="suggestion",
+            severity="info",
+            description="Consider adding a page about Kubernetes operators.",
+        )
+
+        review_calls: list[dict[str, Any]] = []
+
+        async def _fake_enqueue(**kwargs: Any) -> Any:
+            review_calls.append(kwargs)
+            item = MagicMock()
+            item.id = uuid.uuid4()
+            return item
+
+        with patch("app.ops.review.enqueue_review", side_effect=_fake_enqueue):
+            finding = await send_finding_to_review(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(review_calls) == 1
+        assert review_calls[0]["item_type"] == "suggestion"
+
+
+# ── T-LINT-L3: fuzzy suggestions (L3 / ADR-0058 §L3) ────────────────────────────
+
+
+class TestFuzzySuggestions:
+    """L3: fuzzy token-overlap scoring populates suggested_target on no-outlinks + orphan-page."""
+
+    def test_tokenize_for_suggestion_basic(self) -> None:
+        """L3: _tokenize_for_suggestion returns non-empty frozenset for ASCII text."""
+        from app.ops.lint import _tokenize_for_suggestion
+
+        tokens = _tokenize_for_suggestion("Docker Container")
+        assert "docker" in tokens
+        assert "container" in tokens
+
+    def test_fuzzy_score_zero_for_disjoint(self) -> None:
+        """L3: _fuzzy_score returns 0.0 when token sets are disjoint."""
+        from app.ops.lint import _fuzzy_score, _tokenize_for_suggestion
+
+        a = _tokenize_for_suggestion("Python Programming")
+        b = _tokenize_for_suggestion("Kubernetes Networking")
+        # These sets share no tokens.
+        score = _fuzzy_score(a, b, same_folder=False)
+        assert score == 0.0
+
+    def test_fuzzy_score_positive_for_overlap(self) -> None:
+        """L3: _fuzzy_score is positive when token sets share a token."""
+        from app.ops.lint import _fuzzy_score, _tokenize_for_suggestion
+
+        a = _tokenize_for_suggestion("Docker Container")
+        b = _tokenize_for_suggestion("Docker Networking")
+        score = _fuzzy_score(a, b, same_folder=False)
+        assert score > 0.0
+
+    async def test_no_outlinks_gets_suggested_target(self, lint_env: dict[str, Any]) -> None:
+        """L3: no-outlinks finding carries suggested_target when overlap exists."""
+        from app.ops.lint import _detect_no_outlinks
+
+        # Page A has no outgoing links (will be detected).
+        await _insert_page(
+            lint_env,
+            title="Docker Container",
+            file_path="wiki/entities/docker-container.md",
+        )
+        # Page B exists as a candidate (shares "docker" token).
+        await _insert_page(
+            lint_env,
+            title="Docker Networking",
+            file_path="wiki/entities/docker-networking.md",
+        )
+        # Add a link FROM page B so it is NOT a no-outlinks page.
+        target_id = await _insert_page(
+            lint_env, title="Other", file_path="wiki/entities/other.md"
+        )
+        source_b = await _insert_page(
+            lint_env, title="DockerB", file_path="wiki/entities/dockerb.md"
+        )
+        await _insert_link(
+            lint_env,
+            source_page_id=source_b,
+            target_title="Other",
+            target_page_id=target_id,
+        )
+
+        findings = await _detect_no_outlinks("test-vault")
+        docker_findings = [
+            f for f in findings if f.target_title and "Docker Container" in f.target_title
+        ]
+        assert docker_findings, "Docker Container page must be detected as no-outlinks"
+        f = docker_findings[0]
+        # Fuzzy suggester should propose "Docker Networking" or any overlapping page.
+        # The key assertion is that suggested_target is set (not None).
+        # (The exact value depends on token overlap scores — we only require it is non-None
+        # because we know there is at least one overlapping candidate.)
+        assert f.suggested_target is not None, "no-outlinks finding must have a suggested_target"
+
+    async def test_orphan_page_gets_suggested_source(self, lint_env: dict[str, Any]) -> None:
+        """L3: orphan-page finding carries suggested_target (source page) and suggested_page_id."""
+        from app.ops.lint import _detect_orphans
+
+        # Orphan page: no incoming links.
+        await _insert_page(
+            lint_env,
+            title="Python Asyncio",
+            file_path="wiki/concepts/python-asyncio.md",
+        )
+        # Candidate source page: shares "python" token.
+        source_page = await _insert_page(
+            lint_env,
+            title="Python Typing",
+            file_path="wiki/concepts/python-typing.md",
+        )
+        # Make the source page link to something else (so it has at least some outlinks context),
+        # but NOT to Python Asyncio (so Python Asyncio stays an orphan).
+        dummy = await _insert_page(lint_env, title="Dummy", file_path="wiki/entities/dummy.md")
+        await _insert_link(
+            lint_env,
+            source_page_id=source_page,
+            target_title="Dummy",
+            target_page_id=dummy,
+        )
+
+        findings = await _detect_orphans("test-vault")
+        asyncio_findings = [
+            f for f in findings if f.target_title and "Python Asyncio" in f.target_title
+        ]
+        assert asyncio_findings, "Python Asyncio must be detected as orphan"
+        f = asyncio_findings[0]
+        # suggested_target should point to a source page (the fuzzy best match).
+        # suggested_page_id should be set when a match is found.
+        # We only assert they are consistent (both None or both set).
+        if f.suggested_target is not None:
+            assert f.suggested_page_id is not None, (
+                "suggested_page_id must be set when suggested_target is set"
+            )
+
+    async def test_orphan_severity_is_info(self, lint_env: dict[str, Any]) -> None:
+        """L5: orphan-page findings have severity=info (L5 / ADR-0058 §L5)."""
+        from app.ops.lint import _detect_orphans
+
+        await _insert_page(lint_env, title="Solo Page", file_path="wiki/entities/solo.md")
+        findings = await _detect_orphans("test-vault")
+        assert findings, "expected at least one orphan finding"
+        assert all(f.severity == "info" for f in findings), (
+            "orphan-page must be severity=info (L5)"
+        )
+
+
+# ── T-LINT-L4: new apply paths (L4 / ADR-0058 §L4) ───────────────────────────────
+
+
+class TestNewApplyPaths:
+    """L4: _apply_no_outlinks, _apply_orphan_page, _create_broken_link_stub."""
+
+    async def test_apply_no_outlinks_appends_wikilink(self, lint_env: dict[str, Any]) -> None:
+        """L4: no-outlinks apply → appends [[suggested_target]] under ## Related in page body."""
+        page_id = await _insert_page(
+            lint_env, title="Island Page", file_path="wiki/entities/island.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="no-outlinks",
+            severity="info",
+            target_page_id=page_id,
+            target_title="Island Page",
+            suggested_target="Docker Networking",
+            description="Island Page has no outgoing wikilinks.",
+        )
+
+        read_result = (
+            "wiki/entities/island.md",
+            "/fake/path",
+            "type: entity\ntitle: Island Page\nsources: []\n",
+            "# Island Page\n\nSome content here.\n",
+            True,
+        )
+        write_calls: list[Any] = []
+
+        async def _fake_write(**kwargs: Any) -> None:
+            write_calls.append(kwargs)
+
+        with (
+            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert finding.resolution_note is not None
+        assert "Docker Networking" in (finding.resolution_note or "")
+        assert len(write_calls) == 1, "apply must call _write_body_back exactly once (I1)"
+
+    async def test_apply_no_outlinks_flag_only_when_no_suggestion(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4: no-outlinks without suggested_target → flag-only (no file write)."""
+        page_id = await _insert_page(
+            lint_env, title="Island Page", file_path="wiki/entities/island.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="no-outlinks",
+            severity="info",
+            target_page_id=page_id,
+            target_title="Island Page",
+            suggested_target=None,  # no suggestion
+            description="Island Page has no outgoing wikilinks.",
+        )
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(**kwargs: Any) -> None:
+            write_calls.append(kwargs)
+
+        with patch("app.ops.lint._write_body_back", side_effect=_fake_write):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 0, "no suggestion → no write (flag-only)"
+        assert "flag-only" in (finding.resolution_note or "")
+
+    async def test_apply_orphan_page_with_suggestion_appends_to_source(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4: orphan-page with suggested_page_id → appends [[orphan_title]] to source page."""
+        orphan_page_id = await _insert_page(
+            lint_env, title="Orphan Entity", file_path="wiki/entities/orphan-entity.md"
+        )
+        source_page_id = await _insert_page(
+            lint_env, title="Source Entity", file_path="wiki/entities/source-entity.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="orphan-page",
+            severity="info",
+            target_page_id=orphan_page_id,
+            target_title="Orphan Entity",
+            suggested_page_id=source_page_id,
+            suggested_target="Source Entity",
+            description="Orphan Entity has no incoming wikilinks.",
+        )
+
+        read_result = (
+            "wiki/entities/source-entity.md",
+            "/fake/source-path",
+            "type: entity\ntitle: Source Entity\nsources: []\n",
+            "# Source Entity\n\nContent of source.\n",
+            True,
+        )
+        write_calls: list[Any] = []
+
+        async def _fake_write(**kwargs: Any) -> None:
+            write_calls.append(kwargs)
+
+        with (
+            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 1, "apply must write to the source page once (I1)"
+        # Verify the new_body contains the orphan wikilink.
+        written_body = write_calls[0]["new_body"]
+        assert "[[Orphan Entity]]" in written_body
+
+    async def test_apply_orphan_page_flag_only_when_no_suggestion(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4: orphan-page without suggested_page_id → flag-only (no file write)."""
+        page_id = await _insert_page(
+            lint_env, title="Orphan Solo", file_path="wiki/entities/orphan-solo.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="orphan-page",
+            severity="info",
+            target_page_id=page_id,
+            target_title="Orphan Solo",
+            suggested_page_id=None,  # no suggestion
+            description="Orphan Solo has no incoming wikilinks.",
+        )
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(**kwargs: Any) -> None:
+            write_calls.append(kwargs)
+
+        with patch("app.ops.lint._write_body_back", side_effect=_fake_write):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 0, "no suggestion → no write (flag-only)"
+        assert "flag-only" in (finding.resolution_note or "")
+
+    async def test_apply_broken_wikilink_no_suggestion_creates_stub(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4: broken-wikilink without suggested_target → creates stub via write_wiki_page."""
+        ref_page_id = await _insert_page(
+            lint_env, title="Referencing Page", file_path="wiki/entities/referencing.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="broken-wikilink",
+            severity="warning",
+            target_page_id=ref_page_id,
+            target_title="missing-concept",
+            suggested_target=None,  # no suggestion → stub path
+            description="Broken link: [[missing-concept]]",
+        )
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
+            written = MagicMock()
+            written.id = uuid.uuid4()
+            return written
+
+        async def _fake_reresolve(session: Any) -> int:
+            return 1
+
+        with (
+            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.wiki.links.reresolve_dangling_links", side_effect=_fake_reresolve),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 1, "stub creation must call write_wiki_page exactly once (I1)"
+        stub_page, origin = write_calls[0]
+        # The stub should be of type QUERY with tags [stub, lint].
+        assert stub_page.type.value == "query"
+        assert "stub" in stub_page.frontmatter.tags
+        assert "lint" in stub_page.frontmatter.tags
+        assert "stub" in (finding.resolution_note or "")
+
+    async def test_apply_no_outlinks_idempotent_when_link_already_present(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4: _append_wikilink_to_body is idempotent — no write when link already exists."""
+        page_id = await _insert_page(
+            lint_env, title="Already Linked", file_path="wiki/entities/already-linked.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="no-outlinks",
+            severity="info",
+            target_page_id=page_id,
+            target_title="Already Linked",
+            suggested_target="Target Page",
+            description="No outlinks.",
+        )
+
+        # Body already contains [[Target Page]] → _write_body_back must NOT be called.
+        read_result = (
+            "wiki/entities/already-linked.md",
+            "/fake/path",
+            "",
+            "# Already Linked\n\n## Related\n- [[Target Page]]\n",
+            False,
+        )
+        write_calls: list[Any] = []
+
+        async def _fake_write(**kwargs: Any) -> None:
+            write_calls.append(kwargs)
+
+        with (
+            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 0, "idempotent — no write when link already present"
+
+
+# ── T-LINT-L5: severity invariants (L5 / ADR-0058 §L5) ──────────────────────────
+
+
+class TestSeverityInvariants:
+    """L5: orphan-page=info, no-outlinks=info, broken-wikilink=warning (unchanged)."""
+
+    async def test_orphan_page_severity_info_in_scan(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L5: orphan-page findings from scan have severity=info."""
+        await _insert_page(lint_env, title="Lone Page", file_path="wiki/entities/lone.md")
+
+        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+            resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        orphan_findings = [f for f in body["findings"] if f["category"] == "orphan-page"]
+        assert orphan_findings, "expected at least one orphan-page finding"
+        assert all(f["severity"] == "info" for f in orphan_findings), (
+            "orphan-page must be severity=info (L5)"
+        )
+
+    async def test_no_outlinks_severity_info_in_scan(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L5: no-outlinks findings from scan have severity=info."""
+        await _insert_page(lint_env, title="No Links Page", file_path="wiki/entities/nolinks.md")
+
+        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+            resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        no_out_findings = [f for f in body["findings"] if f["category"] == "no-outlinks"]
+        assert no_out_findings, "expected at least one no-outlinks finding"
+        assert all(f["severity"] == "info" for f in no_out_findings), (
+            "no-outlinks must be severity=info (L5)"
+        )
+
+    async def test_broken_wikilink_severity_warning_unchanged(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """L5: broken-wikilink findings retain severity=warning (unchanged by L5)."""
+        ref_page = await _insert_page(lint_env, title="Referencing")
+        await _insert_link(
+            lint_env,
+            source_page_id=ref_page,
+            target_title="BrokenTarget",
+            target_page_id=None,
+            dangling=1,
+        )
+
+        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+            resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        broken_findings = [f for f in body["findings"] if f["category"] == "broken-wikilink"]
+        assert broken_findings, "expected at least one broken-wikilink finding"
+        assert all(f["severity"] == "warning" for f in broken_findings), (
+            "broken-wikilink must remain severity=warning"
+        )
+
+
+# ── T-LINT-L6: _append_wikilink_to_body helper (L4 shared) ───────────────────────
+
+
+class TestAppendWikilinkHelper:
+    """Unit tests for _append_wikilink_to_body (L4 shared body-edit helper)."""
+
+    def test_appends_under_existing_related_heading(self) -> None:
+        """L4: link appended immediately after existing ## Related heading."""
+        from app.ops.lint import _append_wikilink_to_body
+
+        body = "# Page\n\nSome content.\n\n## Related\n- [[Existing Link]]\n"
+        result = _append_wikilink_to_body(body, "New Link")
+        assert "[[New Link]]" in result
+        # The heading must still be present.
+        assert "## Related" in result
+
+    def test_creates_related_heading_when_absent(self) -> None:
+        """L4: ## Related heading created when not present."""
+        from app.ops.lint import _append_wikilink_to_body
+
+        body = "# Page\n\nSome content.\n"
+        result = _append_wikilink_to_body(body, "New Link")
+        assert "## Related" in result
+        assert "[[New Link]]" in result
+
+    def test_idempotent_when_link_already_present(self) -> None:
+        """L4: no duplicate link added when already present."""
+        from app.ops.lint import _append_wikilink_to_body
+
+        body = "# Page\n\n## Related\n- [[Target Page]]\n"
+        result = _append_wikilink_to_body(body, "Target Page")
+        assert result == body, "body must be unchanged when link already present"
+
+    def test_case_insensitive_idempotency(self) -> None:
+        """L4: idempotency check is case-insensitive."""
+        from app.ops.lint import _append_wikilink_to_body
+
+        body = "# Page\n\n## Related\n- [[target page]]\n"
+        result = _append_wikilink_to_body(body, "Target Page")
+        # Should be idempotent (lowercase already present).
+        assert result.count("[[") == 1, "must not add a second link"

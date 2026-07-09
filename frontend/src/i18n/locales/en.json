@@ -796,7 +796,9 @@
       "contradiction": "Contradiction",
       "stale-claim": "Stale claim",
       "missing-page": "Missing page",
-      "broken-wikilink": "Broken link"
+      "broken-wikilink": "Broken link",
+      "no-outlinks": "No outgoing links",
+      "suggestion": "Suggestion"
     },
     "groups": {
       "errors": "Errors",

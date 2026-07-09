@@ -40,6 +40,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
+import re
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -65,21 +68,39 @@ _VALID_CATEGORIES = frozenset(
         "contradiction",
         "stale-claim",
         "missing-page",
+        # L1 — no-outlinks: a page with zero outgoing wikilinks (ADR-0058 §L1).
+        "no-outlinks",
+        # L2 — suggestion: a question or source worth adding to the wiki (ADR-0058 §L2).
+        "suggestion",
     }
 )
 _VALID_SEVERITIES = frozenset({"info", "warning", "error"})
 _VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
 
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
-# contradiction / stale-claim / orphan-page → apply is a no-op status change to 'applied'
+# contradiction / stale-claim → apply is a no-op status change to 'applied'
 # with a resolution_note (the human still has to fix them by editing the wiki).
 # broken-wikilink WITHOUT a suggestion is also flag-only (no safe fix when target unknown).
-_FLAG_ONLY_CATEGORIES = frozenset({"contradiction", "stale-claim", "orphan-page"})
+# suggestion — always flag-only (semantic category; no deterministic fix).
+# no-outlinks and orphan-page are handled specially in apply_lint_fix:
+#   - if suggested_target/suggested_page_id present → apply a real fix
+#   - otherwise → fall back to flag-only
+_FLAG_ONLY_CATEGORIES = frozenset({"contradiction", "stale-claim", "suggestion"})
 
 # Bounded reads (I7 — never an unbounded scan).
 _ORPHAN_SCAN_MAX_PAGES: int = 1_000
 _BROKEN_SCAN_MAX_LINKS: int = 1_000  # L1 / I7 — cap for broken-wikilink scan
+_NO_OUTLINKS_SCAN_MAX_PAGES: int = 1_000  # L1 / I7 — cap for no-outlinks scan
 _CANDIDATE_TITLES_MAX: int = 500
+
+# ── Fuzzy-suggestion constants (L3 — port of lint.ts suggestRelatedPage) ──────────
+_RELATED_PAGE_SUGGESTION_MIN_SCORE: float = 0.08
+_SAME_FOLDER_SCORE_BONUS: float = 0.08
+_SINGLE_CJK_TOKEN_WEIGHT: float = 0.35
+# Compiled pattern for tokenization: matches Unicode letters/digits, not underscore.
+_WORD_RE: re.Pattern[str] = re.compile(r"[^\W_]+", re.UNICODE)
+# CJK unified ideographs range (used in single-char expansion for CJK tokens).
+_CJK_RE: re.Pattern[str] = re.compile(r"[㐀-鿿]")
 
 
 # ── Public result types ────────────────────────────────────────────────────────
@@ -138,6 +159,8 @@ class FindingDTO:
         "contradiction",
         "stale-claim",
         "missing-page",
+        "no-outlinks",
+        "suggestion",
     ]
     severity: str
     description: str
@@ -226,6 +249,7 @@ async def run_lint_scan(
         # dominant category in llm_wiki's lint page ("Broken Link" warnings). Orphans follow.
         findings.extend(await _detect_broken_wikilinks(vault_id))
         findings.extend(await _detect_orphans(vault_id))
+        findings.extend(await _detect_no_outlinks(vault_id))  # L1
         det_baseline: int = len(findings)
 
         # ── 2. Bounded semantic loop (I6/I7) — skipped when semantic=False (L8) ──
@@ -409,7 +433,7 @@ async def apply_lint_fix(finding_id: uuid.UUID) -> LintFinding:
         )
         return await _set_finding_status(finding_id, "applied", resolution_note=note)
 
-    # ── broken-wikilink — rewrite [[old]] → [[Suggested]] in the body (L3/I1/I5) ──
+    # ── broken-wikilink — rewrite [[old]] → [[Suggested]] or create stub (L3/L4/I1/I5) ──
     if category == "broken-wikilink":
         note = await _apply_broken_wikilink(finding)
         return await _set_finding_status(finding_id, "applied", resolution_note=note)
@@ -423,6 +447,16 @@ async def apply_lint_fix(finding_id: uuid.UUID) -> LintFinding:
     if category == "missing-page":
         created_note = await _apply_missing_page(finding)
         return await _set_finding_status(finding_id, "applied", resolution_note=created_note)
+
+    # ── no-outlinks — append [[suggested_target]] under ## Related (L4/I1/I5) ──────
+    if category == "no-outlinks":
+        note = await _apply_no_outlinks(finding)
+        return await _set_finding_status(finding_id, "applied", resolution_note=note)
+
+    # ── orphan-page — append [[orphan title]] to suggested source page (L4/I1/I5) ──
+    if category == "orphan-page":
+        note = await _apply_orphan_page(finding)
+        return await _set_finding_status(finding_id, "applied", resolution_note=note)
 
     # Unknown category (defensive — should never happen given the persist-time validation).
     raise HTTPException(
@@ -447,6 +481,8 @@ _CATEGORY_TO_ITEM_TYPE: dict[str, str] = {
     "stale-claim": "suggestion",
     "orphan-page": "suggestion",
     "missing-xref": "suggestion",
+    "no-outlinks": "suggestion",  # L1 / ADR-0058 §L1
+    "suggestion": "suggestion",  # L2 / ADR-0058 §L2
 }
 
 
@@ -697,6 +733,12 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
     dangling=false). Reads only the pages + links tables (I1 — no vault walk).
     Bounded at _ORPHAN_SCAN_MAX_PAGES. index.md / log.md / overview.md are excluded
     (they are navigation roots, not orphans).
+
+    L3: each orphan finding includes a `suggested_target` + `suggested_page_id` pointing
+    to the page that *should* link to the orphan (token-overlap fuzzy scorer, port of
+    lint.ts suggestRelatedPage, direction="source" — bounded to _CANDIDATE_TITLES_MAX).
+
+    L5: severity is `info` (matches the reference lint.ts orphan category).
     """
     out: list[FindingDTO] = []
     try:
@@ -731,6 +773,9 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
             )
             linked_ids = {str(t) for t in target_rows if t is not None}
 
+            # L3: load candidate pages for fuzzy suggestion (bounded, I7).
+            candidates = await _load_candidate_pages_fuzzy(vault_id, session)
+
         for pid, title, file_path in page_rows:
             rel = (file_path or "").lower()
             base = rel.rsplit("/", 1)[-1]
@@ -738,17 +783,36 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
                 continue
             if str(pid) in linked_ids:
                 continue
+
+            # L3: suggest a SOURCE page that should link to this orphan.
+            suggested_target: str | None = None
+            suggested_page_id: uuid.UUID | None = None
+            proposed_action: str | None = None
+            suggestion = _fuzzy_suggest_page(
+                page_title=title or "",
+                page_fp=file_path or "",
+                candidates=candidates,
+                exclude_page_fp=file_path or "",  # never suggest self
+                exclude_titles=None,  # direction="source" — no outlink exclusion
+            )
+            if suggestion is not None:
+                suggested_target, sugg_id_str = suggestion
+                suggested_page_id = uuid.UUID(sugg_id_str)
+                proposed_action = f"Add [[{title or base}]] to ## Related in {suggested_target!r}."
+
             out.append(
                 FindingDTO(
                     category="orphan-page",
-                    severity="warning",
+                    severity="info",  # L5 — info, matching reference
                     description=(
                         f"Page {title or rel!r} has no incoming wikilinks (orphan). "
                         "It is unreachable by graph navigation."
                     ),
                     target_title=title,
                     target_page_id=uuid.UUID(str(pid)),
-                    proposed_action=None,  # flag-only (ADR-0037 §5)
+                    proposed_action=proposed_action,
+                    suggested_target=suggested_target,  # L3 — source page title
+                    suggested_page_id=suggested_page_id,  # L3 — source page id
                 )
             )
     except Exception as exc:  # noqa: BLE001
@@ -878,6 +942,99 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
     return out
 
 
+# ── L1 — no-outlinks detection (deterministic, NO provider call) ─────────────────
+
+
+async def _detect_no_outlinks(vault_id: str) -> list[FindingDTO]:
+    """
+    Detect pages with zero outgoing wikilinks: live wiki pages with NO links rows
+    where source_page_id == page.id (L1 / ADR-0058 §L1, reference lint.ts:267-276).
+
+    Reads only the pages + links tables (I1 — no vault walk). Bounded at
+    _NO_OUTLINKS_SCAN_MAX_PAGES. index.md / log.md / overview.md excluded (same
+    exclusions as _detect_orphans).
+
+    L3: each finding includes a `suggested_target` pointing to the best related page
+    the no-outlinks page should link to (fuzzy token-overlap scorer, bounded to
+    _CANDIDATE_TITLES_MAX, direction="target").
+
+    L5: severity is `info` (matches the reference lint.ts no-outlinks category).
+    """
+    out: list[FindingDTO] = []
+    try:
+        from sqlalchemy import exists as sa_exists
+        from sqlalchemy import not_
+
+        from app.models import Link
+
+        async with get_session() as session:
+            # Subquery: page ids that HAVE at least one outgoing link.
+            has_outlink_sq = select(Link.source_page_id).where(Link.source_page_id == Page.id)
+
+            # Live wiki pages with ZERO outgoing links (no row in links where source=page).
+            page_rows = list(
+                (
+                    await session.execute(
+                        select(Page.id, Page.title, Page.file_path)
+                        .where(
+                            Page.vault_id == vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.file_path.like("wiki/%"),
+                            not_(sa_exists(has_outlink_sq)),
+                        )
+                        .order_by(Page.created_at.asc())
+                        .limit(_NO_OUTLINKS_SCAN_MAX_PAGES)
+                    )
+                ).all()
+            )
+
+            if not page_rows:
+                return out
+
+            # L3: load candidate pages for fuzzy suggestion (bounded, I7).
+            candidates = await _load_candidate_pages_fuzzy(vault_id, session)
+
+        for pid, title, file_path in page_rows:
+            rel = (file_path or "").lower()
+            base = rel.rsplit("/", 1)[-1]
+            if base in {"index.md", "log.md", "overview.md"}:
+                continue
+
+            # L3: suggest a TARGET page to link to (direction="target").
+            suggested_target: str | None = None
+            suggested_page_id: uuid.UUID | None = None
+            proposed_action: str | None = None
+            suggestion = _fuzzy_suggest_page(
+                page_title=title or "",
+                page_fp=file_path or "",
+                candidates=candidates,
+                exclude_page_fp=file_path or "",  # never suggest self
+                exclude_titles=None,  # page has no outlinks → nothing to exclude
+            )
+            if suggestion is not None:
+                suggested_target, sugg_id_str = suggestion
+                suggested_page_id = uuid.UUID(sugg_id_str)
+                proposed_action = f"Add [[{suggested_target}]] to ## Related in {title or base!r}."
+
+            out.append(
+                FindingDTO(
+                    category="no-outlinks",
+                    severity="info",  # L5 — info, matching reference
+                    description=(
+                        f"Page {title or rel!r} has no [[wikilink]] references to other pages."
+                    ),
+                    target_title=title,
+                    target_page_id=uuid.UUID(str(pid)),
+                    proposed_action=proposed_action,
+                    suggested_target=suggested_target,  # L3
+                    suggested_page_id=suggested_page_id,  # L3
+                )
+            )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_detect_no_outlinks: failed (non-fatal): %s", exc)
+    return out
+
+
 # ── Semantic pass (ONE bounded provider call per round — I6/I7) ─────────────────
 
 
@@ -918,6 +1075,250 @@ async def _semantic_pass(
         return ""
 
 
+# ── L3 — Fuzzy suggestion helpers (port of lint.ts suggestRelatedPage) ───────────
+
+
+def _tokenize_for_suggestion(text: str) -> frozenset[str]:
+    """
+    Tokenize *text* for fuzzy page-suggestion scoring (L3).
+
+    Port of lint.ts::tokenizeForSuggestion. NFKC-normalises, lower-cases, extracts
+    word-tokens (letters + digits, no underscores, len >= 2). For CJK tokens, also adds
+    each individual character (single-char CJK weight applied at scoring time).
+    Returns a frozenset so it is hashable and safe to cache.
+    """
+    tokens: set[str] = set()
+    normalized = unicodedata.normalize("NFKC", text).lower()
+    for m in _WORD_RE.finditer(normalized):
+        token = m.group(0)
+        if len(token) >= 2:
+            tokens.add(token)
+        if _CJK_RE.search(token):
+            for char in token:
+                tokens.add(char)
+    return frozenset(tokens)
+
+
+def _fuzzy_score(
+    source_tokens: frozenset[str],
+    candidate_tokens: frozenset[str],
+    same_folder: bool,
+) -> float:
+    """
+    Token-overlap relevance score between two pages (L3, port of lint.ts suggestRelatedPage).
+
+    overlap / sqrt(|A| * |B|) + same-folder bonus. CJK single chars weighted lower.
+    Returns 0.0 when there is no token overlap.
+    """
+    if not source_tokens or not candidate_tokens:
+        return 0.0
+    overlap: float = 0.0
+    for token in source_tokens:
+        if token in candidate_tokens:
+            overlap += 1.0 if len(token) > 1 else _SINGLE_CJK_TOKEN_WEIGHT
+    if overlap == 0.0:
+        return 0.0
+    score = overlap / math.sqrt(max(1, len(source_tokens)) * max(1, len(candidate_tokens)))
+    if same_folder:
+        score += _SAME_FOLDER_SCORE_BONUS
+    return score
+
+
+async def _load_candidate_pages_fuzzy(
+    vault_id: str,
+    session: Any,
+) -> list[tuple[str, str, str]]:
+    """
+    Bounded load of (id_str, title, file_path) for all live wiki pages in the vault
+    (L3 — fuzzy suggestion candidate pool; capped at _CANDIDATE_TITLES_MAX, I7).
+
+    Reads only the pages table (I1 — no vault walk). Ordered by updated_at DESC so
+    the most recently edited pages lead the pool (better suggestions for active vaults).
+    """
+    rows = await session.execute(
+        select(Page.id, Page.title, Page.file_path)
+        .where(
+            Page.vault_id == vault_id,
+            Page.deleted_at.is_(None),
+            Page.file_path.like("wiki/%"),
+            Page.title.isnot(None),
+        )
+        .order_by(Page.updated_at.desc())
+        .limit(_CANDIDATE_TITLES_MAX)
+    )
+    return [(str(r[0]), r[1] or "", r[2] or "") for r in rows.all()]
+
+
+def _fuzzy_suggest_page(
+    *,
+    page_title: str,
+    page_fp: str,
+    candidates: list[tuple[str, str, str]],
+    exclude_page_fp: str,
+    exclude_titles: set[str] | None = None,
+) -> tuple[str, str] | None:
+    """
+    Return (best_title, best_id_str) for the candidate most relevant to *page_title*/*page_fp*
+    using token-overlap scoring (L3, port of lint.ts::suggestRelatedPage).
+
+    Args:
+        page_title: title of the page being scored.
+        page_fp: file_path of the page being scored (used for folder bonus + self-exclusion).
+        candidates: list of (id_str, title, file_path) from _load_candidate_pages_fuzzy.
+        exclude_page_fp: skip any candidate whose file_path equals this (avoids self-reference).
+        exclude_titles: optional set of titles to skip (for direction="target": pages already
+                        linked from the source page; for direction="source": not needed).
+
+    Returns None when no candidate reaches _RELATED_PAGE_SUGGESTION_MIN_SCORE.
+    """
+    # Tokenize the source page using title + filename stem for richer overlap.
+    path_stem = page_fp.rsplit("/", 1)[-1].replace(".md", "").replace("-", " ").replace("_", " ")
+    source_text = f"{page_title}\n{path_stem}"
+    source_tokens = _tokenize_for_suggestion(source_text)
+    if not source_tokens:
+        return None
+
+    source_folder = page_fp.rsplit("/", 1)[0] if "/" in page_fp else ""
+    exclude_norm: set[str] = {t.lower() for t in (exclude_titles or set())}
+
+    best_id: str | None = None
+    best_title: str | None = None
+    best_score: float = 0.0
+
+    for cand_id, cand_title, cand_fp in candidates:
+        if cand_fp == exclude_page_fp:
+            continue
+        if cand_title.lower() in exclude_norm:
+            continue
+
+        cand_stem = (
+            cand_fp.rsplit("/", 1)[-1].replace(".md", "").replace("-", " ").replace("_", " ")
+        )
+        cand_tokens = _tokenize_for_suggestion(f"{cand_title}\n{cand_stem}")
+        cand_folder = cand_fp.rsplit("/", 1)[0] if "/" in cand_fp else ""
+        score = _fuzzy_score(source_tokens, cand_tokens, same_folder=(cand_folder == source_folder))
+
+        if score > best_score:
+            best_score = score
+            best_id = cand_id
+            best_title = cand_title
+
+    if best_score >= _RELATED_PAGE_SUGGESTION_MIN_SCORE and best_id and best_title:
+        return (best_title, best_id)
+    return None
+
+
+# ── Shared apply helper — append wikilink under ## Related heading (L4) ──────────
+
+
+def _append_wikilink_to_body(body: str, link_target: str) -> str:
+    """
+    Append ``- [[link_target]]`` under the ``## Related`` heading in *body*, creating the
+    heading if absent. Idempotent: no-ops if the link already exists (L4/I5).
+
+    Port of lint-fixes.ts::appendWikilink.
+    """
+    # Idempotency: skip if the link already exists anywhere in the body.
+    link_norm = link_target.lower()
+    for m in re.finditer(r"\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]", body):
+        if m.group(1).strip().lower() == link_norm:
+            return body  # already present
+
+    link_line = f"- [[{link_target}]]"
+    heading_match = re.search(r"^##\s+Related\s*$", body, re.IGNORECASE | re.MULTILINE)
+    if heading_match:
+        insert_at = heading_match.end()
+        return body[:insert_at] + "\n" + link_line + body[insert_at:]
+    # No ## Related heading → append one at the end of the body.
+    return body.rstrip("\n") + "\n\n## Related\n" + link_line + "\n"
+
+
+async def _read_page_file_for_apply(
+    page_id_str: str,
+) -> tuple[str, str, str, str, bool] | None:
+    """
+    Load a page for the apply path and return (file_path, abs_path_str, fm_block, body, have_fm).
+
+    Returns None when the page no longer exists (caller raises 404/502 as appropriate).
+    Uses portable CAST(id AS TEXT) for SQLite/Postgres parity.
+    """
+    from sqlalchemy import text as sa_text
+
+    async with get_session() as session:
+        row = (
+            await session.execute(
+                sa_text(
+                    "SELECT id, vault_id, file_path, title "
+                    "FROM pages WHERE CAST(id AS TEXT) = :pid AND deleted_at IS NULL"
+                ).bindparams(pid=page_id_str)
+            )
+        ).first()
+
+    if row is None:
+        return None
+
+    file_path: str = row.file_path
+    abs_path = settings.vault_root / file_path
+
+    try:
+        raw = abs_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    if raw.startswith("---\n"):
+        parts = raw.split("---\n", maxsplit=2)
+        if len(parts) == 3:
+            return file_path, str(abs_path), parts[1], parts[2], True
+
+    return file_path, str(abs_path), "", raw, False
+
+
+async def _write_body_back(
+    *,
+    file_path: str,
+    abs_path_str: str,
+    fm_block: str,
+    new_body: str,
+    have_frontmatter: bool,
+    source_page_id: uuid.UUID,
+) -> None:
+    """
+    Write the updated body back to disk, re-persist links, and bump data_version once (I1/I5).
+    Used by _apply_no_outlinks and _apply_orphan_page.
+    """
+    import frontmatter as _fm
+    from fastapi import HTTPException
+
+    from app.wiki.links import parse_wikilinks, persist_links
+
+    new_raw = ("---\n" + fm_block + "---\n" + new_body) if have_frontmatter else new_body
+
+    try:
+        import pathlib
+
+        pathlib.Path(abs_path_str).write_text(new_raw, encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"apply write failed for {file_path}: {exc}",
+        ) from exc
+
+    try:
+        post = _fm.loads(new_raw)
+        parsed = parse_wikilinks(post.content)
+        async with get_session() as session:
+            await persist_links(session, source_page_id, parsed)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_write_body_back: persist_links failed for %s: %s", file_path, exc)
+
+    try:
+        from app.ingest.orchestrator import bump_version
+
+        await bump_version()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("_write_body_back: bump_version failed: %s", exc)
+
+
 # ── Apply seams (ADR-0037 §5) ───────────────────────────────────────────────────
 
 
@@ -943,12 +1344,9 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
     from fastapi import HTTPException
     from sqlalchemy import text as sa_text
 
-    # ── No suggestion → flag-only ─────────────────────────────────────────────────
+    # ── No suggestion → create a stub page for the missing target (L4/ADR-0058 §L4) ──
     if not finding.suggested_target:
-        return (
-            "broken-wikilink: no suggested target found; acknowledged as flag-only. "
-            "Edit the page manually to fix the broken link."
-        )
+        return await _create_broken_link_stub(finding)
 
     if finding.target_page_id is None:
         raise HTTPException(
@@ -1206,6 +1604,204 @@ async def _apply_missing_page(finding: LintFinding) -> str:
     )
 
 
+async def _apply_no_outlinks(finding: LintFinding) -> str:
+    """
+    Apply a no-outlinks fix (L4 / ADR-0058 §L4 / I1/I5).
+
+    Appends ``- [[suggested_target]]`` under ``## Related`` in the finding's page body
+    (creates the heading if absent). Idempotent: no-ops if the link already exists.
+    Re-persists links and bumps data_version ONCE (I1). Body-only edit (I5).
+
+    Falls back to flag-only acknowledgement when no suggested_target is recorded.
+    """
+    from fastapi import HTTPException
+
+    if not finding.suggested_target:
+        return (
+            "no-outlinks: no suggested target available; acknowledged as flag-only. "
+            "Add a [[wikilink]] to the page manually."
+        )
+
+    if finding.target_page_id is None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "no-outlinks apply failed: the finding carries no target page id. "
+                "Dismiss it or re-run lint."
+            ),
+        )
+
+    result = await _read_page_file_for_apply(str(finding.target_page_id))
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "no-outlinks apply failed: the target page no longer exists. "
+                "Finding left open — dismiss or re-run lint."
+            ),
+        )
+
+    file_path, abs_path_str, fm_block, body, have_frontmatter = result
+    new_body = _append_wikilink_to_body(body, finding.suggested_target)
+
+    if new_body == body:
+        return (
+            f"no-outlinks: [[{finding.suggested_target}]] already present in {file_path!r}; "
+            "acknowledged without edit."
+        )
+
+    await _write_body_back(
+        file_path=file_path,
+        abs_path_str=abs_path_str,
+        fm_block=fm_block,
+        new_body=new_body,
+        have_frontmatter=have_frontmatter,
+        source_page_id=uuid.UUID(str(finding.target_page_id)),
+    )
+    return (
+        f"no-outlinks: appended [[{finding.suggested_target}]] under ## Related in "
+        f"{file_path!r} (data_version bumped once, I1)."
+    )
+
+
+async def _apply_orphan_page(finding: LintFinding) -> str:
+    """
+    Apply an orphan-page fix (L4 / ADR-0058 §L4 / I1/I5).
+
+    When finding.suggested_page_id is set: appends ``- [[<orphan title>]]`` under
+    ``## Related`` in the SUGGESTED SOURCE PAGE (the page that should link to the orphan).
+    Re-persists links and bumps data_version ONCE (I1). Body-only edit (I5).
+
+    Falls back to flag-only acknowledgement when no suggested_page_id is recorded,
+    matching the pre-L4 behaviour for suggestion-less orphan-page findings.
+    """
+    from fastapi import HTTPException
+
+    if not finding.suggested_page_id:
+        return (
+            "orphan-page: no suggested source page available; acknowledged as flag-only. "
+            "Add a [[wikilink]] to this page from another page manually."
+        )
+
+    orphan_title = finding.target_title or "untitled"
+
+    result = await _read_page_file_for_apply(str(finding.suggested_page_id))
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "orphan-page apply failed: the suggested source page no longer exists. "
+                "Finding left open — dismiss or re-run lint."
+            ),
+        )
+
+    file_path, abs_path_str, fm_block, body, have_frontmatter = result
+    new_body = _append_wikilink_to_body(body, orphan_title)
+
+    if new_body == body:
+        return (
+            f"orphan-page: [[{orphan_title}]] already present in suggested source "
+            f"{file_path!r}; acknowledged without edit."
+        )
+
+    await _write_body_back(
+        file_path=file_path,
+        abs_path_str=abs_path_str,
+        fm_block=fm_block,
+        new_body=new_body,
+        have_frontmatter=have_frontmatter,
+        source_page_id=uuid.UUID(str(finding.suggested_page_id)),
+    )
+    return (
+        f"orphan-page: appended [[{orphan_title}]] under ## Related in suggested source "
+        f"{file_path!r} (data_version bumped once, I1)."
+    )
+
+
+async def _create_broken_link_stub(finding: LintFinding) -> str:
+    """
+    Create a stub page for a broken-wikilink finding that has no suggested_target (L4).
+
+    Writes a type=query, tags=[stub, lint] stub page under queries/ via the normal
+    write_wiki_page seam, then re-resolves links for the referencing page so the
+    previously-dangling link connects to the new stub.  One data_version bump (I1).
+
+    Port of lint-fixes.ts::ensureBrokenLinkStub.
+    Falls back to flag-only acknowledgement on any failure (502 path).
+    """
+    from fastapi import HTTPException
+
+    broken_target = finding.target_title or ""
+    if not broken_target:
+        return (
+            "broken-wikilink: no broken target title recorded; acknowledged as flag-only. "
+            "Dismiss and re-run lint."
+        )
+
+    # Derive a stub title from the broken target text.
+    stub_title = (
+        broken_target.rsplit("/", 1)[-1].replace("-", " ").replace("_", " ").strip()
+        or "Missing Page"
+    )
+
+    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+
+    stub_page = WikiPage(
+        title=stub_title,
+        type=PageType.QUERY,
+        content=(
+            f"# {stub_title}\n\n"
+            "Created by Wiki Lint as a placeholder for a missing wikilink target.\n"
+        ),
+        frontmatter=WikiFrontmatter(
+            type=PageType.QUERY,
+            title=stub_title,
+            sources=[f"lint:{finding.id}"],
+            lang="en",
+            tags=["stub", "lint"],
+        ),
+    )
+
+    try:
+        created_page = await write_wiki_page(None, stub_page, f"lint:{finding.id}")
+        created_page_id = str(created_page.id)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "_create_broken_link_stub: write_wiki_page failed for %r: %s — left open",
+            stub_title,
+            exc,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"broken-wikilink stub creation failed for {stub_title!r}: {exc}. "
+                "Finding left open — retry or dismiss."
+            ),
+        ) from exc
+
+    # Re-resolve links for the referencing page so the now-existing stub connects.
+    if finding.target_page_id is not None:
+        try:
+            from app.wiki.links import reresolve_dangling_links
+
+            async with get_session() as session:
+                reconnected = await reresolve_dangling_links(session)
+            logger.debug(
+                "_create_broken_link_stub: reresolve_dangling_links reconnected %d links",
+                reconnected,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("_create_broken_link_stub: reresolve_dangling_links failed: %s", exc)
+
+    return (
+        f"broken-wikilink: created stub page {stub_title!r} (page_id={created_page_id}) "
+        f"under queries/ (data_version bumped once via write_wiki_page, I1)."
+    )
+
+
 # ── DB helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -1445,7 +2041,8 @@ def _build_semantic_instruction(
         f"# Already-reported findings (do NOT repeat these)\n{already_block}\n\n"
         'Return ONLY a JSON object with a single key "findings" whose value is a list of '
         "objects. Each object has keys:\n"
-        "  category: one of missing-xref | contradiction | stale-claim | missing-page\n"
+        "  category: one of missing-xref | contradiction | stale-claim | "
+        "missing-page | suggestion\n"
         "  severity: one of info | warning | error\n"
         "  description: a short string explaining the problem\n"
         "  target_title: the existing page title the finding is about (for missing-xref / "
@@ -1453,7 +2050,8 @@ def _build_semantic_instruction(
         "none applies\n\n"
         "Definitions: missing-xref = a page that mentions an existing page but does not link "
         "it; contradiction = conflicting claims across pages; stale-claim = superseded "
-        "information; missing-page = a concept mentioned with no page. "
+        "information; missing-page = a concept mentioned with no page; "
+        "suggestion = a question or source worth adding to the wiki. "
         f"Keep the output well under {token_budget} tokens. Return no prose, only the JSON "
         "object."
     )
@@ -1479,8 +2077,9 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
     if not isinstance(items_raw, list):
         return []
 
-    # Semantic categories only — orphan-page is deterministic and must not come from the model.
-    semantic_categories = _VALID_CATEGORIES - {"orphan-page"}
+    # Semantic categories only — orphan-page and no-outlinks are deterministic and must not
+    # come from the model (ADR-0037 §3.1 / ADR-0058 §L1).
+    semantic_categories = _VALID_CATEGORIES - {"orphan-page", "no-outlinks"}
 
     out: list[FindingDTO] = []
     for entry in items_raw:

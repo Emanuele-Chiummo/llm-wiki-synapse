@@ -864,7 +864,11 @@ export type LintCategory =
   | "stale-claim"
   | "missing-page"
   /** B1-L1: deterministic category derived from links.dangling=True. Zero LLM cost. */
-  | "broken-wikilink";
+  | "broken-wikilink"
+  /** L1 (v1.3.13): deterministic — a page with zero outgoing wikilinks. Zero LLM cost. */
+  | "no-outlinks"
+  /** L2 (v1.3.13): semantic — a question or source worth adding to the wiki. */
+  | "suggestion";
 
 /** Finding lifecycle. */
 export type LintFindingStatus = "open" | "applied" | "dismissed";
@@ -880,15 +884,20 @@ export type LintRunStatus = "running" | "completed" | "error";
  * rewrite any wiki file. The UI should label the action "Acknowledge" instead of
  * "Fix" and show no file-write expectation.
  *
- * NOTE: "broken-wikilink" is NOT flag-only — when suggested_target is present it
- * has a real Fix (rewrite dangling [[link]] in the referencing page body); when
- * absent the row is treated as acknowledge per-row. The distinction is made at
- * render time using the suggested_target field, not via this set.
+ * NOTE: "broken-wikilink", "orphan-page" and "no-outlinks" are NOT in this set —
+ * each has a real Fix when a suggestion is present (v1.3.13, ADR-0058 §L4):
+ *   broken-wikilink + suggested_target → rewrite the dangling [[link]] (or create a
+ *     stub page when no target); orphan-page + suggested_target → append a
+ *     [[backlink]] into the suggested source page; no-outlinks + suggested_target →
+ *     append [[target]] under ## Related. When the suggestion is absent the row is
+ *     acknowledge-only. That distinction is made at render time using suggested_target,
+ *     not via this set.
  */
 export const LINT_FLAG_ONLY_CATEGORIES = new Set<LintCategory>([
-  "orphan-page",
   "contradiction",
   "stale-claim",
+  // L2 (v1.3.13): semantic suggestion — advisory, no safe automatic edit.
+  "suggestion",
 ]);
 
 /**

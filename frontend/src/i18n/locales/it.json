@@ -796,7 +796,9 @@
       "contradiction": "Contraddizione",
       "stale-claim": "Affermazione obsoleta",
       "missing-page": "Pagina mancante",
-      "broken-wikilink": "Link interrotto"
+      "broken-wikilink": "Link interrotto",
+      "no-outlinks": "Nessun link in uscita",
+      "suggestion": "Suggerimento"
     },
     "groups": {
       "errors": "Errori",

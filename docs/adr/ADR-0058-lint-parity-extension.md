@@ -266,3 +266,97 @@ ADR-0037's ten Do-NOTs still apply. B1 adds:
     synthetic rows inside TanStack Virtual (I4).
 20. Do **not** compute `suggested_target` at apply/render time — it is resolved once **at scan time**
     and stored, so `Fix` never triggers a fresh vault-wide resolve.
+
+---
+
+## 7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)
+
+Closes five gaps versus nashsu/llm_wiki `lint.ts` 0.6.0. No DB migration; no new Alembic revision;
+no invariant loosened.
+
+### L1 — `no-outlinks` deterministic category
+
+A live `wiki/%` page with **zero** outgoing wikilinks (no `links` row with `source_page_id ==
+page.id`). Detected in the same deterministic phase as `orphan-page` and `broken-wikilink`, with
+its own I7 scan cap (`_NO_OUTLINKS_SCAN_MAX_PAGES = 1000`). Reads the `pages` and `links` tables
+only (I1 — no vault walk). index.md / log.md / overview.md excluded. Severity: **info** (L5).
+Added to `_VALID_CATEGORIES` and wired into `run_lint_scan` after `_detect_orphans`.
+
+Reference: `lint.ts:267-276`.
+
+### L2 — `suggestion` semantic category
+
+A question or source worth adding to the wiki. Added to `_VALID_CATEGORIES`, to the `category:`
+enumeration in `_build_semantic_instruction`, and to the Definitions line (`suggestion = a question
+or source worth adding to the wiki`). `_parse_findings` accepts it from the model. It is
+**flag-only** (added to `_FLAG_ONLY_CATEGORIES`); no deterministic fix exists. `_CATEGORY_TO_ITEM_TYPE`
+maps it to `"suggestion"`.
+
+Reference: `lint.ts:376-381` (semantic type list).
+
+### L3 — Fuzzy suggested_target/suggested_page_id on no-outlinks and orphan-page
+
+Port of `lint.ts::tokenizeForSuggestion` + `suggestRelatedPage`. Three new private helpers:
+`_tokenize_for_suggestion`, `_fuzzy_score`, `_fuzzy_suggest_page`, plus a bounded DB loader
+`_load_candidate_pages_fuzzy` (reads `(id, title, file_path)` from `pages`, capped at
+`_CANDIDATE_TITLES_MAX = 500`; I7). Called once per `_detect_orphans` / `_detect_no_outlinks`
+invocation, not per finding (I1 — no N+1).
+
+- **`no-outlinks`**: `suggested_target` = title of the best related page to link TO (direction=
+  "target"). `suggested_page_id` = that page's id.
+- **`orphan-page`**: `suggested_target` = title of the best SOURCE page (direction="source"); the
+  one that should link to the orphan. `suggested_page_id` = its id.
+
+Min score threshold: `_RELATED_PAGE_SUGGESTION_MIN_SCORE = 0.08`. Score = token-overlap /
+sqrt(|A| × |B|) + 0.08 same-folder bonus. CJK single chars weighted at 0.35.
+
+### L4 — Auto-fixes for `no-outlinks`, `orphan-page`, and stub-less `broken-wikilink`
+
+Three new apply paths, each doing exactly **one** `data_version` bump (I1), **body-only** edit
+(I5), and 502 on failure (finding left open):
+
+| Category | Condition | Fix |
+|----------|-----------|-----|
+| `no-outlinks` | `suggested_target` present | Append `- [[suggested_target]]` under `## Related` in the page body (`_apply_no_outlinks`). |
+| `no-outlinks` | no suggestion | Flag-only acknowledgement (no write). |
+| `orphan-page` | `suggested_page_id` present | Append `- [[<orphan title>]]` under `## Related` in the suggested SOURCE page (`_apply_orphan_page`). |
+| `orphan-page` | no suggestion | Flag-only acknowledgement (no write — same behaviour as pre-L4). |
+| `broken-wikilink` | no `suggested_target` | Create a type=query, tags=[stub, lint] stub page under `queries/` via `write_wiki_page`, then call `reresolve_dangling_links` so the link connects (`_create_broken_link_stub`). |
+| `broken-wikilink` | `suggested_target` present | Existing rewrite path unchanged. |
+
+`orphan-page` is removed from `_FLAG_ONLY_CATEGORIES`; it now routes through `_apply_orphan_page`
+which has an internal flag-only fallback. A shared body helper `_append_wikilink_to_body` (port of
+`lint-fixes.ts::appendWikilink`) and `_write_body_back` (persist links + bump) are factored out for
+reuse by both `_apply_no_outlinks` and `_apply_orphan_page`.
+
+### L5 — Severity corrections
+
+`orphan-page` and `no-outlinks` now emit `severity="info"` (was `"warning"` for orphan-page),
+matching the reference lint.ts categorization. `broken-wikilink` retains `severity="warning"`
+(no change).
+
+### _VALID_CATEGORIES (final, v1.3.13)
+
+```python
+_VALID_CATEGORIES = frozenset({
+    "orphan-page",
+    "broken-wikilink",
+    "missing-xref",
+    "contradiction",
+    "stale-claim",
+    "missing-page",
+    "no-outlinks",   # L1
+    "suggestion",    # L2
+})
+```
+
+### Do-NOT additions (extends §6)
+
+21. Do **not** emit `no-outlinks` from the semantic pass — it is deterministic-only; `_parse_findings`
+    explicitly excludes it from `semantic_categories` (alongside `orphan-page`).
+22. Do **not** run the fuzzy scorer without the `_CANDIDATE_TITLES_MAX` cap — the candidate pool
+    is always bounded by the existing constant (I7).
+23. Do **not** call `_write_body_back` when the target link already exists in the body —
+    `_append_wikilink_to_body` is idempotent; the apply seam must not write if the body is unchanged.
+24. Do **not** call `write_wiki_page` for a broken-wikilink stub more than once per finding —
+    exactly one page, one bump (I1).
