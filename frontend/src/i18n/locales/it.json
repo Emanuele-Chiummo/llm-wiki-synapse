@@ -901,7 +901,9 @@
       "connections_plural": "{{count}} connessioni"
     },
     "nodeSelected": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicino.",
-    "nodeSelected_plural": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicini."
+    "nodeSelected_plural": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicini.",
+    "title": "Grafo della Conoscenza",
+    "insightsButton": "Approfondimenti"
   },
   "search": {
     "title": "Cerca",

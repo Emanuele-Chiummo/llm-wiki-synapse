@@ -901,7 +901,9 @@
       "connections_plural": "{{count}} connections"
     },
     "nodeSelected": "Selected: {{title}}. Type: {{type}}. {{count}} neighbor.",
-    "nodeSelected_plural": "Selected: {{title}}. Type: {{type}}. {{count}} neighbors."
+    "nodeSelected_plural": "Selected: {{title}}. Type: {{type}}. {{count}} neighbors.",
+    "title": "Knowledge Graph",
+    "insightsButton": "Insights"
   },
   "search": {
     "title": "Search",
