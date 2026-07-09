@@ -99,7 +99,7 @@ from app.config_overrides import (
     load_overrides,
 )
 from app.db import dispose_engine, get_session
-from app.embeddings import EmbeddingError, get_embedding_client
+from app.embeddings import EmbeddingError, aclose_embedding_client, get_embedding_client
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler
@@ -110,6 +110,7 @@ from app.models import (
 )
 from app.ops_scheduler import OpsScheduler
 from app.qdrant_client import ensure_collection
+from app.security_headers import SecurityHeadersMiddleware
 from app.sources import router as sources_router
 from app.vault import bootstrap_vault
 from app.watcher import start_watcher, stop_watcher
@@ -163,59 +164,10 @@ def _ip_is_private(ip_str: str) -> bool:
         return False  # unknown → PUBLIC (fail-safe)
 
 
-def _resolve_source_ip(scope: Scope) -> str | None:
-    """
-    Resolve the effective client IP for source classification (ADR-0033 §2.3).
-
-    Trust model:
-    1. Default: use scope["client"][0] (transport peer — the actual TCP peer ASGI
-       reports). Never trusts X-Forwarded-For by default.
-    2. If the transport peer is in MCP_TRUSTED_PROXIES (settings.mcp_trusted_proxies_list),
-       read the LAST X-Forwarded-For entry appended by that proxy (proxy-attested client).
-       "Last" means rightmost non-empty hop after stripping the proxy's own append
-       — practically the last comma-separated IP in the XFF chain NOT added by the proxy.
-    3. On any parse failure → return None (caller treats as PUBLIC — fail-safe).
-
-    CF-Connecting-IP / CF-Ray are intentionally NOT used for IP resolution here
-    (they are PUBLIC *signals* handled separately in _classify_source).
-    """
-    try:
-        peer_ip: str = scope["client"][0]
-    except (KeyError, TypeError, IndexError):
-        return None  # no transport peer → PUBLIC (fail-safe)
-
-    trusted = settings.mcp_trusted_proxies_list
-    if not trusted:
-        return peer_ip  # default: trust only the transport peer
-
-    # Check if peer is trusted
-    peer_is_trusted = False
-    for cidr_or_ip in trusted:
-        try:
-            network = ipaddress.ip_network(cidr_or_ip.strip(), strict=False)
-            if ipaddress.ip_address(peer_ip) in network:
-                peer_is_trusted = True
-                break
-        except (ValueError, TypeError):
-            continue
-
-    if not peer_is_trusted:
-        return peer_ip  # peer not trusted → use peer IP as-is
-
-    # Peer is trusted: extract the last XFF hop (proxy-attested client).
-    headers: dict[bytes, bytes] = dict(scope.get("headers", []))
-    xff: bytes = headers.get(b"x-forwarded-for", b"")
-    if not xff:
-        return peer_ip  # no XFF header from trusted proxy → use peer
-
-    hops = [h.strip() for h in xff.decode("utf-8", errors="replace").split(",")]
-    hops = [h for h in hops if h]
-    if not hops:
-        return peer_ip
-
-    # Take the LAST hop (rightmost) — the proxy-attested client IP.
-    # The leftmost is client-controlled; the rightmost is the most recently appended.
-    return hops[-1]
+# Client-IP resolution lives in app.client_ip so app.rate_limit can share the exact
+# same trusted-proxy logic (H3) without importing app.main. Aliased to preserve the
+# existing private name used by _classify_source below (ADR-0033 §2.3).
+from app.client_ip import resolve_source_ip as _resolve_source_ip  # noqa: E402
 
 
 def _classify_source(scope: Scope) -> bool:
@@ -816,6 +768,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     global _started_at, _graph_cache, _import_scheduler, _ops_scheduler
     _started_at = datetime.now(UTC)
 
+    # 0. H1 — auth posture warning (defense-in-depth). SynapseAuthMiddleware is a transparent
+    #    pass-through when SYNAPSE_AUTH_TOKEN is empty (auth.py), so the entire API — read
+    #    pages, ingest, cascade-delete, rewrite provider_config — is unauthenticated. That is
+    #    fine for local dev, but in a real deployment it makes the perimeter (Cloudflare Access
+    #    / Tailscale) a single point of failure with no app-layer backstop. Warn loudly; never
+    #    block startup (setting a token is the operator's call).
+    if not settings.auth_token:
+        logger.warning(
+            "SYNAPSE_AUTH_TOKEN is unset — the API is UNAUTHENTICATED (every route open). "
+            "Any perimeter gate (Cloudflare Access / Tailscale) is your only protection and "
+            "has no app-layer backstop. Set SYNAPSE_AUTH_TOKEN to require a Bearer token."
+        )
+
     # 1. Vault skeleton (K1, I5, AC-K7-1)
     bootstrap_vault()
 
@@ -917,6 +882,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if _graph_cache is not None:
         _graph_cache.stop_background_loop()
     stop_watcher()
+    await aclose_embedding_client()
     await dispose_engine()
 
 
@@ -1010,6 +976,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Graph-Cache"],  # so the viewer can read cache hit/miss (ADR-0014)
 )
+# H4 — hardening headers, registered LAST so it is OUTERMOST: it stamps every response
+# (including 401s and CORS preflights) on the way out. Adding headers here does not affect
+# the load-bearing auth↔CORS ordering above (CORS still wraps auth).
+app.add_middleware(SecurityHeadersMiddleware)
 
 # ── Sources router (raw-source file browser — nashsu/llm_wiki parity) ────────
 app.include_router(sources_router)

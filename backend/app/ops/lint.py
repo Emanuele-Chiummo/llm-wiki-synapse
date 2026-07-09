@@ -769,11 +769,12 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
                 ).all()
             )
 
-            # Resolved incoming-link target ids (in-degree >= 1).
-            # L-bug1 fix: only count links whose SOURCE page is a live wiki content
-            # page that is not index.md or log.md (basename-based exclusion so
-            # subdirectory index/log variants are also excluded). This prevents
-            # index.md linking nearly everything from masking true orphans.
+            # Resolved incoming-link target ids (in-degree >= 1). Only count links whose
+            # SOURCE page is a live wiki content page in THIS vault that is not index.md or
+            # log.md (basename-based exclusion so subdirectory index/log variants are also
+            # excluded). The vault join stops a cross-vault same-id link from masking an
+            # orphan (from 1.3.12); the index/log exclusion stops index.md — which links
+            # nearly everything — from masking true orphans (llm_wiki parity, L-bug1).
             target_rows = list(
                 (
                     await session.execute(

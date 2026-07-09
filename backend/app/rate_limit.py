@@ -4,10 +4,12 @@ Minimal in-process fixed-window rate limiter for inference-cost endpoints (R13-9
 Design principles
 -----------------
 * Zero new runtime dependencies (no slowapi, no Redis, no aioredis).
-* Per-client-IP fixed-window counter, keyed by the transport peer address
-  (``request.client.host``).  No X-Forwarded-For trust — consistent with the rest of
-  the Synapse auth posture (untrusted unless MCP_TRUSTED_PROXIES is set, but the rate
-  limiter does not consult that setting — keep it simple).
+* Per-client fixed-window counter, keyed by ``client_ip.resolve_source_ip`` — the SAME
+  trusted-proxy-aware resolver used for source classification (ADR-0033). Behind a
+  reverse proxy / tunnel listed in MCP_TRUSTED_PROXIES it keys on the proxy-attested
+  client IP; otherwise it keys on the transport peer. This stops the limiter collapsing
+  to a single global bucket when every request presents the tunnel's IP (H3). X-Forwarded-For
+  is honoured ONLY from a trusted proxy — an untrusted peer forging XFF is keyed by peer IP.
 * Config via ``app.config.settings``:
     RATE_LIMIT_ENABLED (bool, default True)
     RATE_LIMIT_REQUESTS (int, default 20) — max requests per window per IP
@@ -28,6 +30,8 @@ import logging
 import time
 
 from fastapi import HTTPException, Request
+
+from app.client_ip import resolve_source_ip
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +83,9 @@ class _FixedWindowLimiter:
         if requests <= 0:
             return
 
-        client = request.client
-        ip: str = client.host if client else "unknown"
+        # Trusted-proxy-aware key: real client IP behind a tunnel in MCP_TRUSTED_PROXIES,
+        # else the transport peer. Prevents one shared bucket for all traffic (H3, ADR-0033).
+        ip: str = resolve_source_ip(request.scope) or "unknown"
         now: float = _now if _now is not None else time.monotonic()
 
         async with self._lock:

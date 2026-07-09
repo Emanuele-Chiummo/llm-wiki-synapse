@@ -615,16 +615,30 @@ async def _generate_queries(
         f"topic. Each query should be a plain search string suitable for SearXNG."
     )
 
+    from app.config import settings
     from app.ingest.schemas import Message
 
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
+    async def _collect() -> str:
+        chunks: list[str] = []
+        async for chunk in await provider.chat(
+            messages=[Message(role="user", content=instruction)],
+            retrieval_context="",
+        ):
+            chunks.append(chunk)
+        return "".join(chunks).strip()
 
-    raw = "".join(chunks).strip()
+    # I7: bound the provider turn so a hung backend can't wedge the run forever.
+    try:
+        raw = await asyncio.wait_for(
+            _collect(), timeout=float(settings.deep_research_provider_timeout_seconds)
+        )
+    except TimeoutError:
+        logger.warning(
+            "_generate_queries: provider timed out after %.1fs — falling back to topic",
+            settings.deep_research_provider_timeout_seconds,
+        )
+        return [topic]
+
     queries = [line.strip() for line in raw.splitlines() if line.strip()]
     queries = queries[:max_queries]
     if not queries:
@@ -815,16 +829,31 @@ async def _assess_sufficiency(
         f"If insufficient, list the specific gaps as plain text lines after INSUFFICIENT."
     )
 
+    from app.config import settings
     from app.ingest.schemas import Message
 
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
+    async def _collect() -> str:
+        chunks: list[str] = []
+        async for chunk in await provider.chat(
+            messages=[Message(role="user", content=instruction)],
+            retrieval_context="",
+        ):
+            chunks.append(chunk)
+        return "".join(chunks).strip()
 
-    raw = "".join(chunks).strip()
+    # I7: bound the provider turn. On timeout stay conservative (insufficient) — the
+    # bounded max_iter loop still terminates, it never silently converges on a hang.
+    try:
+        raw = await asyncio.wait_for(
+            _collect(), timeout=float(settings.deep_research_provider_timeout_seconds)
+        )
+    except TimeoutError:
+        logger.warning(
+            "_assess_sufficiency: provider timed out after %.1fs — treating as insufficient",
+            settings.deep_research_provider_timeout_seconds,
+        )
+        return Sufficiency(sufficient=False, gaps=["insufficient (provider timeout)"])
+
     lines = [line.strip() for line in raw.splitlines() if line.strip()]
 
     if not lines:
@@ -879,16 +908,34 @@ async def _synthesize(
         f"Output ONLY the markdown document, no preamble."
     )
 
+    from app.config import settings
     from app.ingest.schemas import Message
 
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
+    async def _collect() -> str:
+        chunks: list[str] = []
+        async for chunk in await provider.chat(
+            messages=[Message(role="user", content=instruction)],
+            retrieval_context="",
+        ):
+            chunks.append(chunk)
+        return "".join(chunks).strip()
 
-    return "".join(chunks).strip()
+    # I7: bound the synthesis turn. On timeout, degrade to the same snippet-assembled
+    # fallback used when no provider is configured — a run always produces *something*.
+    try:
+        return await asyncio.wait_for(
+            _collect(), timeout=float(settings.deep_research_provider_timeout_seconds)
+        )
+    except TimeoutError:
+        logger.warning(
+            "_synthesize: provider timed out after %.1fs — assembling snippet fallback",
+            settings.deep_research_provider_timeout_seconds,
+        )
+        parts = [f"# {topic}\n\n*Synthesized from web research (provider timed out).*\n"]
+        for src in collected:
+            if src.content_md:
+                parts.append(f"\n## {src.title}\n\nSource: {src.url}\n\n{src.content_md[:2000]}\n")
+        return "\n".join(parts)
 
 
 async def _ingest_synthesis(
