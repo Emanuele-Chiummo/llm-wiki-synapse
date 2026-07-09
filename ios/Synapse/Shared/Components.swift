@@ -9,14 +9,19 @@ struct PageRef: Hashable {
 }
 
 /// Rounded grouped-content card (light `#FFF` / dark `#1C1C1E`).
+/// `elevated` adds a soft indigo-tinted shadow for hero cards.
 struct Card<Content: View>: View {
     var padding: CGFloat? = nil
+    var elevated: Bool = false
     @ViewBuilder var content: () -> Content
     var body: some View {
         VStack(spacing: 0, content: content)
             .modifier(OptionalPadding(padding))
             .background(Theme.card)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(
+                color: elevated ? Color(hex: 0x4F46E5).opacity(0.16) : .clear,
+                radius: elevated ? 18 : 0, y: elevated ? 10 : 0)
     }
 }
 
@@ -58,19 +63,20 @@ struct TypePill: View {
     }
 }
 
-/// Coloured dot inside a rounded tinted square — the list-row leading glyph.
+/// Per-type SF Symbol inside a rounded tinted square — the list-row leading
+/// glyph. Reads by shape and colour, not just colour.
 struct TypeDot: View {
     let type: String?
     var size: CGFloat = 34
     @Environment(\.colorScheme) private var scheme
     var body: some View {
-        RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
             .fill(Theme.tintBackground(forType: type, scheme: scheme))
             .frame(width: size, height: size)
             .overlay(
-                Circle()
-                    .fill(Theme.color(forType: type))
-                    .frame(width: size * 0.27, height: size * 0.27))
+                Image(systemName: Theme.icon(forType: type))
+                    .font(.system(size: size * 0.46, weight: .semibold))
+                    .foregroundStyle(Theme.color(forType: type)))
     }
 }
 
@@ -104,10 +110,14 @@ struct LargeHeader<Trailing: View>: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 2) {
                 if let eyebrow {
-                    Text(eyebrow.uppercased())
-                        .font(.system(size: 13, weight: .semibold))
-                        .tracking(0.6)
-                        .foregroundStyle(Theme.tint)
+                    HStack(spacing: 5) {
+                        Image(systemName: "point.3.connected.trianglepath.dotted")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(eyebrow.uppercased())
+                            .font(.system(size: 13, weight: .heavy))
+                            .tracking(0.8)
+                    }
+                    .foregroundStyle(Theme.signatureGradient)
                 }
                 Text(title)
                     .font(.system(size: 33, weight: .bold))
@@ -119,6 +129,89 @@ struct LargeHeader<Trailing: View>: View {
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 4)
+    }
+}
+
+/// A faint constellation of connected nodes — the "synapse" motif rendered
+/// behind hero headers to tie every screen to the knowledge graph. Deterministic
+/// (fixed node/edge set) and non-interactive.
+struct NeuralMotif: View {
+    var height: CGFloat = 120
+    @Environment(\.colorScheme) private var scheme
+
+    private static let nodes: [CGPoint] = [
+        .init(x: 0.06, y: 0.58), .init(x: 0.22, y: 0.30), .init(x: 0.34, y: 0.80),
+        .init(x: 0.47, y: 0.42), .init(x: 0.62, y: 0.72), .init(x: 0.71, y: 0.24),
+        .init(x: 0.86, y: 0.55), .init(x: 0.96, y: 0.82),
+    ]
+    private static let edges: [(Int, Int)] = [
+        (0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (3, 5), (5, 6), (4, 6), (6, 7),
+    ]
+    private static let dotColors: [UInt32] = [
+        0x8B85F5, 0x8B85F5, 0x14B8A6, 0xA855F7, 0x10B981, 0xA855F7, 0x0EA5E9, 0x8B85F5,
+    ]
+
+    var body: some View {
+        Canvas { ctx, size in
+            func pt(_ p: CGPoint) -> CGPoint {
+                CGPoint(x: p.x * size.width, y: p.y * size.height)
+            }
+            for (a, b) in Self.edges {
+                var path = Path()
+                path.move(to: pt(Self.nodes[a]))
+                path.addLine(to: pt(Self.nodes[b]))
+                ctx.stroke(path,
+                           with: .color(Theme.tint.opacity(scheme == .dark ? 0.22 : 0.14)),
+                           lineWidth: 1)
+            }
+            for (i, p) in Self.nodes.enumerated() {
+                let c = pt(p)
+                let r: CGFloat = i.isMultiple(of: 3) ? 3.2 : 2.2
+                ctx.fill(
+                    Circle().path(in: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)),
+                    with: .color(Color(hex: Self.dotColors[i]).opacity(scheme == .dark ? 0.6 : 0.42)))
+            }
+        }
+        .frame(height: height)
+        .allowsHitTesting(false)
+    }
+}
+
+/// Soft aurora of drifting, blurred colour blobs behind the graph — the app's
+/// visual soul. Faint enough that nodes stay legible; honours Reduce Motion.
+struct AuroraBackground: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
+
+    var body: some View {
+        ZStack {
+            Theme.graphBackground
+            blob(Theme.auroraColors[0], x: -0.30, y: -0.34, scale: 1.0)
+            blob(Theme.auroraColors[1], x: 0.34, y: -0.12, scale: 1.1)
+            blob(Theme.auroraColors[2], x: 0.10, y: 0.40, scale: 1.2)
+            blob(Theme.auroraColors[3], x: -0.24, y: 0.30, scale: 0.9)
+        }
+        .ignoresSafeArea()
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 16).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+    }
+
+    private func blob(_ hex: UInt32, x: CGFloat, y: CGFloat, scale: CGFloat) -> some View {
+        GeometryReader { geo in
+            let d = min(geo.size.width, geo.size.height) * 1.15 * scale
+            Circle()
+                .fill(Color(hex: hex))
+                .frame(width: d, height: d)
+                .position(
+                    x: geo.size.width * (0.5 + x) + (drift ? 16 : -16),
+                    y: geo.size.height * (0.5 + y) + (drift ? -14 : 14))
+                .blur(radius: 80)
+                .opacity(0.20)
+        }
     }
 }
 
@@ -198,7 +291,7 @@ struct ErrorState: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(Theme.tint)
+                        .background(Theme.signatureGradient)
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)

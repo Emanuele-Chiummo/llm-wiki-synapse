@@ -136,7 +136,7 @@ struct WikiDetailView: View {
                         .font(.system(size: 15))
                         .foregroundStyle(.white)
                         .frame(width: 32, height: 32)
-                        .background(Theme.tint)
+                        .background(Theme.signatureGradient)
                         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Chiedi alla chat")

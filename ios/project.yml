@@ -7,7 +7,7 @@ options:
   groupSortPosition: top
 settings:
   base:
-    MARKETING_VERSION: "1.3.12"
+    MARKETING_VERSION: "1.3.13"
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     # Automatic signing with the developer's Personal Team, so device builds are
@@ -25,6 +25,10 @@ targets:
       path: Synapse/Info.plist
       properties:
         CFBundleDisplayName: Synapse
+        # Version flows from the build settings above (MARKETING_VERSION/CURRENT_PROJECT_VERSION)
+        # so the built app reports the real version instead of xcodegen's default 1.0/1.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

@@ -7,22 +7,23 @@ Infra-free: SQLite+aiosqlite in-memory DB, no live Postgres, no Qdrant, no Ollam
 Coverage:
   AC-F4-1  4-signal additive formula: exact edge weights on a hand-computable fixture
             - direct_link x3 (two directions count separately)
-            - source_overlap x4 (set intersection of JSONB sources arrays)
+            - source_overlap x4 (weight modulator on wikilink edges — NOT an edge creator)
             - adamic_adar x1.5 (igraph similarity_inverse_log_weighted analogue)
-            - type_affinity x1 (same non-NULL type)
+            - type_affinity x1 (cross-type matrix G-P1-7)
   AC-F4-1(e) independent signal assertions (zero out 3, assert 1 term in isolation)
-  AC-F4-2  edge persistence -- ADR-0016 structural gate (direct>0 OR shared>0);
-            type-only pair is ABSENT (not persisted); zero-weight absent.
-  ADR-0016  structural edges, kind field, structural_degree size formula.
+  AC-F4-2  edge persistence -- wikilink-only gate (direct_link_count > 0);
+            shared-source-only and type-only pairs are ABSENT.
+  ADR-0016  wikilink-only edges, kind="link" (only), node size formula (llm_wiki parity).
+  ADR-0016-amendment-2026-07-09  shared-source edges removed; query nodes excluded.
   ADR-0045  FA2 determinism: same topology + weights + seed -> identical coords (x2 runs)
             _forceatlas2_layout helper: finite coords, determinism, correct node count.
 
-Fixture (5-node, hand-computable, architect-corrected per AQ-1 note):
+Fixture (5-node, hand-computable):
   P1 Alpha   entity  sources=[doc_a]
   P2 Beta    entity  sources=[doc_a]
   P3 Gamma   concept sources=[doc_b]
   P4 Delta   entity  sources=[doc_a, doc_b]
-  P5 Epsilon person  sources=[doc_c]  -- isolated: no links, no shared source -> NO edge
+  P5 Epsilon person  sources=[doc_c]  -- isolated: no wikilinks, no structural ties -> no edge
 
 Resolved links (directed):
   P1 -> P2 (source_page_id=P1, target_page_id=P2, dangling=false)
@@ -30,30 +31,33 @@ Resolved links (directed):
   P3 -> P4 (source_page_id=P3, target_page_id=P4, dangling=false)
   P4 -> P1 (source_page_id=P4, target_page_id=P1, dangling=false)
 
-Structural edges (ADR-0016 sec 1 -- only direct link OR shared source creates an edge):
-  P1-P2: direct(P1->P2, P2->P1)=2 AND shared([doc_a])=1 -> structural (kind="link")
-  P1-P4: direct(P4->P1)=1 AND shared([doc_a])=1 -> structural (kind="link")
-  P2-P4: direct=0 BUT shared([doc_a])=1 -> structural (kind="source")
-  P3-P4: direct(P3->P4)=1 AND shared([doc_b])=1 -> structural (kind="link")
-  P3-P5: NO link, NO shared source -> NOT structural -> ABSENT (ADR-0016 sec 1)
-  type_affinity is a weight MODULATOR, never an edge generator.
+Wikilink edges (ADR-0016 amendment 2026-07-09 — llm_wiki 0.6.0 parity):
+  An edge (A,B) EXISTS iff direct_link_count(A,B) > 0 (a resolved [[wikilink]]).
+  shared_source, AA, and type_affinity are WEIGHT MODULATORS only.
 
-Expected weights (ADR-0012 sec 1/sec 2; 4th term is now type-affinity matrix G-P1-7):
-  P1(entity)-P2(entity): direct=2 -> 3x2=6; source=1 -> 4; AA=0;
-    type_affinity(entity,entity)=0.8 -> total >= 10.0  (exact: 10.8)
-  P1(entity)-P4(entity): direct=1 -> 3; source=1 -> 4; AA=0;
-    type_affinity(entity,entity)=0.8 -> total >= 7.5  (exact: 7.8)
-  P2(entity)-P4(entity): direct=0; source=1 -> 4; AA>0 via P1 (AA=1/ln2≈1.443);
-    type_affinity(entity,entity)=0.8 -> total >= 5.0  (exact ~6.96)
-  P3(concept)-P4(entity): direct=1 -> 3; source=1 -> 4; AA=0;
-    type_affinity(concept,entity)=1.2 -> total = 8.2  (exact)
-  P3-P5: ABSENT -- no structural tie (ADR-0016 sec 6, fixes P3-P5 type-only hairball edge)
+  P1-P2: direct(P1->P2, P2->P1)=2, shared([doc_a])=1 -> PRESENT (kind="link")
+  P1-P4: direct(P4->P1)=1, shared([doc_a])=1 -> PRESENT (kind="link")
+  P2-P4: direct=0, shared([doc_a])=1 -> ABSENT (no wikilink — llm_wiki parity)
+  P3-P4: direct(P3->P4)=1, shared([doc_b])=1 -> PRESENT (kind="link")
+  P3-P5: NO link, NO shared source -> ABSENT (no structural tie)
 
-ADR-0016 sec 6 note (supersedes ADR-0012 sec 3):
-  Under old rule P3-P5 would have been weight=0 (different types). Under ADR-0016 it is
-  also absent. This test case is unchanged in outcome but the REASON changes: not
-  "weight=0" but "no structural tie". A new test explicitly checks a SAME-type pair
-  with no link/source is absent (the real hairball fix).
+Expected weights for present wikilink edges (ADR-0012 coefficients unchanged):
+  P1(entity)-P2(entity): direct=2 -> 3x2=6; shared=1 -> 4; AA=0;
+    type_affinity(entity,entity)=0.8 -> total = 10.8 (>= 10.0)
+  P1(entity)-P4(entity): direct=1 -> 3; shared=1 -> 4; AA=0;
+    type_affinity(entity,entity)=0.8 -> total = 7.8 (>= 7.5)
+  P3(concept)-P4(entity): direct=1 -> 3; shared=1 -> 4; AA=0;
+    type_affinity(concept,entity)=1.2 -> total = 8.2 (exact)
+  P2-P4: ABSENT (no wikilink; shared source is a weight modulator, not edge creator)
+
+Node sizes (llm_wiki parity — graph-view.tsx nodeSize(), lines 232-237):
+  size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) - BASE(8))
+  max_degree in fixture = 2 (P1 and P4 each have degree=2)
+  P1(deg=2): 8 + sqrt(2/2)*20 = 28.0
+  P4(deg=2): 28.0
+  P2(deg=1): 8 + sqrt(1/2)*20 ≈ 22.14
+  P3(deg=1): ≈ 22.14
+  P5(deg=0): 8.0 (isolated -> BASE)
 """
 
 from __future__ import annotations
@@ -385,20 +389,23 @@ class TestFourSignalWeights:
         assert edge is not None, "P1-P4 edge must be present (structural: direct link)"
         assert edge.weight >= 7.5, f"P1-P4 weight {edge.weight} < 7.5 (base: 3+4+0+0.8=7.8)"
 
-    async def test_p2_p4_weight_ge_5(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
+    async def test_p2_p4_absent(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
-        P2-P4: 0 links + 1 shared source (doc_a) + type_affinity(entity,entity)=0.8
-        + AA via P1 (P1 is common neighbour with deg=2, AA=1/ln2≈1.443)
-        -> 4*1 + 1.5*1.443 + 0.8 ≈ 6.96 >= 5.0.
-        (G-P1-7: same-type entity pair contributes 0.8; total still comfortably above 5.)
+        P2-P4: 0 direct wikilinks; shared source (doc_a) only.
+        Under the wikilink-only edge rule (llm_wiki 0.6.0 parity, ADR-0016 amendment
+        2026-07-09), no [[wikilink]] means NO edge.  shared_source is a weight modulator
+        on existing wikilink edges, not an edge creator.
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P2"], p["P4"])
-        assert edge is not None, "P2-P4 edge must be present (structural: shared source doc_a)"
-        assert edge.weight >= 5.0, f"P2-P4 weight {edge.weight} < 5"
+        assert edge is None, (
+            "P2-P4 must NOT be present: no [[wikilink]] between P2 and P4. "
+            "shared_source(doc_a) is a weight modulator only, not an edge generator "
+            "(llm_wiki 0.6.0 parity, ADR-0016 amendment 2026-07-09)"
+        )
 
     async def test_p3_p4_weight_is_7(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
@@ -829,30 +836,34 @@ class TestADR0016KindAndSize:
             edge.kind == "link"
         ), f"P3-P4: direct link exists -> kind='link' wins, got {edge.kind!r}"
 
-    async def test_shared_source_only_edge_kind_is_source(
+    async def test_shared_source_only_pair_absent(
         self, graph_db: tuple[Any, dict[str, str], str]
     ) -> None:
         """
-        P2-P4: NO direct link, but shared source (doc_a) -> kind must be 'source'.
+        P2-P4: NO direct [[wikilink]], only shared source (doc_a).
+        Under the llm_wiki 0.6.0 parity rule (ADR-0016 amendment 2026-07-09), this pair
+        has NO edge.  'source' edges (kind="source") are removed from the graph engine.
+        shared_source is a weight modulator on wikilink edges, not an edge creator.
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         snapshot = await GraphEngine().recompute(vault_id)
         edge = _find_edge(snapshot.edges, p["P2"], p["P4"])
-        assert edge is not None, "P2-P4 must be present (shared source doc_a)"
-        assert (
-            edge.kind == "source"
-        ), f"P2-P4: no direct link, shared source -> kind='source', got {edge.kind!r}"
+        assert edge is None, (
+            "P2-P4 must be ABSENT: shared-source-only pairs no longer create edges "
+            "(wikilink-only rule, ADR-0016 amendment 2026-07-09)"
+        )
 
     async def test_structural_degree_drives_size_monotonically(
         self, graph_db: tuple[Any, dict[str, str], str]
     ) -> None:
         """
-        ADR-0016 sec 2: size = BASE + GROWTH * sqrt(structural_degree).
-        Higher-degree nodes must have strictly larger size than lower-degree nodes.
-        P1 has direct links to P2 (both directions) and P4 (one direction), plus
-        shared sources -> high degree. P5 is isolated -> degree=0, size=1.0.
+        llm_wiki 0.6.0 parity (ADR-0016 amendment 2026-07-09 / graph-view.tsx:232-237):
+          size = BASE(8) + sqrt(degree / max_degree) * (MAX(28) - BASE(8))
+        Normalized against the max-degree node (hub).
+        In the fixture max_degree=2 (P1 and P4 each have degree=2 after wikilink-only rule).
+        P5 is isolated -> degree=0, size=8.0 (BASE).
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
@@ -860,57 +871,71 @@ class TestADR0016KindAndSize:
         snapshot = await GraphEngine().recompute(vault_id)
         node_map = {n.id: n for n in snapshot.nodes}
 
-        # P5 is isolated (no structural ties) -> degree 0, size = BASE = 1.0
+        # P5 is isolated (no wikilinks) -> degree=0, size=BASE=8.0
         p5 = node_map[p["P5"]]
         assert p5.degree == 0, f"P5 (isolated) should have degree 0, got {p5.degree}"
-        assert abs(p5.size - 1.0) < 0.01, f"P5 isolated node size should be 1.0, got {p5.size}"
+        assert (
+            abs(p5.size - 8.0) < 0.01
+        ), f"P5 isolated node size should be 8.0 (BASE), got {p5.size}"
 
-        # P1 is connected (structural degree >= 2 from P1-P2 + P1-P4) -> larger than P5
+        # P1 is connected (degree=2 from P1-P2 + P1-P4 wikilinks) -> larger than P5
         p1 = node_map[p["P1"]]
-        assert p1.degree >= 2, f"P1 should have structural_degree >= 2, got {p1.degree}"
+        assert p1.degree >= 2, f"P1 should have degree >= 2, got {p1.degree}"
         assert p1.size > p5.size, (
             f"P1 (degree={p1.degree}) must have larger size than P5 (degree=0): "
             f"{p1.size} vs {p5.size}"
         )
 
-        # Verify size formula: BASE + GROWTH * sqrt(deg) with BASE=1.0, GROWTH=2.5
+        # Verify llm_wiki size formula: BASE(8) + sqrt(deg/max_deg) * (MAX(28)-BASE(8))
+        all_degrees = [n.degree for n in snapshot.nodes]
+        max_deg = max(all_degrees) if all_degrees else 0
         for node in snapshot.nodes:
-            expected = max(1.0, 1.0 + 2.5 * math.sqrt(node.degree))
+            if max_deg == 0:
+                expected = 8.0
+            else:
+                ratio = node.degree / max_deg
+                expected = 8.0 + math.sqrt(ratio) * 20.0
             assert abs(node.size - expected) < 0.001, (
                 f"Node {node.id} size {node.size} != expected {expected:.3f} "
-                f"(degree={node.degree})"
+                f"(degree={node.degree}, max_degree={max_deg}; "
+                "llm_wiki formula: 8 + sqrt(deg/max)*20)"
             )
 
-    async def test_all_edges_have_valid_kind(
+    async def test_all_edges_have_kind_link(
         self, graph_db: tuple[Any, dict[str, str], str]
     ) -> None:
-        """All edges in the snapshot have kind in {'link', 'source'}."""
+        """
+        All engine-generated edges have kind='link' after ADR-0016 amendment (2026-07-09).
+        The 'source' edge kind is removed: shared-source-only pairs no longer create edges.
+        """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
 
         snapshot = await GraphEngine().recompute(vault_id)
         for edge in snapshot.edges:
-            assert edge.kind in {
-                "link",
-                "source",
-            }, f"Edge {edge.source}-{edge.target} has invalid kind {edge.kind!r}"
+            assert edge.kind == "link", (
+                f"Edge {edge.source}-{edge.target} has kind={edge.kind!r}; "
+                "all engine-generated edges must be kind='link' after ADR-0016 amendment"
+            )
 
 
-class TestStructuralEdgeCount:
+class TestWikilinkEdgeCount:
     """
-    Structural edge count is far smaller than the old type-clique count (ADR-0016).
-    5-node fixture has 5 pages; old rule with 3 entity types would give many clique
-    edges; new rule gives only structural edges from links + shared sources.
+    Wikilink-only edge set (llm_wiki 0.6.0 parity, ADR-0016 amendment 2026-07-09).
+    5-node fixture: only resolved [[wikilinks]] create edges.
+    P2-P4 had a shared source but NO wikilink → ABSENT.
     """
 
-    async def test_only_structural_edges_present(
+    async def test_only_wikilink_edges_present(
         self, graph_db: tuple[Any, dict[str, str], str]
     ) -> None:
         """
-        The fixture has exactly 4 structural pairs:
-          P1-P2 (direct + shared source), P1-P4 (direct + shared source),
-          P2-P4 (shared source only), P3-P4 (direct + shared source).
-        P5 is isolated. No type-only edges (the hairball fix).
+        The fixture has exactly 3 wikilink pairs:
+          P1-P2 (bidirectional: P1->P2 and P2->P1),
+          P1-P4 (P4->P1),
+          P3-P4 (P3->P4).
+        P2-P4: shared source (doc_a) but NO wikilink -> ABSENT (llm_wiki 0.6.0 parity).
+        P5 is isolated (no wikilinks) -> no edges.
         """
         engine_obj, p, vault_id = graph_db
         from app.graph.engine import GraphEngine
@@ -921,16 +946,143 @@ class TestStructuralEdgeCount:
         expected = {
             frozenset([p["P1"], p["P2"]]),
             frozenset([p["P1"], p["P4"]]),
-            frozenset([p["P2"], p["P4"]]),
             frozenset([p["P3"], p["P4"]]),
         }
         assert edge_pairs == expected, (
-            f"Structural edges mismatch.\n" f"  Expected: {expected}\n" f"  Got:      {edge_pairs}"
+            f"Wikilink edges mismatch (ADR-0016 amendment 2026-07-09).\n"
+            f"  Expected: {expected}\n"
+            f"  Got:      {edge_pairs}\n"
+            "P2-P4 should be absent (shared-source only, no [[wikilink]])."
+        )
+
+
+class TestLlmWikiParityEdgeRule:
+    """
+    llm_wiki 0.6.0 parity: no 'source' edges, query nodes excluded, wikilink-only rule.
+    ADR-0016 amendment 2026-07-09.
+    """
+
+    async def test_no_source_kind_edges(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
+        """
+        After ADR-0016 amendment: the engine never produces kind='source' edges.
+        All edges must have kind='link' (wikilink-only rule).
+        """
+        engine_obj, p, vault_id = graph_db
+        from app.graph.engine import GraphEngine
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        source_edges = [e for e in snapshot.edges if e.kind == "source"]
+        assert len(source_edges) == 0, (
+            f"No 'source' edges should exist after ADR-0016 amendment; "
+            f"got: {[(e.source, e.target, e.kind) for e in source_edges]}"
+        )
+
+    async def test_query_nodes_excluded(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
+        """
+        llm_wiki 0.6.0 parity (wiki-graph.ts:204-209 HIDDEN_TYPES = {'query'}):
+        Nodes with type='query' must not appear in the graph snapshot, and no
+        edge should connect to or from them.
+        """
+        engine_obj, p, vault_id = graph_db
+        session_factory = _get_session_factory(engine_obj)
+
+        # Insert a query-type page with a wikilink to P1
+        q_id = _uid()
+        async with session_factory() as s:
+            await _insert_page(
+                s,
+                page_id=q_id,
+                vault_id=vault_id,
+                title="QueryPage",
+                page_type="query",
+                sources=[],
+            )
+            await _insert_link(
+                s,
+                link_id=_uid(),
+                source_page_id=q_id,
+                target_page_id=p["P1"],
+                target_title="Alpha",
+            )
+            await s.commit()
+
+        from app.graph.engine import GraphEngine
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        node_ids_in_snapshot = {n.id for n in snapshot.nodes}
+        assert q_id not in node_ids_in_snapshot, (
+            "Query-type node must be excluded from the graph "
+            "(llm_wiki 0.6.0 HIDDEN_TYPES parity, ADR-0016 amendment 2026-07-09)"
+        )
+        # No edge should involve the excluded query node
+        for e in snapshot.edges:
+            assert (
+                e.source != q_id and e.target != q_id
+            ), f"No edge should connect to/from excluded query node {q_id}"
+
+    async def test_shared_source_contributes_weight_on_wikilink_edge(
+        self, graph_db: tuple[Any, dict[str, str], str]
+    ) -> None:
+        """
+        shared_source is a weight modulator on wikilink edges.
+        P1-P2 has both a wikilink AND shared source (doc_a), so shared contributes +4
+        to the weight. Verify the weight is > what direct alone would give (> 3*2=6).
+        """
+        engine_obj, p, vault_id = graph_db
+        from app.graph.engine import GraphEngine
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        edge = _find_edge(snapshot.edges, p["P1"], p["P2"])
+        assert edge is not None, "P1-P2 must be present (wikilink)"
+        # With shared source(+4) on top of direct(+6): weight should be > 6
+        assert edge.weight > 6.0, (
+            f"P1-P2 weight {edge.weight} should exceed 6.0 "
+            "(shared_source contributes +4 to the wikilink edge weight)"
+        )
+
+
+class TestClampRemovedFromEnginePath:
+    """
+    Verify _clamp_outliers is no longer called by the engine (llm_wiki 0.6.0 parity).
+    ADR-0045 amendment 2026-07-09: clamp removed from recompute path.
+    """
+
+    async def test_extreme_pinned_coords_not_clamped(
+        self, graph_db: tuple[Any, dict[str, str], str]
+    ) -> None:
+        """
+        The outlier clamp is no longer applied by the engine.  A node pinned at extreme
+        coordinates (1,000,000) must remain at those exact coordinates in the snapshot.
+        Previously (ADR-0045 §5, now removed from engine path) it would have been pulled
+        to ~3× the p90 radius — typically a few hundred units.
+        """
+        engine_obj, p, vault_id = graph_db
+        session_factory = _get_session_factory(engine_obj)
+
+        extreme_x = 1_000_000.0
+        extreme_y = 1_000_000.0
+        async with session_factory() as s:
+            await s.execute(
+                sa_text("UPDATE pages SET pinned=1, x=:x, y=:y WHERE id=:id").bindparams(
+                    id=p["P1"], x=extreme_x, y=extreme_y
+                )
+            )
+            await s.commit()
+
+        from app.graph.engine import GraphEngine
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        node_map = {n.id: n for n in snapshot.nodes}
+        p1 = node_map[p["P1"]]
+        assert abs(p1.x - extreme_x) < 1.0 and abs(p1.y - extreme_y) < 1.0, (
+            f"Pinned node at ({extreme_x}, {extreme_y}) must NOT be clamped. "
+            f"Got x={p1.x}, y={p1.y}. "
+            "The outlier clamp is no longer applied by the engine (llm_wiki 0.6.0 parity)."
         )
 
 
 class TestPinnedNodePreservation:
-    """Feature A: pinned=true nodes keep their stored coords across FR recomputes."""
+    """Feature A: pinned=true nodes keep their stored coords across FA2 recomputes."""
 
     async def test_pinned_node_coords_preserved_after_recompute(
         self, graph_db: tuple[Any, dict[str, str], str]

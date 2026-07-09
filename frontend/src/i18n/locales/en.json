@@ -796,7 +796,9 @@
       "contradiction": "Contradiction",
       "stale-claim": "Stale claim",
       "missing-page": "Missing page",
-      "broken-wikilink": "Broken link"
+      "broken-wikilink": "Broken link",
+      "no-outlinks": "No outgoing links",
+      "suggestion": "Suggestion"
     },
     "groups": {
       "errors": "Errors",
@@ -899,7 +901,9 @@
       "connections_plural": "{{count}} connections"
     },
     "nodeSelected": "Selected: {{title}}. Type: {{type}}. {{count}} neighbor.",
-    "nodeSelected_plural": "Selected: {{title}}. Type: {{type}}. {{count}} neighbors."
+    "nodeSelected_plural": "Selected: {{title}}. Type: {{type}}. {{count}} neighbors.",
+    "title": "Knowledge Graph",
+    "insightsButton": "Insights"
   },
   "search": {
     "title": "Search",

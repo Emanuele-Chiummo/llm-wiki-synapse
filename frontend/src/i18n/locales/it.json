@@ -796,7 +796,9 @@
       "contradiction": "Contraddizione",
       "stale-claim": "Affermazione obsoleta",
       "missing-page": "Pagina mancante",
-      "broken-wikilink": "Link interrotto"
+      "broken-wikilink": "Link interrotto",
+      "no-outlinks": "Nessun link in uscita",
+      "suggestion": "Suggerimento"
     },
     "groups": {
       "errors": "Errori",
@@ -899,7 +901,9 @@
       "connections_plural": "{{count}} connessioni"
     },
     "nodeSelected": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicino.",
-    "nodeSelected_plural": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicini."
+    "nodeSelected_plural": "Selezionato: {{title}}. Tipo: {{type}}. {{count}} vicini.",
+    "title": "Grafo della Conoscenza",
+    "insightsButton": "Approfondimenti"
   },
   "search": {
     "title": "Cerca",

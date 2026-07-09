@@ -148,6 +148,9 @@ const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
   "missing-page":    { color: "var(--syn-green)",        bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)" },
   // B1-L1: broken-wikilink — orange (distinct from amber missing-xref)
   "broken-wikilink": { color: "var(--syn-red)",          bg: "color-mix(in srgb, var(--syn-red) 8%, color-mix(in srgb, var(--syn-amber) 20%, var(--syn-mix-base) 80%) 92%)" },
+  // v1.3.13 parity: no-outlinks (structural, muted like orphan) + suggestion (blue hint)
+  "no-outlinks":     { color: "var(--syn-text-muted)",   bg: "var(--syn-surface-hover)" },
+  "suggestion":      { color: "var(--syn-type-entity)",  bg: "color-mix(in srgb, var(--syn-type-entity) 10%, var(--syn-mix-base) 90%)" },
 };
 
 interface CategoryBadgeProps {
@@ -365,11 +368,12 @@ function FindingRowComponent({
   const isApplying = inFlight === "apply";
   const isDismissing = inFlight === "dismiss";
 
-  // B1-L3: broken-wikilink with a suggested_target has a real Fix;
-  // without suggestion it is acknowledge-only (flag-only per-row).
+  // Conditional flag-only (v1.3.13, ADR-0058 §L4): broken-wikilink, orphan-page and
+  // no-outlinks have a real Fix when a suggestion is present, otherwise acknowledge-only.
+  const CONDITIONAL_FIX_CATEGORIES = new Set(["broken-wikilink", "orphan-page", "no-outlinks"]);
   const isFlagOnly =
     LINT_FLAG_ONLY_CATEGORIES.has(finding.category as Parameters<typeof LINT_FLAG_ONLY_CATEGORIES["has"]>[0]) ||
-    (finding.category === "broken-wikilink" && !finding.suggested_target);
+    (CONDITIONAL_FIX_CATEGORIES.has(finding.category) && !finding.suggested_target);
 
   // B1-L9: orphan-page has a Delete button (two-stage confirm in parent)
   const isOrphan = finding.category === "orphan-page";

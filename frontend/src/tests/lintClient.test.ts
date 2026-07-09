@@ -435,6 +435,40 @@ describe("lintClient — batchLintAction [B1-L5]", () => {
 
     await expect(batchLintAction(["f1"], "apply")).rejects.toBeInstanceOf(ApiError);
   });
+
+  it("splits selections >200 into ≤200-id chunks and merges the responses (I7 cap)", async () => {
+    const ids = Array.from({ length: 450 }, (_, i) => `f${i}`);
+    // Each chunk echoes an ok result per id so the merge is verifiable.
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: FetchInit) => {
+      const { ids: chunkIds } = JSON.parse(init.body as string) as { ids: string[] };
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: () =>
+          Promise.resolve({
+            results: chunkIds.map((id) => ({ id, status: "ok" })),
+            ok_count: chunkIds.length,
+            error_count: 0,
+          }),
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await batchLintAction(ids, "apply");
+
+    // 450 ids → 200 + 200 + 50 = 3 requests, none exceeding the cap.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    for (const call of fetchMock.mock.calls) {
+      const [, init] = call as [string, FetchInit];
+      const body = JSON.parse(init.body as string) as { ids: string[] };
+      expect(body.ids.length).toBeLessThanOrEqual(200);
+    }
+    // Aggregate response covers every id exactly once.
+    expect(result.ok_count).toBe(450);
+    expect(result.error_count).toBe(0);
+    expect(result.results).toHaveLength(450);
+  });
 });
 
 // ─── sendLintFindingToReview [B1-L6] ─────────────────────────────────────────

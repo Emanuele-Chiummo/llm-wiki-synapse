@@ -96,11 +96,20 @@ class InferenceProvider(abc.ABC):
         """
 
     @abc.abstractmethod
-    async def generate(self, analysis: Analysis, retrieval_context: str) -> list[WikiPage]:
+    async def generate(
+        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
+    ) -> list[WikiPage]:
         """
         Step 2 of the two-step CoT (F3): produce schema-valid WikiPage(s) from the analysis +
-        retrieval context. Retried (whole-batch) on validation failure with errors appended to
-        `retrieval_context` (ADR-0007 §4/§5). Records Usage out of band.
+        retrieval context + the ORIGINAL source document. Retried (whole-batch) on validation
+        failure with errors appended to `retrieval_context` (ADR-0007 §4/§5). Records Usage out
+        of band.
+
+        `source_text` (D1, ADR-0063 §9, nashsu/llm_wiki parity — ingest.ts:1000-1016) is the raw
+        source, budget-trimmed inside the shared `build_generate_prompt` builder so pages are
+        written from the source text, not only the lossy Analysis summary. Defaults to "" so the
+        contract stays back-compatible for callers/fakes that omit it (Analysis-only fallback);
+        the orchestrated loop always threads the run's source_text.
         """
 
     @abc.abstractmethod

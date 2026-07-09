@@ -539,7 +539,7 @@ class TestIngestCancelledException:
                     summary=None,
                 )
 
-            async def generate(self, analysis: object, ctx: str) -> list:
+            async def generate(self, analysis: object, ctx: str, source_text: str = "") -> list:
                 return []  # should never be reached
 
         async def run() -> None:
@@ -798,7 +798,9 @@ class TestOnPhaseCallback:
                     summary=None,
                 )
 
-            async def generate(self, analysis: Analysis, ctx: str) -> list[WikiPage]:
+            async def generate(
+                self, analysis: Analysis, ctx: str, source_text: str = ""
+            ) -> list[WikiPage]:
                 fm = WikiFrontmatter(
                     type=PageType.CONCEPT,
                     title="T",
@@ -857,7 +859,9 @@ class TestOnPhaseCallback:
                     summary=None,
                 )
 
-            async def generate(self, analysis: Analysis, ctx: str) -> list[WikiPage]:
+            async def generate(
+                self, analysis: Analysis, ctx: str, source_text: str = ""
+            ) -> list[WikiPage]:
                 fm = WikiFrontmatter(
                     type=PageType.CONCEPT,
                     title="T",

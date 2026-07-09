@@ -43,6 +43,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from sqlalchemy import String as _SA_String
+from sqlalchemy import cast as _sa_cast
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
 
@@ -88,6 +90,7 @@ _RESOLVED_STATUSES = frozenset({"created", "auto_resolved", "deep_researched"})
 # Caps (I7 — bounded reads/lists)
 _SWEEP_PASS1_MAX_ITEMS: int = 200  # max pending items processed per sweep Pass-1
 _PROPOSE_MAX_ITEMS: int = 8  # max proposals emitted per run (ADR-0034 §4.3)
+_MISSING_PAGE_FANOUT_CAP: int = 5  # max pages from one missing-page fan-out (I7, ADR-0064)
 
 # ── R9-3 (v0.9): purpose.md drift suggestion ─────────────────────────────────────
 # The `rationale` column carries BOTH the human-readable "why" AND the exact markdown block
@@ -106,6 +109,20 @@ _PURPOSE_SUGGESTION_TYPE = "purpose-suggestion"
 # and so a future migration could tell the two apart.
 _SCHEMA_ADDITION_MARKER = "\n\n--- SUGGESTED schema.md ADDITION ---\n\n"
 _SCHEMA_SUGGESTION_TYPE = "schema-suggestion"
+
+# ── R5 parity: title prefix stripping (review-utils.ts normalizeReviewTitle) ────────
+# Common prefixes the LLM may prepend to review titles. Stripped before normalization
+# so dedup + sweep agree on what "the same concept" means regardless of prefix presence.
+_REVIEW_TITLE_PREFIX_RE: re.Pattern[str] = re.compile(
+    r"^(?:missing[\s\-]?page[:：]\s*"
+    r"|duplicate[\s\-]?page[:：]\s*"
+    r"|possible[\s\-]?duplicate[:：]\s*"
+    r"|缺失页面[:：]\s*"
+    r"|缺少页面[:：]\s*"
+    r"|重复页面[:：]\s*"
+    r"|疑似重复[:：]\s*)",
+    re.IGNORECASE,
+)
 
 
 # ── ADR-0044 §3.2: stable content-derived idempotency key (FNV-1a, no new dep) ──
@@ -135,28 +152,27 @@ def _content_key(
     vault_id: str,
     item_type: str,
     proposed_title: str | None,
-    target_page_title: str | None = None,
-    page_id: str | None = None,
+    target_page_title: str | None = None,  # kept for call-site compat; NOT included in key (R7)
+    page_id: str | None = None,  # kept for call-site compat; NOT included in key (R7)
 ) -> str | None:
     """
     Stable content-derived idempotency key (ADR-0044 §3.2).
 
-    Returns a 16-hex FNV-1a digest over
-      vault_id + item_type + normalize(proposed_title) + (normalize(target_page_title) | page_id).
+    Returns a 16-hex FNV-1a digest over vault_id + item_type + normalize(proposed_title).
+
+    R7 parity fix: target_page_title / page_id are intentionally NOT included.
+    llm_wiki (review-utils.ts normalizeReviewTitle) keys only on type + normalizedTitle;
+    including the conflict anchor caused different items about the same concept (but
+    different target pages) to appear as distinct and never dedup. Parameters are kept
+    for backward call-site compatibility but are silently ignored.
 
     `confirm` items get content_key = NULL (never deduped — every confirmation is a distinct
-    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9 — no reinvent).
+    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9).
     """
     if item_type == "confirm":
         return None
     norm_title = _normalize_title(proposed_title) if proposed_title else ""
-    if target_page_title:
-        anchor = _normalize_title(target_page_title)
-    elif page_id:
-        anchor = str(page_id)
-    else:
-        anchor = ""
-    payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title, anchor])
+    payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title])
     return _fnv1a_16hex(payload)
 
 
@@ -1932,6 +1948,12 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
     llm_resolved = 0
 
     # ── Pass 1: rule-based ─────────────────────────────────────────────────────
+    # ── Pass 1a: missing-page rule resolution ──────────────────────────────────
+    # Resolves when a live page now exists matching the proposed_title by:
+    #   1. Exact normalised title (existing behaviour)
+    #   2. Slug match: proposed_title → spaces-to-dashes slug → file_path basename
+    #      (R4 parity: llm_wiki byId slug check, sweep-reviews.ts:110-116)
+    # R-bug1 fix: `duplicate` is removed from this pass — it has its own logic below.
     try:
         async with get_session() as session:
             stmt = (
@@ -1939,7 +1961,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                 .where(
                     ReviewItem.vault_id == vault_id,
                     ReviewItem.status == "pending",
-                    ReviewItem.item_type.in_(["missing-page", "duplicate"]),
+                    ReviewItem.item_type == "missing-page",
                     ReviewItem.proposed_title.isnot(None),
                 )
                 .order_by(ReviewItem.created_at.asc())
@@ -1951,7 +1973,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
             if not item.proposed_title:
                 continue
             normalized_title = _normalize_title(item.proposed_title)
-            # Bounded indexed read: does a live page with this title now exist?
+            # Check 1: exact normalised title match.
             async with get_session() as session:
                 existing = (
                     await session.execute(
@@ -1966,6 +1988,25 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                     )
                 ).scalar_one_or_none()
 
+            # Check 2: slug match (R4 parity — llm_wiki checks byId via slug).
+            # Handles the case where the page was created with a different title but
+            # the same slug (e.g. proposed_title="Attention Mechanism" created as
+            # wiki/concepts/attention-mechanism.md with title "The Attention Mechanism").
+            if existing is None:
+                slug = normalized_title.replace(" ", "-")
+                async with get_session() as session:
+                    existing = (
+                        await session.execute(
+                            select(Page.id)
+                            .where(
+                                Page.vault_id == vault_id,
+                                Page.file_path.like(f"%/{slug}.md"),
+                                Page.deleted_at.is_(None),
+                            )
+                            .limit(1)
+                        )
+                    ).scalar_one_or_none()
+
             if existing is not None:
                 await _set_status(
                     uuid.UUID(str(item.id)),
@@ -1975,7 +2016,78 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                 )
                 rule_resolved += 1
     except Exception as exc:  # noqa: BLE001
-        logger.warning("sweep_reviews: Pass-1 failed (non-fatal): %s", exc)
+        logger.warning("sweep_reviews: Pass-1 missing-page failed (non-fatal): %s", exc)
+
+    # ── Pass 1b: duplicate rule resolution (R-bug1 fix) ────────────────────────
+    # R-bug1 parity: in llm_wiki (sweep-reviews.ts:376-391), a `duplicate` item is
+    # auto-resolved ONLY when an affected page NO LONGER EXISTS — NOT when a page with
+    # the proposed title now exists (which was the old, inverted Synapse behaviour).
+    # Logic: collect all "affected" page ids (page_id primary FK + referenced_page_ids),
+    # then resolve if ANY of them is no longer alive (deleted or removed).
+    try:
+        async with get_session() as session:
+            dup_stmt = (
+                select(ReviewItem)
+                .where(
+                    ReviewItem.vault_id == vault_id,
+                    ReviewItem.status == "pending",
+                    ReviewItem.item_type == "duplicate",
+                )
+                .order_by(ReviewItem.created_at.asc())
+                .limit(_SWEEP_PASS1_MAX_ITEMS)
+            )
+            dup_rows = list((await session.execute(dup_stmt)).scalars().all())
+
+        for item in dup_rows:
+            # Collect affected page ids: primary conflict (page_id) + referenced set.
+            affected_ids: list[str] = []
+            if item.page_id is not None:
+                affected_ids.append(str(item.page_id))
+            ref_ids: list[str] | None = item.referenced_page_ids
+            if isinstance(ref_ids, list):
+                affected_ids.extend(str(r) for r in ref_ids)
+            elif isinstance(ref_ids, str):
+                try:
+                    parsed = json.loads(ref_ids)
+                    if isinstance(parsed, list):
+                        affected_ids.extend(str(r) for r in parsed)
+                except Exception:  # noqa: BLE001,S110
+                    pass  # malformed JSON in referenced_page_ids → skip; non-fatal
+
+            if not affected_ids:
+                continue  # no affected pages to check → can't rule-resolve
+
+            # Check if ALL affected pages still exist as live pages.
+            # Use CAST(id AS TEXT) == string for SQLite/Postgres portability (raw-SQL test
+            # inserts store UUID strings with dashes; UUID(as_uuid=True).hex would strip them).
+            all_still_exist = True
+            for page_id_str in affected_ids:
+                async with get_session() as session:
+                    still_alive = (
+                        await session.execute(
+                            select(Page.id)
+                            .where(
+                                _sa_cast(Page.id, _SA_String) == page_id_str,
+                                Page.deleted_at.is_(None),
+                            )
+                            .limit(1)
+                        )
+                    ).scalar_one_or_none()
+                if still_alive is None:
+                    all_still_exist = False
+                    break
+
+            # Resolve only when at least one affected page is gone (!allStillExist).
+            if not all_still_exist:
+                await _set_status(
+                    uuid.UUID(str(item.id)),
+                    "auto_resolved",
+                    resolution="rule_resolved",
+                    reviewed_by="auto-sweep",
+                )
+                rule_resolved += 1
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sweep_reviews: Pass-1 duplicate failed (non-fatal): %s", exc)
 
     # ── Pass 2: conservative LLM sweep ───────────────────────────────────────
     sweep_llm_enabled = bool(getattr(settings, "review_sweep_llm_enabled", True))
@@ -2065,6 +2177,62 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
         kept_count,
     )
     return SweepResult(rule_resolved=rule_resolved, llm_resolved=llm_resolved, kept=kept_count)
+
+
+def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
+    """
+    Split a missing-page proposed_title into individual candidate page titles (R1 parity).
+
+    Ports the extractMissingPageCandidates / splitCandidateList logic from the reference
+    (nashsu/llm_wiki src/lib/review-create-page.ts:34), adapted for the Python data model
+    where the input is the item's proposed_title string.
+
+    Split rules (applied in sequence):
+      1. Replace standalone " and " (whole-word, case-insensitive) with ","
+      2. Replace " e " surrounded by whitespace (Italian conjunction) with ","
+         Note: uses whitespace-bounded matching (not word-boundary) so single-letter
+         list items like "A, B, C, D, E, F" are never consumed by this rule.
+      3. Split on: "," / "，" / "、" / ";" / "；"
+    After splitting: strip whitespace; drop empty strings; deduplicate case-insensitively
+    (first-seen casing preserved). Cap at _MISSING_PAGE_FANOUT_CAP (I7 — bounded fan-out).
+    If the result has ≤1 usable candidate, return [proposed_title] unchanged — this preserves
+    existing single-page Create behavior with no regression for ordinary single-title items.
+
+    NOTE on lint/review queue separation: Synapse keeps lint findings OUT of the review
+    queue. The explicit send-to-review bridge already gives parity of capability without the
+    reference's noise. See ADR-0064 §3.
+    """
+    # Normalize list conjunctions to commas.
+    # \band\b: whole-word safe — won't split "Android" or "handle".
+    # \s+e\s+: Italian "e" only when surrounded by whitespace — won't fire on single-letter
+    # list items like "A, B, C, D, E, F" where "E" is adjacent to commas, not spaces.
+    text = re.sub(r"\band\b", ",", proposed_title, flags=re.IGNORECASE)
+    text = re.sub(r"\s+e\s+", ",", text, flags=re.IGNORECASE)  # Italian "e" (surrounded by spaces)
+
+    # Split on list delimiters
+    parts = re.split(r"[,，、;；]+", text)
+
+    # Strip, filter empties, deduplicate (case-insensitive; first-seen casing preserved)
+    seen_lower: set[str] = set()
+    candidates: list[str] = []
+    for part in parts:
+        cleaned = part.strip()
+        if not cleaned:
+            continue
+        lower = cleaned.lower()
+        if lower in seen_lower:
+            continue
+        seen_lower.add(lower)
+        candidates.append(cleaned)
+
+    # Cap (I7 — bounded fan-out; avoids runaway provider calls for pathological titles)
+    candidates = candidates[:_MISSING_PAGE_FANOUT_CAP]
+
+    # Preserve single-page behavior when no real split occurred
+    if len(candidates) <= 1:
+        return [proposed_title]
+
+    return candidates
 
 
 async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
@@ -2232,72 +2400,155 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     else:
         origin_source = f"review:{item_id_str}"
 
-    # ── 4. Run generation (AI seam — capability-aware; any failure → 502) ─────
-    try:
-        outcome = await _run_generation(
-            vault_id=vault_id,
-            proposed_title=proposed_title,
-            proposed_page_type=proposed_page_type,
-            rationale=item.rationale,
-            origin_source=origin_source,
-            provider_config_row=provider_config_row,
-        )
-    except NotImplementedError as nie:
-        logger.warning(
-            "create_page_from_review: _run_generation raised NotImplementedError (ADR-0034 §5): %s",
-            nie,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Page generation raised NotImplementedError (ADR-0034 §5). "
-                "Item left pending — retry or skip."
-            ),
-        ) from nie
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "create_page_from_review: generation failed for item=%s: %s — item left pending",
-            item_id_str,
-            exc,
-        )
-        raise HTTPException(
-            status_code=502,
-            detail=(f"Page generation failed: {exc}. " "Item left pending — retry or skip."),
-        ) from exc
+    # ── 4. Build candidate list for missing-page fan-out (R1 parity, ADR-0064) ────
+    # For missing-page items the proposed_title may encode a comma/、/"and"/"e" separated
+    # list of pages to create (one per candidate, each exactly one data_version bump — I1,
+    # bounded by _MISSING_PAGE_FANOUT_CAP — I7). All other item types keep the existing
+    # single-page path completely unchanged.
+    if item.item_type == "missing-page":
+        candidates = _extract_missing_page_candidates(proposed_title)
+    else:
+        candidates = [proposed_title]
 
-    # ── 5. Resolve the created page id (I1 — exactly one write per page) ──────
-    # Delegated route: the agentic provider ALREADY wrote the page via MCP write_page — use its
-    # id, do NOT write again (never double-write, I1). Orchestrated route: write the produced
-    # WikiPage now via the single incremental seam.
-    if outcome.created_page_id is not None:
-        created_page_id_str = outcome.created_page_id
-    elif outcome.wiki_page is not None:
-        from app.ingest.orchestrator import write_wiki_page
+    # ── 5. Generate each candidate page (I1 — one write per page; bounded fan-out) ──
+    # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
+    # single-page behavior). Secondary candidate failures are logged and skipped; the primary
+    # is already committed at that point.
+    from app.ingest.orchestrator import write_wiki_page  # lazy; avoids circular at module level
 
+    created_page_ids: list[str] = []
+
+    for _candidate_idx, candidate_title in enumerate(candidates):
+        _is_primary = _candidate_idx == 0
+
+        # Generation AI seam — capability-aware (I6)
         try:
-            created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+            outcome = await _run_generation(
+                vault_id=vault_id,
+                proposed_title=candidate_title,
+                proposed_page_type=proposed_page_type,
+                rationale=item.rationale,
+                origin_source=origin_source,
+                provider_config_row=provider_config_row,
+            )
+        except NotImplementedError as nie:
+            if _is_primary:
+                logger.warning(
+                    "create_page_from_review: _run_generation raised NotImplementedError"
+                    " (ADR-0034 §5): %s",
+                    nie,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "Page generation raised NotImplementedError (ADR-0034 §5). "
+                        "Item left pending — retry or skip."
+                    ),
+                ) from nie
+            logger.warning(
+                "create_page_from_review: secondary candidate %r NotImplementedError"
+                " — skipping: %s",
+                candidate_title,
+                nie,
+            )
+            continue
         except Exception as exc:  # noqa: BLE001
-            logger.error(
-                "create_page_from_review: write_wiki_page failed for item=%s: %s — item pending",
-                item_id_str,
+            if _is_primary:
+                logger.error(
+                    "create_page_from_review: generation failed for item=%s: %s"
+                    " — item left pending",
+                    item_id_str,
+                    exc,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"Page generation failed: {exc}. " "Item left pending — retry or skip."
+                    ),
+                ) from exc
+            logger.warning(
+                "create_page_from_review: secondary candidate %r generation failed"
+                " — skipping: %s",
+                candidate_title,
                 exc,
             )
-            raise HTTPException(
-                status_code=502,
-                detail=(f"Failed to write page to wiki: {exc}. Item left pending — retry or skip."),
-            ) from exc
-        created_page_id_str = str(created_page.id)
-    else:
-        # Defensive: _run_generation raises rather than returning an empty outcome. Guard anyway
-        # so a future regression surfaces as a clean 502 (item left pending) — never a partial.
+            continue
+
+        # Resolve the created page id for this candidate (I1 — exactly one write per page).
+        # Delegated route: agentic provider ALREADY wrote via MCP write_page — use its id,
+        # do NOT write again (never double-write, I1).
+        # Orchestrated route: write the produced WikiPage now via the single incremental seam.
+        if outcome.created_page_id is not None:
+            candidate_page_id_str = outcome.created_page_id
+        elif outcome.wiki_page is not None:
+            try:
+                created_page = await write_wiki_page(None, outcome.wiki_page, origin_source)
+                candidate_page_id_str = str(created_page.id)
+            except Exception as exc:  # noqa: BLE001
+                if _is_primary:
+                    logger.error(
+                        "create_page_from_review: write_wiki_page failed for item=%s: %s"
+                        " — item pending",
+                        item_id_str,
+                        exc,
+                    )
+                    raise HTTPException(
+                        status_code=502,
+                        detail=(
+                            f"Failed to write page to wiki: {exc}. "
+                            "Item left pending — retry or skip."
+                        ),
+                    ) from exc
+                logger.warning(
+                    "create_page_from_review: secondary candidate %r write failed"
+                    " — skipping: %s",
+                    candidate_title,
+                    exc,
+                )
+                continue
+        else:
+            # Defensive: _run_generation raises rather than returning an empty outcome.
+            # Guard anyway so a future regression surfaces as a clean 502 — never a partial.
+            if _is_primary:
+                logger.error(
+                    "create_page_from_review: generation produced no page for item=%s"
+                    " — item pending",
+                    item_id_str,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail="Page generation produced no page. Item left pending — retry or skip.",
+                )
+            logger.warning(
+                "create_page_from_review: secondary candidate %r produced no page — skipping",
+                candidate_title,
+            )
+            continue
+
+        created_page_ids.append(candidate_page_id_str)
+        logger.debug(
+            "create_page_from_review: item=%s candidate[%d]=%r → page=%s",
+            item_id_str,
+            _candidate_idx,
+            candidate_title,
+            candidate_page_id_str,
+        )
+
+    # Defensive guard: the primary branch always raises above, so this is unreachable in
+    # practice; kept so a future regression surfaces as a clean 502.
+    if not created_page_ids:
         logger.error(
-            "create_page_from_review: generation produced no page for item=%s — item pending",
+            "create_page_from_review: no pages created for item=%s — item pending",
             item_id_str,
         )
         raise HTTPException(
             status_code=502,
-            detail="Page generation produced no page. Item left pending — retry or skip.",
+            detail="No pages were created. Item left pending — retry or skip.",
         )
+
+    # The primary (first) created page is recorded on the review item for API compatibility
+    # (existing callers expect a single created_page_id — ADR-0064 §4 / I8).
+    created_page_id_str = created_page_ids[0]
 
     # ── 6. Set item to created ─────────────────────────────────────────────────
     async with get_session() as session:
@@ -3064,8 +3315,16 @@ def _resolve_create_page_type(
 
 
 def _normalize_title(title: str) -> str:
-    """Case- and whitespace-normalized title for rule-based sweep matching."""
-    return re.sub(r"\s+", " ", title.strip()).lower()
+    """
+    Case- and whitespace-normalized title for rule-based sweep matching and dedup.
+
+    R5 parity (review-utils.ts normalizeReviewTitle): strips common LLM prefixes
+    (Missing page:, Duplicate page:, possible duplicate:, CJK equivalents) before
+    normalizing, so dedup and sweep agree on what 'the same concept' means regardless
+    of whether the LLM prepended a prefix to the title.
+    """
+    stripped = _REVIEW_TITLE_PREFIX_RE.sub("", title.lstrip())
+    return re.sub(r"\s+", " ", stripped.strip()).lower()
 
 
 async def _set_status(
