@@ -25,6 +25,10 @@ targets:
       path: Synapse/Info.plist
       properties:
         CFBundleDisplayName: Synapse
+        # Version flows from the build settings above (MARKETING_VERSION/CURRENT_PROJECT_VERSION)
+        # so the built app reports the real version instead of xcodegen's default 1.0/1.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
