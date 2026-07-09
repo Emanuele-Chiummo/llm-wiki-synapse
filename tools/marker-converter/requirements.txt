@@ -2,6 +2,15 @@
 # Install in a DEDICATED venv (decoupled from the FastAPI backend — heavy ML deps).
 #   python3.13 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
 # Marker pulls torch + surya-ocr; on Apple Silicon set TORCH_DEVICE=mps.
+#
+# torch/torchvision are PINNED to a CUDA 12.8 (cu128) build and installed from the pytorch
+# cu128 index in the Dockerfile (see tools/marker-converter/Dockerfile). Rationale: the GPU host
+# (TrueNAS RTX 3060) NVIDIA driver caps at CUDA 12.8; the default PyPI torch that marker-pdf>=2.7
+# would otherwise pull targets a newer CUDA and fails at runtime with
+# "The NVIDIA driver on your system is too old". 2.7.1 satisfies marker-pdf's torch<3.0,>=2.7.0
+# and has cu128 cp313 wheels. Keep these two lines in sync with the Dockerfile install.
+torch==2.7.1
+torchvision==0.22.1
 marker-pdf>=1.10
 pypdfium2>=4.30
 

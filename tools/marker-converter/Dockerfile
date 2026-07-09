@@ -43,9 +43,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies from requirements.txt
-# (marker-pdf, pypdfium2, fastapi, uvicorn, python-multipart; torch comes with marker-pdf)
+# (marker-pdf, pypdfium2, fastapi, uvicorn, python-multipart).
+# torch/torchvision are installed FIRST from the PyTorch cu128 index so marker-pdf reuses them:
+# the GPU host (TrueNAS RTX 3060) NVIDIA driver caps at CUDA 12.8, and the default PyPI torch
+# marker-pdf would pull targets a newer CUDA → runtime "NVIDIA driver ... too old". The pinned
+# versions match requirements.txt (kept in sync).
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
+        torch==2.7.1 torchvision==0.22.1 \
+    && pip install -r requirements.txt
 
 # Copy application code
 COPY service.py .
