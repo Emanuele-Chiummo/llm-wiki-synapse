@@ -57,10 +57,17 @@ RUN pip install --index-url https://download.pytorch.org/whl/cu128 \
 COPY service.py .
 
 # Create non-root user + model cache dir (BOTH as root: the marker user cannot
-# mkdir in / — this exact ordering bug failed the first v1.2.0 image build)
+# mkdir in / — this exact ordering bug failed the first v1.2.0 image build).
+# Also hand marker its font-cache dir: marker.util.download_font() writes a font into
+# <site-packages>/static at first run (marker.settings FONT_DIR = <BASE_DIR>/static/fonts),
+# and the non-root user cannot write under site-packages → PermissionError. Pre-create that
+# tree and chown it (site-packages path resolved via sysconfig so it survives a Python bump).
 RUN useradd -m -u 1000 marker \
     && chown -R marker:marker /app \
-    && mkdir -p /models && chown marker:marker /models && chmod 755 /models
+    && mkdir -p /models && chown marker:marker /models && chmod 755 /models \
+    && SITE_PACKAGES="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')" \
+    && mkdir -p "${SITE_PACKAGES}/static" \
+    && chown -R marker:marker "${SITE_PACKAGES}/static"
 USER marker
 
 # Healthcheck: GET /health endpoint
