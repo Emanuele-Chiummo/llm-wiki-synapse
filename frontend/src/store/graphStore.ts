@@ -103,6 +103,27 @@ export interface GraphState {
    */
   filterNodeTypes: Set<string>;
 
+  // ── GI-2 (v1.3.14) visual filter & display-tuning fields ─────────────────
+  /** Hide meta-type nodes (index, overview, log) from sigma rendering. I2-safe: visibility only. */
+  hideMetaTypes: boolean;
+  /** Hide isolated nodes (degree 0) from sigma rendering. I2-safe: visibility only. */
+  hideIsolated: boolean;
+  /** Minimum degree a node must have to be shown (null = no lower bound). */
+  minLinks: number | null;
+  /** Maximum degree a node must have to be shown (null = no upper bound). */
+  maxLinks: number | null;
+  /**
+   * Node size scale multiplier (range 0–2, default 1.0 = 100%).
+   * Applied in sigma nodeReducer: size *= nodeSizeScale. No layout re-run (I2).
+   */
+  nodeSizeScale: number;
+  /**
+   * Coordinate spacing scale multiplier (range 0–2, default 1.0 = 100%).
+   * Applied by scaling each node's x/y around the graph centroid (server-provided origin).
+   * I2-safe: pure arithmetic on already-server-computed positions; no FA2 or layout invoked.
+   */
+  spacingScale: number;
+
   // Loading / error
   loading: boolean;
   error: string | null;
@@ -151,6 +172,18 @@ export interface GraphActions {
   toggleFilterNodeType: (nodeType: string) => void;
   /** GR4: Clear all active type filters. */
   clearFilterNodeTypes: () => void;
+  // ── GI-2 (v1.3.14) filter setters ────────────────────────────────────────
+  setHideMetaTypes(v: boolean): void;
+  setHideIsolated(v: boolean): void;
+  setMinLinks(v: number | null): void;
+  setMaxLinks(v: number | null): void;
+  setNodeSizeScale(v: number): void;
+  setSpacingScale(v: number): void;
+  /**
+   * Clear ALL visual filter state: filterNodeTypes + all GI-2 fields.
+   * Called by the toolbar Reset button (in addition to camera fit).
+   */
+  clearAllGraphFilters(): void;
   // UI slice actions
   selectPage: UiActions["selectPage"];
   setActiveTab: UiActions["setActiveTab"];
@@ -173,6 +206,13 @@ const INITIAL_STATE: GraphState = {
   totalNodes: null,
   totalEdges: null,
   filterNodeTypes: new Set<string>(),
+  // GI-2 (v1.3.14) visual filter defaults
+  hideMetaTypes: false,
+  hideIsolated: false,
+  minLinks: null,
+  maxLinks: null,
+  nodeSizeScale: 1.0,
+  spacingScale: 1.0,
   loading: false,
   error: null,
   selectedNodeId: null,
@@ -221,6 +261,23 @@ export const useGraphStore = create<GraphStore>((set) => ({
     }),
 
   clearFilterNodeTypes: () => set({ filterNodeTypes: new Set<string>() }),
+
+  // ── GI-2 (v1.3.14) filter actions ────────────────────────────────────────
+  setHideMetaTypes: (hideMetaTypes) => set({ hideMetaTypes }),
+  setHideIsolated: (hideIsolated) => set({ hideIsolated }),
+  setMinLinks: (minLinks) => set({ minLinks }),
+  setMaxLinks: (maxLinks) => set({ maxLinks }),
+  setNodeSizeScale: (nodeSizeScale) => set({ nodeSizeScale }),
+  setSpacingScale: (spacingScale) => set({ spacingScale }),
+  clearAllGraphFilters: () => set({
+    filterNodeTypes: new Set<string>(),
+    hideMetaTypes: false,
+    hideIsolated: false,
+    minLinks: null,
+    maxLinks: null,
+    nodeSizeScale: 1.0,
+    spacingScale: 1.0,
+  }),
 
   // ── UI slice actions (ADR-0017 §4) ────────────────────────────────────────
 
@@ -407,3 +464,20 @@ export function selectShowInsightsPanel(s: GraphStore): boolean {
 export function selectSetShowInsightsPanel(s: GraphStore): GraphActions["setShowInsightsPanel"] {
   return s.setShowInsightsPanel;
 }
+
+// ── GI-2 (v1.3.14) visual filter selectors ────────────────────────────────
+
+export function selectHideMetaTypes(s: GraphStore): boolean { return s.hideMetaTypes; }
+export function selectHideIsolated(s: GraphStore): boolean { return s.hideIsolated; }
+export function selectMinLinks(s: GraphStore): number | null { return s.minLinks; }
+export function selectMaxLinks(s: GraphStore): number | null { return s.maxLinks; }
+export function selectNodeSizeScale(s: GraphStore): number { return s.nodeSizeScale; }
+export function selectSpacingScale(s: GraphStore): number { return s.spacingScale; }
+
+export function selectSetHideMetaTypes(s: GraphStore): GraphActions["setHideMetaTypes"] { return s.setHideMetaTypes; }
+export function selectSetHideIsolated(s: GraphStore): GraphActions["setHideIsolated"] { return s.setHideIsolated; }
+export function selectSetMinLinks(s: GraphStore): GraphActions["setMinLinks"] { return s.setMinLinks; }
+export function selectSetMaxLinks(s: GraphStore): GraphActions["setMaxLinks"] { return s.setMaxLinks; }
+export function selectSetNodeSizeScale(s: GraphStore): GraphActions["setNodeSizeScale"] { return s.setNodeSizeScale; }
+export function selectSetSpacingScale(s: GraphStore): GraphActions["setSpacingScale"] { return s.setSpacingScale; }
+export function selectClearAllGraphFilters(s: GraphStore): GraphActions["clearAllGraphFilters"] { return s.clearAllGraphFilters; }

@@ -665,6 +665,8 @@
     "willSearch": "cercherà",
     "create": "Crea",
     "creating": "Creazione…",
+    "approve": "Approva",
+    "approving": "Approvazione…",
     "createFailed": "Generazione pagina fallita — riprova o salta.",
     "skip": "Salta",
     "dismiss": "Ignora",
@@ -696,12 +698,21 @@
     },
     "resolvedAt": "Risolto {{date}}",
     "viewCreatedPage": "Vedi pagina",
+    "deepResearchPanel": {
+      "panelTitle": "Ricerca Profonda",
+      "topicPlaceholder": "Inserisci un argomento di ricerca…",
+      "startBtn": "Avvia",
+      "starting": "Avvio…",
+      "noTasks": "Nessuna ricerca avviata\nInserisci un argomento sopra o clicca su Ricerca Profonda nella lista"
+    },
     "itemType": {
       "missing-page": "Pagina mancante",
       "suggestion": "Suggerimento",
       "contradiction": "Contraddizione",
       "duplicate": "Duplicato",
-      "confirm": "Conferma"
+      "confirm": "Conferma",
+      "purpose-suggestion": "Suggerimento scopo",
+      "schema-suggestion": "Suggerimento schema"
     },
     "pageType": {
       "entity": "entità",
@@ -836,6 +847,19 @@
       "clearFilter": "Rimuovi filtri",
       "reset": "Reset",
       "fullscreen": "Schermo intero"
+    },
+    "filter": {
+      "quickFilters": "Filtri rapidi",
+      "hideMeta": "Nascondi index / overview / log",
+      "hideIsolated": "Nascondi nodi isolati",
+      "minLinks": "Link min",
+      "maxLinks": "Link max",
+      "any": "qualsiasi",
+      "displayTuning": "Regolazione visualizzazione",
+      "nodeSize": "Dimensione nodi",
+      "spacing": "Spaziatura",
+      "spacingHelp": "Regola la spaziatura visiva senza cambiare il layout del grafo (coordinate server preservate).",
+      "summary": "{{visibleNodes}} / {{totalNodes}} pagine · {{visibleEdges}} / {{totalEdges}} link visibili"
     },
     "colorModeType": "Tipo",
     "colorModeCommunity": "Comunità",

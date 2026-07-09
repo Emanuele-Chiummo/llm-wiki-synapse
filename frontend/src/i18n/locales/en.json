@@ -665,6 +665,8 @@
     "willSearch": "will search",
     "create": "Create",
     "creating": "Creating…",
+    "approve": "Approve",
+    "approving": "Approving…",
     "createFailed": "Page generation failed — retry or skip.",
     "skip": "Skip",
     "dismiss": "Dismiss",
@@ -696,12 +698,21 @@
     },
     "resolvedAt": "Resolved {{date}}",
     "viewCreatedPage": "View page",
+    "deepResearchPanel": {
+      "panelTitle": "Deep Research",
+      "topicPlaceholder": "Enter a research topic…",
+      "startBtn": "Start",
+      "starting": "Starting…",
+      "noTasks": "No research tasks yet\nEnter a topic above or click Deep Research in Review"
+    },
     "itemType": {
       "missing-page": "Missing page",
       "suggestion": "Suggestion",
       "contradiction": "Contradiction",
       "duplicate": "Duplicate",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "purpose-suggestion": "Purpose suggestion",
+      "schema-suggestion": "Schema suggestion"
     },
     "pageType": {
       "entity": "entity",
@@ -836,6 +847,19 @@
       "clearFilter": "Clear filter",
       "reset": "Reset",
       "fullscreen": "Fullscreen"
+    },
+    "filter": {
+      "quickFilters": "Quick filters",
+      "hideMeta": "Hide index / overview / log",
+      "hideIsolated": "Hide isolated nodes",
+      "minLinks": "Min links",
+      "maxLinks": "Max links",
+      "any": "any",
+      "displayTuning": "Display tuning",
+      "nodeSize": "Node size",
+      "spacing": "Spacing",
+      "spacingHelp": "Adjusts visual spacing without changing graph layout (server coordinates preserved).",
+      "summary": "{{visibleNodes}} / {{totalNodes}} pages · {{visibleEdges}} / {{totalEdges}} links visible"
     },
     "colorModeType": "Type",
     "colorModeCommunity": "Community",

@@ -31,6 +31,7 @@ vi.mock("../api/reviewClient", () => ({
   createReviewItem: vi.fn(),
   skipReviewItem: vi.fn(),
   dismissReviewItem: vi.fn(),
+  resolveReviewItem: vi.fn(),
   deepResearchReviewItem: vi.fn(),
   bulkReview: vi.fn(),
   sweepReviewQueue: vi.fn(),
@@ -351,6 +352,55 @@ describe("reviewStore — fetchMore", () => {
     useReviewStore.setState({ items: [makeItem("1")], total: 1, offset: 0 });
     await useReviewStore.getState().fetchMore("default");
     expect(reviewClient.fetchReviewQueue).not.toHaveBeenCalled();
+  });
+});
+
+// ─── approve (R2) ────────────────────────────────────────────────────────────
+
+describe("reviewStore — approve (R2)", () => {
+  it("removes the item from the pending list on success", async () => {
+    useReviewStore.setState({
+      items: [makeItem("c1", { item_type: "confirm" }), makeItem("c2")],
+      total: 2,
+    });
+    vi.mocked(reviewClient.resolveReviewItem).mockResolvedValueOnce({
+      updated: 1,
+      skipped_terminal: 0,
+    });
+
+    await useReviewStore.getState().approve("c1", "default");
+
+    const state = useReviewStore.getState();
+    expect(state.items).toHaveLength(1);
+    expect(state.items[0]?.id).toBe("c2");
+    expect(state.total).toBe(1);
+    expect(state.actionInFlight["c1"]).toBeNull();
+  });
+
+  it("calls resolveReviewItem with itemId + vaultId", async () => {
+    useReviewStore.setState({ items: [makeItem("c1")], total: 1 });
+    vi.mocked(reviewClient.resolveReviewItem).mockResolvedValueOnce({
+      updated: 1,
+      skipped_terminal: 0,
+    });
+
+    await useReviewStore.getState().approve("c1", "my-vault");
+
+    expect(reviewClient.resolveReviewItem).toHaveBeenCalledWith("c1", "my-vault");
+  });
+
+  it("sets actionError on failure and keeps item in list", async () => {
+    useReviewStore.setState({ items: [makeItem("c1")], total: 1 });
+    vi.mocked(reviewClient.resolveReviewItem).mockRejectedValueOnce(
+      new Error("400 Bad Request"),
+    );
+
+    await useReviewStore.getState().approve("c1", "default");
+
+    const state = useReviewStore.getState();
+    expect(state.items).toHaveLength(1);
+    expect(state.actionError["c1"]).toBeTruthy();
+    expect(state.actionInFlight["c1"]).toBeNull();
   });
 });
 

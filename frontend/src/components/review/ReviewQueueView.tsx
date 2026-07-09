@@ -41,6 +41,17 @@ import {
   useCallback,
   type CSSProperties,
 } from "react";
+import {
+  HelpCircle,
+  Lightbulb,
+  AlertTriangle,
+  Copy,
+  CheckCircle2,
+  Target,
+  FileCog,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -68,6 +79,7 @@ import {
   selectCreate,
   selectSkip,
   selectDismiss,
+  selectApprove,
   selectDeepResearch,
   selectSweep,
   selectBulkAction,
@@ -83,6 +95,7 @@ import {
   selectClearLastClearResult,
   selectClearBulkError,
 } from "../../store/reviewStore";
+import { ReviewDeepResearchPanel } from "./ReviewDeepResearchPanel";
 import {
   useGraphStore,
   selectVaultId,
@@ -109,44 +122,95 @@ const ROW_ESTIMATE = 160;
 // UXA-03: use var(--syn-mix-base) instead of literal white so dark-mode color-mix
 // resolves against the dark surface rather than #ffffff. Token defined in ADR-0048 / theme.css.
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  "missing-page":  { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // --syn-green
-  suggestion:      { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" }, // --syn-amber
-  contradiction:   { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, var(--syn-mix-base) 90%)" }, // --syn-red
-  duplicate:       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)" }, // --syn-type-concept (purple)
-  confirm:         { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent
+  // v1.3.14 icon-colour parity with llm_wiki 0.6.0: missing-page=purple, suggestion=green.
+  "missing-page":       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)" }, // purple — llm_wiki missing-page
+  suggestion:           { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // green — llm_wiki suggestion
+  contradiction:        { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, var(--syn-mix-base) 90%)" }, // --syn-red
+  duplicate:            { color: "#0f766e", bg: "color-mix(in srgb, #0f766e 10%, var(--syn-mix-base) 90%)" }, // teal — moved off purple to avoid clash with missing-page
+  confirm:              { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent
+  // R5 — real bug fix: backend may emit these two types; previously fell to grey fallback.
+  "purpose-suggestion": { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" }, // --syn-amber (purpose-level suggestion)
+  "schema-suggestion":  { color: "#0969da", bg: "color-mix(in srgb, #0969da 10%, var(--syn-mix-base) 90%)" }, // --syn-blue (schema-level suggestion)
 };
 
-interface ItemTypeBadgeProps {
+// R1 — Per-type Lucide icon mapping (llm_wiki parity).
+// Icon + colour replace the plain-text pill; accessible label still delivered via
+// title= + sr-only span so screen-readers and test queries still work.
+const ITEM_TYPE_ICONS: Record<string, LucideIcon> = {
+  "missing-page":       HelpCircle,
+  suggestion:           Lightbulb,
+  contradiction:        AlertTriangle,
+  duplicate:            Copy,
+  confirm:              CheckCircle2,
+  "purpose-suggestion": Target,
+  "schema-suggestion":  FileCog,
+};
+
+// ─── Item type icon (R1 — llm_wiki parity) ───────────────────────────────────
+// Replaces the plain text pill with a small coloured Lucide icon.
+// Accessibility: title= + aria-label on the wrapper + sr-only text inside ensure
+// the type name is always in the accessibility tree and in textContent (UXA-18
+// tests query .syn-chip textContent to confirm the human-readable label).
+
+interface ItemTypeIconProps {
   itemType: string;
   t: (key: string) => string;
 }
 
-function ItemTypeBadge({ itemType, t }: ItemTypeBadgeProps) {
-  // UXA-18: backend may send underscore form (e.g. "new_page", "missing_page");
-  // translation keys use kebab-case ("missing-page"). Normalise before lookup.
+function ItemTypeIcon({ itemType, t }: ItemTypeIconProps) {
+  // UXA-18: backend may send underscore form (e.g. "missing_page");
+  // translation keys and icon keys use kebab-case. Normalise before lookup.
   const normalised = itemType.replace(/_/g, "-");
   const { color, bg } = ITEM_TYPE_COLORS[normalised] ?? ITEM_TYPE_COLORS[itemType] ?? {
     color: "var(--syn-text-dim)",
     bg: "var(--syn-surface-hover)",
   };
   const label = t(`review.itemType.${normalised}`);
+  const Icon: LucideIcon = ITEM_TYPE_ICONS[normalised] ?? ITEM_TYPE_ICONS[itemType] ?? HelpCircle;
+
   return (
     <span
       className="syn-chip"
+      title={label}
+      aria-label={label}
       style={{
-        fontSize: 10,
-        fontWeight: 600,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 22,
+        height: 22,
+        flexShrink: 0,
         color,
         background: bg,
         border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
         borderRadius: "var(--syn-radius-pill)",
-        padding: "1px 6px",
+        padding: 0,
       }}
     >
-      {label}
+      {/* aria-hidden: accessible name comes from the wrapper aria-label + sr-only below */}
+      <Icon size={12} aria-hidden="true" />
+      {/* sr-only text keeps textContent = label for tests + screen-reader announcements */}
+      <span
+        style={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: "hidden",
+          clip: "rect(0,0,0,0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
+      >
+        {label}
+      </span>
     </span>
   );
 }
+
+/** Back-compat alias so any code still referencing ItemTypeBadge compiles. */
+const ItemTypeBadge = ItemTypeIcon;
 
 // ─── Page type chip ───────────────────────────────────────────────────────────
 
@@ -259,7 +323,7 @@ interface ActionButtonProps {
   onClick: () => void;
   disabled: boolean;
   loading?: boolean;
-  variant: "create" | "skip" | "dismiss" | "deep-research";
+  variant: "create" | "approve" | "skip" | "dismiss" | "deep-research";
 }
 
 /**
@@ -273,6 +337,7 @@ function ActionButton({ label, onClick, disabled, loading, variant }: ActionButt
   // These narrow the secondary ghost base to the variant's semantic color.
   const VARIANT_STYLE: Record<string, { color: string; borderColor: string }> = {
     create:          { color: "var(--syn-green)",  borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)" },
+    approve:         { color: "var(--syn-accent)", borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" },
     skip:            { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" },
     dismiss:         { color: "var(--syn-text-dim)",   borderColor: "var(--syn-border)" },
     "deep-research": { color: "var(--syn-accent)", borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" },
@@ -315,11 +380,12 @@ interface ReviewRowProps {
   item: ReviewItem;
   style: CSSProperties;
   measureRef: (el: HTMLElement | null) => void;
-  inFlight: "create" | "skip" | "dismiss" | "deep-research" | null | undefined;
+  inFlight: "create" | "approve" | "skip" | "dismiss" | "deep-research" | null | undefined;
   actionError: string | null | undefined;
   generationError: string | null | undefined;
   isSelected: boolean;
   onCreate: (id: string) => void;
+  onApprove: (id: string) => void;
   onSkip: (id: string) => void;
   onDismiss: (id: string) => void;
   onDeepResearch: (id: string) => void;
@@ -340,6 +406,7 @@ function ReviewRow({
   generationError,
   isSelected,
   onCreate,
+  onApprove,
   onSkip,
   onDismiss,
   onDeepResearch,
@@ -352,7 +419,15 @@ function ReviewRow({
 }: ReviewRowProps) {
   const isAnyInFlight = inFlight !== null && inFlight !== undefined;
   const isCreating = inFlight === "create";
+  const isApproving = inFlight === "approve";
   const isItemPending = isPending(item.status);
+
+  // R2: confirm + contradiction use "Approve" (acknowledge/resolve), not "Create" (generate page).
+  // Normalise so backend underscore variants ("confirm", "contradiction") work too.
+  const normalisedType = item.item_type.replace(/_/g, "-");
+  // R2 (v1.3.14): "Approve" (acknowledge → mark-resolved) only for `confirm` items.
+  // `contradiction` keeps "Create" so the user can author a resolution page.
+  const isApproveType = normalisedType === "confirm";
 
   const relativeTime = (() => {
     try {
@@ -546,7 +621,7 @@ function ReviewRow({
           : undefined,
       }}
     >
-      {/* Row 1: checkbox + type badge + proposed_title + timestamp */}
+      {/* Row 1: checkbox + type icon + proposed_title + timestamp + ✕ dismiss (R1, R3) */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
         <input
           type="checkbox"
@@ -556,7 +631,8 @@ function ReviewRow({
           data-testid={`review-select-${item.id}`}
           style={{ flexShrink: 0, cursor: "pointer", accentColor: "var(--syn-accent)" }}
         />
-        <ItemTypeBadge itemType={item.item_type} t={t} />
+        {/* R1: coloured Lucide icon instead of text pill; label in title + sr-only */}
+        <ItemTypeIcon itemType={item.item_type} t={t} />
         {item.proposed_page_type && (
           <PageTypeChip pageType={item.proposed_page_type} t={t} />
         )}
@@ -581,6 +657,33 @@ function ReviewRow({
         >
           {relativeTime}
         </span>
+        {/* R3: ✕ dismiss at top-right of card header (llm_wiki parity) */}
+        <button
+          data-testid="review-action-dismiss"
+          onClick={() => onDismiss(item.id)}
+          disabled={isAnyInFlight}
+          aria-label={t("review.dismiss")}
+          title={t("review.dismiss")}
+          style={{
+            flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 20,
+            height: 20,
+            padding: 0,
+            border: "none",
+            borderRadius: "var(--syn-radius-sm)",
+            background: "transparent",
+            color: "var(--syn-text-dim)",
+            cursor: isAnyInFlight ? "not-allowed" : "pointer",
+            opacity: isAnyInFlight ? 0.4 : 0.7,
+          }}
+          onMouseEnter={(e) => { if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+          onMouseLeave={(e) => { if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
       </div>
 
       {/* Row 2: rationale (why this matters) */}
@@ -691,25 +794,31 @@ function ReviewRow({
       )}
 
       {/* Row 7: action buttons + per-item non-502 error */}
+      {/* R2: confirm + contradiction get "Approve" (acknowledge/resolve); others get "Create". */}
+      {/* R3: Dismiss moved to ✕ icon at top-right of Row 1 — removed from here. */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <ActionButton
-          label={isCreating ? t("review.creating") : t("review.create")}
-          onClick={() => onCreate(item.id)}
-          disabled={isAnyInFlight}
-          loading={isCreating}
-          variant="create"
-        />
+        {isApproveType ? (
+          <ActionButton
+            label={isApproving ? t("review.approving") : t("review.approve")}
+            onClick={() => onApprove(item.id)}
+            disabled={isAnyInFlight}
+            loading={isApproving}
+            variant="approve"
+          />
+        ) : (
+          <ActionButton
+            label={isCreating ? t("review.creating") : t("review.create")}
+            onClick={() => onCreate(item.id)}
+            disabled={isAnyInFlight}
+            loading={isCreating}
+            variant="create"
+          />
+        )}
         <ActionButton
           label={inFlight === "skip" ? t("common.loading") : t("review.skip")}
           onClick={() => onSkip(item.id)}
           disabled={isAnyInFlight}
           variant="skip"
-        />
-        <ActionButton
-          label={inFlight === "dismiss" ? t("common.loading") : t("review.dismiss")}
-          onClick={() => onDismiss(item.id)}
-          disabled={isAnyInFlight}
-          variant="dismiss"
         />
         <ActionButton
           label={
@@ -756,6 +865,7 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage 
   const create = useReviewStore(selectCreate);
   const skip = useReviewStore(selectSkip);
   const dismiss = useReviewStore(selectDismiss);
+  const approve = useReviewStore(selectApprove);
   const deepResearch = useReviewStore(selectDeepResearch);
   const clearGenerationError = useReviewStore(selectClearCreateGenerationError);
   const toggleSelected = useReviewStore(selectToggleSelected);
@@ -775,6 +885,10 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage 
   const handleCreate = useCallback(
     (id: string) => { void create(id); },
     [create],
+  );
+  const handleApprove = useCallback(
+    (id: string) => { void approve(id, vaultId); },
+    [approve, vaultId],
   );
   const handleSkip = useCallback(
     (id: string) => { void skip(id); },
@@ -835,6 +949,7 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage 
               actionError={actionError[item.id]}
               generationError={generationError[item.id]}
               onCreate={handleCreate}
+              onApprove={handleApprove}
               onSkip={handleSkip}
               onDismiss={handleDismiss}
               onDeepResearch={handleDeepResearch}
@@ -886,10 +1001,11 @@ interface RowWrapperProps {
   vRow: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   virtualizer: any;
-  inFlight: "create" | "skip" | "dismiss" | "deep-research" | null | undefined;
+  inFlight: "create" | "approve" | "skip" | "dismiss" | "deep-research" | null | undefined;
   actionError: string | null | undefined;
   generationError: string | null | undefined;
   onCreate: (id: string) => void;
+  onApprove: (id: string) => void;
   onSkip: (id: string) => void;
   onDismiss: (id: string) => void;
   onDeepResearch: (id: string) => void;
@@ -909,6 +1025,7 @@ function RowWrapper({
   actionError,
   generationError,
   onCreate,
+  onApprove,
   onSkip,
   onDismiss,
   onDeepResearch,
@@ -939,6 +1056,7 @@ function RowWrapper({
       generationError={generationError}
       isSelected={isSelected}
       onCreate={onCreate}
+      onApprove={onApprove}
       onSkip={onSkip}
       onDismiss={onDismiss}
       onDeepResearch={onDeepResearch}
@@ -1585,13 +1703,25 @@ export function ReviewQueueView() {
         </div>
       )}
 
-      {/* ── Virtualised item list (I4) ───────────────────────────────────── */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        <ReviewItemList
+      {/* ── Main content: virtualised item list + Deep Research panel (R4) ── */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex" }}>
+        {/* Item list occupies remaining horizontal space (I4 — always virtualised) */}
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <ReviewItemList
+            vaultId={effectiveVaultId}
+            onOpenSources={handleOpenSources}
+            onOpenPage={handleOpenPage}
+            onOpenCreatedPage={handleOpenCreatedPage}
+          />
+        </div>
+
+        {/* R4: Persistent Deep Research panel (right side, llm_wiki parity).
+            Receives lastResearchRunId so it auto-refreshes when a per-item
+            "Ricerca Profonda" action completes. Same researchStore as the
+            "Ricerca Profonda" rail section — superset, NOT a replacement. */}
+        <ReviewDeepResearchPanel
           vaultId={effectiveVaultId}
-          onOpenSources={handleOpenSources}
-          onOpenPage={handleOpenPage}
-          onOpenCreatedPage={handleOpenCreatedPage}
+          lastResearchRunId={lastDeepResearch?.runId ?? null}
         />
       </div>
     </div>

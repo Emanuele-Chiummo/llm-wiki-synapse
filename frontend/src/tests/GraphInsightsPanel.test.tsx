@@ -110,7 +110,11 @@ describe("GraphInsightsPanel", () => {
     useGraphStore.getState().reset();
   });
 
-  /** Helper: expand the collapsed panel so rows become visible. */
+  /**
+   * GI-1 (v1.3.14): panel starts EXPANDED by default (collapsed=false).
+   * After the fix, rows are visible immediately without needing to click expand.
+   * This helper is used only inside test G to expand AFTER a collapse.
+   */
   function expandPanel() {
     const expandBtn = screen.getByLabelText("Expand insights panel");
     fireEvent.click(expandBtn);
@@ -124,7 +128,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — rows are immediately visible
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
   });
@@ -135,7 +139,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — rows are immediately visible
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
     // The isolated node's title should appear somewhere in the panel
@@ -152,7 +156,7 @@ describe("GraphInsightsPanel", () => {
     const spy = vi.spyOn(useGraphStore.getState(), "setSelectedNodeId");
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — rows are immediately visible
     const rows = screen.getAllByTestId("graph-insight-row");
     fireEvent.click(rows[0]!);
 
@@ -168,7 +172,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — rows are immediately visible
     const rowsBefore = screen.getAllByTestId("graph-insight-row");
     const countBefore = rowsBefore.length;
 
@@ -189,7 +193,7 @@ describe("GraphInsightsPanel", () => {
     const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — buttons are immediately visible
     const drBtns = screen.getAllByTestId("graph-insight-deep-research");
     expect(drBtns.length).toBeGreaterThanOrEqual(1);
     fireEvent.click(drBtns[0]!);
@@ -211,7 +215,7 @@ describe("GraphInsightsPanel", () => {
     const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — buttons are immediately visible
     fireEvent.click(screen.getAllByTestId("graph-insight-deep-research")[0]!);
     expect(screen.getByTestId("research-topic-dialog")).toBeDefined();
 
@@ -233,8 +237,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_NO_INSIGHTS, EDGES_LOW_WEIGHT, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
-    // Empty state is shown in the header when collapsed too — expand to confirm body
-    expandPanel();
+    // GI-1: panel starts expanded — body is visible without needing to expand
     expect(screen.getByTestId("graph-insights-empty")).toBeDefined();
     expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
   });
@@ -250,25 +253,28 @@ describe("GraphInsightsPanel", () => {
 
   // ── G. Collapse/expand toggle ─────────────────────────────────────────────
 
-  it("G: panel starts collapsed by default; expand shows rows; collapse hides them again", () => {
+  /**
+   * GI-1 (v1.3.14): panel starts EXPANDED by default (useState(false) = not collapsed).
+   * Rows are visible immediately; collapse hides them; expand restores them.
+   */
+  it("G: panel starts expanded by default; collapse hides rows; expand shows them again", () => {
     useGraphStore
       .getState()
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
 
-    // Collapsed by default — rows not visible
-    expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
-
-    // Expand
-    const expandBtn = screen.getByLabelText("Expand insights panel");
-    fireEvent.click(expandBtn);
+    // GI-1: expanded by default — rows visible immediately
     expect(screen.getAllByTestId("graph-insight-row").length).toBeGreaterThan(0);
 
-    // Collapse again
+    // Collapse
     const collapseBtn = screen.getByLabelText("Collapse insights panel");
     fireEvent.click(collapseBtn);
     expect(screen.queryAllByTestId("graph-insight-row")).toHaveLength(0);
+
+    // Expand again
+    expandPanel();
+    expect(screen.getAllByTestId("graph-insight-row").length).toBeGreaterThan(0);
   });
 
   // ── H. Sparse community shows rows ───────────────────────────────────────
@@ -279,7 +285,7 @@ describe("GraphInsightsPanel", () => {
       .setGraph(NODES_SPARSE, [], 1, "hit", COMMUNITIES_SPARSE);
 
     render(<GraphInsightsPanel />);
-    expandPanel();
+    // GI-1: panel starts expanded — rows are immediately visible
     const rows = screen.getAllByTestId("graph-insight-row");
     expect(rows.length).toBeGreaterThanOrEqual(1);
     // Community text should reference community 7

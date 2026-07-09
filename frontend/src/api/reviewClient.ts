@@ -189,3 +189,19 @@ export async function clearResolved(
   await checkResponse(res);
   return (await res.json()) as ReviewClearResolvedResponse;
 }
+
+/**
+ * Single-item approve/resolve (R2 — "Approve" action for confirm + contradiction types).
+ * Reuses POST /review/queue/bulk with action="mark-resolved" and a single item id.
+ * No new backend endpoint — the bulk endpoint already supports single-id lists.
+ * vault_id is required by the bulk endpoint for logging/scoping.
+ *
+ * On success: item transitions to auto_resolved (terminal), appears in "Resolved" tab.
+ * The UI removes the item from the pending list optimistically.
+ */
+export async function resolveReviewItem(
+  itemId: string,
+  vaultId: string,
+): Promise<ReviewBulkResponse> {
+  return bulkReview({ vault_id: vaultId, action: "mark-resolved", ids: [itemId] });
+}

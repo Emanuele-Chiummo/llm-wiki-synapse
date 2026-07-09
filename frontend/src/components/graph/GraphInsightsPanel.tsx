@@ -281,7 +281,12 @@ export function GraphInsightsPanel() {
   const clearStartError = useResearchStore(selectClearStartError);
 
   // ── Local UI state ─────────────────────────────────────────────────────────
-  const [collapsed, setCollapsed] = useState(true);
+  // GI-1 (v1.3.14 fix): panel opens EXPANDED by default so "Surprising Connections"
+  // content is immediately visible when the user clicks Insights. The collapse
+  // chevron remains available to tuck the panel away. The chevron wires to this
+  // internal `collapsed` state only — it does NOT call setShowInsightsPanel (which
+  // would unmount the panel). Verified in GraphInsightsPanel.test.tsx test G.
+  const [collapsed, setCollapsed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   /** Seed topic for the dialog; null = dialog closed. */
   const [dialogSeedTopic, setDialogSeedTopic] = useState<string | null>(null);
