@@ -240,3 +240,52 @@ async def test_overview_no_provider_configured_keeps_previous(
     # No overview.md yet → nothing to index, and no crash.
     await orch._update_overview(_analysis(), ORIGIN)
     assert not (api_env["vault_root"] / "wiki" / "overview.md").exists()
+
+
+# ── v1.3.14: descriptive, LLM-generated overview title (F3 parity with llm_wiki) ──────
+
+
+def test_overview_instruction_asks_for_descriptive_title() -> None:
+    """The prompt asks for a leading `# ` title and injects the real current period (no hallucination)."""
+    instr = orch._build_overview_instruction(
+        analysis=None, existing_digest="x", lang="it", now_label="2026-07"
+    )
+    assert "# " in instr  # top-level title heading directive
+    assert "2026-07" in instr  # injected period, not left to the model to guess
+    assert "DESCRIPTIVE title" in instr
+
+
+def test_extract_overview_title_from_h1() -> None:
+    """A leading `# ` heading becomes the title and is stripped from the body."""
+    title, body = orch._extract_overview_title(
+        "# Procurement Analytics Wiki — Visione Progettuale (Luglio 2026)\n\nCorpo narrativo."
+    )
+    assert title == "Procurement Analytics Wiki — Visione Progettuale (Luglio 2026)"
+    assert body == "Corpo narrativo."
+    assert not body.startswith("#")
+
+
+def test_extract_overview_title_fallback_without_h1() -> None:
+    """No H1 → fall back to the static config title, body unchanged (backward-compatible)."""
+    title, body = orch._extract_overview_title("Just a body with no heading.")
+    assert title == "Overview"
+    assert body == "Just a body with no heading."
+
+
+@pytest.mark.asyncio
+async def test_overview_regen_uses_h1_title(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end: a narrative that opens with a descriptive H1 sets the frontmatter title."""
+    narrative = (
+        "# Homelab Wiki — Self-Hosting Blueprint (July 2026)\n\nThe wiki covers homelab topics."
+    )
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+
+    file_text = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+    meta = frontmatter.loads(file_text)
+    assert meta["title"] == "Homelab Wiki — Self-Hosting Blueprint (July 2026)"
+    assert "The wiki covers homelab topics." in meta.content
+    # The H1 is promoted to the title, not duplicated in the body.
+    assert "# Homelab Wiki" not in meta.content
