@@ -874,7 +874,9 @@ class TestADR0016KindAndSize:
         # P5 is isolated (no wikilinks) -> degree=0, size=BASE=8.0
         p5 = node_map[p["P5"]]
         assert p5.degree == 0, f"P5 (isolated) should have degree 0, got {p5.degree}"
-        assert abs(p5.size - 8.0) < 0.01, f"P5 isolated node size should be 8.0 (BASE), got {p5.size}"
+        assert (
+            abs(p5.size - 8.0) < 0.01
+        ), f"P5 isolated node size should be 8.0 (BASE), got {p5.size}"
 
         # P1 is connected (degree=2 from P1-P2 + P1-P4 wikilinks) -> larger than P5
         p1 = node_map[p["P1"]]
@@ -960,9 +962,7 @@ class TestLlmWikiParityEdgeRule:
     ADR-0016 amendment 2026-07-09.
     """
 
-    async def test_no_source_kind_edges(
-        self, graph_db: tuple[Any, dict[str, str], str]
-    ) -> None:
+    async def test_no_source_kind_edges(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
         After ADR-0016 amendment: the engine never produces kind='source' edges.
         All edges must have kind='link' (wikilink-only rule).
@@ -977,9 +977,7 @@ class TestLlmWikiParityEdgeRule:
             f"got: {[(e.source, e.target, e.kind) for e in source_edges]}"
         )
 
-    async def test_query_nodes_excluded(
-        self, graph_db: tuple[Any, dict[str, str], str]
-    ) -> None:
+    async def test_query_nodes_excluded(self, graph_db: tuple[Any, dict[str, str], str]) -> None:
         """
         llm_wiki 0.6.0 parity (wiki-graph.ts:204-209 HIDDEN_TYPES = {'query'}):
         Nodes with type='query' must not appear in the graph snapshot, and no
@@ -1018,9 +1016,9 @@ class TestLlmWikiParityEdgeRule:
         )
         # No edge should involve the excluded query node
         for e in snapshot.edges:
-            assert e.source != q_id and e.target != q_id, (
-                f"No edge should connect to/from excluded query node {q_id}"
-            )
+            assert (
+                e.source != q_id and e.target != q_id
+            ), f"No edge should connect to/from excluded query node {q_id}"
 
     async def test_shared_source_contributes_weight_on_wikilink_edge(
         self, graph_db: tuple[Any, dict[str, str], str]

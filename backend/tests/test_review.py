@@ -971,7 +971,6 @@ class TestMissingPageFanOut:
 
     async def test_fanout_creates_multiple_pages(self, review_env: dict[str, Any]) -> None:
         """T-RV-020a: 3-candidate comma title → 3 generation calls; primary id recorded."""
-        import asyncio as _asyncio
         from unittest.mock import AsyncMock, patch
 
         from app.ops.review import GenerationOutcome, create_page_from_review
@@ -1035,7 +1034,9 @@ class TestMissingPageFanOut:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                return GenerationOutcome(wiki_page=None, created_page_id="page-primary", converged=True)
+                return GenerationOutcome(
+                    wiki_page=None, created_page_id="page-primary", converged=True
+                )
             raise RuntimeError("Secondary generation failed")
 
         fake_cfg = object()

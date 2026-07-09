@@ -1697,8 +1697,12 @@ class TestNoOutlinksDetection:
         # Page with no links at all → should be detected.
         await _insert_page(lint_env, title="Island Page", file_path="wiki/entities/island.md")
         # Page with an outgoing link → should NOT be detected.
-        linked_page = await _insert_page(lint_env, title="Target", file_path="wiki/entities/target.md")
-        source_page = await _insert_page(lint_env, title="Linked", file_path="wiki/entities/linked.md")
+        linked_page = await _insert_page(
+            lint_env, title="Target", file_path="wiki/entities/target.md"
+        )
+        source_page = await _insert_page(
+            lint_env, title="Linked", file_path="wiki/entities/linked.md"
+        )
         await _insert_link(
             lint_env,
             source_page_id=source_page,
@@ -1845,9 +1849,9 @@ class TestSuggestionCategory:
         model output. This is a conservative approach — the apply seam still works."""
         from app.ops.lint import _VALID_CATEGORIES
 
-        assert "missing-xref" in _VALID_CATEGORIES, (
-            "missing-xref must remain in _VALID_CATEGORIES for existing DB findings / apply"
-        )
+        assert (
+            "missing-xref" in _VALID_CATEGORIES
+        ), "missing-xref must remain in _VALID_CATEGORIES for existing DB findings / apply"
 
     async def test_suggestion_category_filter_works(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
@@ -1946,9 +1950,7 @@ class TestFuzzySuggestions:
             file_path="wiki/entities/docker-networking.md",
         )
         # Add a link FROM page B so it is NOT a no-outlinks page.
-        target_id = await _insert_page(
-            lint_env, title="Other", file_path="wiki/entities/other.md"
-        )
+        target_id = await _insert_page(lint_env, title="Other", file_path="wiki/entities/other.md")
         source_b = await _insert_page(
             lint_env, title="DockerB", file_path="wiki/entities/dockerb.md"
         )
@@ -2007,9 +2009,9 @@ class TestFuzzySuggestions:
         # suggested_page_id should be set when a match is found.
         # We only assert they are consistent (both None or both set).
         if f.suggested_target is not None:
-            assert f.suggested_page_id is not None, (
-                "suggested_page_id must be set when suggested_target is set"
-            )
+            assert (
+                f.suggested_page_id is not None
+            ), "suggested_page_id must be set when suggested_target is set"
 
     async def test_orphan_severity_is_info(self, lint_env: dict[str, Any]) -> None:
         """L5: orphan-page findings have severity=info (L5 / ADR-0058 §L5)."""
@@ -2018,9 +2020,7 @@ class TestFuzzySuggestions:
         await _insert_page(lint_env, title="Solo Page", file_path="wiki/entities/solo.md")
         findings = await _detect_orphans("test-vault")
         assert findings, "expected at least one orphan finding"
-        assert all(f.severity == "info" for f in findings), (
-            "orphan-page must be severity=info (L5)"
-        )
+        assert all(f.severity == "info" for f in findings), "orphan-page must be severity=info (L5)"
 
 
 # ── T-LINT-L4: new apply paths (L4 / ADR-0058 §L4) ───────────────────────────────
@@ -2284,9 +2284,9 @@ class TestSeverityInvariants:
         body = resp.json()
         orphan_findings = [f for f in body["findings"] if f["category"] == "orphan-page"]
         assert orphan_findings, "expected at least one orphan-page finding"
-        assert all(f["severity"] == "info" for f in orphan_findings), (
-            "orphan-page must be severity=info (L5)"
-        )
+        assert all(
+            f["severity"] == "info" for f in orphan_findings
+        ), "orphan-page must be severity=info (L5)"
 
     async def test_no_outlinks_severity_info_in_scan(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
@@ -2301,9 +2301,9 @@ class TestSeverityInvariants:
         body = resp.json()
         no_out_findings = [f for f in body["findings"] if f["category"] == "no-outlinks"]
         assert no_out_findings, "expected at least one no-outlinks finding"
-        assert all(f["severity"] == "info" for f in no_out_findings), (
-            "no-outlinks must be severity=info (L5)"
-        )
+        assert all(
+            f["severity"] == "info" for f in no_out_findings
+        ), "no-outlinks must be severity=info (L5)"
 
     async def test_broken_wikilink_severity_warning_unchanged(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
@@ -2325,9 +2325,9 @@ class TestSeverityInvariants:
         body = resp.json()
         broken_findings = [f for f in body["findings"] if f["category"] == "broken-wikilink"]
         assert broken_findings, "expected at least one broken-wikilink finding"
-        assert all(f["severity"] == "warning" for f in broken_findings), (
-            "broken-wikilink must remain severity=warning"
-        )
+        assert all(
+            f["severity"] == "warning" for f in broken_findings
+        ), "broken-wikilink must remain severity=warning"
 
 
 # ── T-LINT-L6: _append_wikilink_to_body helper (L4 shared) ───────────────────────
