@@ -56,13 +56,23 @@ vi.mock("../api/reviewClient", () => ({
   createReviewItem: vi.fn(),
   skipReviewItem: vi.fn(),
   dismissReviewItem: vi.fn(),
+  resolveReviewItem: vi.fn(),
   deepResearchReviewItem: vi.fn(),
   bulkReview: vi.fn(),
   sweepReviewQueue: vi.fn(),
   clearResolved: vi.fn(),
 }));
 
+// ─── Mock researchClient (used by ReviewDeepResearchPanel via researchStore) ──
+
+vi.mock("../api/researchClient", () => ({
+  fetchResearchRuns: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 }),
+  fetchResearchRunDetail: vi.fn(),
+  startResearch: vi.fn().mockResolvedValue({ run_id: "new-run-test" }),
+}));
+
 import * as reviewClient from "../api/reviewClient";
+import * as researchClient from "../api/researchClient";
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
@@ -116,8 +126,17 @@ vi.mock("react-i18next", () => ({
         "review.itemType.contradiction": "Contradiction",
         "review.itemType.duplicate": "Duplicate",
         "review.itemType.confirm": "Confirm",
+        "review.itemType.purpose-suggestion": "Purpose suggestion",
+        "review.itemType.schema-suggestion": "Schema suggestion",
+        "review.approve": "Approve",
+        "review.approving": "Approving…",
         "review.pageType.concept": "concept",
         "review.pageType.entity": "entity",
+        "review.deepResearchPanel.panelTitle": "Deep Research",
+        "review.deepResearchPanel.topicPlaceholder": "Enter a research topic…",
+        "review.deepResearchPanel.startBtn": "Start",
+        "review.deepResearchPanel.starting": "Starting…",
+        "review.deepResearchPanel.noTasks": "No research tasks yet",
         "common.loading": "Loading…",
         "common.retry": "Retry",
         "common.close": "Close",
@@ -203,6 +222,13 @@ beforeEach(() => {
     items: [],
     total: 0,
     limit: 50,
+    offset: 0,
+  });
+  // Reset researchClient mock so the Deep Research panel doesn't error
+  vi.mocked(researchClient.fetchResearchRuns).mockResolvedValue({
+    items: [],
+    total: 0,
+    limit: 20,
     offset: 0,
   });
 });
@@ -995,6 +1021,227 @@ describe("ReviewQueueView — selection + bulk bar (ADR-0044 §7)", () => {
   });
 });
 
+// ─── R2: Approve action for confirm + contradiction types ─────────────────────
+
+describe("ReviewQueueView — R2: Approve action for confirm only", () => {
+  it("confirm item shows 'Approve' button instead of 'Create'", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("c1", { item_type: "confirm" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+    // Approve button present, Create button absent
+    expect(screen.getByTestId("review-action-approve")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-create")).toBeNull();
+    // Approve shows the correct label
+    expect(screen.getByText("Approve")).toBeTruthy();
+  });
+
+  it("contradiction item shows 'Create' button (not Approve) so a resolution page can be authored", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("co1", { item_type: "contradiction", page_title: "Conflicting page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+    expect(screen.getByTestId("review-action-create")).toBeTruthy();
+    expect(screen.queryByTestId("review-action-approve")).toBeNull();
+  });
+
+  it("missing-page item still shows 'Create' button (not Approve)", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("mp1", { item_type: "missing-page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-action-create")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("review-action-approve")).toBeNull();
+  });
+
+  it("clicking Approve calls resolveReviewItem (mark-resolved) and item leaves the list", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("conf1", { item_type: "confirm" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    // resolveReviewItem wraps bulkReview; the mock intercepts at the client boundary.
+    vi.mocked(reviewClient.resolveReviewItem).mockResolvedValueOnce({ updated: 1, skipped_terminal: 0 });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-action-approve")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId("review-action-approve"));
+
+    await waitFor(() => {
+      expect(reviewClient.resolveReviewItem).toHaveBeenCalledWith("conf1", "default");
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("review-item-row")).toBeNull();
+    });
+  });
+});
+
+// ─── R3: ✕ dismiss icon at card top-right ────────────────────────────────────
+
+describe("ReviewQueueView — R3: ✕ dismiss icon", () => {
+  it("dismiss ✕ icon fires dismissReviewItem and item leaves the list", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("d1"), makeItem("d2")],
+      total: 2,
+      limit: 50,
+      offset: 0,
+    });
+    vi.mocked(reviewClient.dismissReviewItem).mockResolvedValueOnce(
+      makeItem("d1", { status: "dismissed" }),
+    );
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-action-dismiss")).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getAllByTestId("review-action-dismiss")[0]!);
+
+    await waitFor(() => {
+      expect(reviewClient.dismissReviewItem).toHaveBeenCalledWith("d1");
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId("review-item-row")).toHaveLength(1);
+    });
+  });
+});
+
+// ─── R4: Deep Research panel rendering ───────────────────────────────────────
+
+describe("ReviewQueueView — R4: Deep Research panel", () => {
+  it("renders the Deep Research panel with header, input, and empty state", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-dr-panel")).toBeTruthy();
+      expect(screen.getByText("Deep Research")).toBeTruthy();
+      expect(screen.getByTestId("review-dr-topic-input")).toBeTruthy();
+      expect(screen.getByTestId("review-dr-start-btn")).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-dr-empty")).toBeTruthy();
+      expect(screen.getByText("No research tasks yet")).toBeTruthy();
+    });
+  });
+
+  it("start button is disabled when topic is empty", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      const startBtn = screen.getByTestId("review-dr-start-btn") as HTMLButtonElement;
+      expect(startBtn.disabled).toBe(true);
+    });
+  });
+
+  it("start button enabled when topic has text", async () => {
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("review-dr-topic-input")).toBeTruthy();
+    });
+
+    fireEvent.change(screen.getByTestId("review-dr-topic-input"), {
+      target: { value: "Test research topic" },
+    });
+
+    const startBtn = screen.getByTestId("review-dr-start-btn") as HTMLButtonElement;
+    expect(startBtn.disabled).toBe(false);
+  });
+});
+
+// ─── R5: purpose-suggestion + schema-suggestion types render correctly ────────
+
+describe("ReviewQueueView — R5: purpose-suggestion and schema-suggestion types", () => {
+  it("purpose-suggestion renders 'Purpose suggestion' label (not grey fallback)", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("ps1", { item_type: "purpose-suggestion" as ReviewItem["item_type"] })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+    expect(screen.getByText("Purpose suggestion")).toBeTruthy();
+  });
+
+  it("schema-suggestion renders 'Schema suggestion' label (not grey fallback)", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("ss1", { item_type: "schema-suggestion" as ReviewItem["item_type"] })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+    expect(screen.getByText("Schema suggestion")).toBeTruthy();
+  });
+});
+
+// ─── R1: Item type icon renders with accessible label ─────────────────────────
+
+describe("ReviewQueueView — R1: item type icon accessibility", () => {
+  it("missing-page icon has accessible label 'Missing page' visible in DOM", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("icon1", { item_type: "missing-page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByText("Missing page")).toBeTruthy();
+    });
+    // aria-label on the icon wrapper
+    expect(screen.getByLabelText("Missing page")).toBeTruthy();
+  });
+
+  it(".syn-chip textContent includes the human-readable label (UXA-18 compat)", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("icon2", { item_type: "suggestion" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => {
+      expect(screen.getByTestId("review-item-row")).toBeTruthy();
+    });
+    const chips = document.querySelectorAll(".syn-chip");
+    const texts = Array.from(chips).map((c) => c.textContent ?? "");
+    expect(texts.some((t) => t.includes("Suggestion"))).toBe(true);
+  });
+});
+
 // ─── UXA-18: ItemTypeBadge normalises underscores to kebab-case ──────────────
 
 describe("ReviewQueueView — UXA-18: item_type normalisation", () => {
@@ -1270,7 +1517,9 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
     expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
   });
 
-  it("pending item still shows all four action buttons (unchanged)", async () => {
+  it("pending item (missing-page) shows Create/Skip/DeepResearch buttons + ✕ dismiss icon (R1-R3)", async () => {
+    // missing-page uses "Create", not "Approve" (R2).
+    // Dismiss is now the ✕ icon at top-right (R3), not a separate action button.
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("p1", { status: "pending" })],
       total: 1,
@@ -1284,10 +1533,13 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
       expect(screen.getByTestId("review-item-row")).toBeTruthy();
     });
 
-    // All four pending actions must be present
+    // "Create" action (missing-page type — NOT an approve type)
     expect(screen.getByTestId("review-action-create")).toBeTruthy();
+    // "Skip" action button
     expect(screen.getByTestId("review-action-skip")).toBeTruthy();
+    // "✕" dismiss icon button (R3 — same testid, now an icon at top-right)
     expect(screen.getByTestId("review-action-dismiss")).toBeTruthy();
+    // "Deep Research" action button
     expect(screen.getByTestId("review-action-deep-research")).toBeTruthy();
 
     // No resolution badge on pending

@@ -1958,7 +1958,8 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
          (I6 — never a hardcoded backend), wrapped in wait_for(overview_timeout_seconds) and
          bounded by the resolved row's token_budget / overview_token_budget (I7). Cost logged.
       3. OVERWRITE vault/wiki/overview.md with valid Obsidian frontmatter (type: overview,
-         title: <overview_title>) + the narrative body (I5).
+         title: <descriptive title extracted from the narrative H1, else overview_title>) +
+         the narrative body (I5).
       4. Index overview.md as a Page(type="overview") via the shared persist primitives so it
          surfaces in GET /pages and populates the nav "Overview" section (count 1).
 
@@ -2187,7 +2188,11 @@ async def _detect_vault_language() -> str | None:
 
 
 def _build_overview_instruction(
-    *, analysis: Analysis | None, existing_digest: str, lang: str | None = None
+    *,
+    analysis: Analysis | None,
+    existing_digest: str,
+    lang: str | None = None,
+    now_label: str | None = None,
 ) -> str:
     """
     Build the single overview-regeneration prompt (F3). Inputs: purpose.md (F2, if present),
@@ -2200,6 +2205,11 @@ def _build_overview_instruction(
     language of the purpose.md + existing pages provided below (covers the delegated route where
     analysis — hence lang — is None).
     """
+    # v1.3.14 (F3 parity): the overview TITLE is descriptive + LLM-generated (like llm_wiki),
+    # ending with the current period. Inject the real period so the model doesn't hallucinate a
+    # date; render it in the output language. `now_label` is injectable for deterministic tests.
+    if now_label is None:
+        now_label = datetime.now(UTC).strftime("%Y-%m")
     if lang:
         lang_name = _ISO_LANG_NAMES.get(lang.lower(), lang)
         lang_directive = (
@@ -2244,8 +2254,14 @@ def _build_overview_instruction(
         "`- [[Page]] — description`.\n"
         "  - Link generously to the existing pages below using their EXACT titles, but always "
         "embedded in the narrative. Favor readable flowing prose over enumeration.\n"
-        "Do NOT output YAML frontmatter, a top-level `#` title heading, or any preamble like "
-        "'Here is' — output ONLY the Markdown body (starting with the opening paragraph).\n\n"
+        "BEGIN with ONE top-level `# ` heading on the FIRST line: a DESCRIPTIVE title for the "
+        "whole wiki — its domain/subject plus a few words capturing its current thesis or angle, "
+        "ending with the current period in parentheses. "
+        f"The current period is {now_label}; render it as 'Month Year' IN THE OUTPUT LANGUAGE "
+        "(for an Italian wiki, e.g. '# Procurement Analytics Wiki — Visione Progettuale "
+        "Integrata (Luglio 2026)'). Put a blank line after the title, then the body.\n"
+        "Do NOT output YAML frontmatter or any preamble like 'Here is' — output the single `# ` "
+        "title line followed by ONLY the Markdown body.\n\n"
         f"# Wiki purpose\n{purpose_block}\n\n"
         f"# Existing pages (title [type])\n{existing_digest}\n\n"
         f"# Most recent ingest analysis\n{analysis_block}\n"
@@ -2273,17 +2289,45 @@ async def _overview_chat_collect(
     return "".join(chunks).strip()
 
 
+def _extract_overview_title(narrative: str) -> tuple[str, str]:
+    """
+    Pull a DESCRIPTIVE title out of the LLM overview narrative (v1.3.14, F3 parity with llm_wiki,
+    whose overview title reflects the wiki's domain/thesis rather than a static "Overview" label).
+
+    If the narrative starts with a single top-level `# ` heading, that heading text becomes the
+    title and is stripped from the body (the reader already renders the Page title, so keeping the
+    H1 would duplicate it). Otherwise — or if the heading is empty/absurdly long — fall back to
+    settings.overview_title so the behaviour stays degrade-safe and backward-compatible (a
+    body-only narrative, e.g. from an older prompt, still yields a valid page).
+
+    Returns (title, body).
+    """
+    fallback = str(getattr(settings, "overview_title", "Overview")) or "Overview"
+    lines = (narrative or "").lstrip().splitlines()
+    if not lines:
+        return fallback, narrative
+    heading = re.match(r"#\s+(.+?)\s*#*\s*$", lines[0])
+    if heading is None:
+        return fallback, narrative
+    candidate = re.sub(r"\s+", " ", heading.group(1)).strip().strip("*_ ").strip()
+    if not candidate or len(candidate) > 200:
+        return fallback, narrative
+    body = "\n".join(lines[1:]).lstrip("\n")
+    return candidate, body
+
+
 async def _write_and_index_overview(narrative: str) -> None:
     """
     OVERWRITE vault/wiki/overview.md with valid frontmatter (I5) + index it as a Page (I1).
 
-    Frontmatter: type: overview, title: <overview_title>. The file is rebuilt from scratch (full
+    Frontmatter: type: overview, title: <descriptive title from the narrative H1, else
+    overview_title> (v1.3.14, F3 parity). The file is rebuilt from scratch (full
     overwrite — F3 regeneration). Then a Page row is upserted via persist_metadata (key by
     (vault_id, file_path), hash over the exact file bytes) and embedded via upsert_vector so
     GET /pages returns it and the nav Overview section shows count 1.
     """
-    title = str(getattr(settings, "overview_title", "Overview")) or "Overview"
-    post = frontmatter.Post(narrative, type="overview", title=title)
+    title, body = _extract_overview_title(narrative)
+    post = frontmatter.Post(body, type="overview", title=title)
     serialized = frontmatter.dumps(post)
     file_text = serialized + "\n"
 

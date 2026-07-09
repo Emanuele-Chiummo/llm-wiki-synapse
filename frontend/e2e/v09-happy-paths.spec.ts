@@ -409,8 +409,9 @@ test.describe("GRAPH — canvas mounts; node count status; Rigenera button prese
     await navTo(page, "graph");
 
     await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 8_000 });
-    // Wait for the regenerate toolbar to appear.
-    const regenToolbar = page.getByTestId("graph-regenerate-toolbar");
+    // Wait for the graph toolbar to appear (v1.3.14 G1: the regenerate button now lives
+    // in the unified graph-header toolbar; the old graph-regenerate-toolbar wrapper was removed).
+    const regenToolbar = page.getByTestId("graph-header");
     await expect(regenToolbar).toBeVisible({ timeout: 15_000 });
 
     const regenBtn = page.getByTestId("graph-regenerate");

@@ -20,7 +20,12 @@ Bounds:
   - Returns HTTP 429 if a conversion is already in progress.
 """
 
-from __future__ import annotations
+# NOTE: deliberately NO `from __future__ import annotations` here. FastAPI resolves the
+# /convert route's parameter types (Request, UploadFile) from the endpoint's annotations. Those
+# types are imported LAZILY inside _build_app(), so PEP 563 stringized annotations would be
+# unresolvable by FastAPI's get_type_hints() → it would misclassify `file` as a QUERY param and
+# reject every real multipart upload with 422. Evaluating annotations eagerly (no __future__)
+# stores the real classes on the endpoint, which FastAPI recognizes correctly.
 
 import argparse
 import asyncio

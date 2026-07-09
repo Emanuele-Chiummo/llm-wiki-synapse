@@ -45,6 +45,7 @@ import {
   skipReviewItem,
   dismissReviewItem,
   deepResearchReviewItem,
+  resolveReviewItem,
   bulkReview,
   sweepReviewQueue,
   clearResolved,
@@ -83,9 +84,9 @@ interface ReviewState {
 
   /**
    * In-flight action state per item id.
-   * "create" replaces "approve" (ADR-0034 §7).
+   * "create" = lazy page generation; "approve" = acknowledge without creating (R2).
    */
-  actionInFlight: Record<string, "create" | "skip" | "dismiss" | "deep-research" | null>;
+  actionInFlight: Record<string, "create" | "approve" | "skip" | "dismiss" | "deep-research" | null>;
 
   /** Per-item action error (non-503). */
   actionError: Record<string, string | null>;
@@ -159,6 +160,14 @@ interface ReviewActions {
    * Distinct from skip: dismissed = "hide this, I'm not acting"; skipped = "considered and declined".
    */
   dismiss: (itemId: string) => Promise<void>;
+
+  /**
+   * Approve (acknowledge) an item — for confirm + contradiction types (R2).
+   * Calls POST /review/queue/bulk with action="mark-resolved" and a single id.
+   * Transitions item to auto_resolved (terminal). Does NOT create a page.
+   * On success, removes from pending list (optimistic).
+   */
+  approve: (itemId: string, vaultId: string) => Promise<void>;
 
   /**
    * Trigger deep research for an item. On success, removes from pending list and
@@ -386,6 +395,34 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     }
   },
 
+  // ── approve ────────────────────────────────────────────────────────────────
+  approve: async (itemId, vaultId) => {
+    set((s) => ({
+      actionInFlight: { ...s.actionInFlight, [itemId]: "approve" },
+      actionError: { ...s.actionError, [itemId]: null },
+      createGenerationError: { ...s.createGenerationError, [itemId]: null },
+    }));
+    try {
+      await resolveReviewItem(itemId, vaultId);
+      // Optimistic removal from pending list (resolved → auto_resolved terminal)
+      set((s) => ({
+        items: s.items.filter((i) => i.id !== itemId),
+        total: Math.max(0, s.total - 1),
+        actionInFlight: { ...s.actionInFlight, [itemId]: null },
+        selectedIds: (() => {
+          const next = new Set(s.selectedIds);
+          next.delete(itemId);
+          return next;
+        })(),
+      }));
+    } catch (err: unknown) {
+      set((s) => ({
+        actionInFlight: { ...s.actionInFlight, [itemId]: null },
+        actionError: { ...s.actionError, [itemId]: (err as Error).message },
+      }));
+    }
+  },
+
   // ── deepResearch ──────────────────────────────────────────────────────────
   deepResearch: async (itemId) => {
     set((s) => ({
@@ -567,7 +604,7 @@ export function selectIsSelected(id: string): (s: ReviewStore) => boolean {
 }
 export function selectReviewActionInFlight(
   s: ReviewStore,
-): Record<string, "create" | "skip" | "dismiss" | "deep-research" | null> {
+): Record<string, "create" | "approve" | "skip" | "dismiss" | "deep-research" | null> {
   return s.actionInFlight;
 }
 export function selectReviewActionError(
@@ -625,6 +662,9 @@ export function selectSkip(s: ReviewStore): ReviewActions["skip"] {
 }
 export function selectDismiss(s: ReviewStore): ReviewActions["dismiss"] {
   return s.dismiss;
+}
+export function selectApprove(s: ReviewStore): ReviewActions["approve"] {
+  return s.approve;
 }
 export function selectDeepResearch(
   s: ReviewStore,
@@ -701,7 +741,7 @@ export function useReviewItems(): ReviewItem[] {
 /** Hook: per-item actionInFlight map — shallow equality (I3). */
 export function useReviewActionInFlight(): Record<
   string,
-  "create" | "skip" | "dismiss" | "deep-research" | null
+  "create" | "approve" | "skip" | "dismiss" | "deep-research" | null
 > {
   return useReviewStore(useShallow(selectReviewActionInFlight));
 }

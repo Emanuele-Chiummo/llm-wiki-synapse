@@ -20,6 +20,7 @@ import {
   createReviewItem,
   skipReviewItem,
   dismissReviewItem,
+  resolveReviewItem,
   deepResearchReviewItem,
   bulkReview,
   sweepReviewQueue,
@@ -366,6 +367,37 @@ describe("reviewClient — bulkReview (ADR-0044 §6)", () => {
     await expect(
       bulkReview({ vault_id: "default", action: "dismiss", ids: ["a"] }),
     ).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+// ─── resolveReviewItem (R2) ───────────────────────────────────────────────────
+
+describe("reviewClient — resolveReviewItem (R2 Approve action)", () => {
+  it("calls POST /review/queue/bulk with action=mark-resolved and single id", async () => {
+    const bulkResp: ReviewBulkResponse = { updated: 1, skipped_terminal: 0 };
+    const fetchMock = mockFetch(bulkResp);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolveReviewItem("item-abc", "vault-xyz");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [
+      string,
+      { method: string; headers: Record<string, string>; body: string },
+    ];
+    expect(url).toContain("/review/queue/bulk");
+    expect(init.method).toBe("POST");
+    const body = JSON.parse(init.body) as { vault_id: string; action: string; ids: string[] };
+    expect(body.vault_id).toBe("vault-xyz");
+    expect(body.action).toBe("mark-resolved");
+    expect(body.ids).toEqual(["item-abc"]);
+    expect(result.updated).toBe(1);
+  });
+
+  it("throws ApiError on failure", async () => {
+    const fetchMock = mockFetch({ detail: "Item not found" }, 404);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(resolveReviewItem("missing", "vault")).rejects.toBeInstanceOf(ApiError);
   });
 });
 
