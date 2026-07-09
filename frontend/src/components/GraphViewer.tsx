@@ -2650,13 +2650,14 @@ export const GraphViewer: React.FC = () => {
 
   // ── insightCount — computed from current nodes/edges/communities (I3: memoized, not per-frame)
   // I3 / AC-F4-6: computeGraphInsights scans the whole graph (surprising connections +
-  // knowledge gaps) — running it in a render-time useMemo trips the >50ms main-thread
-  // long-task budget on graph load. Compute the toolbar badge count OFF the critical
-  // path, at idle time, and store it in state so the initial render stays long-task-free.
+  // knowledge gaps) — a >50ms main-thread task on large graphs. It MUST NOT run on the
+  // load/render critical path (it would trip the long-task budget). Compute the toolbar
+  // badge count lazily — only once the user opens the Insights panel — and even then at
+  // idle time. Before first open the badge shows no number; the initial graph render
+  // stays long-task-free.
   const [insightCount, setInsightCount] = useState(0);
   useEffect(() => {
-    if (nodes.length === 0) {
-      setInsightCount(0);
+    if (!showInsightsPanel || nodes.length === 0) {
       return;
     }
     let cancelled = false;
@@ -2678,7 +2679,7 @@ export const GraphViewer: React.FC = () => {
       if (typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(handle);
       else window.clearTimeout(handle);
     };
-  }, [nodes, edges, communities]);
+  }, [showInsightsPanel, nodes, edges, communities]);
 
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
