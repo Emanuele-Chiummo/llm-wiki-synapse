@@ -124,31 +124,26 @@ function readSigmaThemeColors(): SigmaThemeColors {
 // Color alone MUST NOT be the only differentiator (WCAG 1.4.1).
 // Redundant encoding: legend shows swatch + type NAME; tooltip also shows type text.
 //
-// LIGHT THEME: hex values exactly match --syn-type-* tokens in theme.css.
-// sigma.js cannot resolve CSS custom properties at canvas draw time, so concrete
-// hex strings are required here — this is the one documented exception to token-only usage.
-// If theme.css tokens change, update these values in sync.
-//   --syn-type-concept:    #8250df  (purple)
-//   --syn-type-entity:     #2563eb  (blue)
-//   --syn-type-source:     #e16f24  (orange)
-//   --syn-type-synthesis:  #cf222e  (red)
-//   --syn-type-comparison: #1a7f37  (green)
-//   --syn-type-query:      #16a34a  (green)
-//   --syn-type-overview:   #b8860b  (amber)
-//   --syn-type-other:      #6e7781
-//   DEFAULT (--syn-text-dim): #8b949e
+// Node type palette — aligned to llm_wiki 0.6.0 (Tailwind -400 shades), used for BOTH
+// themes exactly as the reference does. sigma.js cannot resolve CSS custom properties at
+// canvas draw time, so concrete hex strings are required here. These intentionally do NOT
+// track the --syn-type-* badge tokens (which stay tuned for text contrast in lint/wiki
+// badges); the GRAPH mirrors the reference palette. Redundant encoding (legend swatch +
+// type name + tooltip text) keeps it CVD-safe (WCAG 1.4.1).
+//   entity #60a5fa · concept #c084fc · source #fb923c · synthesis #f87171
+//   comparison #2dd4bf (teal) · query #4ade80 · overview #facc15 · other #94a3b8 (slate-400)
 
 const TYPE_COLORS: Record<string, string> = {
-  concept: "#8250df", // matches --syn-type-concept
-  entity: "#2563eb", // matches --syn-type-entity
-  source: "#e16f24", // matches --syn-type-source
-  synthesis: "#cf222e", // matches --syn-type-synthesis
-  comparison: "#1a7f37", // matches --syn-type-comparison
-  query: "#16a34a", // matches --syn-type-query
-  overview: "#b8860b", // matches --syn-type-overview
+  concept: "#c084fc", // purple-400 (llm_wiki parity)
+  entity: "#60a5fa", // blue-400
+  source: "#fb923c", // orange-400
+  synthesis: "#f87171", // red-400
+  comparison: "#2dd4bf", // teal-400
+  query: "#4ade80", // green-400
+  overview: "#facc15", // yellow-400
 };
 
-const DEFAULT_NODE_COLOR = "#6e7781"; // matches --syn-type-other
+const DEFAULT_NODE_COLOR = "#94a3b8"; // slate-400 (llm_wiki "other")
 
 function colorForType(type: string | null): string {
   if (type === null) return DEFAULT_NODE_COLOR;
@@ -2123,7 +2118,8 @@ export const GraphViewer: React.FC = () => {
             // Emphasis color follows the theme — darker on a light canvas,
             // LIGHTER on a dark canvas (a dark emphasis would vanish).
             const dark = document.documentElement.getAttribute("data-theme") === "dark";
-            res["color"] = dark ? "rgba(196,205,220,0.9)" : "rgba(89,99,110,0.85)";
+            // Active-edge highlight — cyan on dark, slate-800 on light (llm_wiki 0.6.0 parity)
+            res["color"] = dark ? "#38bdf8" : "#1e293b";
             res["size"] = ((data["size"] as number | undefined) ?? 1) * 2;
           }
         }
