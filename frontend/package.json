@@ -5,7 +5,9 @@
   "description": "Synapse — self-hosted LLM wiki workspace with knowledge graph and provider-selectable AI",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-changelog.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-changelog.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "cd .. && node frontend/node_modules/@tauri-apps/cli/tauri.js",

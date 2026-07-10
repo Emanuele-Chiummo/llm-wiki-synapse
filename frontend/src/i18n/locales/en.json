@@ -185,6 +185,7 @@
       "security2": "Security & access",
       "costs2": "Costs",
       "maintenance2": "Maintenance",
+      "changelog2": "Changelog",
       "about2": "About"
     },
     "llmModels": {
@@ -373,6 +374,18 @@
       "links": "Resources",
       "github": "Source code",
       "docs": "Documentation"
+    },
+    "changelog": {
+      "title": "Changelog",
+      "desc": "Release history and notable changes (Keep a Changelog format).",
+      "loading": "Loading changelog…",
+      "unavailable": "Changelog unavailable. Check the build output.",
+      "refresh": "Refresh",
+      "unreleased": "Unreleased",
+      "versions": "versions",
+      "emptyBody": "No content recorded for this version.",
+      "footer": "Showing the 10 most recent releases — full history in",
+      "footerLink": "CHANGELOG.md on GitHub Releases"
     },
     "webClipper": {
       "desc": "Configure the Chrome MV3 web clipper extension (F11). Clips are sent to this Synapse instance and auto-ingested via the watcher.",

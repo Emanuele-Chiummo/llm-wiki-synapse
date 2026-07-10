@@ -198,6 +198,12 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
 }));
 
+// ─── Mock SectionChangelog (avoids fetch('/CHANGELOG.md') in test env) ────────
+
+vi.mock("../components/settings/sections/SectionChangelog", () => ({
+  SectionChangelog: () => <div data-testid="section-changelog">Changelog section</div>,
+}));
+
 // ─── Mock OpsScheduleCard (A5 / R12-7) ───────────────────────────────────────
 
 vi.mock("../components/settings/OpsScheduleCard", () => ({
@@ -377,8 +383,8 @@ function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// All 18 page IDs in traversal order (must match ALL_PAGES in SettingsPanel.tsx)
-// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
+// All 19 page IDs in traversal order (must match ALL_PAGES in SettingsPanel.tsx)
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(4) = 19 total.
 const EXPECTED_PAGE_IDS = [
   "providers",
   "appearance",
@@ -397,23 +403,24 @@ const EXPECTED_PAGE_IDS = [
   "apiMcp",
   "costs",
   "maintenance",
+  "changelog",
   "about",
 ] as const;
 
-// ─── 1. All 18 page nav items render (A2.1 / ADR-0055) ──────────────────────
-// AC-R11-2-11 updated: 2-level nav, 18 page buttons, 5 non-clickable group headers.
-// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
+// ─── 1. All 19 page nav items render (A2.1 / ADR-0055) ──────────────────────
+// AC-R11-2-11 updated: 2-level nav, 19 page buttons, 5 non-clickable group headers.
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(4) = 19 total.
 
-describe("SettingsPanel — 18 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
+describe("SettingsPanel — 19 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
   beforeEach(() => {
     renderPanel();
   });
 
-  it("renders exactly 18 page buttons in the left nav aside (AC-R11-2-11)", () => {
+  it("renders exactly 19 page buttons in the left nav aside (AC-R11-2-11)", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(18);
+    expect(buttons).toHaveLength(19);
   });
 
   EXPECTED_PAGE_IDS.forEach((pageId) => {
@@ -637,10 +644,10 @@ describe("SettingsPanel — Add button disabled when model_id empty (architect C
 });
 
 // ─── 7. Arrow-key nav switches pages (ITEM 4 / DEFECT-M4H-005) ──────────────
-// ADR-0055: 18 pages total. Arrow keys skip group headers (only traverse page buttons).
+// ADR-0055: 19 pages total. Arrow keys skip group headers (only traverse page buttons).
 // NAV order (ALL_PAGES): providers(0) appearance(1) setup(2) sourceWatch(3) clipper(4) pdf(5)
 //   generation(6) scenarios(7) context(8) embeddings(9) webSearch(10) automation(11) limits(12)
-//   security(13) apiMcp(14) costs(15) maintenance(16) about(17)
+//   security(13) apiMcp(14) costs(15) maintenance(16) changelog(17) about(18)
 
 describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005 / ADR-0055)", () => {
   it("ArrowDown from 'providers' (index 0) moves to 'appearance' (index 1)", () => {
@@ -655,11 +662,11 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last, index 17) back to 'providers' (first, index 0)", () => {
+  it("ArrowDown cycles past 'about' (last, index 18) back to 'providers' (first, index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 17) — 17 ArrowDown presses from "providers"
-    for (let i = 0; i < 17; i++) {
+    // Navigate to "about" (index 18) — 18 ArrowDown presses from "providers"
+    for (let i = 0; i < 18; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -791,6 +798,37 @@ describe("SettingsPanel — About section", () => {
     const btn = document.querySelector('[data-settings-section="about"]');
     fireEvent.click(btn!);
     expect(screen.getByText(`v${__APP_VERSION__}`)).toBeTruthy();
+  });
+});
+
+// ─── 10b. Changelog section renders mocked section (ADR-0055) ────────────────
+// SectionChangelog is on page "changelog" (SISTEMA group, before "about").
+// SectionChangelog is mocked above to avoid fetch('/CHANGELOG.md') in the test env.
+
+describe("SettingsPanel — Changelog section (ADR-0055)", () => {
+  it("changelog nav button is present with correct data-testid", () => {
+    renderPanel();
+    expect(document.querySelector('[data-testid="settings-nav-changelog"]')).not.toBeNull();
+    expect(document.querySelector('[data-settings-section="changelog"]')).not.toBeNull();
+  });
+
+  it("clicking changelog nav button renders the changelog section", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="changelog"]');
+    fireEvent.click(btn!);
+    expect(screen.getByTestId("section-changelog")).toBeTruthy();
+  });
+
+  it("changelog button is between maintenance and about in the SISTEMA group", () => {
+    renderPanel();
+    const aside = document.querySelector("aside")!;
+    const buttons = Array.from(aside.querySelectorAll("button"));
+    const maintIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "maintenance");
+    const clIdx    = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "changelog");
+    const aboutIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "about");
+    expect(maintIdx).toBeGreaterThanOrEqual(0);
+    expect(clIdx).toBeGreaterThan(maintIdx);
+    expect(aboutIdx).toBeGreaterThan(clIdx);
   });
 });
 
