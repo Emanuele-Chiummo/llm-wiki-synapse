@@ -228,3 +228,75 @@ async def test_create_rejects_relative_and_empty_name(
         empty = await c.post("/projects", json={"name": "  ", "path": str(tmp_path / "z")})
     assert rel.status_code == 400
     assert empty.status_code == 400
+
+
+# ── POST /projects/{id}/activate — runtime switch (slice 3) ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_activate_updates_registry_and_calls_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """activate records active_id in the registry and invokes the runtime switch."""
+    _seed_env(tmp_path, monkeypatch)
+    (tmp_path / "va").mkdir()
+    (tmp_path / "vb").mkdir()
+
+    called: list[str] = []
+
+    async def _spy(project: Any) -> None:  # noqa: ANN401
+        called.append(project.id)
+
+    from app import projects as proj_mod
+
+    monkeypatch.setattr(proj_mod, "_apply_active_vault", _spy)
+
+    async with _client() as c:
+        a = (await c.post("/projects/open", json={"path": str(tmp_path / "va")})).json()
+        b = (await c.post("/projects/open", json={"path": str(tmp_path / "vb")})).json()
+        resp = await c.post(f"/projects/{b['id']}/activate")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["project"]["id"] == b["id"]
+        listed = (await c.get("/projects")).json()
+
+    assert listed["active_id"] == b["id"]
+    assert called == [b["id"]]
+    # 'a' still present, just not active
+    assert a["id"] in {p["id"] for p in listed["projects"]}
+
+
+@pytest.mark.asyncio
+async def test_activate_unknown_is_404(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed_env(tmp_path, monkeypatch)
+    async with _client() as c:
+        resp = await c.post("/projects/does-not-exist/activate")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_apply_active_vault_mutates_settings_and_bumps_epoch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The runtime helper re-points settings and bumps the epoch (side effects stubbed)."""
+    from app import projects as proj_mod
+    from app.config import settings
+
+    # Stub the risky side effects so the unit test touches no watcher/DB.
+    monkeypatch.setattr("app.watcher.stop_watcher", lambda: None)
+    monkeypatch.setattr("app.watcher.start_watcher", lambda _loop: None)
+
+    async def _noop_seed() -> None:
+        return None
+
+    monkeypatch.setattr("app.main._seed_vault_state", _noop_seed)
+    monkeypatch.setattr("app.main._graph_cache", None, raising=False)
+
+    before = proj_mod.active_vault_epoch()
+    project = proj_mod.Project(
+        id="switched", name="Switched", path="/tmp/switched", created_at="2026-01-01T00:00:00+00:00"
+    )
+    await proj_mod._apply_active_vault(project)
+
+    assert settings.vault_id == "switched"
+    assert settings.vault_path == "/tmp/switched"
+    assert proj_mod.active_vault_epoch() == before + 1
