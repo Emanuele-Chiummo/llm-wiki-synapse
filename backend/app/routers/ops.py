@@ -341,6 +341,113 @@ async def get_synthesize_status() -> SynthesizeStatusResponse:
     )
 
 
+# ── POST/GET /ops/backfill-related — ADR-0067 D2 related: + slug-link conversion ──
+# Brings EXISTING wiki pages up to ADR-0067 D2 conventions (P2-1 related: backfill and
+# P2-2 title→slug link rewrite) WITHOUT re-ingesting. Zero LLM cost; DRY-RUN by default.
+# Background asyncio task + 202, single-flight (409 while running). Strong task reference
+# kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_backfill_related_tasks: set[asyncio.Task[Any]] = set()
+
+
+class BackfillRelatedRequest(BaseModel):
+    """Request body for POST /ops/backfill-related (ADR-0067 D2 P2-1+P2-2)."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on wiki pages scanned per run (clamped server-side, I7).",
+    )
+    apply: bool = Field(
+        default=False,
+        description=(
+            "False (default) = dry-run only — returns planned counts + samples with no file "
+            "writes. True = perform actual writes + incremental re-index + data_version bump."
+        ),
+    )
+
+
+class BackfillRelatedStartResponse(BaseModel):
+    """202 response for POST /ops/backfill-related."""
+
+    status: str = Field(default="started", description="'started' — backfill runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    apply: bool = Field(description="Whether file writes are performed (False = dry-run)")
+
+
+class BackfillRelatedStatusResponse(BaseModel):
+    """GET /ops/backfill-related — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a backfill-related run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Summary of the most recent completed run (null if never ran). "
+            "Includes 'samples' (first 5 changed pages) in dry-run mode."
+        ),
+    )
+
+
+@router.post(
+    "/ops/backfill-related",
+    status_code=202,
+    response_model=BackfillRelatedStartResponse,
+    responses={409: {"description": "A backfill-related run is already in flight"}},
+)
+async def start_backfill_related(
+    body: BackfillRelatedRequest,
+) -> BackfillRelatedStartResponse:
+    """
+    Start ONE bounded ADR-0067 D2 backfill pass (apply=False → dry-run) [P2-1,P2-2,I1,I7].
+
+    Brings existing wiki pages up to D2 conventions:
+      P2-1 — sets/replaces ``related:`` from resolved outbound wikilinks (cap 8, slugs only).
+      P2-2 — rewrites ``[[Title]]`` / ``[[Title|alias]]`` to ``[[slug|Title]]`` /
+              ``[[slug|alias]]`` in page bodies (rendering unchanged).
+
+    Zero LLM cost.  Dry-run by default; pass ``apply=true`` to commit changes.
+    """
+    from app.ops import backfill_related as _br  # noqa: PLC0415
+
+    if _br.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A backfill-related run is already in flight. " "Poll GET /ops/backfill-related."
+            ),
+        )
+
+    mp = _br.clamp_bounds(body.max_pages)
+
+    async def _run() -> None:
+        try:
+            await _br.run_backfill_related(
+                vault_id=settings.vault_id,
+                apply=body.apply,
+                max_pages=body.max_pages,
+            )
+        except Exception as exc:  # noqa: BLE001 — run_backfill_related never raises; belt+braces
+            logger.error("backfill-related: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _backfill_related_tasks.add(task)
+    task.add_done_callback(_backfill_related_tasks.discard)
+
+    return BackfillRelatedStartResponse(status="started", max_pages=mp, apply=body.apply)
+
+
+@router.get("/ops/backfill-related", response_model=BackfillRelatedStatusResponse)
+async def get_backfill_related_status() -> BackfillRelatedStatusResponse:
+    """Single-flight state + last summary of the ADR-0067 D2 backfill [P2-1,P2-2,I1]."""
+    from app.ops import backfill_related as _br  # noqa: PLC0415
+
+    last = _br.get_last_summary()
+    return BackfillRelatedStatusResponse(
+        running=_br.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
 # ── POST/GET /ops/reconcile-folders — bounded folder-vs-type reconcile sweep ──
 # Physically moves wiki pages whose filesystem folder does not match the folder
 # implied by their ``type`` (e.g. an entity living under concepts/ → entities/).
