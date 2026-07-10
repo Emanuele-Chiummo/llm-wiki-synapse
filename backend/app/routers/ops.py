@@ -244,6 +244,103 @@ async def get_reclassify_types_status() -> ReclassifyTypesStatusResponse:
     )
 
 
+# ── POST/GET /ops/synthesize — bounded corpus-level synthesis/comparison generator ──
+# ADR-0067 D3 / audit P0-3: seeds candidate clusters from the 4-signal graph, then AUTO-WRITES a
+# synthesis (thesis+integration) / comparison (table) page per high-confidence cluster and
+# PROPOSES borderline clusters to the F9 review queue. Background asyncio task + 202, single-flight
+# (409 while running). No dormant-400 — it runs whenever called (no-provider vault → clean no-op).
+# Strong task reference kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_synthesize_tasks: set[asyncio.Task[Any]] = set()
+
+
+class SynthesizeRequest(BaseModel):
+    """Request body for POST /ops/synthesize (ADR-0067 D3)."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on pages auto-written this run (synthesis+comparison; clamped).",
+    )
+    token_budget: int | None = Field(
+        default=None, ge=1, description="Token budget for the run (clamped server-side, I7)."
+    )
+    force: bool = Field(
+        default=False,
+        description="Accepted for endpoint-shape parity; the seeder is already a full re-seed.",
+    )
+
+
+class SynthesizeStartResponse(BaseModel):
+    """202 response for POST /ops/synthesize."""
+
+    status: str = Field(default="started", description="'started' — synthesize runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    token_budget: int = Field(description="Effective (clamped) token budget for this run")
+    force: bool = Field(description="Echo of the force flag")
+
+
+class SynthesizeStatusResponse(BaseModel):
+    """GET /ops/synthesize — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a synthesize run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None, description="Summary of the most recent completed run (null if never ran)"
+    )
+
+
+@router.post(
+    "/ops/synthesize",
+    status_code=202,
+    response_model=SynthesizeStartResponse,
+    responses={409: {"description": "A synthesize run is already in flight"}},
+)
+async def start_synthesize(body: SynthesizeRequest) -> SynthesizeStartResponse:
+    """Start ONE bounded corpus-level synthesis/comparison pass (ADR-0067 D3, P0-3, I6/I7)."""
+    from app.ops import synthesize as _sy
+
+    if _sy.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A synthesize run is already running. Poll GET /ops/synthesize.",
+        )
+
+    mp, tb = _sy.clamp_bounds(body.max_pages, body.token_budget)
+
+    async def _run() -> None:
+        try:
+            await _sy.run_synthesize(
+                vault_id=settings.vault_id,
+                max_pages=body.max_pages,
+                token_budget=body.token_budget,
+                force=body.force,
+            )
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 — run_synthesize never raises by contract; belt+braces
+            logger.error("synthesize: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _synthesize_tasks.add(task)
+    task.add_done_callback(_synthesize_tasks.discard)
+
+    return SynthesizeStartResponse(
+        status="started", max_pages=mp, token_budget=tb, force=body.force
+    )
+
+
+@router.get("/ops/synthesize", response_model=SynthesizeStatusResponse)
+async def get_synthesize_status() -> SynthesizeStatusResponse:
+    """Single-flight state + last summary of the corpus synthesize pass (ADR-0067 D3)."""
+    from app.ops import synthesize as _sy
+
+    last = _sy.get_last_summary()
+    return SynthesizeStatusResponse(
+        running=_sy.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
 # ── GET /ops/schedules + POST /ops/schedules/{op}/run-now (R12-7/A5) ─────────
 # OpsScheduler status + manual trigger. Schedule FREQUENCIES are set via the existing
 # PUT /config/app/{key} (S10 lint_schedule / S11 backfill_schedule — no new write endpoint).
