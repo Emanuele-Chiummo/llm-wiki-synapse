@@ -599,6 +599,9 @@ def _build_app_config_response() -> AppConfigListResponse:
         # S19/S20: Image Captioning (v1.5 P3-a) — env-var baseline from settings.
         "vision_captions_enabled": str(settings.vision_captions_enabled).lower(),
         "vision_max_images_per_run": str(settings.vision_max_images_per_run),
+        # S21/S22: MinerU cloud PDF (v1.5 P3-d, ADR-0069) — non-secret keys only.
+        "mineru_api_url": settings.mineru_api_url,
+        "mineru_timeout_seconds": str(settings.mineru_timeout_seconds),
     }
 
     result: list[AppConfigSetting] = []

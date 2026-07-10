@@ -1289,7 +1289,9 @@
       "label": "Estrattore PDF",
       "help": "Scegli quale motore estrae il testo dai file PDF durante l'importazione.",
       "optionPypdf": "pypdf (integrato, nessun servizio esterno richiesto)",
-      "optionMarker": "Marker (qualità superiore, richiede il microservizio Marker)"
+      "optionMarker": "Marker (qualità superiore, richiede il microservizio Marker)",
+      "optionMineru": "MinerU (cloud, qualità massima — carica il PDF su un servizio esterno)",
+      "mineruCloudWarning": "⚠️ Provider cloud: selezionando MinerU il contenuto del PDF viene caricato su un servizio esterno. Resta disattivo finché MINERU_API_KEY non è impostata nell'ambiente; in caso di errore ripiega sull'estrattore integrato pypdf."
     },
     "markerServiceUrl": {
       "label": "URL servizio Marker",
@@ -1379,6 +1381,16 @@
       "wizardComingSoon": "Prossimamente",
       "wizardOpen": "Apri configurazione guidata",
       "wizardReopen": "Riapri configurazione guidata"
+    },
+    "mineruApiUrl": {
+      "label": "URL API MinerU",
+      "help": "URL base dell'API cloud MinerU. Usato solo quando l'estrattore PDF è impostato su MinerU. La chiave API si imposta separatamente con la variabile d'ambiente MINERU_API_KEY (mai salvata qui).",
+      "placeholder": "https://mineru.net/api/v4"
+    },
+    "mineruTimeoutSeconds": {
+      "label": "Timeout MinerU (s)",
+      "help": "Secondi di attesa per l'API cloud MinerU prima del timeout. Deve essere tra 1 e 3600.",
+      "placeholder": "600"
     }
   },
   "wizard": {

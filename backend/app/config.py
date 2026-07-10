@@ -722,6 +722,31 @@ class Settings(BaseSettings):
     Env var: MARKER_MAX_UPLOAD_BYTES.
     """
 
+    # ── P3-d: MinerU cloud PDF extractor (ADR-0066/ADR-0069, opt-in, off by default) ──
+
+    mineru_api_url: str = "https://mineru.net/api/v4"
+    """
+    Base URL of the MinerU CLOUD PDF extraction API (ADR-0069, v1.5 P3-d).
+    Used only when PDF_EXTRACTOR=mineru. ⚠️ CLOUD PROVIDER (I9): selecting mineru uploads the
+    raw PDF bytes to an external service. Opt-in, OFF by default (pypdf is the default). On any
+    failure (no API key, non-2xx, timeout) extract.py falls back to pypdf unconditionally.
+    Env var: MINERU_API_URL.
+    """
+
+    mineru_api_key: str = ""
+    """
+    MinerU cloud API token (ADR-0069, v1.5 P3-d). SECRET — env-only; NEVER exposed through the
+    PUT /config/app/{key} surface (config_overrides §2.4). Empty → mineru extraction is a no-op
+    that falls back to pypdf (the toggle can be selected in the UI, but nothing is uploaded until
+    the operator sets this key in the environment). Env var: MINERU_API_KEY.
+    """
+
+    mineru_timeout_seconds: float = 600.0
+    """
+    HTTP timeout (seconds) for the MinerU cloud call (ADR-0069, I7). Default 600 s. On timeout
+    extract.py falls back to pypdf (unconditional). Env var: MINERU_TIMEOUT_SECONDS.
+    """
+
     # ── R8-2: Vision captions for images (F12 / F17) ─────────────────────────────
 
     vision_captions_enabled: bool = False

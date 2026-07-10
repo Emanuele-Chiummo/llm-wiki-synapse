@@ -235,7 +235,7 @@ async def test_get_config_app_all_env_sources() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    assert len(settings_list) == 20  # S1..S20 (S19/S20 = Image Captioning, v1.5 P3-a)
+    assert len(settings_list) == 22  # S1..S22 (S21/S22 = MinerU cloud PDF, v1.5 P3-d)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
@@ -534,7 +534,7 @@ def test_validate_vision_keys() -> None:
 
     assert "vision_captions_enabled" in ALLOWED_CONFIG_KEYS
     assert "vision_max_images_per_run" in ALLOWED_CONFIG_KEYS
-    assert ORDERED_KEYS[-2:] == ["vision_captions_enabled", "vision_max_images_per_run"]
+    assert ORDERED_KEYS[-2:] == ["mineru_api_url", "mineru_timeout_seconds"]
 
     # bool toggle
     assert validate_value("vision_captions_enabled", "true") is None

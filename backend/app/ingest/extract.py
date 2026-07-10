@@ -194,6 +194,92 @@ def _extract_pdf_via_marker(path: Path) -> str | None:
         return None
 
 
+def _get_mineru_settings() -> tuple[str, str, float]:
+    """Return (effective_mineru_api_url, mineru_api_key, effective_mineru_timeout_seconds).
+
+    P3-d (ADR-0069): api_url + timeout come through config_overrides (runtime-tunable, non-secret);
+    the api_key is a SECRET read from env only (settings.mineru_api_key) — never overridable via
+    PUT /config/app (config_overrides §2.4).
+    """
+    try:
+        from app.config import settings  # noqa: PLC0415
+        from app.config_overrides import effective_float, effective_str  # noqa: PLC0415
+
+        url = str(effective_str("mineru_api_url", settings.mineru_api_url) or "")
+        key = str(getattr(settings, "mineru_api_key", "") or "")
+        timeout = effective_float("mineru_timeout_seconds", settings.mineru_timeout_seconds)
+        return url, key, timeout
+    except Exception:  # noqa: BLE001
+        return "", "", 600.0
+
+
+def _extract_pdf_via_mineru(path: Path) -> str | None:
+    """
+    Call the MinerU CLOUD API to extract PDF text (P3-d / ADR-0069).
+
+    ⚠️ CLOUD PROVIDER (I9): this uploads the raw PDF bytes to an external service. It runs ONLY
+    when PDF_EXTRACTOR=mineru (opt-in, off by default). Like the Marker path, on ANY failure
+    (missing API key, non-2xx, timeout, invalid/empty body) it logs a WARNING and returns None —
+    the caller falls back to pypdf unconditionally, so PDF ingest never breaks.
+
+    NOTE: MinerU's public v4 API is task-based (submit → poll). This adapter implements the
+    submit-and-read contract defensively; the exact endpoint/response shape MUST be validated
+    against a live MINERU_API_KEY before relying on cloud extraction. Until a key is set the
+    branch is a guaranteed no-op fallback (nothing is uploaded).
+    """
+    import httpx  # noqa: PLC0415 — short-lived client; httpx is a backend dependency
+
+    api_url, api_key, timeout = _get_mineru_settings()
+    if not api_key:
+        logger.warning(
+            "extract_pdf_via_mineru: MINERU_API_KEY is not set — nothing uploaded, "
+            "falling back to pypdf for %s (I9: cloud extraction stays off until a key is provided)",
+            path.name,
+        )
+        return None
+
+    extract_url = f"{api_url.rstrip('/')}/extract"
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = client.post(
+                extract_url,
+                headers={"Authorization": f"Bearer {api_key}"},
+                files={"file": (path.name, path.read_bytes(), "application/pdf")},
+            )
+        if response.status_code // 100 != 2:
+            logger.warning(
+                "extract_pdf_via_mineru: non-2xx %d from %s for %s — falling back to pypdf",
+                response.status_code,
+                extract_url,
+                path.name,
+            )
+            return None
+        data = response.json()
+        markdown = data.get("markdown") or data.get("md") or data.get("content")
+        if not isinstance(markdown, str) or not markdown:
+            logger.warning(
+                "extract_pdf_via_mineru: invalid/empty markdown in response from %s for %s "
+                "— falling back to pypdf",
+                extract_url,
+                path.name,
+            )
+            return None
+        logger.info(
+            "extract_pdf_via_mineru: extracted %d chars from %s via MinerU cloud",
+            len(markdown),
+            path.name,
+        )
+        return markdown
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "extract_pdf_via_mineru: call to %s failed for %s: %s — falling back to pypdf",
+            extract_url,
+            path.name,
+            exc,
+        )
+        return None
+
+
 def extract_text(file_path: str | Path) -> str:
     """
     Dispatch on the lower-cased file extension and return extracted plain text (ADR-0025 §4.1).
@@ -211,10 +297,15 @@ def extract_text(file_path: str | Path) -> str:
     max_chars = _extract_max_chars()
 
     if suffix == ".pdf":
-        # R8-1 / ADR-0051: dispatch to Marker when configured; unconditional pypdf fallback
-        if _get_pdf_extractor() == "marker":
+        # R8-1 / ADR-0051 + P3-d / ADR-0069: dispatch to the configured PDF extractor.
+        # Both marker (local microservice) and mineru (cloud) fall back to pypdf on any failure.
+        extractor = _get_pdf_extractor()
+        if extractor == "marker":
             marker_result = _extract_pdf_via_marker(path)
             text = marker_result if marker_result is not None else _extract_pdf(path)
+        elif extractor == "mineru":
+            mineru_result = _extract_pdf_via_mineru(path)
+            text = mineru_result if mineru_result is not None else _extract_pdf(path)
         else:
             text = _extract_pdf(path)
     elif suffix == ".docx":
@@ -622,11 +713,10 @@ def _extract_odp(path: Path) -> str:
         parts: list[str] = []
         for tb in page.getElementsByType(odf_draw.TextBox):
             for para in tb.getElementsByType(P):
+                # skip an unreadable paragraph, keep the rest
                 try:
                     text = extractText(para).strip()
-                except (
-                    Exception
-                ):  # noqa: BLE001, S112 — skip an unreadable paragraph, keep the rest
+                except Exception:  # noqa: BLE001, S112
                     continue
                 if text:
                     parts.append(text)

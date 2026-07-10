@@ -70,7 +70,10 @@ export type AppConfigKey =
   | "lint_token_budget"
   // S19/S20: Image Captioning (v1.5 P3-a)
   | "vision_captions_enabled"
-  | "vision_max_images_per_run";
+  | "vision_max_images_per_run"
+  // S21/S22: MinerU cloud PDF (v1.5 P3-d)
+  | "mineru_api_url"
+  | "mineru_timeout_seconds";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 
