@@ -37,6 +37,7 @@ import { SearchView } from "./search/SearchView";
 import { SourcesView } from "./sources/SourcesView";
 import { ConvertPanel } from "./convert/ConvertPanel";
 import { HomeDashboard } from "./home/HomeDashboard";
+import { ProjectLauncher } from "./projects/ProjectLauncher";
 
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
@@ -168,6 +169,17 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
         data-testid="section-convert"
       >
         <ConvertPanel />
+      </div>
+    );
+  }
+
+  if (activeSection === "projects") {
+    return (
+      <div
+        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-projects"
+      >
+        <ProjectLauncher />
       </div>
     );
   }

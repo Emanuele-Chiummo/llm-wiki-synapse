@@ -15,6 +15,7 @@
     "toolsGroup": "Strumenti",
     "convert": "Converti",
     "settings": "Opzioni",
+    "projects": "Progetti",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
     "comingSoon": "Prossimamente",
@@ -1177,6 +1178,21 @@
     "edit": "Modifica",
     "save": "Salva",
     "cancel": "Annulla"
+  },
+  "launcher": {
+    "title": "Progetti",
+    "subtitle": "Apri, crea o passa da un vault Synapse all'altro. Ogni progetto è una cartella-vault.",
+    "newTitle": "Nuovo progetto",
+    "namePlaceholder": "Nome del progetto",
+    "pathPlaceholder": "Percorso assoluto della cartella-vault (lato server)",
+    "create": "Crea",
+    "openTitle": "Apri esistente",
+    "open": "Apri",
+    "recent": "PROGETTI RECENTI",
+    "empty": "Nessun progetto ancora.",
+    "active": "Attivo",
+    "switch": "Passa",
+    "switching": "Passaggio…"
   },
   "meta": {
     "vaultSection": "Vault",

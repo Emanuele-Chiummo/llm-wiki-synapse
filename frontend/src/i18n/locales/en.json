@@ -15,6 +15,7 @@
     "toolsGroup": "Tools",
     "convert": "Convert",
     "settings": "Settings",
+    "projects": "Projects",
     "settingsShort": "Settings",
     "chatComingSoon": "Phase 3",
     "comingSoon": "Coming soon",
@@ -1177,6 +1178,21 @@
     "edit": "Edit",
     "save": "Save",
     "cancel": "Cancel"
+  },
+  "launcher": {
+    "title": "Projects",
+    "subtitle": "Open, create or switch between Synapse vaults. Each project is a vault folder.",
+    "newTitle": "New project",
+    "namePlaceholder": "Project name",
+    "pathPlaceholder": "Absolute vault folder path (server-side)",
+    "create": "Create",
+    "openTitle": "Open existing",
+    "open": "Open",
+    "recent": "RECENT PROJECTS",
+    "empty": "No projects yet.",
+    "active": "Active",
+    "switch": "Switch",
+    "switching": "Switching…"
   },
   "meta": {
     "vaultSection": "Vault",

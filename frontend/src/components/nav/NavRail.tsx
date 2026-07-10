@@ -45,6 +45,7 @@ import {
   Settings,
   Activity,
   FileDown,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
 import type { Section } from "../../store/graphStore";
@@ -92,6 +93,8 @@ const M5_ITEMS: RailItem[] = [
 
 const BOTTOM_ITEMS: RailItem[] = [
   { id: "settings", icon: <Settings size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.settings" },
+  // v1.5 P2: multi-vault Project Launcher (⇄), very bottom — llm_wiki parity.
+  { id: "projects", icon: <ArrowLeftRight size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.projects" },
 ];
 
 // ─── Logo removed (R11-3) ────────────────────────────────────────────────────
