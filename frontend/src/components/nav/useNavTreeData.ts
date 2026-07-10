@@ -169,27 +169,42 @@ export function flattenTree(
 // ─── Filter helpers (exported for unit tests) ─────────────────────────────────
 
 /**
+ * Reserved vault-level meta pages that must ALWAYS remain visible in the tree,
+ * regardless of any active domain/group filter (owner requirement: "Overview deve
+ * essere sempre visibile"). These are the vault front-page + auto-generated
+ * catalogue/history — they have no domain/community and are relevant in every view.
+ */
+const ALWAYS_VISIBLE_TYPES = new Set<string>(["overview", "index", "log"]);
+
+function isAlwaysVisible(p: PageListItem): boolean {
+  return ALWAYS_VISIBLE_TYPES.has(p.type ?? "");
+}
+
+/**
  * Filter a flat page list to those matching a vocabulary domain.
  * A page matches when its `domain` field equals `domainFilter`.
- * Pages with domain == null or undefined are excluded.
+ * Pages with domain == null or undefined are excluded — EXCEPT the reserved meta
+ * pages (overview/index/log), which are always kept so the vault front page never
+ * disappears behind a filter.
  */
 export function filterPagesByDomain(
   pages: PageListItem[],
   domainFilter: string,
 ): PageListItem[] {
-  return pages.filter((p) => p.domain === domainFilter);
+  return pages.filter((p) => isAlwaysVisible(p) || p.domain === domainFilter);
 }
 
 /**
  * Filter a flat page list to those belonging to a Louvain community.
  * A page matches when its `community` field equals `communityId`.
- * Pages with community == null or undefined are excluded.
+ * Pages with community == null or undefined are excluded — EXCEPT the reserved meta
+ * pages (overview/index/log), which are always kept.
  */
 export function filterPagesByCommunity(
   pages: PageListItem[],
   communityId: number,
 ): PageListItem[] {
-  return pages.filter((p) => p.community === communityId);
+  return pages.filter((p) => isAlwaysVisible(p) || p.community === communityId);
 }
 
 // ─── Filter state (localStorage-backed) ───────────────────────────────────────

@@ -361,6 +361,23 @@ describe("filterPagesByDomain", () => {
     expect(ids).toContain("p1");
     expect(ids).toContain("p4");
   });
+
+  it("always keeps overview/index/log meta pages regardless of domain (owner: overview always visible)", () => {
+    const meta: PageListItem[] = [
+      makePage("ov", "overview", "Overview", { domain: null }),
+      makePage("ix", "index", "Index", { domain: null }),
+      makePage("lg", "log", "Log", { domain: null }),
+    ];
+    const ids = filterPagesByDomain([...DOMAIN_PAGES, ...meta], "SAM").map((p) => p.id);
+    // meta pages survive any domain filter…
+    expect(ids).toContain("ov");
+    expect(ids).toContain("ix");
+    expect(ids).toContain("lg");
+    // …while the rest is still filtered normally
+    expect(ids).toContain("p1"); // SAM
+    expect(ids).not.toContain("p2"); // Procurement
+    expect(ids).not.toContain("p3"); // untagged non-meta
+  });
 });
 
 // ─── filterPagesByCommunity ───────────────────────────────────────────────────
@@ -392,6 +409,18 @@ describe("filterPagesByCommunity", () => {
   it("excludes pages with community=undefined (absent field)", () => {
     const result = filterPagesByCommunity(COMMUNITY_PAGES, 3);
     expect(result.map((p) => p.id)).not.toContain("q5");
+  });
+
+  it("always keeps overview/index/log meta pages regardless of community", () => {
+    const meta: PageListItem[] = [
+      makePage("ov", "overview", "Overview", { community: null }),
+      makePage("ix", "index", "Index", { community: 999 }),
+    ];
+    const ids = filterPagesByCommunity([...COMMUNITY_PAGES, ...meta], 3).map((p) => p.id);
+    expect(ids).toContain("ov"); // meta survives even with community=null
+    expect(ids).toContain("ix"); // meta survives even with a non-matching community
+    expect(ids).toContain("q1"); // community 3 still matches
+    expect(ids).not.toContain("q2"); // community 5 still excluded
   });
 
   it("community=0 is a valid filter value (not falsy-excluded)", () => {
