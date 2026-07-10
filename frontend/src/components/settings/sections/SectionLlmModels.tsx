@@ -790,11 +790,16 @@ export function SectionLlmModels() {
 
   useEffect(() => {
     const ac = new AbortController();
-    if (vendors.length === 0 && !vendorsLoading) {
+    // Fetch the vendor catalog once on mount. Read the live store (getState) instead of the
+    // render-time `vendors`/`vendorsLoading` closure and keep them OUT of the deps: depending
+    // on `vendorsLoading` made this effect re-run when fetchVendorCatalog flips it to true, so
+    // the cleanup aborted the very request it had started — an ERR_ABORTED loop that left the
+    // catalog stuck on "loading". (Caught by live preview; unit tests mock the store.)
+    if (useProviderStore.getState().vendors.length === 0) {
       void fetchVendorCatalog(ac.signal);
     }
     return () => ac.abort();
-  }, [vendors.length, vendorsLoading, fetchVendorCatalog]);
+  }, [fetchVendorCatalog]);
 
   useEffect(() => {
     const ac = new AbortController();
