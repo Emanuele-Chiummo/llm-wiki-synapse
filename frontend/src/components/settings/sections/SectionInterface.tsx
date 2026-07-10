@@ -1,20 +1,22 @@
 /**
  * SectionInterface.tsx — display preferences / theme (ADR-0048).
  * Extracted from SettingsPanel monolith (ADR-0055).
+ *
+ * Changes write to the DRAFT layer; the SettingsSaveFooter commits on Save (F16).
  */
 import { useTranslation } from "react-i18next";
 import { SectionHeader, Field } from "../ui";
 import {
   useSettingsStore,
-  selectTheme,
-  selectSetTheme,
+  selectDraftTheme,
+  selectSetDraftTheme,
   type Theme,
 } from "../../../store/settingsStore";
 
 export function SectionInterface() {
   const { t } = useTranslation();
-  const theme = useSettingsStore(selectTheme);
-  const setTheme = useSettingsStore(selectSetTheme);
+  const draftTheme = useSettingsStore(selectDraftTheme);
+  const setDraftTheme = useSettingsStore(selectSetDraftTheme);
 
   // LLM Wiki order: Light · Dark · System.
   const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
@@ -28,15 +30,15 @@ export function SectionInterface() {
       <SectionHeader title={t("settings.nav.interface")} desc={t("settings.interface.desc")} />
 
       <Field label={t("settings.theme.label")}>
-        {/* Segmented control — selected = filled dark (LLM Wiki), help BELOW the buttons */}
+        {/* Segmented control — selected = brand accent (never black), help BELOW the buttons */}
         <div style={{ display: "flex", gap: 6 }}>
           {THEME_OPTIONS.map(({ value, labelKey }) => {
-            const on = theme === value;
+            const on = draftTheme === value;
             return (
               <button
                 key={value}
                 data-testid={`theme-btn-${value}`}
-                onClick={() => setTheme(value)}
+                onClick={() => setDraftTheme(value)}
                 aria-pressed={on}
                 style={{
                   padding: "7px 16px",

@@ -1,10 +1,21 @@
 /**
  * SectionGeneral.tsx — context window + budget split (F14).
  * Extracted from SettingsPanel monolith (ADR-0055).
+ *
+ * Changes write to the DRAFT layer; the SettingsSaveFooter commits on Save (F16).
  */
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader, Field, BudgetRow, INPUT_STYLE } from "../ui";
+import {
+  useSettingsStore,
+  selectDraftContextWindow,
+  selectSetDraftContextWindow,
+  CONTEXT_WINDOW_OPTIONS,
+  computeBudgetSplit,
+  formatTokenCount,
+  type ContextWindowTokens,
+} from "../../../store/settingsStore";
 
 // LLM Wiki card style — bordered surface card (brand colors only, never black).
 const GEN_CARD: CSSProperties = {
@@ -14,20 +25,12 @@ const GEN_CARD: CSSProperties = {
   padding: "14px 16px",
   marginBottom: 16,
 };
-import {
-  useSettingsStore,
-  selectContextWindow,
-  selectSetContextWindow,
-  CONTEXT_WINDOW_OPTIONS,
-  computeBudgetSplit,
-  formatTokenCount,
-} from "../../../store/settingsStore";
 
 export function SectionGeneral() {
   const { t } = useTranslation();
-  const contextWindow = useSettingsStore(selectContextWindow);
-  const setContextWindow = useSettingsStore(selectSetContextWindow);
-  const budget = computeBudgetSplit(contextWindow);
+  const draftContextWindow = useSettingsStore(selectDraftContextWindow);
+  const setDraftContextWindow = useSettingsStore(selectSetDraftContextWindow);
+  const budget = computeBudgetSplit(draftContextWindow);
 
   return (
     <div>
@@ -37,8 +40,8 @@ export function SectionGeneral() {
         <Field label={t("settings.contextWindow")}>
           <select
             id="ctx-select"
-            value={contextWindow}
-            onChange={(e) => setContextWindow(Number(e.target.value) as typeof contextWindow)}
+            value={draftContextWindow}
+            onChange={(e) => setDraftContextWindow(Number(e.target.value) as ContextWindowTokens)}
             style={INPUT_STYLE}
           >
             {CONTEXT_WINDOW_OPTIONS.map((opt) => (
