@@ -578,6 +578,10 @@
       "totalUsd": "Totale (USD)",
       "callCount": "Chiamate",
       "noData": "Nessun dato di costo per questo periodo."
+    },
+    "footer": {
+      "save": "Salva modifiche",
+      "discard": "Annulla"
     }
   },
   "chat": {

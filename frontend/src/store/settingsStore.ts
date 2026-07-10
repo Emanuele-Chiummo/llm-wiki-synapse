@@ -262,6 +262,15 @@ interface SettingsState {
    * Persisted to localStorage["synapse.settings"]. Default: false.
    */
   webSearchEnabled: boolean;
+
+  // ── Draft layer (F16 unified-save UX) ─────────────────────────────────────
+  // Staged values for the 4 client-preference fields. Sections read/write these;
+  // the committed fields above are the source of truth persisted to localStorage.
+  // isDirty: any draft !== its committed counterpart.
+  draftTheme: Theme;
+  draftLanguage: string;
+  draftConversationHistoryLength: ConvHistoryLength;
+  draftContextWindowTokens: ContextWindowTokens;
 }
 
 interface SettingsActions {
@@ -296,6 +305,27 @@ interface SettingsActions {
   /** Toggle web-search-enabled flag and persist to localStorage (B2). */
   setWebSearchEnabled: (enabled: boolean) => void;
   reset: () => void;
+
+  // ── Draft layer actions (F16 unified-save UX) ──────────────────────────────
+  /** Stage a theme change without persisting (commits on commitDraft). */
+  setDraftTheme: (theme: Theme) => void;
+  /** Stage a language change without persisting (commits on commitDraft). */
+  setDraftLanguage: (lang: string) => void;
+  /** Stage a conversation-history-length change without persisting. */
+  setDraftConversationHistoryLength: (n: ConvHistoryLength) => void;
+  /** Stage a context-window change without persisting. */
+  setDraftContextWindow: (tokens: ContextWindowTokens) => void;
+  /**
+   * Commit all staged drafts: persist to localStorage, apply DOM side-effects
+   * (theme → DOM, settings → LS). Caller is responsible for i18n.changeLanguage.
+   * After commit, isDirty = false.
+   */
+  commitDraft: () => void;
+  /**
+   * Discard all staged drafts: resets draft values to match current committed values.
+   * After discard, isDirty = false.
+   */
+  discardDraft: () => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -316,6 +346,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
     ...initial,
     serverUrl: getServerUrl(),
     authRequired: false,
+
+    // Draft values start equal to committed values → isDirty = false on mount
+    draftTheme: initial.theme,
+    draftLanguage: initial.language,
+    draftConversationHistoryLength: initial.conversationHistoryLength,
+    draftContextWindowTokens: initial.contextWindowTokens,
 
     setLanguage: (language) => {
       try { localStorage.setItem(LS_LANG, language); } catch { /* ignore */ }
@@ -395,6 +431,47 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         theme: DEFAULT_THEME,
         retrievalMode: DEFAULT_RETRIEVAL_MODE,
         webSearchEnabled: false,
+        // Also reset drafts so isDirty = false after reset
+        draftTheme: DEFAULT_THEME,
+        draftLanguage: "en",
+        draftContextWindowTokens: DEFAULT_CONTEXT_WINDOW,
+        draftConversationHistoryLength: DEFAULT_CONV_HISTORY,
+      });
+    },
+
+    // ── Draft layer (F16 unified-save UX) ───────────────────────────────────
+
+    setDraftTheme: (draftTheme) => set({ draftTheme }),
+
+    setDraftLanguage: (draftLanguage) => set({ draftLanguage }),
+
+    setDraftConversationHistoryLength: (draftConversationHistoryLength) =>
+      set({ draftConversationHistoryLength }),
+
+    setDraftContextWindow: (draftContextWindowTokens) => set({ draftContextWindowTokens }),
+
+    commitDraft: () => {
+      const s = get();
+      // Call existing setters so each field gets persisted + side-effects applied:
+      // setTheme: persists to LS, applies DOM, manages system listener
+      // setLanguage: persists to LS
+      // setContextWindow: persists to LS (budget split)
+      // setConversationHistoryLength: persists to LS
+      s.setTheme(s.draftTheme);
+      s.setLanguage(s.draftLanguage);
+      s.setContextWindow(s.draftContextWindowTokens);
+      s.setConversationHistoryLength(s.draftConversationHistoryLength);
+      // After these calls the committed values equal draft values → isDirty = false.
+      // (No additional set() needed; selectIsDirty computes false from the updated state.)
+    },
+
+    discardDraft: () => {
+      const s = get();
+      set({
+        draftTheme: s.theme,
+        draftLanguage: s.language,
+        draftContextWindowTokens: s.contextWindowTokens,
+        draftConversationHistoryLength: s.conversationHistoryLength,
       });
     },
   };
@@ -474,4 +551,63 @@ export function selectWebSearchEnabled(s: SettingsStore): boolean {
 
 export function selectSetWebSearchEnabled(s: SettingsStore): SettingsActions["setWebSearchEnabled"] {
   return s.setWebSearchEnabled;
+}
+
+// ─── Draft layer selectors (F16 unified-save UX) ─────────────────────────────
+
+export function selectDraftTheme(s: SettingsStore): Theme {
+  return s.draftTheme;
+}
+
+export function selectDraftLanguage(s: SettingsStore): string {
+  return s.draftLanguage;
+}
+
+export function selectDraftConversationHistoryLength(s: SettingsStore): ConvHistoryLength {
+  return s.draftConversationHistoryLength;
+}
+
+export function selectDraftContextWindow(s: SettingsStore): ContextWindowTokens {
+  return s.draftContextWindowTokens;
+}
+
+export function selectSetDraftTheme(s: SettingsStore): SettingsActions["setDraftTheme"] {
+  return s.setDraftTheme;
+}
+
+export function selectSetDraftLanguage(s: SettingsStore): SettingsActions["setDraftLanguage"] {
+  return s.setDraftLanguage;
+}
+
+export function selectSetDraftConversationHistoryLength(
+  s: SettingsStore,
+): SettingsActions["setDraftConversationHistoryLength"] {
+  return s.setDraftConversationHistoryLength;
+}
+
+export function selectSetDraftContextWindow(
+  s: SettingsStore,
+): SettingsActions["setDraftContextWindow"] {
+  return s.setDraftContextWindow;
+}
+
+/**
+ * True when any staged draft differs from its committed counterpart.
+ * Used by SettingsSaveFooter to show/hide the Save bar.
+ */
+export function selectIsDirty(s: SettingsStore): boolean {
+  return (
+    s.draftTheme !== s.theme ||
+    s.draftLanguage !== s.language ||
+    s.draftConversationHistoryLength !== s.conversationHistoryLength ||
+    s.draftContextWindowTokens !== s.contextWindowTokens
+  );
+}
+
+export function selectCommitDraft(s: SettingsStore): SettingsActions["commitDraft"] {
+  return s.commitDraft;
+}
+
+export function selectDiscardDraft(s: SettingsStore): SettingsActions["discardDraft"] {
+  return s.discardDraft;
 }

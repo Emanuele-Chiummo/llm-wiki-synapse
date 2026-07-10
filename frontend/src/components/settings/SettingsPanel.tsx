@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { OpsScheduleCard } from "./OpsScheduleCard";
+import { SettingsSaveFooter } from "./SettingsSaveFooter";
 import { SectionGeneral } from "./sections/SectionGeneral";
 import { SectionLlmModels } from "./sections/SectionLlmModels";
 import { SectionEmbeddings } from "./sections/SectionEmbeddings";
@@ -320,28 +321,32 @@ export function SettingsPanel() {
         </div>
       </aside>
 
-      {/* ── Content area ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
-        {activePage === "appearance" && <PageAppearance />}
-        {activePage === "setup"      && <PageSetup />}
-        {activePage === "providers"  && <SectionLlmModels />}
-        {activePage === "scenarios"  && <SectionScenarios />}
-        {activePage === "context"    && <SectionGeneral />}
-        {activePage === "embeddings" && <PageEmbeddings />}
-        {activePage === "webSearch"  && <SectionWebSearch />}
-        {activePage === "generation" && <PageGeneration />}
-        {activePage === "automation" && <PageAutomation />}
-        {activePage === "limits"     && <PageLimits />}
-        {activePage === "sourceWatch" && <SectionSourceWatch />}
-        {activePage === "clipper"    && <SectionWebClipper />}
-        {activePage === "pdf"        && <PagePdf />}
-        {activePage === "imageCaptioning" && <PageImageCaptioning />}
-        {activePage === "apiMcp"     && <SectionApiMcp />}
-        {activePage === "security"   && <SectionSecurity />}
-        {activePage === "costs"      && <SectionCosts />}
-        {activePage === "maintenance" && <SectionMaintenance />}
-        {activePage === "changelog"  && <SectionChangelog />}
-        {activePage === "about"      && <SectionAbout />}
+      {/* ── Content area (flex column: scroll region + sticky Save footer) ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
+          {activePage === "appearance" && <PageAppearance />}
+          {activePage === "setup"      && <PageSetup />}
+          {activePage === "providers"  && <SectionLlmModels />}
+          {activePage === "scenarios"  && <SectionScenarios />}
+          {activePage === "context"    && <SectionGeneral />}
+          {activePage === "embeddings" && <PageEmbeddings />}
+          {activePage === "webSearch"  && <SectionWebSearch />}
+          {activePage === "generation" && <PageGeneration />}
+          {activePage === "automation" && <PageAutomation />}
+          {activePage === "limits"     && <PageLimits />}
+          {activePage === "sourceWatch" && <SectionSourceWatch />}
+          {activePage === "clipper"    && <SectionWebClipper />}
+          {activePage === "pdf"        && <PagePdf />}
+          {activePage === "imageCaptioning" && <PageImageCaptioning />}
+          {activePage === "apiMcp"     && <SectionApiMcp />}
+          {activePage === "security"   && <SectionSecurity />}
+          {activePage === "costs"      && <SectionCosts />}
+          {activePage === "maintenance" && <SectionMaintenance />}
+          {activePage === "changelog"  && <SectionChangelog />}
+          {activePage === "about"      && <SectionAbout />}
+        </div>
+        {/* Sticky Save bar — visible only when client-preference drafts are dirty */}
+        <SettingsSaveFooter />
       </div>
     </div>
   );
