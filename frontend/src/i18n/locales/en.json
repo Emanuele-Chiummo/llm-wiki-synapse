@@ -1515,6 +1515,8 @@
       "title": "GRUPPI AUTOMATICI",
       "pages": "pages",
       "openTopPage": "Open top page",
+      "topPage": "Top page",
+      "browseHint": "Browse group",
       "lastActivity": "Last activity",
       "noTopPages": "No pages yet",
       "expand": "Expand ({{count}} more)",
@@ -1543,5 +1545,9 @@
       "deployLink": "How to update",
       "dismiss": "Dismiss version notice"
     }
+  },
+  "navTree": {
+    "filterBanner": "Filtered by: {{label}}",
+    "clearFilter": "Clear filter"
   }
 }

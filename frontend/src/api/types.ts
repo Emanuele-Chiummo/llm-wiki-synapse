@@ -155,6 +155,19 @@ export interface PageListItem {
   content_hash: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Dominant vocabulary domain derived server-side from 'domain/<name>' tags.
+   * null when the page is untagged or no domain vocabulary is configured.
+   * Absent on pre-v1.5 server responses (non-breaking additive field).
+   * Same derivation logic as GET /stats/sections (stats.py _derive_domain).
+   */
+  domain?: string | null;
+  /**
+   * Louvain community id persisted by GraphEngine.recompute().
+   * null until the first graph recompute (G-P0-2, I2).
+   * Absent on pre-v1.5 server responses (non-breaking additive field).
+   */
+  community?: number | null;
 }
 
 /** Paginated response from GET /pages */

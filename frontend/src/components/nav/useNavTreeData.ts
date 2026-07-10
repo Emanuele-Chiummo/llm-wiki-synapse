@@ -18,6 +18,19 @@
  *   Each meta file appears as a "meta" row (not a "page" row) so NavTree can open
  *   MetaFileView instead of navigating to a DB-backed NoteView.
  *   If the endpoint 404s or returns an empty list, the section is silently omitted.
+ *
+ * NavFilter (F18 Home → Wiki drill-down):
+ *   Home dashboard section/group cards write a filter to localStorage and dispatch
+ *   "synapse:navFilter". This hook reads the filter on mount AND on each event,
+ *   filters the fetched page list BEFORE grouping, and exposes filterLabel +
+ *   clearFilter so NavTree can render a dismissible banner. I4 is preserved: we
+ *   filter the flat array, not the group Map — the virtualizer sees a single flat
+ *   result array regardless of filter state.
+ *
+ *   Filter keys:
+ *     "synapse:domainFilter"    — domain name string (from "domain/<name>" tags)
+ *     "synapse:groupFilter"     — community id as string (parsed to int)
+ *     "synapse:navFilterLabel"  — human-readable label shown in the banner
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -153,18 +166,85 @@ export function flattenTree(
   return rows;
 }
 
+// ─── Filter helpers (exported for unit tests) ─────────────────────────────────
+
+/**
+ * Filter a flat page list to those matching a vocabulary domain.
+ * A page matches when its `domain` field equals `domainFilter`.
+ * Pages with domain == null or undefined are excluded.
+ */
+export function filterPagesByDomain(
+  pages: PageListItem[],
+  domainFilter: string,
+): PageListItem[] {
+  return pages.filter((p) => p.domain === domainFilter);
+}
+
+/**
+ * Filter a flat page list to those belonging to a Louvain community.
+ * A page matches when its `community` field equals `communityId`.
+ * Pages with community == null or undefined are excluded.
+ */
+export function filterPagesByCommunity(
+  pages: PageListItem[],
+  communityId: number,
+): PageListItem[] {
+  return pages.filter((p) => p.community === communityId);
+}
+
+// ─── Filter state (localStorage-backed) ───────────────────────────────────────
+
+/** localStorage keys for filter persistence (Home → NavTree drill-down). */
+const DOMAIN_FILTER_KEY = "synapse:domainFilter";
+const GROUP_FILTER_KEY = "synapse:groupFilter";
+const NAV_FILTER_LABEL_KEY = "synapse:navFilterLabel";
+
+/** Custom event name dispatched by Home handlers and clearFilter. */
+export const NAV_FILTER_EVENT = "synapse:navFilter";
+
+interface FilterState {
+  domainFilter: string | null;
+  groupFilter: number | null;
+  filterLabel: string | null;
+}
+
+/** Read filter state from localStorage (safe — catches SecurityError). */
+function readFilters(): FilterState {
+  try {
+    const domainFilter = localStorage.getItem(DOMAIN_FILTER_KEY) || null;
+    const groupStr = localStorage.getItem(GROUP_FILTER_KEY);
+    const groupParsed = groupStr !== null ? parseInt(groupStr, 10) : null;
+    const groupFilter =
+      groupParsed !== null && !Number.isNaN(groupParsed) ? groupParsed : null;
+    const filterLabel = localStorage.getItem(NAV_FILTER_LABEL_KEY) || null;
+    return { domainFilter, groupFilter, filterLabel };
+  } catch {
+    return { domainFilter: null, groupFilter: null, filterLabel: null };
+  }
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export interface NavTreeData {
   rows: TreeRow[];
   loading: boolean;
   error: string | null;
-  /** Raw grouped data (for testing / derived displays) */
+  /** Raw grouped data reflecting the ACTIVE filter (for testing / derived displays) */
   grouped: Map<KnownType, PageListItem[]>;
   /** Vault meta files (schema.md, purpose.md) — empty when endpoint is absent (WS-D8). */
   metaFiles: VaultMetaFile[];
   /** Imperatively re-fetch the page list (used after creating a new page). */
   refresh: () => Promise<void>;
+  /**
+   * Human-readable label of the active filter (domain name or group label).
+   * null when no filter is active — banner should not be rendered.
+   */
+  filterLabel: string | null;
+  /**
+   * Clear all active filters: removes localStorage keys, updates state, and
+   * dispatches "synapse:navFilter" so any other mounted instance also updates.
+   */
+  clearFilter: () => void;
 }
 
 /**
@@ -174,6 +254,11 @@ export interface NavTreeData {
  * If that endpoint 404s or returns empty, metaFiles stays [] and the section
  * is silently omitted from the tree (graceful degradation, P0-3 fix).
  *
+ * NavFilter: reads domainFilter / groupFilter from localStorage on mount and on
+ * "synapse:navFilter" events. Filters the raw page list BEFORE groupPagesByType
+ * so each group section reflects only the filtered subset. I4 preserved: the
+ * virtual array is always flat — filter reduces its length, never adds nesting.
+ *
  * @param vaultId   - Vault to fetch from.
  * @param collapsed - Map of group type → collapsed; drives flattenTree.
  */
@@ -181,10 +266,21 @@ export function useNavTreeData(
   vaultId: string,
   collapsed: Record<string, boolean>,
 ): NavTreeData {
-  const [grouped, setGrouped] = useState<Map<KnownType, PageListItem[]>>(new Map());
+  // Raw flat page list (pre-filter) — updated only on fetch.
+  const [allPages, setAllPages] = useState<PageListItem[]>([]);
   const [metaFiles, setMetaFiles] = useState<VaultMetaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter state — initialised from localStorage, updated by events.
+  const [filters, setFilters] = useState<FilterState>(() => readFilters());
+
+  // Listen for Home-dashboard filter changes (and our own clearFilter dispatch).
+  useEffect(() => {
+    const handler = () => setFilters(readFilters());
+    window.addEventListener(NAV_FILTER_EVENT, handler);
+    return () => window.removeEventListener(NAV_FILTER_EVENT, handler);
+  }, []);
 
   const doFetch = useCallback(
     (signal?: AbortSignal) => {
@@ -194,11 +290,13 @@ export function useNavTreeData(
       // Fetch pages and meta in parallel; meta failure is non-fatal.
       const pagesPromise = fetchAllPages(vaultId, signal);
       // AbortSignal is shared — both abort together on unmount / vaultId change.
-      const metaPromise = fetchVaultMeta(vaultId, signal).catch(() => ({ files: [] as VaultMetaFile[] }));
+      const metaPromise = fetchVaultMeta(vaultId, signal).catch(
+        () => ({ files: [] as VaultMetaFile[] }),
+      );
 
       return Promise.all([pagesPromise, metaPromise])
         .then(([pagesRes, metaRes]) => {
-          setGrouped(groupPagesByType(pagesRes.items));
+          setAllPages(pagesRes.items);
           setMetaFiles(metaRes.files);
           setLoading(false);
         })
@@ -218,16 +316,60 @@ export function useNavTreeData(
     return () => ctrl.abort();
   }, [doFetch]);
 
-  /** Imperative refresh — called after creating/deleting a page so the tree updates. */
+  /** Imperatively re-fetch the page list (called after creating/deleting a page). */
   const refresh = useCallback(() => doFetch(), [doFetch]);
 
-  // Memoize: only rebuild the flat array when grouped data, collapse state, or
-  // meta files change.  Without this, every parent re-render rebuilds the array
-  // unnecessarily (I4 — avoids spurious virtualizer re-measures).
+  /**
+   * Clear all active filters and notify any other mounted instances.
+   * I3: removes localStorage keys and calls setFilters — no DOM query, no heavy work.
+   */
+  const clearFilter = useCallback(() => {
+    try {
+      localStorage.removeItem(DOMAIN_FILTER_KEY);
+      localStorage.removeItem(GROUP_FILTER_KEY);
+      localStorage.removeItem(NAV_FILTER_LABEL_KEY);
+    } catch {
+      // localStorage unavailable — non-fatal
+    }
+    setFilters({ domainFilter: null, groupFilter: null, filterLabel: null });
+    // Notify other mounted instances (same or different component tree).
+    window.dispatchEvent(new Event(NAV_FILTER_EVENT));
+  }, []);
+
+  // Apply the active filter to the raw page list BEFORE grouping.
+  // I4: this is a plain Array.filter — O(n) on the flat list, no DOM mutation.
+  const filteredPages = useMemo<PageListItem[]>(() => {
+    if (filters.domainFilter !== null) {
+      return filterPagesByDomain(allPages, filters.domainFilter);
+    }
+    if (filters.groupFilter !== null) {
+      return filterPagesByCommunity(allPages, filters.groupFilter);
+    }
+    return allPages;
+  }, [allPages, filters]);
+
+  // Group the filtered pages (memoised — rebuilds only when filteredPages changes).
+  const grouped = useMemo(
+    () => groupPagesByType(filteredPages),
+    [filteredPages],
+  );
+
+  // Flatten into the virtualizer-ready TreeRow[].
+  // Memoize: only rebuild when grouped data, collapse state, or meta files change.
+  // Without this, every parent re-render rebuilds the array unnecessarily (I4).
   const rows = useMemo(
     () => flattenTree(grouped, collapsed, metaFiles),
     [grouped, collapsed, metaFiles],
   );
 
-  return { rows, loading, error, grouped, metaFiles, refresh };
+  return {
+    rows,
+    loading,
+    error,
+    grouped,
+    metaFiles,
+    refresh,
+    filterLabel: filters.filterLabel,
+    clearFilter,
+  };
 }

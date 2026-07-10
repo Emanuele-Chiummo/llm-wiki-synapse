@@ -508,21 +508,36 @@ describe("HomeDashboard — groups grid (A3)", () => {
     expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
   });
 
-  it("clicking a group card writes the top page slug to localStorage", async () => {
+  it("clicking a group card writes the community id to synapse:groupFilter", async () => {
     await renderDashboard();
     const card = screen.getByTestId("group-card-2");
     fireEvent.click(card);
-    const stored = localStorage.getItem("synapse:groupTopPageSlug");
-    expect(stored).toBe("incident-management");
+    // New behaviour: writes community id (not slug) for NavTree member filtering
+    expect(localStorage.getItem("synapse:groupFilter")).toBe("2");
   });
 
-  it("clicking a group with no top pages calls setActiveSection('pages') without writing slug", async () => {
+  it("clicking a group card writes the group label to synapse:navFilterLabel", async () => {
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-2");
+    fireEvent.click(card);
+    expect(localStorage.getItem("synapse:navFilterLabel")).toBe("Service Management");
+  });
+
+  it("clicking a group card clears any active domain filter", async () => {
+    localStorage.setItem("synapse:domainFilter", "SAM");
+    await renderDashboard();
+    const card = screen.getByTestId("group-card-2");
+    fireEvent.click(card);
+    expect(localStorage.getItem("synapse:domainFilter")).toBeNull();
+  });
+
+  it("clicking a group with no top pages still writes the community filter", async () => {
     await renderDashboard();
     const card = screen.getByTestId("group-card-1");
     fireEvent.click(card);
     expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
-    // No slug written for a group with no top pages
-    expect(localStorage.getItem("synapse:groupTopPageSlug")).toBeNull();
+    // Community filter is still written even when there are no top pages
+    expect(localStorage.getItem("synapse:groupFilter")).toBe("1");
   });
 
   it("groups 404 (null) → groups block is hidden", async () => {

@@ -15,7 +15,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { groupPagesByType, flattenTree } from "../components/nav/useNavTreeData";
+import {
+  groupPagesByType,
+  flattenTree,
+  filterPagesByDomain,
+  filterPagesByCommunity,
+} from "../components/nav/useNavTreeData";
 import type { PageListItem } from "../api/types";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -24,6 +29,7 @@ function makePage(
   id: string,
   type: string | null,
   title = `Page ${id}`,
+  extras: Partial<PageListItem> = {},
 ): PageListItem {
   return {
     id,
@@ -35,6 +41,7 @@ function makePage(
     content_hash: null,
     created_at: "2025-01-01T00:00:00Z",
     updated_at: "2025-01-01T00:00:00Z",
+    ...extras,
   };
 }
 
@@ -307,5 +314,111 @@ describe("flattenTree", () => {
   it("produces only standard section headers for empty input (I4 boundary)", () => {
     const rows = flattenTree(new Map(), {});
     expect(rows.length).toBe(0);
+  });
+});
+
+// ─── filterPagesByDomain ──────────────────────────────────────────────────────
+
+describe("filterPagesByDomain", () => {
+  const DOMAIN_PAGES: PageListItem[] = [
+    makePage("p1", "concept", "SAM Concept", { domain: "SAM", community: 0 }),
+    makePage("p2", "entity", "Procurement Entity", { domain: "Procurement", community: 1 }),
+    makePage("p3", "source", "Untagged Source", { domain: null, community: 0 }),
+    makePage("p4", "synthesis", "SAM Synthesis", { domain: "SAM", community: 0 }),
+  ];
+
+  it("returns only pages matching the domain", () => {
+    const result = filterPagesByDomain(DOMAIN_PAGES, "SAM");
+    expect(result.map((p) => p.id)).toEqual(["p1", "p4"]);
+  });
+
+  it("returns empty array when no page matches the domain", () => {
+    const result = filterPagesByDomain(DOMAIN_PAGES, "NonExistent");
+    expect(result).toHaveLength(0);
+  });
+
+  it("excludes pages with domain=null", () => {
+    const result = filterPagesByDomain(DOMAIN_PAGES, "SAM");
+    const ids = result.map((p) => p.id);
+    expect(ids).not.toContain("p3"); // p3 has domain=null
+  });
+
+  it("excludes pages with domain=undefined (absent field)", () => {
+    const pageNoField = makePage("px", "concept", "No Field");
+    // domain is absent (undefined) — must not be returned for any domain filter
+    const result = filterPagesByDomain([pageNoField], "SAM");
+    expect(result).toHaveLength(0);
+  });
+
+  it("filtered pages can be grouped and flattened (I4: single flat array preserved)", () => {
+    const filtered = filterPagesByDomain(DOMAIN_PAGES, "SAM");
+    const grouped = groupPagesByType(filtered);
+    const rows = flattenTree(grouped, {});
+    // Should have group headers + 2 page rows (p1=concept, p4=synthesis)
+    const pageRows = rows.filter((r) => r.kind === "page");
+    expect(pageRows).toHaveLength(2);
+    const ids = pageRows.map((r) => (r.kind === "page" ? r.id : null));
+    expect(ids).toContain("p1");
+    expect(ids).toContain("p4");
+  });
+});
+
+// ─── filterPagesByCommunity ───────────────────────────────────────────────────
+
+describe("filterPagesByCommunity", () => {
+  const COMMUNITY_PAGES: PageListItem[] = [
+    makePage("q1", "concept", "Alpha", { community: 3 }),
+    makePage("q2", "entity", "Beta", { community: 5 }),
+    makePage("q3", "source", "Gamma", { community: 3 }),
+    makePage("q4", "synthesis", "Delta", { community: null }),
+    makePage("q5", "comparison", "Epsilon"), // community=undefined
+  ];
+
+  it("returns only pages with matching community id", () => {
+    const result = filterPagesByCommunity(COMMUNITY_PAGES, 3);
+    expect(result.map((p) => p.id)).toEqual(["q1", "q3"]);
+  });
+
+  it("returns empty array when no page matches", () => {
+    const result = filterPagesByCommunity(COMMUNITY_PAGES, 99);
+    expect(result).toHaveLength(0);
+  });
+
+  it("excludes pages with community=null", () => {
+    const result = filterPagesByCommunity(COMMUNITY_PAGES, 3);
+    expect(result.map((p) => p.id)).not.toContain("q4");
+  });
+
+  it("excludes pages with community=undefined (absent field)", () => {
+    const result = filterPagesByCommunity(COMMUNITY_PAGES, 3);
+    expect(result.map((p) => p.id)).not.toContain("q5");
+  });
+
+  it("community=0 is a valid filter value (not falsy-excluded)", () => {
+    const pages = [
+      makePage("r1", "concept", "Zero Community", { community: 0 }),
+      makePage("r2", "entity", "One Community", { community: 1 }),
+    ];
+    const result = filterPagesByCommunity(pages, 0);
+    expect(result.map((p) => p.id)).toEqual(["r1"]);
+  });
+
+  it("filtered pages preserve I4: single flat virtualizable array", () => {
+    const filtered = filterPagesByCommunity(COMMUNITY_PAGES, 3);
+    const grouped = groupPagesByType(filtered);
+    const rows = flattenTree(grouped, {});
+    // Should have group headers + 2 page rows (q1=concept, q3=source)
+    const pageRows = rows.filter((r) => r.kind === "page");
+    expect(pageRows).toHaveLength(2);
+  });
+
+  it("banner clears: empty filter returns all pages", () => {
+    // Simulate clearFilter: no active filter → allPages returned unchanged.
+    // (Here we test the pure path: no filter → same as original list.)
+    const filtered = COMMUNITY_PAGES; // no filter applied
+    const grouped = groupPagesByType(filtered);
+    const allPageRows = flattenTree(grouped, {}).filter((r) => r.kind === "page");
+    // COMMUNITY_PAGES has 5 pages (none are raw/ — all show in tree)
+    expect(allPageRows).toHaveLength(5);
   });
 });

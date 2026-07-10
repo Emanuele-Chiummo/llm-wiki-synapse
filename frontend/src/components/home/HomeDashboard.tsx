@@ -95,11 +95,20 @@ import { useActivityCounts, useActivityBatch, useActivityTasks } from "../../sto
 const DOMAIN_FILTER_KEY = "synapse:domainFilter";
 
 /**
- * localStorage key used to pass the top-page slug of a clicked group to the Wiki section.
- * Group-click mechanism: community-id tree filtering is not yet supported, so clicking
- * a group card opens its most-connected (highest-degree) page as the best proxy.
+ * localStorage key used to pass the Louvain community id filter to the Wiki/NavTree.
+ * NavTree filters the page list to pages whose community column matches this id.
  */
-const GROUP_TOP_PAGE_SLUG_KEY = "synapse:groupTopPageSlug";
+const GROUP_FILTER_KEY = "synapse:groupFilter";
+
+/**
+ * localStorage key for the human-readable label shown in the NavTree filter banner.
+ * Written alongside DOMAIN_FILTER_KEY or GROUP_FILTER_KEY so the banner has a label
+ * without a second data fetch.
+ */
+const NAV_FILTER_LABEL_KEY = "synapse:navFilterLabel";
+
+/** Custom event dispatched after writing filter keys so a mounted NavTree re-reads them. */
+const NAV_FILTER_EVENT = "synapse:navFilter";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1178,10 +1187,10 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
         </div>
       )}
 
-      {/* Top page (highest degree) */}
+      {/* Top page (highest degree) — informational only; click browses ALL group members */}
       {topPage ? (
         <div style={{ fontSize: 10, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          <span style={{ color: "var(--syn-text-dim)" }}>{t("home.groups.openTopPage")}: </span>
+          <span style={{ color: "var(--syn-text-dim)" }}>{t("home.groups.topPage")}: </span>
           {topPage.title}
         </div>
       ) : (
@@ -1189,6 +1198,11 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
           {t("home.groups.noTopPages")}
         </div>
       )}
+
+      {/* Browse hint */}
+      <span style={{ fontSize: 10, color: "var(--syn-accent)", marginTop: 2 }}>
+        {t("home.groups.browseHint")} →
+      </span>
 
       {/* Last activity */}
       {group.last_activity && (
@@ -1313,36 +1327,47 @@ export function HomeDashboard() {
     return () => ac.abort();
   }, [statusDataVersion, loadStats]); // Only re-run when the polled version changes.
 
-  // Section card click: write domain filter to localStorage + switch to wiki section
+  // Section card click: write domain filter to localStorage, clear group filter,
+  // dispatch event so a mounted NavTree re-reads immediately, then switch section.
   const handleSectionNavigate = useCallback(
     (domain: string) => {
       try {
         if (domain === "untagged") {
+          // "untagged" means no domain filter — clear both filters entirely
           localStorage.removeItem(DOMAIN_FILTER_KEY);
+          localStorage.removeItem(NAV_FILTER_LABEL_KEY);
         } else {
           localStorage.setItem(DOMAIN_FILTER_KEY, domain);
+          localStorage.setItem(NAV_FILTER_LABEL_KEY, domain);
         }
+        // Always clear the competing group filter when navigating by domain
+        localStorage.removeItem(GROUP_FILTER_KEY);
       } catch {
         // localStorage may be unavailable in some environments — non-fatal
       }
+      window.dispatchEvent(new Event(NAV_FILTER_EVENT));
       setActiveSection("pages");
     },
     [setActiveSection],
   );
 
-  // Group card click: open the group's top page in Wiki section.
-  // Community-id tree filtering is not yet supported; we write the top page slug
-  // so a future NavTree mount can scroll to it. The Wiki section opens regardless.
+  // Group card click: write the community id filter to localStorage, clear the
+  // domain filter, dispatch event so a mounted NavTree re-reads, then switch section.
+  // The NavTree will show only pages belonging to this Louvain community.
   const handleGroupOpen = useCallback(
     (group: StatsGroup) => {
-      const topPage = group.top_pages[0];
       try {
-        if (topPage?.slug) {
-          localStorage.setItem(GROUP_TOP_PAGE_SLUG_KEY, topPage.slug);
-        }
+        localStorage.setItem(GROUP_FILTER_KEY, String(group.community));
+        localStorage.setItem(
+          NAV_FILTER_LABEL_KEY,
+          group.label || `Group ${group.community}`,
+        );
+        // Always clear the competing domain filter when navigating by group
+        localStorage.removeItem(DOMAIN_FILTER_KEY);
       } catch {
         // non-fatal
       }
+      window.dispatchEvent(new Event(NAV_FILTER_EVENT));
       setActiveSection("pages");
     },
     [setActiveSection],

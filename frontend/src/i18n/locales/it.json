@@ -1515,6 +1515,8 @@
       "title": "GRUPPI AUTOMATICI",
       "pages": "pagine",
       "openTopPage": "Apri pagina principale",
+      "topPage": "Pagina principale",
+      "browseHint": "Sfoglia gruppo",
       "lastActivity": "Ultima attività",
       "noTopPages": "Nessuna pagina ancora",
       "expand": "Espandi ({{count}} altri)",
@@ -1543,5 +1545,9 @@
       "deployLink": "Come aggiornare",
       "dismiss": "Chiudi avviso versione"
     }
+  },
+  "navTree": {
+    "filterBanner": "Filtrato per: {{label}}",
+    "clearFilter": "Rimuovi filtro"
   }
 }
