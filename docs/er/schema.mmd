@@ -83,6 +83,8 @@ erDiagram
         string provider_type "local | api | cli — selects the InferenceProvider backend (I6)"
         string model_id "Model name (e.g. claude-sonnet-4-6), value lives ONLY in DB rows (AC-F17-8)"
         string base_url "OpenAI-compatible endpoint for ApiProvider, NULL for Anthropic/local default"
+        largebinary api_key_encrypted "W1 (F17, §12 amendment). Fernet-encrypted UI-supplied provider API key (master key from SYNAPSE_SECRET_KEY env, app/secrets_crypto.py). NULL = no UI key, the provider layer falls back to env-var keys (ANTHROPIC_API_KEY / OPENAI_API_KEY). The plaintext is NEVER stored and NEVER returned by any endpoint (GET exposes only api_key_configured + a masked hint). Migration 0026."
+        string reasoning_effort "W1 (F17). Per-provider reasoning/thinking effort: auto | off | low | medium | high | max | custom. NULL/auto = provider default (no reasoning override). Threaded into the ApiProvider where the backend supports it (Anthropic extended thinking / OpenAI-compatible reasoning_effort), degrade-safe/ignored when unsupported. Migration 0026."
         int max_iter "Orchestrated-loop iteration cap (I7, ADR-0009)"
         int token_budget "Loop token budget (I7), 60000 orchestrated / 100000 cli (ADR-0009)"
         boolean is_fallback "Marks the single fallback row for a scope (ADR-0009 §fallback)"

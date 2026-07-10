@@ -2125,8 +2125,8 @@
         ]
       },
       "post": {
-        "summary": "Create or update a provider_config row",
-        "description": "Create a new provider_config row. provider_type must be one of: local | api | cli. NO api_key field is accepted or stored \u2014 keys are env-only (\u00a712). (F17, ADR-0008)",
+        "summary": "Create a provider_config row",
+        "description": "Create a new provider_config row. provider_type must be one of: local | api | cli. api_key is WRITE-ONLY (W1): encrypted at rest and NEVER returned \u2014 the response exposes api_key_configured + api_key_masked only. Supplying api_key requires SYNAPSE_SECRET_KEY server-side (else HTTP 400). Omit api_key to keep env-var keys. (F17, ADR-0008, W1)",
         "operationId": "create_provider_config_provider_config_post",
         "requestBody": {
           "required": true,
@@ -2149,6 +2149,9 @@
               }
             }
           },
+          "400": {
+            "description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"
+          },
           "422": {
             "description": "Validation error (invalid provider_type, scope, or operation)"
           }
@@ -2161,6 +2164,59 @@
       }
     },
     "/provider/config/{config_id}": {
+      "put": {
+        "summary": "Update a provider_config row",
+        "description": "Partial update of a provider_config row (W1). Omitted fields are left unchanged. api_key is WRITE-ONLY: a non-empty value replaces the stored key (encrypted); an empty string \"\" CLEARS it (env fallback); omitting it leaves the key untouched. Supplying a non-empty api_key requires SYNAPSE_SECRET_KEY server-side (else HTTP 400). The plaintext is NEVER returned. (F17, W1)",
+        "operationId": "update_provider_config_provider_config__config_id__put",
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Config Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderConfigUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Row updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"
+          },
+          "404": {
+            "description": "Row not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
       "delete": {
         "summary": "Delete a provider_config row by UUID",
         "description": "Hard-delete the provider_config row with the given id. (F17)",
@@ -2183,6 +2239,118 @@
           },
           "404": {
             "description": "Row not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/vendors": {
+      "get": {
+        "summary": "List the provider vendor catalog",
+        "description": "Returns the curated one-row-per-vendor catalog for the Settings 'LLM Models' UI (W1). Each entry carries id, display_name, provider_type (api|local|cli), default_base_url, needs_api_key, model_presets, and notes. Static \u2014 no secrets, no DB. (F17, W1)",
+        "operationId": "list_provider_vendors_provider_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/test/connection": {
+      "post": {
+        "summary": "Bounded provider connection probe (W1)",
+        "description": "One bounded, token-capped call (timeout _PROVIDER_TEST_TIMEOUT_S) to verify the provider endpoint responds. Accepts a config_id (uses the stored, decrypted key) or an inline {provider_type, model, base_url?, api_key?}. Returns {ok, latency_ms, detail}; NEVER echoes the key. CLI backend is posture-checked, not live-probed. (F17, W1, I7)",
+        "operationId": "provider_test_connection_provider_test_connection_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/test/function": {
+      "post": {
+        "summary": "Bounded provider instruction-follow probe (W1)",
+        "description": "One bounded, token-capped call asking the model to reply exactly 'OK'; ok=true iff the reply contains 'OK'. Same input contract and safety as /provider/test/connection. (F17, W1, I7)",
+        "operationId": "provider_test_function_provider_test_function_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -8239,6 +8407,30 @@
             "title": "Base Url",
             "description": "OpenAI-compatible endpoint; NULL for Anthropic/local default"
           },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY (W1). Plaintext provider API key; encrypted at rest (Fernet, SYNAPSE_SECRET_KEY). NEVER returned by any response. Omit to use env-var keys. Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400)."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort",
+            "description": "auto|off|low|medium|high|max|custom; null/auto = provider default (W1)"
+          },
           "max_iter": {
             "type": "integer",
             "maximum": 20.0,
@@ -8269,7 +8461,7 @@
           "model_id"
         ],
         "title": "ProviderConfigCreate",
-        "description": "Request body for POST /provider/config (F17).\n\nStores NO API key (\u00a712 / ADR-0008 \u00a73). Keys are env-only inside provider/.\nmodel_id must be provided explicitly \u2014 no hardcoded defaults in app code (AC-F17-8)."
+        "description": "Request body for POST /provider/config (F17, W1).\n\napi_key is WRITE-ONLY (W1, \u00a712 amendment): the plaintext is encrypted at rest\n(SYNAPSE_SECRET_KEY / Fernet) and NEVER returned by any response. Omit it to keep env-var\nkeys. model_id must be provided explicitly \u2014 no hardcoded defaults in app code (AC-F17-8)."
       },
       "ProviderConfigListResponse": {
         "properties": {
@@ -8344,6 +8536,34 @@
             ],
             "title": "Base Url"
           },
+          "api_key_configured": {
+            "type": "boolean",
+            "title": "Api Key Configured",
+            "description": "True iff a UI API key is stored (encrypted) for this row. Never the value."
+          },
+          "api_key_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Masked",
+            "description": "Non-reversible masked hint ('\u20261234') when a key is stored; null otherwise."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
           "max_iter": {
             "type": "integer",
             "title": "Max Iter"
@@ -8372,6 +8592,8 @@
           "provider_type",
           "model_id",
           "base_url",
+          "api_key_configured",
+          "reasoning_effort",
           "max_iter",
           "token_budget",
           "is_fallback",
@@ -8379,7 +8601,209 @@
           "updated_at"
         ],
         "title": "ProviderConfigResponse",
-        "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
+        "description": "API response shape for a provider_config row (\u00a712 amendment, W1).\n\nNEVER exposes the plaintext key. Instead: api_key_configured (bool) + api_key_masked\n(\"\u2026last4\" hint, or null). reasoning_effort is echoed (config, not a secret)."
+      },
+      "ProviderConfigUpdate": {
+        "properties": {
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id",
+            "description": "Model name (lives only in DB rows)"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "OpenAI-compatible endpoint or null"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY (W1). Non-empty \u21d2 replace stored key (encrypted). Empty string \u21d2 clear the stored key (env fallback). Omit to leave unchanged. NEVER returned."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort",
+            "description": "auto|off|low|medium|high|max|custom; omit to leave unchanged"
+          },
+          "max_iter": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iter",
+            "description": "Orchestrated-loop cap"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Loop token budget (I7)"
+          },
+          "is_fallback": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fallback",
+            "description": "Marks the single fallback row"
+          }
+        },
+        "type": "object",
+        "title": "ProviderConfigUpdate",
+        "description": "Request body for PUT /provider/config/{id} (W1). All fields optional \u2014 omitted fields are\nleft unchanged.\n\napi_key semantics (WRITE-ONLY): field ABSENT \u21d2 leave the stored key untouched; a non-empty\nstring \u21d2 re-encrypt and replace; an empty string \"\" \u21d2 CLEAR the stored key (fall back to\nenv). The plaintext is NEVER returned."
+      },
+      "ProviderTestRequest": {
+        "properties": {
+          "config_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Id",
+            "description": "Probe an existing provider_config row (uses its stored key)."
+          },
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "OpenAI-compatible endpoint (api only)"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Model id to probe"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY inline key; overrides the stored/env key. Never echoed."
+          }
+        },
+        "type": "object",
+        "title": "ProviderTestRequest",
+        "description": "Request body for the provider-test endpoints (W1).\n\nProvide EITHER config_id (probe a stored row \u2014 its decrypted key is used) OR inline\n{provider_type, model, base_url?, api_key?}. Inline fields override the stored row when both\nare given. api_key is WRITE-ONLY \u2014 never echoed back."
+      },
+      "ProviderTestResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "description": "True iff the probe succeeded (connection: HTTP ok; function: reply matched)."
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "description": "Wall-clock latency of the probe in milliseconds."
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable outcome. NEVER contains the API key."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "latency_ms",
+          "detail"
+        ],
+        "title": "ProviderTestResponse",
+        "description": "Response body for the provider-test endpoints (W1). Never contains a key."
       },
       "QueueBatchProgress": {
         "properties": {
@@ -10505,6 +10929,83 @@
         ],
         "title": "VaultMetaResponse",
         "description": "Response body for GET /vault/meta."
+      },
+      "VendorInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable vendor id (catalog key)."
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Human-readable vendor name for the UI."
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type",
+            "description": "Backend family: api | local | cli (maps to I6 routing)."
+          },
+          "default_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Base Url",
+            "description": "OpenAI-compatible endpoint the ApiProvider keys off. null = Anthropic-native (anthropic), no HTTP endpoint (local/cli), or must be set per deployment (azure-openai). The user can always override in the row."
+          },
+          "needs_api_key": {
+            "type": "boolean",
+            "title": "Needs Api Key",
+            "description": "True iff this vendor requires an API key (api vendors); false for local/cli."
+          },
+          "model_presets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Model Presets",
+            "description": "Known model ids for the dropdown; the user may type a custom id."
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "description": "Short UI help text for the vendor row.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "provider_type",
+          "needs_api_key"
+        ],
+        "title": "VendorInfo",
+        "description": "One vendor row in the Settings catalog (W1)."
+      },
+      "VendorListResponse": {
+        "properties": {
+          "vendors": {
+            "items": {
+              "$ref": "#/components/schemas/VendorInfo"
+            },
+            "type": "array",
+            "title": "Vendors",
+            "description": "The fixed one-row-per-vendor catalog."
+          }
+        },
+        "type": "object",
+        "required": [
+          "vendors"
+        ],
+        "title": "VendorListResponse",
+        "description": "Response body for GET /provider/vendors (W1)."
       },
       "WebSearchConfigRequest": {
         "properties": {

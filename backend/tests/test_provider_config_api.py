@@ -213,23 +213,92 @@ class TestCreateProviderConfig:
             resp = client.post("/provider/config", json=body)
         assert resp.status_code == 422
 
-    def test_api_key_field_not_accepted(self) -> None:
+    def test_api_key_without_master_key_is_400(self, monkeypatch: Any) -> None:
         """
-        The POST body must NOT accept an 'api_key' field (§12).
+        W1: supplying api_key when SYNAPSE_SECRET_KEY is unset must 400 (refuse to store),
+        never crash and never store plaintext.
+        """
+        import os
 
-        FastAPI/Pydantic ignores extra fields by default, so the request succeeds,
-        but the key must NOT appear in the stored row or response.
-        """
+        os.environ.pop("SYNAPSE_SECRET_KEY", None)
         body = _valid_create_body()
-        body["api_key"] = "sk-secret-leaked-key"  # must be silently ignored
+        body["api_key"] = "sk-secret-should-not-store"
 
-        resp = self._post(body)
-        # The endpoint must succeed (201) — the extra field is silently dropped
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=MagicMock())
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post("/provider/config", json=body)
+        assert resp.status_code == 400
+        assert "SYNAPSE_SECRET_KEY" in resp.json()["detail"]
+
+    def test_api_key_encrypted_and_never_echoed(self, monkeypatch: Any) -> None:
+        """
+        W1: with SYNAPSE_SECRET_KEY set, api_key is encrypted at rest (not plaintext) and the
+        response NEVER echoes it — only api_key_configured / api_key_masked.
+        """
+        from app import secrets_crypto
+        from cryptography.fernet import Fernet
+
+        monkeypatch.setenv("SYNAPSE_SECRET_KEY", Fernet.generate_key().decode())
+        plaintext = "sk-secret-leaked-key-6789"
+        body = _valid_create_body()
+        body["api_key"] = plaintext
+
+        captured: dict[str, Any] = {}
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+
+        def _fake_ctor(**kwargs: Any) -> Any:
+            captured.update(kwargs)
+
+            class _Row:
+                id = uuid.uuid4()
+                scope = kwargs["scope"]
+                operation = kwargs.get("operation")
+                vault_id = kwargs.get("vault_id")
+                provider_type = kwargs["provider_type"]
+                model_id = kwargs["model_id"]
+                base_url = kwargs.get("base_url")
+                api_key_encrypted = kwargs.get("api_key_encrypted")
+                reasoning_effort = kwargs.get("reasoning_effort")
+                max_iter = kwargs["max_iter"]
+                token_budget = kwargs["token_budget"]
+                is_fallback = kwargs["is_fallback"]
+                created_at = now
+                updated_at = now
+
+            return _Row()
+
+        ctx = MagicMock()
+        sess = MagicMock()
+        sess.add = MagicMock()
+        sess.flush = AsyncMock()
+        ctx.__aenter__ = AsyncMock(return_value=sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with (
+            patch("app.main.get_session", return_value=ctx),
+            patch("app.main.ProviderConfig", side_effect=_fake_ctor),
+        ):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post("/provider/config", json=body)
+
         assert resp.status_code == 201
-        # The response must not echo the api_key back
-        if resp.status_code == 201:
-            resp_data = resp.json()
-            assert "api_key" not in resp_data
+        # Row stored ciphertext, not the plaintext.
+        stored = captured["api_key_encrypted"]
+        assert isinstance(stored, bytes)
+        assert plaintext.encode() not in stored
+        assert secrets_crypto.decrypt(stored) == plaintext
+        # Response never contains the plaintext; exposes posture fields only.
+        assert plaintext not in resp.text
+        data = resp.json()
+        assert "api_key" not in data
+        assert data["api_key_configured"] is True
+        assert data["api_key_masked"] == "…6789"
 
 
 # ── DELETE /provider/config/{id} ───────────────────────────────────────────────

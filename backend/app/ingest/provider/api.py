@@ -55,6 +55,12 @@ _ANTHROPIC_VERSION = "2023-06-01"
 _DEFAULT_MAX_CONTEXT = 200_000
 _DEFAULT_MAX_TOKENS = 4096
 
+# W1 (F17): reasoning/thinking effort → backend-native knobs. auto/off/custom/None ⇒ no override
+# (degrade-safe; existing behaviour). Only applied when the user explicitly opts into a level, so
+# endpoints that don't support it are never sent an unknown field by default.
+_ANTHROPIC_THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 8192, "max": 16000}
+_OPENAI_REASONING_EFFORT = {"low": "low", "medium": "medium", "high": "high", "max": "high"}
+
 # One-time guard so the "no price map" warning fires once per process, not once per
 # ApiProvider instance (which is constructed per ingest/chat run).
 _price_map_warned = False
@@ -155,6 +161,7 @@ class ApiProvider(InferenceProvider):
         self._config = config
         self._model = config.model_id  # from provider_config — never hardcoded (I6)
         self._timeout = config.timeout
+        self._reasoning_effort = config.reasoning_effort  # W1 (F17); None/auto/off ⇒ no override
         self._price_map = _load_price_map()
         # OpenAI-compatible iff base_url is set; otherwise Anthropic-native.
         self._openai_compatible = bool(config.base_url)
@@ -187,6 +194,61 @@ class ApiProvider(InferenceProvider):
         if not self._openai_compatible:
             return True
         return bool(self._config.supports_vision)
+
+    # ── Secrets (W1 / F17, §12 amendment) ────────────────────────────────────────
+
+    def _anthropic_key(self) -> str:
+        """
+        Resolve the Anthropic key: DECRYPTED UI key from provider_config wins, else the
+        ANTHROPIC_API_KEY env (I6 — all 3 backends keep working; §12 amendment). NEVER logged.
+        """
+        key = self._config.api_key or os.environ.get(_ANTHROPIC_KEY_ENV)
+        if not key:
+            raise ValueError(
+                f"No Anthropic API key: set one in provider_config (UI) or {_ANTHROPIC_KEY_ENV} "
+                "in the environment (§12, ADR-0008)"
+            )
+        return key
+
+    def _openai_key(self) -> str:
+        """
+        Resolve the OpenAI-compatible key: DECRYPTED UI key from provider_config wins, else the
+        OPENAI_API_KEY env (I6; §12 amendment). NEVER logged.
+        """
+        key = self._config.api_key or os.environ.get(_OPENAI_KEY_ENV)
+        if not key:
+            raise ValueError(
+                "No OpenAI-compatible API key: set one in provider_config (UI) or "
+                f"{_OPENAI_KEY_ENV} in the environment (§12, ADR-0008)"
+            )
+        return key
+
+    # ── Reasoning/thinking (W1 / F17) ────────────────────────────────────────────
+
+    def _apply_reasoning(self, body: dict[str, object], *, anthropic: bool) -> None:
+        """
+        Thread the per-provider reasoning_effort into the request body where supported.
+
+        Degrade-safe: None/"auto"/"off"/"custom" ⇒ no-op (request unchanged, so endpoints that
+        do not support reasoning are never sent an unknown field). Anthropic ⇒ extended-thinking
+        block (max_tokens bumped above the thinking budget). OpenAI-compatible ⇒ reasoning_effort.
+        """
+        effort = self._reasoning_effort
+        if not effort or effort in {"auto", "off", "custom"}:
+            return
+        if anthropic:
+            budget = _ANTHROPIC_THINKING_BUDGET.get(effort)
+            if budget is None:
+                return
+            body["thinking"] = {"type": "enabled", "budget_tokens": budget}
+            raw_max = body.get("max_tokens", _DEFAULT_MAX_TOKENS)
+            current_max = raw_max if isinstance(raw_max, int) else _DEFAULT_MAX_TOKENS
+            if current_max <= budget:
+                body["max_tokens"] = budget + 1024
+        else:
+            mapped = _OPENAI_REASONING_EFFORT.get(effort)
+            if mapped is not None:
+                body["reasoning_effort"] = mapped
 
     # ── LLM calls ────────────────────────────────────────────────────────────────
 
@@ -225,9 +287,7 @@ class ApiProvider(InferenceProvider):
     async def _chat_stream_anthropic(
         self, messages: list[Message], retrieval_context: str
     ) -> AsyncIterator[str]:
-        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        api_key = self._anthropic_key()
         # B2-C1: images are carried only when vision-capable (Anthropic path is always True);
         # otherwise dropped. NEVER log the base64 payload.
         vision = self._supports_vision()
@@ -245,6 +305,7 @@ class ApiProvider(InferenceProvider):
         }
         if retrieval_context.strip():
             body["system"] = retrieval_context
+        self._apply_reasoning(body, anthropic=True)  # W1 (F17); no-op unless opted in
         headers = {
             "x-api-key": api_key,
             "anthropic-version": _ANTHROPIC_VERSION,
@@ -294,9 +355,7 @@ class ApiProvider(InferenceProvider):
     async def _chat_stream_openai(
         self, messages: list[Message], retrieval_context: str
     ) -> AsyncIterator[str]:
-        api_key = os.environ.get(_OPENAI_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
+        api_key = self._openai_key()
         # B2-C1: images are carried only when this instance is vision-capable (config flag on the
         # OpenAI-compatible path); otherwise dropped. NEVER log the base64 payload.
         vision = self._supports_vision()
@@ -306,12 +365,13 @@ class ApiProvider(InferenceProvider):
         openai_messages.extend(
             {"role": m.role, "content": _openai_content(m, vision)} for m in messages
         )
-        body = {
+        body: dict[str, object] = {
             "model": self._model,  # from provider_config (I6)
             "messages": openai_messages,
             "stream": True,
             "stream_options": {"include_usage": True},
         }
+        self._apply_reasoning(body, anthropic=False)  # W1 (F17); no-op unless opted in
         headers = {
             "authorization": f"Bearer {api_key}",
             "content-type": "application/json",
@@ -398,9 +458,7 @@ class ApiProvider(InferenceProvider):
         return await self._caption_anthropic(b64, media_type, prompt)
 
     async def _caption_anthropic(self, b64: str, media_type: str, prompt: str) -> str:
-        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
+        api_key = self._anthropic_key()
         body = {
             "model": self._model,  # from provider_config (I6)
             "max_tokens": _DEFAULT_MAX_TOKENS,
@@ -447,9 +505,7 @@ class ApiProvider(InferenceProvider):
         return text.strip()
 
     async def _caption_openai(self, b64: str, media_type: str, prompt: str) -> str:
-        api_key = os.environ.get(_OPENAI_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
+        api_key = self._openai_key()
         data_uri = f"data:{media_type};base64,{b64}"
         body = {
             "model": self._model,  # from provider_config (I6)
@@ -509,15 +565,14 @@ class ApiProvider(InferenceProvider):
         return await self._complete_anthropic(system=system, user=user)
 
     async def _complete_anthropic(self, *, system: str, user: str) -> str:
-        api_key = os.environ.get(_ANTHROPIC_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_ANTHROPIC_KEY_ENV} not set in environment (§12, ADR-0008)")
-        body = {
+        api_key = self._anthropic_key()
+        body: dict[str, object] = {
             "model": self._model,
             "max_tokens": _DEFAULT_MAX_TOKENS,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
+        self._apply_reasoning(body, anthropic=True)  # W1 (F17); no-op unless opted in
         headers = {
             "x-api-key": api_key,
             "anthropic-version": _ANTHROPIC_VERSION,
@@ -545,10 +600,8 @@ class ApiProvider(InferenceProvider):
         return text
 
     async def _complete_openai(self, *, system: str, user: str) -> str:
-        api_key = os.environ.get(_OPENAI_KEY_ENV)
-        if not api_key:
-            raise ValueError(f"{_OPENAI_KEY_ENV} not set in environment (§12, ADR-0008)")
-        body = {
+        api_key = self._openai_key()
+        body: dict[str, object] = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system},
@@ -556,6 +609,7 @@ class ApiProvider(InferenceProvider):
             ],
             "response_format": {"type": "json_object"},
         }
+        self._apply_reasoning(body, anthropic=False)  # W1 (F17); no-op unless opted in
         headers = {
             "authorization": f"Bearer {api_key}",
             "content-type": "application/json",

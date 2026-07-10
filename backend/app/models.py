@@ -97,6 +97,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -470,10 +471,14 @@ class ProviderConfig(Base):
     global. A missing global row is a HARD configuration error, never a silent default
     backend (I6 — "never hardcode a provider").
 
-    Holds NO API key column — secrets are environment-only (§12, ADR-0008 §3). `model_id`
-    values live ONLY in DB rows (seeded by the Alembic data migration), never as literals in
-    app code (AC-F17-8). `provider_name`/`model_id` are config, not routing inputs (I6 routing
-    is by capabilities().supports_agentic_loop).
+    Secrets: env-var keys (ANTHROPIC_API_KEY / OPENAI_API_KEY) remain the default (§12,
+    ADR-0008 §3). W1 (F17, §12 amendment) additionally allows a UI-supplied per-vendor key,
+    stored in `api_key_encrypted` ENCRYPTED AT REST (Fernet, master key from SYNAPSE_SECRET_KEY;
+    app/secrets_crypto.py). The plaintext is NEVER stored and NEVER returned by any endpoint —
+    GET exposes only `api_key_configured` + a masked hint. `model_id` values live ONLY in DB
+    rows (seeded by the Alembic data migration), never as literals in app code (AC-F17-8).
+    `provider_name`/`model_id` are config, not routing inputs (I6 routing is by
+    capabilities().supports_agentic_loop).
     """
 
     __tablename__ = "provider_config"
@@ -520,6 +525,31 @@ class ProviderConfig(Base):
         Text,
         nullable=True,
         comment="OpenAI-compatible endpoint for ApiProvider; NULL for Anthropic/local default",
+    )
+
+    api_key_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        comment=(
+            "W1 (F17, §12 amendment). Fernet-encrypted UI-supplied provider API key "
+            "(master key from SYNAPSE_SECRET_KEY env; app/secrets_crypto.py). "
+            "NULL = no UI key; the provider layer falls back to env-var keys "
+            "(ANTHROPIC_API_KEY / OPENAI_API_KEY). The plaintext is NEVER stored and NEVER "
+            "returned by any endpoint (GET exposes only api_key_configured + a masked hint). "
+            "Migration 0026."
+        ),
+    )
+
+    reasoning_effort: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "W1 (F17). Per-provider reasoning/thinking effort: "
+            "auto | off | low | medium | high | max | custom. "
+            "NULL/auto = provider default (no reasoning override). Threaded into the ApiProvider "
+            "where the backend supports it (Anthropic extended thinking / OpenAI-compatible "
+            "reasoning_effort); degrade-safe/ignored when unsupported. Migration 0026."
+        ),
     )
 
     max_iter: Mapped[int] = mapped_column(
