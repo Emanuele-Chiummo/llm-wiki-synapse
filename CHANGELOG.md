@@ -9,31 +9,47 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-07-10 — "UI parity & secrets"
+
 ### Added
-- **Provider vendor catalog**: built-in catalog of 15 known providers (Anthropic, Claude
-  CLI, Codex CLI, OpenAI, Gemini, Azure, DeepSeek, Groq, xAI, NVIDIA NIM, Kimi,
-  Ollama) with per-vendor model presets [F17].
-- **Encrypted API key storage**: keys written via `POST /provider/config` are encrypted
-  at rest (Fernet/AES-128-CBC+HMAC, master key from `SYNAPSE_SECRET_KEY`); responses
-  expose only `api_key_configured` + `api_key_masked` — plaintext never returned [F17].
-- **Reasoning-effort control**: `reasoning_effort` field on provider config; `POST/PUT`
-  accepted; resolution falls back to env key when no stored key is present [F17].
-- **Provider connectivity and function tests**: `POST /provider/test/{connection,function}`
-  — bounded (timeout + max-tokens), never echoes the key; 51 new tests [F17].
-- **Async ConvertPanel**: PDF/DOCX conversion UI now polls `GET /ingest/convert-marker/status`
-  every 2.5 s and shows a progress bar (N of M, pct %) + ETA + per-file status
-  (pending/converting/ok/failed + detail); conversion history persisted to localStorage
-  (cap 50) with an "Open in Sources" button per success [F12].
+- **Provider vendor catalog** — one row per vendor for 15 known providers (Anthropic, Claude
+  Code CLI, Codex CLI, OpenAI, Gemini, Azure, DeepSeek, Atlas, Groq, xAI, NVIDIA NIM, Kimi ×3,
+  Ollama), each with a toggle, model presets, context-window and reasoning controls, and
+  connection/function tests — matching the LLM Wiki "LLM Models" UX [F17].
+- **Encrypted API key storage** — keys entered in the UI are encrypted at rest
+  (Fernet/AES-128-CBC+HMAC, master key from `SYNAPSE_SECRET_KEY`); responses expose only
+  `api_key_configured` + `api_key_masked`, never plaintext [F17].
+- **CLI auth co-located in its provider** — the Claude Code CLI subscription OAuth token
+  config now lives inside the Claude Code CLI vendor row; the Codex CLI row shows an inline
+  auth note (`codex login` / `OPENAI_API_KEY`) instead of a separate section [F17].
+- **Provider connectivity & function tests** — `POST /provider/test/{connection,function}`,
+  bounded and never echoing the key [F17].
+- **Async import UX** — the Marker convert panel shows a progress bar (N of M, %) + ETA +
+  per-file status, a persisted conversion history with an "Open in Sources" button, and a
+  fixed drag-and-drop zone [F12].
+- **macOS menu-bar (system tray) icon** — a Synapse status-bar icon with "Apri Synapse" /
+  "Esci" and click-to-show, present while the app runs or is minimized [F15].
+- **In-app Changelog** — a Settings → Changelog section rendering this file as expandable
+  per-version cards (10 most recent) [F16].
+- Visual divergence audit vs LLM Wiki v0.6.0 (`docs/reference/V14-DIVERGENCE-AUDIT.md`) [F16].
 
 ### Changed
-- **Marker convert via async background batch**: `POST /ingest/convert-marker` now submits
-  to a serial background batch and returns `202 {batch_id, queued, total}` immediately —
-  the blocking synchronous call caused Cloudflare 524 timeouts on large documents [F12].
+- **Marker convert is now asynchronous** — `POST /ingest/convert-marker` returns
+  `202 {batch_id, queued, total}` immediately and runs a serial background batch (status via
+  `GET /ingest/convert-marker/status`), eliminating Cloudflare 524 timeouts on large PDFs [F12].
+- Provider settings rebuilt from the add-a-provider-config form to the vendor-catalog UX;
+  per-provider `reasoning_effort`, falling back to the env key when no stored key is set [F17].
 
 ### Fixed
-- **Broken drag-drop on ConvertPanel**: added `onDragEnter preventDefault/stopPropagation`
-  so the drop event fires correctly; `stopPropagation` on `onDragLeave` prevents spurious
-  leave events [F12].
+- ConvertPanel drag-and-drop — the drop event now fires (`onDragEnter` preventDefault) [F12].
+- Vendor catalog stuck on "loading" — removed an effect-dependency abort loop in the fetch [F17].
+
+### Security
+- **All sensitive DB secrets encrypted at rest** — `cli_oauth_token` (the `sk-ant-oat`
+  subscription token) was stored in plaintext and is now Fernet-encrypted (migration 0027);
+  provider API keys encrypted (0026); `clip_access_token` confirmed already PBKDF2-hashed; no
+  plaintext secret remains. Removed the now-obsolete "stored in plaintext" caveat; test
+  fixtures no longer hardcode secret-shaped literals [F17].
 
 ## [1.3.16] — 2026-07-09
 
@@ -602,7 +618,8 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
-[Unreleased]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...HEAD
+[Unreleased]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...v1.4.0
 [1.3.16]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.15...v1.3.16
 [1.3.15]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.14...v1.3.15
 [1.3.14]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.13...v1.3.14
