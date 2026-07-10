@@ -1544,6 +1544,38 @@
       "message": "Il server Synapse è alla v{{backendVersion}} — il frontend si aspetta la v{{appVersion}}. Aggiorna l'immagine del backend per le ultime funzionalità.",
       "deployLink": "Come aggiornare",
       "dismiss": "Chiudi avviso versione"
+    },
+    "wikiThesis": {
+      "ariaLabel": "Tesi centrale del wiki",
+      "title": "Tesi del wiki",
+      "keyQuestionsLabel": "Domande chiave"
+    },
+    "quickActions": {
+      "ariaLabel": "Azioni rapide",
+      "ingestSource": "Ingerisci fonte",
+      "askQuestion": "Fai una domanda",
+      "deepResearch": "Ricerca profonda"
+    },
+    "reviewPreview": {
+      "ariaLabel": "Anteprima elementi da revisionare",
+      "title": "Da revisionare",
+      "seeAll": "vedi tutte ({{count}}) →",
+      "noTitle": "(nessun titolo)",
+      "create": "Crea",
+      "creating": "Creazione…",
+      "deepResearch": "Ricerca",
+      "skip": "Salta"
+    },
+    "openQuestions": {
+      "ariaLabel": "Domande aperte",
+      "title": "Domande aperte"
+    },
+    "dataQuality": {
+      "ariaLabel": "Avviso qualità dati",
+      "message": "{{untyped}} pagina/e senza tipo, {{undomained}} senza dominio",
+      "cta": "Classifica ora",
+      "running": "In corso…",
+      "done": "Fatto"
     }
   },
   "navTree": {

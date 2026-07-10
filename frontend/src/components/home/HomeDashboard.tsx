@@ -60,7 +60,30 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  // ── New icons for v1.5 home additions ──────────────────────────────────────
+  BookOpen,
+  Upload,
+  MessageCircle,
+  FlaskConical,
+  HelpCircle,
+  Tag,
 } from "lucide-react";
+import {
+  fetchPageBySlug,
+  fetchPageContent,
+  fetchPages,
+} from "../../api/pagesClient";
+import {
+  fetchReviewQueue,
+  createReviewItem,
+  skipReviewItem,
+  deepResearchReviewItem,
+} from "../../api/reviewClient";
+import {
+  triggerBackfillDomains,
+  triggerReclassifyTypes,
+} from "../../api/opsClient";
+import type { ReviewItem, PageListItem } from "../../api/types";
 import {
   getStatsOverview,
   getStatsSections,
@@ -80,6 +103,9 @@ import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import {
   useGraphStore,
   selectSetActiveSection,
+  selectVaultId,
+  selectSelectPage,
+  type Section,
 } from "../../store/graphStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import {
@@ -1217,6 +1243,770 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
   );
 }
 
+// ─── Wiki Thesis Block (hero) [v1.5] ─────────────────────────────────────────
+
+/**
+ * WikiThesisBlock — fetches overview.md and purpose.md to display the wiki's
+ * central thesis and up to 3 key-question chips.
+ *
+ * Fetches ONCE on mount; AbortController cleanup on unmount (I3).
+ * Renders nothing (null) when overview.md is missing or thesis can't be parsed.
+ * Silently omits key-question chips when purpose.md is missing.
+ * [F18][v1.5]
+ */
+function WikiThesisBlock() {
+  const { t } = useTranslation();
+  const [thesis, setThesis] = useState<string | null>(null);
+  const [keyQuestions, setKeyQuestions] = useState<string[]>([]);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    void (async () => {
+      // ── Thesis from overview.md ───────────────────────────────────────────
+      try {
+        const overviewPage = await fetchPageBySlug("overview", ac.signal);
+        if (ac.signal.aborted) return;
+        const overviewContent = await fetchPageContent(overviewPage.id, ac.signal);
+        if (ac.signal.aborted) return;
+        const raw = overviewContent.content;
+        // Parse "**Tesi centrale**: ..." or "**Central thesis**: ..."
+        const match = raw.match(/\*\*(?:Tesi centrale|Central thesis)\*\*:\s*(.+)/);
+        let parsed: string | null = match ? (match[1] ?? "").trim() || null : null;
+        // Fallback: first substantial non-metadata non-heading line
+        if (!parsed) {
+          for (const line of raw.split("\n")) {
+            const trimmed = line.trim();
+            if (
+              trimmed.length >= 30 &&
+              !trimmed.startsWith("#") &&
+              !trimmed.startsWith("---") &&
+              !/^[a-z_]+:\s/.test(trimmed) // frontmatter key
+            ) {
+              parsed = trimmed.replace(/^\*+|\*+$/g, "").trim();
+              break;
+            }
+          }
+        }
+        if (parsed && !ac.signal.aborted) setThesis(parsed);
+      } catch {
+        /* overview.md unavailable — block stays hidden */
+      }
+
+      // ── Key questions from purpose.md (best-effort, independent) ─────────
+      try {
+        const purposePage = await fetchPageBySlug("purpose", ac.signal);
+        if (ac.signal.aborted) return;
+        const purposeContent = await fetchPageContent(purposePage.id, ac.signal);
+        if (ac.signal.aborted) return;
+        const raw = purposeContent.content;
+        const sectionMatch = raw.match(
+          /##\s*(?:Key questions|Domande chiave|Domande)\s*\n([\s\S]*?)(?=\n##|$)/i,
+        );
+        if (sectionMatch) {
+          const bullets = (sectionMatch[1] ?? "").match(/^\s*[-*]\s*(.+)$/gm) ?? [];
+          const questions = bullets
+            .slice(0, 3)
+            .map((b) => b.replace(/^\s*[-*]\s*/, "").trim())
+            .filter(Boolean);
+          if (questions.length > 0 && !ac.signal.aborted) setKeyQuestions(questions);
+        }
+      } catch {
+        /* purpose.md unavailable — omit key-question chips */
+      }
+    })();
+
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  if (!thesis) return null;
+
+  return (
+    <section
+      aria-label={t("home.wikiThesis.ariaLabel")}
+      data-testid="home-wiki-thesis"
+      style={{
+        padding: "16px 18px",
+        borderRadius: "var(--syn-radius-md)",
+        border:
+          "1px solid color-mix(in srgb, var(--syn-accent) 20%, var(--syn-border) 80%)",
+        background: "var(--syn-bg-soft)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      {/* Header label */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <BookOpen
+          size={12}
+          aria-hidden="true"
+          style={{ color: "var(--syn-accent)", flexShrink: 0 }}
+        />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: "var(--syn-text-muted)",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {t("home.wikiThesis.title")}
+        </span>
+      </div>
+
+      {/* Thesis statement */}
+      <p
+        data-testid="home-wiki-thesis-text"
+        style={{
+          margin: 0,
+          fontSize: 14,
+          fontWeight: 500,
+          color: "var(--syn-text)",
+          lineHeight: 1.55,
+          fontStyle: "italic",
+        }}
+      >
+        {thesis}
+      </p>
+
+      {/* Key-question chips (optional) */}
+      {keyQuestions.length > 0 && (
+        <div
+          data-testid="home-wiki-thesis-questions"
+          style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}
+        >
+          <span
+            style={{
+              fontSize: 10,
+              color: "var(--syn-text-dim)",
+              alignSelf: "center",
+              flexShrink: 0,
+            }}
+          >
+            {t("home.wikiThesis.keyQuestionsLabel")}:
+          </span>
+          {keyQuestions.map((q, i) => (
+            <span
+              key={i}
+              style={{
+                fontSize: 11,
+                padding: "2px 8px",
+                borderRadius: 10,
+                border: "1px solid var(--syn-border)",
+                background: "var(--syn-surface-sunken)",
+                color: "var(--syn-text-muted)",
+              }}
+            >
+              {q}
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Quick Actions Block [v1.5] ───────────────────────────────────────────────
+
+interface QuickActionsBlockProps {
+  setActiveSection: (section: Section) => void;
+}
+
+/**
+ * QuickActionsBlock — a compact row of 3 navigation shortcuts.
+ * "Ingerisci fonte" → ingest | "Fai una domanda" → chat | "Ricerca profonda" → deep-search.
+ * Pure UI; no API calls. [F18][v1.5]
+ */
+function QuickActionsBlock({ setActiveSection }: QuickActionsBlockProps) {
+  const { t } = useTranslation();
+
+  const ACTIONS = [
+    {
+      label: t("home.quickActions.ingestSource"),
+      icon: <Upload size={13} aria-hidden="true" />,
+      section: "ingest",
+      testId: "home-quick-action-ingest",
+    },
+    {
+      label: t("home.quickActions.askQuestion"),
+      icon: <MessageCircle size={13} aria-hidden="true" />,
+      section: "chat",
+      testId: "home-quick-action-chat",
+    },
+    {
+      label: t("home.quickActions.deepResearch"),
+      icon: <FlaskConical size={13} aria-hidden="true" />,
+      section: "deep-search",
+      testId: "home-quick-action-deep-search",
+    },
+  ] as const;
+
+  return (
+    <section
+      aria-label={t("home.quickActions.ariaLabel")}
+      data-testid="home-quick-actions"
+      style={{ display: "flex", gap: 10 }}
+    >
+      {ACTIONS.map((action) => (
+        <button
+          key={action.section}
+          type="button"
+          data-testid={action.testId}
+          onClick={() => setActiveSection(action.section)}
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            padding: "10px 12px",
+            borderRadius: "var(--syn-radius-md)",
+            border: "1px solid var(--syn-border)",
+            background: "var(--syn-bg-soft)",
+            color: "var(--syn-text-muted)",
+            fontSize: 12,
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "border-color 0.1s ease, color 0.1s ease, background 0.1s ease",
+          }}
+          onMouseEnter={(e) => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.borderColor = "var(--syn-accent)";
+            el.style.color = "var(--syn-accent)";
+            el.style.background = "var(--syn-surface-hover)";
+          }}
+          onMouseLeave={(e) => {
+            const el = e.currentTarget as HTMLButtonElement;
+            el.style.borderColor = "var(--syn-border)";
+            el.style.color = "var(--syn-text-muted)";
+            el.style.background = "var(--syn-bg-soft)";
+          }}
+        >
+          {action.icon}
+          {action.label}
+        </button>
+      ))}
+    </section>
+  );
+}
+
+// ─── Review Preview Block [v1.5] ──────────────────────────────────────────────
+
+interface ReviewPreviewBlockProps {
+  vaultId: string;
+  /** Total pending count from overview KPI — used for the "see all" label. */
+  reviewTotal: number;
+  setActiveSection: (section: Section) => void;
+}
+
+/**
+ * ReviewPreviewBlock — shows the top 3-5 pending review items with compact
+ * Create / Deep-Research / Skip action buttons.
+ * A "see all (N) →" link switches to the full Review section.
+ *
+ * Fetches ONCE on mount; AbortController cleanup on unmount (I3).
+ * Renders null while loading with no items, or when the queue is empty.
+ * [F18][F9][v1.5]
+ */
+function ReviewPreviewBlock({
+  vaultId,
+  reviewTotal,
+  setActiveSection,
+}: ReviewPreviewBlockProps) {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionStates, setActionStates] = useState<
+    Record<string, "idle" | "loading" | "done">
+  >({});
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setLoading(true);
+
+    void (async () => {
+      try {
+        const result = await fetchReviewQueue(
+          { vaultId, limit: 5, status: "pending" },
+          ac.signal,
+        );
+        if (ac.signal.aborted) return;
+        setItems(result?.items ?? []);
+      } catch {
+        if (!ac.signal.aborted) setItems([]);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [vaultId]);
+
+  const handleAction = useCallback(
+    (itemId: string, action: "create" | "research" | "skip") => {
+      setActionStates((prev) => ({ ...prev, [itemId]: "loading" }));
+      void (async () => {
+        try {
+          if (action === "create") await createReviewItem(itemId);
+          else if (action === "research") await deepResearchReviewItem(itemId);
+          else await skipReviewItem(itemId);
+          setActionStates((prev) => ({ ...prev, [itemId]: "done" }));
+          // Optimistically remove acted-on item from preview
+          setItems((prev) => prev.filter((i) => i.id !== itemId));
+        } catch {
+          setActionStates((prev) => ({ ...prev, [itemId]: "idle" }));
+        }
+      })();
+    },
+    [],
+  );
+
+  // Avoid flash: hide while loading with nothing to show yet
+  if (loading && items.length === 0) return null;
+  if (!loading && items.length === 0) return null;
+
+  return (
+    <section
+      aria-label={t("home.reviewPreview.ariaLabel")}
+      data-testid="home-review-preview"
+      style={{
+        padding: "14px 16px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid var(--syn-border)",
+        background: "var(--syn-bg-soft)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      {/* Header row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <ClipboardList
+            size={12}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--syn-text-muted)",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            {t("home.reviewPreview.title")}
+          </span>
+        </div>
+        <button
+          data-testid="home-review-preview-see-all"
+          onClick={() => setActiveSection("review")}
+          style={{
+            fontSize: 11,
+            color: "var(--syn-accent)",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: "2px 4px",
+            flexShrink: 0,
+          }}
+        >
+          {t("home.reviewPreview.seeAll", { count: reviewTotal })}
+        </button>
+      </div>
+
+      {/* Item list */}
+      <ul
+        style={{
+          listStyle: "none",
+          margin: 0,
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
+        {items.map((item) => {
+          const state = actionStates[item.id] ?? "idle";
+          const title = item.proposed_title || t("home.reviewPreview.noTitle");
+          return (
+            <li key={item.id} data-testid={`home-review-item-${item.id}`}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: "var(--syn-radius-md)",
+                  background: "var(--syn-surface-sunken)",
+                }}
+              >
+                {/* Title + type */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "var(--syn-text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "var(--syn-text-dim)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {item.item_type}
+                  </div>
+                </div>
+                {/* Action buttons (hidden once acted-on) */}
+                {state !== "done" && (
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      data-testid={`home-review-action-create-${item.id}`}
+                      disabled={state === "loading"}
+                      onClick={() => handleAction(item.id, "create")}
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        border: "1px solid var(--syn-border)",
+                        background: "transparent",
+                        color: "var(--syn-text-muted)",
+                        cursor: state === "loading" ? "default" : "pointer",
+                      }}
+                    >
+                      {state === "loading"
+                        ? t("home.reviewPreview.creating")
+                        : t("home.reviewPreview.create")}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`home-review-action-research-${item.id}`}
+                      disabled={state === "loading"}
+                      onClick={() => handleAction(item.id, "research")}
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        border: "1px solid var(--syn-border)",
+                        background: "transparent",
+                        color: "var(--syn-text-muted)",
+                        cursor: state === "loading" ? "default" : "pointer",
+                      }}
+                    >
+                      {t("home.reviewPreview.deepResearch")}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`home-review-action-skip-${item.id}`}
+                      disabled={state === "loading"}
+                      onClick={() => handleAction(item.id, "skip")}
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 7px",
+                        borderRadius: 4,
+                        border: "1px solid var(--syn-border)",
+                        background: "transparent",
+                        color: "var(--syn-text-dim)",
+                        cursor: state === "loading" ? "default" : "pointer",
+                      }}
+                    >
+                      {t("home.reviewPreview.skip")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+// ─── Open Questions Block [v1.5] ──────────────────────────────────────────────
+
+interface OpenQuestionsBlockProps {
+  vaultId: string;
+  onOpenPage: (pageId: string) => void;
+}
+
+/**
+ * OpenQuestionsBlock — fetches pages of type "query" and lists up to 5 titles.
+ * Clicking a title calls onOpenPage(page.id) which selects the page in the Wiki section.
+ *
+ * Fetches ONCE on mount with limit=100; client-side filtered to type=query (I3).
+ * Renders null when no query pages exist.
+ * [F18][v1.5]
+ */
+function OpenQuestionsBlock({ vaultId, onOpenPage }: OpenQuestionsBlockProps) {
+  const { t } = useTranslation();
+  const [queryPages, setQueryPages] = useState<PageListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setLoading(true);
+
+    void (async () => {
+      try {
+        const result = await fetchPages(vaultId, { limit: 100 }, ac.signal);
+        if (ac.signal.aborted) return;
+        const queries = (result?.items ?? [])
+          .filter((p) => p.type === "query")
+          .slice(0, 5);
+        setQueryPages(queries);
+      } catch {
+        if (!ac.signal.aborted) setQueryPages([]);
+      } finally {
+        if (!ac.signal.aborted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, [vaultId]);
+
+  if (loading && queryPages.length === 0) return null;
+  if (!loading && queryPages.length === 0) return null;
+
+  return (
+    <section
+      aria-label={t("home.openQuestions.ariaLabel")}
+      data-testid="home-open-questions"
+      style={{
+        padding: "14px 16px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid var(--syn-border)",
+        background: "var(--syn-bg-soft)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <HelpCircle
+          size={12}
+          aria-hidden="true"
+          style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+        />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: "var(--syn-text-muted)",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+          }}
+        >
+          {t("home.openQuestions.title")}
+        </span>
+      </div>
+
+      {/* Page list */}
+      <ul
+        style={{
+          listStyle: "none",
+          margin: 0,
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+        }}
+      >
+        {queryPages.map((page) => (
+          <li key={page.id}>
+            <button
+              type="button"
+              data-testid={`home-open-question-${page.id}`}
+              onClick={() => onOpenPage(page.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                width: "100%",
+                padding: "5px 8px",
+                borderRadius: 6,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "background 0.1s ease",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background =
+                  "var(--syn-surface-hover)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              }}
+            >
+              <HelpCircle
+                size={10}
+                aria-hidden="true"
+                style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+              />
+              <span
+                style={{
+                  fontSize: 12,
+                  color: "var(--syn-text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {page.title}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ─── Data Quality Nudge [v1.5] ────────────────────────────────────────────────
+
+interface DataQualityNudgeProps {
+  overview: StatsOverview;
+  sections: StatsSections | null | undefined;
+}
+
+/**
+ * DataQualityNudge — slim amber banner showing untyped and undomained page counts.
+ * A "Classify now" button triggers POST /ops/backfill-domains then /ops/reclassify-types.
+ *
+ * Uses already-fetched overview + sections data — NO new API calls on render (I3).
+ * Renders null when both untyped and undomained counts are zero.
+ * [F18][v1.5]
+ */
+function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
+  const { t } = useTranslation();
+  const [classifying, setClassifying] = useState(false);
+  const [done, setDone] = useState(false);
+
+  // Untyped: pages_total minus all typed pages (type histogram may have missing types)
+  const typedCount = Object.values(overview.pages_by_type).reduce(
+    (sum, n) => sum + n,
+    0,
+  );
+  const untypedCount = Math.max(0, overview.pages_total - typedCount);
+
+  // Undomained: the "untagged" virtual bucket from sections
+  const undomainedCount =
+    sections?.sections.find((s) => s.domain === "untagged")?.pages_total ?? 0;
+
+  if (untypedCount === 0 && undomainedCount === 0) return null;
+
+  const handleClassify = () => {
+    if (classifying || done) return;
+    setClassifying(true);
+    void (async () => {
+      try {
+        await triggerBackfillDomains();
+        await triggerReclassifyTypes();
+        setDone(true);
+      } catch {
+        /* non-fatal — nudge stays visible; user can retry */
+      } finally {
+        setClassifying(false);
+      }
+    })();
+  };
+
+  return (
+    <section
+      aria-label={t("home.dataQuality.ariaLabel")}
+      data-testid="home-data-quality"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "8px 14px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid color-mix(in srgb, #f59e0b 25%, var(--syn-border) 75%)",
+        background: "color-mix(in srgb, #f59e0b 5%, var(--syn-bg-soft) 95%)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Tag
+          size={12}
+          aria-hidden="true"
+          style={{ color: "#f59e0b", flexShrink: 0 }}
+        />
+        <span
+          data-testid="home-data-quality-message"
+          style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
+        >
+          {t("home.dataQuality.message", {
+            untyped: untypedCount,
+            undomained: undomainedCount,
+          })}
+        </span>
+      </div>
+      <button
+        type="button"
+        data-testid="home-data-quality-cta"
+        onClick={handleClassify}
+        disabled={classifying || done}
+        style={{
+          fontSize: 11,
+          padding: "4px 10px",
+          borderRadius: "var(--syn-radius-md)",
+          border: "1px solid var(--syn-accent)",
+          background: "transparent",
+          color: "var(--syn-accent)",
+          cursor: classifying || done ? "default" : "pointer",
+          flexShrink: 0,
+          fontWeight: 500,
+          opacity: classifying || done ? 0.6 : 1,
+          transition: "opacity 0.1s ease",
+        }}
+      >
+        {done
+          ? t("home.dataQuality.done")
+          : classifying
+            ? t("home.dataQuality.running")
+            : t("home.dataQuality.cta")}
+      </button>
+    </section>
+  );
+}
+
 // ─── HomeDashboard ─────────────────────────────────────────────────────────────
 
 /** Number of groups to show by default before "Espandi" toggle (A4). */
@@ -1225,6 +2015,9 @@ const GROUPS_DEFAULT_CAP = 4;
 export function HomeDashboard() {
   const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
+  // v1.5 additions [F18]: vault id + page-open action for new home sections
+  const vaultId = useGraphStore(selectVaultId);
+  const selectPageAction = useGraphStore(selectSelectPage);
   const activeProvider = useProviderStore(selectActiveProvider);
   const backendVersion = useStatusStore(selectBackendVersion);
 
@@ -1492,6 +2285,12 @@ export function HomeDashboard() {
         </p>
       </div>
 
+      {/* ── 1a. Wiki thesis hero (v1.5, F18) ── */}
+      <WikiThesisBlock />
+
+      {/* ── 1b. Quick actions row (v1.5, F18) ── */}
+      <QuickActionsBlock setActiveSection={setActiveSection} />
+
       {/* ── 1. System Status block (A2) ── */}
       <SystemStatusBlock
         activeProviderLabel={activeProviderLabel}
@@ -1569,6 +2368,31 @@ export function HomeDashboard() {
           />
         </div>
       </section>
+
+      {/* ── 3a. Data quality nudge (v1.5, F18) — slim amber banner ── */}
+      <DataQualityNudge overview={overview} sections={sections} />
+
+      {/* ── 3b. Review preview + open questions — two-column block (v1.5, F18) ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: 16,
+        }}
+      >
+        <ReviewPreviewBlock
+          vaultId={vaultId}
+          reviewTotal={overview.review_pending}
+          setActiveSection={setActiveSection}
+        />
+        <OpenQuestionsBlock
+          vaultId={vaultId}
+          onOpenPage={(pageId) => {
+            selectPageAction(pageId, "tree");
+            setActiveSection("pages");
+          }}
+        />
+      </div>
 
       {/* ── 4. Curated domain sections "SEZIONI" ── */}
       {sections !== null && (
