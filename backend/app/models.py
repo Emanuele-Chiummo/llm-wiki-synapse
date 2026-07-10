@@ -443,6 +443,22 @@ class VaultState(Base):
         ),
     )
 
+    # ── P3-e: web-search cloud provider API keys (ADR-0071, encrypted at rest) ───
+    web_search_api_keys_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        default=None,
+        comment=(
+            "P3-e (ADR-0071). Fernet-encrypted JSON map {provider: api_key} for the opt-in cloud "
+            "web-search providers (tavily/serpapi/firecrawl/brave). Master key from "
+            "SYNAPSE_SECRET_KEY env (app/secrets_crypto.py). NULL = no UI keys; env "
+            "`{PROVIDER}_API_KEY` govern. When a provider's key is present here the DB value wins "
+            "over env. Plaintext NEVER stored/logged/returned (GET exposes only a masked posture). "
+            "Requires SYNAPSE_SECRET_KEY to store (PUT /web-search/provider-keys → 400 when "
+            "absent). Fail-closed on tampered ciphertext. Migration 0029."
+        ),
+    )
+
     # ── ADR-0041: SearXNG web-search runtime configuration ───────────────────────
     searxng_url_db: Mapped[str | None] = mapped_column(
         Text,

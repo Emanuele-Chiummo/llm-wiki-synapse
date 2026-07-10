@@ -448,7 +448,15 @@
       "maxQueriesHelp": "Numero massimo di query SearXNG per iterazione di ricerca profonda (1–50).",
       "maxQueriesSave": "Salva",
       "clearButton": "Cancella tutti i valori DB",
-      "clearHelp": "Torna alla variabile d'ambiente SEARXNG_URL e ai valori predefiniti del codice."
+      "clearHelp": "Torna alla variabile d'ambiente SEARXNG_URL e ai valori predefiniti del codice.",
+      "apiKeyLabel": "Chiave API",
+      "apiKeyConfigured": "Configurata ({{source}})",
+      "apiKeyNotConfigured": "Non configurata",
+      "apiKeyPlaceholder": "Incolla la chiave API del provider…",
+      "apiKeySave": "Salva chiave",
+      "apiKeyClear": "Rimuovi",
+      "apiKeyHint": "Salvata cifrata a riposo (Fernet). La chiave salvata ha priorità sulla variabile d'ambiente {PROVIDER}_API_KEY.",
+      "apiKeyNoSecret": "Imposta SYNAPSE_SECRET_KEY nell'ambiente del server per salvare le chiavi dalla UI, oppure fornisci la chiave con la variabile {PROVIDER}_API_KEY."
     },
     "cliAuth": {
       "title": "Autenticazione abbonamento CLI",

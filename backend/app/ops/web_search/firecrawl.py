@@ -17,7 +17,7 @@ import logging
 
 import httpx
 
-from app.config import settings
+from app.ops.web_search.keys import get_web_search_api_key
 
 from .base import SearchHit, WebSearchProvider
 
@@ -37,10 +37,10 @@ class FirecrawlProvider(WebSearchProvider):
 
     def configured(self) -> bool:
         """True iff FIRECRAWL_API_KEY is set (env-only secret)."""
-        return bool(settings.firecrawl_api_key)
+        return get_web_search_api_key("firecrawl") is not None
 
     async def _search_one(self, query: str) -> list[SearchHit]:
-        api_key = settings.firecrawl_api_key
+        api_key = get_web_search_api_key("firecrawl")
         if not api_key:
             logger.warning("firecrawl: FIRECRAWL_API_KEY not set — returning [] (I9 opt-in)")
             return []
