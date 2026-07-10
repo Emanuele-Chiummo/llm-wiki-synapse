@@ -8,9 +8,9 @@
 | Phase | Title | Depends on | Status |
 |-------|-------|-----------|--------|
 | **P0** | Foundations — ADR-0066, I9 amendment, this tracker | — | ✅ done |
-| **P1** | Vault config & Files — editable purpose/schema + whole-vault tree + Open project folder | P0 | 🟡 mostly done (editable meta ✅ backend+frontend; whole-vault Vault tab ✅; **remaining: "Open project folder" action + live preview verify**) |
+| **P1** | Vault config & Files — editable purpose/schema + whole-vault tree + Open project folder | P0 | ✅ **complete** — editable purpose/schema (Edit→CodeMirror→Save) · whole-vault "Vault" tab (`root=vault`) · "Open folder" (copy server-side path). All verified live. |
 | **P2** | Multi-vault Project Launcher — ⇄ rail entry, New/Open/Recent, backend vault registry + active-vault switch | P0 | ✅ **complete** — ADR-0067; registry + create/open + `activate` runtime switch (14 tests); ⇄ launcher UI **verified live** (renders + `GET /projects` shows the active vault). Full end-to-end vault-switch to be smoke-tested against a non-shared backend. |
-| **P3** | Settings parity — Image Captioning, Network proxy, Scheduled Import (external), Source Watch types, MinerU toggle, multi-provider web search, IA decision | P0 | ▫ todo |
+| **P3** | Settings parity — Image Captioning, Network proxy, Scheduled Import (external), Source Watch types, MinerU toggle, multi-provider web search, IA decision | P0 | ⏳ **planned** — 6 sized slices (P3-a…P3-f) grounded in the current code (see "P3 slice plan" below). Synapse settings already cover most of LLM Wiki, grouped differently; real gaps = Image Captioning page (S), Network proxy (M), wider Source-Watch types (M/L), **MinerU** + **multi-provider web search** (L, invariant-amended). |
 | **P4** | Chat composer — Skills · AnyTXT · Fast/Standard/Deep/Local-first pills | P0 | ▫ todo |
 | **P5** | Skills view — rail #10 scan/enable/disable/rescan | P0 | ▫ todo |
 | **BR** | Brand v1.0 integration — new logo art, dark app-icon, Geist, gradient tokens | — | 🟡 integrated (2 TODOs: drop Geist woff2 into `frontend/src/assets/fonts/`; Tauri tray `set_icon_as_template` API when it lands) |
@@ -42,3 +42,22 @@ the chat/retrieval backend.
 
 **P5** — Skills view scans skill folders, lists cards (name/provider/desc), enable/disable/rescan,
 gates which skills Chat may use.
+
+## P3 — Settings parity: slice plan (grounded in the current code, 2026-07-10)
+
+Synapse Settings are already RICHER and grouped, not LLM Wiki's flat-15 — most subsections already
+exist, organised differently. The real gaps + sizing:
+
+| # | Slice | Synapse today | Size | Notes |
+|---|-------|---------------|------|-------|
+| P3-a | **Image Captioning page** | `vision_captions_enabled` + `vision_max_images_per_run` exist in config but are **env-only** (read directly in `ingest/vision.py:133`), no UI | **S** | Add both to `ALLOWED_CONFIG_KEYS`/`ORDERED_KEYS` (+bool/int validation), read via `effective_bool/int`, add a settings section + nav. **⚠ ripples into the `GET /config/app` snapshot tests (FE+BE) — update them in the same slice.** |
+| P3-b | **Network proxy page** | none | **M** | New config (enable/url/bypass-local) + wire an `httpx` proxy transport into outbound clients (LLM/embeddings/search/update). Applying the proxy everywhere is the work. |
+| P3-c | **Source Watch wider types** | `_EXTRACTABLE_EXTENSIONS` = pdf/docx/pptx/xlsx only | **M/L** | LLM Wiki adds .doc/.odt/.rtf/.odp/.ods/.csv/.html/.mdx — needs real **extractors** for the new formats (not just a config flag) + grouped-checkbox UI + excluded-folders + max-size in the Source Watch page. |
+| P3-d | **MinerU cloud PDF toggle** | `pdf` page has Marker (`pdf_extractor` pypdf/marker) | **L** | ADR-0066: add MinerU as a 3rd `pdf_extractor` value + a MinerU cloud client + opt-in/off-default + upload warning. Backend integration. |
+| P3-e | **Multi-provider web search** | `SectionWebSearch` = **SearXNG-only** (ADR-0041) | **L** | ADR-0066: add Tavily/SerpApi/Firecrawl/Brave/Ollama-Web as opt-in providers alongside SearXNG — needs backend search adapters behind a provider seam + the multi-row UI (like the LLM Models catalog). The headline "mirror literally" item. |
+| P3-f | **Settings IA** | grouped nav | **S (decision)** | Decide: keep Synapse's richer grouped IA, or flatten toward LLM Wiki's 15. Recommendation: **keep grouped** (Synapse has more surface); just ensure every LLM Wiki subsection has a home. |
+
+**Recommended sequencing:** P3-a (small, visible parity win — but bundle the snapshot-test update) →
+P3-b → then the two big invariant-amended integrations **P3-d (MinerU)** and **P3-e (multi-provider
+web search)** each as its **own focused turn** (backend adapters + tests + live verify). P3-c (new
+extractors) sized separately. P3-f is a one-line decision.
