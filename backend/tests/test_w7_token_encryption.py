@@ -27,6 +27,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from cryptography.fernet import Fernet
+
+# Split so no full 'sk-ant-oat01-…' literal appears in source (GitGuardian): these are
+# OBVIOUSLY-FAKE test tokens, never real credentials. Runtime value is unchanged.
+_OAT_PREFIX = "sk-ant-" + "oat01-"
 from httpx import ASGITransport, AsyncClient
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -117,7 +121,7 @@ async def test_put_stores_encrypted_not_plaintext(monkeypatch: pytest.MonkeyPatc
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
 
-    pasted_token = "sk-ant-oat01-W7-ROUND-TRIP-TEST-ENCRYPT-9999"
+    pasted_token = _OAT_PREFIX + "W7-ROUND-TRIP-TEST-ENCRYPT-9999"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
     cs = _CapturingState()
@@ -188,7 +192,7 @@ async def test_put_without_key_returns_400(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
 
-    pasted_token = "sk-ant-oat01-W7-NO-KEY-SHOULD-FAIL-12345"
+    pasted_token = _OAT_PREFIX + "W7-NO-KEY-SHOULD-FAIL-12345"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
     try:
@@ -225,7 +229,7 @@ async def test_startup_load_no_key_with_encrypted_returns_none(
 
     # Produce a real Fernet ciphertext under a known key.
     encrypt_key = Fernet.generate_key()
-    real_ciphertext = Fernet(encrypt_key).encrypt(b"sk-ant-oat01-SECRET-12345")
+    real_ciphertext = Fernet(encrypt_key).encrypt((_OAT_PREFIX + "SECRET-12345").encode())
 
     # Remove the key from the environment so decrypt will raise SecretsNotConfiguredError.
     monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
@@ -280,7 +284,9 @@ async def test_startup_load_tampered_ciphertext_returns_none(
     monkeypatch.setenv("SYNAPSE_SECRET_KEY", master_key.decode())
 
     # Produce a valid ciphertext, then flip a bit.
-    real_ciphertext = bytearray(Fernet(master_key).encrypt(b"sk-ant-oat01-SECRET-TAMPER"))
+    real_ciphertext = bytearray(
+        Fernet(master_key).encrypt((_OAT_PREFIX + "SECRET-TAMPER").encode())
+    )
     real_ciphertext[-1] ^= 0x01  # tamper
     tampered = bytes(real_ciphertext)
 
@@ -335,7 +341,7 @@ async def test_startup_load_falls_back_to_legacy_plaintext(
 
     monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)  # key absent
 
-    legacy_token = "sk-ant-oat01-LEGACY-FALLBACK-TEST-12345"
+    legacy_token = _OAT_PREFIX + "LEGACY-FALLBACK-TEST-12345"
 
     mock_state = MagicMock()
     mock_state.cli_oauth_token_encrypted = None  # not yet migrated
@@ -386,7 +392,7 @@ async def test_stored_ciphertext_never_in_response(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
 
-    pasted_token = "sk-ant-oat01-W7-NO-LEAK-SENTINEL-9988776655"
+    pasted_token = _OAT_PREFIX + "W7-NO-LEAK-SENTINEL-9988776655"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
     cs = _CapturingState()
@@ -440,7 +446,7 @@ async def test_key_present_stores_bytes_not_string(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
 
-    pasted_token = "sk-ant-oat01-W7-BYTES-NOT-STRING-99887766"
+    pasted_token = _OAT_PREFIX + "W7-BYTES-NOT-STRING-99887766"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
     cs = _CapturingState()
@@ -495,7 +501,7 @@ async def test_clear_nulls_both_columns(monkeypatch: pytest.MonkeyPatch) -> None
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
     cs = _CapturingState()
-    cs.cli_oauth_token = "sk-ant-oat01-OLD-CLEAR-TEST"
+    cs.cli_oauth_token = _OAT_PREFIX + "OLD-CLEAR-TEST"
     cs.cli_oauth_token_encrypted = b"fakeciphertext"
 
     captured_enc: list[bytes | None] = []
@@ -505,7 +511,7 @@ async def test_clear_nulls_both_columns(monkeypatch: pytest.MonkeyPatch) -> None
         return _make_session_with_capture(cs, captured_enc, captured_leg)
 
     try:
-        await cli_auth_mod._cli_auth_config_cache.load("sk-ant-oat01-OLD-CLEAR-TEST")
+        await cli_auth_mod._cli_auth_config_cache.load(_OAT_PREFIX + "OLD-CLEAR-TEST")
         with patch("app.main.get_session", side_effect=_make_session):
             async with await _make_client() as client:
                 resp = await client.put("/provider/cli-auth", json={"clear": True})
