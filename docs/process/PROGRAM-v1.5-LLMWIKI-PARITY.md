@@ -8,15 +8,19 @@
 | Phase | Title | Depends on | Status |
 |-------|-------|-----------|--------|
 | **P0** | Foundations — ADR-0066, I9 amendment, this tracker | — | ✅ done |
-| **P1** | Vault config & Files — editable purpose/schema + whole-vault tree + Open project folder | P0 | ⏳ in progress |
+| **P1** | Vault config & Files — editable purpose/schema + whole-vault tree + Open project folder | P0 | 🟡 mostly done (editable meta ✅ backend+frontend; whole-vault Vault tab ✅; **remaining: "Open project folder" action + live preview verify**) |
 | **P2** | Multi-vault Project Launcher — ⇄ rail entry, New/Open/Recent, backend vault registry + active-vault switch | P0 | ▫ todo |
 | **P3** | Settings parity — Image Captioning, Network proxy, Scheduled Import (external), Source Watch types, MinerU toggle, multi-provider web search, IA decision | P0 | ▫ todo |
 | **P4** | Chat composer — Skills · AnyTXT · Fast/Standard/Deep/Local-first pills | P0 | ▫ todo |
 | **P5** | Skills view — rail #10 scan/enable/disable/rescan | P0 | ▫ todo |
-| **BR** | Brand v1.0 integration — new logo art, dark app-icon, Geist, gradient tokens (parallel stream, own worktree) | — | ⏳ in progress (bg agent) |
+| **BR** | Brand v1.0 integration — new logo art, dark app-icon, Geist, gradient tokens | — | 🟡 integrated (2 TODOs: drop Geist woff2 into `frontend/src/assets/fonts/`; Tauri tray `set_icon_as_template` API when it lands) |
 
-> **BR stream** runs in parallel in an isolated git worktree (avoids clobbering feature-phase
-> uncommitted work). Spec: `docs/reference/BRAND-v1-INTEGRATION.md`. Merges after review + preview.
+> **BR stream** was authored in an isolated worktree, then applied to the branch as a **cherry
+> of only the branding commit's own files** (`git checkout <brandcommit> -- <files>`) — NOT a
+> `git merge`, because the worktree branched from a STALE base (018f38c) and a merge would have
+> reverted 1.4.1 + P1 on shared files. Verified zero overlap first. Spec:
+> `docs/reference/BRAND-v1-INTEGRATION.md`. The definitive logo = the S-node mark in the owner's
+> `__Synapse_Logo_Redesign.pdf`; the `Brand/png/` assets already match it 1:1.
 
 ## Acceptance per phase
 
