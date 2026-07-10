@@ -193,6 +193,9 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("cli_oauth_token", Text, nullable=True),
         # W7 migration 0027: Fernet-encrypted CLI OAuth token (BYTEA; NULL = not set / env governs)
         Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
+        # F10 (v1.5): Fernet-encrypted per-provider web-search API keys (BYTEA; NULL = none set).
+        # Mirrors the VaultState model column so bump_version()/vault_state reads succeed on SQLite.
+        Column("web_search_api_keys_encrypted", LargeBinary, nullable=True),
         # ADR-0041 §3: SearXNG web-search runtime config (NULL = not set in DB; env fallback)
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),
@@ -217,7 +220,11 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("source_page_id", String(36), nullable=False),
         Column("target_title", Text, nullable=False),
         Column("target_page_id", String(36), nullable=True),
+        # Mirror the Link model so persist_links() INSERTs succeed on SQLite when a written page
+        # body carries [[wikilinks]] (alias + created_at were missing from this stale fixture).
+        Column("alias", Text, nullable=True),
         Column("dangling", Integer, nullable=False, server_default=sa_text("1")),
+        Column("created_at", Text, nullable=True),
     )
     # GET /status now counts pending review items for the NavRail badge (v1.2.x).
     Table(

@@ -18,6 +18,7 @@ Reuses the shared api_env / api_client SQLite harness from test_api.py.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -32,9 +33,35 @@ from app.ingest.schemas import (
     SuggestedPage,
     Usage,
 )
+from sqlalchemy import text as sa_text
 
 # Reuse the shared fixtures from test_api.py (registered by conftest auto-discovery).
 from tests.test_api import api_client, api_env  # noqa: F401
+
+
+async def _insert_query_page(
+    env: dict[str, Any],
+    *,
+    title: str,
+    created_at: str,
+    vault_id: str = "test-vault",
+) -> str:
+    """Seed a live `type=query` Page row (ADR-0067 D6/P1-1 Open-Questions block source)."""
+    pid = str(uuid.uuid4())
+    slug = title.lower().replace(" ", "-").replace("?", "").strip("-")
+    fp = f"wiki/queries/{slug}.md"
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, content_hash, pinned, created_at, updated_at) "
+                "VALUES (:id, :v, :fp, :t, 'query', 'h', 0, :ca, :ca)"
+            ),
+            {"id": pid, "v": vault_id, "fp": fp, "t": title, "ca": created_at},
+        )
+        await sess.commit()
+    return pid
+
 
 ORIGIN = "raw/sources/x.md"
 
@@ -342,3 +369,168 @@ async def test_overview_regen_writes_keyword_tag_cloud(
     assert meta["tags"] == ["self-hosting", "docker", "networking", "iso-27001", "backups"]
     # The TAGS line is pulled into frontmatter, not left in the rendered body.
     assert "TAGS:" not in meta.content
+
+
+# ── ADR-0067 D6/P2-5: bolded thesis lead + raised tag cap ────────────────────────
+
+
+def test_overview_instruction_asks_for_thesis_lead() -> None:
+    """OV-A4/OV-D3: the prompt requires a bolded thesis anchor opening the body."""
+    instr = orch._build_overview_instruction(analysis=None, existing_digest="x", lang="it")
+    assert "**Central thesis**:" in instr
+    assert "**Tesi centrale**:" in instr
+
+
+def test_overview_tag_cap_raised() -> None:
+    """P2-5: the overview tag cap is raised toward LLM Wiki's ~129-keyword cloud (≥120)."""
+    assert orch._OVERVIEW_MAX_TAGS >= 120
+
+
+def test_overview_instruction_asks_for_40_120_tags() -> None:
+    """P2-5: the prompt asks for 40-120 keywords (up from 20-40)."""
+    instr = orch._build_overview_instruction(analysis=None, existing_digest="x", lang="en")
+    assert "40-120" in instr
+
+
+def test_extract_overview_keyword_tags_keeps_more_than_50() -> None:
+    """P2-5: the extractor no longer truncates at 50 — it keeps up to the raised cap."""
+    keywords = [f"kw-{i}" for i in range(120)]
+    body = "Body.\n\nTAGS: " + ", ".join(keywords)
+    tags, _ = orch._extract_overview_keyword_tags(body)
+    assert len(tags) == 120
+    assert len(tags) > 50  # regression against the old _OVERVIEW_MAX_TAGS=50 truncation
+
+
+# ── ADR-0067 D6/P1-1: deterministic Open-Questions closing block ─────────────────
+
+
+@pytest.mark.asyncio
+async def test_open_questions_block_en_and_it_localized(api_env: dict[str, Any]) -> None:
+    """P1-1: block heading localizes (it → Domande Aperte; else Open Questions); newest-first."""
+    await _insert_query_page(
+        api_env, title="Does scale improve reasoning?", created_at="2026-07-01 10:00:00"
+    )
+    await _insert_query_page(
+        api_env, title="Is RAG better than fine-tuning?", created_at="2026-07-02 10:00:00"
+    )
+
+    en_block = await orch._build_open_questions_block("en")
+    assert en_block.splitlines()[0] == "## Open Questions"
+    # Numbered [[Title]] links, newest (2026-07-02) first.
+    assert "1. [[Is RAG better than fine-tuning?]]" in en_block
+    assert "2. [[Does scale improve reasoning?]]" in en_block
+
+    it_block = await orch._build_open_questions_block("it")
+    assert it_block.splitlines()[0] == "## Domande Aperte"
+    # Same body, only the heading differs.
+    assert en_block.split("\n", 1)[1] == it_block.split("\n", 1)[1]
+
+
+@pytest.mark.asyncio
+async def test_open_questions_block_omitted_when_zero(api_env: dict[str, Any]) -> None:
+    """P1-1: no live query pages → empty string (section omitted entirely)."""
+    block = await orch._build_open_questions_block("en")
+    assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_open_questions_block_idempotent(api_env: dict[str, Any]) -> None:
+    """P1-1/I1: same query set → byte-identical block on repeated builds."""
+    await _insert_query_page(api_env, title="Q one?", created_at="2026-07-01 10:00:00")
+    await _insert_query_page(api_env, title="Q two?", created_at="2026-07-02 10:00:00")
+    first = await orch._build_open_questions_block("en")
+    second = await orch._build_open_questions_block("en")
+    assert first == second
+    assert first  # non-empty
+
+
+@pytest.mark.asyncio
+async def test_overview_appends_open_questions_block_and_meta_frontmatter(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    P1-1 + P2-5 end-to-end: _update_overview appends the Open-Questions block AFTER the LLM body
+    and emits related:[]/sources:[]/created/updated frontmatter (LLM Wiki overview meta shape).
+    """
+    await _insert_query_page(api_env, title="Open question A?", created_at="2026-07-01 10:00:00")
+    await _insert_query_page(api_env, title="Open question B?", created_at="2026-07-02 10:00:00")
+
+    narrative = (
+        "# Homelab Wiki (July 2026)\n\n"
+        "**Central thesis**: the wiki documents a self-hosted homelab.\n\n"
+        "TAGS: self-hosting, docker"
+    )
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+
+    file_text = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+    post = frontmatter.loads(file_text)
+
+    # Open-Questions block appended after the narrative body (en heading, newest-first).
+    assert "## Open Questions" in post.content
+    assert "1. [[Open question B?]]" in post.content
+    assert "2. [[Open question A?]]" in post.content
+    # The bolded thesis lead survived into the body.
+    assert "**Central thesis**:" in post.content
+
+    # Meta-page frontmatter: related/sources empty lists + created/updated present.
+    assert post["related"] == []
+    assert post["sources"] == []
+    assert isinstance(post["created"], str) and post["created"]
+    assert isinstance(post["updated"], str) and post["updated"]
+    # lang is NOT emitted (ADR-0067 D2).
+    assert "lang" not in post.metadata
+
+
+@pytest.mark.asyncio
+async def test_overview_open_questions_omitted_when_no_query_pages(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P1-1: with zero query pages the overview carries NO Open-Questions heading."""
+    _patch_provider(monkeypatch, _FakeOverviewProvider("# Wiki\n\nBody only.\n\nTAGS: a, b"))
+    await orch._update_overview(_analysis(), ORIGIN)
+    file_text = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+    assert "## Open Questions" not in file_text
+    assert "## Domande Aperte" not in file_text
+
+
+@pytest.mark.asyncio
+async def test_overview_created_preserved_across_regen(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2-5: `created` is preserved across a second regeneration (only `updated` may advance)."""
+    narrative = "# Wiki (July 2026)\n\n**Central thesis**: x.\n\nBody.\n\nTAGS: a, b"
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+    overview_path = api_env["vault_root"] / "wiki" / "overview.md"
+    created_1 = frontmatter.loads(overview_path.read_text(encoding="utf-8"))["created"]
+
+    # Force a DIFFERENT created onto the on-disk file, then regen — it must be PRESERVED.
+    post = frontmatter.loads(overview_path.read_text(encoding="utf-8"))
+    post["created"] = "2020-01-01"
+    overview_path.write_text(frontmatter.dumps(post) + "\n", encoding="utf-8")
+
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+    created_2 = frontmatter.loads(overview_path.read_text(encoding="utf-8"))["created"]
+    assert created_2 == "2020-01-01", "created must be preserved from the prior on-disk file"
+    assert created_1 != "2020-01-01"  # sanity: first run set today's date
+
+
+@pytest.mark.asyncio
+async def test_overview_regen_idempotent_with_open_questions(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P1-1/I1: two regenerations with the SAME narrative + query set yield an identical file."""
+    await _insert_query_page(api_env, title="Idem Q1?", created_at="2026-07-01 10:00:00")
+    await _insert_query_page(api_env, title="Idem Q2?", created_at="2026-07-02 10:00:00")
+    narrative = "# Wiki (July 2026)\n\n**Central thesis**: x.\n\nBody.\n\nTAGS: a, b"
+
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+    first = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+    second = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+    assert first == second, "same narrative + same query set → byte-identical overview.md"

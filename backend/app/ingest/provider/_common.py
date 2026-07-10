@@ -104,7 +104,12 @@ GENERATION_SCAFFOLD = (
     "pipeline — do NOT emit them here.\n"
     "Do NOT create synthesis or comparison pages during ingest — those are created only later "
     "via the review queue when a human requests them. Do NOT invent pages the source does not "
-    "support."
+    "support.\n"
+    "## Naming\n"
+    "Name each entity at its canonical short name. If an entity already exists (see the "
+    "existing-pages context), reuse its EXACT title. Never append parenthetical acronyms "
+    "(e.g. (AWS)) or legal suffixes (e.g. Inc./Ltd.) to an entity title. Emit [[wikilinks]] and "
+    "related: using page SLUGS (ADR-0067 D5)."
 )
 
 GENERATE_SYSTEM = (
