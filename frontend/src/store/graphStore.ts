@@ -42,7 +42,8 @@ export type Section =
   | "review"
   | "deep-search"
   | "settings"
-  | "convert";
+  | "convert"
+  | "projects";
 
 /** UI state added in v0.4 Phase 1 shell (F1). */
 export interface UiState {
