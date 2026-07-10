@@ -2011,8 +2011,8 @@
         ]
       },
       "put": {
-        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043)",
-        "description": "ADR-0043 \u00a72.5 \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
+        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043 / W7)",
+        "description": "ADR-0043 \u00a72.5 (W7 amendment) \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate, Fernet-encrypt (requires SYNAPSE_SECRET_KEY \u2014 else HTTP 400), and store in vault_state.cli_oauth_token_encrypted; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 400 if SYNAPSE_SECRET_KEY is unset when storing a new token (fail-closed). 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
         "operationId": "put_cli_auth_config_provider_cli_auth_put",
         "requestBody": {
           "content": {
@@ -5555,7 +5555,7 @@
               }
             ],
             "title": "Token",
-            "description": "The Claude subscription OAuth token to store (from `claude setup-token`). Stored plaintext (ADR-0043 \u00a72.1 \u2014 replayed outbound). NEVER logged or returned. Validated: non-empty, 20\u2013500 chars; soft prefix check (warns, does not block)."
+            "description": "The Claude subscription OAuth token to store (from `claude setup-token`). Encrypted at rest via Fernet (SYNAPSE_SECRET_KEY); plaintext held in-memory only for outbound CLI injection. NEVER logged or returned. Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400 \u2014 W7). Validated: non-empty, 20\u2013500 chars; soft prefix check (warns, does not block)."
           },
           "clear": {
             "anyOf": [
@@ -5567,7 +5567,7 @@
               }
             ],
             "title": "Clear",
-            "description": "true \u21d2 set cli_oauth_token = NULL (fall back to env / none). Wins over token if both are sent."
+            "description": "true \u21d2 set cli_oauth_token_encrypted = NULL (fall back to env / none). Wins over token if both are sent."
           }
         },
         "type": "object",

@@ -2190,15 +2190,16 @@ class CliAuthConfigRequest(BaseModel):
         default=None,
         description=(
             "The Claude subscription OAuth token to store (from `claude setup-token`). "
-            "Stored plaintext (ADR-0043 §2.1 — replayed outbound). "
-            "NEVER logged or returned. "
+            "Encrypted at rest via Fernet (SYNAPSE_SECRET_KEY); plaintext held in-memory "
+            "only for outbound CLI injection. NEVER logged or returned. "
+            "Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400 — W7). "
             "Validated: non-empty, 20–500 chars; soft prefix check (warns, does not block)."
         ),
     )
     clear: bool | None = Field(
         default=None,
         description=(
-            "true ⇒ set cli_oauth_token = NULL (fall back to env / none). "
+            "true ⇒ set cli_oauth_token_encrypted = NULL (fall back to env / none). "
             "Wins over token if both are sent."
         ),
     )
@@ -2207,24 +2208,31 @@ class CliAuthConfigRequest(BaseModel):
 @router.put(
     "/provider/cli-auth",
     response_model=CliAuthConfigResponse,
-    summary="Set or clear the CLI subscription OAuth token (ADR-0043)",
+    summary="Set or clear the CLI subscription OAuth token (ADR-0043 / W7)",
     description=(
-        "ADR-0043 §2.5 — store a pasted Claude subscription OAuth token or clear it. "
+        "ADR-0043 §2.5 (W7 amendment) — store a pasted Claude subscription OAuth token or "
+        "clear it. "
         "clear=true: set DB token to NULL (falls back to env / none). "
-        "token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. "
+        "token=<value>: validate, Fernet-encrypt (requires SYNAPSE_SECRET_KEY — else HTTP 400), "
+        "and store in vault_state.cli_oauth_token_encrypted; refresh cache. "
         "Returns post-write posture (same shape as GET); NEVER the token value. "
         "400 if body has neither token nor clear. "
+        "400 if SYNAPSE_SECRET_KEY is unset when storing a new token (fail-closed). "
         "422 if token is empty/whitespace or absurd length. "
         "Soft prefix check warns but does NOT hard-reject — ADR-0043 §2.5."
     ),
 )
 async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigResponse:
     """
-    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5).
+    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5,
+    W7 encryption amendment).
 
     Semantics:
-      1. clear=true (wins if both sent) → set cli_oauth_token = NULL; refresh cache.
-      2. token=<value> → validate; store plaintext; refresh cache.
+      1. clear=true (wins if both sent) → set cli_oauth_token_encrypted = NULL,
+         cli_oauth_token = NULL (legacy); refresh cache.
+      2. token=<value> → validate; Fernet-encrypt (SYNAPSE_SECRET_KEY — HTTP 400 if absent);
+         store ciphertext in cli_oauth_token_encrypted; clear legacy cli_oauth_token; refresh
+         cache with the plaintext (in-memory only, for outbound CLI injection).
       3. neither field → 400 (no-op request).
     Returns post-write posture. NEVER logs or returns the token value.
     """
@@ -2235,6 +2243,8 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
     # Pre-validate the token BEFORE opening a DB session (no unnecessary DB round-trip
     # on bad input — mirrors the clip pattern of early-exit on validation failure).
     validated_token: str | None = None  # None = clear or will be set below
+    token_encrypted: bytes | None = None  # Fernet ciphertext, set only on SET path
+
     if not body.clear:
         raw = (body.token or "").strip()
         if not raw:
@@ -2257,9 +2267,11 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
                 "accepting anyway — Anthropic may change the prefix (ADR-0043 §2.5)."
                 # NEVER log the token value itself.
             )
+        # W7: encrypt BEFORE the DB session — fail early with 400 if key absent.
+        token_encrypted = _encrypt_api_key_or_400(raw)
         validated_token = raw
 
-    final_token: str | None = None  # value stored in DB; None after clear
+    final_token: str | None = None  # plaintext for in-process cache; None after clear
 
     async with _m.get_session() as session:
         row = await session.execute(
@@ -2283,18 +2295,24 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
 
         # 1. clear wins if both fields supplied (already validated above).
         if body.clear:
-            state.cli_oauth_token = None
+            # Null both columns — the legacy plaintext and the new encrypted column.
+            state.cli_oauth_token_encrypted = None
+            state.cli_oauth_token = None  # legacy column (kept for rollback safety)
         else:
-            # 2. Store validated plaintext (ADR-0043 §2.1 — replayed outbound; cannot hash).
-            state.cli_oauth_token = validated_token
-            final_token = validated_token
+            # 2. Store Fernet ciphertext (W7 — plaintext NEVER written to DB).
+            state.cli_oauth_token_encrypted = token_encrypted
+            # Null legacy plaintext column so the read path unambiguously uses the
+            # encrypted column (no dual-state confusion after migration 0027).
+            state.cli_oauth_token = None
+            final_token = validated_token  # plaintext for in-process cache only
 
         state.updated_at = datetime.now(UTC)
 
-    # 3. Refresh in-process cache (outside session — DB write committed).
+    # 3. Refresh in-process cache with the plaintext (outside session — DB write committed).
+    #    The cache holds the decrypted token in-memory ONLY — it is never written back to DB.
     await _cli_auth._cli_auth_config_cache.set_token(final_token)
     logger.info(
-        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043)",
+        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043 / W7)",
         _cli_auth._cli_auth_config_cache.token_source(),
         _cli_auth._cli_auth_config_cache.auth_mode(),
         # NEVER log the token value

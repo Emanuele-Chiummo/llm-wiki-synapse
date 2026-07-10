@@ -27,7 +27,17 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import BigInteger, Column, Float, Integer, MetaData, String, Table, Text
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Float,
+    Integer,
+    LargeBinary,
+    MetaData,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -108,6 +118,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("clip_access_token", Text, nullable=True),
         Column("clip_allowed_origins_db", Text, nullable=True),
         Column("cli_oauth_token", Text, nullable=True),
+        Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),
         Column("searxng_max_queries_db", Integer, nullable=True),
