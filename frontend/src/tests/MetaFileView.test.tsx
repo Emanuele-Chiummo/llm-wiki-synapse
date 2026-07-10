@@ -1,5 +1,5 @@
 /**
- * MetaFileView.test.tsx — unit tests for the vault meta read-only drawer (WS-D8).
+ * MetaFileView.test.tsx — unit tests for the vault meta drawer (WS-D8; editable in v1.5 P1).
  *
  * Covers:
  *   - Drawer is closed (hidden) when file=null.
@@ -8,7 +8,7 @@
  *   - Close button calls onClose.
  *   - Body renders sanitised markdown (via renderMarkdown).
  *   - Frontmatter is stripped before rendering (I5 / stripLeadingFrontmatter).
- *   - No edit or delete action buttons are present (read-only invariant).
+ *   - An Edit button is present and swaps to the CodeMirror editor (v1.5 P1, mirrors LLM Wiki).
  *
  * PanelDrawer is NOT mocked — we test through the real component so portal
  * rendering is covered.  document.body is JSDOM's body and createPortal works.
@@ -136,15 +136,18 @@ describe("MetaFileView — close button", () => {
   });
 });
 
-describe("MetaFileView — read-only invariant (no edit/delete buttons)", () => {
-  it("has no edit button", () => {
+describe("MetaFileView — editable meta files (v1.5 P1 — mirrors LLM Wiki)", () => {
+  it("renders an Edit button (purpose/schema are editable in place)", () => {
     render(<MetaFileView file={SCHEMA_FILE} onClose={vi.fn()} />);
-    // Any button with an aria-label matching "edit" variants should not exist
-    const buttons = screen.queryAllByRole("button");
-    const editButtons = buttons.filter((b) =>
-      /edit|save|delete|remove/i.test(b.getAttribute("aria-label") ?? b.textContent ?? ""),
-    );
-    expect(editButtons).toHaveLength(0);
+    expect(screen.getByTestId("meta-file-edit")).toBeTruthy();
+  });
+
+  it("Edit swaps to the CodeMirror editor with Save + Cancel (I4)", () => {
+    render(<MetaFileView file={SCHEMA_FILE} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("meta-file-edit"));
+    expect(screen.getByTestId("meta-file-editor")).toBeTruthy();
+    expect(screen.getByTestId("meta-file-save")).toBeTruthy();
+    expect(screen.getByTestId("meta-file-cancel")).toBeTruthy();
   });
 });
 
