@@ -118,6 +118,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0063** | [Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)](ADR-0063-ingest-quality-parity.md) | Accepted |
 | **0064** | [Missing-page fan-out (F9 review suggestions)](ADR-0064-missing-page-fanout.md) | Accepted |
 | **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](ADR-0065-marker-large-pdf-chunking.md) | Accepted |
+| **0066** | [LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope](ADR-0066-llmwiki-1to1-parity-program.md) | Accepted |
 
 ---
 

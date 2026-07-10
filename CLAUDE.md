@@ -121,7 +121,7 @@ synapse/
 | **I6** | **PLUGGABLE INFERENCE (F17).** The analysis/classification/ingest AI MUST sit behind `InferenceProvider` with 3 backends: Local (Ollama), API (Anthropic / OpenAI-compatible), CLI (claude-agent-sdk). NEVER hardcode a provider anywhere. Routing is capability-aware: `supports_agentic_loop=True` (CLI) → delegate the whole ingest; otherwise → run the ORCHESTRATED INGEST LOOP (`analyze → generate → validate → if invalid augment & retry, max N`). | Core F17 — the defining feature |
 | **I7** | **LOOPS ARE BOUNDED.** Every loop (ingest refinement, deep-research, lint-fix, consistency, fallback) has a `max_iter` cap AND a `token_budget`. Log `total_cost_usd` per run. No runaway loops. | Cost control + safety |
 | **I8** | **DOCS-AS-DoD.** Diagram-as-code (Mermaid), screenshots auto-captured by Playwright into `docs/screens/`, API ref auto from FastAPI OpenAPI. The ER diagram is generated from the SQLAlchemy models (`make er`) and MUST match the live schema. No sprint is done without its D-artifacts updated and consistent. | Doc quality gate |
-| **I9** | **DO NOT REINVENT.** Reuse Ollama, SearXNG, Qdrant, bge-m3 (all already running). Use native Claude Code features (subagents, MCP, hooks). SearXNG IS the web-search backend (not Tavily). Mermaid/Playwright/OpenAPI for docs. | Respect existing infra |
+| **I9** | **DO NOT REINVENT.** Reuse Ollama, SearXNG, Qdrant, bge-m3 (all already running). Use native Claude Code features (subagents, MCP, hooks). SearXNG is the **default, bundled** web-search backend and the privacy-preserving recommendation; **additional providers (Tavily · SerpApi · Firecrawl · Brave · Ollama Web) are ALLOWED as opt-in, OFF by default** (v1.5 llm_wiki-parity — ADR-0066, amends the original "SearXNG only, never Tavily"). Same for PDF: Marker-local is the default; MinerU **cloud** is an opt-in, off-by-default toggle (ADR-0066). Cloud providers must never be enabled implicitly and must warn about content upload. Mermaid/Playwright/OpenAPI for docs. | Respect existing infra + user-selectable parity |
 
 ---
 
@@ -225,7 +225,7 @@ InferenceProvider (ABC)
 - Frontend: React 19 · Vite · TypeScript · CodeMirror 6 · sigma.js (WebGL) · TanStack Virtual · Zustand
 - Data: Postgres 16 · Qdrant 1.9+ · bge-m3 embeddings (already on TrueNAS)
 - Inference (runtime): Ollama (already running, RTX 3060) · Anthropic API · claude-agent-sdk
-- Web search: SearXNG (already running) — never Tavily
+- Web search: SearXNG (already running) is the default/bundled backend; Tavily · SerpApi · Firecrawl · Brave · Ollama Web are opt-in, off-by-default alternatives (v1.5, ADR-0066)
 - Docs: Mermaid · Playwright · FastAPI OpenAPI · MkDocs Material (v0.6, optional)
 - Packaging: Docker Compose (TrueNAS SCALE) · PWA + Tauri v2
 
