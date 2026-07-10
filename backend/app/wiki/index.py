@@ -10,9 +10,13 @@ all live pages grouped by type, with valid YAML frontmatter (I5). The operation 
     Obsidian recognises the file correctly (I5, K7).
 
 The catalogue groups pages by their page_type column (entity/concept/source/synthesis/
-comparison). Pages without a type go under an "Uncategorised" heading. The `overview` and
-`index` types (auto-generated files) are excluded from the catalogue to avoid self-referential
-loops (they are not user-content types per schemas.py).
+comparison/query). Pages without a type (NULL or empty string) are silently skipped — they
+are unresolved ghost rows that should be fixed upstream, not catalogued (ADR-0067 D6 IL-D3).
+The `overview`, `index`, and `log` types (auto-generated files) are excluded from the
+catalogue to avoid self-referential loops (they are not user-content types per schemas.py).
+
+Duplicate display titles within a type section are collapsed to a single entry; the first
+occurrence (by DB query order) wins (ADR-0067 D6 IL-D2/CE-D5).
 
 The index.md file lives at: vault_path/wiki/index.md
 """
@@ -38,7 +42,8 @@ logger = logging.getLogger(__name__)
 _INDEX_WRITE_LOCK: asyncio.Lock = asyncio.Lock()
 
 # Ordering for the catalogue sections (consistent output for idempotency checks).
-_TYPE_ORDER: list[str] = ["entity", "concept", "source", "synthesis", "comparison"]
+# 'query' is listed after 'comparison' per ADR-0067 D6 (IL-D4).
+_TYPE_ORDER: list[str] = ["entity", "concept", "source", "synthesis", "comparison", "query"]
 
 # Types used by auto-generated files — excluded from the user-content catalogue.
 # "log" added with D4 (index/log became Page rows) so the log node never renders a
@@ -65,8 +70,9 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
     """
     Regenerate vault/wiki/index.md as a catalogue of live pages grouped by type (K3, I5).
 
-    Reads live Page rows (deleted_at IS NULL, type not in excluded set) from the database
-    via *session*, groups by page_type, and writes index.md with valid frontmatter.
+    Reads live Page rows (deleted_at IS NULL, type not in excluded set, type not NULL/empty)
+    from the database via *session*, groups by page_type, deduplicates by case-insensitive
+    display title, and writes index.md with valid frontmatter.
 
     Args:
         session:    async SQLAlchemy session (caller owns commit lifecycle).
@@ -78,7 +84,9 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
     wiki_dir.mkdir(parents=True, exist_ok=True)
     index_path = wiki_dir / "index.md"
 
-    # Query all live, non-excluded pages ordered consistently.
+    # Query all live pages ordered consistently.
+    # NULL/empty page_type rows are filtered in Python below (the mock bypasses SQL filters),
+    # but also filtered at the SQL level for efficiency against a real Postgres DB.
     result = await session.execute(
         select(Page.title, Page.page_type, Page.file_path)
         .where(
@@ -88,20 +96,21 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
     )
     rows = result.all()
 
-    # Group by page_type, skipping excluded types and pages without a title.
+    # Group by page_type, skipping excluded types, NULL/empty types, and pages without a title.
     by_type: dict[str, list[tuple[str, str]]] = {}
-    uncategorised: list[tuple[str, str]] = []
 
     for title, page_type, file_path in rows:
+        # Skip auto-generated catalogue types.
         if page_type in _EXCLUDED_TYPES:
             continue
+        # Skip ghost rows with no type — they are unresolved and fixed upstream, not catalogued
+        # (ADR-0067 D6 IL-D3). This replaces the old "## Uncategorised" section.
+        if not page_type:
+            continue
         display_title = title or _stem_from_path(file_path)
-        if page_type and page_type not in _EXCLUDED_TYPES:
-            by_type.setdefault(page_type, []).append((display_title, file_path))
-        else:
-            uncategorised.append((display_title, file_path))
+        by_type.setdefault(page_type, []).append((display_title, file_path))
 
-    content = _build_index_content(by_type, uncategorised)
+    content = _build_index_content(by_type)
 
     # B5 fix: atomic write (temp file in same dir + os.replace) so readers never see a
     # truncated file, and concurrent rebuilds serialize through _INDEX_WRITE_LOCK so the
@@ -118,40 +127,48 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
 
 def _build_index_content(
     by_type: dict[str, list[tuple[str, str]]],
-    uncategorised: list[tuple[str, str]],
 ) -> str:
-    """Build the full index.md file content (frontmatter + catalogue sections)."""
+    """Build the full index.md file content (frontmatter + catalogue sections).
+
+    Deduplicates entries by case-insensitive display title within each type section
+    before rendering (ADR-0067 D6 IL-D2/CE-D5). The total page count reflects
+    the deduplicated set.
+    """
+    # Apply dedup per type section (ADR-0067 D6 IL-D2/CE-D5): collapse same-title
+    # entries (case-insensitive) to a single line; first occurrence wins.
+    by_type_deduped: dict[str, list[tuple[str, str]]] = {
+        pt: _dedup_by_title(pages) for pt, pages in by_type.items()
+    }
+
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines: list[str] = [_FRONTMATTER_HEADER, _PREAMBLE]
     lines.append(f"*Last updated: {now}*\n\n")
 
-    total = sum(len(v) for v in by_type.values()) + len(uncategorised)
+    total = sum(len(v) for v in by_type_deduped.values())
     lines.append(f"**Total pages:** {total}\n\n")
 
     # Render known types in canonical order first.
     for page_type in _TYPE_ORDER:
-        if page_type not in by_type:
+        if page_type not in by_type_deduped:
             continue
-        pages = by_type[page_type]
+        pages = by_type_deduped[page_type]
         heading = _pluralise(page_type)
         lines.append(f"## {heading}\n\n")
         for display_title, _file_path in sorted(pages, key=lambda x: x[0].lower()):
+            # TODO(ADR-0067 D6): em-dash gloss needs a Page.summary column (core wave).
+            # The Page model has no description/summary/excerpt column as of this sprint;
+            # reading files from disk is too expensive here (I1). Render bare [[title]]
+            # until the core-wave adds Page.summary and an Alembic migration for it.
             lines.append(f"- [[{display_title}]]\n")
         lines.append("\n")
 
     # Render any types not in the canonical order (forward-compatible).
-    extra_types = sorted(set(by_type.keys()) - set(_TYPE_ORDER))
+    extra_types = sorted(set(by_type_deduped.keys()) - set(_TYPE_ORDER))
     for page_type in extra_types:
-        pages = by_type[page_type]
+        pages = by_type_deduped[page_type]
         lines.append(f"## {_pluralise(page_type)}\n\n")
         for display_title, _file_path in sorted(pages, key=lambda x: x[0].lower()):
-            lines.append(f"- [[{display_title}]]\n")
-        lines.append("\n")
-
-    # Uncategorised section.
-    if uncategorised:
-        lines.append("## Uncategorised\n\n")
-        for display_title, _file_path in sorted(uncategorised, key=lambda x: x[0].lower()):
+            # TODO(ADR-0067 D6): em-dash gloss needs a Page.summary column (core wave).
             lines.append(f"- [[{display_title}]]\n")
         lines.append("\n")
 
@@ -164,6 +181,7 @@ _PLURAL_EXCEPTIONS: dict[str, str] = {
     "concept": "Concepts",
     "source": "Sources",
     "comparison": "Comparisons",
+    "query": "Queries",  # ADR-0067 D6 (IL-D4): correct plural — 'query' → 'Queries', not 'Querys'
 }
 
 
@@ -173,6 +191,23 @@ def _pluralise(page_type: str) -> str:
     if lower in _PLURAL_EXCEPTIONS:
         return _PLURAL_EXCEPTIONS[lower]
     return page_type.capitalize() + "s"
+
+
+def _dedup_by_title(entries: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    """
+    Deduplicate (display_title, file_path) entries by case-insensitive display title.
+
+    First occurrence wins; insertion order is preserved (ADR-0067 D6 IL-D2/CE-D5).
+    This collapses alias entities and other duplicate-title rows to a single catalogue line.
+    """
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for display_title, file_path in entries:
+        key = display_title.casefold()
+        if key not in seen:
+            seen.add(key)
+            out.append((display_title, file_path))
+    return out
 
 
 def _stem_from_path(file_path: str | None) -> str:
