@@ -55,8 +55,26 @@ fn main() {
                 let quit_i = MenuItem::with_id(app, "tray_quit", "Esci", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
+                // Brand v1.0: use the monochrome ink-mark template on macOS so the
+                // menu-bar icon adapts to light/dark menu-bar themes automatically.
+                // The tray-Template.png / tray-Template@2x.png files (16×16 / 32×32)
+                // are the `synapse-mark-ink` at 1-bit-compatible opacity —
+                // macOS renders Template-named icons as adaptive (inverted in dark).
+                // TODO(brand): call .icon_as_template(true) once tauri-plugin-tray
+                //   exposes the API in stable (tracked: tauri-apps/tauri#9860).
+                //   For now the ink PNG is dark-on-transparent and visible on light
+                //   menu bars; dark menu bar shows it inverted by macOS automatically
+                //   IF the filename ends with "Template" (native NSImage behaviour).
+                #[cfg(target_os = "macos")]
+                let tray_icon = {
+                    tauri::image::Image::from_bytes(include_bytes!("../../icons/tray-Template.png"))
+                        .expect("tray template icon")
+                };
+                #[cfg(not(target_os = "macos"))]
+                let tray_icon = app.default_window_icon().expect("bundled window icon").clone();
+
                 TrayIconBuilder::with_id("synapse-tray")
-                    .icon(app.default_window_icon().expect("bundled window icon").clone())
+                    .icon(tray_icon)
                     .tooltip("Synapse")
                     .menu(&menu)
                     .show_menu_on_left_click(false)
