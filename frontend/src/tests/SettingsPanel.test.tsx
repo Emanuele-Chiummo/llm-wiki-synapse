@@ -392,6 +392,7 @@ const EXPECTED_PAGE_IDS = [
   "sourceWatch",
   "clipper",
   "pdf",
+  "imageCaptioning",
   "generation",
   "scenarios",
   "context",
@@ -416,11 +417,11 @@ describe("SettingsPanel — 19 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / A
     renderPanel();
   });
 
-  it("renders exactly 19 page buttons in the left nav aside (AC-R11-2-11)", () => {
+  it("renders exactly 20 page buttons in the left nav aside (AC-R11-2-11)", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(19);
+    expect(buttons).toHaveLength(20);
   });
 
   EXPECTED_PAGE_IDS.forEach((pageId) => {
@@ -662,11 +663,11 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last, index 18) back to 'providers' (first, index 0)", () => {
+  it("ArrowDown cycles past 'about' (last, index 19) back to 'providers' (first, index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 18) — 18 ArrowDown presses from "providers"
-    for (let i = 0; i < 18; i++) {
+    // Navigate to "about" (index 19) — 19 ArrowDown presses from "providers"
+    for (let i = 0; i < 19; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");

@@ -38,11 +38,11 @@ import {
   SectionHeader, GroupDivider, BTN_PRIMARY,
   IconSliders, IconCpu, IconFolder, IconWrench, IconBook, IconLink, IconShield,
   IconPalette, IconWand, IconBolt, IconVectors, IconGlobe, IconClock,
-  IconScissors, IconFileText, IconLock, IconDollar, IconInfo, IconHistory,
+  IconScissors, IconFileText, IconImage, IconLock, IconDollar, IconInfo, IconHistory,
 } from "./ui";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
-// 19 stable page IDs — one per leaf page in the 2-level nav.
+// 20 stable page IDs — one per leaf page in the 2-level nav.
 
 type SettingsPage =
   // Group: essentials
@@ -53,6 +53,7 @@ type SettingsPage =
   | "sourceWatch"
   | "clipper"
   | "pdf"
+  | "imageCaptioning"
   | "generation"
   | "scenarios"
   // Group: aiBehavior (advanced)
@@ -105,6 +106,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <IconFolder /> },
       { id: "clipper",     labelKey: "settings.nav.clipper",      icon: <IconScissors /> },
       { id: "pdf",         labelKey: "settings.nav.pdf",          icon: <IconFileText /> },
+      { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <IconImage /> },
       { id: "generation",  labelKey: "settings.nav.generation",   icon: <IconBook /> },
       { id: "scenarios",   labelKey: "settings.nav.scenarios",    icon: <IconBolt /> },
     ],
@@ -382,6 +384,7 @@ export function SettingsPanel() {
         {activePage === "sourceWatch" && <SectionSourceWatch />}
         {activePage === "clipper"    && <SectionWebClipper />}
         {activePage === "pdf"        && <PagePdf />}
+        {activePage === "imageCaptioning" && <PageImageCaptioning />}
         {activePage === "apiMcp"     && <SectionApiMcp />}
         {activePage === "security"   && <SectionSecurity />}
         {activePage === "costs"      && <SectionCosts />}
@@ -503,6 +506,20 @@ function PagePdf() {
         desc={t("config.pdfExtractorSection.desc")}
       />
       <SectionRuntimeConfig keys={["pdf_extractor", "marker_service_url", "marker_timeout_seconds"]} />
+    </div>
+  );
+}
+
+/** imageCaptioning: vision caption master toggle + per-run cap (v1.5 P3-a, llm_wiki parity) */
+function PageImageCaptioning() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <SectionHeader
+        title={t("config.imageCaptioningSection.title")}
+        desc={t("config.imageCaptioningSection.desc")}
+      />
+      <SectionRuntimeConfig keys={["vision_captions_enabled", "vision_max_images_per_run"]} />
     </div>
   );
 }
