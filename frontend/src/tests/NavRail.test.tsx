@@ -76,10 +76,11 @@ describe("NavRail — item count and order (AC-HARD-ORD-1 v1.2+Home, AC-R12-1-4,
     renderNavRail();
   });
 
-  it("renders exactly 12 interactive buttons (Home/Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings) [R12-1]", () => {
+  it("renders exactly 13 interactive buttons (Home/Chat/Wiki/Sources/Search/Graph/Lint/Review/DeepSearch/Ingest/Convert/Settings/Projects) [R12-1, v1.5 P2]", () => {
     const buttons = screen.getAllByRole("button");
-    // 12 nav buttons: home, chat, pages, sources, search, graph, lint, review, deep-search, ingest, convert, settings
-    expect(buttons).toHaveLength(12);
+    // 13 nav buttons: home, chat, pages, sources, search, graph, lint, review, deep-search,
+    // ingest, convert, settings, + projects (⇄ Project Launcher, v1.5 P2 — llm_wiki parity)
+    expect(buttons).toHaveLength(13);
   });
 
   it("AC-R12-1-4: renders a Home button at the top of the rail (data-section='home')", () => {
