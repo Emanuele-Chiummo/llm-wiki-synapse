@@ -116,6 +116,8 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0056** | [Bounded watcher ingest concurrency (`INGEST_MAX_CONCURRENCY`, default 3) — prevents bulk-drop flood of DB pool / embedding host / RAM (I7, v1.2)](ADR-0056-ingest-concurrency-cap.md) | Accepted |
 | **0057** | [Responsive strategy for iPhone/iPad: 3 viewport tiers (767/1023), `useViewport()` hook, PanelDrawer + `uiStore`, iOS safe-area/`100dvh` (R13-11, v1.3)](ADR-0057-responsive-mobile-tablet.md) | Accepted |
 | **0063** | [Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)](ADR-0063-ingest-quality-parity.md) | Accepted |
+| **0064** | [Missing-page fan-out (F9 review suggestions)](ADR-0064-missing-page-fanout.md) | Accepted |
+| **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](ADR-0065-marker-large-pdf-chunking.md) | Accepted |
 
 ---
 

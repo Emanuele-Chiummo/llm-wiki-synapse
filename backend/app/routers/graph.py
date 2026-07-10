@@ -19,13 +19,18 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy import text as sa_text
 
 from app.config import settings
 from app.config_overrides import effective_str
 from app.graph.cache import GraphCache
-from app.graph.engine import GraphEngine, GraphSnapshot
+from app.graph.engine import (
+    GRAPH_HIDDEN_PAGE_TYPES,
+    GRAPH_RAW_PATH_LIKE,
+    GraphEngine,
+    GraphSnapshot,
+)
 from app.models import Link, Page, VaultState
 
 logger = logging.getLogger(__name__)
@@ -508,16 +513,38 @@ async def get_graph() -> Response:
         current_version: int = state.data_version if state is not None else 0
 
         # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────
-        # total_nodes: all live (non-deleted) pages in this vault
-        _pages_count_row = await session.execute(
-            select(func.count())
-            .select_from(Page)
-            .where(Page.vault_id == settings.vault_id, Page.deleted_at.is_(None))
+        # total_nodes: GRAPH-ELIGIBLE live pages only. MUST mirror the engine's node
+        # inclusion rule (GRAPH_HIDDEN_PAGE_TYPES + GRAPH_RAW_PATH_LIKE, engine.py) or the
+        # "hidden" chip shows a phantom count: raw/ tracking rows and query pages are counted
+        # here but never shipped as nodes → hiddenCount = total − shipped is permanently > 0
+        # even with all UI filters off. (Bug: 233 "hidden" on a source-heavy vault.)
+        total_nodes: int = int(
+            (
+                await session.execute(
+                    select(func.count())
+                    .select_from(Page)
+                    .where(
+                        Page.vault_id == settings.vault_id,
+                        Page.deleted_at.is_(None),
+                        Page.file_path.notlike(GRAPH_RAW_PATH_LIKE),
+                        # NULL-safe: an untyped page (page_type IS NULL) is graph-eligible,
+                        # matching the engine's Python check `None not in HIDDEN_TYPES`.
+                        # A bare NOT IN would drop NULL rows (SQL: NULL NOT IN (...) → NULL).
+                        or_(
+                            Page.page_type.is_(None),
+                            Page.page_type.notin_(GRAPH_HIDDEN_PAGE_TYPES),
+                        ),
+                    )
+                )
+            ).scalar_one()
+            or 0
         )
-        total_nodes: int = int(_pages_count_row.scalar_one() or 0)
 
         # total_edges: all link rows whose source page belongs to this vault
-        # (Link has no direct vault_id; join to pages on source_page_id — indexed FK)
+        # (Link has no direct vault_id; join to pages on source_page_id — indexed FK).
+        # NOTE: left as the full wikilink count on purpose — the visible LINKS chip uses
+        # the shipped edge set (edges.length), not this field, so no eligibility filter is
+        # applied here (unlike total_nodes, which drives the "hidden" chip).
         _links_count_row = await session.execute(
             select(func.count())
             .select_from(Link)
