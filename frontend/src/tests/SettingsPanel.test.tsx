@@ -1874,9 +1874,9 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     expect(screen.getByText("guideTitle")).toBeTruthy();
   });
 
-  it("shows the security caveat block", async () => {
+  it("does not show a security caveat block (removed — token is encrypted at rest)", async () => {
     await navigateToCliAuthAndWait();
-    expect(screen.getByTestId("cli-auth-caveat")).toBeTruthy();
+    expect(screen.queryByTestId("cli-auth-caveat")).toBeNull();
   });
 
   it("shows an error state when getCliAuthConfig rejects", async () => {

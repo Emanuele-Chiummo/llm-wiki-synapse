@@ -136,10 +136,6 @@ export function SectionCliAuth() {
             <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--syn-text-muted)" }}>{t("settings.cliAuth.guideTitle")}</p>
             <p style={{ margin: 0, whiteSpace: "pre-line" }}>{t("settings.cliAuth.guideSteps")}</p>
           </div>
-
-          <div data-testid="cli-auth-caveat" style={{ padding: "8px 12px", background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)", borderRadius: 6, fontSize: 11, color: "var(--syn-amber)", lineHeight: 1.5 }}>
-            {t("settings.cliAuth.caveat")}
-          </div>
         </div>
       )}
     </div>
