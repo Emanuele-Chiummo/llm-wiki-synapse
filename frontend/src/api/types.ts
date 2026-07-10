@@ -232,6 +232,13 @@ export interface ProviderConfigItem {
   is_fallback: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * v1.4 additions (F17 vendor catalog).
+   * Optional for backward compat with pre-v1.4 backends.
+   */
+  api_key_configured?: boolean;
+  api_key_masked?: string | null;
+  reasoning_effort?: string | null;
 }
 
 export interface ProviderConfigListResponse {
@@ -249,6 +256,64 @@ export interface CreateProviderConfigBody {
   max_iter?: number | null;
   token_budget?: number | null;
   is_fallback?: boolean;
+  /** write-only plaintext; stored encrypted. 400 if SYNAPSE_SECRET_KEY not set. */
+  api_key?: string;
+  reasoning_effort?: string | null;
+}
+
+// ─── v1.4 vendor catalog (F17) ──────────────────────────────────────────────
+
+/**
+ * One vendor entry from GET /provider/vendors.
+ * 15 supported vendors: anthropic, claude-cli, codex-cli, openai, gemini,
+ * azure-openai, deepseek, atlas-cloud, groq, xai, nvidia-nim, kimi-moonshot,
+ * kimi-cn, kimi-coding, ollama.
+ */
+export interface VendorInfo {
+  id: string;
+  display_name: string;
+  provider_type: "api" | "local" | "cli";
+  default_base_url: string | null;
+  needs_api_key: boolean;
+  model_presets: string[];
+  notes: string;
+}
+
+export interface VendorListResponse {
+  vendors: VendorInfo[];
+}
+
+/**
+ * Body for PUT /provider/config/{id} (partial update).
+ * api_key: absent=unchanged, non-empty=replace, ""=clear.
+ */
+export interface UpdateProviderConfigBody {
+  model_id?: string | null;
+  base_url?: string | null;
+  /** absent=unchanged, non-empty=replace, ""=clear. */
+  api_key?: string;
+  reasoning_effort?: string | null;
+  scope?: "global" | "vault";
+  vault_id?: string | null;
+  operation?: string | null;
+}
+
+/**
+ * Body for POST /provider/test/connection and POST /provider/test/function.
+ * Either config_id (use existing config) or inline ad-hoc credentials.
+ */
+export interface ProviderTestRequest {
+  config_id?: string;
+  provider_type?: string;
+  model?: string;
+  base_url?: string | null;
+  api_key?: string;
+}
+
+export interface ProviderTestResponse {
+  ok: boolean;
+  latency_ms: number | null;
+  detail: string | null;
 }
 
 // ─── POST /ingest/upload (ADR-0020 §2) ───────────────────────────────────────

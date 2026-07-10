@@ -69,14 +69,36 @@ vi.mock("../store/settingsStore", () => ({
 
 vi.mock("../store/providerStore", () => ({
   useProviderStore: (selector: (s: unknown) => unknown) =>
-    selector({ list: [], loading: false, error: null, fetchList: vi.fn(), addProvider: vi.fn(), deleteProvider: vi.fn() }),
+    selector({
+      list: [],
+      activeItem: null,
+      loading: false,
+      error: null,
+      writeScope: "global",
+      vendors: [],
+      vendorsLoading: false,
+      vendorsError: null,
+      fetchList: vi.fn(),
+      addProvider: vi.fn(),
+      deleteProvider: vi.fn(),
+      fetchVendorCatalog: vi.fn(),
+      updateProvider: vi.fn(),
+    }),
   useShallow: (fn: unknown) => fn,
+  useProviderList: () => [],
+  useVendorList: () => [],
   selectProviderList: (s: { list: unknown[] }) => s.list,
   selectProviderLoading: (s: { loading: boolean }) => s.loading,
   selectProviderError: (s: { error: string | null }) => s.error,
+  selectActiveProvider: (s: { activeItem: unknown }) => s.activeItem,
   selectFetchProviderList: (s: { fetchList: unknown }) => s.fetchList,
   selectAddProvider: (s: { addProvider: unknown }) => s.addProvider,
   selectDeleteProvider: (s: { deleteProvider: unknown }) => s.deleteProvider,
+  selectVendors: (s: { vendors: unknown[] }) => s.vendors,
+  selectVendorsLoading: (s: { vendorsLoading: boolean }) => s.vendorsLoading,
+  selectVendorsError: (s: { vendorsError: string | null }) => s.vendorsError,
+  selectFetchVendorCatalog: (s: { fetchVendorCatalog: unknown }) => s.fetchVendorCatalog,
+  selectUpdateProvider: (s: { updateProvider: unknown }) => s.updateProvider,
 }));
 
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
@@ -133,6 +155,13 @@ vi.mock("../api/providerClient", async (importOriginal) => {
     setWebSearchConfig: vi.fn().mockResolvedValue({ configured: false, url: "", categories: [], max_queries: 3, source: "none" }),
     getCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
     setCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
+    fetchVendors: vi.fn().mockResolvedValue({ vendors: [] }),
+    fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    createProviderConfig: vi.fn(),
+    updateProviderConfig: vi.fn(),
+    deleteProviderConfig: vi.fn(),
+    testProviderConnection: vi.fn(),
+    testProviderFunction: vi.fn(),
   };
 });
 
