@@ -78,5 +78,8 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=3 \
 # Expose service port
 EXPOSE 8555
 
-# Default: run the microservice on all interfaces, port 8555
-CMD ["python", "service.py", "--host", "0.0.0.0", "--port", "8555"]
+# Default: run the microservice on all interfaces, port 8555.
+# --max-upload-mb / --pages-per-chunk are stated explicitly (they match the code defaults)
+# so operators can see and override the large-PDF chunking behaviour (ADR-0065).
+CMD ["python", "service.py", "--host", "0.0.0.0", "--port", "8555", \
+     "--max-upload-mb", "300", "--pages-per-chunk", "25"]

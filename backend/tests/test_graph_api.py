@@ -180,6 +180,20 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
                 "VALUES (:id, 'test', 'wiki/deleted.md', '', datetime('now'))"
             ).bindparams(id=str(uuid.uuid4()))
         )
+        # GRAPH-ELIGIBILITY regression (1.4.1): these live pages exist in the vault but the
+        # engine EXCLUDES them from the graph, so total_nodes must NOT count them either —
+        # otherwise the "hidden" chip shows a phantom count (bug: 233 hidden on a raw-heavy
+        # vault). One raw-source tracking row (file_path LIKE 'raw/%') + one query page.
+        for pid, fpath, ptype in [
+            (str(uuid.uuid4()), "raw/sources/servicenow-doc.extracted.md", "source"),
+            (str(uuid.uuid4()), "wiki/queries/open-question.md", "query"),
+        ]:
+            await conn.execute(
+                sa_text(
+                    "INSERT INTO pages (id, vault_id, file_path, type, content_hash) "
+                    "VALUES (:id, 'test', :fp, :ty, '')"
+                ).bindparams(id=pid, fp=fpath, ty=ptype)
+            )
         # Seed 2 link rows from source pages in this vault
         for lid, src, tgt_title in [
             (str(uuid.uuid4()), _PAGE_ID_1, "Beta"),
@@ -503,6 +517,27 @@ class TestGraphVaultTotals:
         assert (
             body["total_nodes"] == 3
         ), f"Expected 3 live pages (1 deleted excluded), got {body['total_nodes']}"
+
+    async def test_total_nodes_excludes_raw_and_query(
+        self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        total_nodes must exclude graph-ineligible pages (raw/* + query), matching the
+        engine's node-inclusion rule — else the "hidden" chip (total − shipped) shows a
+        phantom count. Fixture seeds 3 eligible + 1 raw + 1 query (+ 1 deleted); the raw
+        and query rows must NOT inflate the total, so it stays 3.
+
+        (Note: len(nodes) here comes from the fixed _FAKE_SNAPSHOT, deliberately decoupled
+        from the DB page count, so this asserts the denominator only — the "hidden chip = 0"
+        behaviour is exercised against a real recompute in the engine unit tests.)
+        """
+        _patch_cache_always_miss(monkeypatch)
+        resp = await graph_app.get("/graph")
+        body = resp.json()
+        assert body["total_nodes"] == 3, (
+            "raw/* and query pages must be excluded from total_nodes "
+            f"(engine excludes them from the graph); got {body['total_nodes']}"
+        )
 
     async def test_total_edges_counts_links(
         self, graph_app: AsyncClient, monkeypatch: pytest.MonkeyPatch

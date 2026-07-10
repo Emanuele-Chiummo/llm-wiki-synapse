@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.4.0"
+    "version": "1.4.1"
   },
   "paths": {
     "/sources": {
@@ -1411,7 +1411,7 @@
     "/ingest/convert-marker": {
       "post": {
         "summary": "Queue one or more PDFs for async Marker conversion (R11-1, W0)",
-        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
+        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MARKER_MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MARKER_MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
         "operationId": "convert_marker_ingest_convert_marker_post",
         "requestBody": {
           "content": {
@@ -1441,7 +1441,7 @@
             "description": "A Marker conversion batch is already running."
           },
           "413": {
-            "description": "A file exceeds MAX_UPLOAD_BYTES."
+            "description": "A file exceeds MARKER_MAX_UPLOAD_BYTES."
           },
           "415": {
             "description": "A non-.pdf file was submitted."

@@ -61,10 +61,10 @@ class TestConfigSettings:
         assert "marker_service_url" not in settings.model_config  # type: ignore[operator]
 
     def test_marker_timeout_seconds_default(self) -> None:
-        """marker_timeout_seconds defaults to 120.0."""
+        """marker_timeout_seconds defaults to 1800.0 (ADR-0065: chunked jobs run in one request)."""
         from app.config import settings
 
-        assert settings.marker_timeout_seconds == pytest.approx(120.0)
+        assert settings.marker_timeout_seconds == pytest.approx(1800.0)
 
 
 # ── T-R81-001: Default path bypasses marker ──────────────────────────────────

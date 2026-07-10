@@ -700,12 +700,26 @@ class Settings(BaseSettings):
     Env var: MARKER_SERVICE_URL.
     """
 
-    marker_timeout_seconds: float = 120.0
+    marker_timeout_seconds: float = 1800.0
     """
     HTTP timeout (seconds) for the call to the Marker microservice (ADR-0051, R8-1, I7).
-    Marker runs ML models and can be slow on large PDFs; 120 s gives it room.
-    On timeout, extract.py falls back to pypdf (permanent, unconditional — PM decision).
+    Marker runs ML models and, for large PDFs, converts multiple page-range chunks inside a
+    SINGLE /convert request (ADR-0065) — so the timeout must cover the whole chunked job, not
+    one page. Default 1800 s (30 min) accommodates several-hundred-page ServiceNow exports; a
+    ceiling, not a fixed wait (small PDFs finish in seconds). On timeout, extract.py falls back
+    to pypdf (permanent, unconditional — PM decision).
     Env var: MARKER_TIMEOUT_SECONDS.
+    """
+
+    marker_max_upload_bytes: int = 314_572_800
+    """
+    Max PDF size for POST /ingest/convert-marker (ADR-0065). Default 300 MB — dedicated cap,
+    SEPARATE from max_upload_bytes (25 MB, text/generic uploads), because Marker chunks large
+    PDFs by page range so a 190 MB ServiceNow export is convertible without OOM. Only this
+    endpoint uses it; every other upload path keeps the 25 MB limit.
+    NOTE: uploads through a reverse proxy / Cloudflare Tunnel may hit a lower body cap (~100 MB
+    on CF) regardless of this value — import very large PDFs over the LAN / Tailscale.
+    Env var: MARKER_MAX_UPLOAD_BYTES.
     """
 
     # ── R8-2: Vision captions for images (F12 / F17) ─────────────────────────────
