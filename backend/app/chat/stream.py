@@ -118,6 +118,8 @@ async def run_chat_stream(
     regenerate: bool,
     use_web_search: bool = False,
     retrieval_mode: str = "standard",
+    use_skills: bool = False,
+    use_anytxt: bool = False,
 ) -> AsyncIterator[str]:
     """
     Async generator yielding NDJSON lines for one bounded chat turn (ADR-0019 §2.2).
@@ -234,6 +236,21 @@ async def run_chat_stream(
                     effective_vault_id,
                     exc,
                 )
+
+    # ── F6/P4: log forward-compatible flags (skills + anytxt — no behavior yet) ─────────
+    # use_skills and use_anytxt are accepted as request flags for composer parity. Skill
+    # execution is deferred to P5 Skills view; AnyTXT is Windows-only / not applicable to
+    # this stack. We log at INFO so the operator knows they were requested (I7 cost tracing).
+    if use_skills:
+        logger.info(
+            "chat: use_skills=True requested (vault=%s) — execution deferred to P5",
+            effective_vault_id,
+        )
+    if use_anytxt:
+        logger.info(
+            "chat: use_anytxt=True requested (vault=%s) — AnyTXT not available on this stack",
+            effective_vault_id,
+        )
 
     # ── Build the bounded provider call args (I6: provider chooses model; we pass ctx) ──
     # Prepend light grounding header (purpose.md + overview.md) to the retrieval context text

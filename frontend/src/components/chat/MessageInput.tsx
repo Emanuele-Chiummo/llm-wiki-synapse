@@ -35,6 +35,10 @@ import {
   selectSetRetrievalMode,
   selectWebSearchEnabled,
   selectSetWebSearchEnabled,
+  selectSkillsEnabled,
+  selectSetSkillsEnabled,
+  selectAnytxtEnabled,
+  selectSetAnytxtEnabled,
   type RetrievalMode,
 } from "../../store/settingsStore";
 import { showToast } from "../common/Toast";
@@ -158,11 +162,15 @@ export function MessageInput({
   // Vision capability from GET /status (B2)
   const supportsVision = useStatusStore(selectSupportsVision);
 
-  // Retrieval mode + web search from settingsStore (B2, persisted)
+  // Retrieval mode + web search + skills + anytxt from settingsStore (B2/F6, persisted)
   const retrievalMode = useSettingsStore(selectRetrievalMode);
   const setRetrievalMode = useSettingsStore(selectSetRetrievalMode);
   const webSearchEnabled = useSettingsStore(selectWebSearchEnabled);
   const setWebSearchEnabled = useSettingsStore(selectSetWebSearchEnabled);
+  const skillsEnabled = useSettingsStore(selectSkillsEnabled);
+  const setSkillsEnabled = useSettingsStore(selectSetSkillsEnabled);
+  const anytxtEnabled = useSettingsStore(selectAnytxtEnabled);
+  const setAnytxtEnabled = useSettingsStore(selectSetAnytxtEnabled);
 
   // Sync external initial value (ScenarioTemplates)
   useEffect(() => {
@@ -267,6 +275,18 @@ export function MessageInput({
   const handleToggleWebSearch = useCallback(() => {
     setWebSearchEnabled(!webSearchEnabled);
   }, [webSearchEnabled, setWebSearchEnabled]);
+
+  // ── Skills toggle ─────────────────────────────────────────────────────────
+
+  const handleToggleSkills = useCallback(() => {
+    setSkillsEnabled(!skillsEnabled);
+  }, [skillsEnabled, setSkillsEnabled]);
+
+  // ── AnyTXT toggle ─────────────────────────────────────────────────────────
+
+  const handleToggleAnytxt = useCallback(() => {
+    setAnytxtEnabled(!anytxtEnabled);
+  }, [anytxtEnabled, setAnytxtEnabled]);
 
   // ── Attach image button click ──────────────────────────────────────────────
 
@@ -412,7 +432,85 @@ export function MessageInput({
           {t("chat.webSearch")}
         </button>
 
-        {/* Divider: separates the action/toggle cluster (attach, Web) from the
+        {/* AnyTXT toggle (F6/P4) — forward-compatible flag; requires running AnyTXT Searcher */}
+        <button
+          type="button"
+          data-testid="anytxt-toggle"
+          onClick={handleToggleAnytxt}
+          disabled={isInputDisabled}
+          title={anytxtEnabled ? t("chat.anytxtOn") : t("chat.anytxtOff")}
+          aria-label={anytxtEnabled ? t("chat.anytxtOn") : t("chat.anytxtOff")}
+          aria-pressed={anytxtEnabled}
+          style={{
+            background: anytxtEnabled ? "var(--syn-accent-soft)" : "none",
+            border: "1px solid",
+            borderColor: anytxtEnabled ? "var(--syn-accent)" : "var(--syn-border)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            cursor: isInputDisabled ? "not-allowed" : "pointer",
+            color: anytxtEnabled ? "var(--syn-accent)" : "var(--syn-text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: anytxtEnabled ? "#10b981" : "var(--syn-text-dim)",
+              display: "inline-block",
+              flexShrink: 0,
+              transition: "background 0.15s ease",
+            }}
+            aria-hidden="true"
+          />
+          {t("chat.anytxt")}
+        </button>
+
+        {/* Skills toggle (F6/P4) — forward-compatible flag; execution deferred to P5 */}
+        <button
+          type="button"
+          data-testid="skills-toggle"
+          onClick={handleToggleSkills}
+          disabled={isInputDisabled}
+          title={skillsEnabled ? t("chat.skillsOn") : t("chat.skillsOff")}
+          aria-label={skillsEnabled ? t("chat.skillsOn") : t("chat.skillsOff")}
+          aria-pressed={skillsEnabled}
+          style={{
+            background: skillsEnabled ? "var(--syn-accent-soft)" : "none",
+            border: "1px solid",
+            borderColor: skillsEnabled ? "var(--syn-accent)" : "var(--syn-border)",
+            borderRadius: 6,
+            padding: "4px 8px",
+            cursor: isInputDisabled ? "not-allowed" : "pointer",
+            color: skillsEnabled ? "var(--syn-accent)" : "var(--syn-text-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              background: skillsEnabled ? "#10b981" : "var(--syn-text-dim)",
+              display: "inline-block",
+              flexShrink: 0,
+              transition: "background 0.15s ease",
+            }}
+            aria-hidden="true"
+          />
+          {t("chat.skills")}
+        </button>
+
+        {/* Divider: separates the action/toggle cluster (attach, Web, AnyTXT, Skills) from the
             single-select retrieval-mode control so the two don't read as one group. */}
         <span
           aria-hidden="true"

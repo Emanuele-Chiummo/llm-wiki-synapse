@@ -33,6 +33,8 @@ import {
   selectConversationHistoryLength,
   selectRetrievalMode,
   selectWebSearchEnabled,
+  selectSkillsEnabled,
+  selectAnytxtEnabled,
 } from "../../store/settingsStore";
 import { useChatStream } from "./useChatStream";
 import { buildMessagePayload } from "./buildMessagePayload";
@@ -58,6 +60,8 @@ export function ChatSection(): ReactNode {
   const historyLength = useSettingsStore(selectConversationHistoryLength);
   const retrievalMode = useSettingsStore(selectRetrievalMode);
   const webSearchEnabled = useSettingsStore(selectWebSearchEnabled);
+  const skillsEnabled = useSettingsStore(selectSkillsEnabled);
+  const anytxtEnabled = useSettingsStore(selectAnytxtEnabled);
 
   const { send, abort } = useChatStream();
 
@@ -109,6 +113,9 @@ export function ChatSection(): ReactNode {
         // B2: include web-search and retrieval-mode settings
         use_web_search: webSearchEnabled,
         retrieval_mode: retrievalMode,
+        // F6/P4: forward-compatible flags (execution deferred to P5 for skills)
+        use_skills: skillsEnabled,
+        use_anytxt: anytxtEnabled,
       };
 
       send(req);
@@ -122,6 +129,8 @@ export function ChatSection(): ReactNode {
       historyLength,
       webSearchEnabled,
       retrievalMode,
+      skillsEnabled,
+      anytxtEnabled,
       appendMessage,
       send,
     ],
@@ -155,10 +164,13 @@ export function ChatSection(): ReactNode {
       // B2: carry same search/retrieval settings on regenerate
       use_web_search: webSearchEnabled,
       retrieval_mode: retrievalMode,
+      // F6/P4: carry same forward-compatible flags on regenerate
+      use_skills: skillsEnabled,
+      use_anytxt: anytxtEnabled,
     };
 
     send(req);
-  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, webSearchEnabled, retrievalMode, send]);
+  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, webSearchEnabled, retrievalMode, skillsEnabled, anytxtEnabled, send]);
 
   // While checking configuration, render nothing to avoid flicker (I3).
   if (providerLoading || configured === null) {

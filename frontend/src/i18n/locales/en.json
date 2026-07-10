@@ -682,7 +682,13 @@
     },
     "imageTooLarge": "Image \"{{name}}\" exceeds {{maxMb}} MB limit",
     "tooManyImages": "Maximum {{max}} images per message",
-    "webSources": "WEB SOURCES"
+    "webSources": "WEB SOURCES",
+    "skills": "Skills",
+    "skillsOn": "Skills on — click to disable",
+    "skillsOff": "Skills off — click to enable",
+    "anytxt": "AnyTXT",
+    "anytxtOn": "AnyTXT on — click to disable",
+    "anytxtOff": "AnyTXT off — requires a running AnyTXT Searcher service (Windows only)"
   },
   "research": {
     "title": "Deep Search",

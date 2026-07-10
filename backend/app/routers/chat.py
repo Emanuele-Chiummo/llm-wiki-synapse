@@ -232,6 +232,23 @@ class ChatRequest(BaseModel):
             "expansion_depth is always clamped to ≤2 (I7)."
         ),
     )
+    use_skills: bool = Field(
+        default=False,
+        description=(
+            "F6/P4: forward-compatible flag — when True, the client requests skill execution "
+            "for this chat turn. Accepted and logged; actual execution deferred to P5 Skills view. "
+            "No behavior change in the current release."
+        ),
+    )
+    use_anytxt: bool = Field(
+        default=False,
+        description=(
+            "F6/P4: forward-compatible flag — when True, the client requests AnyTXT Searcher "
+            "local-file search for this chat turn. Accepted and logged; AnyTXT is a Windows-only "
+            "local-search tool not applicable to the current Mac/TrueNAS/Docker stack. "
+            "No behavior change in the current release."
+        ),
+    )
 
 
 class ConversationRenameRequest(BaseModel):
@@ -565,6 +582,8 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
         regenerate=body.regenerate,
         use_web_search=body.use_web_search,
         retrieval_mode=body.retrieval_mode,
+        use_skills=body.use_skills,
+        use_anytxt=body.use_anytxt,
     )
 
     # Pull the first line eagerly so pre-stream setup errors (404/503) become real HTTP codes

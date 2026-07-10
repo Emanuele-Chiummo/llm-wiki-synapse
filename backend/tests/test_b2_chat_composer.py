@@ -1251,3 +1251,203 @@ class TestImagePlumbingRouter:
 
         fields = set(ChatImageIn.model_fields.keys())
         assert fields == {"mime", "data_base64"}
+
+
+# ── P4: use_skills / use_anytxt forward-compatible flags ────────────────────────
+
+
+class TestChatRequestNewFlags:
+    """P4 composer parity: use_skills + use_anytxt accepted on ChatRequest (F6/P4)."""
+
+    def test_use_skills_defaults_false(self) -> None:
+        from app.routers.chat import ChatMessageIn, ChatRequest
+
+        req = ChatRequest(messages=[ChatMessageIn(role="user", content="hello")])
+        assert req.use_skills is False
+
+    def test_use_anytxt_defaults_false(self) -> None:
+        from app.routers.chat import ChatMessageIn, ChatRequest
+
+        req = ChatRequest(messages=[ChatMessageIn(role="user", content="hello")])
+        assert req.use_anytxt is False
+
+    def test_use_skills_accepted_true(self) -> None:
+        from app.routers.chat import ChatMessageIn, ChatRequest
+
+        req = ChatRequest(
+            messages=[ChatMessageIn(role="user", content="hello")],
+            use_skills=True,
+        )
+        assert req.use_skills is True
+
+    def test_use_anytxt_accepted_true(self) -> None:
+        from app.routers.chat import ChatMessageIn, ChatRequest
+
+        req = ChatRequest(
+            messages=[ChatMessageIn(role="user", content="hello")],
+            use_anytxt=True,
+        )
+        assert req.use_anytxt is True
+
+    def test_use_skills_and_anytxt_coexist(self) -> None:
+        from app.routers.chat import ChatMessageIn, ChatRequest
+
+        req = ChatRequest(
+            messages=[ChatMessageIn(role="user", content="hello")],
+            use_skills=True,
+            use_anytxt=True,
+        )
+        assert req.use_skills is True
+        assert req.use_anytxt is True
+
+    def test_use_skills_field_in_schema(self) -> None:
+        """use_skills must be present in the ChatRequest model fields."""
+        from app.routers.chat import ChatRequest
+
+        assert "use_skills" in ChatRequest.model_fields
+
+    def test_use_anytxt_field_in_schema(self) -> None:
+        """use_anytxt must be present in the ChatRequest model fields."""
+        from app.routers.chat import ChatRequest
+
+        assert "use_anytxt" in ChatRequest.model_fields
+
+    @pytest.mark.asyncio
+    async def test_use_skills_logged_in_stream(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """use_skills=True is logged at INFO in run_chat_stream (no behavior change)."""
+        import app.config as cfg
+        import app.db as db_mod
+
+        vault_root = tmp_path / "vault"
+        (vault_root / "wiki").mkdir(parents=True)
+        monkeypatch.setattr(cfg.settings, "vault_id", "test-vault")
+        monkeypatch.setattr(type(cfg.settings), "vault_root", property(lambda self: vault_root))
+
+        from app.models import Base, ChatMessage, Conversation
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[Conversation.__table__, ChatMessage.__table__],
+            )
+
+        sf = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[AsyncSession]:  # type: ignore[return]
+            async with sf() as sess:
+                try:
+                    yield sess
+                    await sess.commit()
+                except Exception:
+                    await sess.rollback()
+                    raise
+
+        monkeypatch.setattr(db_mod, "get_session", _get_session)
+        monkeypatch.setattr(
+            "app.chat.stream.resolve_provider_config",
+            AsyncMock(return_value=_MockConfigRow()),
+        )
+        monkeypatch.setattr("app.chat.stream.resolve_provider", lambda row: _MockProvider())
+        monkeypatch.setattr(
+            "app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval())
+        )
+        monkeypatch.setattr(
+            "app.chat.autotitle.maybe_generate_conversation_title",
+            AsyncMock(return_value=None),
+        )
+
+        import logging
+
+        from app.chat.stream import run_chat_stream
+        from app.ingest.schemas import Message
+
+        with caplog.at_level(logging.INFO, logger="app.chat.stream"):
+            async for _ in run_chat_stream(
+                conversation_id=None,
+                messages=[Message(role="user", content="hello")],
+                vault_id="test-vault",
+                context_window=32768,
+                regenerate=False,
+                use_skills=True,
+            ):
+                pass
+
+        assert any("use_skills=True" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_use_anytxt_logged_in_stream(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """use_anytxt=True is logged at INFO in run_chat_stream (no behavior change)."""
+        import app.config as cfg
+        import app.db as db_mod
+
+        vault_root = tmp_path / "vault"
+        (vault_root / "wiki").mkdir(parents=True)
+        monkeypatch.setattr(cfg.settings, "vault_id", "test-vault")
+        monkeypatch.setattr(type(cfg.settings), "vault_root", property(lambda self: vault_root))
+
+        from app.models import Base, ChatMessage, Conversation
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[Conversation.__table__, ChatMessage.__table__],
+            )
+
+        sf = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+        @asynccontextmanager
+        async def _get_session() -> AsyncIterator[AsyncSession]:  # type: ignore[return]
+            async with sf() as sess:
+                try:
+                    yield sess
+                    await sess.commit()
+                except Exception:
+                    await sess.rollback()
+                    raise
+
+        monkeypatch.setattr(db_mod, "get_session", _get_session)
+        monkeypatch.setattr(
+            "app.chat.stream.resolve_provider_config",
+            AsyncMock(return_value=_MockConfigRow()),
+        )
+        monkeypatch.setattr("app.chat.stream.resolve_provider", lambda row: _MockProvider())
+        monkeypatch.setattr(
+            "app.chat.stream.retrieve", AsyncMock(return_value=_make_empty_retrieval())
+        )
+        monkeypatch.setattr(
+            "app.chat.autotitle.maybe_generate_conversation_title",
+            AsyncMock(return_value=None),
+        )
+
+        import logging
+
+        from app.chat.stream import run_chat_stream
+        from app.ingest.schemas import Message
+
+        with caplog.at_level(logging.INFO, logger="app.chat.stream"):
+            async for _ in run_chat_stream(
+                conversation_id=None,
+                messages=[Message(role="user", content="hello")],
+                vault_id="test-vault",
+                context_window=32768,
+                regenerate=False,
+                use_anytxt=True,
+            ):
+                pass
+
+        assert any("use_anytxt=True" in r.message for r in caplog.records)
