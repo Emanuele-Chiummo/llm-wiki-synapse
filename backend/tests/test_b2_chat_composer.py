@@ -95,7 +95,7 @@ class TestWebContextAssembly:
         """When SearXNG returns no hits, build_web_context returns empty."""
         from app.chat.web_context import build_web_context
 
-        with patch("app.chat.web_context.searxng_search", return_value=[]):
+        with patch("app.chat.web_context.web_search_many", return_value=[]):
             ctx = await build_web_context("test query")
         assert ctx.empty
         assert ctx.citations == []
@@ -115,7 +115,7 @@ class TestWebContextAssembly:
             return f"Content for {hit.title}"
 
         with (
-            patch("app.chat.web_context.searxng_search", return_value=mock_hits),
+            patch("app.chat.web_context.web_search_many", return_value=mock_hits),
             patch("app.chat.web_context._fetch_one_stripped", side_effect=_mock_fetch),
         ):
             ctx = await build_web_context("test query")
@@ -143,7 +143,7 @@ class TestWebContextAssembly:
         ]
 
         with (
-            patch("app.chat.web_context.searxng_search", return_value=mock_hits),
+            patch("app.chat.web_context.web_search_many", return_value=mock_hits),
             patch("app.chat.web_context._fetch_one_stripped", return_value=None),
         ):
             ctx = await build_web_context("q")
@@ -163,7 +163,7 @@ class TestWebContextAssembly:
         ]
 
         with (
-            patch("app.chat.web_context.searxng_search", return_value=mock_hits),
+            patch("app.chat.web_context.web_search_many", return_value=mock_hits),
             patch("app.chat.web_context._fetch_one_stripped", return_value=None),
         ):
             ctx = await build_web_context("q")

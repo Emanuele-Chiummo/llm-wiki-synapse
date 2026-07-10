@@ -79,6 +79,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "vision_max_images_per_run",  # S20 (v1.5 P3-a) — int 0–50; per-run vision-call cap (I7)
         "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069) — MinerU cloud base URL (non-secret)
         "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069) — MinerU cloud HTTP timeout (I7)
+        "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070) — web-search backend selector
     }
 )
 
@@ -107,7 +108,13 @@ ORDERED_KEYS: list[str] = [
     "vision_max_images_per_run",  # S20 (v1.5 P3-a)
     "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069)
     "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069)
+    "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070)
 ]
+
+# S23 (ADR-0070): allowed web-search backend ids — keep in sync with ops.web_search.PROVIDERS.
+_WEB_SEARCH_PROVIDER_VALUES: frozenset[str] = frozenset(
+    {"searxng", "tavily", "serpapi", "firecrawl", "brave", "ollama_web"}
+)
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
 _PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker", "mineru"})
@@ -180,6 +187,14 @@ def validate_value(key: str, value: str) -> str | None:
         if value not in _EMBEDDING_FORMAT_VALUES:
             return (
                 f"embedding_format must be one of {sorted(_EMBEDDING_FORMAT_VALUES)}, "
+                f"got {value!r}"
+            )
+
+    elif key == "web_search_provider":
+        # S23 (ADR-0070): enum searxng|tavily|serpapi|firecrawl|brave|ollama_web.
+        if value not in _WEB_SEARCH_PROVIDER_VALUES:
+            return (
+                f"web_search_provider must be one of {sorted(_WEB_SEARCH_PROVIDER_VALUES)}, "
                 f"got {value!r}"
             )
 

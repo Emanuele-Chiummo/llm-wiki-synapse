@@ -761,7 +761,7 @@ async def test_get_config_app_returns_12_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 22  # S1..S22 (S21/S22 = MinerU cloud PDF, v1.5 P3-d)
+    assert len(settings_list) == 23  # S1..S23 (S23 = web_search_provider, v1.5 P3-e)
     keys = [s["key"] for s in settings_list]
     assert "schema_review_schedule" in keys
     # schema_review_schedule must appear at position 11 (0-indexed) — S12 position unchanged
@@ -1001,7 +1001,7 @@ async def test_get_config_app_returns_13_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 22  # S1..S22 (S21/S22 = MinerU cloud PDF, v1.5 P3-d)
+    assert len(settings_list) == 23  # S1..S23 (S23 = web_search_provider, v1.5 P3-e)
     keys = [s["key"] for s in settings_list]
     assert "reclassify_schedule" in keys
     # Must appear at position 12 (0-indexed)

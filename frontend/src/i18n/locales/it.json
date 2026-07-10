@@ -415,9 +415,23 @@
       "copied": "Copiato!"
     },
     "webSearch": {
-      "desc": "SearXNG è l'unico backend di ricerca web supportato (I9). Usato da Ricerca Profonda per recuperare fonti. Configura URL e categorie qui.",
+      "desc": "Scegli il backend di ricerca web usato da Ricerca Profonda e dalla ricerca web in chat. SearXNG è il backend predefinito e rispettoso della privacy; gli altri sono opt-in.",
       "loading": "Caricamento configurazione ricerca web…",
       "error": "Impossibile caricare la configurazione ricerca web. Il backend è in esecuzione?",
+      "providerLabel": "Provider di ricerca web",
+      "providerHelp": "SearXNG (self-hosted) è il predefinito e mantiene le query sulla tua rete. I backend cloud sono opt-in e richiedono la relativa API key nell'ambiente del server.",
+      "provider": {
+        "searxng": "SearXNG",
+        "tavily": "Tavily",
+        "serpapi": "SerpApi",
+        "firecrawl": "Firecrawl",
+        "brave": "Brave Search",
+        "ollama_web": "Ollama Web"
+      },
+      "providerDefaultBadge": "Predefinito · rispettoso della privacy",
+      "providerCloudBadge": "Cloud · opt-in · richiede API key",
+      "providerLocalBadge": "Locale · opt-in",
+      "cloudWarning": "Questo è un provider di ricerca cloud di terze parti: le tue query di ricerca vengono inviate a un servizio esterno. Funziona solo quando la relativa API key è impostata nell'ambiente del server (TAVILY_API_KEY / SERPAPI_API_KEY / FIRECRAWL_API_KEY / BRAVE_API_KEY).",
       "configuredBadge": "Configurato",
       "notConfiguredBadge": "Non configurato",
       "sourceBadge": "Sorgente: {{source}}",
@@ -434,8 +448,7 @@
       "maxQueriesHelp": "Numero massimo di query SearXNG per iterazione di ricerca profonda (1–50).",
       "maxQueriesSave": "Salva",
       "clearButton": "Cancella tutti i valori DB",
-      "clearHelp": "Torna alla variabile d'ambiente SEARXNG_URL e ai valori predefiniti del codice.",
-      "searxngOnly": "Solo SearXNG è supportato come backend di ricerca web. Nessun altro provider può essere configurato qui (I9)."
+      "clearHelp": "Torna alla variabile d'ambiente SEARXNG_URL e ai valori predefiniti del codice."
     },
     "cliAuth": {
       "title": "Autenticazione abbonamento CLI",

@@ -73,7 +73,9 @@ export type AppConfigKey =
   | "vision_max_images_per_run"
   // S21/S22: MinerU cloud PDF (v1.5 P3-d)
   | "mineru_api_url"
-  | "mineru_timeout_seconds";
+  | "mineru_timeout_seconds"
+  // S23: web-search provider selector (v1.5 P3-e, ADR-0070)
+  | "web_search_provider";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 

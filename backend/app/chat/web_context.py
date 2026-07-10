@@ -13,7 +13,8 @@ Bounding (I7):
   - CHAT_WEB_FETCH_MAX_CHARS (default 8 000) — per-URL content cap.
   - Total cost logged at INFO; no runaway accumulation.
 
-I9: ALL web search goes through ops/searxng.py → SEARXNG_URL. Zero fallback engines.
+I9: ALL web search goes through the ops/web_search seam (SearXNG default; Tavily/SerpApi/
+Firecrawl/Brave/Ollama-Web opt-in, off by default — ADR-0066/ADR-0070).
 I6: This module makes NO inference calls — it is pure retrieval + assembly.
 """
 
@@ -27,7 +28,8 @@ from app.ops.deep_research import (
     _is_texty_content_type,
     _sanitize_db_text,
 )
-from app.ops.searxng import SearchHit, _semaphore, searxng_search
+from app.ops.searxng import SearchHit, _semaphore
+from app.ops.web_search import web_search_many
 from app.security_net import SSRFError, safe_fetch
 
 logger = logging.getLogger(__name__)
@@ -139,10 +141,11 @@ async def build_web_context(
     cap = fetch_max_chars if fetch_max_chars is not None else _fetch_char_cap()
     n_results = max_results if max_results is not None else _max_results()
 
-    # Single bounded SearXNG call (I9, I7).
-    hits: list[SearchHit] = await searxng_search(query, max_results=n_results)
+    # Single bounded web-search call via the provider seam (ADR-0070; SearXNG default). Results
+    # are capped below via hits[:n_results] (I7 — single shot, no loop).
+    hits: list[SearchHit] = await web_search_many([query])
     if not hits:
-        logger.debug("chat web: no SearXNG hits for query %r", query)
+        logger.debug("chat web: no web-search hits for query %r", query)
         return _EMPTY
 
     # Fetch+strip each hit (reuse deep_research helpers, I9). Cap to n_results.

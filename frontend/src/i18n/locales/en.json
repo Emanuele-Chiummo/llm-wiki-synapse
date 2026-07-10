@@ -415,9 +415,23 @@
       "copied": "Copied!"
     },
     "webSearch": {
-      "desc": "SearXNG is the only supported web-search backend (I9). Used by Deep Research to fetch sources. Configure the URL and categories here.",
+      "desc": "Choose the web-search backend used by Deep Research and chat web-search. SearXNG is the default, privacy-preserving backend; the others are opt-in.",
       "loading": "Loading web search config…",
       "error": "Could not load web search config. Is the backend running?",
+      "providerLabel": "Web-search provider",
+      "providerHelp": "SearXNG (self-hosted) is the default and keeps queries on your network. The cloud backends are opt-in and require the matching API key in the server environment.",
+      "provider": {
+        "searxng": "SearXNG",
+        "tavily": "Tavily",
+        "serpapi": "SerpApi",
+        "firecrawl": "Firecrawl",
+        "brave": "Brave Search",
+        "ollama_web": "Ollama Web"
+      },
+      "providerDefaultBadge": "Default · privacy-preserving",
+      "providerCloudBadge": "Cloud · opt-in · needs API key",
+      "providerLocalBadge": "Local · opt-in",
+      "cloudWarning": "This is a third-party cloud search provider: your search queries are sent to an external service. It only works once the matching API key is set in the server environment (TAVILY_API_KEY / SERPAPI_API_KEY / FIRECRAWL_API_KEY / BRAVE_API_KEY).",
       "configuredBadge": "Configured",
       "notConfiguredBadge": "Not configured",
       "sourceBadge": "Source: {{source}}",
@@ -434,8 +448,7 @@
       "maxQueriesHelp": "Maximum SearXNG queries per deep-research iteration (1–50).",
       "maxQueriesSave": "Save",
       "clearButton": "Clear all DB overrides",
-      "clearHelp": "Falls back to SEARXNG_URL env var and code defaults.",
-      "searxngOnly": "Only SearXNG is supported as the web-search backend. No other provider can be configured here (I9)."
+      "clearHelp": "Falls back to SEARXNG_URL env var and code defaults."
     },
     "cliAuth": {
       "title": "CLI Subscription Auth",

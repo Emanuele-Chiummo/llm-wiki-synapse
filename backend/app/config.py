@@ -177,6 +177,50 @@ class Settings(BaseSettings):
     NEVER falls back to another search engine when unset (I9 / Do-NOT #3).
     """
 
+    # ── P3-e: pluggable web-search provider (ADR-0066/ADR-0070, opt-in, off by default) ──
+    # SearXNG stays the DEFAULT, bundled, privacy-preserving backend. The alternatives below are
+    # OPT-IN, OFF by default (ADR-0066 amends I9). The NON-SECRET selector `web_search_provider`
+    # is a runtime config-override key (S23, config_overrides.py); the four cloud API keys are
+    # SECRET and env-only — they are NEVER added to the config-override surface (§2.4), exactly
+    # like MINERU_API_KEY (ADR-0069).
+
+    web_search_provider: str = "searxng"
+    """
+    Env baseline for the active web-search backend (ADR-0070, P3-e). One of:
+    searxng | tavily | serpapi | firecrawl | brave | ollama_web. Default "searxng" (the bundled,
+    privacy-preserving backend). Runtime-overridable via PUT /config/app/web_search_provider (S23).
+    The dispatcher reads the EFFECTIVE value (override-else-env) — never hardcoded (I6).
+    Env var: WEB_SEARCH_PROVIDER.
+    """
+
+    tavily_api_key: str = ""
+    """
+    SECRET. Tavily cloud search API key (ADR-0070). Env-only; NEVER exposed via the config-override
+    surface (§2.4). Empty → the Tavily backend is a no-op that returns [] (opt-in: nothing is sent
+    until this is set). ⚠️ CLOUD (I9): when set AND selected, queries leave the local network.
+    Env var: TAVILY_API_KEY.
+    """
+
+    serpapi_api_key: str = ""
+    """
+    SECRET. SerpApi cloud search API key (ADR-0070). Env-only; NEVER on the config-override surface
+    (§2.4). Empty → the SerpApi backend is a no-op ([]). ⚠️ CLOUD (I9). Env var: SERPAPI_API_KEY.
+    """
+
+    firecrawl_api_key: str = ""
+    """
+    SECRET. Firecrawl cloud search API key (ADR-0070). Env-only; NEVER on the config-override
+    surface (§2.4). Empty → the Firecrawl backend is a no-op ([]). ⚠️ CLOUD (I9).
+    Env var: FIRECRAWL_API_KEY.
+    """
+
+    brave_api_key: str = ""
+    """
+    SECRET. Brave Search API subscription token (ADR-0070). Env-only; NEVER on the config-override
+    surface (§2.4). Empty → the Brave backend is a no-op ([]). ⚠️ CLOUD (I9).
+    Env var: BRAVE_API_KEY.
+    """
+
     deep_research_max_iter: int = 3
     """
     Default max iterations for run_deep_research (ADR-0024 §3.1).
