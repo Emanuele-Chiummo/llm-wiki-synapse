@@ -95,8 +95,8 @@ const MID_R = (MIN_R + MAX_R) / 2;
 // ─── Edge size constants (llm_wiki parity) ───────────────────────────────────
 // Range 0.5–4 px: "thicker + darker = stronger edge" visual cue on white canvas.
 // edgeReducer scales incident edges further on hover (×2).
-const EDGE_MIN_SIZE = 0.5;
-const EDGE_SIZE_RANGE = 3.5; // → max edge size = 4.0 px
+const EDGE_MIN_SIZE = 0.4;
+const EDGE_SIZE_RANGE = 1.8; // → max edge size = 2.2 px (thinner; llm_wiki-parity faint edges)
 
 // ─── GL1: Edge visibility threshold (B3-LOOK) ────────────────────────────────
 // At rest, only edges with normalizedWeight ≥ threshold are shown.
@@ -238,28 +238,28 @@ function computeNormalizedWeights(edges: GraphEdge[]): Float64Array {
 }
 
 /**
- * Build resting-state edge color from normalized weight — NEUTRAL SLATE, llm_wiki 0.6.0
- * parity (the reference draws every edge in slate-500 with a weight→opacity ramp and makes
- * no link/source colour distinction). sigma v3's edge program ignores the alpha channel, so
- * we bake the reference's opacity into the RGB: dim near the canvas background at low weight,
- * ramping to slate-500 (#64748b) at high weight. "Thicker + brighter = stronger edge." The
- * hover highlight (cyan) is applied separately in the edgeReducer.
+ * Build resting-state edge color from normalized weight — FAINT BLUE-GREY, current llm_wiki
+ * parity. The reference (newer build) draws resting edges very LIGHT with a slight blue tint;
+ * they recede so the node cloud reads as an airy circle, and only the hover highlight (cyan,
+ * applied in the edgeReducer) is prominent. sigma v3's edge program ignores the alpha channel,
+ * so we bake the near-invisibility into the RGB: even the strongest resting edge stays a light
+ * blue-grey rather than the old slate-500 (which read as "marked/black" lines cutting across).
  *
- * Resting ramps:
- *   dark  low=#1b212a (near #0d1117 bg) → high=#64748b (slate-500)
- *   light low=#dfe3e9 (near white)      → high=#64748b (slate-500)
+ * Resting ramps (weight low → high):
+ *   dark  low=#161b23 (near #0d1117 bg) → high=#3a4556 (muted slate, subtle)
+ *   light low=#e8ebf1 (near white)      → high=#b9c6da (light blue-grey — NOT slate-500)
  */
 function edgeColor(normalizedWeight: number, theme: "light" | "dark" = "light"): string {
   const t = Math.max(0, Math.min(1, normalizedWeight));
   if (theme === "dark") {
-    const r = Math.round(27 + 73 * t);
-    const g = Math.round(33 + 83 * t);
-    const b = Math.round(42 + 97 * t);
+    const r = Math.round(22 + 36 * t);
+    const g = Math.round(27 + 42 * t);
+    const b = Math.round(35 + 51 * t);
     return `rgb(${r},${g},${b})`;
   }
-  const r = Math.round(223 - 123 * t);
-  const g = Math.round(227 - 111 * t);
-  const b = Math.round(233 - 94 * t);
+  const r = Math.round(232 - 47 * t);
+  const g = Math.round(235 - 37 * t);
+  const b = Math.round(241 - 23 * t);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -348,7 +348,7 @@ export function buildGraphologyGraph(
     graph.addEdge(edge.source, edge.target, {
       weight: edge.weight,
       normalizedWeight: nw,
-      size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.5–4 px: thicker + darker = stronger (llm_wiki parity)
+      size: EDGE_MIN_SIZE + nw * EDGE_SIZE_RANGE, // 0.4–2.2 px: thin + faint (llm_wiki-parity)
       color: edgeColor(nw, theme),
       kind,
       // GL1: hide weak edges at rest; edgeReducer reveals them on hover (I2-safe)
