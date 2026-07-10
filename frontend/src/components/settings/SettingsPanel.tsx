@@ -269,53 +269,74 @@ export function SettingsPanel() {
           </p>
         )}
 
-        {/* Flat page list — no group headers (LLM Wiki settings-nav parity) */}
+        {/* Grouped page list — group headers aid scannability (Synapse has more settings
+            than LLM Wiki, so the 5 groups let the eye jump to the right area at a glance) */}
         <div style={{ marginTop: 6 }}>
-          {groupsToRender.flatMap(({ pages }) => pages).map((page) => {
-            const globalIdx = ALL_PAGES.indexOf(page.id);
-            const isActive = activePage === page.id;
+          {groupsToRender.map(({ group, pages }) => {
+            if (pages.length === 0) return null;
             return (
-              <button
-                key={page.id}
-                ref={(el) => { pageRefs.current[globalIdx] = el; }}
-                data-settings-section={page.id}
-                data-testid={`settings-nav-${page.id}`}
-                aria-current={isActive ? "true" : undefined}
-                tabIndex={isActive ? 0 : -1}
-                onClick={() => setActivePage(page.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "7px 12px",
-                  border: "none",
-                  background: isActive ? "var(--syn-accent-soft)" : "transparent",
-                  color: isActive ? "var(--syn-text)" : "var(--syn-text-dim)",
-                  fontSize: 12.5,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  borderRadius: 6,
-                  transition: "background 0.1s ease, color 0.1s ease",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                    (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
-                  }
-                }}
-              >
-                <span style={{ display: "inline-flex", flexShrink: 0, opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
-                  {page.icon}
-                </span>
-                {t(page.labelKey)}
-              </button>
+              <div key={group.id} style={{ marginBottom: 8 }}>
+                <p
+                  data-testid={`settings-nav-group-${group.id}`}
+                  style={{
+                    margin: "12px 12px 4px",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "var(--syn-text-dim)",
+                  }}
+                >
+                  {t(group.labelKey)}
+                </p>
+                {pages.map((page) => {
+                  const globalIdx = ALL_PAGES.indexOf(page.id);
+                  const isActive = activePage === page.id;
+                  return (
+                    <button
+                      key={page.id}
+                      ref={(el) => { pageRefs.current[globalIdx] = el; }}
+                      data-settings-section={page.id}
+                      data-testid={`settings-nav-${page.id}`}
+                      aria-current={isActive ? "true" : undefined}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActivePage(page.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        width: "100%",
+                        padding: "7px 12px",
+                        border: "none",
+                        background: isActive ? "var(--syn-accent-soft)" : "transparent",
+                        color: isActive ? "var(--syn-text)" : "var(--syn-text-dim)",
+                        fontSize: 12.5,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        borderRadius: 6,
+                        transition: "background 0.1s ease, color 0.1s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
+                        }
+                      }}
+                    >
+                      <span style={{ display: "inline-flex", flexShrink: 0, opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
+                        {page.icon}
+                      </span>
+                      {t(page.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </div>
