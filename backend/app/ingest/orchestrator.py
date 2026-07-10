@@ -1634,6 +1634,8 @@ async def apply_domain_tags(page: Page, new_tags: list[str]) -> None:
     fm_block, body = _split_frontmatter(text)
 
     # Parse the whole file so python-frontmatter round-trips every key; set tags authoritatively.
+    # NOTE: callers pass the ALREADY-MERGED list (merge_domain_tags(page.tags, classified)), which
+    # preserves non-domain keyword/nav tags (e.g. the overview's F3 tag cloud) + the domain/* set.
     post = frontmatter.loads(text)
     cleaned = [t for t in new_tags if t]
     if cleaned:
@@ -2261,7 +2263,14 @@ def _build_overview_instruction(
         "(for an Italian wiki, e.g. '# Procurement Analytics Wiki — Visione Progettuale "
         "Integrata (Luglio 2026)'). Put a blank line after the title, then the body.\n"
         "Do NOT output YAML frontmatter or any preamble like 'Here is' — output the single `# ` "
-        "title line followed by ONLY the Markdown body.\n\n"
+        "title line followed by the Markdown body.\n\n"
+        "AFTER the body, on the VERY LAST line, output a tag cloud exactly in this form:\n"
+        "`TAGS: keyword-one, keyword-two, keyword-three, ...`\n"
+        "List 20-40 SHORT lowercase hyphenated topic keywords that capture the wiki's themes — "
+        "the key domains, regulations, standards, technologies, processes and concepts a reader "
+        "would filter by (e.g. `procurement, licensing-governance, sla-maturity, dora, nis2, "
+        "gdpr, iso-27001, cost-accounting`). Keywords only (no page titles, no sentences); this "
+        "single `TAGS:` line is the ONLY exception to the no-frontmatter rule.\n\n"
         f"# Wiki purpose\n{purpose_block}\n\n"
         f"# Existing pages (title [type])\n{existing_digest}\n\n"
         f"# Most recent ingest analysis\n{analysis_block}\n"
@@ -2316,6 +2325,50 @@ def _extract_overview_title(narrative: str) -> tuple[str, str]:
     return candidate, body
 
 
+# Max keyword tags kept on the overview (llm_wiki-parity tag cloud is ~20-50; cap for sanity, I7).
+_OVERVIEW_MAX_TAGS = 50
+
+
+def _slugify_tag(raw: str) -> str:
+    """Normalise one keyword to a short lowercase hyphenated tag (llm_wiki tag-cloud style)."""
+    s = raw.strip().lower().strip("#").strip()
+    s = re.sub(r"[^\w\s-]", "", s)  # drop punctuation except hyphen/underscore
+    s = re.sub(r"[\s_]+", "-", s).strip("-")
+    return s
+
+
+def _extract_overview_keyword_tags(body: str) -> tuple[list[str], str]:
+    """
+    Pull the trailing ``TAGS: kw1, kw2, ...`` line the overview prompt asks for (F3 tag cloud,
+    current llm_wiki parity) out of the narrative body.
+
+    Returns (tags, body_without_the_tags_line). The line is matched case-insensitively on the LAST
+    non-empty line; keywords are slugified, de-duplicated (order-preserving), and capped. If no
+    TAGS line is present (older prompt / degraded model) → ([], body) — always degrade-safe.
+    """
+    lines = (body or "").rstrip().splitlines()
+    idx = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip():
+            if re.match(r"^\s*tags\s*:", lines[i], re.IGNORECASE):
+                idx = i
+            break  # only consider the LAST non-empty line
+    if idx is None:
+        return [], body
+    raw = re.sub(r"^\s*tags\s*:", "", lines[idx], flags=re.IGNORECASE)
+    seen: set[str] = set()
+    tags: list[str] = []
+    for tok in raw.split(","):
+        slug = _slugify_tag(tok)
+        if slug and slug not in seen:
+            seen.add(slug)
+            tags.append(slug)
+        if len(tags) >= _OVERVIEW_MAX_TAGS:
+            break
+    new_body = "\n".join(lines[:idx]).rstrip() + "\n"
+    return tags, new_body
+
+
 async def _write_and_index_overview(narrative: str) -> None:
     """
     OVERWRITE vault/wiki/overview.md with valid frontmatter (I5) + index it as a Page (I1).
@@ -2327,7 +2380,11 @@ async def _write_and_index_overview(narrative: str) -> None:
     GET /pages returns it and the nav Overview section shows count 1.
     """
     title, body = _extract_overview_title(narrative)
+    # F3 tag cloud (current llm_wiki parity): pull the trailing `TAGS:` line into frontmatter tags.
+    keyword_tags, body = _extract_overview_keyword_tags(body)
     post = frontmatter.Post(body, type="overview", title=title)
+    if keyword_tags:
+        post["tags"] = keyword_tags
     serialized = frontmatter.dumps(post)
     file_text = serialized + "\n"
 
@@ -2335,11 +2392,15 @@ async def _write_and_index_overview(narrative: str) -> None:
     overview_path.parent.mkdir(parents=True, exist_ok=True)
     overview_path.write_text(file_text, encoding="utf-8")
 
-    await _index_overview_file(file_text, title)
-    logger.info("_update_overview: regenerated + indexed overview.md (title=%r)", title)
+    await _index_overview_file(file_text, title, keyword_tags or None)
+    logger.info(
+        "_update_overview: regenerated + indexed overview.md (title=%r, %d tags)",
+        title,
+        len(keyword_tags),
+    )
 
 
-async def _index_overview_file(file_text: str, title: str) -> None:
+async def _index_overview_file(file_text: str, title: str, tags: list[str] | None = None) -> None:
     """
     Upsert the Page row for wiki/overview.md (type="overview") from the given file bytes (I1).
 
@@ -2369,7 +2430,7 @@ async def _index_overview_file(file_text: str, title: str) -> None:
         title=title,
         page_type="overview",
         sources=None,
-        tags=None,
+        tags=tags,
         content_hash=_sha256(file_bytes),
         source_mtime_ns=0,
     )

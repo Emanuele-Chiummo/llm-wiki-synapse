@@ -272,6 +272,39 @@ def test_extract_overview_title_fallback_without_h1() -> None:
     assert body == "Just a body with no heading."
 
 
+# ── F3 tag cloud (current llm_wiki parity) ──────────────────────────────────────
+
+
+def test_overview_instruction_asks_for_tag_cloud() -> None:
+    """The prompt requests a trailing TAGS: keyword line (llm_wiki tag-cloud parity)."""
+    instr = orch._build_overview_instruction(analysis=None, existing_digest="x", lang="it")
+    assert "TAGS:" in instr
+    assert "keyword" in instr.lower()
+
+
+def test_slugify_tag_normalises() -> None:
+    assert orch._slugify_tag("  ISO 27001 ") == "iso-27001"
+    assert orch._slugify_tag("#Cost_Accounting") == "cost-accounting"
+    assert orch._slugify_tag("AI-Act") == "ai-act"
+
+
+def test_extract_overview_keyword_tags_parses_trailing_line() -> None:
+    """The trailing TAGS: line is pulled into a slugified, de-duped tag list and stripped."""
+    body = "Body paragraph one.\n\nBody paragraph two.\n\nTAGS: Procurement, DORA, nis2, DORA, iso 27001"
+    tags, new_body = orch._extract_overview_keyword_tags(body)
+    assert tags == ["procurement", "dora", "nis2", "iso-27001"]  # slugified + de-duped, order kept
+    assert "TAGS:" not in new_body
+    assert new_body.rstrip().endswith("Body paragraph two.")
+
+
+def test_extract_overview_keyword_tags_absent_is_degrade_safe() -> None:
+    """No TAGS line (older prompt / degraded model) → ([], body-unchanged)."""
+    body = "Just a narrative with no tag line."
+    tags, new_body = orch._extract_overview_keyword_tags(body)
+    assert tags == []
+    assert new_body == body
+
+
 @pytest.mark.asyncio
 async def test_overview_regen_uses_h1_title(
     api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
@@ -289,3 +322,23 @@ async def test_overview_regen_uses_h1_title(
     assert "The wiki covers homelab topics." in meta.content
     # The H1 is promoted to the title, not duplicated in the body.
     assert "# Homelab Wiki" not in meta.content
+
+
+@pytest.mark.asyncio
+async def test_overview_regen_writes_keyword_tag_cloud(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End-to-end: the narrative's trailing TAGS: line becomes the overview frontmatter tag cloud."""
+    narrative = (
+        "# Homelab Wiki — Self-Hosting Blueprint (July 2026)\n\n"
+        "The wiki covers homelab topics.\n\n"
+        "TAGS: self-hosting, docker, networking, ISO 27001, backups"
+    )
+    _patch_provider(monkeypatch, _FakeOverviewProvider(narrative))
+    await orch._update_overview(_analysis(), ORIGIN)
+
+    file_text = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
+    meta = frontmatter.loads(file_text)
+    assert meta["tags"] == ["self-hosting", "docker", "networking", "iso-27001", "backups"]
+    # The TAGS line is pulled into frontmatter, not left in the rendered body.
+    assert "TAGS:" not in meta.content
