@@ -42,6 +42,18 @@ import { formatRelativeTime } from "../ingest/IngestRunList";
 
 const FREQUENCY_OPTIONS: ImportFrequency[] = ["15m", "1h", "6h", "daily"];
 
+// ─── P3-c: importable file-type groups (must mirror backend known set) ──────────
+// text (_ALLOWED_EXTENSIONS) + extractable (_EXTRACTABLE_EXTENSIONS). Placeholder
+// image/AV types are intentionally NOT auto-imported by the scheduler.
+const EXT_GROUPS: { labelKey: string; exts: string[] }[] = [
+  { labelKey: "settings.import.typeGroupText", exts: [".md", ".txt", ".markdown", ".mdx"] },
+  { labelKey: "settings.import.typeGroupDocs", exts: [".pdf", ".docx", ".rtf", ".odt"] },
+  { labelKey: "settings.import.typeGroupSheets", exts: [".xlsx", ".csv", ".ods"] },
+  { labelKey: "settings.import.typeGroupSlides", exts: [".pptx", ".odp"] },
+  { labelKey: "settings.import.typeGroupWeb", exts: [".html"] },
+];
+const ALL_KNOWN_EXTS: string[] = EXT_GROUPS.flatMap((g) => g.exts);
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ImportScheduleCard() {
@@ -65,6 +77,10 @@ export function ImportScheduleCard() {
   const [enabled, setEnabled] = useState(false);
   const [sourceDir, setSourceDir] = useState("");
   const [frequency, setFrequency] = useState<ImportFrequency>("1h");
+  // P3-c: wider Source-Watch types. allowed = null → all known checked (default).
+  const [allowedExts, setAllowedExts] = useState<Set<string>>(new Set(ALL_KNOWN_EXTS));
+  const [excludedFolders, setExcludedFolders] = useState("");
+  const [maxSizeMb, setMaxSizeMb] = useState(0);
 
   // Sync form state when server data arrives
   useEffect(() => {
@@ -72,8 +88,30 @@ export function ImportScheduleCard() {
       setEnabled(schedule.enabled);
       setSourceDir(schedule.source_dir ?? "");
       setFrequency(schedule.frequency);
+      const ae = schedule.allowed_extensions;
+      setAllowedExts(
+        ae
+          ? new Set(
+              ae
+                .split(",")
+                .map((s) => s.trim().toLowerCase())
+                .filter(Boolean),
+            )
+          : new Set(ALL_KNOWN_EXTS),
+      );
+      setExcludedFolders(schedule.excluded_folders ?? "");
+      setMaxSizeMb(schedule.max_size_mb ?? 0);
     }
   }, [schedule]);
+
+  const toggleExt = useCallback((ext: string) => {
+    setAllowedExts((prev) => {
+      const next = new Set(prev);
+      if (next.has(ext)) next.delete(ext);
+      else next.add(ext);
+      return next;
+    });
+  }, []);
 
   // Fetch on mount
   useEffect(() => {
@@ -95,6 +133,10 @@ export function ImportScheduleCard() {
       enabled,
       source_dir: sourceDir.trim() || null,
       frequency,
+      // P3-c: send the explicit list of checked types; "" → backend default wider set
+      allowed_extensions: Array.from(allowedExts).join(","),
+      excluded_folders: excludedFolders.trim(),
+      max_size_mb: maxSizeMb,
     };
     const res = await saveSchedule(body);
     if (res) {
@@ -104,7 +146,17 @@ export function ImportScheduleCard() {
       const detail = saveError ?? t("common.unknown");
       showToast(t("settings.import.saveError", { detail }), "error");
     }
-  }, [enabled, sourceDir, frequency, saveSchedule, saveError, t]);
+  }, [
+    enabled,
+    sourceDir,
+    frequency,
+    allowedExts,
+    excludedFolders,
+    maxSizeMb,
+    saveSchedule,
+    saveError,
+    t,
+  ]);
 
   const handleRunNow = useCallback(async () => {
     try {
@@ -262,6 +314,127 @@ export function ImportScheduleCard() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* P3-c: Allowed file types — grouped checkboxes */}
+          <div data-testid="import-allowed-types">
+            <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 6 }}>
+              {t("settings.import.allowedTypes")}
+            </label>
+            <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--syn-text-dim)", lineHeight: 1.5 }}>
+              {t("settings.import.allowedTypesHint")}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {EXT_GROUPS.map((group) => (
+                <div key={group.labelKey}>
+                  <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, color: "var(--syn-text-dim)" }}>
+                    {t(group.labelKey)}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {group.exts.map((ext) => {
+                      const on = allowedExts.has(ext);
+                      return (
+                        <label
+                          key={ext}
+                          data-testid={`import-type-${ext}`}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 5,
+                            padding: "3px 9px",
+                            border: `1px solid ${on ? "var(--syn-accent)" : "var(--syn-border)"}`,
+                            borderRadius: 6,
+                            background: on ? "var(--syn-accent-soft)" : "var(--syn-surface)",
+                            color: on ? "var(--syn-accent)" : "var(--syn-text-muted)",
+                            fontSize: 11,
+                            fontFamily: "monospace",
+                            cursor: saving ? "not-allowed" : "pointer",
+                            userSelect: "none",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            disabled={saving}
+                            onChange={() => toggleExt(ext)}
+                            style={{ width: 12, height: 12, cursor: "pointer", accentColor: "var(--syn-accent)" }}
+                          />
+                          {ext}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* P3-c: Excluded folders */}
+          <div>
+            <label
+              htmlFor="import-excluded-folders"
+              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+            >
+              {t("settings.import.excludedFolders")}
+            </label>
+            <input
+              id="import-excluded-folders"
+              data-testid="import-excluded-folders"
+              type="text"
+              value={excludedFolders}
+              onChange={(e) => setExcludedFolders(e.target.value)}
+              placeholder="node_modules, .git, archive"
+              disabled={saving}
+              style={{
+                width: "100%",
+                padding: "6px 10px",
+                background: "var(--syn-bg)",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 6,
+                color: "var(--syn-text)",
+                fontSize: 12,
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+            <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t("settings.import.excludedFoldersHint")}
+            </p>
+          </div>
+
+          {/* P3-c: Max file size */}
+          <div>
+            <label
+              htmlFor="import-max-size"
+              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+            >
+              {t("settings.import.maxSize")}
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                id="import-max-size"
+                data-testid="import-max-size"
+                type="number"
+                min={0}
+                value={maxSizeMb}
+                onChange={(e) => setMaxSizeMb(Math.max(0, Number(e.target.value) || 0))}
+                disabled={saving}
+                style={{
+                  width: 90,
+                  padding: "6px 10px",
+                  background: "var(--syn-bg)",
+                  border: "1px solid var(--syn-border)",
+                  borderRadius: 6,
+                  color: "var(--syn-text)",
+                  fontSize: 12,
+                  outline: "none",
+                }}
+              />
+              <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.import.maxSizeUnit")}</span>
+            </div>
+            <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t("settings.import.maxSizeHint")}
+            </p>
           </div>
 
           {/* Last run status */}
