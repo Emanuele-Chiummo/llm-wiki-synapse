@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderPlus, FolderOpen, Check } from "lucide-react";
+import { FolderPlus, FolderOpen, Check, Copy } from "lucide-react";
 import {
   fetchProjects,
   openProject,
@@ -91,7 +91,24 @@ export function ProjectLauncher() {
   const [newName, setNewName] = useState("");
   const [newPath, setNewPath] = useState("");
   const [openPath, setOpenPath] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const mounted = useRef(true);
+
+  // "Open project folder": Synapse is self-hosted (the vault often lives on a remote server), so
+  // the universal action is to copy the server-side path for the user to open in their own file
+  // manager. The Tauri desktop build can wire a real reveal-in-Finder later (TODO).
+  const handleOpenFolder = useCallback(async (id: string, path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+    } catch {
+      // clipboard may be unavailable (insecure context) — still flash feedback
+    }
+    if (!mounted.current) return;
+    setCopiedId(id);
+    window.setTimeout(() => {
+      if (mounted.current) setCopiedId((c) => (c === id ? null : c));
+    }, 1500);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -272,6 +289,40 @@ export function ProjectLauncher() {
                     {p.path}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  data-testid="launcher-open-folder"
+                  title={t("launcher.openFolder")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleOpenFolder(p.id, p.path);
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 8px",
+                    border: "1px solid var(--syn-border)",
+                    background: "var(--syn-surface)",
+                    color: "var(--syn-text-muted)",
+                    borderRadius: 5,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  {copiedId === p.id ? (
+                    <>
+                      <Check size={12} aria-hidden="true" />
+                      {t("launcher.pathCopied")}
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} aria-hidden="true" />
+                      {t("launcher.openFolder")}
+                    </>
+                  )}
+                </button>
                 {isActive ? (
                   <span
                     style={{

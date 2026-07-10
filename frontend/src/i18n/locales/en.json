@@ -1192,7 +1192,9 @@
     "empty": "No projects yet.",
     "active": "Active",
     "switch": "Switch",
-    "switching": "Switching…"
+    "switching": "Switching…",
+    "openFolder": "Open folder",
+    "pathCopied": "Path copied"
   },
   "meta": {
     "vaultSection": "Vault",

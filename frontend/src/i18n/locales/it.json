@@ -1192,7 +1192,9 @@
     "empty": "Nessun progetto ancora.",
     "active": "Attivo",
     "switch": "Passa",
-    "switching": "Passaggio…"
+    "switching": "Passaggio…",
+    "openFolder": "Apri cartella",
+    "pathCopied": "Percorso copiato"
   },
   "meta": {
     "vaultSection": "Vault",
