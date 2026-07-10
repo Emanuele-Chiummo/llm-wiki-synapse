@@ -383,6 +383,26 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
           vendor row (v1.4) instead of a standalone section; it's specific to this provider. */}
       {vendor.id === "claude-cli" && <SectionCliAuth embedded />}
 
+      {/* Codex CLI auth note — the codex binary authenticates itself (codex login / OPENAI_API_KEY);
+          Synapse stores no pasteable Codex token, so the row shows guidance inline (v1.4). */}
+      {vendor.id === "codex-cli" && (
+        <div
+          data-testid="codex-auth-note"
+          style={{
+            padding: "10px 14px",
+            background: "var(--syn-bg-soft)",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 8,
+            fontSize: 11,
+            color: "var(--syn-text-muted)",
+            lineHeight: 1.6,
+          }}
+        >
+          <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{t("settings.llmModels.codexAuthTitle")}</p>
+          <p style={{ margin: 0, whiteSpace: "pre-line" }}>{t("settings.llmModels.codexAuthNote")}</p>
+        </div>
+      )}
+
       {/* API Key (only for vendors that need one) */}
       {vendor.needs_api_key && (
         <div>

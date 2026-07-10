@@ -244,7 +244,9 @@
       "testFailed": "Fallito",
       "testRunning": "Test in corso…",
       "loadingVendors": "Caricamento vendor…",
-      "vendorLoadError": "Impossibile caricare il catalogo vendor."
+      "vendorLoadError": "Impossibile caricare il catalogo vendor.",
+      "codexAuthTitle": "Autenticazione",
+      "codexAuthNote": "Codex CLI si autentica da solo — esegui `codex login` sull'host (OAuth) o imposta OPENAI_API_KEY. Synapse non memorizza un token Codex (a differenza del token abbonamento Claude)."
     },
     "embeddings": {
       "title": "Vector Embeddings",
