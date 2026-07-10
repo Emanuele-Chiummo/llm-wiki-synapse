@@ -35,8 +35,10 @@ export { triggerIngest } from "./ingestClient";
  * Which filesystem root to browse.
  * - "sources" (default, backward-compat): raw/sources/ — writable, full affordances.
  * - "wiki": vault's wiki/ folder — read-only tree + preview only.
+ * - "vault": the whole vault root (raw/ + wiki/ + purpose.md + schema.md) — read-only tree +
+ *   preview (v1.5 P1, llm_wiki Files-tab parity).
  */
-export type SourceRoot = "sources" | "wiki";
+export type SourceRoot = "sources" | "wiki" | "vault";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
