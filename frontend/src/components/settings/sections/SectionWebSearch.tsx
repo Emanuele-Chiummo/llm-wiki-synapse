@@ -4,7 +4,7 @@
  * ADR-0041: SearXNG is the ONLY web-search backend (I9). No provider field.
  * I3: single fetch on mount; PUT on each user action; local state only.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import {
@@ -12,6 +12,14 @@ import {
   setWebSearchConfig,
 } from "../../../api/providerClient";
 import type { WebSearchConfigResponse } from "../../../api/types";
+
+// LLM Wiki card style — bordered surface card (brand colors only, never black).
+const WS_CARD: CSSProperties = {
+  border: "1px solid var(--syn-border)",
+  borderRadius: 10,
+  background: "var(--syn-surface)",
+  padding: "14px 16px",
+};
 
 export function SectionWebSearch() {
   const { t } = useTranslation();
@@ -169,7 +177,7 @@ export function SectionWebSearch() {
             </span>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.urlLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.urlHelp")}
@@ -198,7 +206,7 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.categoriesLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.categoriesHelp")}
@@ -224,7 +232,7 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.maxQueriesLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.maxQueriesHelp")}
@@ -251,8 +259,8 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div style={{ paddingTop: 8, borderTop: "1px solid var(--syn-border)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+          <div style={WS_CARD}>
+            <p style={{ margin: "0 0 10px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.webSearch.clearHelp")}
             </p>
             <button
