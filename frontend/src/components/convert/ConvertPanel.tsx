@@ -1,28 +1,28 @@
 /**
  * ConvertPanel.tsx — dedicated "Convert PDFs with Marker" surface [F12][R11-1][R12-6][A1].
  *
- * Sprint v1.1 Wave 2a — AC-R11-1-5, AC-R11-1-6 (dedicated component per §10 A1).
- * Sprint v1.2  R12-6   — "Avvia Marker" button: Tauri-only; spawns the local Marker
- *                         microservice when health is offline. Web build never shows it.
+ * Sprint v1.4 W0 — async marker contract:
+ *   POST /ingest/convert-marker → 202 immediately (batch queued)
+ *   GET  /ingest/convert-marker/status polled every 2.5 s while running
  *
  * Features:
- *   - File pick + drag-drop for 1..10 PDFs only.
+ *   - File pick + drag-drop (fixed: onDragEnter prevents + highlights drop zone).
  *   - Client-side guard: rejects > 10 files and non-.pdf before sending (AC-R11-1-5, I7).
  *   - Marker health badge (GET /ingest/marker-health) — polled on mount; manual refresh.
- *   - "Convert & ingest" primary action: disabled when Marker offline, with tooltip (AC-R11-1-5).
- *   - Per-file status rows: pending → converting → done (check) / failed (X + detail) (AC-R11-1-6).
- *   - Success hint pointing user to the Sources/tree panel once done.
+ *   - "Converti e ingerisci" primary action: disabled when Marker offline (AC-R11-1-5).
+ *   - Async conversion progress: percentage bar + ETA label + per-file status rows.
+ *   - Conversion history: persisted to localStorage; "Apri" button navigates to Sources.
  *   - [R12-6] "Avvia Marker" button: visible only in Tauri + offline. Reads the start command
  *     from localStorage key `synapse.markerStartCommand` (per-machine; NOT app_config).
  *     When unset, reveals an inline config field before spawning. Spawns via tauri-plugin-shell
  *     as `sh -c "<cmd> >/dev/null 2>&1 &"` (detached). Polls health every 3 s up to 120 s.
- *   - Component-local state ONLY — no Zustand dispatch for ephemeral progress (I3).
+ *   - Component-local state for ephemeral progress (I3 compliant).
+ *     graphStore is used ONLY for navigation ("Apri" → setActiveSection("sources")).
  *
- * Design tokens used: var(--syn-accent), var(--syn-border), var(--syn-bg-soft),
+ * Design tokens: var(--syn-accent), var(--syn-border), var(--syn-bg-soft),
  * var(--syn-text-muted), var(--syn-text-dim), var(--syn-radius-md), var(--syn-surface-sunken).
- * No hardcoded colors (dark-mode safe).
  *
- * All API calls through convertClient → apiFetch (ADR-0052 §4.2, never hand-rolled).
+ * All API calls through convertClient → apiFetch (ADR-0052 §4.2).
  * No per-token heavy work; no layout algorithm (I2, I3).
  */
 
@@ -47,27 +47,33 @@ import {
   Wifi,
   Play,
   Settings,
+  FolderOpen,
+  History,
 } from "lucide-react";
 import {
-  convertFiles,
+  startConvert,
+  getConvertStatus,
   getMarkerHealth,
-  MarkerError,
+  ConvertError,
   type MarkerHealthResponse,
+  type ConvertStatusResponse,
+  type ConvertFileStatus,
 } from "../../api/convertClient";
 import { isTauri } from "../../api/base";
+import { useGraphStore, selectSetActiveSection } from "../../store/graphStore";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_FILES = 10;
 const ICON_SIZE = 16;
+const POLL_INTERVAL_MS = 2_500;
+const MAX_HISTORY = 50;
 
-/**
- * localStorage key for the per-machine Marker start command.
- * Stored locally in the desktop app only — NOT synced to app_config / Postgres.
- * The value is a full shell command string that varies per host filesystem.
- * [R12-6]
- */
+/** localStorage key for the per-machine Marker start command. [R12-6] */
 const LS_MARKER_CMD = "synapse.markerStartCommand";
+
+/** localStorage key for conversion history. */
+const LS_HISTORY_KEY = "synapse.convertHistory";
 
 /** Poll interval (ms) while waiting for Marker to come online after spawn. [R12-6] */
 const MARKER_POLL_INTERVAL_MS = 3_000;
@@ -77,25 +83,46 @@ const MARKER_POLL_TIMEOUT_MS = 120_000;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type FileStatus = "pending" | "converting" | "done" | "failed";
-
+/**
+ * Pre-submit file row — a PDF the user has added to the queue
+ * but not yet sent to the backend.
+ */
 interface FileRow {
-  /** Stable key for React reconciliation. */
   id: string;
   file: File;
-  status: FileStatus;
-  /** Error detail from the 502 response (AC-R11-1-6). */
-  errorDetail?: string;
 }
 
-// ─── Small helpers ─────────────────────────────────────────────────────────────
-
-function isPdf(file: File): boolean {
-  return file.name.toLowerCase().endsWith(".pdf");
+/**
+ * One entry in the session conversion history.
+ * Persisted to localStorage so it survives refresh.
+ */
+interface HistoryEntry {
+  id: string;
+  filename: string;
+  safe_stem: string;
+  timestamp: number;
+  status: "ok" | "failed";
+  companion_path: string | null;
 }
 
-function makeId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+// ─── localStorage helpers ──────────────────────────────────────────────────────
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(LS_HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as HistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries: HistoryEntry[]): void {
+  try {
+    localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(entries));
+  } catch {
+    // storage unavailable or quota exceeded — non-fatal
+  }
 }
 
 function getMarkerCmd(): string {
@@ -114,13 +141,31 @@ function saveMarkerCmd(cmd: string): void {
       localStorage.removeItem(LS_MARKER_CMD);
     }
   } catch {
-    // ignore — storage unavailable
+    // ignore
+  }
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function isPdf(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".pdf");
+}
+
+function makeId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatTimestamp(ts: number): string {
+  try {
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
   }
 }
 
 // ─── StatusIcon ────────────────────────────────────────────────────────────────
 
-function StatusIcon({ status }: { status: FileStatus }) {
+function StatusIcon({ status }: { status: ConvertFileStatus | "pending" }) {
   switch (status) {
     case "pending":
       return (
@@ -143,7 +188,7 @@ function StatusIcon({ status }: { status: FileStatus }) {
           }}
         />
       );
-    case "done":
+    case "ok":
       return (
         <CheckCircle2
           size={ICON_SIZE}
@@ -167,32 +212,38 @@ function StatusIcon({ status }: { status: FileStatus }) {
 export function ConvertPanel() {
   const { t } = useTranslation();
 
-  // Per-file rows (component-local — I3: no Zustand dispatch)
-  const [rows, setRows] = useState<FileRow[]>([]);
-  // Drag-over highlight
-  const [dragging, setDragging] = useState(false);
-  // Whether a conversion is in progress
-  const [converting, setConverting] = useState(false);
-  // Inline validation message
-  const [validationMsg, setValidationMsg] = useState<string | null>(null);
-  // Whether at least one row is done successfully
-  const [anyDone, setAnyDone] = useState(false);
+  // Navigation action (for "Apri" button — not ephemeral progress, I3 compliant)
+  const setActiveSection = useGraphStore(selectSetActiveSection);
 
-  // Marker health
+  // ── Pre-submit queue (component-local — I3) ─────────────────────────────────
+  const [rows, setRows] = useState<FileRow[]>([]);
+
+  // ── Conversion state (component-local — I3) ─────────────────────────────────
+  // submitting: POST /ingest/convert-marker is in-flight (short, < 1 s)
+  const [submitting, setSubmitting] = useState(false);
+  // converting: polling GET /ingest/convert-marker/status (background conversion running)
+  const [converting, setConverting] = useState(false);
+  const [pollStatus, setPollStatus] = useState<ConvertStatusResponse | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // ── History (localStorage-backed, component-local — I3) ─────────────────────
+  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+
+  // ── Drag-over highlight ──────────────────────────────────────────────────────
+  const [dragging, setDragging] = useState(false);
+
+  // ── Validation message ───────────────────────────────────────────────────────
+  const [validationMsg, setValidationMsg] = useState<string | null>(null);
+
+  // ── Marker health ────────────────────────────────────────────────────────────
   const [health, setHealth] = useState<MarkerHealthResponse | null>(null);
   const [healthLoading, setHealthLoading] = useState(true);
-  const abortRef = useRef<AbortController | null>(null);
 
-  // ── "Avvia Marker" state [R12-6] ───────────────────────────────────────────
-  // Whether the spawn sequence is running (button shows "starting…")
+  // ── "Avvia Marker" state [R12-6] ────────────────────────────────────────────
   const [markerStarting, setMarkerStarting] = useState(false);
-  // Error returned after the 120 s poll timeout
   const [markerStartError, setMarkerStartError] = useState<string | null>(null);
-  // Whether the inline config field is visible (command not yet configured)
   const [showCmdField, setShowCmdField] = useState(false);
-  // Editable value of the config field
   const [cmdFieldValue, setCmdFieldValue] = useState("");
-  // Poll timer ref
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollDeadlineRef = useRef<number>(0);
 
@@ -201,7 +252,59 @@ export function ConvertPanel() {
   // Detect desktop context once (stable across renders)
   const isDesktop = isTauri();
 
-  // ── Marker health poll on mount ─────────────────────────────────────────────
+  // ── Polling effect — runs while `converting` is true ────────────────────────
+  //
+  // Uses an immediate first call then repeats every POLL_INTERVAL_MS.
+  // Stops automatically when the backend reports running = false.
+  // Component-local state only for ephemeral progress (I3).
+
+  useEffect(() => {
+    if (!converting) return;
+
+    let mounted = true;
+
+    const doPoll = async () => {
+      if (!mounted) return;
+      try {
+        const status = await getConvertStatus();
+        if (!mounted) return;
+        setPollStatus(status);
+
+        if (!status.running) {
+          // Batch finished — update history and stop
+          setConverting(false);
+          const newEntries: HistoryEntry[] = status.files.map((f) => ({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${f.safe_stem}`,
+            filename: f.file,
+            safe_stem: f.safe_stem,
+            timestamp: Date.now(),
+            status: f.status === "ok" ? "ok" : "failed",
+            companion_path: f.companion_path,
+          }));
+          setHistory((prev) => {
+            const next = [...newEntries, ...prev].slice(0, MAX_HISTORY);
+            saveHistory(next);
+            return next;
+          });
+        }
+      } catch {
+        // Network hiccup — will retry on next interval
+      }
+    };
+
+    // Immediate first poll (avoids 2.5 s blank state after submit)
+    void doPoll();
+
+    // Recurring poll
+    const id = setInterval(() => { void doPoll(); }, POLL_INTERVAL_MS);
+
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, [converting]);
+
+  // ── Marker health poll on mount ──────────────────────────────────────────────
 
   const fetchHealth = useCallback(async () => {
     setHealthLoading(true);
@@ -213,26 +316,24 @@ export function ConvertPanel() {
 
   useEffect(() => {
     void fetchHealth();
-    // no interval — manual refresh only (avoids unbounded polling on a slow Marker service)
   }, [fetchHealth]);
 
-  // ── Stop poll helper ────────────────────────────────────────────────────────
+  // ── Stop Marker spawn poll helper ────────────────────────────────────────────
 
-  const stopPoll = useCallback(() => {
+  const stopMarkerPoll = useCallback(() => {
     if (pollTimerRef.current !== null) {
       clearInterval(pollTimerRef.current);
       pollTimerRef.current = null;
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopPoll();
+      stopMarkerPoll();
     };
-  }, [stopPoll]);
+  }, [stopMarkerPoll]);
 
-  // ── Spawn + poll logic [R12-6] ──────────────────────────────────────────────
+  // ── Spawn + poll logic [R12-6] ───────────────────────────────────────────────
 
   const spawnAndPoll = useCallback(
     async (cmd: string) => {
@@ -240,15 +341,7 @@ export function ConvertPanel() {
       setMarkerStartError(null);
 
       try {
-        // Static string literal import — required so Vite bundles the plugin
-        // (dynamic import with variable string is silently dropped by the bundler).
-        // This call path is only reached when isTauri() is true at runtime.
         const { Command } = await import("@tauri-apps/plugin-shell");
-
-        // Spawn detached: the shell exits immediately; the background job lives on.
-        // `>/dev/null 2>&1 &` redirects output and detaches from the parent shell.
-        // This is user-initiated, user-configured local execution — same trust level
-        // as their own terminal (the user types/pastes the command themselves). [R12-6]
         const child = Command.create("sh", ["-c", `${cmd} >/dev/null 2>&1 &`]);
         await child.execute();
       } catch (err: unknown) {
@@ -258,12 +351,11 @@ export function ConvertPanel() {
         return;
       }
 
-      // Poll getMarkerHealth every 3 s up to 120 s [R12-6]
       pollDeadlineRef.current = Date.now() + MARKER_POLL_TIMEOUT_MS;
 
       pollTimerRef.current = setInterval(() => {
         if (Date.now() > pollDeadlineRef.current) {
-          stopPoll();
+          stopMarkerPoll();
           setMarkerStarting(false);
           setMarkerStartError(t("convert.startMarkerError"));
           return;
@@ -271,7 +363,7 @@ export function ConvertPanel() {
 
         void getMarkerHealth().then((h) => {
           if (h.status === "ok") {
-            stopPoll();
+            stopMarkerPoll();
             setHealth(h);
             setHealthLoading(false);
             setMarkerStarting(false);
@@ -280,37 +372,31 @@ export function ConvertPanel() {
         });
       }, MARKER_POLL_INTERVAL_MS);
     },
-    [stopPoll, t],
+    [stopMarkerPoll, t],
   );
 
-  // ── "Avvia Marker" button handler [R12-6] ──────────────────────────────────
+  // ── "Avvia Marker" button handler [R12-6] ────────────────────────────────────
 
   const handleStartMarker = useCallback(async () => {
     if (markerStarting) return;
-
     const cmd = getMarkerCmd();
     if (!cmd) {
-      // No command saved yet — reveal the config field
       setCmdFieldValue("");
       setShowCmdField(true);
       return;
     }
-
     await spawnAndPoll(cmd);
   }, [markerStarting, spawnAndPoll]);
-
-  // ── Save command and start [R12-6] ─────────────────────────────────────────
 
   const handleCmdSaveAndStart = useCallback(async () => {
     const trimmed = cmdFieldValue.trim();
     if (!trimmed) return;
-
     saveMarkerCmd(trimmed);
     setShowCmdField(false);
     await spawnAndPoll(trimmed);
   }, [cmdFieldValue, spawnAndPoll]);
 
-  // ── File validation helpers ─────────────────────────────────────────────────
+  // ── File validation helpers ──────────────────────────────────────────────────
 
   const validateAndSetFiles = useCallback(
     (incoming: File[]): boolean => {
@@ -333,20 +419,25 @@ export function ConvertPanel() {
       const newRows: FileRow[] = pdfs.map((file) => ({
         id: makeId(),
         file,
-        status: "pending",
       }));
 
       setRows((prev) => [...prev, ...newRows]);
-      setAnyDone(false);
       return true;
     },
     [rows.length, t],
   );
 
-  // ── Drag-and-drop ───────────────────────────────────────────────────────────
+  // ── Drag-and-drop (fixed: onDragEnter prevents drop rejection) ──────────────
+
+  const handleDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+  }, []);
 
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragging(true);
   }, []);
 
@@ -359,97 +450,112 @@ export function ConvertPanel() {
   const handleDrop = useCallback(
     (e: DragEvent<HTMLDivElement>) => {
       e.preventDefault();
+      e.stopPropagation();
       setDragging(false);
+      if (submitting || converting) return; // don't accept drops while a batch is in flight
       const files = Array.from(e.dataTransfer.files);
       validateAndSetFiles(files);
     },
-    [validateAndSetFiles],
+    [submitting, converting, validateAndSetFiles],
   );
 
   const handleInputChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       validateAndSetFiles(files);
-      // Reset so the same files can be re-selected if removed
       if (inputRef.current) inputRef.current.value = "";
     },
     [validateAndSetFiles],
   );
 
   const openPicker = useCallback(() => {
-    if (!converting) inputRef.current?.click();
-  }, [converting]);
+    if (!submitting && !converting) inputRef.current?.click();
+  }, [submitting, converting]);
 
-  // ── Remove a single file row ────────────────────────────────────────────────
+  // ── Remove a pre-submit file row ─────────────────────────────────────────────
 
   const removeRow = useCallback((id: string) => {
     setRows((prev) => prev.filter((r) => r.id !== id));
     setValidationMsg(null);
   }, []);
 
-  // ── Convert action ──────────────────────────────────────────────────────────
+  // ── Submit: POST → 202 first, then start polling ─────────────────────────────
+  //
+  // `converting` is set to true ONLY after startConvert resolves with 202.
+  // This prevents the polling useEffect from firing before the batch is confirmed,
+  // which avoids calling getConvertStatus on an un-mocked state in tests.
 
   const handleConvert = useCallback(async () => {
-    if (converting || rows.length === 0) return;
+    if (submitting || converting || rows.length === 0) return;
     if (health?.status !== "ok") return;
 
-    // Mark all pending rows as converting
-    setRows((prev) => prev.map((r) => ({ ...r, status: "converting" as FileStatus })));
-    setConverting(true);
-    setAnyDone(false);
-
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
+    setSubmitError(null);
+    setSubmitting(true);
 
     try {
-      // We send all files in a single multipart call (backend handles per-file)
       const files = rows.map((r) => r.file);
-      await convertFiles(files, ctrl.signal);
-
-      // All files done
-      setRows((prev) => prev.map((r) => ({ ...r, status: "done" as FileStatus })));
-      setAnyDone(true);
+      await startConvert(files);
+      // POST succeeded — clear queue and start background polling
+      setRows([]);
+      setConverting(true); // triggers the polling useEffect
     } catch (err: unknown) {
-      let detail = "Unknown error";
-      if (err instanceof MarkerError) {
-        detail = err.detail;
-      } else if (err instanceof Error) {
-        detail = err.message;
+      // Synchronous error (400/409/413/415) — batch did not start; no polling
+      if (err instanceof ConvertError) {
+        switch (err.status) {
+          case 409:
+            setSubmitError(t("convert.error409"));
+            break;
+          case 413:
+            setSubmitError(t("convert.error413"));
+            break;
+          case 415:
+            setSubmitError(t("convert.error415"));
+            break;
+          default:
+            setSubmitError(err.detail);
+        }
+      } else {
+        setSubmitError(err instanceof Error ? err.message : String(err));
       }
-      // Mark all converting rows as failed with the same detail
-      // (backend returns a single error body when Marker is unavailable for the whole batch)
-      setRows((prev) =>
-        prev.map((r) =>
-          r.status === "converting"
-            ? { ...r, status: "failed" as FileStatus, errorDetail: detail }
-            : r,
-        ),
-      );
     } finally {
-      setConverting(false);
-      abortRef.current = null;
+      setSubmitting(false);
     }
-  }, [converting, rows, health]);
+  }, [submitting, converting, rows, health, t]);
 
-  // ── Reset panel ─────────────────────────────────────────────────────────────
+  // ── Reset: clear queue, progress, errors (NOT history) ──────────────────────
 
   const handleReset = useCallback(() => {
     setRows([]);
     setValidationMsg(null);
-    setAnyDone(false);
+    setSubmitError(null);
+    setPollStatus(null);
+    setSubmitting(false);
     setConverting(false);
   }, []);
 
-  // ── Derived state ───────────────────────────────────────────────────────────
+  // ── "Apri" — navigate to Sources section ────────────────────────────────────
+
+  const handleOpen = useCallback(() => {
+    setActiveSection("sources");
+  }, [setActiveSection]);
+
+  // ── Derived state ────────────────────────────────────────────────────────────
 
   const isOffline = health === null || health.status !== "ok";
-  const canConvert = !converting && rows.length > 0 && !isOffline;
-  const hasPending = rows.some((r) => r.status === "pending");
+  const canConvert = !submitting && !converting && rows.length > 0 && !isOffline;
+  const hasPending = rows.some(() => true);
 
-  // Show the "Avvia Marker" button only in Tauri + offline + not already starting
   const showStartBtn = isDesktop && isOffline && !healthLoading;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const pct =
+    pollStatus && pollStatus.total > 0
+      ? Math.round((pollStatus.done / pollStatus.total) * 100)
+      : 0;
+
+  const batchDone = pollStatus !== null && !pollStatus.running;
+  const anyOk = batchDone && pollStatus.files.some((f) => f.status === "ok");
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -548,7 +654,7 @@ export function ConvertPanel() {
           <RefreshCw size={12} aria-hidden="true" />
         </button>
 
-        {/* ── "Avvia Marker" button — desktop-only, shown when offline [R12-6] ── */}
+        {/* ── "Avvia Marker" — desktop-only, shown when offline [R12-6] ── */}
         {showStartBtn && (
           <button
             data-testid="start-marker-btn"
@@ -679,27 +785,24 @@ export function ConvertPanel() {
         </div>
       )}
 
-      {/* ── Start error message [R12-6] ── */}
+      {/* ── Marker start error message [R12-6] ── */}
       {markerStartError && (
         <p
           role="alert"
           data-testid="start-marker-error"
-          style={{
-            margin: 0,
-            fontSize: 12,
-            color: "var(--syn-error, #ef4444)",
-          }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
         >
           {markerStartError}
         </p>
       )}
 
-      {/* ── Drop zone ── */}
+      {/* ── Drop zone (drag-drop fixed: onDragEnter prevents rejection) ── */}
       <div
         data-testid="convert-drop-zone"
-        onDrop={handleDrop}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         onClick={openPicker}
         role="button"
         tabIndex={0}
@@ -740,9 +843,7 @@ export function ConvertPanel() {
         <Upload
           size={22}
           aria-hidden="true"
-          style={{
-            color: dragging ? "var(--syn-accent)" : "var(--syn-text-muted)",
-          }}
+          style={{ color: dragging ? "var(--syn-accent)" : "var(--syn-text-muted)" }}
         />
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--syn-text-muted)" }}>
           {t("convert.dropLabel")}
@@ -756,18 +857,25 @@ export function ConvertPanel() {
       {validationMsg && (
         <p
           role="alert"
-          style={{
-            margin: 0,
-            fontSize: 12,
-            color: "var(--syn-error, #ef4444)",
-          }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
           data-testid="convert-validation-msg"
         >
           {validationMsg}
         </p>
       )}
 
-      {/* ── Per-file status rows (AC-R11-1-6) ── */}
+      {/* ── Submit error (409/413/415 from the backend) ── */}
+      {submitError && (
+        <p
+          role="alert"
+          data-testid="convert-submit-error"
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+        >
+          {submitError}
+        </p>
+      )}
+
+      {/* ── Pre-submit file queue ── */}
       {rows.length > 0 && (
         <ul
           data-testid="convert-file-list"
@@ -784,7 +892,7 @@ export function ConvertPanel() {
           {rows.map((row) => (
             <li
               key={row.id}
-              data-testid={`convert-file-row-${row.status}`}
+              data-testid="convert-file-row-pending"
               style={{
                 display: "flex",
                 alignItems: "flex-start",
@@ -795,10 +903,7 @@ export function ConvertPanel() {
                 border: "1px solid var(--syn-border)",
               }}
             >
-              {/* Status icon */}
-              <StatusIcon status={row.status} />
-
-              {/* File info */}
+              <StatusIcon status="pending" />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
@@ -814,26 +919,10 @@ export function ConvertPanel() {
                   {row.file.name}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 1 }}>
-                  {row.status === "failed" && row.errorDetail ? (
-                    <span
-                      style={{ color: "var(--syn-error, #ef4444)" }}
-                      data-testid="convert-file-error"
-                    >
-                      {row.errorDetail}
-                    </span>
-                  ) : (
-                    <span>
-                      {row.status === "pending" && t("convert.status.pending")}
-                      {row.status === "converting" && t("convert.status.converting")}
-                      {row.status === "done" && t("convert.status.done")}
-                      {row.status === "failed" && t("convert.status.failed")}
-                    </span>
-                  )}
+                  {t("convert.status.pending")}
                 </div>
               </div>
-
-              {/* Remove button (only for pending rows before conversion starts) */}
-              {row.status === "pending" && !converting && (
+              {!converting && (
                 <button
                   aria-label={`Remove ${row.file.name}`}
                   onClick={() => removeRow(row.id)}
@@ -855,8 +944,6 @@ export function ConvertPanel() {
                   <XCircle size={14} aria-hidden="true" />
                 </button>
               )}
-
-              {/* File type indicator */}
               <FileText
                 size={14}
                 aria-hidden="true"
@@ -867,23 +954,220 @@ export function ConvertPanel() {
         </ul>
       )}
 
-      {/* ── Success hint ── */}
-      {anyDone && (
-        <p
-          role="status"
-          data-testid="convert-success-hint"
+      {/* ── Active conversion: progress + per-file status ── */}
+      {converting && (
+        <div
+          data-testid="convert-progress-section"
           style={{
-            margin: 0,
-            fontSize: 12,
-            color: "var(--syn-text-muted)",
-            padding: "8px 12px",
-            background: "var(--syn-accent-soft)",
-            borderRadius: 6,
-            border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, transparent 70%)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            padding: "12px 14px",
+            borderRadius: 8,
+            border: "1px solid var(--syn-border)",
+            background: "var(--syn-bg-soft)",
           }}
         >
-          {t("convert.successHint")}
-        </p>
+          {/* Progress bar + label */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                data-testid="convert-progress-label"
+                style={{ fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)" }}
+              >
+                {pollStatus
+                  ? t("convert.progressLabel", {
+                      done: pollStatus.done,
+                      total: pollStatus.total,
+                      pct,
+                    })
+                  : t("convert.status.converting")}
+              </span>
+              {pollStatus?.eta_seconds != null && (
+                <span
+                  data-testid="convert-eta-label"
+                  style={{ fontSize: 11, color: "var(--syn-text-dim)" }}
+                >
+                  {t("convert.etaLabel", { eta: pollStatus.eta_seconds })}
+                </span>
+              )}
+            </div>
+            {/* Progress bar */}
+            <div
+              data-testid="convert-progress"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              style={{
+                height: 4,
+                borderRadius: 2,
+                background: "var(--syn-border)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${pct}%`,
+                  background: "var(--syn-accent)",
+                  transition: "width 0.3s ease",
+                  borderRadius: 2,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Per-file status rows (from pollStatus) */}
+          {pollStatus && pollStatus.files.length > 0 && (
+            <ul
+              style={{
+                listStyle: "none",
+                margin: 0,
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+              aria-label="File conversion status"
+            >
+              {pollStatus.files.map((f) => (
+                <li
+                  key={f.safe_stem}
+                  data-testid={`convert-file-row-${f.status}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    padding: "6px 8px",
+                    borderRadius: 4,
+                    background: "var(--syn-surface-sunken)",
+                  }}
+                >
+                  <StatusIcon status={f.status} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "var(--syn-text)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      data-testid="convert-file-name"
+                    >
+                      {f.file}
+                    </div>
+                    {f.status === "failed" && f.detail && (
+                      <div
+                        style={{ fontSize: 11, color: "var(--syn-error, #ef4444)", marginTop: 1 }}
+                        data-testid="convert-file-error"
+                      >
+                        {f.detail}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {/* ── Post-conversion: per-file status (frozen) + success hint ── */}
+      {batchDone && pollStatus && (
+        <div
+          data-testid="convert-done-section"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          {/* Per-file final status */}
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}
+            data-testid="convert-file-list"
+            aria-label="Conversion results"
+          >
+            {pollStatus.files.map((f) => (
+              <li
+                key={f.safe_stem}
+                data-testid={`convert-file-row-${f.status}`}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  background: "var(--syn-bg-soft)",
+                  border: "1px solid var(--syn-border)",
+                }}
+              >
+                <StatusIcon status={f.status} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--syn-text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                    data-testid="convert-file-name"
+                  >
+                    {f.file}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 1 }}>
+                    {f.status === "failed" && f.detail ? (
+                      <span
+                        style={{ color: "var(--syn-error, #ef4444)" }}
+                        data-testid="convert-file-error"
+                      >
+                        {f.detail}
+                      </span>
+                    ) : (
+                      <span>
+                        {t(`convert.status.${f.status === "ok" ? "done" : f.status}`)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Success hint */}
+          {anyOk && (
+            <p
+              role="status"
+              data-testid="convert-success-hint"
+              style={{
+                margin: 0,
+                fontSize: 12,
+                color: "var(--syn-text-muted)",
+                padding: "8px 12px",
+                background: "var(--syn-accent-soft)",
+                borderRadius: 6,
+                border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, transparent 70%)",
+              }}
+            >
+              {t("convert.successHint")}
+            </p>
+          )}
+        </div>
       )}
 
       {/* ── Primary action row ── */}
@@ -910,7 +1194,7 @@ export function ConvertPanel() {
             transition: "background 0.1s ease",
           }}
         >
-          {converting ? (
+          {(submitting || converting) ? (
             <Loader2
               size={14}
               aria-hidden="true"
@@ -922,9 +1206,10 @@ export function ConvertPanel() {
           {t("convert.primaryAction")}
         </button>
 
-        {/* Reset / clear files */}
-        {rows.length > 0 && !converting && (
+        {/* Reset / clear */}
+        {(rows.length > 0 || batchDone) && !submitting && !converting && (
           <button
+            data-testid="convert-reset-btn"
             onClick={handleReset}
             style={{
               display: "inline-flex",
@@ -943,16 +1228,113 @@ export function ConvertPanel() {
           </button>
         )}
 
-        {/* Offline tooltip area — visible text for screen readers */}
+        {/* Offline note */}
         {isOffline && !healthLoading && hasPending && (
-          <span
-            role="note"
-            style={{ fontSize: 11, color: "var(--syn-error, #ef4444)" }}
-          >
+          <span role="note" style={{ fontSize: 11, color: "var(--syn-error, #ef4444)" }}>
             {t("convert.markerOfflineTooltip")}
           </span>
         )}
       </div>
+
+      {/* ── Conversion history ── */}
+      {history.length > 0 && (
+        <div data-testid="convert-history" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--syn-text-muted)",
+            }}
+          >
+            <History size={13} aria-hidden="true" />
+            {t("convert.historyTitle")}
+          </div>
+          <ul
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+            aria-label={t("convert.historyTitle")}
+          >
+            {history.map((entry) => (
+              <li
+                key={entry.id}
+                data-testid={`convert-history-entry-${entry.status}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  borderRadius: 6,
+                  background: "var(--syn-bg-soft)",
+                  border: "1px solid var(--syn-border)",
+                }}
+              >
+                {entry.status === "ok" ? (
+                  <CheckCircle2
+                    size={13}
+                    aria-hidden="true"
+                    style={{ color: "var(--syn-success, #22c55e)", flexShrink: 0 }}
+                  />
+                ) : (
+                  <XCircle
+                    size={13}
+                    aria-hidden="true"
+                    style={{ color: "var(--syn-error, #ef4444)", flexShrink: 0 }}
+                  />
+                )}
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: 12,
+                    color: "var(--syn-text)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={entry.filename}
+                >
+                  {entry.filename}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                  {formatTimestamp(entry.timestamp)}
+                </span>
+                {entry.status === "ok" && (
+                  <button
+                    data-testid="convert-history-open-btn"
+                    aria-label={t("convert.openBtn")}
+                    onClick={handleOpen}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "3px 8px",
+                      borderRadius: "var(--syn-radius-md)",
+                      border: "1px solid var(--syn-border)",
+                      background: "var(--syn-surface-sunken)",
+                      color: "var(--syn-text-muted)",
+                      fontSize: 11,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FolderOpen size={11} aria-hidden="true" />
+                    {t("convert.openBtn")}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Keyframe for spinner (inline, scoped) */}
       <style>{`@keyframes syn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

@@ -16,6 +16,10 @@ import type {
   ProviderConfigListResponse,
   ProviderConfigItem,
   CreateProviderConfigBody,
+  UpdateProviderConfigBody,
+  VendorListResponse,
+  ProviderTestRequest,
+  ProviderTestResponse,
   ClipConfigResponse,
   ClipConfigRequest,
   ClipConfigStateResponse,
@@ -90,6 +94,81 @@ export async function deleteProviderConfig(
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
+}
+
+/**
+ * Partial-update an existing provider config row.
+ * PUT /provider/config/{id}
+ * 200 OK → returns the updated row.
+ *
+ * api_key handling: absent=unchanged, non-empty string=replace, ""=clear.
+ */
+export async function updateProviderConfig(
+  id: string,
+  body: UpdateProviderConfigBody,
+  signal?: AbortSignal,
+): Promise<ProviderConfigItem> {
+  const url = `${apiBase()}/provider/config/${encodeURIComponent(id)}`;
+  const res = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ProviderConfigItem;
+}
+
+/**
+ * Fetch the vendor catalog (static list of supported providers).
+ * GET /provider/vendors
+ * Returns 15 vendors; needs_api_key + model_presets drive the expanded-row UI.
+ */
+export async function fetchVendors(
+  signal?: AbortSignal,
+): Promise<VendorListResponse> {
+  const url = `${apiBase()}/provider/vendors`;
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as VendorListResponse;
+}
+
+/**
+ * Run a connection smoke-test (can the backend reach the provider?).
+ * POST /provider/test/connection
+ */
+export async function testProviderConnection(
+  body: ProviderTestRequest,
+  signal?: AbortSignal,
+): Promise<ProviderTestResponse> {
+  const url = `${apiBase()}/provider/test/connection`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ProviderTestResponse;
+}
+
+/**
+ * Run a function/tool-call smoke-test against the provider.
+ * POST /provider/test/function
+ */
+export async function testProviderFunction(
+  body: ProviderTestRequest,
+  signal?: AbortSignal,
+): Promise<ProviderTestResponse> {
+  const url = `${apiBase()}/provider/test/function`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ProviderTestResponse;
 }
 
 export interface EmbeddingConfig {

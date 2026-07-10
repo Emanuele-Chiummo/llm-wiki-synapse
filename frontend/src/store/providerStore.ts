@@ -12,8 +12,14 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProviderConfigItem, CreateProviderConfigBody } from "../api/types";
-import { fetchProviderConfigs, createProviderConfig, deleteProviderConfig } from "../api/providerClient";
+import type { ProviderConfigItem, CreateProviderConfigBody, UpdateProviderConfigBody, VendorInfo } from "../api/types";
+import {
+  fetchProviderConfigs,
+  createProviderConfig,
+  deleteProviderConfig,
+  updateProviderConfig,
+  fetchVendors,
+} from "../api/providerClient";
 
 // ─── State / Actions ─────────────────────────────────────────────────────────
 
@@ -24,6 +30,10 @@ interface ProviderState {
   error: string | null;
   /** Scope used for the "set active" POST: "vault" | "global". */
   writeScope: "vault" | "global";
+  /** v1.4: vendor catalog from GET /provider/vendors. */
+  vendors: VendorInfo[];
+  vendorsLoading: boolean;
+  vendorsError: string | null;
 }
 
 interface ProviderActions {
@@ -40,6 +50,10 @@ interface ProviderActions {
   setWriteScope: (scope: "vault" | "global") => void;
   /** Derive and set the active item from the current list + vaultId. */
   deriveActive: (vaultId: string) => void;
+  /** v1.4: fetch the static vendor catalog. */
+  fetchVendorCatalog: (signal?: AbortSignal) => Promise<void>;
+  /** v1.4: partial-update an existing config row, then re-derive active. */
+  updateProvider: (id: string, body: UpdateProviderConfigBody, vaultId: string) => Promise<void>;
 }
 
 export type ProviderStore = ProviderState & ProviderActions;
@@ -79,6 +93,9 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
   loading: false,
   error: null,
   writeScope: "vault",
+  vendors: [],
+  vendorsLoading: false,
+  vendorsError: null,
 
   fetchList: async (signal) => {
     set({ loading: true, error: null });
@@ -143,6 +160,30 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     const { list } = get();
     set({ activeItem: deriveActiveItem(list, vaultId) });
   },
+
+  fetchVendorCatalog: async (signal) => {
+    set({ vendorsLoading: true, vendorsError: null });
+    try {
+      const res = await fetchVendors(signal);
+      set({ vendors: res.vendors, vendorsLoading: false });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      set({ vendorsError: (err as Error).message, vendorsLoading: false });
+    }
+  },
+
+  updateProvider: async (id, body, vaultId) => {
+    set({ error: null });
+    try {
+      await updateProviderConfig(id, body);
+      const res = await fetchProviderConfigs();
+      const newList = res.items;
+      set({ list: newList, activeItem: deriveActiveItem(newList, vaultId) });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      set({ error: (err as Error).message });
+    }
+  },
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -191,9 +232,36 @@ export function selectDeriveActive(s: ProviderStore): ProviderActions["deriveAct
   return s.deriveActive;
 }
 
+// v1.4 selectors
+
+export function selectVendors(s: ProviderStore): VendorInfo[] {
+  return s.vendors;
+}
+
+export function selectVendorsLoading(s: ProviderStore): boolean {
+  return s.vendorsLoading;
+}
+
+export function selectVendorsError(s: ProviderStore): string | null {
+  return s.vendorsError;
+}
+
+export function selectFetchVendorCatalog(s: ProviderStore): ProviderActions["fetchVendorCatalog"] {
+  return s.fetchVendorCatalog;
+}
+
+export function selectUpdateProvider(s: ProviderStore): ProviderActions["updateProvider"] {
+  return s.updateProvider;
+}
+
 // ─── Shallow hooks (I3) ───────────────────────────────────────────────────────
 
 /** Hook: provider list — shallow equality. */
 export function useProviderList(): ProviderConfigItem[] {
   return useProviderStore(useShallow(selectProviderList));
+}
+
+/** Hook: vendor catalog — shallow equality. */
+export function useVendorList(): VendorInfo[] {
+  return useProviderStore(useShallow(selectVendors));
 }

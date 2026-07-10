@@ -31,6 +31,16 @@ class ProviderSettings:
     is_fallback: bool = False
     # Optional knobs that may come from env-adjacent config (never a literal in app code):
     timeout: float = 120.0
+    # W1 (F17, §12 amendment): the DECRYPTED UI-supplied API key for the API backend, resolved
+    # from provider_config.api_key_encrypted at build time (app/secrets_crypto.py). None = no UI
+    # key → ApiProvider falls back to env-var keys (ANTHROPIC_API_KEY / OPENAI_API_KEY). Set ONLY
+    # for provider_type == "api"; ignored by local/cli. NEVER logged.
+    api_key: str | None = None
+    # W1 (F17): per-provider reasoning/thinking effort — auto|off|low|medium|high|max|custom.
+    # None/"auto"/"off" ⇒ no override (existing behaviour). Threaded into the ApiProvider where
+    # the backend supports it (Anthropic extended thinking / OpenAI-compatible reasoning_effort);
+    # degrade-safe/ignored otherwise. NEVER a routing input (I6).
+    reasoning_effort: str | None = None
     # ADR-0043: the resolved Claude subscription OAuth token for the CLI backend, injected
     # into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN when set. None = no DB
     # token (env governs). Set ONLY for provider_type == "cli"; ignored by local/api.

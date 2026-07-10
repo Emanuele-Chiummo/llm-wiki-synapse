@@ -741,7 +741,17 @@ class TestB10OptimisticLockAtomic:
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
-        from sqlalchemy import BigInteger, Column, Float, Integer, MetaData, String, Table, Text
+        from sqlalchemy import (
+            BigInteger,
+            Column,
+            Float,
+            Integer,
+            LargeBinary,
+            MetaData,
+            String,
+            Table,
+            Text,
+        )
 
         meta = MetaData()
         Table(
@@ -790,6 +800,7 @@ class TestB10OptimisticLockAtomic:
                     Column("clip_access_token", Text, nullable=True),
                     Column("clip_allowed_origins_db", Text, nullable=True),
                     Column("cli_oauth_token", Text, nullable=True),
+                    Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
                     Column("searxng_url_db", Text, nullable=True),
                     Column("searxng_categories_db", Text, nullable=True),
                     Column("searxng_max_queries_db", Integer, nullable=True),

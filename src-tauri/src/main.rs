@@ -9,6 +9,16 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+/// Show, unminimize and focus the main window — used by the tray icon click and "Apri" menu item.
+fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    use tauri::Manager;
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         // tauri-plugin-http: routes JS fetch() calls through the native HTTP stack so
@@ -25,13 +35,47 @@ fn main() {
         // local path — same trust level as the user's own terminal). [F12][R12-6]
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![])
-        .setup(|_app| {
+        .setup(|app| {
             #[cfg(debug_assertions)]
             {
                 use tauri::Manager;
-                if let Some(window) = _app.get_webview_window("main") {
+                if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 }
+            }
+
+            // System-tray (menu-bar) icon — stays in the macOS status bar while Synapse runs,
+            // even when the window is minimized or closed. Left-click reopens the window; the
+            // menu offers "Apri Synapse" / "Esci". [F15 desktop UX]
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+
+                let show_i = MenuItem::with_id(app, "tray_show", "Apri Synapse", true, None::<&str>)?;
+                let quit_i = MenuItem::with_id(app, "tray_quit", "Esci", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+
+                TrayIconBuilder::with_id("synapse-tray")
+                    .icon(app.default_window_icon().expect("bundled window icon").clone())
+                    .tooltip("Synapse")
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "tray_show" => show_main_window(app),
+                        "tray_quit" => app.exit(0),
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
             }
 
             Ok(())

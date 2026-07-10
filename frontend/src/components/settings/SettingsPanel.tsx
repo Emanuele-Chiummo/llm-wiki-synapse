@@ -28,6 +28,7 @@ import { SectionWebClipper } from "./sections/SectionWebClipper";
 import { SectionOutput } from "./sections/SectionOutput";
 import { SectionInterface } from "./sections/SectionInterface";
 import { SectionMaintenance } from "./sections/SectionMaintenance";
+import { SectionChangelog } from "./sections/SectionChangelog";
 import { SectionAbout } from "./sections/SectionAbout";
 import { SectionScenarios } from "./sections/SectionScenarios";
 import { SectionCosts } from "./sections/SectionCosts";
@@ -37,11 +38,11 @@ import {
   SectionHeader, GroupDivider, BTN_PRIMARY,
   IconSliders, IconCpu, IconFolder, IconWrench, IconBook, IconLink, IconShield,
   IconPalette, IconWand, IconBolt, IconVectors, IconGlobe, IconClock,
-  IconScissors, IconFileText, IconLock, IconDollar, IconInfo,
+  IconScissors, IconFileText, IconLock, IconDollar, IconInfo, IconHistory,
 } from "./ui";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
-// 18 stable page IDs — one per leaf page in the 2-level nav.
+// 19 stable page IDs — one per leaf page in the 2-level nav.
 
 type SettingsPage =
   // Group: essentials
@@ -66,6 +67,7 @@ type SettingsPage =
   // Group: system
   | "costs"
   | "maintenance"
+  | "changelog"
   | "about";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────────
@@ -135,6 +137,7 @@ const NAV_GROUPS: NavGroup[] = [
     pages: [
       { id: "costs",       labelKey: "settings.nav.costs2",       icon: <IconDollar /> },
       { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <IconWrench /> },
+      { id: "changelog",   labelKey: "settings.nav.changelog2",   icon: <IconHistory /> },
       { id: "about",       labelKey: "settings.nav.about2",       icon: <IconInfo /> },
     ],
   },
@@ -383,6 +386,7 @@ export function SettingsPanel() {
         {activePage === "security"   && <SectionSecurity />}
         {activePage === "costs"      && <SectionCosts />}
         {activePage === "maintenance" && <SectionMaintenance />}
+        {activePage === "changelog"  && <SectionChangelog />}
         {activePage === "about"      && <SectionAbout />}
       </div>
     </div>

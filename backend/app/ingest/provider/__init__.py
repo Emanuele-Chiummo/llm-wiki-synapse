@@ -38,6 +38,11 @@ class ProviderConfigRow(Protocol):
     max_iter: int
     token_budget: int
     is_fallback: bool
+    # W1 (F17): present on the ProviderConfig ORM row; read structurally via getattr so this
+    # package stays ORM-free. api_key_encrypted is Fernet ciphertext (or None); reasoning_effort
+    # is auto|off|low|medium|high|max|custom (or None).
+    api_key_encrypted: bytes | None
+    reasoning_effort: str | None
 
 
 # provider_type → concrete provider class. The ONLY place a string maps to a class; it is a
@@ -55,6 +60,7 @@ def _settings_from_row(row: ProviderConfigRow) -> ProviderSettings:
     default_budget = (
         DEFAULT_TOKEN_BUDGET_CLI if provider_type == "cli" else DEFAULT_TOKEN_BUDGET_ORCHESTRATED
     )
+    reasoning_effort = getattr(row, "reasoning_effort", None)
     return ProviderSettings(
         provider_type=provider_type,  # type: ignore[arg-type]
         model_id=str(row.model_id),
@@ -62,7 +68,32 @@ def _settings_from_row(row: ProviderConfigRow) -> ProviderSettings:
         max_iter=int(getattr(row, "max_iter", None) or DEFAULT_MAX_ITER),
         token_budget=int(getattr(row, "token_budget", None) or default_budget),
         is_fallback=bool(getattr(row, "is_fallback", False)),
+        # W1 (F17, §12 amendment): decrypt the stored UI key at build time. A missing master key
+        # or a tampered/foreign ciphertext degrades to None → ApiProvider falls back to env keys
+        # (I6 — all 3 backends keep working). Only meaningful for the API backend.
+        api_key=_resolve_api_key(getattr(row, "api_key_encrypted", None)),
+        reasoning_effort=str(reasoning_effort) if reasoning_effort else None,
     )
+
+
+def _resolve_api_key(api_key_encrypted: bytes | None) -> str | None:
+    """
+    Decrypt a stored provider key ciphertext, or return None (env-var fallback).
+
+    Fail-closed and NEVER raises: no master key (SecretsNotConfiguredError) or a
+    tampered/foreign ciphertext (InvalidToken) both degrade to None so the provider uses its
+    env-var key. The plaintext is returned only into ProviderSettings.api_key and NEVER logged.
+    """
+    if not api_key_encrypted:
+        return None
+    # Deferred import: keep the provider package importable without app.secrets_crypto in
+    # infra-free unit tests that never touch stored keys.
+    from app import secrets_crypto  # noqa: PLC0415
+
+    try:
+        return secrets_crypto.decrypt(bytes(api_key_encrypted))
+    except (secrets_crypto.SecretsNotConfiguredError, secrets_crypto.InvalidToken):
+        return None
 
 
 def resolve_provider(provider_config_row: ProviderConfigRow | Any) -> InferenceProvider:

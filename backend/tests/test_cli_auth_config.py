@@ -45,8 +45,9 @@ async def _noop_lifespan(app_: Any) -> AsyncGenerator[None, None]:
 
 def _make_vault_state_row(
     cli_oauth_token: str | None = None,
+    cli_oauth_token_encrypted: bytes | None = None,
 ) -> MagicMock:
-    """Return a mock VaultState row with the ADR-0043 column (plus pre-existing columns)."""
+    """Return a mock VaultState row with the ADR-0043 + W7 columns (plus pre-existing)."""
     row = MagicMock()
     row.vault_id = "test-cli-auth-config"
     row.data_version = 0
@@ -59,7 +60,8 @@ def _make_vault_state_row(
     row.searxng_url_db = None
     row.searxng_categories_db = None
     row.searxng_max_queries_db = None
-    row.cli_oauth_token = cli_oauth_token  # ADR-0043 column
+    row.cli_oauth_token = cli_oauth_token  # ADR-0043 column (legacy plaintext)
+    row.cli_oauth_token_encrypted = cli_oauth_token_encrypted  # W7 column (Fernet ciphertext)
     row.updated_at = None
     return row
 
@@ -264,9 +266,18 @@ async def test_get_cli_auth_config_token_source_db(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_put_cli_auth_config_set_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    """TC-CA-06: PUT {token} stores plaintext to DB and refreshes cache → db/subscription."""
-    import app.cli_auth as cli_auth_mod
+    """TC-CA-06 (W7 updated): PUT {token} stores Fernet ciphertext to cli_oauth_token_encrypted
+    (not plaintext) and refreshes cache → db/subscription.
 
+    W7 amendment: the write path now uses cli_oauth_token_encrypted (BYTEA) rather than the
+    legacy cli_oauth_token (TEXT). SYNAPSE_SECRET_KEY must be set. The CLI cache still holds
+    the decrypted plaintext in-memory for outbound injection.
+    """
+    import app.cli_auth as cli_auth_mod
+    from cryptography.fernet import Fernet as _Fernet
+
+    master_key = _Fernet.generate_key().decode()
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY", master_key)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
@@ -274,10 +285,11 @@ async def test_put_cli_auth_config_set_token(monkeypatch: pytest.MonkeyPatch) ->
     pasted_token = "sk-ant-oat01-TEST-SET-TOKEN-FOR-UNIT-TEST-9999"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
-    # Capture what the PUT handler writes into the DB column.
-    captured_db_value: list[str | None] = []
+    # Capture what the PUT handler writes into both DB columns (W7).
+    captured_encrypted: list[bytes | None] = []
+    captured_legacy: list[str | None] = []
 
-    class _CapturingState:
+    class _CapturingStateV2:
         vault_id = "test-cli-auth-set"
         data_version = 0
         remote_mcp_enabled = False
@@ -287,9 +299,10 @@ async def test_put_cli_auth_config_set_token(monkeypatch: pytest.MonkeyPatch) ->
         clip_access_token = None
         clip_allowed_origins_db = None
         cli_oauth_token: str | None = None
+        cli_oauth_token_encrypted: bytes | None = None
         updated_at = None
 
-    capturing_state = _CapturingState()
+    capturing_state = _CapturingStateV2()
 
     def make_session() -> Any:
         result_mock = MagicMock()
@@ -302,10 +315,12 @@ async def test_put_cli_auth_config_set_token(monkeypatch: pytest.MonkeyPatch) ->
 
         ctx = MagicMock()
         ctx.__aenter__ = AsyncMock(return_value=session)
-        # ctx.__aexit__ is the exit of `async with get_session() as session:`
-        ctx.__aexit__ = AsyncMock(
-            side_effect=lambda *a: captured_db_value.append(capturing_state.cli_oauth_token)
-        )
+
+        def _capture(*_args: Any) -> None:
+            captured_encrypted.append(capturing_state.cli_oauth_token_encrypted)
+            captured_legacy.append(capturing_state.cli_oauth_token)
+
+        ctx.__aexit__ = AsyncMock(side_effect=_capture)
         return ctx
 
     try:
@@ -323,13 +338,26 @@ async def test_put_cli_auth_config_set_token(monkeypatch: pytest.MonkeyPatch) ->
     assert body["token_source"] == "db"
     assert body["token_configured"] is True
     assert body["auth_mode"] == "subscription"
-    # The value stored in the DB must be the pasted token (plaintext — ADR-0043 §2.1).
-    assert len(captured_db_value) == 1, f"Expected 1 DB write, got {captured_db_value}"
-    stored = captured_db_value[0]
+
+    # W7: the encrypted column holds Fernet ciphertext (not plaintext).
+    assert len(captured_encrypted) == 1, f"Expected 1 DB write, got {captured_encrypted}"
+    stored_enc = captured_encrypted[0]
+    assert stored_enc is not None, "cli_oauth_token_encrypted must be set after PUT"
+    assert isinstance(stored_enc, bytes), f"Expected bytes for ciphertext, got {type(stored_enc)}"
     assert (
-        stored == pasted_token
-    ), f"DB must store the plaintext token (replayed outbound), got: {stored!r}"
-    # CRITICAL: token value NEVER in response (even though stored plaintext in DB).
+        stored_enc != pasted_token.encode()
+    ), "SECURITY VIOLATION: stored bytes equal raw token — not encrypted"
+    # W7: legacy cli_oauth_token must be NULL (write path migrated to encrypted column).
+    assert (
+        captured_legacy[0] is None
+    ), f"cli_oauth_token (legacy) must be NULL after W7 PUT, got {captured_legacy[0]!r}"
+    # W7: round-trip: the stored ciphertext decrypts to the original token.
+    from cryptography.fernet import Fernet as _F2
+
+    decrypted = _F2(master_key.encode()).decrypt(stored_enc).decode()
+    assert decrypted == pasted_token, f"Round-trip failed: {decrypted!r} != {pasted_token!r}"
+
+    # CRITICAL: token value NEVER in response.
     assert pasted_token not in resp.text, (
         f"SECURITY VIOLATION: token value leaked into PUT /provider/cli-auth response: "
         f"{resp.text!r}"
@@ -425,9 +453,14 @@ async def test_cli_auth_config_response_never_contains_token_value(
 async def test_cli_auth_put_response_never_contains_token_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """TC-CA-09: SECURITY — PUT /provider/cli-auth response never returns the token value."""
+    """TC-CA-09 (W7 updated): PUT /provider/cli-auth response never returns the token value.
+    SYNAPSE_SECRET_KEY required for the PUT to succeed (W7).
+    """
     import app.cli_auth as cli_auth_mod
+    from cryptography.fernet import Fernet as _Fernet
 
+    master_key = _Fernet.generate_key().decode()
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY", master_key)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
@@ -435,7 +468,7 @@ async def test_cli_auth_put_response_never_contains_token_value(
     pasted = "sk-ant-oat01-PUT-RESPONSE-NO-LEAK-SENTINEL-1234"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
-    class _CapturingState:
+    class _CapturingStateNoLeak:
         vault_id = "test-cli-auth-no-leak"
         data_version = 0
         remote_mcp_enabled = False
@@ -445,10 +478,11 @@ async def test_cli_auth_put_response_never_contains_token_value(
         clip_access_token = None
         clip_allowed_origins_db = None
         cli_oauth_token: str | None = None
+        cli_oauth_token_encrypted: bytes | None = None
         updated_at = None
 
     def make_session() -> Any:
-        cs = _CapturingState()
+        cs = _CapturingStateNoLeak()
         result_mock = MagicMock()
         result_mock.scalar_one_or_none.return_value = cs
         session = AsyncMock()
@@ -484,17 +518,21 @@ async def test_cli_auth_put_response_never_contains_token_value(
 async def test_put_cli_auth_config_clear_wins_over_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """TC-CA-10: clear=true wins when both clear and token are sent (deterministic)."""
+    """TC-CA-10 (W7 updated): clear=true wins when both clear and token are sent.
+    Both cli_oauth_token_encrypted and cli_oauth_token (legacy) are set to NULL.
+    """
     import app.cli_auth as cli_auth_mod
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
+    # Key can be set or unset — clear must always work without the master key.
+    monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
 
     old_token = "sk-ant-oat01-OLD-CLEAR-WINS-TEST"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
-    class _CapturingState:
+    class _CapturingStateClear:
         vault_id = "test-cli-auth-clear-wins"
         data_version = 0
         remote_mcp_enabled = False
@@ -504,12 +542,14 @@ async def test_put_cli_auth_config_clear_wins_over_token(
         clip_access_token = None
         clip_allowed_origins_db = None
         cli_oauth_token: str | None = old_token
+        cli_oauth_token_encrypted: bytes | None = b"fakeciphertext"
         updated_at = None
 
-    captured: list[str | None] = []
+    captured_enc: list[bytes | None] = []
+    captured_leg: list[str | None] = []
 
     def make_session() -> Any:
-        cs = _CapturingState()
+        cs = _CapturingStateClear()
         result_mock = MagicMock()
         result_mock.scalar_one_or_none.return_value = cs
         session = AsyncMock()
@@ -518,8 +558,12 @@ async def test_put_cli_auth_config_clear_wins_over_token(
         session.__aexit__ = AsyncMock(return_value=False)
         ctx = MagicMock()
         ctx.__aenter__ = AsyncMock(return_value=session)
-        # Capture the DB value at ctx.__aexit__ (when `async with get_session()` exits).
-        ctx.__aexit__ = AsyncMock(side_effect=lambda *a: captured.append(cs.cli_oauth_token))
+
+        def _capture(*_args: Any) -> None:
+            captured_enc.append(cs.cli_oauth_token_encrypted)
+            captured_leg.append(cs.cli_oauth_token)
+
+        ctx.__aexit__ = AsyncMock(side_effect=_capture)
         return ctx
 
     try:
@@ -537,7 +581,13 @@ async def test_put_cli_auth_config_clear_wins_over_token(
     body = resp.json()
     # clear wins → none/unconfigured
     assert body["token_source"] == "none"
-    assert captured[0] is None, f"clear should have set cli_oauth_token=None, got {captured[0]!r}"
+    # W7: both columns must be NULL after clear.
+    assert (
+        captured_enc[0] is None
+    ), f"clear should have set cli_oauth_token_encrypted=None, got {captured_enc[0]!r}"
+    assert (
+        captured_leg[0] is None
+    ), f"clear should have set cli_oauth_token=None, got {captured_leg[0]!r}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -605,9 +655,14 @@ async def test_put_cli_auth_config_too_long_token_422(monkeypatch: pytest.Monkey
 
 @pytest.mark.asyncio
 async def test_put_cli_auth_config_no_prefix_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
-    """TC-CA-14: Token without sk-ant-oat01- prefix is accepted (soft check — ADR-0043 §2.5)."""
+    """TC-CA-14 (W7 updated): Token without sk-ant-oat01- prefix is accepted (soft check).
+    Requires SYNAPSE_SECRET_KEY (W7) — set a dummy key so encryption can succeed.
+    """
     import app.cli_auth as cli_auth_mod
+    from cryptography.fernet import Fernet as _Fernet
 
+    master_key = _Fernet.generate_key().decode()
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY", master_key)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
@@ -616,7 +671,7 @@ async def test_put_cli_auth_config_no_prefix_accepted(monkeypatch: pytest.Monkey
     no_prefix_token = "eyJhbGciOiJSUzI1NiIsImtpZCI6ImZha2Vfa2V5In0.some_valid_looking_payload"
     original_token = cli_auth_mod._cli_auth_config_cache.get_token()
 
-    class _CapturingState:
+    class _CapturingStateNoPrefix:
         vault_id = "test-cli-auth-no-prefix"
         data_version = 0
         remote_mcp_enabled = False
@@ -626,10 +681,11 @@ async def test_put_cli_auth_config_no_prefix_accepted(monkeypatch: pytest.Monkey
         clip_access_token = None
         clip_allowed_origins_db = None
         cli_oauth_token: str | None = None
+        cli_oauth_token_encrypted: bytes | None = None
         updated_at = None
 
     def make_session() -> Any:
-        cs = _CapturingState()
+        cs = _CapturingStateNoPrefix()
         result_mock = MagicMock()
         result_mock.scalar_one_or_none.return_value = cs
         session = AsyncMock()

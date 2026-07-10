@@ -114,8 +114,16 @@ class TestNoHardcodedModelIDs:
         Model IDs must be read from settings/env vars, not embedded as string literals
         in Python code. The embeddings.py has 'bge-m3' as a default value for an env
         var override — that is acceptable IF it's a pydantic-settings default.
+
+        EXEMPTION (W1): provider_vendors.py is the SINGLE curated vendor catalog surface
+        rendered by the Settings 'LLM Models' UI (F17). It intentionally lists known model
+        ids as UI presets (the brief mandates the real Anthropic ids from CLAUDE.md §12 here)
+        — these are dropdown hints, never a routing default (routing is by capabilities(), I6).
         """
+        exempt = {"provider_vendors.py"}
         for py_file in _APP.rglob("*.py"):
+            if py_file.name in exempt:
+                continue
             text = py_file.read_text(encoding="utf-8")
             # Check for Claude model IDs hardcoded outside of comments/docstrings
             for line in text.splitlines():

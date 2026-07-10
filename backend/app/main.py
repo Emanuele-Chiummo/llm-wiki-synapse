@@ -1170,7 +1170,8 @@ async def _seed_vault_state() -> None:
     mcp_access_token_hash=None + mcp_allow_without_token=False (ADR-0033 §3 — fail-closed)
     and clip_enabled_db=None + clip_access_token=None + clip_allowed_origins_db=None
     (ADR-0040 §3 — env-fallback by default; clip remains env-governed until PUT /clip/config)
-    and cli_oauth_token=None (ADR-0043 §2.2 — env-fallback by default).
+    and cli_oauth_token=None + cli_oauth_token_encrypted=None
+    (ADR-0043 §2.2 / W7 — env-fallback by default).
     """
     async with get_session() as session:
         row = await session.execute(
@@ -1318,27 +1319,72 @@ async def _load_web_search_config_cache() -> None:
 
 async def _load_cli_auth_config_cache() -> None:
     """
-    Load vault_state.cli_oauth_token into _cli_auth_config_cache at startup (ADR-0043 §2.4).
+    Load the CLI subscription OAuth token into _cli_auth_config_cache at startup (ADR-0043 §2.4,
+    W7 encryption amendment).
 
-    Called once in lifespan after _load_clip_config_cache().  Mirrors the _load_clip_config_cache
-    pattern: DB is source of truth; in-process cache is O(1) per request.
-    NEVER logs the cli_oauth_token value.
+    Called once in lifespan after _load_clip_config_cache(). DB is source of truth; in-process
+    cache is O(1) per request.
+
+    Read strategy (W7 migration 0027):
+      1. Prefer cli_oauth_token_encrypted (Fernet BYTEA column — migration 0027).
+         Decrypt via secrets_crypto.decrypt().
+         Degrade-safe: if SYNAPSE_SECRET_KEY is absent or ciphertext tampered → load None;
+         log a warning; env tiers govern (fail-open for the provider layer, fail-closed for
+         the DB path).
+      2. Fall back to legacy cli_oauth_token (TEXT, migration 0017) when the encrypted column
+         is NULL (operator skipped migration-time encrypt-in-place — key was absent).  Log a
+         security warning so the operator knows action is needed.
+
+    NEVER logs or returns the token value.
     """
+    from app import secrets_crypto as _sc  # local import — avoid circular at module level
+
     async with get_session() as session:
         row = await session.execute(
             select(VaultState).where(VaultState.vault_id == settings.vault_id)
         )
         state = row.scalar_one_or_none()
-        if state is not None:
-            # Use getattr with None default for columns that may not exist on old DB schemas
-            # (before migration 0017 is applied). Fail-open default = env governs.
-            oauth_token: str | None = getattr(state, "cli_oauth_token", None)
+        if state is None:
+            oauth_token: str | None = None
         else:
-            oauth_token = None
+            # ── W7: prefer the Fernet-encrypted column (migration 0027) ──────────
+            encrypted: bytes | None = getattr(state, "cli_oauth_token_encrypted", None)
+            if encrypted is not None:
+                try:
+                    oauth_token = _sc.decrypt(bytes(encrypted))
+                except _sc.SecretsNotConfiguredError:
+                    logger.warning(
+                        "CliAuthConfigCache startup: cli_oauth_token_encrypted is set in DB "
+                        "but SYNAPSE_SECRET_KEY is absent or invalid — loading token as None "
+                        "(env tiers govern). Set SYNAPSE_SECRET_KEY to re-enable DB token. (W7)"
+                    )
+                    oauth_token = None
+                except _sc.InvalidToken:
+                    logger.error(
+                        "CliAuthConfigCache startup: cli_oauth_token_encrypted ciphertext is "
+                        "tampered or was produced under a different key — fail-closed (None). "
+                        "Re-store the token via PUT /provider/cli-auth. (W7)"
+                    )
+                    oauth_token = None
+            else:
+                # ── Fallback: legacy plaintext column (migration 0017) ────────────
+                # This path is hit when migration 0027 ran without SYNAPSE_SECRET_KEY
+                # (encrypt-in-place was skipped). Log a security warning.
+                legacy: str | None = getattr(state, "cli_oauth_token", None)
+                if legacy:
+                    logger.warning(
+                        "CliAuthConfigCache startup: cli_oauth_token_encrypted is NULL but "
+                        "legacy plaintext cli_oauth_token is set — using plaintext (W7 "
+                        "migration incomplete). Set SYNAPSE_SECRET_KEY and re-store the token "
+                        "via PUT /provider/cli-auth to complete the encryption migration."
+                    )
+                    oauth_token = legacy
+                else:
+                    oauth_token = None
 
     await _cli_auth._cli_auth_config_cache.load(oauth_token)
     logger.info(
-        "CliAuthConfigCache loaded from DB: token_source=%s (ADR-0043)",
+        "CliAuthConfigCache loaded from DB: token_source=%s (ADR-0043 / W7)",
         _cli_auth._cli_auth_config_cache.token_source(),
         # NEVER log the token value
     )

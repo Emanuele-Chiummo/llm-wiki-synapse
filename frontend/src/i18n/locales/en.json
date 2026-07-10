@@ -185,6 +185,7 @@
       "security2": "Security & access",
       "costs2": "Costs",
       "maintenance2": "Maintenance",
+      "changelog2": "Changelog",
       "about2": "About"
     },
     "llmModels": {
@@ -217,7 +218,36 @@
       "noProvidersHelp": "Add at least one provider before using chat, ingest generation, or deep research.",
       "vaultProviderHelp": "Only this vault will prefer this provider.",
       "globalProviderHelp": "All vaults can use this provider unless a vault-specific row overrides it.",
-      "introGuide": "Choose how Synapse thinks: API (recommended), Local (Ollama, offline), or CLI (your Claude subscription). If you pick CLI, paste its token in the CLI authentication box below."
+      "introGuide": "Choose how Synapse thinks: API (recommended), Local (Ollama, offline), or CLI (your Claude subscription). If you pick CLI, paste its token in the CLI authentication box below.",
+      "catalogDesc": "One row per vendor. Toggle to enable. Only one vendor is active at a time — changes save instantly.",
+      "activate": "Enable",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Paste API key…",
+      "apiKeyClearBtn": "Clear",
+      "apiKeyNotSet": "No key set",
+      "apiKeySaved": "Key saved.",
+      "apiKeySaveError": "Failed to save key.",
+      "apiKeyNoStorage": "Key storage requires SYNAPSE_SECRET_KEY to be set in the backend environment.",
+      "modelLabel": "Model",
+      "modelCustom": "Custom…",
+      "modelCustomPlaceholder": "Enter model ID…",
+      "reasoningLabel": "Reasoning",
+      "reasoningAuto": "Auto",
+      "reasoningOff": "Off",
+      "reasoningLow": "Low",
+      "reasoningMedium": "Medium",
+      "reasoningHigh": "High",
+      "reasoningMax": "Max",
+      "reasoningCustom": "Custom",
+      "testConnectionBtn": "Test connection",
+      "testFunctionBtn": "Test function",
+      "testOk": "OK",
+      "testFailed": "Failed",
+      "testRunning": "Testing…",
+      "loadingVendors": "Loading vendors…",
+      "vendorLoadError": "Failed to load vendor catalog.",
+      "codexAuthTitle": "Authentication",
+      "codexAuthNote": "Codex CLI authenticates itself — run `codex login` on the host (OAuth) or set OPENAI_API_KEY. Synapse stores no Codex token (unlike the Claude subscription token)."
     },
     "embeddings": {
       "title": "Vector Embeddings",
@@ -345,6 +375,18 @@
       "github": "Source code",
       "docs": "Documentation"
     },
+    "changelog": {
+      "title": "Changelog",
+      "desc": "Release history and notable changes (Keep a Changelog format).",
+      "loading": "Loading changelog…",
+      "unavailable": "Changelog unavailable. Check the build output.",
+      "refresh": "Refresh",
+      "unreleased": "Unreleased",
+      "versions": "versions",
+      "emptyBody": "No content recorded for this version.",
+      "footer": "Showing the 10 most recent releases — full history in",
+      "footerLink": "CHANGELOG.md on GitHub Releases"
+    },
     "webClipper": {
       "desc": "Configure the Chrome MV3 web clipper extension (F11). Clips are sent to this Synapse instance and auto-ingested via the watcher.",
       "loading": "Loading web clipper config…",
@@ -413,8 +455,7 @@
       "emptyTokenError": "Token cannot be empty.",
       "saveError": "Failed to save. Is the backend running?",
       "guideTitle": "How to set up",
-      "guideSteps": "1) On the host run: claude setup-token\n2) Paste the printed sk-ant-oat01-… token here\n3) Leave ANTHROPIC_API_KEY unset — the DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so your subscription is used ($0 per token).",
-      "caveat": "Security note: this token is stored in the application database in plaintext and grants access to your Claude subscription. Treat database backups accordingly. To rotate: re-run `claude setup-token` and paste the new value. To revoke: click Clear and the CLI will fall back to env / unconfigured."
+      "guideSteps": "1) On the host run: claude setup-token\n2) Paste the printed sk-ant-oat01-… token here\n3) Leave ANTHROPIC_API_KEY unset — the DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so your subscription is used ($0 per token)."
     },
     "scenarios": {
       "title": "Scenario Templates",
@@ -1106,7 +1147,15 @@
     "startMarkerConfigPlaceholder": "cd /path/to/tools/marker-converter && TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555",
     "startMarkerConfigSave": "Save and start",
     "startMarkerConfigHint": "Enter the shell command to launch the Marker microservice. Saved locally on this machine only.",
-    "startMarkerConfigCancel": "Cancel"
+    "startMarkerConfigCancel": "Cancel",
+    "progressLabel": "{{done}} of {{total}} converted ({{pct}}%)",
+    "etaLabel": "~{{eta}}s remaining",
+    "historyTitle": "Conversion history",
+    "openBtn": "Open in Sources",
+    "batchSubmitted": "Conversion queued — processing in background",
+    "error409": "A conversion is already running. Wait for it to complete.",
+    "error413": "File too large.",
+    "error415": "Only PDF files are accepted."
   },
   "panels": {
     "expandPanel": "Expand panel",

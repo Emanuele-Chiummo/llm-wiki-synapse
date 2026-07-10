@@ -12,7 +12,7 @@ import { INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import { getCliAuthConfig, setCliAuthConfig } from "../../../api/providerClient";
 import type { CliAuthConfig } from "../../../api/types";
 
-export function SectionCliAuth() {
+export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [posture, setPosture] = useState<CliAuthConfig | null>(null);
   const [err, setErr] = useState(false);
@@ -69,9 +69,11 @@ export function SectionCliAuth() {
 
   return (
     <div data-testid="cli-auth-section">
-      <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {t("settings.cliAuth.title")}
-      </p>
+      {!embedded && (
+        <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          {t("settings.cliAuth.title")}
+        </p>
+      )}
 
       {err ? (
         <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
@@ -135,10 +137,6 @@ export function SectionCliAuth() {
           <div data-testid="cli-auth-guide" style={{ padding: "10px 14px", background: "var(--syn-bg-soft)", border: "1px solid var(--syn-border)", borderRadius: 8, fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.7 }}>
             <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--syn-text-muted)" }}>{t("settings.cliAuth.guideTitle")}</p>
             <p style={{ margin: 0, whiteSpace: "pre-line" }}>{t("settings.cliAuth.guideSteps")}</p>
-          </div>
-
-          <div data-testid="cli-auth-caveat" style={{ padding: "8px 12px", background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)", borderRadius: 6, fontSize: 11, color: "var(--syn-amber)", lineHeight: 1.5 }}>
-            {t("settings.cliAuth.caveat")}
           </div>
         </div>
       )}
