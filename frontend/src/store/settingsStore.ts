@@ -157,6 +157,8 @@ interface PersistedSettings {
   conversationHistoryLength?: number;
   retrievalMode?: string;
   webSearchEnabled?: boolean;
+  skillsEnabled?: boolean;
+  anytxtEnabled?: boolean;
 }
 
 function loadSettings(): {
@@ -166,6 +168,8 @@ function loadSettings(): {
   theme: Theme;
   retrievalMode: RetrievalMode;
   webSearchEnabled: boolean;
+  skillsEnabled: boolean;
+  anytxtEnabled: boolean;
 } {
   let language = "en";
   let contextWindowTokens: ContextWindowTokens = DEFAULT_CONTEXT_WINDOW;
@@ -173,6 +177,8 @@ function loadSettings(): {
   let theme: Theme = DEFAULT_THEME;
   let retrievalMode: RetrievalMode = DEFAULT_RETRIEVAL_MODE;
   let webSearchEnabled = false;
+  let skillsEnabled = false;
+  let anytxtEnabled = false;
 
   try {
     const storedLang = localStorage.getItem(LS_LANG);
@@ -200,6 +206,12 @@ function loadSettings(): {
       if (typeof parsed.webSearchEnabled === "boolean") {
         webSearchEnabled = parsed.webSearchEnabled;
       }
+      if (typeof parsed.skillsEnabled === "boolean") {
+        skillsEnabled = parsed.skillsEnabled;
+      }
+      if (typeof parsed.anytxtEnabled === "boolean") {
+        anytxtEnabled = parsed.anytxtEnabled;
+      }
     }
   } catch {
     // ignore
@@ -214,7 +226,7 @@ function loadSettings(): {
     // ignore
   }
 
-  return { language, contextWindowTokens, conversationHistoryLength, theme, retrievalMode, webSearchEnabled };
+  return { language, contextWindowTokens, conversationHistoryLength, theme, retrievalMode, webSearchEnabled, skillsEnabled, anytxtEnabled };
 }
 
 function saveSettings(
@@ -222,11 +234,13 @@ function saveSettings(
   conversationHistoryLength: number,
   retrievalMode: RetrievalMode,
   webSearchEnabled: boolean,
+  skillsEnabled: boolean,
+  anytxtEnabled: boolean,
 ): void {
   try {
     localStorage.setItem(
       LS_SETTINGS,
-      JSON.stringify({ contextWindowTokens, conversationHistoryLength, retrievalMode, webSearchEnabled }),
+      JSON.stringify({ contextWindowTokens, conversationHistoryLength, retrievalMode, webSearchEnabled, skillsEnabled, anytxtEnabled }),
     );
   } catch {
     // ignore
@@ -262,6 +276,18 @@ interface SettingsState {
    * Persisted to localStorage["synapse.settings"]. Default: false.
    */
   webSearchEnabled: boolean;
+  /**
+   * Whether Skills execution is requested for the next chat turn (F6/P4).
+   * Forward-compatible flag — actual skill execution is deferred to P5.
+   * Persisted to localStorage["synapse.settings"]. Default: false.
+   */
+  skillsEnabled: boolean;
+  /**
+   * Whether AnyTXT local-file search is requested for the next chat turn (F6/P4).
+   * Forward-compatible flag — requires a running AnyTXT Searcher service (Windows-only).
+   * Persisted to localStorage["synapse.settings"]. Default: false.
+   */
+  anytxtEnabled: boolean;
 
   // ── Draft layer (F16 unified-save UX) ─────────────────────────────────────
   // Staged values for the 4 client-preference fields. Sections read/write these;
@@ -304,6 +330,10 @@ interface SettingsActions {
   setRetrievalMode: (mode: RetrievalMode) => void;
   /** Toggle web-search-enabled flag and persist to localStorage (B2). */
   setWebSearchEnabled: (enabled: boolean) => void;
+  /** Toggle skills-enabled flag and persist to localStorage (F6/P4). */
+  setSkillsEnabled: (enabled: boolean) => void;
+  /** Toggle anytxt-enabled flag and persist to localStorage (F6/P4). */
+  setAnytxtEnabled: (enabled: boolean) => void;
   reset: () => void;
 
   // ── Draft layer actions (F16 unified-save UX) ──────────────────────────────
@@ -360,13 +390,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
 
     setContextWindow: (contextWindowTokens) => {
       const s = get();
-      saveSettings(contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled);
+      saveSettings(contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
       set({ contextWindowTokens });
     },
 
     setConversationHistoryLength: (conversationHistoryLength) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, conversationHistoryLength, s.retrievalMode, s.webSearchEnabled);
+      saveSettings(s.contextWindowTokens, conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
       set({ conversationHistoryLength });
     },
 
@@ -405,14 +435,26 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
 
     setRetrievalMode: (retrievalMode) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, retrievalMode, s.webSearchEnabled);
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
       set({ retrievalMode });
     },
 
     setWebSearchEnabled: (webSearchEnabled) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, webSearchEnabled);
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
       set({ webSearchEnabled });
+    },
+
+    setSkillsEnabled: (skillsEnabled) => {
+      const s = get();
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, skillsEnabled, s.anytxtEnabled);
+      set({ skillsEnabled });
+    },
+
+    setAnytxtEnabled: (anytxtEnabled) => {
+      const s = get();
+      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, anytxtEnabled);
+      set({ anytxtEnabled });
     },
 
     reset: () => {
@@ -431,6 +473,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         theme: DEFAULT_THEME,
         retrievalMode: DEFAULT_RETRIEVAL_MODE,
         webSearchEnabled: false,
+        skillsEnabled: false,
+        anytxtEnabled: false,
         // Also reset drafts so isDirty = false after reset
         draftTheme: DEFAULT_THEME,
         draftLanguage: "en",
@@ -610,4 +654,20 @@ export function selectCommitDraft(s: SettingsStore): SettingsActions["commitDraf
 
 export function selectDiscardDraft(s: SettingsStore): SettingsActions["discardDraft"] {
   return s.discardDraft;
+}
+
+export function selectSkillsEnabled(s: SettingsStore): boolean {
+  return s.skillsEnabled;
+}
+
+export function selectSetSkillsEnabled(s: SettingsStore): SettingsActions["setSkillsEnabled"] {
+  return s.setSkillsEnabled;
+}
+
+export function selectAnytxtEnabled(s: SettingsStore): boolean {
+  return s.anytxtEnabled;
+}
+
+export function selectSetAnytxtEnabled(s: SettingsStore): SettingsActions["setAnytxtEnabled"] {
+  return s.setAnytxtEnabled;
 }

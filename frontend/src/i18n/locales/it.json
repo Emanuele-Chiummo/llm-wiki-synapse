@@ -682,7 +682,13 @@
     },
     "imageTooLarge": "L'immagine \"{{name}}\" supera il limite di {{maxMb}} MB",
     "tooManyImages": "Massimo {{max}} immagini per messaggio",
-    "webSources": "FONTI WEB"
+    "webSources": "FONTI WEB",
+    "skills": "Skills",
+    "skillsOn": "Skills attivo — clicca per disattivare",
+    "skillsOff": "Skills disattivo — clicca per attivare",
+    "anytxt": "AnyTXT",
+    "anytxtOn": "AnyTXT attivo — clicca per disattivare",
+    "anytxtOff": "AnyTXT disattivo — richiede AnyTXT Searcher in esecuzione (solo Windows)"
   },
   "research": {
     "title": "Ricerca Profonda",

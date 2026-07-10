@@ -88,12 +88,16 @@ vi.mock("../store/settingsStore", () => ({
       conversationHistoryLength: 10,
       retrievalMode: "standard",
       webSearchEnabled: false,
+      skillsEnabled: false,
+      anytxtEnabled: false,
     }),
   selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
   selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
     s.conversationHistoryLength,
   selectRetrievalMode: (s: { retrievalMode: string }) => s.retrievalMode,
   selectWebSearchEnabled: (s: { webSearchEnabled: boolean }) => s.webSearchEnabled,
+  selectSkillsEnabled: (s: { skillsEnabled: boolean }) => s.skillsEnabled,
+  selectAnytxtEnabled: (s: { anytxtEnabled: boolean }) => s.anytxtEnabled,
 }));
 
 vi.mock("../store/ingestStore", () => ({
