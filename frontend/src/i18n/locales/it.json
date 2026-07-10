@@ -1172,12 +1172,16 @@
     "dataVersion": "Versione",
     "close": "Chiudi",
     "copy": "Copia",
-    "unknown": "Sconosciuto"
+    "unknown": "Sconosciuto",
+    "edit": "Modifica",
+    "save": "Salva",
+    "cancel": "Annulla"
   },
   "meta": {
     "vaultSection": "Vault",
     "readOnly": "Sola lettura",
-    "drawer": "File meta vault"
+    "drawer": "File meta vault",
+    "saving": "Salvataggio…"
   },
   "previewPanel": {
     "connectedTo": "Collegata a {{count}} altre pagine",

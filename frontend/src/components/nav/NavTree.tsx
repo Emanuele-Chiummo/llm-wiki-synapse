@@ -569,10 +569,15 @@ export function NavTree({ vaultId }: NavTreeProps) {
         />
       )}
 
-      {/* WS-D8: meta file drawer — reads schema.md / purpose.md read-only */}
+      {/* WS-D8 + v1.5 P1: meta file drawer — reads AND edits schema.md / purpose.md */}
       <MetaFileView
         file={openMetaFile}
         onClose={() => setOpenMetaFile(null)}
+        onSaved={(updated) => {
+          // Reflect the saved content in the open drawer + refresh the tree cache.
+          setOpenMetaFile(updated);
+          void refresh();
+        }}
       />
     </>
   );
