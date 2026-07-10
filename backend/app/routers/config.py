@@ -3,7 +3,11 @@ Per-domain APIRouter: configuration endpoints.
 
 Covers:
   GET/POST     /provider/config          — F17 provider rows
+  PUT          /provider/config/{id}     — update a row (W1: api_key/reasoning_effort)
   DELETE       /provider/config/{id}     — delete a row
+  GET          /provider/vendors         — W1 vendor catalog (Settings UI)
+  POST         /provider/test/connection — W1 bounded provider connection probe
+  POST         /provider/test/function   — W1 bounded provider instruction-follow probe
   GET          /config/embedding         — embedding config
   GET          /mcp/info                 — MCP server introspection
   PUT          /mcp/remote               — toggle remote MCP surface
@@ -20,12 +24,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import secrets
 import sys as _sys
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, cast
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
@@ -33,6 +40,7 @@ from sqlalchemy import select
 from sqlalchemy.engine import CursorResult
 
 from app import cli_auth as _cli_auth
+from app import secrets_crypto
 from app.config import settings
 from app.config_overrides import (
     ALLOWED_CONFIG_KEYS,
@@ -47,10 +55,24 @@ from app.config_overrides import (
 from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.mcp.server import mcp as _mcp_server
 from app.models import ImportSchedule, ProviderConfig, VaultState
+from app.provider_vendors import VENDORS, VendorInfo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# W1 (F17): bounded provider-test knobs (I7). Short wall-clock timeout + tiny token cap so a
+# connection/function probe can never run away. Both overridable via env for slow gateways.
+_PROVIDER_TEST_TIMEOUT_S = float(os.environ.get("PROVIDER_TEST_TIMEOUT_SECONDS", "15"))
+_PROVIDER_TEST_MAX_TOKENS = int(os.environ.get("PROVIDER_TEST_MAX_TOKENS", "16"))
+_ANTHROPIC_KEY_ENV = "ANTHROPIC_API_KEY"
+_OPENAI_KEY_ENV = "OPENAI_API_KEY"
+_OLLAMA_URL_ENV = "OLLAMA_URL"
+_ANTHROPIC_BASE_ENV = "ANTHROPIC_BASE_URL"
+_ANTHROPIC_VERSION = "2023-06-01"
+
+# W1 (F17): allowed reasoning_effort values (auto/null = provider default, no override).
+_VALID_REASONING_EFFORT = {"auto", "off", "low", "medium", "high", "max", "custom"}
 
 
 class _LazyMain:
@@ -74,12 +96,22 @@ _VALID_SCOPES = {"global", "vault", "operation"}
 _VALID_OPERATIONS = {"ingest", "chat", "lint"}
 
 
+def _valid_reasoning_effort(v: str | None) -> str | None:
+    """Shared validator body for reasoning_effort (W1). None passes through (provider default)."""
+    if v is not None and v not in _VALID_REASONING_EFFORT:
+        raise ValueError(
+            f"reasoning_effort must be one of {sorted(_VALID_REASONING_EFFORT)} or null, got {v!r}"
+        )
+    return v
+
+
 class ProviderConfigCreate(BaseModel):
     """
-    Request body for POST /provider/config (F17).
+    Request body for POST /provider/config (F17, W1).
 
-    Stores NO API key (§12 / ADR-0008 §3). Keys are env-only inside provider/.
-    model_id must be provided explicitly — no hardcoded defaults in app code (AC-F17-8).
+    api_key is WRITE-ONLY (W1, §12 amendment): the plaintext is encrypted at rest
+    (SYNAPSE_SECRET_KEY / Fernet) and NEVER returned by any response. Omit it to keep env-var
+    keys. model_id must be provided explicitly — no hardcoded defaults in app code (AC-F17-8).
     """
 
     scope: str = Field(..., description="global | vault | operation")
@@ -99,6 +131,18 @@ class ProviderConfigCreate(BaseModel):
     base_url: str | None = Field(
         default=None,
         description="OpenAI-compatible endpoint; NULL for Anthropic/local default",
+    )
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "WRITE-ONLY (W1). Plaintext provider API key; encrypted at rest (Fernet, "
+            "SYNAPSE_SECRET_KEY). NEVER returned by any response. Omit to use env-var keys. "
+            "Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400)."
+        ),
+    )
+    reasoning_effort: str | None = Field(
+        default=None,
+        description="auto|off|low|medium|high|max|custom; null/auto = provider default (W1)",
     )
     max_iter: int = Field(default=3, ge=1, le=20, description="Orchestrated-loop cap (I7)")
     token_budget: int = Field(
@@ -134,9 +178,63 @@ class ProviderConfigCreate(BaseModel):
             )
         return v
 
+    @field_validator("reasoning_effort")
+    @classmethod
+    def _validate_reasoning(cls, v: str | None) -> str | None:
+        return _valid_reasoning_effort(v)
+
+
+class ProviderConfigUpdate(BaseModel):
+    """
+    Request body for PUT /provider/config/{id} (W1). All fields optional — omitted fields are
+    left unchanged.
+
+    api_key semantics (WRITE-ONLY): field ABSENT ⇒ leave the stored key untouched; a non-empty
+    string ⇒ re-encrypt and replace; an empty string "" ⇒ CLEAR the stored key (fall back to
+    env). The plaintext is NEVER returned.
+    """
+
+    provider_type: str | None = Field(default=None, description="local | api | cli")
+    model_id: str | None = Field(default=None, description="Model name (lives only in DB rows)")
+    base_url: str | None = Field(default=None, description="OpenAI-compatible endpoint or null")
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "WRITE-ONLY (W1). Non-empty ⇒ replace stored key (encrypted). Empty string ⇒ clear "
+            "the stored key (env fallback). Omit to leave unchanged. NEVER returned."
+        ),
+    )
+    reasoning_effort: str | None = Field(
+        default=None, description="auto|off|low|medium|high|max|custom; omit to leave unchanged"
+    )
+    max_iter: int | None = Field(default=None, ge=1, le=20, description="Orchestrated-loop cap")
+    token_budget: int | None = Field(
+        default=None, ge=1000, le=1_000_000, description="Loop token budget (I7)"
+    )
+    is_fallback: bool | None = Field(default=None, description="Marks the single fallback row")
+
+    @field_validator("provider_type")
+    @classmethod
+    def _valid_provider_type(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_PROVIDER_TYPES:
+            raise ValueError(
+                f"provider_type must be one of {sorted(_VALID_PROVIDER_TYPES)}, got {v!r}"
+            )
+        return v
+
+    @field_validator("reasoning_effort")
+    @classmethod
+    def _validate_reasoning(cls, v: str | None) -> str | None:
+        return _valid_reasoning_effort(v)
+
 
 class ProviderConfigResponse(BaseModel):
-    """API response shape for a provider_config row (§12: no api_key field)."""
+    """
+    API response shape for a provider_config row (§12 amendment, W1).
+
+    NEVER exposes the plaintext key. Instead: api_key_configured (bool) + api_key_masked
+    ("…last4" hint, or null). reasoning_effort is echoed (config, not a secret).
+    """
 
     id: uuid.UUID
     scope: str
@@ -145,13 +243,47 @@ class ProviderConfigResponse(BaseModel):
     provider_type: str
     model_id: str
     base_url: str | None
+    api_key_configured: bool = Field(
+        description="True iff a UI API key is stored (encrypted) for this row. Never the value."
+    )
+    api_key_masked: str | None = Field(
+        default=None,
+        description="Non-reversible masked hint ('…1234') when a key is stored; null otherwise.",
+    )
+    reasoning_effort: str | None
     max_iter: int
     token_budget: int
     is_fallback: bool
     created_at: Any
     updated_at: Any
 
-    model_config = {"from_attributes": True}
+
+def _provider_config_to_response(row: Any) -> ProviderConfigResponse:
+    """
+    Build the safe API response for a provider_config row — NEVER leaks the plaintext key.
+
+    api_key_configured is derived from presence of ciphertext; api_key_masked is a best-effort
+    non-reversible hint (decrypt → last 4 chars) that degrades to None when the master key is
+    absent or the ciphertext is invalid.
+    """
+    encrypted = getattr(row, "api_key_encrypted", None)
+    return ProviderConfigResponse(
+        id=row.id,
+        scope=row.scope,
+        operation=row.operation,
+        vault_id=row.vault_id,
+        provider_type=row.provider_type,
+        model_id=row.model_id,
+        base_url=row.base_url,
+        api_key_configured=bool(encrypted),
+        api_key_masked=secrets_crypto.mask_from_encrypted(encrypted),
+        reasoning_effort=getattr(row, "reasoning_effort", None),
+        max_iter=row.max_iter,
+        token_budget=row.token_budget,
+        is_fallback=row.is_fallback,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
 
 
 class ProviderConfigListResponse(BaseModel):
@@ -472,7 +604,7 @@ async def list_provider_configs(
         rows = await session.execute(stmt)
         configs = list(rows.scalars().all())
         total = len(configs)
-        items = [ProviderConfigResponse.model_validate(c) for c in configs]
+        items = [_provider_config_to_response(c) for c in configs]
 
     return ProviderConfigListResponse(items=items, total=total)
 
@@ -480,27 +612,43 @@ async def list_provider_configs(
 # ── POST /provider/config ──────────────────────────────────────────────────────
 
 
+def _encrypt_api_key_or_400(api_key: str) -> bytes:
+    """
+    Encrypt a UI-supplied API key, or raise HTTP 400 when key storage is not configured.
+
+    Refuses (never crashes) when SYNAPSE_SECRET_KEY is unset/invalid — the operator must either
+    configure the master key or fall back to env-var provider keys (§12 amendment, I6).
+    """
+    try:
+        return secrets_crypto.encrypt(api_key)
+    except secrets_crypto.SecretsNotConfiguredError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @router.post(
     "/provider/config",
     response_model=ProviderConfigResponse,
     status_code=201,
-    summary="Create or update a provider_config row",
+    summary="Create a provider_config row",
     description=(
-        "Create a new provider_config row. "
-        "provider_type must be one of: local | api | cli. "
-        "NO api_key field is accepted or stored — keys are env-only (§12). (F17, ADR-0008)"
+        "Create a new provider_config row. provider_type must be one of: local | api | cli. "
+        "api_key is WRITE-ONLY (W1): encrypted at rest and NEVER returned — the response exposes "
+        "api_key_configured + api_key_masked only. Supplying api_key requires SYNAPSE_SECRET_KEY "
+        "server-side (else HTTP 400). Omit api_key to keep env-var keys. (F17, ADR-0008, W1)"
     ),
     responses={
         201: {"description": "Row created"},
+        400: {"description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"},
         422: {"description": "Validation error (invalid provider_type, scope, or operation)"},
     },
 )
 async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigResponse:
     """
-    Create a new provider_config row for F17 provider selection (ADR-0008).
+    Create a new provider_config row for F17 provider selection (ADR-0008, W1).
 
     Scope validation: if scope='operation', operation must be non-null.
-    No API key field: keys live in environment only (§12, ADR-0008 §3).
+    api_key (if provided) is encrypted at rest (Fernet); the plaintext is never stored or
+    returned (§12 amendment). When SYNAPSE_SECRET_KEY is unset, supplying api_key → HTTP 400.
     """
     if body.scope == "operation" and body.operation is None:
         raise HTTPException(
@@ -513,6 +661,11 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
             detail=f"vault_id must be provided when scope={body.scope!r}",
         )
 
+    # W1: encrypt the UI key up front so we fail with 400 BEFORE opening a session/writing a row.
+    api_key_encrypted: bytes | None = None
+    if body.api_key:
+        api_key_encrypted = _encrypt_api_key_or_400(body.api_key)
+
     async with _m.get_session() as session:
         row = _m.ProviderConfig(
             id=uuid.uuid4(),
@@ -522,13 +675,81 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
             provider_type=body.provider_type,
             model_id=body.model_id,
             base_url=body.base_url,
+            api_key_encrypted=api_key_encrypted,
+            reasoning_effort=body.reasoning_effort,
             max_iter=body.max_iter,
             token_budget=body.token_budget,
             is_fallback=body.is_fallback,
         )
         session.add(row)
         await session.flush()
-        response = ProviderConfigResponse.model_validate(row)
+        response = _provider_config_to_response(row)
+
+    return response
+
+
+# ── PUT /provider/config/{id} ──────────────────────────────────────────────────
+
+
+@router.put(
+    "/provider/config/{config_id}",
+    response_model=ProviderConfigResponse,
+    summary="Update a provider_config row",
+    description=(
+        "Partial update of a provider_config row (W1). Omitted fields are left unchanged. "
+        "api_key is WRITE-ONLY: a non-empty value replaces the stored key (encrypted); an empty "
+        'string "" CLEARS it (env fallback); omitting it leaves the key untouched. Supplying a '
+        "non-empty api_key requires SYNAPSE_SECRET_KEY server-side (else HTTP 400). The plaintext "
+        "is NEVER returned. (F17, W1)"
+    ),
+    responses={
+        200: {"description": "Row updated"},
+        400: {"description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"},
+        404: {"description": "Row not found"},
+        422: {"description": "Validation error"},
+    },
+)
+async def update_provider_config(
+    config_id: uuid.UUID, body: ProviderConfigUpdate
+) -> ProviderConfigResponse:
+    """
+    Update a provider_config row (W1). api_key handling: absent ⇒ unchanged; ""(empty) ⇒ clear;
+    non-empty ⇒ re-encrypt & replace. Never returns the plaintext.
+    """
+    fields = body.model_fields_set
+
+    # W1: encrypt a new non-empty key before touching the DB (fail 400 early when unconfigured).
+    new_encrypted: bytes | None = None
+    if "api_key" in fields and body.api_key:
+        new_encrypted = _encrypt_api_key_or_400(body.api_key)
+
+    async with _m.get_session() as session:
+        result = await session.execute(select(ProviderConfig).where(ProviderConfig.id == config_id))
+        row = result.scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"provider_config {config_id} not found")
+
+        if "provider_type" in fields and body.provider_type is not None:
+            row.provider_type = body.provider_type
+        if "model_id" in fields and body.model_id is not None:
+            row.model_id = body.model_id
+        if "base_url" in fields:
+            row.base_url = body.base_url
+        if "reasoning_effort" in fields:
+            row.reasoning_effort = body.reasoning_effort
+        if "max_iter" in fields and body.max_iter is not None:
+            row.max_iter = body.max_iter
+        if "token_budget" in fields and body.token_budget is not None:
+            row.token_budget = body.token_budget
+        if "is_fallback" in fields and body.is_fallback is not None:
+            row.is_fallback = body.is_fallback
+
+        # W1 api_key: non-empty ⇒ replace; empty string ⇒ clear; absent ⇒ leave as-is.
+        if "api_key" in fields:
+            row.api_key_encrypted = new_encrypted  # new ciphertext or None (clear)
+
+        await session.flush()
+        response = _provider_config_to_response(row)
 
     return response
 
@@ -561,6 +782,280 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+
+# ── GET /provider/vendors — W1 vendor catalog (Settings UI) ───────────────────
+
+
+class VendorListResponse(BaseModel):
+    """Response body for GET /provider/vendors (W1)."""
+
+    vendors: list[VendorInfo] = Field(description="The fixed one-row-per-vendor catalog.")
+
+
+@router.get(
+    "/provider/vendors",
+    response_model=VendorListResponse,
+    summary="List the provider vendor catalog",
+    description=(
+        "Returns the curated one-row-per-vendor catalog for the Settings 'LLM Models' UI (W1). "
+        "Each entry carries id, display_name, provider_type (api|local|cli), default_base_url, "
+        "needs_api_key, model_presets, and notes. Static — no secrets, no DB. (F17, W1)"
+    ),
+)
+async def list_provider_vendors() -> VendorListResponse:
+    """GET /provider/vendors — the static vendor catalog (W1). No secrets, no DB read."""
+    return VendorListResponse(vendors=list(VENDORS))
+
+
+# ── POST /provider/test/{connection,function} — W1 bounded provider probes (I7) ─
+
+
+class ProviderTestRequest(BaseModel):
+    """
+    Request body for the provider-test endpoints (W1).
+
+    Provide EITHER config_id (probe a stored row — its decrypted key is used) OR inline
+    {provider_type, model, base_url?, api_key?}. Inline fields override the stored row when both
+    are given. api_key is WRITE-ONLY — never echoed back.
+    """
+
+    config_id: uuid.UUID | None = Field(
+        default=None, description="Probe an existing provider_config row (uses its stored key)."
+    )
+    provider_type: str | None = Field(default=None, description="local | api | cli")
+    base_url: str | None = Field(default=None, description="OpenAI-compatible endpoint (api only)")
+    model: str | None = Field(default=None, description="Model id to probe")
+    api_key: str | None = Field(
+        default=None,
+        description="WRITE-ONLY inline key; overrides the stored/env key. Never echoed.",
+    )
+
+
+class ProviderTestResponse(BaseModel):
+    """Response body for the provider-test endpoints (W1). Never contains a key."""
+
+    ok: bool = Field(
+        description="True iff the probe succeeded (connection: HTTP ok; function: reply matched)."
+    )
+    latency_ms: int = Field(description="Wall-clock latency of the probe in milliseconds.")
+    detail: str = Field(description="Human-readable outcome. NEVER contains the API key.")
+
+
+async def _resolve_probe_target(
+    body: ProviderTestRequest,
+) -> tuple[str, str | None, str, str | None]:
+    """
+    Resolve (provider_type, base_url, model, api_key) for a probe from body/config_id.
+
+    Inline body fields win over the stored row. Key precedence: inline api_key > decrypted
+    stored key > env-var key (ANTHROPIC/OPENAI by path). Raises HTTP 422 when neither a
+    resolvable config_id nor an inline {provider_type, model} is supplied. NEVER logs the key.
+    """
+    provider_type = body.provider_type
+    base_url = body.base_url
+    model = body.model
+    stored_encrypted: bytes | None = None
+
+    if body.config_id is not None:
+        async with _m.get_session() as session:
+            result = await session.execute(
+                select(ProviderConfig).where(ProviderConfig.id == body.config_id)
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                raise HTTPException(
+                    status_code=404, detail=f"provider_config {body.config_id} not found"
+                )
+            provider_type = provider_type or row.provider_type
+            base_url = base_url if body.base_url is not None else row.base_url
+            model = model or row.model_id
+            stored_encrypted = row.api_key_encrypted
+
+    if not provider_type or not model:
+        raise HTTPException(
+            status_code=422,
+            detail="provide a config_id, or inline provider_type + model",
+        )
+    if provider_type not in _VALID_PROVIDER_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"provider_type must be one of {sorted(_VALID_PROVIDER_TYPES)}",
+        )
+
+    api_key = _resolve_probe_key(provider_type, base_url, body.api_key, stored_encrypted)
+    return provider_type, base_url, model, api_key
+
+
+def _resolve_probe_key(
+    provider_type: str, base_url: str | None, inline_key: str | None, stored: bytes | None
+) -> str | None:
+    """Key precedence for a probe: inline > decrypted stored > env-var. NEVER logged."""
+    if inline_key:
+        return inline_key
+    if stored:
+        try:
+            return secrets_crypto.decrypt(bytes(stored))
+        except (secrets_crypto.SecretsNotConfiguredError, secrets_crypto.InvalidToken):
+            pass
+    if provider_type == "api":
+        return os.environ.get(_OPENAI_KEY_ENV if base_url else _ANTHROPIC_KEY_ENV)
+    return None
+
+
+async def _one_shot_chat(
+    provider_type: str, base_url: str | None, model: str, api_key: str | None, instruction: str
+) -> str:
+    """
+    Perform ONE bounded chat call and return the assistant text (W1, I7).
+
+    Token-capped (_PROVIDER_TEST_MAX_TOKENS) and timeout-bounded (_PROVIDER_TEST_TIMEOUT_S).
+    Dispatch by provider_type: api+base_url ⇒ OpenAI-compatible; api ⇒ Anthropic-native;
+    local ⇒ Ollama. NEVER logs or returns the key.
+    """
+    timeout = _PROVIDER_TEST_TIMEOUT_S
+    messages = [{"role": "user", "content": instruction}]
+
+    if provider_type == "api" and base_url:
+        if not api_key:
+            raise ValueError("no API key resolved (inline, stored, or env)")
+        req_body = {"model": model, "messages": messages, "max_tokens": _PROVIDER_TEST_MAX_TOKENS}
+        headers = {"authorization": f"Bearer {api_key}", "content-type": "application/json"}
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                f"{base_url.rstrip('/')}/chat/completions", json=req_body, headers=headers
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        choices = payload.get("choices", [])
+        return str(choices[0].get("message", {}).get("content", "")) if choices else ""
+
+    if provider_type == "api":
+        if not api_key:
+            raise ValueError("no API key resolved (inline, stored, or env)")
+        anthropic_base = os.environ.get(_ANTHROPIC_BASE_ENV, "https://api.anthropic.com").rstrip(
+            "/"
+        )
+        req_body = {"model": model, "max_tokens": _PROVIDER_TEST_MAX_TOKENS, "messages": messages}
+        headers = {
+            "x-api-key": api_key,
+            "anthropic-version": _ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                f"{anthropic_base}/v1/messages", json=req_body, headers=headers
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        blocks = payload.get("content", [])
+        return "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+
+    if provider_type == "local":
+        ollama_base = (base_url or os.environ.get(_OLLAMA_URL_ENV, "")).rstrip("/")
+        if not ollama_base:
+            raise ValueError("no Ollama base URL (set base_url or OLLAMA_URL)")
+        req_body = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+            "options": {"num_predict": _PROVIDER_TEST_MAX_TOKENS},
+        }
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(f"{ollama_base}/api/chat", json=req_body)
+            resp.raise_for_status()
+            payload = resp.json()
+        return str(payload.get("message", {}).get("content", ""))
+
+    # Should be unreachable (cli handled before this call).
+    raise ValueError(f"unsupported provider_type for probe: {provider_type!r}")
+
+
+async def _run_probe(
+    body: ProviderTestRequest, *, instruction: str, require_ok: bool
+) -> ProviderTestResponse:
+    """
+    Shared bounded probe for the connection/function endpoints (W1, I7).
+
+    connection (require_ok=False): ok iff the endpoint returned a successful response.
+    function   (require_ok=True):  ok iff the reply contains "ok" (case-insensitive).
+    CLI is not live-probed (cheap posture check via cli_auth). NEVER echoes the key.
+    """
+    provider_type, base_url, model, api_key = await _resolve_probe_target(body)
+
+    if provider_type == "cli":
+        configured = _cli_auth._cli_auth_config_cache.token_configured()
+        return ProviderTestResponse(
+            ok=configured,
+            latency_ms=0,
+            detail=(
+                "CLI credentials present (no live probe run for the agentic CLI backend)"
+                if configured
+                else "no CLI credentials configured (set the CLI subscription token or env)"
+            ),
+        )
+
+    start = time.monotonic()
+    try:
+        text = await _one_shot_chat(provider_type, base_url, model, api_key, instruction)
+    except httpx.TimeoutException:
+        elapsed = int((time.monotonic() - start) * 1000)
+        return ProviderTestResponse(
+            ok=False, latency_ms=elapsed, detail=f"timeout after {_PROVIDER_TEST_TIMEOUT_S:.0f}s"
+        )
+    except httpx.HTTPStatusError as exc:
+        elapsed = int((time.monotonic() - start) * 1000)
+        return ProviderTestResponse(
+            ok=False, latency_ms=elapsed, detail=f"HTTP {exc.response.status_code} from endpoint"
+        )
+    except (httpx.HTTPError, ValueError) as exc:
+        elapsed = int((time.monotonic() - start) * 1000)
+        # exc messages here originate from our own code / httpx — never contain the key.
+        return ProviderTestResponse(ok=False, latency_ms=elapsed, detail=str(exc))
+
+    elapsed = int((time.monotonic() - start) * 1000)
+    if require_ok:
+        ok = "ok" in text.strip().lower()
+        detail = "model followed the instruction" if ok else "model reply did not match 'OK'"
+    else:
+        ok = True
+        detail = "endpoint responded"
+    return ProviderTestResponse(ok=ok, latency_ms=elapsed, detail=detail)
+
+
+@router.post(
+    "/provider/test/connection",
+    response_model=ProviderTestResponse,
+    summary="Bounded provider connection probe (W1)",
+    description=(
+        "One bounded, token-capped call (timeout _PROVIDER_TEST_TIMEOUT_S) to verify the "
+        "provider endpoint responds. Accepts a config_id (uses the stored, decrypted key) or an "
+        "inline {provider_type, model, base_url?, api_key?}. Returns {ok, latency_ms, detail}; "
+        "NEVER echoes the key. CLI backend is posture-checked, not live-probed. (F17, W1, I7)"
+    ),
+)
+async def provider_test_connection(body: ProviderTestRequest) -> ProviderTestResponse:
+    """POST /provider/test/connection — bounded connectivity probe (W1)."""
+    return await _run_probe(body, instruction="Reply with the single word: OK", require_ok=False)
+
+
+@router.post(
+    "/provider/test/function",
+    response_model=ProviderTestResponse,
+    summary="Bounded provider instruction-follow probe (W1)",
+    description=(
+        "One bounded, token-capped call asking the model to reply exactly 'OK'; ok=true iff the "
+        "reply contains 'OK'. Same input contract and safety as /provider/test/connection. "
+        "(F17, W1, I7)"
+    ),
+)
+async def provider_test_function(body: ProviderTestRequest) -> ProviderTestResponse:
+    """POST /provider/test/function — bounded instruction-follow probe (W1)."""
+    return await _run_probe(
+        body,
+        instruction="Reply with exactly the two characters: OK. No other text.",
+        require_ok=True,
+    )
 
 
 # ── GET /config/embedding ─────────────────────────────────────────────────────
@@ -1695,15 +2190,16 @@ class CliAuthConfigRequest(BaseModel):
         default=None,
         description=(
             "The Claude subscription OAuth token to store (from `claude setup-token`). "
-            "Stored plaintext (ADR-0043 §2.1 — replayed outbound). "
-            "NEVER logged or returned. "
+            "Encrypted at rest via Fernet (SYNAPSE_SECRET_KEY); plaintext held in-memory "
+            "only for outbound CLI injection. NEVER logged or returned. "
+            "Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400 — W7). "
             "Validated: non-empty, 20–500 chars; soft prefix check (warns, does not block)."
         ),
     )
     clear: bool | None = Field(
         default=None,
         description=(
-            "true ⇒ set cli_oauth_token = NULL (fall back to env / none). "
+            "true ⇒ set cli_oauth_token_encrypted = NULL (fall back to env / none). "
             "Wins over token if both are sent."
         ),
     )
@@ -1712,24 +2208,31 @@ class CliAuthConfigRequest(BaseModel):
 @router.put(
     "/provider/cli-auth",
     response_model=CliAuthConfigResponse,
-    summary="Set or clear the CLI subscription OAuth token (ADR-0043)",
+    summary="Set or clear the CLI subscription OAuth token (ADR-0043 / W7)",
     description=(
-        "ADR-0043 §2.5 — store a pasted Claude subscription OAuth token or clear it. "
+        "ADR-0043 §2.5 (W7 amendment) — store a pasted Claude subscription OAuth token or "
+        "clear it. "
         "clear=true: set DB token to NULL (falls back to env / none). "
-        "token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. "
+        "token=<value>: validate, Fernet-encrypt (requires SYNAPSE_SECRET_KEY — else HTTP 400), "
+        "and store in vault_state.cli_oauth_token_encrypted; refresh cache. "
         "Returns post-write posture (same shape as GET); NEVER the token value. "
         "400 if body has neither token nor clear. "
+        "400 if SYNAPSE_SECRET_KEY is unset when storing a new token (fail-closed). "
         "422 if token is empty/whitespace or absurd length. "
         "Soft prefix check warns but does NOT hard-reject — ADR-0043 §2.5."
     ),
 )
 async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigResponse:
     """
-    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5).
+    PUT /provider/cli-auth — set or clear the CLI subscription OAuth token (ADR-0043 §2.5,
+    W7 encryption amendment).
 
     Semantics:
-      1. clear=true (wins if both sent) → set cli_oauth_token = NULL; refresh cache.
-      2. token=<value> → validate; store plaintext; refresh cache.
+      1. clear=true (wins if both sent) → set cli_oauth_token_encrypted = NULL,
+         cli_oauth_token = NULL (legacy); refresh cache.
+      2. token=<value> → validate; Fernet-encrypt (SYNAPSE_SECRET_KEY — HTTP 400 if absent);
+         store ciphertext in cli_oauth_token_encrypted; clear legacy cli_oauth_token; refresh
+         cache with the plaintext (in-memory only, for outbound CLI injection).
       3. neither field → 400 (no-op request).
     Returns post-write posture. NEVER logs or returns the token value.
     """
@@ -1740,6 +2243,8 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
     # Pre-validate the token BEFORE opening a DB session (no unnecessary DB round-trip
     # on bad input — mirrors the clip pattern of early-exit on validation failure).
     validated_token: str | None = None  # None = clear or will be set below
+    token_encrypted: bytes | None = None  # Fernet ciphertext, set only on SET path
+
     if not body.clear:
         raw = (body.token or "").strip()
         if not raw:
@@ -1762,9 +2267,11 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
                 "accepting anyway — Anthropic may change the prefix (ADR-0043 §2.5)."
                 # NEVER log the token value itself.
             )
+        # W7: encrypt BEFORE the DB session — fail early with 400 if key absent.
+        token_encrypted = _encrypt_api_key_or_400(raw)
         validated_token = raw
 
-    final_token: str | None = None  # value stored in DB; None after clear
+    final_token: str | None = None  # plaintext for in-process cache; None after clear
 
     async with _m.get_session() as session:
         row = await session.execute(
@@ -1788,18 +2295,24 @@ async def put_cli_auth_config(body: CliAuthConfigRequest) -> CliAuthConfigRespon
 
         # 1. clear wins if both fields supplied (already validated above).
         if body.clear:
-            state.cli_oauth_token = None
+            # Null both columns — the legacy plaintext and the new encrypted column.
+            state.cli_oauth_token_encrypted = None
+            state.cli_oauth_token = None  # legacy column (kept for rollback safety)
         else:
-            # 2. Store validated plaintext (ADR-0043 §2.1 — replayed outbound; cannot hash).
-            state.cli_oauth_token = validated_token
-            final_token = validated_token
+            # 2. Store Fernet ciphertext (W7 — plaintext NEVER written to DB).
+            state.cli_oauth_token_encrypted = token_encrypted
+            # Null legacy plaintext column so the read path unambiguously uses the
+            # encrypted column (no dual-state confusion after migration 0027).
+            state.cli_oauth_token = None
+            final_token = validated_token  # plaintext for in-process cache only
 
         state.updated_at = datetime.now(UTC)
 
-    # 3. Refresh in-process cache (outside session — DB write committed).
+    # 3. Refresh in-process cache with the plaintext (outside session — DB write committed).
+    #    The cache holds the decrypted token in-memory ONLY — it is never written back to DB.
     await _cli_auth._cli_auth_config_cache.set_token(final_token)
     logger.info(
-        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043)",
+        "PUT /provider/cli-auth: token_source=%s auth_mode=%s (ADR-0043 / W7)",
         _cli_auth._cli_auth_config_cache.token_source(),
         _cli_auth._cli_auth_config_cache.auth_mode(),
         # NEVER log the token value

@@ -143,6 +143,7 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column,
         Float,
         Integer,
+        LargeBinary,
         MetaData,
         String,
         Table,
@@ -188,8 +189,10 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("clip_enabled_db", Integer, nullable=True),
         Column("clip_access_token", Text, nullable=True),
         Column("clip_allowed_origins_db", Text, nullable=True),
-        # ADR-0043 §2.1: CLI subscription OAuth token (plaintext; NULL = not set)
+        # ADR-0043 §2.1 (legacy plaintext column — kept for rollback safety after W7 migration 0027)
         Column("cli_oauth_token", Text, nullable=True),
+        # W7 migration 0027: Fernet-encrypted CLI OAuth token (BYTEA; NULL = not set / env governs)
+        Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
         # ADR-0041 §3: SearXNG web-search runtime config (NULL = not set in DB; env fallback)
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),

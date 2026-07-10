@@ -857,6 +857,23 @@ class Settings(BaseSettings):
     Env var: MCP_ENTRY_COMMAND.
     """
 
+    # ── Provider API-key at-rest encryption (W1 / F17, §12 amendment) ──────────
+
+    synapse_secret_key: str | None = None
+    """
+    SECRET. Master key for at-rest encryption of UI-supplied provider API keys
+    (``provider_config.api_key_encrypted``). A urlsafe-base64 32-byte Fernet key
+    (generate with ``python -c "from cryptography.fernet import Fernet;
+    print(Fernet.generate_key().decode())"``).
+
+    Read at call time from the environment inside app/secrets_crypto.py (never here) so the
+    value is monkeypatch/hot-edit friendly; this field exists only to document the var and keep
+    pydantic-settings from rejecting it. When unset/invalid: key storage is DISABLED — CRUD
+    refuses to store UI keys (HTTP 400) and the provider layer falls back to env-var keys
+    (ANTHROPIC_API_KEY / OPENAI_API_KEY). Never logged, never returned by any endpoint.
+    Env var: SYNAPSE_SECRET_KEY.
+    """
+
     # ── MCP HTTP remote surface (ADR-0029 §2.2 / §2.3; amended by ADR-0033) ─────
 
     mcp_auth_token: str | None = None

@@ -1410,8 +1410,8 @@
     },
     "/ingest/convert-marker": {
       "post": {
-        "summary": "Convert one or more PDFs through Marker and queue for ingest (R11-1)",
-        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint. Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). For each file: calls Marker microservice, writes <stem>.extracted.md to vault/raw/sources/ with valid YAML frontmatter (I5), lets the watcher ingest incrementally (I1). On ANY Marker error (non-2xx / timeout / connection refused): returns 502 {'error':'marker_unavailable','detail':'...'} and writes NO file. NO silent pypdf fallback on this explicit path (unlike extract.py's CLI path). 400 if > 10 files. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
+        "summary": "Queue one or more PDFs for async Marker conversion (R11-1, W0)",
+        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
         "operationId": "convert_marker_ingest_convert_marker_post",
         "requestBody": {
           "content": {
@@ -1424,12 +1424,12 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "Per-file results (mix of ok / error).",
+          "202": {
+            "description": "Files queued for background Marker conversion.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MarkerConvertResponse"
+                  "$ref": "#/components/schemas/MarkerConvertAcceptResponse"
                 }
               }
             }
@@ -1437,14 +1437,14 @@
           "400": {
             "description": "More than 10 files submitted."
           },
+          "409": {
+            "description": "A Marker conversion batch is already running."
+          },
           "413": {
             "description": "A file exceeds MAX_UPLOAD_BYTES."
           },
           "415": {
             "description": "A non-.pdf file was submitted."
-          },
-          "502": {
-            "description": "Marker microservice is unavailable."
           },
           "422": {
             "description": "Validation Error",
@@ -1452,6 +1452,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ingest/convert-marker/status": {
+      "get": {
+        "summary": "Per-file status of the current (or most-recent) Marker conversion batch",
+        "description": "Returns per-file conversion status for the current or most-recent POST /ingest/convert-marker batch. Status values: 'pending' (not yet started) | 'converting' (Marker call in flight) | 'ok' (companion written; watcher will ingest) | 'failed' (Marker error, detail set). When running=false and total=0, no batch has been submitted this session. Safe to poll every 2-5 s; pure in-memory, no DB I/O.",
+        "operationId": "get_convert_marker_status_ingest_convert_marker_status_get",
+        "responses": {
+          "200": {
+            "description": "Batch status snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkerBatchStatusResponse"
                 }
               }
             }
@@ -1987,8 +2011,8 @@
         ]
       },
       "put": {
-        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043)",
-        "description": "ADR-0043 \u00a72.5 \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate and store to vault_state.cli_oauth_token; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
+        "summary": "Set or clear the CLI subscription OAuth token (ADR-0043 / W7)",
+        "description": "ADR-0043 \u00a72.5 (W7 amendment) \u2014 store a pasted Claude subscription OAuth token or clear it. clear=true: set DB token to NULL (falls back to env / none). token=<value>: validate, Fernet-encrypt (requires SYNAPSE_SECRET_KEY \u2014 else HTTP 400), and store in vault_state.cli_oauth_token_encrypted; refresh cache. Returns post-write posture (same shape as GET); NEVER the token value. 400 if body has neither token nor clear. 400 if SYNAPSE_SECRET_KEY is unset when storing a new token (fail-closed). 422 if token is empty/whitespace or absurd length. Soft prefix check warns but does NOT hard-reject \u2014 ADR-0043 \u00a72.5.",
         "operationId": "put_cli_auth_config_provider_cli_auth_put",
         "requestBody": {
           "content": {
@@ -2101,8 +2125,8 @@
         ]
       },
       "post": {
-        "summary": "Create or update a provider_config row",
-        "description": "Create a new provider_config row. provider_type must be one of: local | api | cli. NO api_key field is accepted or stored \u2014 keys are env-only (\u00a712). (F17, ADR-0008)",
+        "summary": "Create a provider_config row",
+        "description": "Create a new provider_config row. provider_type must be one of: local | api | cli. api_key is WRITE-ONLY (W1): encrypted at rest and NEVER returned \u2014 the response exposes api_key_configured + api_key_masked only. Supplying api_key requires SYNAPSE_SECRET_KEY server-side (else HTTP 400). Omit api_key to keep env-var keys. (F17, ADR-0008, W1)",
         "operationId": "create_provider_config_provider_config_post",
         "requestBody": {
           "required": true,
@@ -2125,6 +2149,9 @@
               }
             }
           },
+          "400": {
+            "description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"
+          },
           "422": {
             "description": "Validation error (invalid provider_type, scope, or operation)"
           }
@@ -2137,6 +2164,59 @@
       }
     },
     "/provider/config/{config_id}": {
+      "put": {
+        "summary": "Update a provider_config row",
+        "description": "Partial update of a provider_config row (W1). Omitted fields are left unchanged. api_key is WRITE-ONLY: a non-empty value replaces the stored key (encrypted); an empty string \"\" CLEARS it (env fallback); omitting it leaves the key untouched. Supplying a non-empty api_key requires SYNAPSE_SECRET_KEY server-side (else HTTP 400). The plaintext is NEVER returned. (F17, W1)",
+        "operationId": "update_provider_config_provider_config__config_id__put",
+        "parameters": [
+          {
+            "name": "config_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Config Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderConfigUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Row updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "api_key supplied but SYNAPSE_SECRET_KEY not configured"
+          },
+          "404": {
+            "description": "Row not found"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
       "delete": {
         "summary": "Delete a provider_config row by UUID",
         "description": "Hard-delete the provider_config row with the given id. (F17)",
@@ -2159,6 +2239,118 @@
           },
           "404": {
             "description": "Row not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/vendors": {
+      "get": {
+        "summary": "List the provider vendor catalog",
+        "description": "Returns the curated one-row-per-vendor catalog for the Settings 'LLM Models' UI (W1). Each entry carries id, display_name, provider_type (api|local|cli), default_base_url, needs_api_key, model_presets, and notes. Static \u2014 no secrets, no DB. (F17, W1)",
+        "operationId": "list_provider_vendors_provider_vendors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/test/connection": {
+      "post": {
+        "summary": "Bounded provider connection probe (W1)",
+        "description": "One bounded, token-capped call (timeout _PROVIDER_TEST_TIMEOUT_S) to verify the provider endpoint responds. Accepts a config_id (uses the stored, decrypted key) or an inline {provider_type, model, base_url?, api_key?}. Returns {ok, latency_ms, detail}; NEVER echoes the key. CLI backend is posture-checked, not live-probed. (F17, W1, I7)",
+        "operationId": "provider_test_connection_provider_test_connection_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/provider/test/function": {
+      "post": {
+        "summary": "Bounded provider instruction-follow probe (W1)",
+        "description": "One bounded, token-capped call asking the model to reply exactly 'OK'; ok=true iff the reply contains 'OK'. Same input contract and safety as /provider/test/connection. (F17, W1, I7)",
+        "operationId": "provider_test_function_provider_test_function_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderTestResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -5363,7 +5555,7 @@
               }
             ],
             "title": "Token",
-            "description": "The Claude subscription OAuth token to store (from `claude setup-token`). Stored plaintext (ADR-0043 \u00a72.1 \u2014 replayed outbound). NEVER logged or returned. Validated: non-empty, 20\u2013500 chars; soft prefix check (warns, does not block)."
+            "description": "The Claude subscription OAuth token to store (from `claude setup-token`). Encrypted at rest via Fernet (SYNAPSE_SECRET_KEY); plaintext held in-memory only for outbound CLI injection. NEVER logged or returned. Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400 \u2014 W7). Validated: non-empty, 20\u2013500 chars; soft prefix check (warns, does not block)."
           },
           "clear": {
             "anyOf": [
@@ -5375,7 +5567,7 @@
               }
             ],
             "title": "Clear",
-            "description": "true \u21d2 set cli_oauth_token = NULL (fall back to env / none). Wins over token if both are sent."
+            "description": "true \u21d2 set cli_oauth_token_encrypted = NULL (fall back to env / none). Wins over token if both are sent."
           }
         },
         "type": "object",
@@ -7193,24 +7385,173 @@
         "title": "LintScanResponse",
         "description": "200 response for POST /lint/scan (ADR-0037 \u00a76): the run + its findings."
       },
-      "MarkerConvertResponse": {
+      "MarkerBatchStatusFile": {
         "properties": {
-          "results": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Results",
-            "description": "Per-file conversion results. Each entry: {file: str, status: 'ok'|'error', path: str|null, detail: str|null}. status='ok' means .extracted.md was written and watcher will ingest. status='error' means Marker returned an error; no file was written."
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "Original filename (e.g. 'report.pdf')"
+          },
+          "safe_stem": {
+            "type": "string",
+            "title": "Safe Stem",
+            "description": "Sanitised stem (e.g. 'report')"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'pending' | 'converting' | 'ok' | 'failed'"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail",
+            "description": "Error detail when status='failed'; null otherwise"
+          },
+          "companion_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Path",
+            "description": "Vault-relative path to the written .extracted.md (raw/sources/<stem>.extracted.md). Set when status='ok'; null otherwise."
           }
         },
         "type": "object",
         "required": [
-          "results"
+          "file",
+          "safe_stem",
+          "status"
         ],
-        "title": "MarkerConvertResponse",
-        "description": "Response for POST /ingest/convert-marker (R11-1)."
+        "title": "MarkerBatchStatusFile",
+        "description": "Per-file status entry for GET /ingest/convert-marker/status."
+      },
+      "MarkerBatchStatusResponse": {
+        "properties": {
+          "batch_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Id",
+            "description": "UUID of the current/most-recent batch; null if no batch has run"
+          },
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while the background driver is active"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Files in this batch"
+          },
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Files completed (ok + failed)"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds",
+            "description": "Estimated seconds remaining (null when done=0 or batch finished)"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/MarkerBatchStatusFile"
+            },
+            "type": "array",
+            "title": "Files",
+            "description": "Per-file status entries (empty when no batch has run)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running",
+          "total",
+          "done",
+          "files"
+        ],
+        "title": "MarkerBatchStatusResponse",
+        "description": "Response for GET /ingest/convert-marker/status.\n\nReturns the current (or most-recent) batch state with per-file detail.\nWhen no batch has ever run this session, running=false and all counts are 0."
+      },
+      "MarkerConvertAcceptResponse": {
+        "properties": {
+          "batch_id": {
+            "type": "string",
+            "title": "Batch Id",
+            "description": "UUID identifying this conversion batch"
+          },
+          "queued": {
+            "items": {
+              "$ref": "#/components/schemas/MarkerConvertAcceptedFile"
+            },
+            "type": "array",
+            "title": "Queued",
+            "description": "Files accepted and queued for background Marker conversion"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Number of files queued (== len(queued))"
+          }
+        },
+        "type": "object",
+        "required": [
+          "batch_id",
+          "queued",
+          "total"
+        ],
+        "title": "MarkerConvertAcceptResponse",
+        "description": "202 Accepted response for POST /ingest/convert-marker (W0 async rewrite).\n\nThe Marker calls happen in a background task \u2014 poll\nGET /ingest/convert-marker/status (or GET /ingest/queue .marker_batch) for progress."
+      },
+      "MarkerConvertAcceptedFile": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "title": "File",
+            "description": "Original filename as submitted (e.g. 'report.pdf')"
+          },
+          "safe_stem": {
+            "type": "string",
+            "title": "Safe Stem",
+            "description": "Sanitised stem used for the output paths (e.g. 'report')"
+          },
+          "pdf_path": {
+            "type": "string",
+            "title": "Pdf Path",
+            "description": "Vault-relative path where the raw PDF was saved (raw/sources/<stem>.pdf)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file",
+          "safe_stem",
+          "pdf_path"
+        ],
+        "title": "MarkerConvertAcceptedFile",
+        "description": "One file entry in the 202 response body of POST /ingest/convert-marker."
       },
       "MarkerHealthResponse": {
         "properties": {
@@ -8066,6 +8407,30 @@
             "title": "Base Url",
             "description": "OpenAI-compatible endpoint; NULL for Anthropic/local default"
           },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY (W1). Plaintext provider API key; encrypted at rest (Fernet, SYNAPSE_SECRET_KEY). NEVER returned by any response. Omit to use env-var keys. Requires SYNAPSE_SECRET_KEY configured server-side (else HTTP 400)."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort",
+            "description": "auto|off|low|medium|high|max|custom; null/auto = provider default (W1)"
+          },
           "max_iter": {
             "type": "integer",
             "maximum": 20.0,
@@ -8096,7 +8461,7 @@
           "model_id"
         ],
         "title": "ProviderConfigCreate",
-        "description": "Request body for POST /provider/config (F17).\n\nStores NO API key (\u00a712 / ADR-0008 \u00a73). Keys are env-only inside provider/.\nmodel_id must be provided explicitly \u2014 no hardcoded defaults in app code (AC-F17-8)."
+        "description": "Request body for POST /provider/config (F17, W1).\n\napi_key is WRITE-ONLY (W1, \u00a712 amendment): the plaintext is encrypted at rest\n(SYNAPSE_SECRET_KEY / Fernet) and NEVER returned by any response. Omit it to keep env-var\nkeys. model_id must be provided explicitly \u2014 no hardcoded defaults in app code (AC-F17-8)."
       },
       "ProviderConfigListResponse": {
         "properties": {
@@ -8171,6 +8536,34 @@
             ],
             "title": "Base Url"
           },
+          "api_key_configured": {
+            "type": "boolean",
+            "title": "Api Key Configured",
+            "description": "True iff a UI API key is stored (encrypted) for this row. Never the value."
+          },
+          "api_key_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key Masked",
+            "description": "Non-reversible masked hint ('\u20261234') when a key is stored; null otherwise."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
           "max_iter": {
             "type": "integer",
             "title": "Max Iter"
@@ -8199,6 +8592,8 @@
           "provider_type",
           "model_id",
           "base_url",
+          "api_key_configured",
+          "reasoning_effort",
           "max_iter",
           "token_budget",
           "is_fallback",
@@ -8206,7 +8601,209 @@
           "updated_at"
         ],
         "title": "ProviderConfigResponse",
-        "description": "API response shape for a provider_config row (\u00a712: no api_key field)."
+        "description": "API response shape for a provider_config row (\u00a712 amendment, W1).\n\nNEVER exposes the plaintext key. Instead: api_key_configured (bool) + api_key_masked\n(\"\u2026last4\" hint, or null). reasoning_effort is echoed (config, not a secret)."
+      },
+      "ProviderConfigUpdate": {
+        "properties": {
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id",
+            "description": "Model name (lives only in DB rows)"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "OpenAI-compatible endpoint or null"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY (W1). Non-empty \u21d2 replace stored key (encrypted). Empty string \u21d2 clear the stored key (env fallback). Omit to leave unchanged. NEVER returned."
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort",
+            "description": "auto|off|low|medium|high|max|custom; omit to leave unchanged"
+          },
+          "max_iter": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 20.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Iter",
+            "description": "Orchestrated-loop cap"
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1000.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Loop token budget (I7)"
+          },
+          "is_fallback": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Fallback",
+            "description": "Marks the single fallback row"
+          }
+        },
+        "type": "object",
+        "title": "ProviderConfigUpdate",
+        "description": "Request body for PUT /provider/config/{id} (W1). All fields optional \u2014 omitted fields are\nleft unchanged.\n\napi_key semantics (WRITE-ONLY): field ABSENT \u21d2 leave the stored key untouched; a non-empty\nstring \u21d2 re-encrypt and replace; an empty string \"\" \u21d2 CLEAR the stored key (fall back to\nenv). The plaintext is NEVER returned."
+      },
+      "ProviderTestRequest": {
+        "properties": {
+          "config_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config Id",
+            "description": "Probe an existing provider_config row (uses its stored key)."
+          },
+          "provider_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Type",
+            "description": "local | api | cli"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url",
+            "description": "OpenAI-compatible endpoint (api only)"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Model id to probe"
+          },
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Key",
+            "description": "WRITE-ONLY inline key; overrides the stored/env key. Never echoed."
+          }
+        },
+        "type": "object",
+        "title": "ProviderTestRequest",
+        "description": "Request body for the provider-test endpoints (W1).\n\nProvide EITHER config_id (probe a stored row \u2014 its decrypted key is used) OR inline\n{provider_type, model, base_url?, api_key?}. Inline fields override the stored row when both\nare given. api_key is WRITE-ONLY \u2014 never echoed back."
+      },
+      "ProviderTestResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok",
+            "description": "True iff the probe succeeded (connection: HTTP ok; function: reply matched)."
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms",
+            "description": "Wall-clock latency of the probe in milliseconds."
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "Human-readable outcome. NEVER contains the API key."
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "latency_ms",
+          "detail"
+        ],
+        "title": "ProviderTestResponse",
+        "description": "Response body for the provider-test endpoints (W1). Never contains a key."
       },
       "QueueBatchProgress": {
         "properties": {
@@ -8391,6 +8988,17 @@
               }
             ],
             "description": "Whole-batch progress for an in-progress POST /sources/ingest-all (else null)"
+          },
+          "marker_batch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QueueBatchProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whole-batch progress for an in-progress POST /ingest/convert-marker (else null). Poll GET /ingest/convert-marker/status for per-file detail."
           }
         },
         "type": "object",
@@ -10321,6 +10929,83 @@
         ],
         "title": "VaultMetaResponse",
         "description": "Response body for GET /vault/meta."
+      },
+      "VendorInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Stable vendor id (catalog key)."
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "Human-readable vendor name for the UI."
+          },
+          "provider_type": {
+            "type": "string",
+            "title": "Provider Type",
+            "description": "Backend family: api | local | cli (maps to I6 routing)."
+          },
+          "default_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Base Url",
+            "description": "OpenAI-compatible endpoint the ApiProvider keys off. null = Anthropic-native (anthropic), no HTTP endpoint (local/cli), or must be set per deployment (azure-openai). The user can always override in the row."
+          },
+          "needs_api_key": {
+            "type": "boolean",
+            "title": "Needs Api Key",
+            "description": "True iff this vendor requires an API key (api vendors); false for local/cli."
+          },
+          "model_presets": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Model Presets",
+            "description": "Known model ids for the dropdown; the user may type a custom id."
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "description": "Short UI help text for the vendor row.",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "display_name",
+          "provider_type",
+          "needs_api_key"
+        ],
+        "title": "VendorInfo",
+        "description": "One vendor row in the Settings catalog (W1)."
+      },
+      "VendorListResponse": {
+        "properties": {
+          "vendors": {
+            "items": {
+              "$ref": "#/components/schemas/VendorInfo"
+            },
+            "type": "array",
+            "title": "Vendors",
+            "description": "The fixed one-row-per-vendor catalog."
+          }
+        },
+        "type": "object",
+        "required": [
+          "vendors"
+        ],
+        "title": "VendorListResponse",
+        "description": "Response body for GET /provider/vendors (W1)."
       },
       "WebSearchConfigRequest": {
         "properties": {

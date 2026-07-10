@@ -18,6 +18,9 @@ dependencies = [
     "pydantic-settings>=2.2.0",
     "pyyaml>=6.0.0",
     "httpx>=0.27.0",
+    # W1 / F17 (§12 amendment): Fernet at-rest encryption for UI-supplied provider API keys.
+    # SOLE home: app/secrets_crypto.py. Master key from SYNAPSE_SECRET_KEY env (never in DB).
+    "cryptography>=42",
     "python-frontmatter>=1.1.0",
     "fastmcp>=2.0.0",
     # F17 CLI backend (R3). Lazy-imported in ingest/provider/cli.py so infra-free unit tests do

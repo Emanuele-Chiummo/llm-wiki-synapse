@@ -230,6 +230,13 @@ class QueueSnapshotResponse(BaseModel):
         default=None,
         description="Whole-batch progress for an in-progress POST /sources/ingest-all (else null)",
     )
+    marker_batch: QueueBatchProgress | None = Field(
+        default=None,
+        description=(
+            "Whole-batch progress for an in-progress POST /ingest/convert-marker (else null). "
+            "Poll GET /ingest/convert-marker/status for per-file detail."
+        ),
+    )
 
 
 class QueueCancelResponse(BaseModel):
@@ -692,69 +699,141 @@ async def upload_ingest(
     )
 
 
-# ── POST /ingest/convert-marker ── R11-1: explicit Marker conversion (AC-R11-1-1..4) ──
-# ── GET  /ingest/marker-health  ── R11-1: proxy health check (AC-R11-1-4) ────────────
+# ── POST /ingest/convert-marker ── R11-1: explicit Marker conversion (W0 async) ──
+# ── GET  /ingest/convert-marker/status ── per-file progress poll ─────────────
+# ── GET  /ingest/marker-health  ── R11-1: proxy health check (AC-R11-1-4) ────
 #
-# Design: the user explicitly chose Marker — NO silent pypdf fallback on this path.
-# On any Marker error (non-2xx / timeout / conn-refused) → HTTP 502, write NO .extracted.md.
-# This differs from extract.py's CLI path which always falls back (PM decision, ADR-0051).
+# W0 async redesign: Marker calls are moved to a background asyncio.Task so that
+# the HTTP response returns in <1 s (well under the 100 s Cloudflare Tunnel timeout
+# that previously caused 524 errors). The driver in marker_converter.py serialises
+# calls (concurrency=1) because Marker is a single-GPU service.
+#
+# Design preserved from ADR-0051: NO silent pypdf fallback on this path.
+# Validation (400/413/415) still synchronous — these are fast pre-flight checks.
 
 
-class MarkerConvertResponse(BaseModel):
-    """Response for POST /ingest/convert-marker (R11-1)."""
+class MarkerConvertAcceptedFile(BaseModel):
+    """One file entry in the 202 response body of POST /ingest/convert-marker."""
 
-    results: list[dict[str, Any]] = Field(
+    file: str = Field(description="Original filename as submitted (e.g. 'report.pdf')")
+    safe_stem: str = Field(description="Sanitised stem used for the output paths (e.g. 'report')")
+    pdf_path: str = Field(
+        description="Vault-relative path where the raw PDF was saved (raw/sources/<stem>.pdf)"
+    )
+
+
+class MarkerConvertAcceptResponse(BaseModel):
+    """
+    202 Accepted response for POST /ingest/convert-marker (W0 async rewrite).
+
+    The Marker calls happen in a background task — poll
+    GET /ingest/convert-marker/status (or GET /ingest/queue .marker_batch) for progress.
+    """
+
+    batch_id: str = Field(description="UUID identifying this conversion batch")
+    queued: list[MarkerConvertAcceptedFile] = Field(
+        description="Files accepted and queued for background Marker conversion"
+    )
+    total: int = Field(description="Number of files queued (== len(queued))")
+
+
+class MarkerBatchStatusFile(BaseModel):
+    """Per-file status entry for GET /ingest/convert-marker/status."""
+
+    file: str = Field(description="Original filename (e.g. 'report.pdf')")
+    safe_stem: str = Field(description="Sanitised stem (e.g. 'report')")
+    status: str = Field(description="'pending' | 'converting' | 'ok' | 'failed'")
+    detail: str | None = Field(
+        default=None,
+        description="Error detail when status='failed'; null otherwise",
+    )
+    companion_path: str | None = Field(
+        default=None,
         description=(
-            "Per-file conversion results. Each entry: "
-            "{file: str, status: 'ok'|'error', path: str|null, detail: str|null}. "
-            "status='ok' means .extracted.md was written and watcher will ingest. "
-            "status='error' means Marker returned an error; no file was written."
-        )
+            "Vault-relative path to the written .extracted.md (raw/sources/<stem>.extracted.md). "
+            "Set when status='ok'; null otherwise."
+        ),
+    )
+
+
+class MarkerBatchStatusResponse(BaseModel):
+    """
+    Response for GET /ingest/convert-marker/status.
+
+    Returns the current (or most-recent) batch state with per-file detail.
+    When no batch has ever run this session, running=false and all counts are 0.
+    """
+
+    batch_id: str | None = Field(
+        default=None,
+        description="UUID of the current/most-recent batch; null if no batch has run",
+    )
+    running: bool = Field(description="True while the background driver is active")
+    total: int = Field(description="Files in this batch")
+    done: int = Field(description="Files completed (ok + failed)")
+    eta_seconds: int | None = Field(
+        default=None,
+        description="Estimated seconds remaining (null when done=0 or batch finished)",
+    )
+    files: list[MarkerBatchStatusFile] = Field(
+        description="Per-file status entries (empty when no batch has run)"
     )
 
 
 @router.post(
     "/ingest/convert-marker",
-    response_model=MarkerConvertResponse,
-    status_code=200,
-    summary="Convert one or more PDFs through Marker and queue for ingest (R11-1)",
+    response_model=MarkerConvertAcceptResponse,
+    status_code=202,
+    summary="Queue one or more PDFs for async Marker conversion (R11-1, W0)",
     description=(
-        "F12 / R11-1 — explicit Marker PDF conversion endpoint. "
+        "F12 / R11-1 — explicit Marker PDF conversion endpoint (W0 async). "
         "Accepts multipart files[] (≤10 files, each ≤ MAX_UPLOAD_BYTES, .pdf only). "
-        "For each file: calls Marker microservice, writes <stem>.extracted.md to "
-        "vault/raw/sources/ with valid YAML frontmatter (I5), lets the watcher ingest "
-        "incrementally (I1). "
-        "On ANY Marker error (non-2xx / timeout / connection refused): "
-        "returns 502 {'error':'marker_unavailable','detail':'...'} and writes NO file. "
-        "NO silent pypdf fallback on this explicit path (unlike extract.py's CLI path). "
-        "400 if > 10 files. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files."
+        "Validates + saves each raw PDF synchronously, then enqueues background Marker "
+        "conversion (concurrency=1 — single-GPU Marker service; I7). "
+        "Returns 202 immediately with batch_id and per-file entries. "
+        "Poll GET /ingest/convert-marker/status for per-file progress/result. "
+        "On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the "
+        "watcher ingests it incrementally (I1). Per-file Marker failures mark that file "
+        "'failed' without aborting the rest of the batch. "
+        "NO silent pypdf fallback (ADR-0051). "
+        "400 if > 10 files. 409 if a batch is already running. "
+        "413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files."
     ),
     responses={
-        200: {"description": "Per-file results (mix of ok / error)."},
+        202: {"description": "Files queued for background Marker conversion."},
         400: {"description": "More than 10 files submitted."},
+        409: {"description": "A Marker conversion batch is already running."},
         413: {"description": "A file exceeds MAX_UPLOAD_BYTES."},
         415: {"description": "A non-.pdf file was submitted."},
-        502: {"description": "Marker microservice is unavailable."},
     },
 )
 async def convert_marker(
     files: list[UploadFile] = File(..., description="PDF files to convert (≤10)."),
-) -> MarkerConvertResponse:
+) -> MarkerConvertAcceptResponse:
     """
-    POST /ingest/convert-marker — explicit Marker PDF conversion (R11-1 / AC-R11-1-1..4).
+    POST /ingest/convert-marker — async Marker PDF conversion (R11-1 / W0).
 
     For each file:
     1. Reject non-.pdf (415), oversize (413).
-    2. Write raw PDF bytes to vault/raw/sources/<stem>.pdf (preserved, I5/K1).
-    3. Call Marker microservice — on error return 502 immediately, write no .extracted.md.
-    4. Write <stem>.extracted.md with valid YAML frontmatter (type:source, title, sources).
-    5. Watcher picks up the companion under I1 (no new ingest path).
+    2. Write raw PDF bytes synchronously to vault/raw/sources/<stem>.pdf (I5/K1).
+    3. Build a MarkerFileEntry and add to the batch.
+    After all files are saved:
+    4. Fire start_marker_batch() — background driver calls Marker serially (I7, concurrency=1).
+    5. Return 202 immediately (well under the 100 s Cloudflare Tunnel timeout).
 
-    NO silent pypdf fallback — the user explicitly chose Marker.
+    Background driver (marker_converter.py):
+    - Calls Marker /convert per file (MARKER_TIMEOUT_SECONDS bound, I7).
+    - On success: writes <stem>.extracted.md; watcher ingests (I1).
+    - On per-file failure: marks that file 'failed'; continues with next file.
+    NO silent pypdf fallback — the user explicitly chose Marker (ADR-0051).
     """
     import tempfile  # noqa: PLC0415
 
-    import httpx  # noqa: PLC0415
+    from app.marker_converter import (  # noqa: PLC0415
+        MarkerFileEntry,
+        is_running,
+        start_marker_batch,
+    )
 
     # ── AC-R11-1-1: reject > 10 files ────────────────────────────────────────
     if len(files) > 10:
@@ -763,16 +842,32 @@ async def convert_marker(
             detail=f"Too many files: {len(files)} submitted; maximum is 10.",
         )
 
+    # ── Single-flight guard (Marker is single-GPU; one batch at a time) ──────
+    if is_running():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A Marker conversion batch is already running. "
+                "Poll GET /ingest/convert-marker/status and retry when running=false."
+            ),
+        )
+
     max_bytes: int = settings.max_upload_bytes
 
-    # ── Read effective Marker settings (S2/S3 through config_overrides — ADR-0053) ─
-    _eff_marker_url = (
+    # ── Read effective Marker settings (captured at enqueue time — ADR-0053) ─
+    _eff_marker_url: str = (
         effective_str("marker_service_url", settings.marker_service_url)
         or settings.marker_service_url
     )
-    _eff_marker_timeout = effective_float("marker_timeout_seconds", settings.marker_timeout_seconds)
+    _eff_marker_timeout: float = effective_float(
+        "marker_timeout_seconds", settings.marker_timeout_seconds
+    )
 
-    results: list[dict[str, Any]] = []
+    raw_sources = settings.raw_sources_dir
+    raw_sources.mkdir(parents=True, exist_ok=True)
+
+    entries: list[MarkerFileEntry] = []
+    accepted: list[MarkerConvertAcceptedFile] = []
 
     for upload in files:
         raw_name: str = upload.filename or ""
@@ -790,9 +885,6 @@ async def convert_marker(
             )
 
         # ── Read raw bytes with size cap (AC-R11-1-1 / I7) ───────────────────
-        raw_sources = settings.raw_sources_dir
-        raw_sources.mkdir(parents=True, exist_ok=True)
-
         tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".marker_tmp")
         bytes_read = 0
         try:
@@ -829,80 +921,79 @@ async def convert_marker(
         Path(tmp_name).unlink(missing_ok=True)
         pdf_dst.write_bytes(pdf_bytes)
 
-        # ── Call Marker microservice (AC-R11-1-3: NO fallback on error) ──────
-        convert_url = f"{_eff_marker_url.rstrip('/')}/convert"
-        marker_ok = False
-        marker_markdown: str = ""
-        marker_detail: str = ""
-
-        try:
-            async with httpx.AsyncClient(timeout=_eff_marker_timeout) as client:
-                response = await client.post(
-                    convert_url,
-                    files={"file": (pdf_name, pdf_bytes, "application/pdf")},
-                )
-            if response.status_code == 200:
-                data = response.json()
-                md = data.get("markdown")
-                if isinstance(md, str) and md:
-                    marker_markdown = md
-                    marker_ok = True
-                else:
-                    marker_detail = "Marker returned invalid or empty markdown field."
-            else:
-                marker_detail = (
-                    f"Marker returned HTTP {response.status_code}: " f"{response.text[:200]}"
-                )
-        except httpx.TimeoutException as exc:
-            marker_detail = f"Marker request timed out after {_eff_marker_timeout}s: {exc}"
-        except (httpx.ConnectError, httpx.RequestError) as exc:
-            marker_detail = f"Marker microservice unreachable ({type(exc).__name__}): {exc}"
-        except Exception as exc:  # noqa: BLE001
-            marker_detail = f"Unexpected Marker error: {exc}"
-
-        if not marker_ok:
-            # AC-R11-1-3: 502 immediately; NO .extracted.md written; NO fallback
-            logger.warning(
-                "convert_marker: Marker unavailable for %s: %s",
-                pdf_name,
-                marker_detail,
+        pdf_rel = str(pdf_dst.relative_to(settings.vault_root))
+        entries.append(
+            MarkerFileEntry(
+                file=raw_name,
+                safe_stem=safe_stem,
+                pdf_abs_path=str(pdf_dst),
             )
-            raise HTTPException(
-                status_code=502,
-                detail={"error": "marker_unavailable", "detail": marker_detail},
-            )
-
-        # ── Write .extracted.md companion (AC-R11-1-2 / I5) ──────────────────
-        companion_name = f"{safe_stem}.extracted.md"
-        companion_dst = raw_sources / companion_name
-        raw_rel = str(pdf_dst.relative_to(settings.vault_root))
-        companion_content = (
-            f"---\n"
-            f"type: source\n"
-            f"title: {safe_stem}\n"
-            f'sources: ["{raw_rel}"]\n'
-            f"---\n\n" + marker_markdown
         )
-        companion_dst.write_text(companion_content, encoding="utf-8")
-        companion_rel = str(companion_dst.relative_to(settings.vault_root))
-
+        accepted.append(
+            MarkerConvertAcceptedFile(
+                file=raw_name,
+                safe_stem=safe_stem,
+                pdf_path=pdf_rel,
+            )
+        )
         logger.info(
-            "convert_marker: %s → %s (%d chars, Marker path — no pypdf fallback)",
-            pdf_name,
-            companion_name,
-            len(marker_markdown),
+            "convert_marker: saved %s → %s; queued for background Marker conversion",
+            raw_name,
+            pdf_dst,
         )
 
-        results.append(
-            {
-                "file": raw_name,
-                "status": "ok",
-                "path": companion_rel,
-                "detail": None,
-            }
-        )
+    # ── Fire background conversion (concurrency=1, I7) ───────────────────────
+    batch = start_marker_batch(
+        entries=entries,
+        eff_marker_url=_eff_marker_url,
+        eff_marker_timeout=_eff_marker_timeout,
+        vault_root=settings.vault_root,
+    )
 
-    return MarkerConvertResponse(results=results)
+    return MarkerConvertAcceptResponse(
+        batch_id=str(batch.batch_id),
+        queued=accepted,
+        total=len(accepted),
+    )
+
+
+@router.get(
+    "/ingest/convert-marker/status",
+    response_model=MarkerBatchStatusResponse,
+    summary="Per-file status of the current (or most-recent) Marker conversion batch",
+    description=(
+        "Returns per-file conversion status for the current or most-recent "
+        "POST /ingest/convert-marker batch. "
+        "Status values: 'pending' (not yet started) | 'converting' (Marker call in flight) | "
+        "'ok' (companion written; watcher will ingest) | 'failed' (Marker error, detail set). "
+        "When running=false and total=0, no batch has been submitted this session. "
+        "Safe to poll every 2-5 s; pure in-memory, no DB I/O."
+    ),
+    responses={200: {"description": "Batch status snapshot"}},
+)
+async def get_convert_marker_status() -> MarkerBatchStatusResponse:
+    """GET /ingest/convert-marker/status — live per-file progress snapshot."""
+    from app.marker_converter import get_marker_batch_progress  # noqa: PLC0415
+
+    prog = get_marker_batch_progress()
+    files = [
+        MarkerBatchStatusFile(
+            file=f["file"],
+            safe_stem=f["safe_stem"],
+            status=f["status"],
+            detail=f["detail"],
+            companion_path=f["companion_path"],
+        )
+        for f in prog["files"]
+    ]
+    return MarkerBatchStatusResponse(
+        batch_id=prog["batch_id"],
+        running=bool(prog["running"]),
+        total=int(prog["total"]),
+        done=int(prog["done"]),
+        eta_seconds=prog.get("eta_seconds"),
+        files=files,
+    )
 
 
 class MarkerHealthResponse(BaseModel):
@@ -1245,6 +1336,24 @@ async def get_ingest_queue() -> QueueSnapshotResponse:
     except Exception:  # noqa: BLE001
         logger.debug("get_ingest_queue: ingest-all batch progress unavailable")
 
+    # ── Marker batch progress (POST /ingest/convert-marker) ─────────────────
+    marker_batch: QueueBatchProgress | None = None
+    try:
+        from app.marker_converter import get_marker_batch_progress  # noqa: PLC0415
+
+        mb = get_marker_batch_progress()
+        mb_total = int(mb["total"])
+        mb_done = int(mb["done"])
+        if mb["running"] or (mb_total > 0 and mb_done < mb_total):
+            marker_batch = QueueBatchProgress(
+                running=bool(mb["running"]),
+                done=mb_done,
+                total=mb_total,
+                eta_seconds=mb.get("eta_seconds"),
+            )
+    except Exception:  # noqa: BLE001
+        logger.debug("get_ingest_queue: marker batch progress unavailable")
+
     return QueueSnapshotResponse(
         paused=snap["paused"],
         pending=snap["pending"],
@@ -1254,6 +1363,7 @@ async def get_ingest_queue() -> QueueSnapshotResponse:
         total=snap["total"],
         tasks=tasks,
         batch=batch,
+        marker_batch=marker_batch,
     )
 
 

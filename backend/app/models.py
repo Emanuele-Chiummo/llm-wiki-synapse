@@ -80,6 +80,18 @@ v0.6-ADR-0043: vault_state.cli_oauth_token added in Alembic migration 0017 (ADR-
     stored plaintext because it is replayed outbound to the spawned CLI — a hash cannot be
     replayed; §12 narrowly amended for this one credential; NEVER logged or returned).
 
+W7 (security hardening): vault_state.cli_oauth_token_encrypted (BYTEA) added in Alembic
+    migration 0027. Fernet-encrypted at rest (SYNAPSE_SECRET_KEY). The legacy plaintext
+    column (cli_oauth_token) is kept for one migration cycle for rollback safety; the write
+    path now stores exclusively in cli_oauth_token_encrypted; the read path prefers the
+    encrypted column and falls back to cli_oauth_token with a security warning (operator
+    migration path). cli_oauth_token will be dropped in a future cleanup migration.
+
+    clip_access_token (migration 0015) stores a PBKDF2-SHA256 hash (ADR-0040 §2.2 amendment
+    — NOT plaintext as the original migration comment states). The column type remains TEXT
+    for the hash string; no ciphertext column is needed because the hash is one-way and
+    sufficient for bearer-token verification (compare-then-verify; never replay).
+
 Run `make er` to regenerate docs/er/schema.mmd from this file (I8).
 """
 
@@ -97,6 +109,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -373,10 +386,13 @@ class VaultState(Base):
         nullable=True,
         default=None,
         comment=(
-            "Plaintext bearer token for POST /clip (ADR-0040 §3). "
+            "PBKDF2-SHA256 hash of the bearer token for POST /clip (ADR-0040 §2.2 amendment). "
+            "NOTE: the original migration 0015 comment says 'plaintext' — that is stale. "
+            "The write path (PUT /clip/config rotate_token) stores the PBKDF2 hash (never the "
+            "raw token). The raw token is shown exactly once at generation time in "
+            "generated_token (never stored). Verification uses constant-time _verify_token(). "
             "NULL = no DB token; fall back to CLIP_TOKEN env bootstrap or none. "
             "When set, DB value wins over CLIP_TOKEN env. "
-            "Shown once at generation time (one-time reveal in PUT /clip/config generated_token). "
             "NEVER logged. Migration 0015."
         ),
     )
@@ -392,22 +408,38 @@ class VaultState(Base):
         ),
     )
 
-    # ── ADR-0043: CLI subscription OAuth token ───────────────────────────────────
+    # ── ADR-0043 + W7: CLI subscription OAuth token ──────────────────────────────
     cli_oauth_token: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         default=None,
         comment=(
-            "Plaintext Claude subscription OAuth token for the CLI provider (ADR-0043 §2.1). "
+            "DEPRECATED write path (W7 migration 0027). "
+            "Legacy plaintext CLI subscription OAuth token column (ADR-0043 §2.1 original). "
+            "Kept for rollback safety — migration 0027 nulls this column after encrypting the "
+            "value into cli_oauth_token_encrypted. The read path falls back to this column "
+            "with a security warning if cli_oauth_token_encrypted is NULL (operator migration "
+            "path when SYNAPSE_SECRET_KEY was absent at migration time). "
+            "Will be dropped in a future cleanup migration. Migration 0017."
+        ),
+    )
+
+    cli_oauth_token_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        default=None,
+        comment=(
+            "W7 (ADR-0043 amendment). Fernet-encrypted CLI subscription OAuth token "
+            "(master key from SYNAPSE_SECRET_KEY env; app/secrets_crypto.py). "
             "Produced on the host by `claude setup-token` (prefix: sk-ant- + oat01-). "
             "NULL = no UI token; env `CLAUDE_CODE_OAUTH_TOKEN` / `CLAUDE_CODE_USE_SUBSCRIPTION` "
             "govern. "
-            "When NOT NULL the DB value is authoritative: it is injected into the spawned "
-            "`claude` CLI's env as CLAUDE_CODE_OAUTH_TOKEN AND `ANTHROPIC_API_KEY` is scrubbed "
-            "from that child env so the subscription wins (ADR-0043 §2.3). "
-            "Stored PLAINTEXT because it is replayed outbound to the CLI, not verified against "
-            "an incoming request — a hash cannot be replayed (§12 narrowly amended for this one "
-            "credential). NEVER logged; NEVER returned by any endpoint. Migration 0017."
+            "When NOT NULL the DB value is authoritative: it is decrypted at startup and "
+            "injected into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN. "
+            "Fernet AES-128-CBC + HMAC-SHA256. Plaintext NEVER stored/logged. "
+            "Requires SYNAPSE_SECRET_KEY to store (PUT /provider/cli-auth returns 400 when "
+            "key absent). Fail-closed on tampered ciphertext (decrypt returns None, cache "
+            "loads None). Migration 0027."
         ),
     )
 
@@ -470,10 +502,14 @@ class ProviderConfig(Base):
     global. A missing global row is a HARD configuration error, never a silent default
     backend (I6 — "never hardcode a provider").
 
-    Holds NO API key column — secrets are environment-only (§12, ADR-0008 §3). `model_id`
-    values live ONLY in DB rows (seeded by the Alembic data migration), never as literals in
-    app code (AC-F17-8). `provider_name`/`model_id` are config, not routing inputs (I6 routing
-    is by capabilities().supports_agentic_loop).
+    Secrets: env-var keys (ANTHROPIC_API_KEY / OPENAI_API_KEY) remain the default (§12,
+    ADR-0008 §3). W1 (F17, §12 amendment) additionally allows a UI-supplied per-vendor key,
+    stored in `api_key_encrypted` ENCRYPTED AT REST (Fernet, master key from SYNAPSE_SECRET_KEY;
+    app/secrets_crypto.py). The plaintext is NEVER stored and NEVER returned by any endpoint —
+    GET exposes only `api_key_configured` + a masked hint. `model_id` values live ONLY in DB
+    rows (seeded by the Alembic data migration), never as literals in app code (AC-F17-8).
+    `provider_name`/`model_id` are config, not routing inputs (I6 routing is by
+    capabilities().supports_agentic_loop).
     """
 
     __tablename__ = "provider_config"
@@ -520,6 +556,31 @@ class ProviderConfig(Base):
         Text,
         nullable=True,
         comment="OpenAI-compatible endpoint for ApiProvider; NULL for Anthropic/local default",
+    )
+
+    api_key_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        comment=(
+            "W1 (F17, §12 amendment). Fernet-encrypted UI-supplied provider API key "
+            "(master key from SYNAPSE_SECRET_KEY env; app/secrets_crypto.py). "
+            "NULL = no UI key; the provider layer falls back to env-var keys "
+            "(ANTHROPIC_API_KEY / OPENAI_API_KEY). The plaintext is NEVER stored and NEVER "
+            "returned by any endpoint (GET exposes only api_key_configured + a masked hint). "
+            "Migration 0026."
+        ),
+    )
+
+    reasoning_effort: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "W1 (F17). Per-provider reasoning/thinking effort: "
+            "auto | off | low | medium | high | max | custom. "
+            "NULL/auto = provider default (no reasoning override). Threaded into the ApiProvider "
+            "where the backend supports it (Anthropic extended thinking / OpenAI-compatible "
+            "reasoning_effort); degrade-safe/ignored when unsupported. Migration 0026."
+        ),
     )
 
     max_iter: Mapped[int] = mapped_column(

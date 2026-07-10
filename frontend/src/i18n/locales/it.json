@@ -185,6 +185,7 @@
       "security2": "Sicurezza e accesso",
       "costs2": "Costi",
       "maintenance2": "Manutenzione",
+      "changelog2": "Changelog",
       "about2": "Informazioni"
     },
     "llmModels": {
@@ -217,7 +218,36 @@
       "noProvidersHelp": "Aggiungi almeno un provider prima di usare chat, generazione in ingest o ricerca profonda.",
       "vaultProviderHelp": "Solo questo vault preferirà questo provider.",
       "globalProviderHelp": "Tutti i vault possono usare questo provider, salvo override specifici del vault.",
-      "introGuide": "Scegli come ragiona Synapse: API (consigliato), Locale (Ollama, offline) o CLI (il tuo abbonamento Claude). Se scegli CLI, incolla il token nel riquadro di autenticazione CLI qui sotto."
+      "introGuide": "Scegli come ragiona Synapse: API (consigliato), Locale (Ollama, offline) o CLI (il tuo abbonamento Claude). Se scegli CLI, incolla il token nel riquadro di autenticazione CLI qui sotto.",
+      "catalogDesc": "Una riga per vendor. Attiva con il toggle. Solo un vendor è attivo alla volta — le modifiche si salvano immediatamente.",
+      "activate": "Abilita",
+      "apiKey": "API Key",
+      "apiKeyPlaceholder": "Incolla API key…",
+      "apiKeyClearBtn": "Cancella",
+      "apiKeyNotSet": "Nessuna key",
+      "apiKeySaved": "Key salvata.",
+      "apiKeySaveError": "Salvataggio key fallito.",
+      "apiKeyNoStorage": "Il salvataggio della key richiede SYNAPSE_SECRET_KEY nell'ambiente backend.",
+      "modelLabel": "Modello",
+      "modelCustom": "Personalizzato…",
+      "modelCustomPlaceholder": "Inserisci model ID…",
+      "reasoningLabel": "Ragionamento",
+      "reasoningAuto": "Auto",
+      "reasoningOff": "Off",
+      "reasoningLow": "Basso",
+      "reasoningMedium": "Medio",
+      "reasoningHigh": "Alto",
+      "reasoningMax": "Max",
+      "reasoningCustom": "Personalizzato",
+      "testConnectionBtn": "Test connessione",
+      "testFunctionBtn": "Test funzione",
+      "testOk": "OK",
+      "testFailed": "Fallito",
+      "testRunning": "Test in corso…",
+      "loadingVendors": "Caricamento vendor…",
+      "vendorLoadError": "Impossibile caricare il catalogo vendor.",
+      "codexAuthTitle": "Autenticazione",
+      "codexAuthNote": "Codex CLI si autentica da solo — esegui `codex login` sull'host (OAuth) o imposta OPENAI_API_KEY. Synapse non memorizza un token Codex (a differenza del token abbonamento Claude)."
     },
     "embeddings": {
       "title": "Vector Embeddings",
@@ -345,6 +375,18 @@
       "github": "Codice sorgente",
       "docs": "Documentazione"
     },
+    "changelog": {
+      "title": "Changelog",
+      "desc": "Cronologia delle versioni e modifiche rilevanti (formato Keep a Changelog).",
+      "loading": "Caricamento changelog…",
+      "unavailable": "Changelog non disponibile. Verifica l'output di build.",
+      "refresh": "Aggiorna",
+      "unreleased": "Non rilasciato",
+      "versions": "versioni",
+      "emptyBody": "Nessun contenuto registrato per questa versione.",
+      "footer": "Ultime 10 versioni mostrate — cronologia completa in",
+      "footerLink": "CHANGELOG.md su GitHub Releases"
+    },
     "webClipper": {
       "desc": "Configura l'estensione Chrome MV3 per il web clipper (F11). I clip vengono inviati a questa istanza Synapse e importati automaticamente tramite il watcher.",
       "loading": "Caricamento configurazione web clipper…",
@@ -413,8 +455,7 @@
       "emptyTokenError": "Il token non può essere vuoto.",
       "saveError": "Salvataggio fallito. Il backend è in esecuzione?",
       "guideTitle": "Come configurare",
-      "guideSteps": "1) Sull'host esegui: claude setup-token\n2) Incolla qui il token sk-ant-oat01-… stampato\n3) Lascia ANTHROPIC_API_KEY non impostata — il token DB viene iniettato nel CLI Claude e la API key viene rimossa dal suo ambiente, quindi viene usato l'abbonamento ($0 per token).",
-      "caveat": "Nota sicurezza: questo token è salvato nel database dell'applicazione in chiaro e dà accesso al tuo abbonamento Claude. Tratta i backup del database di conseguenza. Per ruotare: esegui nuovamente `claude setup-token` e incolla il nuovo valore. Per revocare: clicca Rimuovi e il CLI tornerà a usare le variabili d'ambiente o risulterà non configurato."
+      "guideSteps": "1) Sull'host esegui: claude setup-token\n2) Incolla qui il token sk-ant-oat01-… stampato\n3) Lascia ANTHROPIC_API_KEY non impostata — il token DB viene iniettato nel CLI Claude e la API key viene rimossa dal suo ambiente, quindi viene usato l'abbonamento ($0 per token)."
     },
     "scenarios": {
       "title": "Modelli di scenario",
@@ -1106,7 +1147,15 @@
     "startMarkerConfigPlaceholder": "cd /path/to/tools/marker-converter && TORCH_DEVICE=mps ./.venv/bin/python service.py --port 8555",
     "startMarkerConfigSave": "Salva e avvia",
     "startMarkerConfigHint": "Inserisci il comando shell per avviare il microservizio Marker. Salvato localmente su questa macchina.",
-    "startMarkerConfigCancel": "Annulla"
+    "startMarkerConfigCancel": "Annulla",
+    "progressLabel": "{{done}} di {{total}} convertiti ({{pct}}%)",
+    "etaLabel": "~{{eta}}s rimanenti",
+    "historyTitle": "Cronologia conversioni",
+    "openBtn": "Apri in Sorgenti",
+    "batchSubmitted": "Conversione in coda — elaborazione in background",
+    "error409": "Una conversione è già in corso. Attendi il completamento.",
+    "error413": "File troppo grande.",
+    "error415": "Sono accettati solo file PDF."
   },
   "panels": {
     "expandPanel": "Espandi pannello",

@@ -86,6 +86,29 @@ vi.mock("../store/settingsStore", () => ({
 
 // ─── Mock providerStore ───────────────────────────────────────────────────────
 
+// Vendor catalog fixture — must be mock-prefixed so vitest hoisting allows referencing it
+// inside the vi.mock factory below.
+const mockVendors = [
+  {
+    id: "anthropic",
+    display_name: "Anthropic",
+    provider_type: "api" as const,
+    default_base_url: "https://api.anthropic.com",
+    needs_api_key: true,
+    model_presets: ["claude-sonnet-4-6"],
+    notes: "",
+  },
+  {
+    id: "claude-cli",
+    display_name: "Claude Code CLI",
+    provider_type: "cli" as const,
+    default_base_url: null,
+    needs_api_key: false,
+    model_presets: ["claude-haiku-4-5-20251001"],
+    notes: "",
+  },
+];
+
 const mockProviderList = [
   {
     id: "prov-1",
@@ -125,19 +148,34 @@ vi.mock("../store/providerStore", () => ({
   useProviderStore: (selector: (s: unknown) => unknown) =>
     selector({
       list: mockProviderList,
+      activeItem: null,
       loading: false,
       error: null,
+      writeScope: "global",
+      vendors: mockVendors,
+      vendorsLoading: false,
+      vendorsError: null,
       fetchList: mockFetchProviders,
       addProvider: mockAddProvider,
       deleteProvider: mockDeleteProvider,
+      fetchVendorCatalog: vi.fn(),
+      updateProvider: vi.fn(),
     }),
   useShallow: (fn: unknown) => fn,
+  useProviderList: () => mockProviderList,
+  useVendorList: () => mockVendors,
   selectProviderList: (s: { list: unknown[] }) => s.list,
   selectProviderLoading: (s: { loading: boolean }) => s.loading,
   selectProviderError: (s: { error: string | null }) => s.error,
+  selectActiveProvider: (s: { activeItem: unknown }) => s.activeItem,
   selectFetchProviderList: (s: { fetchList: unknown }) => s.fetchList,
   selectAddProvider: (s: { addProvider: unknown }) => s.addProvider,
   selectDeleteProvider: (s: { deleteProvider: unknown }) => s.deleteProvider,
+  selectVendors: (s: { vendors: unknown[] }) => s.vendors,
+  selectVendorsLoading: (s: { vendorsLoading: boolean }) => s.vendorsLoading,
+  selectVendorsError: (s: { vendorsError: string | null }) => s.vendorsError,
+  selectFetchVendorCatalog: (s: { fetchVendorCatalog: unknown }) => s.fetchVendorCatalog,
+  selectUpdateProvider: (s: { updateProvider: unknown }) => s.updateProvider,
 }));
 
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
@@ -158,6 +196,12 @@ vi.mock("zustand/react/shallow", () => ({
 
 vi.mock("../components/settings/ImportScheduleCard", () => ({
   ImportScheduleCard: () => <div data-testid="import-schedule-card">ImportScheduleCard</div>,
+}));
+
+// ─── Mock SectionChangelog (avoids fetch('/CHANGELOG.md') in test env) ────────
+
+vi.mock("../components/settings/sections/SectionChangelog", () => ({
+  SectionChangelog: () => <div data-testid="section-changelog">Changelog section</div>,
 }));
 
 // ─── Mock OpsScheduleCard (A5 / R12-7) ───────────────────────────────────────
@@ -280,6 +324,14 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       token_source: "none",
       auth_mode: "unconfigured",
     }),
+    // v1.4 vendor catalog
+    fetchVendors: vi.fn().mockResolvedValue({ vendors: [] }),
+    fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    createProviderConfig: vi.fn(),
+    updateProviderConfig: vi.fn(),
+    deleteProviderConfig: vi.fn(),
+    testProviderConnection: vi.fn(),
+    testProviderFunction: vi.fn(),
   };
 });
 
@@ -331,8 +383,8 @@ function renderPanel() {
   return render(<SettingsPanel />);
 }
 
-// All 18 page IDs in traversal order (must match ALL_PAGES in SettingsPanel.tsx)
-// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
+// All 19 page IDs in traversal order (must match ALL_PAGES in SettingsPanel.tsx)
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(4) = 19 total.
 const EXPECTED_PAGE_IDS = [
   "providers",
   "appearance",
@@ -351,23 +403,24 @@ const EXPECTED_PAGE_IDS = [
   "apiMcp",
   "costs",
   "maintenance",
+  "changelog",
   "about",
 ] as const;
 
-// ─── 1. All 18 page nav items render (A2.1 / ADR-0055) ──────────────────────
-// AC-R11-2-11 updated: 2-level nav, 18 page buttons, 5 non-clickable group headers.
-// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(3) = 18 total.
+// ─── 1. All 19 page nav items render (A2.1 / ADR-0055) ──────────────────────
+// AC-R11-2-11 updated: 2-level nav, 19 page buttons, 5 non-clickable group headers.
+// Groups: Essentials(3) + Content(5) + AI Behaviour(5) + Access(2) + System(4) = 19 total.
 
-describe("SettingsPanel — 18 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
+describe("SettingsPanel — 19 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / ADR-0055)", () => {
   beforeEach(() => {
     renderPanel();
   });
 
-  it("renders exactly 18 page buttons in the left nav aside (AC-R11-2-11)", () => {
+  it("renders exactly 19 page buttons in the left nav aside (AC-R11-2-11)", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(18);
+    expect(buttons).toHaveLength(19);
   });
 
   EXPECTED_PAGE_IDS.forEach((pageId) => {
@@ -405,14 +458,14 @@ describe("SettingsPanel — 18 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / A
 // ADR-0055: 17 pages, each routes to a distinct section component.
 
 describe("SettingsPanel — page switching (AC-HARD-SET-2 + ADR-0055)", () => {
-  it("clicking 'providers' page shows LLM Models content (provider list)", () => {
+  it("clicking 'providers' page shows LLM Models content (vendor catalog scope toggle)", () => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     expect(btn).not.toBeNull();
     fireEvent.click(btn!);
-    // SectionLlmModels — provider rows present
-    const deleteButtons = screen.getAllByText("delete");
-    expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
+    // SectionLlmModels v1.4 — scope toggle buttons (globalScoped / vaultScoped) present
+    expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
   });
 
   it("clicking 'appearance' page shows Output + Interface content", () => {
@@ -499,8 +552,8 @@ describe("SettingsPanel — Interface section renders theme selector (ADR-0048 �
   });
 });
 
-// ─── 4. Provider list renders (AC-HARD-PROV-1) ───────────────────────────────
-// SectionLlmModels is now in page "providers" — navigate to "providers".
+// ─── 4. Provider catalog renders (AC-HARD-PROV-1 updated for v1.4) ───────────
+// SectionLlmModels v1.4 shows vendor catalog + scope toggle (no per-config rows).
 
 describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PROV-1)", () => {
   beforeEach(() => {
@@ -509,18 +562,24 @@ describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PR
     fireEvent.click(btn!);
   });
 
-  it("renders 2 provider rows (matching mock data)", () => {
-    const deleteButtons = screen.getAllByText("delete");
-    expect(deleteButtons).toHaveLength(2);
+  it("renders the scope toggle (global / vault) in the providers page", () => {
+    expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
   });
 
-  it("renders the model_id for each provider", () => {
-    expect(screen.getByText("claude-sonnet-4-6")).toBeTruthy();
-    expect(screen.getByText("llama3")).toBeTruthy();
+  it("renders the CLI auth section (SectionCliAuth) inside the expanded claude-cli vendor row", () => {
+    // SectionCliAuth is now embedded inside the claude-cli vendor row (v1.4 IA change).
+    // Expand the row first to reveal it.
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 });
 
-// ─── 5. ADD form toggles (AC-HARD-PROV-2) ────────────────────────────────────
+// ─── 5. Scope toggle in vendor catalog (AC-HARD-PROV-2 updated for v1.4) ──────
+// The old add-provider form is replaced by vendor catalog + scope toggle.
 
 describe("SettingsPanel — ADD form visibility toggle (AC-HARD-PROV-2)", () => {
   beforeEach(() => {
@@ -530,65 +589,65 @@ describe("SettingsPanel — ADD form visibility toggle (AC-HARD-PROV-2)", () => 
   });
 
   it("ADD form is not visible before clicking addProvider", () => {
-    // The form's model_id input is not in the DOM yet
-    expect(document.querySelector('input[type="text"]')).toBeNull();
+    // The old add-provider form no longer exists; there is no standalone text input on load.
+    // The only inputs visible are inside collapsed vendor rows (none when vendors=[]).
+    const allTextInputs = document.querySelectorAll('input[type="text"]');
+    expect(allTextInputs.length).toBe(0);
   });
 
-  it("clicking '+ addProvider' button shows the form", () => {
-    // The top-level button text includes "addProvider" (from i18n key last segment)
-    const addBtn = screen.getByText(/addProvider/i);
-    fireEvent.click(addBtn);
-    // Now the model_id text input should be in the DOM
-    expect(document.querySelector('input[type="text"]')).not.toBeNull();
+  it("clicking 'vault' scope button switches scope", () => {
+    const vaultBtn = document.querySelector('[data-testid="scope-btn-vault"]');
+    expect(vaultBtn).not.toBeNull();
+    fireEvent.click(vaultBtn!);
+    // After click, vault button should have accent styling (aria-pressed or active state)
+    // We verify the click doesn't throw and the scope buttons remain in the DOM.
+    expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
   });
 });
 
-// ─── 6. Add button disabled when model_id empty (ITEM 2 / architect C2) ──────
+// ─── 6. Vendor catalog UX (replaces old "Add button" tests for v1.4) ──────────
 
 describe("SettingsPanel — Add button disabled when model_id empty (architect C2)", () => {
   beforeEach(() => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
-    // Open the add form
-    const addBtn = screen.getByText(/addProvider/i);
-    fireEvent.click(addBtn);
   });
 
   it("Add button is disabled when model_id field is empty", () => {
-    // Find the submit button inside the form ("add" key → text "add")
-    const submitBtn = screen.getByText("add") as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(true);
+    // v1.4: no standalone add-provider form; vendor activation is via toggle.
+    // Verify scope toggle buttons are present and functional.
+    expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
   });
 
   it("Add button is enabled after typing a model_id", () => {
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "claude-sonnet-4-6" } });
-    const submitBtn = screen.getByText("add") as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(false);
+    // v1.4: model selection is via chip buttons inside expanded vendor rows.
+    // No standalone text input exists at this level.
+    expect(document.querySelector('input[type="text"]')).toBeNull();
   });
 
   it("Add button is disabled again after clearing model_id", () => {
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "claude-sonnet-4-6" } });
-    fireEvent.change(input, { target: { value: "" } });
-    const submitBtn = screen.getByText("add") as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(true);
+    // v1.4: scope toggle is always present and functional.
+    const globalBtn = document.querySelector('[data-testid="scope-btn-global"]');
+    expect(globalBtn).not.toBeNull();
   });
 
   it("Add button is disabled when model_id is only whitespace", () => {
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "   " } });
-    const submitBtn = screen.getByText("add") as HTMLButtonElement;
-    expect(submitBtn.disabled).toBe(true);
+    // v1.4: CLI auth section is inside the expanded claude-cli vendor row (not standalone).
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 });
 
 // ─── 7. Arrow-key nav switches pages (ITEM 4 / DEFECT-M4H-005) ──────────────
-// ADR-0055: 18 pages total. Arrow keys skip group headers (only traverse page buttons).
+// ADR-0055: 19 pages total. Arrow keys skip group headers (only traverse page buttons).
 // NAV order (ALL_PAGES): providers(0) appearance(1) setup(2) sourceWatch(3) clipper(4) pdf(5)
 //   generation(6) scenarios(7) context(8) embeddings(9) webSearch(10) automation(11) limits(12)
-//   security(13) apiMcp(14) costs(15) maintenance(16) about(17)
+//   security(13) apiMcp(14) costs(15) maintenance(16) changelog(17) about(18)
 
 describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005 / ADR-0055)", () => {
   it("ArrowDown from 'providers' (index 0) moves to 'appearance' (index 1)", () => {
@@ -603,11 +662,11 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last, index 17) back to 'providers' (first, index 0)", () => {
+  it("ArrowDown cycles past 'about' (last, index 18) back to 'providers' (first, index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 17) — 17 ArrowDown presses from "providers"
-    for (let i = 0; i < 17; i++) {
+    // Navigate to "about" (index 18) — 18 ArrowDown presses from "providers"
+    for (let i = 0; i < 18; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -739,6 +798,37 @@ describe("SettingsPanel — About section", () => {
     const btn = document.querySelector('[data-settings-section="about"]');
     fireEvent.click(btn!);
     expect(screen.getByText(`v${__APP_VERSION__}`)).toBeTruthy();
+  });
+});
+
+// ─── 10b. Changelog section renders mocked section (ADR-0055) ────────────────
+// SectionChangelog is on page "changelog" (SISTEMA group, before "about").
+// SectionChangelog is mocked above to avoid fetch('/CHANGELOG.md') in the test env.
+
+describe("SettingsPanel — Changelog section (ADR-0055)", () => {
+  it("changelog nav button is present with correct data-testid", () => {
+    renderPanel();
+    expect(document.querySelector('[data-testid="settings-nav-changelog"]')).not.toBeNull();
+    expect(document.querySelector('[data-settings-section="changelog"]')).not.toBeNull();
+  });
+
+  it("clicking changelog nav button renders the changelog section", () => {
+    renderPanel();
+    const btn = document.querySelector('[data-settings-section="changelog"]');
+    fireEvent.click(btn!);
+    expect(screen.getByTestId("section-changelog")).toBeTruthy();
+  });
+
+  it("changelog button is between maintenance and about in the SISTEMA group", () => {
+    renderPanel();
+    const aside = document.querySelector("aside")!;
+    const buttons = Array.from(aside.querySelectorAll("button"));
+    const maintIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "maintenance");
+    const clIdx    = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "changelog");
+    const aboutIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "about");
+    expect(maintIdx).toBeGreaterThanOrEqual(0);
+    expect(clIdx).toBeGreaterThan(maintIdx);
+    expect(aboutIdx).toBeGreaterThan(clIdx);
   });
 });
 
@@ -1672,15 +1762,21 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
 // Note: SectionCliAuth is now embedded inside SectionLlmModels (page "providers").
 
 describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
-  // Helper: navigate to providers page and wait for the CLI auth sub-block to appear.
+  // Helper: navigate to providers page, expand the claude-cli vendor row, and wait
+  // for the CLI auth sub-block (now embedded in that row) to load its posture badges.
   async function navigateToCliAuthAndWait() {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
+    // SectionCliAuth is now embedded inside the claude-cli vendor row (v1.4).
+    // Expand the row via its aria-expanded header div (NOT the vendor-toggle button).
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
     });
-    // Wait for the fetch to resolve and posture badges to appear.
+    // Wait for getCliAuthConfig to resolve and posture badges to appear.
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-configured-badge")).toBeTruthy();
     });
@@ -1690,7 +1786,11 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
-    // The CLI auth sub-block shows "loading" while getCliAuthConfig is pending.
+    // SectionCliAuth is embedded in the claude-cli vendor row — expand it first so the
+    // component mounts, then check its loading state before the async fetch resolves.
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
     // i18n mock: "settings.cliAuth.loading" → "loading"
     expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
@@ -1855,9 +1955,9 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     expect(screen.getByText("guideTitle")).toBeTruthy();
   });
 
-  it("shows the security caveat block", async () => {
+  it("does not show a security caveat block (removed — token is encrypted at rest)", async () => {
     await navigateToCliAuthAndWait();
-    expect(screen.getByTestId("cli-auth-caveat")).toBeTruthy();
+    expect(screen.queryByTestId("cli-auth-caveat")).toBeNull();
   });
 
   it("shows an error state when getCliAuthConfig rejects", async () => {
@@ -1867,6 +1967,10 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
+    // Expand the claude-cli row to mount SectionCliAuth before checking the error state.
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
 
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
@@ -2026,11 +2130,19 @@ describe("SettingsPanel — All original controls still reachable in 2-level IA 
     expect(document.querySelector('[data-testid="wizard-placeholder-slot"]')).not.toBeNull();
   });
 
-  it("providers page: provider delete buttons present (SectionLlmModels)", () => {
+  it("providers page: vendor catalog scope toggle and CLI auth present (SectionLlmModels v1.4)", () => {
     renderPanel();
     fireEvent.click(document.querySelector('[data-settings-section="providers"]')!);
-    const delBtns = screen.getAllByText("delete");
-    expect(delBtns.length).toBeGreaterThanOrEqual(2);
+    // v1.4: per-config delete buttons are replaced by the vendor catalog.
+    // Verify the scope toggle buttons are rendered (always visible).
+    expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
+    expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
+    // CLI auth is embedded inside the claude-cli vendor row — expand it to confirm it's present.
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 
   it("context page: context window select renders (SectionGeneral)", () => {

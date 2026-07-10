@@ -1,8 +1,16 @@
 /**
  * convertClient.ts — typed API client for Marker PDF conversion endpoints [F12][R11-1].
  *
- * POST /ingest/convert-marker  multipart files (1..10 PDFs)
- * GET  /ingest/marker-health   proxy to Marker service health
+ * Async contract (v1.4 W0 — async marker):
+ *   POST /ingest/convert-marker  multipart files (1..10 PDFs) → 202 Accepted immediately
+ *   GET  /ingest/convert-marker/status → live batch progress
+ *   GET  /ingest/marker-health         → proxy to Marker service health
+ *
+ * Synchronous error codes (returned immediately, before background work):
+ *   400 — more than 10 files
+ *   409 — a batch is already running
+ *   413 — file too large
+ *   415 — non-PDF submitted
  *
  * All calls go through apiFetch (ADR-0052 §4.2 — single auth injection point).
  * No secrets in this file (CLAUDE.md §12).
@@ -10,26 +18,61 @@
 
 import { apiBase, apiFetch } from "./base";
 
-// ─── Response types ────────────────────────────────────────────────────────────
+// ─── Batch-submit response (POST 202) ─────────────────────────────────────────
 
-/** Successful per-file conversion result from POST /ingest/convert-marker. */
-export interface ConvertFileResult {
+/** One queued file entry from POST /ingest/convert-marker 202 response. */
+export interface BatchQueuedItem {
   /** Original filename as submitted. */
-  filename: string;
-  /** Path written to vault/raw/sources/ (watcher will pick it up). */
-  output_path: string;
-  /** Marker extraction status string. */
-  status: "ok";
+  file: string;
+  /** Filesystem-safe stem used for output paths. */
+  safe_stem: string;
+  /** Path where the PDF is staged in the vault. */
+  pdf_path: string;
 }
 
 /**
- * Error body returned when Marker is unreachable or returns a non-2xx status.
- * Backend contract: HTTP 502, body {"error":"marker_unavailable","detail":"..."}.
+ * Response from POST /ingest/convert-marker (202 Accepted).
+ * Returned immediately — the actual conversion runs in the background.
+ * [F12][I7 bounded: ≤10 files per batch]
  */
-export interface MarkerUnavailableError {
-  error: "marker_unavailable";
-  detail: string;
+export interface ConvertBatchResponse {
+  batch_id: string;
+  queued: BatchQueuedItem[];
+  total: number;
 }
+
+// ─── Status-poll response (GET /ingest/convert-marker/status) ────────────────
+
+/** Backend status for one file within a batch. */
+export type ConvertFileStatus = "pending" | "converting" | "ok" | "failed";
+
+/** Per-file detail from GET /ingest/convert-marker/status. */
+export interface ConvertStatusFile {
+  file: string;
+  safe_stem: string;
+  status: ConvertFileStatus;
+  /** Error message when status is "failed", null otherwise. */
+  detail: string | null;
+  /** Path of the companion Markdown file when status is "ok", null otherwise. */
+  companion_path: string | null;
+}
+
+/**
+ * Response from GET /ingest/convert-marker/status (200).
+ * Poll this every ~2.5 s while running is true; stop when running is false.
+ */
+export interface ConvertStatusResponse {
+  batch_id: string;
+  /** True while the batch is still processing. */
+  running: boolean;
+  total: number;
+  done: number;
+  /** Estimated seconds remaining (null when not calculable). */
+  eta_seconds: number | null;
+  files: ConvertStatusFile[];
+}
+
+// ─── Marker health response types (unchanged) ─────────────────────────────────
 
 /** Response body from GET /ingest/marker-health when Marker is reachable. */
 export interface MarkerHealthOk {
@@ -47,45 +90,51 @@ export type MarkerHealthResponse = MarkerHealthOk | MarkerHealthOffline;
 // ─── ConvertError ──────────────────────────────────────────────────────────────
 
 /**
- * Error thrown when a convert-marker call returns 502 (Marker unreachable).
- * Carries the backend `detail` message for display in per-file status rows.
+ * Error thrown when POST /ingest/convert-marker returns a synchronous error:
+ *   400 — >10 files submitted
+ *   409 — a batch is already running
+ *   413 — file exceeds server size limit
+ *   415 — non-PDF file submitted
+ *
+ * The `status` field carries the HTTP status code so callers can render
+ * the correct i18n message.
  */
-export class MarkerError extends Error {
+export class ConvertError extends Error {
   readonly status: number;
   readonly detail: string;
 
   constructor(status: number, detail: string) {
     super(detail);
-    this.name = "MarkerError";
+    this.name = "ConvertError";
     this.status = status;
     this.detail = detail;
   }
 }
 
-// ─── convertFiles ──────────────────────────────────────────────────────────────
+// ─── startConvert ─────────────────────────────────────────────────────────────
 
 /**
- * convertFiles — POST /ingest/convert-marker with a multipart files field.
+ * startConvert — POST /ingest/convert-marker with a multipart files field.
  *
- * Submits 1..10 PDF files. On success returns the list of converted file results.
- * On Marker error (502) throws MarkerError with the backend detail string.
- * On other HTTP errors throws a generic Error.
+ * Submits 1..10 PDF files and returns immediately (202 Accepted) once the
+ * backend has queued the batch.  The actual conversion runs in the background.
+ *
+ * On synchronous error (400/409/413/415) throws ConvertError with the backend
+ * detail string so the UI can surface a meaningful message.
  *
  * IMPORTANT: do NOT set Content-Type manually — the browser sets the multipart
- * boundary automatically when using FormData (same pattern as uploadDocument).
+ * boundary automatically when using FormData.
  *
  * [F12][R11-1][I7 bounded: ≤10 files per call]
  */
-export async function convertFiles(
+export async function startConvert(
   files: File[],
   signal?: AbortSignal,
-): Promise<ConvertFileResult[]> {
+): Promise<ConvertBatchResponse> {
   const url = `${apiBase()}/ingest/convert-marker`;
   const form = new FormData();
   for (const file of files) {
-    // Field name MUST be "files" (matches the FastAPI param `files: list[UploadFile]`
-    // on POST /ingest/convert-marker). Sending "files[]" leaves the required `files`
-    // field absent → 422 Unprocessable Entity.
+    // Field name MUST be "files" (matches the FastAPI param `files: list[UploadFile]`).
     form.append("files", file);
   }
   const res = await apiFetch(url, {
@@ -94,16 +143,33 @@ export async function convertFiles(
     ...(signal !== undefined ? { signal } : {}),
   });
 
-  if (res.status === 502) {
-    let detail = "Marker unavailable";
+  if (!res.ok) {
+    let detail = res.statusText;
     try {
-      const body = (await res.json()) as Partial<MarkerUnavailableError>;
+      const body = (await res.json()) as { detail?: string };
       if (body.detail) detail = body.detail;
     } catch {
-      // ignore parse error
+      // ignore parse error — use status text
     }
-    throw new MarkerError(502, detail);
+    throw new ConvertError(res.status, detail);
   }
+
+  return (await res.json()) as ConvertBatchResponse;
+}
+
+// ─── getConvertStatus ─────────────────────────────────────────────────────────
+
+/**
+ * getConvertStatus — GET /ingest/convert-marker/status.
+ *
+ * Returns the live progress of the current (or last) batch.
+ * Poll this every ~2.5 s while `running` is true; stop when `running` is false.
+ *
+ * [F12][R11-1]
+ */
+export async function getConvertStatus(signal?: AbortSignal): Promise<ConvertStatusResponse> {
+  const url = `${apiBase()}/ingest/convert-marker/status`;
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
 
   if (!res.ok) {
     let detail = res.statusText;
@@ -116,7 +182,7 @@ export async function convertFiles(
     throw new Error(`${res.status} ${detail}`);
   }
 
-  return (await res.json()) as ConvertFileResult[];
+  return (await res.json()) as ConvertStatusResponse;
 }
 
 // ─── getMarkerHealth ───────────────────────────────────────────────────────────
