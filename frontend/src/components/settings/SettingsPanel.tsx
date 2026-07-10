@@ -473,7 +473,7 @@ function PageLimits() {
   );
 }
 
-/** pdf: runtime keys pdf_extractor + marker_service_url + marker_timeout_seconds */
+/** pdf: pdf_extractor + marker_* (local) + mineru_* (cloud, opt-in — P3-d) runtime keys */
 function PagePdf() {
   const { t } = useTranslation();
   return (
@@ -482,7 +482,15 @@ function PagePdf() {
         title={t("config.pdfExtractorSection.title")}
         desc={t("config.pdfExtractorSection.desc")}
       />
-      <SectionRuntimeConfig keys={["pdf_extractor", "marker_service_url", "marker_timeout_seconds"]} />
+      <SectionRuntimeConfig
+        keys={[
+          "pdf_extractor",
+          "marker_service_url",
+          "marker_timeout_seconds",
+          "mineru_api_url",
+          "mineru_timeout_seconds",
+        ]}
+      />
     </div>
   );
 }

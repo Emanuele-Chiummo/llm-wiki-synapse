@@ -935,10 +935,10 @@ async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
     body = resp.json()
     settings_list = body["settings"]
     # Now 20 keys (S1..S20; S19/S20 = Image Captioning keys, v1.5 P3-a)
-    assert len(settings_list) == 20, f"Expected 20 settings, got {len(settings_list)}"
+    assert len(settings_list) == 22, f"Expected 22 settings, got {len(settings_list)}"
     keys = [s["key"] for s in settings_list]
     assert keys == ORDERED_KEYS, f"Keys out of order: {keys}"
-    assert keys[-1] == "vision_max_images_per_run", "vision_max_images_per_run must be last (S20)"
+    assert keys[-1] == "mineru_timeout_seconds", "mineru_timeout_seconds must be last (S22)"
 
 
 # ── T-STATS-014..018: GET /stats/groups (A1 amendment) ───────────────────────

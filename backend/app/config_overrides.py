@@ -77,6 +77,8 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "lint_token_budget",  # S18 — int 1000–500_000; caps LintScan token spend (I7)
         "vision_captions_enabled",  # S19 (v1.5 P3-a) — Image Captioning master toggle (R8-2)
         "vision_max_images_per_run",  # S20 (v1.5 P3-a) — int 0–50; per-run vision-call cap (I7)
+        "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069) — MinerU cloud base URL (non-secret)
+        "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069) — MinerU cloud HTTP timeout (I7)
     }
 )
 
@@ -103,10 +105,12 @@ ORDERED_KEYS: list[str] = [
     "lint_token_budget",  # S18 — loop bound (I7)
     "vision_captions_enabled",  # S19 (v1.5 P3-a)
     "vision_max_images_per_run",  # S20 (v1.5 P3-a)
+    "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069)
+    "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069)
 ]
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
-_PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker"})
+_PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker", "mineru"})
 _EMBEDDING_FORMAT_VALUES: frozenset[str] = frozenset({"ollama", "openai"})
 _BOOL_TRUE: frozenset[str] = frozenset({"true", "1", "yes"})
 _BOOL_FALSE: frozenset[str] = frozenset({"false", "0", "no"})
@@ -138,6 +142,18 @@ def validate_value(key: str, value: str) -> str | None:
             return f"marker_timeout_seconds must be a float > 0 and ≤ 3600, got {value!r}"
         if not (0 < f <= 3600):
             return f"marker_timeout_seconds must be > 0 and ≤ 3600, got {f!r}"
+
+    elif key == "mineru_api_url":
+        if not (value.startswith("http://") or value.startswith("https://")):
+            return f"mineru_api_url must start with http:// or https://, got {value!r}"
+
+    elif key == "mineru_timeout_seconds":
+        try:
+            f = float(value)
+        except ValueError:
+            return f"mineru_timeout_seconds must be a float > 0 and ≤ 3600, got {value!r}"
+        if not (0 < f <= 3600):
+            return f"mineru_timeout_seconds must be > 0 and ≤ 3600, got {f!r}"
 
     elif key == "cost_alert_threshold_usd":
         try:

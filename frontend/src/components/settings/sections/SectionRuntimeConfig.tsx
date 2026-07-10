@@ -392,6 +392,9 @@ export function configKeyToI18nSuffix(key: AppConfigKey): string {
     // S19/S20: Image Captioning (v1.5 P3-a)
     vision_captions_enabled:    "visionCaptionsEnabled",
     vision_max_images_per_run:  "visionMaxImagesPerRun",
+    // S21/S22: MinerU cloud PDF (v1.5 P3-d)
+    mineru_api_url:             "mineruApiUrl",
+    mineru_timeout_seconds:     "mineruTimeoutSeconds",
   };
   return map[key];
 }
@@ -411,16 +414,37 @@ function RcControl({
   const { t } = useTranslation();
 
   if (configKey === "pdf_extractor") {
+    const isMineru = entry.localValue === "mineru";
     return (
-      <select
-        data-testid="rc-control-pdf_extractor"
-        value={entry.localValue}
-        onChange={(e) => onLocalChange(configKey, e.target.value)}
-        style={INPUT_STYLE}
-      >
-        <option value="pypdf">{t("config.pdfExtractor.optionPypdf")}</option>
-        <option value="marker">{t("config.pdfExtractor.optionMarker")}</option>
-      </select>
+      <div>
+        <select
+          data-testid="rc-control-pdf_extractor"
+          value={entry.localValue}
+          onChange={(e) => onLocalChange(configKey, e.target.value)}
+          style={INPUT_STYLE}
+        >
+          <option value="pypdf">{t("config.pdfExtractor.optionPypdf")}</option>
+          <option value="marker">{t("config.pdfExtractor.optionMarker")}</option>
+          <option value="mineru">{t("config.pdfExtractor.optionMineru")}</option>
+        </select>
+        {isMineru && (
+          <p
+            data-testid="rc-mineru-cloud-warning"
+            style={{
+              margin: "8px 0 0",
+              padding: "8px 10px",
+              borderRadius: 8,
+              border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)",
+              background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+              color: "var(--syn-amber)",
+              fontSize: 11.5,
+              lineHeight: 1.5,
+            }}
+          >
+            {t("config.pdfExtractor.mineruCloudWarning")}
+          </p>
+        )}
+      </div>
     );
   }
 

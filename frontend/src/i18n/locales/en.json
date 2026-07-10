@@ -1289,7 +1289,9 @@
       "label": "PDF extractor",
       "help": "Choose which engine extracts text from PDF files on ingest.",
       "optionPypdf": "pypdf (built-in, no external service required)",
-      "optionMarker": "Marker (higher quality, requires the Marker microservice)"
+      "optionMarker": "Marker (higher quality, requires the Marker microservice)",
+      "optionMineru": "MinerU (cloud, highest quality — uploads the PDF to an external service)",
+      "mineruCloudWarning": "⚠️ Cloud provider: selecting MinerU uploads your PDF content to an external service. It stays off until MINERU_API_KEY is set in the environment; on any error it falls back to the built-in pypdf extractor."
     },
     "markerServiceUrl": {
       "label": "Marker service URL",
@@ -1379,6 +1381,16 @@
       "wizardComingSoon": "Coming soon",
       "wizardOpen": "Open setup wizard",
       "wizardReopen": "Reopen setup wizard"
+    },
+    "mineruApiUrl": {
+      "label": "MinerU API URL",
+      "help": "Base URL of the MinerU cloud API. Only used when the PDF extractor is set to MinerU. The API key is set separately via the MINERU_API_KEY environment variable (never stored here).",
+      "placeholder": "https://mineru.net/api/v4"
+    },
+    "mineruTimeoutSeconds": {
+      "label": "MinerU timeout (s)",
+      "help": "Seconds to wait for the MinerU cloud API before timing out. Must be between 1 and 3600.",
+      "placeholder": "600"
     }
   },
   "wizard": {
