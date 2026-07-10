@@ -341,6 +341,111 @@ async def get_synthesize_status() -> SynthesizeStatusResponse:
     )
 
 
+# ── POST/GET /ops/reconcile-folders — bounded folder-vs-type reconcile sweep ──
+# Physically moves wiki pages whose filesystem folder does not match the folder
+# implied by their ``type`` (e.g. an entity living under concepts/ → entities/).
+# Background asyncio task + 202, single-flight (409 while running), DRY-RUN by default.
+# Zero LLM cost (deterministic folder routing via type_subdir). Strong task reference
+# kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_reconcile_tasks: set[asyncio.Task[Any]] = set()
+
+
+class ReconcileFoldersRequest(BaseModel):
+    """Request body for POST /ops/reconcile-folders."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on wiki pages scanned per run (clamped server-side, I7).",
+    )
+    apply: bool = Field(
+        default=False,
+        description=(
+            "False (default) = dry-run only — returns a plan with no file writes. "
+            "True = perform actual moves + DB + Qdrant updates."
+        ),
+    )
+
+
+class ReconcileFoldersStartResponse(BaseModel):
+    """202 response for POST /ops/reconcile-folders."""
+
+    status: str = Field(default="started", description="'started' — reconcile runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    apply: bool = Field(description="Whether moves are applied (False = dry-run)")
+
+
+class ReconcileFoldersStatusResponse(BaseModel):
+    """GET /ops/reconcile-folders — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a reconcile run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Summary of the most recent completed run (null if never ran). "
+            "Includes 'plan' (list of proposed moves) in dry-run mode."
+        ),
+    )
+
+
+@router.post(
+    "/ops/reconcile-folders",
+    status_code=202,
+    response_model=ReconcileFoldersStartResponse,
+    responses={409: {"description": "A reconcile-folders run is already in flight"}},
+)
+async def start_reconcile_folders(
+    body: ReconcileFoldersRequest,
+) -> ReconcileFoldersStartResponse:
+    """
+    Start ONE bounded folder-reconcile sweep (apply=False → dry-run; apply=True → moves) [K1,I1].
+
+    Finds wiki pages whose physical folder (e.g. ``concepts/``) does not match the folder
+    implied by their ``type`` frontmatter (e.g. ``entity`` → ``entities/``) and — when
+    ``apply=True`` — moves them, updating Postgres + Qdrant. Zero LLM cost; purely
+    deterministic. The plan is visible via GET /ops/reconcile-folders after the run
+    completes (dry-run returns plan without writing; apply returns counts + by_folder).
+    """
+    from app.ops import reconcile_folders as _rf  # noqa: PLC0415
+
+    if _rf.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A reconcile-folders run is already in flight. Poll GET /ops/reconcile-folders.",
+        )
+
+    mp = _rf.clamp_bounds(body.max_pages)
+
+    async def _run() -> None:
+        try:
+            await _rf.run_reconcile(
+                vault_id=settings.vault_id,
+                apply=body.apply,
+                max_pages=body.max_pages,
+            )
+        except Exception as exc:  # noqa: BLE001 — run_reconcile never raises by contract
+            logger.error("reconcile-folders: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _reconcile_tasks.add(task)
+    task.add_done_callback(_reconcile_tasks.discard)
+
+    return ReconcileFoldersStartResponse(status="started", max_pages=mp, apply=body.apply)
+
+
+@router.get("/ops/reconcile-folders", response_model=ReconcileFoldersStatusResponse)
+async def get_reconcile_folders_status() -> ReconcileFoldersStatusResponse:
+    """Single-flight state + last summary of the folder-reconcile sweep [K1,I1]."""
+    from app.ops import reconcile_folders as _rf  # noqa: PLC0415
+
+    last = _rf.get_last_summary()
+    return ReconcileFoldersStatusResponse(
+        running=_rf.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
 # ── GET /ops/schedules + POST /ops/schedules/{op}/run-now (R12-7/A5) ─────────
 # OpsScheduler status + manual trigger. Schedule FREQUENCIES are set via the existing
 # PUT /config/app/{key} (S10 lint_schedule / S11 backfill_schedule — no new write endpoint).
