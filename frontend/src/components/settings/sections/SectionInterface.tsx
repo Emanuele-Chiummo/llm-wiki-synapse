@@ -16,10 +16,11 @@ export function SectionInterface() {
   const theme = useSettingsStore(selectTheme);
   const setTheme = useSettingsStore(selectSetTheme);
 
+  // LLM Wiki order: Light · Dark · System.
   const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
-    { value: "system", labelKey: "settings.theme.system" },
     { value: "light",  labelKey: "settings.theme.light" },
     { value: "dark",   labelKey: "settings.theme.dark" },
+    { value: "system", labelKey: "settings.theme.system" },
   ];
 
   return (
@@ -27,31 +28,36 @@ export function SectionInterface() {
       <SectionHeader title={t("settings.nav.interface")} desc={t("settings.interface.desc")} />
 
       <Field label={t("settings.theme.label")}>
-        <p style={{ margin: "0 0 10px", fontSize: 12, color: "var(--syn-text-muted)" }}>
+        {/* Segmented control — selected = filled dark (LLM Wiki), help BELOW the buttons */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {THEME_OPTIONS.map(({ value, labelKey }) => {
+            const on = theme === value;
+            return (
+              <button
+                key={value}
+                data-testid={`theme-btn-${value}`}
+                onClick={() => setTheme(value)}
+                aria-pressed={on}
+                style={{
+                  padding: "7px 16px",
+                  border: `1px solid ${on ? "var(--syn-text)" : "var(--syn-border)"}`,
+                  borderRadius: 8,
+                  background: on ? "var(--syn-text)" : "var(--syn-surface)",
+                  color: on ? "var(--syn-bg)" : "var(--syn-text-muted)",
+                  fontSize: 12.5,
+                  cursor: "pointer",
+                  fontWeight: on ? 600 : 500,
+                  transition: "background 0.12s, color 0.12s",
+                }}
+              >
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>
+        <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
           {t("settings.theme.help")}
         </p>
-        <div style={{ display: "flex", gap: 6 }}>
-          {THEME_OPTIONS.map(({ value, labelKey }) => (
-            <button
-              key={value}
-              data-testid={`theme-btn-${value}`}
-              onClick={() => setTheme(value)}
-              aria-pressed={theme === value}
-              style={{
-                padding: "6px 14px",
-                border: "1px solid var(--syn-border)",
-                borderRadius: 6,
-                background: theme === value ? "var(--syn-accent-soft)" : "transparent",
-                color: theme === value ? "var(--syn-accent)" : "var(--syn-text-muted)",
-                fontSize: 12,
-                cursor: "pointer",
-                fontWeight: theme === value ? 600 : 400,
-              }}
-            >
-              {t(labelKey)}
-            </button>
-          ))}
-        </div>
       </Field>
     </div>
   );
