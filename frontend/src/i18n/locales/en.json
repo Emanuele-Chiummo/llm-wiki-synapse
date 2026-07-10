@@ -441,7 +441,7 @@
       "saveError": "Failed to save. Is the backend running?",
       "guideTitle": "How to set up",
       "guideSteps": "1) On the host run: claude setup-token\n2) Paste the printed sk-ant-oat01-… token here\n3) Leave ANTHROPIC_API_KEY unset — the DB token is injected into the Claude CLI and the API key is scrubbed from its environment, so your subscription is used ($0 per token).",
-      "caveat": "Security note: this token is stored in the application database in plaintext and grants access to your Claude subscription. Treat database backups accordingly. To rotate: re-run `claude setup-token` and paste the new value. To revoke: click Clear and the CLI will fall back to env / unconfigured."
+      "caveat": "Security note: this token is stored encrypted at rest (Fernet, requires SYNAPSE_SECRET_KEY on the server) in the application database and grants access to your Claude subscription. Protect the master key and your database backups. To rotate: re-run `claude setup-token` and paste the new value. To revoke: click Clear and the CLI will fall back to env / unconfigured."
     },
     "scenarios": {
       "title": "Scenario Templates",

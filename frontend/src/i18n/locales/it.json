@@ -441,7 +441,7 @@
       "saveError": "Salvataggio fallito. Il backend è in esecuzione?",
       "guideTitle": "Come configurare",
       "guideSteps": "1) Sull'host esegui: claude setup-token\n2) Incolla qui il token sk-ant-oat01-… stampato\n3) Lascia ANTHROPIC_API_KEY non impostata — il token DB viene iniettato nel CLI Claude e la API key viene rimossa dal suo ambiente, quindi viene usato l'abbonamento ($0 per token).",
-      "caveat": "Nota sicurezza: questo token è salvato nel database dell'applicazione in chiaro e dà accesso al tuo abbonamento Claude. Tratta i backup del database di conseguenza. Per ruotare: esegui nuovamente `claude setup-token` e incolla il nuovo valore. Per revocare: clicca Rimuovi e il CLI tornerà a usare le variabili d'ambiente o risulterà non configurato."
+      "caveat": "Nota sicurezza: questo token è salvato cifrato a riposo (Fernet, richiede `SYNAPSE_SECRET_KEY` sul server) nel database dell'applicazione e dà accesso al tuo abbonamento Claude. Proteggi la master key e i backup del database. Per ruotare: esegui nuovamente `claude setup-token` e incolla il nuovo valore. Per revocare: clicca Rimuovi e il CLI tornerà a usare le variabili d'ambiente o risulterà non configurato."
     },
     "scenarios": {
       "title": "Modelli di scenario",
