@@ -120,6 +120,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](ADR-0065-marker-large-pdf-chunking.md) | Accepted |
 | **0066** | [LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope](ADR-0066-llmwiki-1to1-parity-program.md) | Accepted |
 | **0067** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change](ADR-0067-multi-vault-project-launcher.md) | Accepted |
+| **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](ADR-0068-source-watch-wider-types.md) | Accepted |
 
 ---
 
