@@ -50,7 +50,7 @@ exist, organised differently. The real gaps + sizing:
 
 | # | Slice | Synapse today | Size | Notes |
 |---|-------|---------------|------|-------|
-| P3-a | **Image Captioning page** | `vision_captions_enabled` + `vision_max_images_per_run` exist in config but are **env-only** (read directly in `ingest/vision.py:133`), no UI | **S** | Add both to `ALLOWED_CONFIG_KEYS`/`ORDERED_KEYS` (+bool/int validation), read via `effective_bool/int`, add a settings section + nav. **⚠ ripples into the `GET /config/app` snapshot tests (FE+BE) — update them in the same slice.** |
+| P3-a | **Image Captioning page** ✅ **DONE** | now runtime-overridable (S19/S20) + a settings page; verified live | **S** | Snapshot tests (FE+BE) updated 18→20. Commit `807965d`. |
 | P3-b | **Network proxy page** | none | **M** | New config (enable/url/bypass-local) + wire an `httpx` proxy transport into outbound clients (LLM/embeddings/search/update). Applying the proxy everywhere is the work. |
 | P3-c | **Source Watch wider types** | `_EXTRACTABLE_EXTENSIONS` = pdf/docx/pptx/xlsx only | **M/L** | LLM Wiki adds .doc/.odt/.rtf/.odp/.ods/.csv/.html/.mdx — needs real **extractors** for the new formats (not just a config flag) + grouped-checkbox UI + excluded-folders + max-size in the Source Watch page. |
 | P3-d | **MinerU cloud PDF toggle** | `pdf` page has Marker (`pdf_extractor` pypdf/marker) | **L** | ADR-0066: add MinerU as a 3rd `pdf_extractor` value + a MinerU cloud client + opt-in/off-default + upload warning. Backend integration. |
