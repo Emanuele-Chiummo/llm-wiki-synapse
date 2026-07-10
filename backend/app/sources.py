@@ -92,6 +92,27 @@ def _is_hidden(name: str) -> bool:
     return name.startswith(".")
 
 
+def _root_base_dir(root: str) -> Path:
+    """
+    Map a ``root`` query value to its base directory.
+
+    - "sources" (default) → vault/raw/sources/ (read-write).
+    - "wiki"              → vault/wiki/ (read-only tree).
+    - "vault"            → the whole vault root (v1.5 P1, llm_wiki Files-tab parity): raw/ +
+      wiki/ + purpose.md + schema.md. Hidden entries (.obsidian, dotfiles) are pruned by the
+      same filter used for the wiki root, so `.obsidian` internals never surface (I5).
+    """
+    if root == "wiki":
+        return settings.wiki_dir
+    if root == "vault":
+        return settings.vault_root
+    return settings.raw_sources_dir
+
+
+# Roots whose trees are read-only and must reject hidden files/dirs on content/raw access.
+_READONLY_ROOTS: frozenset[str] = frozenset({"wiki", "vault"})
+
+
 async def _cascade_delete_page(page_uuid: uuid.UUID) -> None:
     """
     Thin wrapper around ops.cascade_delete.cascade_delete (monkeypatch seam for tests).
@@ -462,26 +483,26 @@ async def _get_derived_pages(rel_path: str) -> list[SourceDerivedPage]:
     },
 )
 async def list_sources(
-    root: Literal["sources", "wiki"] = Query(
+    root: Literal["sources", "wiki", "vault"] = Query(
         default="sources",
         description=(
             "Which directory tree to list. "
             "'sources' (default) = vault/raw/sources/; "
-            "'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+            "'wiki' = vault/wiki/ (read-only; hidden dirs excluded); "
+            "'vault' = the whole vault root (raw/ + wiki/ + purpose.md + schema.md; "
+            "read-only; hidden dirs excluded — v1.5 P1 Files-tab parity)."
         ),
     ),
 ) -> SourcesListResponse:
     """
-    GET /sources[?root=sources|wiki] — recursive listing of the chosen root.
+    GET /sources[?root=sources|wiki|vault] — recursive listing of the chosen root.
 
     root='sources' (default): vault/raw/sources/ — unchanged existing behaviour.
     root='wiki': vault/wiki/ — read-only; hidden entries (dotfiles, .obsidian) excluded (I5).
+    root='vault': whole vault root — read-only whole-vault file tree (v1.5 P1).
     I1: read-only. I7: bounded at SOURCES_LIST_MAX.
     """
-    if root == "wiki":
-        base_dir = settings.wiki_dir
-    else:
-        base_dir = settings.raw_sources_dir
+    base_dir = _root_base_dir(root)
 
     if not base_dir.exists():
         return SourcesListResponse(entries=[], total=0, truncated=False)
@@ -583,27 +604,26 @@ async def list_sources(
 )
 async def source_content(
     path: str = Query(..., description="Relative path under the chosen root directory"),
-    root: Literal["sources", "wiki"] = Query(
+    root: Literal["sources", "wiki", "vault"] = Query(
         default="sources",
         description=(
             "Which directory to resolve path against. "
             "'sources' (default) = vault/raw/sources/; "
-            "'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "'wiki' = vault/wiki/ (read-only; hidden files rejected); "
+            "'vault' = whole vault root (read-only; hidden files rejected — v1.5 P1)."
         ),
     ),
 ) -> SourceContentResponse:
     """
-    GET /sources/content?path=<rel>[&root=sources|wiki] — metadata + text preview.
+    GET /sources/content?path=<rel>[&root=sources|wiki|vault] — metadata + text preview.
 
     root='sources' (default): path relative to vault/raw/sources/; derives page linkage.
     root='wiki': path relative to vault/wiki/; read-only; ingested=False, page_ids=[].
+    root='vault': path relative to the vault root; read-only whole-vault preview (v1.5 P1).
     Path-safety: _resolve_under_dir(base_dir, path) — containment-checked (ADR-0020 §2.2).
     I7: text capped at SOURCES_TEXT_MAX_CHARS.
     """
-    if root == "wiki":
-        base_dir = settings.wiki_dir
-    else:
-        base_dir = settings.raw_sources_dir
+    base_dir = _root_base_dir(root)
 
     # Path safety — raises HTTPException(422) on traversal
     try:
@@ -611,8 +631,8 @@ async def source_content(
     except HTTPException:
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
-    # For wiki root: also reject hidden files/dirs (dotfiles, .obsidian, etc.)
-    if root == "wiki":
+    # For read-only roots (wiki/vault): also reject hidden files/dirs (dotfiles, .obsidian).
+    if root in _READONLY_ROOTS:
         # Check every path component for hidden names
         try:
             rel_parts = abs_path.relative_to(base_dir.resolve()).parts
@@ -716,27 +736,26 @@ async def source_content(
 )
 async def source_raw(
     path: str = Query(..., description="Relative path under the chosen root directory"),
-    root: Literal["sources", "wiki"] = Query(
+    root: Literal["sources", "wiki", "vault"] = Query(
         default="sources",
         description=(
             "Which directory to resolve path against. "
             "'sources' (default) = vault/raw/sources/; "
-            "'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "'wiki' = vault/wiki/ (read-only; hidden files rejected); "
+            "'vault' = whole vault root (read-only; hidden files rejected — v1.5 P1)."
         ),
     ),
 ) -> Response:
     """
-    GET /sources/raw?path=<rel>[&root=sources|wiki] — stream raw bytes for inline preview.
+    GET /sources/raw?path=<rel>[&root=sources|wiki|vault] — stream raw bytes for inline preview.
 
     root='sources' (default): vault/raw/sources/ — unchanged existing behaviour.
     root='wiki': vault/wiki/ — read-only; hidden files rejected (I5).
+    root='vault': whole vault root — read-only; hidden files rejected (v1.5 P1).
     Path-safety: _resolve_under_dir(base_dir, path) — containment-checked (ADR-0020 §2.2).
     I7: 413 if file > SOURCES_RAW_MAX_BYTES.
     """
-    if root == "wiki":
-        base_dir = settings.wiki_dir
-    else:
-        base_dir = settings.raw_sources_dir
+    base_dir = _root_base_dir(root)
 
     # Path safety
     try:
@@ -744,8 +763,8 @@ async def source_raw(
     except HTTPException:
         raise HTTPException(status_code=404, detail=f"Source not found: {path!r}") from None
 
-    # For wiki root: reject hidden files/dirs
-    if root == "wiki":
+    # For read-only roots (wiki/vault): reject hidden files/dirs
+    if root in _READONLY_ROOTS:
         try:
             rel_parts = abs_path.relative_to(base_dir.resolve()).parts
         except ValueError:
