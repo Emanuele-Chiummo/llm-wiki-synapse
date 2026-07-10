@@ -17,13 +17,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import {
-  SectionHeader,
-  INPUT_STYLE,
-  BTN_PRIMARY,
-  BTN_SECONDARY,
-  GroupDivider,
-} from "../ui";
+import { SectionHeader, INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
 import { SectionCliAuth } from "./SectionCliAuth";
 import {
   useProviderStore,
@@ -385,6 +379,10 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         gap: 14,
       }}
     >
+      {/* Claude Code CLI subscription auth (sk-ant-oat OAuth) — co-located inside its own
+          vendor row (v1.4) instead of a standalone section; it's specific to this provider. */}
+      {vendor.id === "claude-cli" && <SectionCliAuth embedded />}
+
       {/* API Key (only for vendors that need one) */}
       {vendor.needs_api_key && (
         <div>
@@ -896,9 +894,6 @@ export function SectionLlmModels() {
           {t("settings.llmModels.vendorLoadError")}
         </p>
       )}
-
-      <GroupDivider />
-      <SectionCliAuth />
     </div>
   );
 }

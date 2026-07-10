@@ -86,6 +86,29 @@ vi.mock("../store/settingsStore", () => ({
 
 // ─── Mock providerStore ───────────────────────────────────────────────────────
 
+// Vendor catalog fixture — must be mock-prefixed so vitest hoisting allows referencing it
+// inside the vi.mock factory below.
+const mockVendors = [
+  {
+    id: "anthropic",
+    display_name: "Anthropic",
+    provider_type: "api" as const,
+    default_base_url: "https://api.anthropic.com",
+    needs_api_key: true,
+    model_presets: ["claude-sonnet-4-6"],
+    notes: "",
+  },
+  {
+    id: "claude-cli",
+    display_name: "Claude Code CLI",
+    provider_type: "cli" as const,
+    default_base_url: null,
+    needs_api_key: false,
+    model_presets: ["claude-haiku-4-5-20251001"],
+    notes: "",
+  },
+];
+
 const mockProviderList = [
   {
     id: "prov-1",
@@ -129,7 +152,7 @@ vi.mock("../store/providerStore", () => ({
       loading: false,
       error: null,
       writeScope: "global",
-      vendors: [],
+      vendors: mockVendors,
       vendorsLoading: false,
       vendorsError: null,
       fetchList: mockFetchProviders,
@@ -140,7 +163,7 @@ vi.mock("../store/providerStore", () => ({
     }),
   useShallow: (fn: unknown) => fn,
   useProviderList: () => mockProviderList,
-  useVendorList: () => [],
+  useVendorList: () => mockVendors,
   selectProviderList: (s: { list: unknown[] }) => s.list,
   selectProviderLoading: (s: { loading: boolean }) => s.loading,
   selectProviderError: (s: { error: string | null }) => s.error,
@@ -537,8 +560,14 @@ describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PR
     expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
   });
 
-  it("renders the CLI auth section (SectionCliAuth) at the bottom of providers page", () => {
-    expect(document.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
+  it("renders the CLI auth section (SectionCliAuth) inside the expanded claude-cli vendor row", () => {
+    // SectionCliAuth is now embedded inside the claude-cli vendor row (v1.4 IA change).
+    // Expand the row first to reveal it.
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 });
 
@@ -598,8 +627,12 @@ describe("SettingsPanel — Add button disabled when model_id empty (architect C
   });
 
   it("Add button is disabled when model_id is only whitespace", () => {
-    // v1.4: CLI auth section is always accessible from the providers page.
-    expect(document.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
+    // v1.4: CLI auth section is inside the expanded claude-cli vendor row (not standalone).
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 });
 
@@ -1691,15 +1724,21 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
 // Note: SectionCliAuth is now embedded inside SectionLlmModels (page "providers").
 
 describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
-  // Helper: navigate to providers page and wait for the CLI auth sub-block to appear.
+  // Helper: navigate to providers page, expand the claude-cli vendor row, and wait
+  // for the CLI auth sub-block (now embedded in that row) to load its posture badges.
   async function navigateToCliAuthAndWait() {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
+    // SectionCliAuth is now embedded inside the claude-cli vendor row (v1.4).
+    // Expand the row via its aria-expanded header div (NOT the vendor-toggle button).
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
     });
-    // Wait for the fetch to resolve and posture badges to appear.
+    // Wait for getCliAuthConfig to resolve and posture badges to appear.
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-configured-badge")).toBeTruthy();
     });
@@ -1709,7 +1748,11 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
-    // The CLI auth sub-block shows "loading" while getCliAuthConfig is pending.
+    // SectionCliAuth is embedded in the claude-cli vendor row — expand it first so the
+    // component mounts, then check its loading state before the async fetch resolves.
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
     // i18n mock: "settings.cliAuth.loading" → "loading"
     expect(screen.getAllByText("loading").length).toBeGreaterThanOrEqual(1);
   });
@@ -1886,6 +1929,10 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
     renderPanel();
     const btn = document.querySelector('[data-settings-section="providers"]');
     fireEvent.click(btn!);
+    // Expand the claude-cli row to mount SectionCliAuth before checking the error state.
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
 
     await waitFor(() => {
       expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
@@ -2049,10 +2096,15 @@ describe("SettingsPanel — All original controls still reachable in 2-level IA 
     renderPanel();
     fireEvent.click(document.querySelector('[data-settings-section="providers"]')!);
     // v1.4: per-config delete buttons are replaced by the vendor catalog.
-    // Verify the scope toggle buttons and CLI auth section are rendered.
+    // Verify the scope toggle buttons are rendered (always visible).
     expect(document.querySelector('[data-testid="scope-btn-global"]')).not.toBeNull();
     expect(document.querySelector('[data-testid="scope-btn-vault"]')).not.toBeNull();
-    expect(document.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
+    // CLI auth is embedded inside the claude-cli vendor row — expand it to confirm it's present.
+    const claudeCliRow = document.querySelector('[data-testid="vendor-row-claude-cli"]');
+    expect(claudeCliRow).not.toBeNull();
+    const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 
   it("context page: context window select renders (SectionGeneral)", () => {

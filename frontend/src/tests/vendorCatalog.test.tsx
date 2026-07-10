@@ -448,12 +448,20 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
     expect(screen.getByTestId("scope-btn-vault")).toBeTruthy();
   });
 
-  it("SectionCliAuth is rendered at the bottom", async () => {
+  it("SectionCliAuth is rendered inside the expanded claude-cli vendor row", async () => {
     const { SectionLlmModels } = await import(
       "../components/settings/sections/SectionLlmModels"
     );
     render(<SectionLlmModels />);
-    expect(screen.getByTestId("cli-auth-section")).toBeTruthy();
+    // SectionCliAuth is now embedded in the claude-cli vendor row (v1.4 IA change).
+    // It is NOT present before the row is expanded.
+    const claudeCliRow = screen.getByTestId("vendor-row-claude-cli");
+    expect(claudeCliRow.querySelector('[data-testid="cli-auth-section"]')).toBeNull();
+    // Expand the row via its aria-expanded header div.
+    const expandTrigger = claudeCliRow.querySelector("[aria-expanded]");
+    fireEvent.click(expandTrigger!);
+    // Now cli-auth-section is mounted inside the row.
+    expect(claudeCliRow.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
   });
 });
 

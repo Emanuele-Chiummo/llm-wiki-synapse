@@ -12,7 +12,7 @@ import { INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import { getCliAuthConfig, setCliAuthConfig } from "../../../api/providerClient";
 import type { CliAuthConfig } from "../../../api/types";
 
-export function SectionCliAuth() {
+export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [posture, setPosture] = useState<CliAuthConfig | null>(null);
   const [err, setErr] = useState(false);
@@ -69,9 +69,11 @@ export function SectionCliAuth() {
 
   return (
     <div data-testid="cli-auth-section">
-      <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        {t("settings.cliAuth.title")}
-      </p>
+      {!embedded && (
+        <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          {t("settings.cliAuth.title")}
+        </p>
+      )}
 
       {err ? (
         <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
