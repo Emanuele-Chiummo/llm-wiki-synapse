@@ -17,7 +17,7 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
-import logoUrl from "../../assets/synapse-logo.svg";
+import { SynapseMark } from "../brand/SynapseMark";
 import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor, cfAccessHeaders, platformFetch } from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
 
@@ -217,14 +217,8 @@ export function ConnectScreen() {
             }}
           />
 
-          {/* Logo */}
-          <img
-            src={logoUrl}
-            alt="Synapse"
-            width={64}
-            height={64}
-            style={{ marginBottom: 16 }}
-          />
+          {/* Logo — theme-aware: gradient on light, white-knockout on dark [Brand v1.0] */}
+          <SynapseMark size={64} style={{ marginBottom: 16 }} />
 
           {/* App name */}
           <h1
