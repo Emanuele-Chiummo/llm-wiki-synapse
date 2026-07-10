@@ -18,7 +18,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ProviderSelector } from "./provider/ProviderSelector";
-import logoUrl from "../assets/synapse-logo.svg";
+import { SynapseMark } from "./brand/SynapseMark";
 import { isTauri, getKnownServers } from "../api/base";
 import { useSettingsStore, selectServerUrl, selectClearServerUrl, selectSetServerUrl } from "../store/settingsStore";
 import { useDesktopZoom } from "../hooks/useDesktopZoom";
@@ -107,14 +107,7 @@ export function Header() {
         className="app-header__brand"
         style={{ display: "flex", alignItems: "center", gap: 8 }}
       >
-        <img
-          src={logoUrl}
-          alt=""
-          aria-hidden="true"
-          width={22}
-          height={22}
-          style={{ display: "block", flexShrink: 0 }}
-        />
+        <SynapseMark size={22} style={{ display: "block", flexShrink: 0 }} />
         <span
           style={{
             fontSize: 15,
