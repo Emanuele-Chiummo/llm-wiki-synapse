@@ -133,3 +133,98 @@ async def test_projects_active_fallback_when_unknown(
     async with _client() as c:
         resp = await c.get("/projects")
     assert resp.json()["active_id"] == "a"
+
+
+# ── POST /projects/open — register existing vault (slice 2) ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_open_registers_existing_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opening an existing dir registers it and persists the registry file."""
+    _seed_env(tmp_path, monkeypatch)
+    existing = tmp_path / "my-vault"
+    existing.mkdir()
+    async with _client() as c:
+        resp = await c.post("/projects/open", json={"path": str(existing)})
+        assert resp.status_code == 200, resp.text
+        proj = resp.json()
+        assert proj["name"] == "my-vault"
+        assert proj["path"] == str(existing.resolve())
+        # It now shows up in GET /projects.
+        listed = (await c.get("/projects")).json()
+    assert any(p["id"] == proj["id"] for p in listed["projects"])
+
+
+@pytest.mark.asyncio
+async def test_open_rejects_relative_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed_env(tmp_path, monkeypatch)
+    async with _client() as c:
+        resp = await c.post("/projects/open", json={"path": "relative/dir"})
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_open_404_when_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _seed_env(tmp_path, monkeypatch)
+    async with _client() as c:
+        resp = await c.post("/projects/open", json={"path": str(tmp_path / "nope")})
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_open_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Opening the same path twice returns the same project id (no duplicate)."""
+    _seed_env(tmp_path, monkeypatch)
+    d = tmp_path / "v"
+    d.mkdir()
+    async with _client() as c:
+        a = (await c.post("/projects/open", json={"path": str(d)})).json()
+        b = (await c.post("/projects/open", json={"path": str(d)})).json()
+        listed = (await c.get("/projects")).json()
+    assert a["id"] == b["id"]
+    assert sum(1 for p in listed["projects"] if p["id"] == a["id"]) == 1
+
+
+# ── POST /projects — create + scaffold (slice 2) ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_create_scaffolds_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Creating a project scaffolds raw/, wiki/, purpose.md, schema.md at the path."""
+    _seed_env(tmp_path, monkeypatch)
+    target = tmp_path / "new-vault"
+    async with _client() as c:
+        resp = await c.post("/projects", json={"name": "New Vault", "path": str(target)})
+    assert resp.status_code == 201, resp.text
+    proj = resp.json()
+    assert proj["name"] == "New Vault"
+    assert proj["id"] == "new-vault"  # slugified
+    assert (target / "wiki").is_dir()
+    assert (target / "raw" / "sources").is_dir()
+    assert (target / "purpose.md").exists()
+    assert (target / "schema.md").exists()
+
+
+@pytest.mark.asyncio
+async def test_create_409_on_duplicate_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed_env(tmp_path, monkeypatch)
+    target = tmp_path / "dup"
+    async with _client() as c:
+        first = await c.post("/projects", json={"name": "Dup", "path": str(target)})
+        assert first.status_code == 201
+        second = await c.post("/projects", json={"name": "Dup2", "path": str(target)})
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_relative_and_empty_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed_env(tmp_path, monkeypatch)
+    async with _client() as c:
+        rel = await c.post("/projects", json={"name": "X", "path": "rel/dir"})
+        empty = await c.post("/projects", json={"name": "  ", "path": str(tmp_path / "z")})
+    assert rel.status_code == 400
+    assert empty.status_code == 400
