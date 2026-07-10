@@ -84,6 +84,7 @@ class BackfillSummary:
     links_converted: int = 0
     related_added: int = 0  # number of pages that gained or changed related:
     skipped_no_fm: int = 0  # pages without frontmatter (skipped for related addition)
+    reindex_failed: int = 0  # pages whose re-index (embed) failed but file/DB still written
     total_cost_usd: float = 0.0  # always 0.0
     stopped_reason: str = "complete"  # complete | maxpages | error
     max_pages: int = 0
@@ -97,6 +98,7 @@ class BackfillSummary:
             "links_converted": self.links_converted,
             "related_added": self.related_added,
             "skipped_no_fm": self.skipped_no_fm,
+            "reindex_failed": self.reindex_failed,
             "total_cost_usd": 0.0,
             "stopped_reason": self.stopped_reason,
             "max_pages": self.max_pages,
@@ -632,13 +634,24 @@ async def _run_inner(
         # ── Apply (write back + incremental re-index) ─────────────────────────
         if apply:
             new_file_text = _rejoin(new_fm_block, new_body)
-            await reindex_wiki_page_body(
-                page=page,
-                new_file_text=new_file_text,
-                body_for_embedding=new_body,
-                bump=False,  # one bump for the whole batch (I1)
-            )
-            edited_any = True
+            try:
+                await reindex_wiki_page_body(
+                    page=page,
+                    new_file_text=new_file_text,
+                    body_for_embedding=new_body,
+                    bump=False,  # one bump for the whole batch (I1)
+                )
+                edited_any = True
+            except Exception as exc:  # noqa: BLE001
+                # A per-page re-index failure (e.g. the embedding service returning 500) must
+                # NEVER abort the whole batch. The file/DB write is what the scorecard reads;
+                # a stale Qdrant vector self-heals on the next reindex. Log + count + continue.
+                summary.reindex_failed += 1
+                logger.warning(
+                    "backfill-related: reindex failed for %s (skipped, vector may be stale): %s",
+                    page.file_path,
+                    exc,
+                )
 
     # ── Single data_version bump + dangling-link re-resolve for the whole batch ──
     if apply and edited_any:

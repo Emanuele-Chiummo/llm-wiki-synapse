@@ -120,7 +120,9 @@ def analyse(vault: Path) -> dict:
         block = re.search(r"^tags:\s*\n((?:\s*-\s*.+\n)+)", ov_fm, re.MULTILINE)
         if block:
             ov_tags = len(re.findall(r"-\s*.+", block.group(1)))
-    ov_open_q = 1 if re.search(r"(?i)^#+\s*(open questions|tensioni irrisolte)", overview_md, re.M) else 0
+    ov_open_q = 1 if re.search(
+        r"(?i)^#+\s*(open questions|tensioni irrisolte|domande aperte|question)", overview_md, re.M
+    ) else 0
 
     total_links = link_slug + link_title + link_other or 1
     return {
