@@ -78,6 +78,9 @@ vi.mock("../store/settingsStore", () => ({
   selectServerUrl: (s: { serverUrl: string | null }) => s.serverUrl,
   selectClearServerUrl: (s: { clearServerUrl: unknown }) => s.clearServerUrl,
   selectSetServerUrl: (s: { setServerUrl: unknown }) => s.setServerUrl,
+  // SynapseMark (brand logo) reads the resolved theme — provide stubs so it renders
+  selectTheme: () => "light",
+  resolveTheme: () => "light",
 }));
 
 // ─── api/base mock — controlled isTauri and getKnownServers ──────────────────
@@ -141,14 +144,14 @@ describe("Header — non-Tauri mode", () => {
     expect(screen.getByTestId("provider-selector")).toBeTruthy();
   });
 
-  // R11-3: verify Header still owns the primary branding after NavRail logo removal
-  it("R11-3: renders the Synapse logo <img> in the brand slot", () => {
+  // R11-3: verify Header still owns the primary branding after NavRail logo removal.
+  // Brand v1.0 (65f39ba): the logo is now the theme-aware <SynapseMark> inline SVG, not an <img>.
+  it("R11-3: renders the Synapse brand mark (SVG) in the brand slot", () => {
     render(<Header />);
     const brand = document.querySelector(".app-header__brand");
     expect(brand, "app-header__brand div must be present").not.toBeNull();
-    const img = brand!.querySelector("img");
-    expect(img, "Header brand slot must contain a logo <img>").not.toBeNull();
-    expect(img!.getAttribute("src")).toBeTruthy();
+    const mark = brand!.querySelector("svg");
+    expect(mark, "Header brand slot must contain the SynapseMark SVG").not.toBeNull();
   });
 
   it("R11-3: renders the 'Synapse' wordmark text in the Header", () => {
