@@ -2833,13 +2833,21 @@ async def deep_research(
     503 if SEARXNG_URL is unset (I9).
     404 if item not found.
     """
-    # 503 guard (I9 — no fake run, no fallback engine)
-    if not settings.searxng_url:
+    # 503 guard (I9 — no fake run): the SELECTED web-search provider must be configured (ADR-0070).
+    from app.ops.web_search import get_web_search_provider
+
+    _provider = get_web_search_provider()
+    if not _provider.configured():
         from fastapi import HTTPException
 
         raise HTTPException(
             status_code=503,
-            detail="SEARXNG_URL is not configured. Set SEARXNG_URL to enable deep research (I9).",
+            detail=(
+                f"The selected web-search provider {_provider.name!r} is not configured. "
+                "Configure it (SEARXNG_URL for searxng; the matching API key for the opt-in "
+                "cloud backends; OLLAMA_URL for ollama_web) or switch via "
+                "PUT /config/app/web_search_provider to enable deep research (I9, ADR-0070)."
+            ),
         )
 
     item_id_str = str(item_id)

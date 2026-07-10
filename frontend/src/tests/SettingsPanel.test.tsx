@@ -1788,10 +1788,29 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     });
   });
 
-  it("shows SearXNG-only note (I9) on the web search section", async () => {
+  it("renders the provider selector with SearXNG selected by default (ADR-0070)", async () => {
     await navigateToWebSearchAndWait();
-    // i18n mock: "settings.webSearch.searxngOnly" → "searxngOnly"
-    expect(screen.getByText("searxngOnly")).toBeTruthy();
+    const searxngBtn = screen.getByTestId("web-search-provider-searxng");
+    expect(searxngBtn).toBeTruthy();
+    // No web_search_provider override in the appConfig mock ⇒ SearXNG is the default selection.
+    expect(searxngBtn.getAttribute("aria-checked")).toBe("true");
+    // The four cloud providers are offered as opt-in alternatives (ADR-0066).
+    expect(screen.getByTestId("web-search-provider-tavily")).toBeTruthy();
+    expect(screen.getByTestId("web-search-provider-brave")).toBeTruthy();
+  });
+
+  it("selecting a cloud provider persists web_search_provider and shows the amber warning", async () => {
+    const { putAppConfig } = await import("../api/appConfigClient");
+    (putAppConfig as ReturnType<typeof vi.fn>).mockClear();
+    await navigateToWebSearchAndWait();
+
+    fireEvent.click(screen.getByTestId("web-search-provider-tavily"));
+
+    await waitFor(() => {
+      expect(putAppConfig).toHaveBeenCalledWith("web_search_provider", "tavily");
+    });
+    // Amber opt-in warning appears for cloud backends (I9); SearXNG fields hide.
+    expect(screen.getByTestId("web-search-provider-cloud-warning")).toBeTruthy();
   });
 });
 

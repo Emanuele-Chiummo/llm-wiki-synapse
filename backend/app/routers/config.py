@@ -602,6 +602,8 @@ def _build_app_config_response() -> AppConfigListResponse:
         # S21/S22: MinerU cloud PDF (v1.5 P3-d, ADR-0069) — non-secret keys only.
         "mineru_api_url": settings.mineru_api_url,
         "mineru_timeout_seconds": str(settings.mineru_timeout_seconds),
+        # S23: web-search provider selector (v1.5 P3-e, ADR-0070) — non-secret; keys are env-only.
+        "web_search_provider": settings.web_search_provider,
     }
 
     result: list[AppConfigSetting] = []

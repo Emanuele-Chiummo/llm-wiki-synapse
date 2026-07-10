@@ -395,6 +395,8 @@ export function configKeyToI18nSuffix(key: AppConfigKey): string {
     // S21/S22: MinerU cloud PDF (v1.5 P3-d)
     mineru_api_url:             "mineruApiUrl",
     mineru_timeout_seconds:     "mineruTimeoutSeconds",
+    // S23: web-search provider selector (v1.5 P3-e) — rendered by SectionWebSearch, not here.
+    web_search_provider:        "webSearchProvider",
   };
   return map[key];
 }

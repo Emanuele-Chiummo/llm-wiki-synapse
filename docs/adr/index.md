@@ -122,6 +122,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0067** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change](ADR-0067-multi-vault-project-launcher.md) | Accepted |
 | **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](ADR-0068-source-watch-wider-types.md) | Accepted |
 | **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](ADR-0069-mineru-cloud-pdf-extractor.md) | Accepted |
+| **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](ADR-0070-multi-provider-web-search.md) | Accepted |
 
 ---
 

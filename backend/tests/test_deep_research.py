@@ -1056,13 +1056,20 @@ def test_no_forbidden_search_imports() -> None:
     """
     T-DR-013: AC-F10-3 / I9 — no tavily/ddg/duckduckgo/googlesearch/serpapi in ops/.
 
-    Static scan of all .py files under backend/app/ops/.
+    Static scan of all .py files under backend/app/ops/, EXCEPT the sanctioned multi-provider
+    web-search seam ``ops/web_search/`` (ADR-0066 amends I9: SearXNG stays the default/bundled
+    backend, but Tavily/SerpApi/Firecrawl/Brave/Ollama-Web are ALLOWED as opt-in, off-by-default
+    adapters). Everywhere ELSE these names must not appear — nobody may sneak an alternative
+    backend outside the seam.
     """
     import re
     from pathlib import Path
 
     ops_dir = Path(__file__).parent.parent / "app" / "ops"
     assert ops_dir.exists(), f"ops/ directory not found at {ops_dir}"
+
+    # ADR-0066/ADR-0070: the web_search/ package is the ONE place these provider names may appear.
+    seam_dir = ops_dir / "web_search"
 
     forbidden_pattern = re.compile(
         r"\b(tavily|duckduckgo|ddg|googlesearch|serpapi|google[-_]search[-_]results)\b",
@@ -1071,6 +1078,8 @@ def test_no_forbidden_search_imports() -> None:
 
     violations: list[str] = []
     for py_file in ops_dir.rglob("*.py"):
+        if seam_dir in py_file.parents:
+            continue  # sanctioned multi-provider seam (ADR-0066)
         content = py_file.read_text(encoding="utf-8")
         for lineno, line in enumerate(content.splitlines(), 1):
             if forbidden_pattern.search(line):
@@ -1079,7 +1088,8 @@ def test_no_forbidden_search_imports() -> None:
                 )
 
     assert not violations, (
-        "I9 violation: forbidden web-search library import found in ops/:\n"
+        "I9 violation: forbidden web-search library name found OUTSIDE the ops/web_search/ seam:\n"
         + "\n".join(violations)
-        + "\nOnly SearXNG (ops/searxng.py → SEARXNG_URL) is permitted (Do-NOT #3)"
+        + "\nAlternative backends live ONLY in ops/web_search/ (ADR-0066); "
+        "elsewhere only SearXNG is permitted."
     )

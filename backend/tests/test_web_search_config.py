@@ -789,16 +789,21 @@ async def test_research_start_202_when_db_url_set() -> None:
 
 
 def test_i9_no_non_searxng_provider_imports() -> None:
-    """TC-WS-18: I9 — no Tavily/serpapi/duckduckgo/google-search import in ops/.
+    """TC-WS-18: I9 — no Tavily/serpapi/duckduckgo/google-search import OUTSIDE the seam.
 
-    SearXNG is the ONLY web-search backend (I9, ADR-0041). This static guard
-    ensures no forbidden alternative search provider has been imported anywhere
-    in the ops/ directory. Mirrors the I6 guard pattern.
+    SearXNG is the DEFAULT, bundled web-search backend. ADR-0066 amends the original
+    "SearXNG only" rule: the alternative providers (Tavily/SerpApi/Firecrawl/Brave/
+    Ollama-Web) are ALLOWED as opt-in, off-by-default adapters, but ONLY inside the sanctioned
+    ``ops/web_search/`` seam. This guard ensures no alternative backend leaks anywhere ELSE in
+    ops/. Mirrors the I6 guard pattern.
     """
     import ast
 
     ops_dir = Path(__file__).parent.parent / "app" / "ops"
     assert ops_dir.exists(), f"ops/ directory not found at {ops_dir}"
+
+    # ADR-0066/ADR-0070: the web_search/ package is the ONE sanctioned place for these names.
+    seam_dir = ops_dir / "web_search"
 
     forbidden_patterns = {
         "tavily",
@@ -814,6 +819,8 @@ def test_i9_no_non_searxng_provider_imports() -> None:
     violations: list[str] = []
 
     for py_file in sorted(ops_dir.rglob("*.py")):
+        if seam_dir in py_file.parents:
+            continue  # sanctioned multi-provider seam (ADR-0066)
         source = py_file.read_text(encoding="utf-8")
         # 1. Raw text scan (catches string literals, comments, etc.)
         source_lower = source.lower()
@@ -843,6 +850,6 @@ def test_i9_no_non_searxng_provider_imports() -> None:
                         )
 
     assert not violations, (
-        "I9 VIOLATION: Non-SearXNG web-search providers found in ops/. "
-        "SearXNG is the ONLY web-search backend (I9, ADR-0041).\n" + "\n".join(violations)
+        "I9 VIOLATION: alternative web-search provider names found OUTSIDE the ops/web_search/ "
+        "seam. They are permitted ONLY inside that package (ADR-0066).\n" + "\n".join(violations)
     )

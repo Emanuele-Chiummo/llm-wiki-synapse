@@ -283,15 +283,21 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
     3. Schedule run_deep_research(...) as asyncio background task.
     4. Return 202 {run_id} immediately.
     """
-    # ── I9: SearXNG URL required before creating a run row (ADR-0024 §8.1, ADR-0041) ────
-    # Resolution: DB vault_state.searxng_url_db wins over SEARXNG_URL env (ADR-0041 §2.2).
-    if not _m._web_search_config_cache.configured():
+    # ── I9: the SELECTED web-search provider must be configured before creating a run row ────
+    # (ADR-0024 §8.1, ADR-0041, ADR-0070). SearXNG is the default (DB searxng_url_db wins over
+    # SEARXNG_URL env — ADR-0041 §2.2); the opt-in cloud/local backends require their own key/URL.
+    from app.ops.web_search import get_web_search_provider
+
+    _provider = get_web_search_provider()
+    if not _provider.configured():
         raise HTTPException(
             status_code=503,
             detail=(
-                "SEARXNG_URL is not configured. Set SEARXNG_URL env var or use "
-                "PUT /web-search/config to set the SearXNG instance URL at runtime "
-                "(e.g. http://searxng:8080) to enable deep research (I9, ADR-0041)."
+                f"The selected web-search provider {_provider.name!r} is not configured. "
+                "For 'searxng' set SEARXNG_URL (or PUT /web-search/config); for the opt-in "
+                "cloud backends set the matching env key (TAVILY_API_KEY / SERPAPI_API_KEY / "
+                "FIRECRAWL_API_KEY / BRAVE_API_KEY); for 'ollama_web' set OLLAMA_URL. Or switch "
+                "the backend via PUT /config/app/web_search_provider (I9, ADR-0070)."
             ),
         )
 
