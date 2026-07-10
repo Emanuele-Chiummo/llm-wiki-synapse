@@ -1223,6 +1223,34 @@ class ImportSchedule(Base):
         comment="Scan interval enum: '15m' | '1h' | '6h' | 'daily' (I7 — bounded, ADR-0020 §4.1)",
     )
 
+    # ── P3-c: wider Source-Watch file types (v1.5 LLM Wiki parity) ──────────────
+    allowed_extensions: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Comma-separated file extensions the scheduled scan imports (e.g. '.pdf,.csv'). "
+            "NULL → default wider set (text + all extractable). P3-c (v1.5, ADR-0068)."
+        ),
+    )
+
+    excluded_folders: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Comma-separated folder names skipped during the scan (matched against path parts). "
+            "NULL → nothing excluded. P3-c (v1.5, ADR-0068)."
+        ),
+    )
+
+    max_size_mb: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment=(
+            "Max file size in MB the scan will import; larger files are skipped (I7). "
+            "NULL → no size cap. P3-c (v1.5, ADR-0068)."
+        ),
+    )
+
     last_run_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=True,

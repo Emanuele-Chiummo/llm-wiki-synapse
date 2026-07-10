@@ -112,6 +112,94 @@ def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+# ── P3-c: wider Source-Watch types — config parsing + companion write ──────────
+
+
+def _parse_ext_csv(raw: object) -> set[str]:
+    """Parse a comma-separated extension list into a normalised (lowercase, dot-prefixed) set."""
+    if not isinstance(raw, str) or not raw.strip():
+        return set()
+    out: set[str] = set()
+    for tok in raw.split(","):
+        t = tok.strip().lower()
+        if not t:
+            continue
+        if not t.startswith("."):
+            t = "." + t
+        out.add(t)
+    return out
+
+
+def _effective_allowed_extensions(cfg: object) -> frozenset[str]:
+    """
+    Resolve the effective set of extensions the scan will import (P3-c).
+
+    cfg.allowed_extensions NULL/blank → default wider set: text (_ALLOWED_EXTENSIONS) +
+    all extractable formats (_EXTRACTABLE_EXTENSIONS). Placeholder image/AV types are
+    deliberately NOT auto-imported by the scheduler.
+
+    When set, the user's list is intersected with the known-acceptable set (an unknown or
+    placeholder-only list falls back to text-only so the scan never silently imports nothing
+    meaningful).
+    """
+    from app.upload import _ALLOWED_EXTENSIONS, _EXTRACTABLE_EXTENSIONS
+
+    known = _ALLOWED_EXTENSIONS | _EXTRACTABLE_EXTENSIONS
+    chosen = _parse_ext_csv(getattr(cfg, "allowed_extensions", None))
+    if not chosen:
+        return frozenset(known)
+    eff = frozenset(chosen & known)
+    return eff if eff else frozenset(_ALLOWED_EXTENSIONS)
+
+
+def _parse_excluded_folders(cfg: object) -> set[str]:
+    """Parse cfg.excluded_folders into a lowercase set of folder names to skip."""
+    raw = getattr(cfg, "excluded_folders", None)
+    if not isinstance(raw, str) or not raw.strip():
+        return set()
+    return {p.strip().lower() for p in raw.split(",") if p.strip()}
+
+
+def _path_is_excluded(src_path: Path, source_root: Path, excluded: set[str]) -> bool:
+    """True if any path segment (relative to source_root) matches an excluded folder name."""
+    if not excluded:
+        return False
+    try:
+        rel = src_path.relative_to(source_root)
+    except ValueError:
+        rel = src_path
+    return any(part.lower() in excluded for part in rel.parts[:-1])
+
+
+def _max_size_bytes(cfg: object) -> int | None:
+    """Return the max file size in bytes from cfg.max_size_mb, or None for no cap."""
+    raw = getattr(cfg, "max_size_mb", None)
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        return None
+    return raw * 1024 * 1024 if raw > 0 else None
+
+
+def _write_extracted_companion(dst: Path) -> bool:
+    """
+    Extract text from a binary/convertible file and write its <stem>.extracted.md companion.
+
+    Mirrors the upload handler (routers/ingest.py §F12): the watcher ignores the binary
+    (not in _ALLOWED_EXTENSIONS) and ingests only the companion. Extraction happens HERE in
+    the scheduler driver — NEVER inside the watcher (Do-NOT #12). Returns True on success.
+    """
+    from app.ingest.extract import extract_text
+
+    extracted = extract_text(dst)
+    stem = dst.stem
+    companion_dst = dst.parent / f"{stem}.extracted.md"
+    raw_rel = str(dst.relative_to(settings.vault_root))
+    companion_content = (
+        f'---\ntype: source\ntitle: {stem}\nsources: ["{raw_rel}"]\n---\n\n' + extracted
+    )
+    companion_dst.write_text(companion_content, encoding="utf-8")
+    return True
+
+
 def _iter_scan_entries(source_path: Path, *, recursive: bool) -> list[os.DirEntry[str]]:
     """
     Return the DirEntry files to consider for one scan (R7-6).
@@ -146,7 +234,7 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
     The WATCHER ingests copied files — this function does NOT call ingest_file (ADR-0020 §4.3).
     Non-text files are silently skipped (F12/M5 boundary).
     """
-    from app.upload import _ALLOWED_EXTENSIONS  # reuse the extension set
+    from app.upload import _EXTRACTABLE_EXTENSIONS  # reuse the extractable set (companion write)
 
     source_dir: str | None = getattr(cfg, "source_dir", None)
     if not source_dir:
@@ -166,6 +254,11 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
     max_files: int = settings.import_scan_max_files
     max_seconds: int = settings.import_scan_max_seconds
     recursive: bool = bool(getattr(settings, "import_scan_recursive", False))
+
+    # P3-c: per-schedule type/folder/size filters (NULL config → wider default set)
+    allowed_exts = _effective_allowed_extensions(cfg)
+    excluded_folders = _parse_excluded_folders(cfg)
+    max_bytes = _max_size_bytes(cfg)
 
     imported_count = 0
     scanned = 0
@@ -205,10 +298,25 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
         src_path = Path(entry.path)
         suffix = src_path.suffix.lower()
 
-        # Skip non-text files (F12/M5 boundary — no error, just skip)
-        if suffix not in _ALLOWED_EXTENSIONS:
+        # P3-c: type filter (effective allowed set — text + selected extractable formats)
+        if suffix not in allowed_exts:
             skipped += 1
             continue
+
+        # P3-c: excluded-folder filter (skip files under any excluded subfolder)
+        if _path_is_excluded(src_path, source_path, excluded_folders):
+            skipped += 1
+            continue
+
+        # P3-c: max-size filter (I7 — never copy a file bigger than the configured cap)
+        if max_bytes is not None:
+            try:
+                if entry.stat(follow_symlinks=False).st_size > max_bytes:
+                    skipped += 1
+                    continue
+            except OSError:
+                skipped += 1
+                continue
 
         # Sanitize name (reuse §2.2 sanitizer — skips unsafe names silently)
         try:
@@ -241,6 +349,21 @@ async def run_one_scan(cfg: object) -> tuple[int, str, str | None]:
         except OSError as exc:
             logger.warning("scheduled_import: failed to copy %s: %s", entry.name, exc)
             skipped += 1
+            continue
+
+        # P3-c: for extractable/binary types, extract text NOW and write the companion
+        # .extracted.md (the watcher ignores the binary and ingests only the companion).
+        # Bounded by EXTRACT_MAX_CHARS + the per-tick wall-clock cap above (I7). Extraction
+        # failure is non-fatal: the binary is safely copied; the companion is simply absent.
+        if suffix in _EXTRACTABLE_EXTENSIONS:
+            try:
+                _write_extracted_companion(dst_path)
+            except Exception as exc:  # noqa: BLE001 — extraction is best-effort in the scan
+                logger.warning(
+                    "scheduled_import: extraction failed for %s: %s — companion not created",
+                    entry.name,
+                    exc,
+                )
 
     elapsed = time.monotonic() - t_start
     logger.info(
