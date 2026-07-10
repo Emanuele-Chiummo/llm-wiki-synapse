@@ -22,14 +22,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded).",
+              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded); 'vault' = the whole vault root (raw/ + wiki/ + purpose.md + schema.md; read-only; hidden dirs excluded \u2014 v1.5 P1 Files-tab parity).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded); 'vault' = the whole vault root (raw/ + wiki/ + purpose.md + schema.md; read-only; hidden dirs excluded \u2014 v1.5 P1 Files-tab parity)."
           }
         ],
         "responses": {
@@ -135,14 +136,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1)."
           }
         ],
         "responses": {
@@ -197,14 +199,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1)."
           }
         ],
         "responses": {
@@ -4802,6 +4805,103 @@
           }
         ]
       }
+    },
+    "/vault/meta/{name}": {
+      "put": {
+        "summary": "Write a vault meta file (schema.md or purpose.md)",
+        "description": "Overwrites one vault-root meta file with the supplied content. `name` MUST be exactly `schema.md` or `purpose.md` \u2014 any other value is 404 (this allow-list is the only path-traversal guard; no globs, no relative segments ever reach disk). Writes UTF-8 directly to the vault root; no Postgres/Qdrant/ingest side effects \u2014 these files are vault-meta, not wiki content (K1, I1, I5). v1.5 P1: makes purpose/schema editable in-app (ADR-0066).",
+        "operationId": "put_vault_meta_vault_meta__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Vault identifier (currently unused).",
+              "default": "default",
+              "title": "Vault Id"
+            },
+            "description": "Vault identifier (currently unused)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultMetaWriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File written; returns the persisted entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultMetaFile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "name is not schema.md or purpose.md."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List known projects (vaults) and the active one",
+        "description": "Returns the multi-vault project registry (ADR-0067): all known project vaults + which is active. Seeded from the boot vault when the registry does not exist yet, so single-vault deploys always see exactly their one vault. Read-only; no DB, no Qdrant.",
+        "operationId": "list_projects_projects_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -8354,6 +8454,75 @@
           "resolved": true
         }
       },
+      "Project": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "last_opened_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "path",
+          "created_at"
+        ],
+        "title": "Project",
+        "description": "One known project (vault). ``id`` is the vault_id used for its DB/Qdrant rows."
+      },
+      "ProjectsResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "active_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "active_id"
+        ],
+        "title": "ProjectsResponse",
+        "description": "Response for GET /projects \u2014 the registry snapshot."
+      },
       "ProviderConfigCreate": {
         "properties": {
           "scope": {
@@ -10929,6 +11098,20 @@
         ],
         "title": "VaultMetaResponse",
         "description": "Response body for GET /vault/meta."
+      },
+      "VaultMetaWriteRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "VaultMetaWriteRequest",
+        "description": "Request body for PUT /vault/meta/{name} \u2014 the full new file content."
       },
       "VendorInfo": {
         "properties": {
