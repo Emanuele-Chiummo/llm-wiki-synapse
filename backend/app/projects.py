@@ -67,6 +67,13 @@ class CreateProjectRequest(BaseModel):
     path: str
 
 
+class ActivateResponse(BaseModel):
+    """Response for POST /projects/{id}/activate — the now-active project + reload epoch."""
+
+    project: Project
+    active_vault_epoch: int
+
+
 # ── State-dir + registry file ────────────────────────────────────────────────
 
 
@@ -144,6 +151,68 @@ def _unique_id(base: str, taken: set[str]) -> str:
 
 def _resolved(path_str: str) -> str:
     return str(Path(path_str).expanduser().resolve())
+
+
+# ── Runtime active-vault switch (ADR-0067 §2c) ────────────────────────────────
+# Bumped on every successful activate; the frontend reads it to hard-reload its stores
+# against the new active vault.
+_active_vault_epoch: int = 0
+
+
+def active_vault_epoch() -> int:
+    """Current epoch — increments each time the active vault is switched."""
+    return _active_vault_epoch
+
+
+async def _apply_active_vault(project: Project) -> None:
+    """
+    Re-point the running service at *project*'s vault (best-effort, each step guarded).
+
+    Order (ADR-0067 §2c): mutate runtime config → restart the watcher on the new root →
+    drop the graph cache (re-created lazily for the new vault_id) → seed vault_state → bump the
+    epoch. A failing step is logged and skipped, never aborting the switch — the registry has
+    already recorded the new active_id, so the service must follow as far as it can.
+    Deferred imports avoid an import cycle with app.main (which registers this router).
+    """
+    global _active_vault_epoch  # noqa: PLW0603
+
+    settings.vault_id = project.id
+    settings.vault_path = project.path
+
+    try:
+        import asyncio  # noqa: PLC0415
+
+        from app.watcher import start_watcher, stop_watcher  # noqa: PLC0415
+
+        stop_watcher()
+        start_watcher(asyncio.get_running_loop())
+    except Exception:  # noqa: BLE001
+        logger.exception("projects: watcher restart failed during activate")
+
+    try:
+        from app import main as _m  # noqa: PLC0415
+
+        if _m._graph_cache is not None:
+            _m._graph_cache.stop_background_loop()
+        _m._graph_cache = None  # re-created lazily for the new vault_id by GET /graph
+    except Exception:  # noqa: BLE001
+        logger.exception("projects: graph-cache invalidation failed during activate")
+
+    try:
+        from app.main import _seed_vault_state  # noqa: PLC0415
+
+        await _seed_vault_state()
+    except Exception:  # noqa: BLE001
+        logger.exception("projects: vault_state seed failed during activate")
+
+    _active_vault_epoch += 1
+    logger.info(
+        "projects: activated %s (id=%s) at %s — epoch %d",
+        project.name,
+        project.id,
+        project.path,
+        _active_vault_epoch,
+    )
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -256,3 +325,30 @@ async def create_project(body: CreateProjectRequest) -> Project:
     write_registry(reg)
     logger.info("projects: created %s (id=%s) at %s", proj.name, pid, resolved)
     return proj
+
+
+@router.post(
+    "/projects/{project_id}/activate",
+    response_model=ActivateResponse,
+    summary="Switch the active vault to this project",
+    description=(
+        "Makes *project_id* the active vault at runtime (ADR-0067 §2c): records it in the "
+        "registry, re-points settings, restarts the watcher on the new root, invalidates the "
+        "graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its "
+        "stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown."
+    ),
+    responses={404: {"description": "No such project id."}},
+)
+async def activate_project(project_id: str) -> ActivateResponse:
+    """POST /projects/{id}/activate — switch the active vault (v1.5 P2 slice 3)."""
+    reg = read_registry()
+    proj = next((p for p in reg.projects if p.id == project_id), None)
+    if proj is None:
+        raise HTTPException(status_code=404, detail=f"No such project: {project_id}")
+
+    proj.last_opened_at = _now_iso()
+    reg.active_id = proj.id
+    write_registry(reg)
+
+    await _apply_active_vault(proj)
+    return ActivateResponse(project=proj, active_vault_epoch=active_vault_epoch())

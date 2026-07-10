@@ -5009,10 +5009,79 @@
           }
         ]
       }
+    },
+    "/projects/{project_id}/activate": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Switch the active vault to this project",
+        "description": "Makes *project_id* the active vault at runtime (ADR-0067 \u00a72c): records it in the registry, re-points settings, restarts the watcher on the new root, invalidates the graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown.",
+        "operationId": "activate_project_projects__project_id__activate_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project id."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "ActivateResponse": {
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "active_vault_epoch": {
+            "type": "integer",
+            "title": "Active Vault Epoch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project",
+          "active_vault_epoch"
+        ],
+        "title": "ActivateResponse",
+        "description": "Response for POST /projects/{id}/activate \u2014 the now-active project + reload epoch."
+      },
       "AppConfigListResponse": {
         "properties": {
           "settings": {
