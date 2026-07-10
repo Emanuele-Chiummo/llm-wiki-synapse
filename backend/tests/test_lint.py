@@ -416,6 +416,55 @@ async def _insert_link(
         await sess.commit()
 
 
+async def _insert_page_with_sources(
+    env: dict[str, Any],
+    *,
+    title: str,
+    file_path: str,
+    sources: list[str],
+    vault_id: str = "test-vault",
+) -> str:
+    """Seed a live page with a JSON `sources` cell (ADR-0067 D4 contradiction resolution)."""
+    import json as _json
+
+    page_id = str(uuid.uuid4())
+    async with env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages "
+                "(id, vault_id, file_path, title, type, sources, content_hash, pinned, "
+                " created_at, updated_at) "
+                "VALUES (:id, :v, :fp, :t, 'concept', :src, 'h', 0, datetime('now'), datetime('now'))"
+            ),
+            {
+                "id": page_id,
+                "v": vault_id,
+                "fp": file_path,
+                "t": title,
+                "src": _json.dumps(sources),
+            },
+        )
+        await sess.commit()
+    return page_id
+
+
+def _make_contradiction_provider(payload: dict[str, Any]) -> Any:
+    """Fake InferenceProvider whose chat() returns *payload* as JSON (contradiction phrasing)."""
+    import json as _json
+
+    provider = MagicMock()
+
+    async def mock_chat(messages: list[Any], retrieval_context: str = "") -> AsyncIterator[str]:
+        async def _gen() -> AsyncIterator[str]:
+            yield _json.dumps(payload)
+
+        return _gen()
+
+    provider.chat = mock_chat
+    provider.bind_accumulator = MagicMock()
+    return provider
+
+
 async def _insert_finding(
     env: dict[str, Any],
     *,
@@ -724,9 +773,13 @@ class TestHumanGate:
 class TestApply:
     """T-LINT-006..008: the human-gated apply step."""
 
-    async def test_apply_flag_only_contradiction(self, lint_env: dict[str, Any]) -> None:
-        """T-LINT-006: contradiction is flag-only → status=applied, no edit/bump."""
-        finding_id = await _insert_finding(lint_env, category="contradiction")
+    async def test_apply_flag_only_stale_claim(self, lint_env: dict[str, Any]) -> None:
+        """
+        T-LINT-006: stale-claim is flag-only → status=applied, no edit/bump.
+        (contradiction left _FLAG_ONLY_CATEGORIES in ADR-0067 D4 — covered by the
+        contradiction-authoring tests below.)
+        """
+        finding_id = await _insert_finding(lint_env, category="stale-claim")
 
         bump_called: list[int] = []
 
@@ -741,6 +794,15 @@ class TestApply:
         assert finding.status == "applied"
         assert finding.resolution_note is not None
         assert bump_called == [], "flag-only apply must not bump data_version"
+
+    async def test_contradiction_not_flag_only(self) -> None:
+        """ADR-0067 D4/P0-4: contradiction is no longer flag-only (it authors a query page)."""
+        from app.ops.lint import _FLAG_ONLY_CATEGORIES
+
+        assert "contradiction" not in _FLAG_ONLY_CATEGORIES
+        # stale-claim + suggestion remain flag-only.
+        assert "stale-claim" in _FLAG_ONLY_CATEGORIES
+        assert "suggestion" in _FLAG_ONLY_CATEGORIES
 
     async def test_apply_missing_xref_uses_enrich_seam(self, lint_env: dict[str, Any]) -> None:
         """T-LINT-007: missing-xref apply reuses ops/enrich_wikilinks.enrich_wikilinks."""
@@ -863,6 +925,161 @@ class TestApply:
         assert finding.status == "applied"
         assert len(write_calls) == 0, "delegated path must NOT call write_wiki_page (I1)"
         assert already_written_id in (finding.resolution_note or "")
+
+
+# ── ADR-0067 D4/P0-4: contradiction → open-question query authoring ────────────
+
+
+class TestContradictionAuthoring:
+    """Applying a contradiction AUTHORS a genuine `type=query` page (ADR-0067 D4/P0-4)."""
+
+    async def _seed_conflict(self, lint_env: dict[str, Any]) -> tuple[str, str]:
+        """Seed pages A/B + a contradiction finding naming both; return (finding_id, ...)."""
+        page_a = await _insert_page_with_sources(
+            lint_env,
+            title="Azure OpenAI F1 85",
+            file_path="wiki/concepts/azure-openai-f1-85.md",
+            sources=["raw/sources/doc-a.md"],
+        )
+        await _insert_page_with_sources(
+            lint_env,
+            title="Azure OpenAI F1 90",
+            file_path="wiki/concepts/azure-openai-f1-90.md",
+            sources=["raw/sources/doc-b.md"],
+        )
+        finding_id = await _insert_finding(
+            lint_env,
+            category="contradiction",
+            target_page_id=page_a,
+            target_title="Azure OpenAI F1 85",
+            description=(
+                "[[Azure OpenAI F1 85]] states the F1 threshold is 85% but "
+                "[[Azure OpenAI F1 90]] states it is 90%."
+            ),
+        )
+        return finding_id, page_a
+
+    async def test_apply_contradiction_authors_query_page(
+        self, lint_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        Provider present: an applied contradiction writes ONE type=query page with a question
+        title, the 5 sections, related=[both slugs], and DB sources[]=union of both pages.
+        """
+        finding_id, _ = await self._seed_conflict(lint_env)
+
+        provider = _make_contradiction_provider(
+            {
+                "question": "Which F1 threshold is correct for Azure OpenAI, 85% or 90%?",
+                "question_body": "Two pages disagree on the F1 acceptance threshold.",
+                "hypothesis": "One figure is from an older SLA revision.",
+                "open_points": ["Which doc is newer?", "Same scope?"],
+                "impact": "Downstream costing pages may cite the wrong threshold.",
+            }
+        )
+
+        async def _fake_resolve(vault_id: str) -> Any:
+            return provider, MagicMock(token_budget=20_000)
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
+            return MagicMock(id=uuid.uuid4())
+
+        monkeypatch.setattr("app.ops.lint._resolve_lint_provider", _fake_resolve)
+        with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(finding_id))
+
+        assert finding.status == "applied"
+        # ONE write == one data_version bump (write_wiki_page owns the bump, I1).
+        assert len(write_calls) == 1, "contradiction apply writes exactly one page (one bump, I1)"
+        page, origin = write_calls[0]
+
+        from app.ingest.schemas import PageType
+
+        assert page.type == PageType.QUERY
+        assert page.title.rstrip().endswith("?"), "query title must be a question"
+        # The 5 mandated sections (ADR-0067 D4).
+        for section in (
+            "## Question",
+            "## Hypothesis",
+            "## Open Points",
+            "## Impact",
+            "## References",
+        ):
+            assert section in page.content, f"missing section {section}"
+        # related[] = both conflicting page slugs.
+        assert set(page.frontmatter.related) == {"azure-openai-f1-85", "azure-openai-f1-90"}
+        # DB sources[] = union of BOTH pages' sources (no synthetic lint: source).
+        assert set(page.frontmatter.sources) == {"raw/sources/doc-a.md", "raw/sources/doc-b.md"}
+        assert not any(s.startswith("lint:") for s in page.frontmatter.sources)
+        # Both conflicting pages are wikilinked in the body (→ real write emits related from body).
+        assert "[[Azure OpenAI F1 85]]" in page.content
+        assert "[[Azure OpenAI F1 90]]" in page.content
+
+    async def test_apply_contradiction_provider_absent_deterministic(
+        self, lint_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        Provider absent: the deterministic template still writes a VALID query page (never fails
+        the apply) — question title + 5 sections + related=both slugs + unioned sources.
+        """
+        finding_id, _ = await self._seed_conflict(lint_env)
+
+        async def _resolve_none(vault_id: str) -> None:
+            return None
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
+            return MagicMock(id=uuid.uuid4())
+
+        monkeypatch.setattr("app.ops.lint._resolve_lint_provider", _resolve_none)
+        with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(finding_id))
+
+        assert finding.status == "applied"
+        assert len(write_calls) == 1
+        page, _origin = write_calls[0]
+
+        from app.ingest.schemas import PageType
+
+        assert page.type == PageType.QUERY
+        assert page.title.rstrip().endswith("?")
+        for section in (
+            "## Question",
+            "## Hypothesis",
+            "## Open Points",
+            "## Impact",
+            "## References",
+        ):
+            assert section in page.content
+        assert set(page.frontmatter.related) == {"azure-openai-f1-85", "azure-openai-f1-90"}
+        assert set(page.frontmatter.sources) == {"raw/sources/doc-a.md", "raw/sources/doc-b.md"}
+
+    async def test_infer_stub_page_type_preserved_never_query(self) -> None:
+        """
+        Regression: _infer_stub_page_type still exists (another module imports it) and the
+        broken-link stub routing is unchanged — entity/concept, NEVER query (ADR-0067 D1).
+        """
+        from app.ingest.schemas import PageType
+        from app.ops.lint import _infer_stub_page_type
+
+        assert _infer_stub_page_type("Salesforce, Inc.") is PageType.ENTITY  # legal suffix
+        assert _infer_stub_page_type("AWS") is PageType.ENTITY  # all-caps acronym
+        assert _infer_stub_page_type("Docker Compose") is PageType.ENTITY  # proper noun
+        assert (
+            _infer_stub_page_type("token bucket rate limiting") is PageType.CONCEPT
+        )  # common noun
+        # It must NEVER route a broken-link stub to queries/ (the QP-Q1 defect it fixes).
+        for title in ("Salesforce, Inc.", "AWS", "Docker Compose", "token bucket rate limiting"):
+            assert _infer_stub_page_type(title) is not PageType.QUERY
 
 
 # ── T-LINT-009/010: dismiss + error paths ─────────────────────────────────────
@@ -2181,7 +2398,12 @@ class TestNewApplyPaths:
     async def test_apply_broken_wikilink_no_suggestion_creates_stub(
         self, lint_env: dict[str, Any]
     ) -> None:
-        """L4: broken-wikilink without suggested_target → creates stub via write_wiki_page."""
+        """L4/ADR-0067-D1: broken-wikilink without suggested_target → creates typed stub.
+
+        Verifies that the stub is NEVER type=query (queries/ is reserved for genuine
+        open questions).  target_title="missing-concept" is all-lowercase so it must
+        resolve to concept, not entity.
+        """
         ref_page_id = await _insert_page(
             lint_env, title="Referencing Page", file_path="wiki/entities/referencing.md"
         )
@@ -2217,11 +2439,60 @@ class TestNewApplyPaths:
         assert finding.status == "applied"
         assert len(write_calls) == 1, "stub creation must call write_wiki_page exactly once (I1)"
         stub_page, origin = write_calls[0]
-        # The stub should be of type QUERY with tags [stub, lint].
-        assert stub_page.type.value == "query"
+        # ADR-0067 D1: stub MUST NOT be type=query; queries/ is for genuine open questions.
+        assert (
+            stub_page.type.value != "query"
+        ), "broken-wikilink stub must never be type=query (ADR-0067 D1 / LN-D1)"
+        # "missing-concept" is all-lowercase → heuristic infers CONCEPT, not ENTITY.
+        assert (
+            stub_page.type.value == "concept"
+        ), f"expected concept for all-lowercase target, got {stub_page.type.value!r}"
         assert "stub" in stub_page.frontmatter.tags
         assert "lint" in stub_page.frontmatter.tags
         assert "stub" in (finding.resolution_note or "")
+
+    async def test_apply_broken_wikilink_proper_noun_creates_entity_stub(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """L4/ADR-0067-D1: broken-wikilink with proper-noun target → entity stub (not query)."""
+        ref_page_id = await _insert_page(
+            lint_env, title="Referencing Page", file_path="wiki/entities/referencing2.md"
+        )
+        fid = await _insert_finding_ext(
+            lint_env,
+            category="broken-wikilink",
+            severity="warning",
+            target_page_id=ref_page_id,
+            target_title="Microsoft Azure",
+            suggested_target=None,
+            description="Broken link: [[Microsoft Azure]]",
+        )
+
+        write_calls: list[Any] = []
+
+        async def _fake_write(session: Any, page: Any, origin: str) -> Any:
+            write_calls.append((page, origin))
+            written = MagicMock()
+            written.id = uuid.uuid4()
+            return written
+
+        async def _fake_reresolve(session: Any) -> int:
+            return 1
+
+        with (
+            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.wiki.links.reresolve_dangling_links", side_effect=_fake_reresolve),
+        ):
+            from app.ops.lint import apply_lint_fix
+
+            finding = await apply_lint_fix(uuid.UUID(fid))
+
+        assert finding.status == "applied"
+        stub_page, _ = write_calls[0]
+        assert (
+            stub_page.type.value == "entity"
+        ), "proper-noun target must produce entity stub (ADR-0067 D1)"
+        assert stub_page.type.value != "query"
 
     async def test_apply_no_outlinks_idempotent_when_link_already_present(
         self, lint_env: dict[str, Any]
@@ -2371,3 +2642,102 @@ class TestAppendWikilinkHelper:
         result = _append_wikilink_to_body(body, "Target Page")
         # Should be idempotent (lowercase already present).
         assert result.count("[[") == 1, "must not add a second link"
+
+
+# ── T-LINT-L7: _infer_stub_page_type heuristic (ADR-0067 D1) ────────────────────
+
+
+class TestInferStubPageType:
+    """Unit tests for _infer_stub_page_type (ADR-0067 D1 / LN-D1 fix).
+
+    Verifies that the deterministic heuristic never produces PageType.QUERY and
+    correctly routes proper nouns → entity and common phrases → concept.
+    """
+
+    def _infer(self, title: str) -> str:
+        from app.ops.lint import _infer_stub_page_type
+
+        return _infer_stub_page_type(title).value
+
+    # ── Proper-noun / capitalised word → entity ───────────────────────────────
+
+    def test_capitalised_single_word_is_entity(self) -> None:
+        """'Microsoft' — starts with uppercase → entity."""
+        assert self._infer("Microsoft") == "entity"
+
+    def test_capitalised_two_words_is_entity(self) -> None:
+        """'Microsoft Azure' — proper-noun product name → entity."""
+        assert self._infer("Microsoft Azure") == "entity"
+
+    # ── Legal suffix → entity ────────────────────────────────────────────────
+
+    def test_private_limited_is_entity(self) -> None:
+        """'ALTRUIST TECHNOLOGIES PRIVATE LIMITED' — legal suffix → entity."""
+        assert self._infer("ALTRUIST TECHNOLOGIES PRIVATE LIMITED") == "entity"
+
+    def test_inc_suffix_is_entity(self) -> None:
+        """'Acme Corp. Inc.' — Inc. suffix → entity."""
+        assert self._infer("Acme Corp. Inc.") == "entity"
+
+    def test_ltd_suffix_is_entity(self) -> None:
+        """'Example Ltd' — Ltd suffix → entity."""
+        assert self._infer("Example Ltd") == "entity"
+
+    def test_gmbh_suffix_is_entity(self) -> None:
+        """'Siemens GmbH' — GmbH suffix → entity."""
+        assert self._infer("Siemens GmbH") == "entity"
+
+    # ── All-caps acronym → entity ─────────────────────────────────────────────
+
+    def test_all_caps_acronym_is_entity(self) -> None:
+        """'AWS' — all-caps token ≥2 chars → entity."""
+        assert self._infer("AWS") == "entity"
+
+    def test_all_caps_in_phrase_is_entity(self) -> None:
+        """'GDPR compliance' — contains all-caps token → entity."""
+        assert self._infer("GDPR compliance") == "entity"
+
+    # ── Common phrases → concept ──────────────────────────────────────────────
+
+    def test_all_lowercase_hyphenated_is_concept(self) -> None:
+        """'amazon s3' — all lowercase, no special tokens → concept."""
+        assert self._infer("amazon s3") == "concept"
+
+    def test_common_phrase_is_concept(self) -> None:
+        """'chain of thought' — generic lowercase phrase → concept."""
+        assert self._infer("chain of thought") == "concept"
+
+    def test_technical_term_is_concept(self) -> None:
+        """'license reconciliation' — lowercase technical term → concept."""
+        assert self._infer("license reconciliation") == "concept"
+
+    def test_empty_string_is_concept(self) -> None:
+        """Empty title falls back to concept."""
+        assert self._infer("") == "concept"
+
+    def test_whitespace_only_is_concept(self) -> None:
+        """Whitespace-only title falls back to concept."""
+        assert self._infer("   ") == "concept"
+
+    # ── NEVER query ───────────────────────────────────────────────────────────
+
+    def test_never_returns_query_for_any_input(self) -> None:
+        """_infer_stub_page_type must NEVER return PageType.QUERY (ADR-0067 D1)."""
+        from app.ops.lint import _infer_stub_page_type
+
+        samples = [
+            "Microsoft",
+            "ALTRUIST TECHNOLOGIES PRIVATE LIMITED",
+            "amazon s3",
+            "chain of thought",
+            "license reconciliation",
+            "",
+            "why does this exist",
+            "What is the capital of France?",
+            "open question about performance",
+        ]
+        for sample in samples:
+            result = _infer_stub_page_type(sample)
+            assert (
+                result.value != "query"
+            ), f"_infer_stub_page_type({sample!r}) returned 'query' — violates ADR-0067 D1"
