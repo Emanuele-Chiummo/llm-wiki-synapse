@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.config import settings
@@ -40,6 +40,11 @@ _META_FILES: tuple[tuple[str, str], ...] = (
     ("schema.md", "Schema"),
     ("purpose.md", "Purpose"),
 )
+
+# name → title, the AUTHORITATIVE allow-list for both read and write. A meta file is
+# addressable ONLY if its exact filename is a key here — this is the path-traversal guard
+# for PUT (no globs, no "..", no arbitrary paths ever reach the filesystem).
+_META_TITLES: dict[str, str] = dict(_META_FILES)
 
 
 class VaultMetaFile(BaseModel):
@@ -55,6 +60,12 @@ class VaultMetaResponse(BaseModel):
     """Response body for GET /vault/meta."""
 
     files: list[VaultMetaFile]
+
+
+class VaultMetaWriteRequest(BaseModel):
+    """Request body for PUT /vault/meta/{name} — the full new file content."""
+
+    content: str
 
 
 @router.get(
@@ -105,3 +116,56 @@ async def get_vault_meta(
         )
 
     return VaultMetaResponse(files=result)
+
+
+@router.put(
+    "/vault/meta/{name}",
+    response_model=VaultMetaFile,
+    summary="Write a vault meta file (schema.md or purpose.md)",
+    description=(
+        "Overwrites one vault-root meta file with the supplied content. `name` MUST be exactly "
+        "`schema.md` or `purpose.md` — any other value is 404 (this allow-list is the only "
+        "path-traversal guard; no globs, no relative segments ever reach disk). Writes UTF-8 "
+        "directly to the vault root; no Postgres/Qdrant/ingest side effects — these files are "
+        "vault-meta, not wiki content (K1, I1, I5). v1.5 P1: makes purpose/schema editable "
+        "in-app (ADR-0066)."
+    ),
+    responses={
+        200: {"description": "File written; returns the persisted entry."},
+        404: {"description": "name is not schema.md or purpose.md."},
+    },
+)
+async def put_vault_meta(
+    name: str,
+    body: VaultMetaWriteRequest,
+    vault_id: str = Query(default="default", description="Vault identifier (currently unused)."),
+) -> VaultMetaFile:
+    """
+    Write schema.md or purpose.md to the vault root.
+
+    Strict allow-list on ``name`` (must be a key of ``_META_TITLES``) is the sole gate — an
+    unknown/traversal name is 404 before any filesystem access. Belt-and-braces: the resolved
+    path must sit directly in the vault root.
+    """
+    title = _META_TITLES.get(name)
+    if title is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Only 'schema.md' and 'purpose.md' are editable vault meta files.",
+        )
+
+    vault_root: Path = settings.vault_root
+    file_path = vault_root / name
+    # Defensive: the resolved target must be a direct child of the vault root.
+    if file_path.resolve().parent != vault_root.resolve():
+        raise HTTPException(status_code=400, detail="Invalid meta file path.")
+
+    try:
+        vault_root.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(body.content, encoding="utf-8")
+    except OSError as exc:
+        logger.error("vault/meta: could not write %s: %s", file_path, exc)
+        raise HTTPException(status_code=500, detail=f"Could not write {name}.") from exc
+
+    logger.info("vault/meta: wrote %s (%d chars)", name, len(body.content))
+    return VaultMetaFile(name=name, path=name, title=title, content=body.content)
