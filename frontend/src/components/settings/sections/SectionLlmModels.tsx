@@ -788,17 +788,15 @@ export function SectionLlmModels() {
   // Scope selector
   const [scope, setScope] = useState<"global" | "vault">("global");
 
+  // Load the vendor catalog on mount. Deps are ONLY [fetchVendorCatalog] (a stable Zustand action):
+  // putting vendors/vendorsLoading in the deps made the effect re-run when the fetch flipped
+  // vendorsLoading, and an AbortController cleanup then aborted the very request it started —
+  // an ERR_ABORTED loop that left the catalog stuck on "loading" (caught by live preview). No
+  // AbortController here: under StrictMode a cleanup-abort + fetch-once guard would abort the only
+  // request and never retry; letting the fetch settle into the global store is harmless (an extra
+  // StrictMode-dev fetch at worst). No useProviderStore.getState() so the mocked-store tests pass.
   useEffect(() => {
-    const ac = new AbortController();
-    // Fetch the vendor catalog once on mount. Read the live store (getState) instead of the
-    // render-time `vendors`/`vendorsLoading` closure and keep them OUT of the deps: depending
-    // on `vendorsLoading` made this effect re-run when fetchVendorCatalog flips it to true, so
-    // the cleanup aborted the very request it had started — an ERR_ABORTED loop that left the
-    // catalog stuck on "loading". (Caught by live preview; unit tests mock the store.)
-    if (useProviderStore.getState().vendors.length === 0) {
-      void fetchVendorCatalog(ac.signal);
-    }
-    return () => ac.abort();
+    void fetchVendorCatalog();
   }, [fetchVendorCatalog]);
 
   useEffect(() => {
