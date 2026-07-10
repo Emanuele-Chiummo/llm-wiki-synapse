@@ -182,6 +182,7 @@
       "sourceWatch2": "Watched sources",
       "clipper": "Web clipper",
       "pdf": "PDF extraction",
+      "imageCaptioning": "Image captioning",
       "apiMcp2": "MCP integrations",
       "security2": "Security & access",
       "costs2": "Costs",
@@ -1253,6 +1254,21 @@
     "saved": "Saved",
     "resetDone": "Reset to default",
     "keyHint": "Key: {{key}}",
+    "imageCaptioningSection": {
+      "title": "Image captioning",
+      "desc": "Generate factual captions for images extracted from PDFs / DOCX / PPTX at ingest. Captions become alt text inside the source markdown, so semantic search can match image content. Cached by image hash so duplicate logos/charts only call the model once."
+    },
+    "visionCaptionsEnabled": {
+      "label": "Caption images at ingest",
+      "help": "Off: image references are stripped from ingested content — no captions, search won't match them. On: each new image gets a caption from the vision-capable provider (cached by hash) and lands in the page's alt text.",
+      "on": "Enabled",
+      "off": "Disabled"
+    },
+    "visionMaxImagesPerRun": {
+      "label": "Max images captioned per run",
+      "help": "Cap on how many images call the vision model per ingest run (cost/time bound). 0–50; 0 disables captioning even when the toggle is on.",
+      "placeholder": "5"
+    },
     "pdfExtractor": {
       "label": "PDF extractor",
       "help": "Choose which engine extracts text from PDF files on ingest.",

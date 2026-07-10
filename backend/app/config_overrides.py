@@ -75,6 +75,8 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "deep_research_max_queries",  # S16 — int 1–10; caps SearXNG query fan-out (I7)
         "lint_max_iter",  # S17 — int 1–10; caps LintScan semantic loop (I7)
         "lint_token_budget",  # S18 — int 1000–500_000; caps LintScan token spend (I7)
+        "vision_captions_enabled",  # S19 (v1.5 P3-a) — Image Captioning master toggle (R8-2)
+        "vision_max_images_per_run",  # S20 (v1.5 P3-a) — int 0–50; per-run vision-call cap (I7)
     }
 )
 
@@ -99,6 +101,8 @@ ORDERED_KEYS: list[str] = [
     "deep_research_max_queries",  # S16 — loop bound (I7)
     "lint_max_iter",  # S17 — loop bound (I7)
     "lint_token_budget",  # S18 — loop bound (I7)
+    "vision_captions_enabled",  # S19 (v1.5 P3-a)
+    "vision_max_images_per_run",  # S20 (v1.5 P3-a)
 ]
 
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
@@ -143,9 +147,18 @@ def validate_value(key: str, value: str) -> str | None:
         if f < 0:
             return f"cost_alert_threshold_usd must be ≥ 0 (0 disables the alert), got {f!r}"
 
-    elif key in ("embeddings_enabled", "wikilink_enrich_enabled"):
+    elif key in ("embeddings_enabled", "wikilink_enrich_enabled", "vision_captions_enabled"):
         if value.lower() not in _BOOL_VALUES:
             return f"{key} must be 'true' or 'false' (case-insensitive), " f"got {value!r}"
+
+    elif key == "vision_max_images_per_run":
+        # S20 (v1.5 P3-a): int in [0, 50] — per-run vision-call cap (I7; 0 disables captioning).
+        try:
+            i = int(value)
+        except ValueError:
+            return f"vision_max_images_per_run must be an integer between 0 and 50, got {value!r}"
+        if not (0 <= i <= 50):
+            return f"vision_max_images_per_run must be between 0 and 50, got {i!r}"
 
     elif key == "embedding_format":
         if value not in _EMBEDDING_FORMAT_VALUES:

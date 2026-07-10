@@ -67,7 +67,10 @@ export type AppConfigKey =
   | "deep_research_token_budget"
   | "deep_research_max_queries"
   | "lint_max_iter"
-  | "lint_token_budget";
+  | "lint_token_budget"
+  // S19/S20: Image Captioning (v1.5 P3-a)
+  | "vision_captions_enabled"
+  | "vision_max_images_per_run";
 
 // ─── Client functions ─────────────────────────────────────────────────────────
 

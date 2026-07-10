@@ -292,6 +292,9 @@ export function configKeyToI18nSuffix(key: AppConfigKey): string {
     deep_research_max_queries:  "deepResearchMaxQueries",
     lint_max_iter:              "lintMaxIter",
     lint_token_budget:          "lintTokenBudget",
+    // S19/S20: Image Captioning (v1.5 P3-a)
+    vision_captions_enabled:    "visionCaptionsEnabled",
+    vision_max_images_per_run:  "visionMaxImagesPerRun",
   };
   return map[key];
 }
@@ -338,7 +341,11 @@ function RcControl({
     );
   }
 
-  if (configKey === "embeddings_enabled" || configKey === "wikilink_enrich_enabled") {
+  if (
+    configKey === "embeddings_enabled" ||
+    configKey === "wikilink_enrich_enabled" ||
+    configKey === "vision_captions_enabled"
+  ) {
     const i18nBase = `config.${configKeyToI18nSuffix(configKey)}`;
     const isOn = entry.localValue === "true" || entry.localValue === "1";
     return (

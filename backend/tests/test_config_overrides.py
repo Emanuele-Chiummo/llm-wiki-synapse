@@ -235,7 +235,7 @@ async def test_get_config_app_all_env_sources() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys added for I7)
+    assert len(settings_list) == 20  # S1..S20 (S19/S20 = Image Captioning, v1.5 P3-a)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
@@ -526,3 +526,24 @@ async def test_effective_int_drives_override_for_s14() -> None:
     # Clean up
     async with co._cache_lock:
         co._cache.pop("deep_research_max_iter", None)
+
+
+def test_validate_vision_keys() -> None:
+    """S19/S20 (v1.5 P3-a): Image Captioning keys validate as bool / int 0–50."""
+    from app.config_overrides import ALLOWED_CONFIG_KEYS, ORDERED_KEYS, validate_value
+
+    assert "vision_captions_enabled" in ALLOWED_CONFIG_KEYS
+    assert "vision_max_images_per_run" in ALLOWED_CONFIG_KEYS
+    assert ORDERED_KEYS[-2:] == ["vision_captions_enabled", "vision_max_images_per_run"]
+
+    # bool toggle
+    assert validate_value("vision_captions_enabled", "true") is None
+    assert validate_value("vision_captions_enabled", "FALSE") is None
+    assert validate_value("vision_captions_enabled", "maybe") is not None
+
+    # int 0–50
+    assert validate_value("vision_max_images_per_run", "0") is None
+    assert validate_value("vision_max_images_per_run", "50") is None
+    assert validate_value("vision_max_images_per_run", "51") is not None
+    assert validate_value("vision_max_images_per_run", "-1") is not None
+    assert validate_value("vision_max_images_per_run", "x") is not None

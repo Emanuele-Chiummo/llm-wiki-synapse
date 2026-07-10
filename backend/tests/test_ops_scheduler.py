@@ -761,7 +761,7 @@ async def test_get_config_app_returns_12_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys)
+    assert len(settings_list) == 20  # S1..S20 (S19/S20 = Image Captioning, v1.5 P3-a)
     keys = [s["key"] for s in settings_list]
     assert "schema_review_schedule" in keys
     # schema_review_schedule must appear at position 11 (0-indexed) — S12 position unchanged
@@ -1001,7 +1001,7 @@ async def test_get_config_app_returns_13_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 18  # S1..S18 (S14-S18 = loop-bound keys)
+    assert len(settings_list) == 20  # S1..S20 (S19/S20 = Image Captioning, v1.5 P3-a)
     keys = [s["key"] for s in settings_list]
     assert "reclassify_schedule" in keys
     # Must appear at position 12 (0-indexed)

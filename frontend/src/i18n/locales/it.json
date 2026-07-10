@@ -182,6 +182,7 @@
       "sourceWatch2": "Sorgenti osservate",
       "clipper": "Web clipper",
       "pdf": "Estrazione PDF",
+      "imageCaptioning": "Didascalie immagini",
       "apiMcp2": "Integrazioni MCP",
       "security2": "Sicurezza e accesso",
       "costs2": "Costi",
@@ -1253,6 +1254,21 @@
     "saved": "Salvato",
     "resetDone": "Ripristinato al predefinito",
     "keyHint": "Chiave: {{key}}",
+    "imageCaptioningSection": {
+      "title": "Didascalie immagini",
+      "desc": "Genera didascalie fattuali per le immagini estratte da PDF / DOCX / PPTX all'ingest. Le didascalie diventano testo alternativo nel markdown sorgente, così la ricerca semantica trova il contenuto delle immagini. Cache per hash: loghi/grafici duplicati chiamano il modello una volta sola."
+    },
+    "visionCaptionsEnabled": {
+      "label": "Didascalie immagini all'ingest",
+      "help": "Off: i riferimenti alle immagini vengono rimossi dai contenuti ingeriti — niente didascalie, la ricerca non le trova. On: ogni nuova immagine riceve una didascalia dal provider con capacità vision (cache per hash) e finisce nel testo alternativo della pagina.",
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
+    "visionMaxImagesPerRun": {
+      "label": "Max immagini per esecuzione",
+      "help": "Limite di quante immagini chiamano il modello vision per esecuzione di ingest (vincolo costo/tempo). 0–50; 0 disabilita le didascalie anche col toggle attivo.",
+      "placeholder": "5"
+    },
     "pdfExtractor": {
       "label": "Estrattore PDF",
       "help": "Scegli quale motore estrae il testo dai file PDF durante l'importazione.",

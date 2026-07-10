@@ -562,6 +562,9 @@ def _build_app_config_response() -> AppConfigListResponse:
         "deep_research_max_queries": str(settings.deep_research_max_queries),
         "lint_max_iter": str(settings.lint_max_iter),
         "lint_token_budget": str(settings.lint_token_budget),
+        # S19/S20: Image Captioning (v1.5 P3-a) — env-var baseline from settings.
+        "vision_captions_enabled": str(settings.vision_captions_enabled).lower(),
+        "vision_max_images_per_run": str(settings.vision_max_images_per_run),
     }
 
     result: list[AppConfigSetting] = []
