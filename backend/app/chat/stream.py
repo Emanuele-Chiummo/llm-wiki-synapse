@@ -200,6 +200,11 @@ async def run_chat_stream(
     retrieval_citations: list[Citation] = []
     retrieval_text = ""
     r_k, r_depth = retrieval_mode_params(retrieval_mode)
+    # CG-A6 (ADR-0067 P3-3): on the chat path, exclude type=query lint-stub pages (tags contain
+    # stub+lint) from citations so a near-empty ghost stub never resolves an [n] footnote.
+    # Setting-gated, default ON: an operator can flip `chat_exclude_stub_pages` off (env/settings)
+    # to restore stub citations; when the field is absent the getattr default keeps it enabled.
+    exclude_stub_pages = bool(getattr(settings, "chat_exclude_stub_pages", True))
     try:
         rctx = await retrieve(
             query=last_user.content if last_user else "",
@@ -207,6 +212,7 @@ async def run_chat_stream(
             context_window=window,
             k=r_k,
             expansion_depth=r_depth,
+            exclude_stub_pages=exclude_stub_pages,
         )
         retrieval_text = rctx.text
         retrieval_citations = rctx.citations

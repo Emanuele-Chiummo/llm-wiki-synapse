@@ -112,6 +112,56 @@ _MAX_EXPANSION_DEPTH = 2
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
+# CG-A6 (ADR-0067 P3-3): exclude type=query lint-stub pages (tags contain BOTH 'stub' and
+# 'lint') from chat citations so a near-empty ghost stub can never resolve an [n] footnote.
+# Portable + NULL-safe:
+#   - CAST(col AS TEXT) works on Postgres JSONB and SQLite JSON-stored-as-text (mirrors the
+#     project's "portable CAST(col AS TEXT)" rule + the tags-as-JSON-string note in graph/engine).
+#   - COALESCE(...,'') so a genuine query page with NULL tags is NOT mistaken for a stub (kept):
+#     without it `type='query' AND NULL AND NULL` → NULL → `NOT NULL` → the row is wrongly dropped.
+# The 'stub'/'lint' literals are constants (no user input), so there is no injection surface.
+_STUB_EXCLUSION_SQL = (
+    "AND NOT ("
+    "CAST(type AS TEXT) = 'query' "
+    "AND COALESCE(CAST(tags AS TEXT), '') LIKE '%stub%' "
+    "AND COALESCE(CAST(tags AS TEXT), '') LIKE '%lint%'"
+    ") "
+)
+
+
+def _display_path(file_path: str) -> str:
+    """
+    CG-A1 (ADR-0067 P3-3): a compact, human/LLM-friendly page path for citation context blocks.
+
+    ``wiki/concepts/bge-m3.md`` → ``concepts/bge-m3``. Strips the ``wiki/`` root and the ``.md``
+    suffix so the model can name the relevant page path naturally in prose (LLM Wiki
+    backend-agent style) while the bare ``[n]`` marker stays the machine-resolvable anchor.
+    """
+    p = file_path
+    if p.startswith("wiki/"):
+        p = p[len("wiki/") :]
+    if p.endswith(".md"):
+        p = p[:-3]
+    return p
+
+
+def _strip_path_suffix(header_line: str) -> str:
+    """
+    Recover the bare title from a ``<title> (<path>)`` citation header (CG-A1).
+
+    Drops a single trailing `` (…)`` parenthetical — the display path appended by the assembler
+    (:func:`_phase4_assemble`) — so the header matches ``Citation.ref.title`` for the date-sort
+    rebuild lookup. Titles that themselves contain parentheses (e.g. ``Amazon Web Services
+    (AWS)``) keep them: only the LAST parenthetical (the appended path) is removed.
+    """
+    s = header_line.rstrip()
+    if s.endswith(")"):
+        idx = s.rfind(" (")
+        if idx > 0:
+            return s[:idx]
+    return s
+
+
 # ── B2-C3: Retrieval-mode presets (frozen — NEVER allow arbitrary values) ───────
 # Keyed by mode name; values are (k, expansion_depth).
 # expansion_depth is ALWAYS clamped to ≤ _MAX_EXPANSION_DEPTH (2) on use — the preset
@@ -217,6 +267,7 @@ async def retrieve(
     session: AsyncSession | None = None,
     type_filter: list[str] | None = None,
     sort: SearchSortOption = "relevance",
+    exclude_stub_pages: bool = False,
 ) -> RetrievalContext:
     """
     Run the 4-phase retrieval pipeline and return a :class:`RetrievalContext`.
@@ -241,6 +292,12 @@ async def retrieve(
             (AC-R8-5-2). ``"relevance"`` (default) leaves ranking unchanged.
             ``"date_desc"`` / ``"date_asc"`` re-orders the final citation list by
             ``pages.updated_at``; phase internals and budgets are NEVER changed (I7).
+        exclude_stub_pages: CG-A6 (ADR-0067 P3-3) — when True, ``type=query`` lint-stub
+            pages (``tags`` contain both ``stub`` and ``lint``) are dropped at BOTH Phase 1
+            lexical SQL and Phase 4 assembly (authoritative gate), so a near-empty ghost stub
+            can never resolve an ``[n]`` citation. Default False (search endpoints unchanged);
+            the chat retrieval path passes True (setting-gated, default on). Genuine query
+            pages (real open questions, no stub/lint tags) are unaffected.
 
     Returns:
         A :class:`RetrievalContext` whose ``citations`` count equals the distinct ``[n]``
@@ -271,6 +328,7 @@ async def retrieve(
             k=k,
             session=session,
             type_filter=effective_type_filter,
+            exclude_stub_pages=exclude_stub_pages,
         )
 
     # ── Phase 2: graph-expansion (I2 — read edges + resolved links, NOT FA2) ──
@@ -291,6 +349,7 @@ async def retrieve(
         budget_chars=budget_chars,
         session=session,
         type_filter=effective_type_filter,
+        exclude_stub_pages=exclude_stub_pages,
     )
 
     # ── R8-5: sort — presentation-level, applied after pipeline (AC-R8-5-2) ──
@@ -377,6 +436,7 @@ async def _phase1_lexical_search(
     k: int,
     session: AsyncSession | None,
     type_filter: list[str] | None = None,
+    exclude_stub_pages: bool = False,
 ) -> list[_Candidate]:
     """
     Lexical degrade for Phase 1 when ``EMBEDDINGS_ENABLED=false`` (ADR-0030 §2.3, Feature B).
@@ -438,6 +498,9 @@ async def _phase1_lexical_search(
         type_clause = f"AND CAST(type AS TEXT) IN ({type_placeholders}) "  # noqa: S608
         binds.update({f"t{i}": tv for i, tv in enumerate(type_filter)})
 
+    # CG-A6: drop type=query lint-stub pages (defense-in-depth alongside the Phase-4 gate).
+    stub_clause = _STUB_EXCLUSION_SQL if exclude_stub_pages else ""
+
     # S608 suppressed: only app-generated bind placeholders are interpolated; user input
     # travels as bound params via :tok0/:tok1/… — no SQL-injection vector.
     # R7-8: wiki-only scope — same filter as _load_page_meta (AC-R7-8-1).
@@ -446,6 +509,7 @@ async def _phase1_lexical_search(
         f"WHERE vault_id = :vid AND deleted_at IS NULL "
         f"AND file_path NOT LIKE 'raw/%' "
         f"{type_clause}"
+        f"{stub_clause}"
         f"AND ({ilike_parts})"
     )
     sql = f"{select_clause} {where_clause} ORDER BY match_score DESC, title ASC LIMIT :lim"
@@ -634,11 +698,12 @@ async def _phase4_assemble(
     budget_chars: int,
     session: AsyncSession | None,
     type_filter: list[str] | None = None,
+    exclude_stub_pages: bool = False,
 ) -> tuple[str, list[Citation]]:
     """
     Walk *ranked* candidates while the char budget remains; load each source-file body
     (per-passage capped), assign the next 1-based contiguous ``n``, append
-    ``[n] <title>\\n<passage>`` to the text and record the matching :class:`Citation`.
+    ``[n] <title> (<path>)\\n<passage>`` to the text and record the matching :class:`Citation`.
 
     Lowest-ranked candidates that do not fit are DROPPED (never mid-sentence
     truncate-without-drop, AC-F5-4). The assembler is the single authority for ``[n]`` ↔
@@ -648,6 +713,14 @@ async def _phase4_assemble(
     (defense-in-depth; mirrors the raw/ exclusion pattern of ADR-0049, AC-R8-5-2).
     Candidates whose ``type`` is not in the filter are silently dropped here, just as
     raw/ candidates are dropped by the raw/ filter.
+
+    CG-A1 (ADR-0067 P3-3): each block header now carries the page's compact path
+    (``concepts/<slug>``) after the title so the model can name the relevant page path
+    naturally in prose. The bare ``[n]`` marker remains the machine-resolvable anchor
+    (parentheses are never counted as an ``[n]`` marker).
+
+    CG-A6: when ``exclude_stub_pages`` is True, ``_load_page_meta`` drops type=query lint
+    stubs so they never resolve a citation.
     """
     if not ranked or budget_chars <= 0:
         return "", []
@@ -656,7 +729,9 @@ async def _phase4_assemble(
     per_passage_cap = max(1, budget_chars // max(1, len(ranked)))
 
     page_ids = [c.page_id for c in ranked]
-    meta = await _load_page_meta(page_ids, session, type_filter=type_filter or [])
+    meta = await _load_page_meta(
+        page_ids, session, type_filter=type_filter or [], exclude_stub_pages=exclude_stub_pages
+    )
 
     parts: list[str] = []
     citations: list[Citation] = []
@@ -669,12 +744,15 @@ async def _phase4_assemble(
             continue  # page vanished (soft-deleted/race) — skip, do not cite
 
         title = info["title"]
+        # CG-A1: compact page path exposed in the header so the model can reference it in prose.
+        disp = _display_path(info["file_path"])
+        header = f"[{n + 1}] {title} ({disp})" if disp else f"[{n + 1}] {title}"
         passage = await _load_passage(info["file_path"], cap=per_passage_cap)
         if not passage:
             continue  # unreadable/empty source — skip rather than cite an empty passage
 
         candidate_n = n + 1
-        block = f"[{candidate_n}] {title}\n{passage}\n"
+        block = f"{header}\n{passage}\n"
         # whole-block granularity: a block either fits or is dropped (never split mid-sentence)
         if used_chars + len(block) > budget_chars and citations:
             # budget exhausted; lowest-ranked remaining candidates are dropped (AC-F5-4)
@@ -684,11 +762,11 @@ async def _phase4_assemble(
             # non-empty result is still returned, but on a WHOLE-passage boundary (we shrink
             # the passage, never split a sentence across the cut: trim then strip trailing
             # partial word). Drop nothing else after.
-            allowance = max(0, budget_chars - len(f"[{candidate_n}] {title}\n") - 1)
+            allowance = max(0, budget_chars - len(f"{header}\n") - 1)
             passage = _trim_to_boundary(passage, allowance)
             if not passage:
                 continue
-            block = f"[{candidate_n}] {title}\n{passage}\n"
+            block = f"{header}\n{passage}\n"
 
         n = candidate_n
         parts.append(block)
@@ -778,6 +856,7 @@ async def _load_page_meta(
     page_ids: list[str],
     session: AsyncSession | None,
     type_filter: list[str] | None = None,
+    exclude_stub_pages: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """
     Load ``{title, file_path}`` for each live page id (I1 — table read, no vault walk).
@@ -788,6 +867,10 @@ async def _load_page_meta(
     R8-5: optional ``type_filter`` adds ``AND CAST(type AS TEXT) IN (:t0, :t1, …)`` — the
     authoritative gate (defense-in-depth, mirrors ADR-0049 raw/ pattern, AC-R8-5-2).
     ``CAST(type AS TEXT)`` is portable (Postgres + SQLite); values are bound params.
+
+    CG-A6: optional ``exclude_stub_pages`` adds the authoritative stub-exclusion clause
+    (``NOT (type=query AND tags LIKE '%stub%' AND tags LIKE '%lint%')``) so a lint-stub
+    query page can never resolve an ``[n]`` citation on the chat path.
     """
     if not page_ids:
         return {}
@@ -804,6 +887,9 @@ async def _load_page_meta(
         type_placeholders = ",".join(f":t{i}" for i in range(len(type_filter)))
         type_clause = f"AND CAST(type AS TEXT) IN ({type_placeholders}) "  # noqa: S608
         binds.update({f"t{i}": tv for i, tv in enumerate(type_filter)})
+
+    # CG-A6: authoritative stub-exclusion gate (see _STUB_EXCLUSION_SQL).
+    stub_clause = _STUB_EXCLUSION_SQL if exclude_stub_pages else ""
 
     async def _run(sess: AsyncSession) -> dict[str, dict[str, Any]]:
         # S608 suppressed: app-generated bind placeholders (":p0,:p1,…") only — ids are bound.
@@ -823,6 +909,7 @@ async def _load_page_meta(
             f"AND CAST(id AS TEXT) IN ({placeholders}) "
             f"AND file_path NOT LIKE 'raw/%' "
             f"{type_clause}"
+            f"{stub_clause}"
         )
         result = await sess.execute(sa_text(page_sql).bindparams(**binds))
         out: dict[str, dict[str, Any]] = {}
@@ -994,14 +1081,19 @@ def _rebuild_text_from_citations(citations: list[Citation], original_text: str) 
     #   If two pages have the same title, the heuristic may mis-assign — but duplicate-title
     #   pages are already a schema violation (K6), so this is acceptable.
 
-    title_to_passage: dict[str, str] = {}
-    for _, (title, passage) in sorted(old_triples.items()):
-        if title not in title_to_passage:
-            title_to_passage[title] = passage
+    # CG-A1: block headers may now carry a trailing " (<path>)" (see _phase4_assemble). Key the
+    # lookup on the BARE title (path suffix stripped) so it matches Citation.ref.title, but keep
+    # the FULL header (with path) to re-emit — otherwise the date-sorted text would (a) lose the
+    # path suffix and (b) fail to find the passage (key mismatch → empty passage regression).
+    header_by_title: dict[str, tuple[str, str]] = {}
+    for _, (header_line, passage) in sorted(old_triples.items()):
+        bare = _strip_path_suffix(header_line)
+        if bare not in header_by_title:
+            header_by_title[bare] = (header_line, passage)
 
     parts: list[str] = []
     for cit in citations:
-        passage = title_to_passage.get(cit.ref.title, "")
-        parts.append(f"[{cit.n}] {cit.ref.title}\n{passage}")
+        header_line, passage = header_by_title.get(cit.ref.title, (cit.ref.title, ""))
+        parts.append(f"[{cit.n}] {header_line}\n{passage}")
 
     return "".join(parts)

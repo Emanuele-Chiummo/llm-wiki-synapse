@@ -362,9 +362,12 @@ def test_chat_preamble_demands_bare_bracket_citations() -> None:
     from app.chat.context import _SYSTEM_PREAMBLE
 
     text = _SYSTEM_PREAMBLE
+    low = text.lower()
     # Must demand bare [n] markers and forbid the local-model variants seen in the audit.
     assert "[1]" in text
     assert "[[3]]" in text  # explicitly forbidden form is named
-    assert "never invent" in text.lower()
-    # Must forbid putting the title inside the marker.
-    assert "title inside the marker" in text.lower()
+    assert "never invent" in low
+    # CG-A1 (ADR-0067 P3-3): the preamble no longer FORBIDS naming titles/paths — it now allows
+    # naming the relevant page path in prose while keeping the marker a bare number.
+    assert "bare number" in low  # marker must stay a bare number (the resolvable anchor)
+    assert "path" in low and "prose" in low  # naming the page path in prose is permitted
