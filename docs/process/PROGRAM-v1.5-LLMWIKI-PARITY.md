@@ -9,7 +9,7 @@
 |-------|-------|-----------|--------|
 | **P0** | Foundations — ADR-0066, I9 amendment, this tracker | — | ✅ done |
 | **P1** | Vault config & Files — editable purpose/schema + whole-vault tree + Open project folder | P0 | 🟡 mostly done (editable meta ✅ backend+frontend; whole-vault Vault tab ✅; **remaining: "Open project folder" action + live preview verify**) |
-| **P2** | Multi-vault Project Launcher — ⇄ rail entry, New/Open/Recent, backend vault registry + active-vault switch | P0 | ⏳ started — **ADR-0067** (Model A) + slice 1 (registry + `GET /projects`) ✅. Next: create/open, **activate (runtime switch)**, launcher UI |
+| **P2** | Multi-vault Project Launcher — ⇄ rail entry, New/Open/Recent, backend vault registry + active-vault switch | P0 | ⏳ backend registry done — ADR-0067; slice 1 (`GET /projects`) ✅; slice 2 (`POST /projects` create-scaffold + `/projects/open`) ✅. **Next: slice 3 `POST /projects/{id}/activate` (runtime switch — watcher restart + cache invalidation), then slice 4 launcher UI** |
 | **P3** | Settings parity — Image Captioning, Network proxy, Scheduled Import (external), Source Watch types, MinerU toggle, multi-provider web search, IA decision | P0 | ▫ todo |
 | **P4** | Chat composer — Skills · AnyTXT · Fast/Standard/Deep/Local-first pills | P0 | ▫ todo |
 | **P5** | Skills view — rail #10 scan/enable/disable/rescan | P0 | ▫ todo |
