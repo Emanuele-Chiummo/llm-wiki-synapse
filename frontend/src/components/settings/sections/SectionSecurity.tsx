@@ -4,7 +4,7 @@
  * The Authorization header is NEVER constructed here — only setAuthToken /
  * clearAuthToken are called (base.ts keeps the single injection point, ADR-0052 Do-NOT §10).
  */
-import { useCallback, useState } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import {
   getAuthToken,
@@ -16,6 +16,15 @@ import {
   clearCfAccessCreds,
 } from "../../../api/base";
 import { INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
+
+// LLM Wiki card style — bordered surface card (brand colors only, never black).
+const SEC_CARD: CSSProperties = {
+  border: "1px solid var(--syn-border)",
+  borderRadius: 10,
+  background: "var(--syn-surface)",
+  padding: "16px",
+  marginBottom: 16,
+};
 
 export function SectionSecurity() {
   const { t } = useTranslation();
@@ -83,7 +92,7 @@ export function SectionSecurity() {
       </p>
 
       {/* Server URL (read-only) */}
-      <div style={{ marginBottom: 20 }}>
+      <div style={SEC_CARD}>
         <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
           {t("settings.security.serverUrl")}
         </label>
@@ -96,7 +105,7 @@ export function SectionSecurity() {
       </div>
 
       {/* Rotate token field */}
-      <div style={{ marginBottom: 12 }}>
+      <div style={SEC_CARD}>
         <label htmlFor="settings-security-token" style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
           {t("settings.security.rotateLabel")}
         </label>
@@ -142,7 +151,7 @@ export function SectionSecurity() {
       </div>
 
       {/* ── Cloudflare Access service token (edge auth) ── */}
-      <div style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid var(--syn-border)" }}>
+      <div style={SEC_CARD}>
         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: "var(--syn-text)" }}>
           {t("settings.security.cfTitle")}
         </h3>
