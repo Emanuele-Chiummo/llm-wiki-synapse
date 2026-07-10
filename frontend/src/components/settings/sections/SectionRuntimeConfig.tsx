@@ -111,6 +111,42 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
     }
   };
 
+  // Atomic save-with-value — used by toggles to auto-save on click (LLM Wiki: "saves instantly").
+  // Persists the passed *value* directly (not the possibly-stale entries state), avoiding the
+  // setLocal-then-save race.
+  const handleSaveValue = async (key: AppConfigKey, value: string) => {
+    setEntries((prev) => {
+      const next = new Map(prev);
+      const e = next.get(key) ?? { ...EMPTY_ENTRY, key };
+      next.set(key, { ...e, localValue: value, saving: true, saved: false });
+      return next;
+    });
+    try {
+      await putAppConfig(key, value);
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const e = next.get(key);
+        if (e) next.set(key, { ...e, value, localValue: value, source: "override", saving: false, saved: true });
+        return next;
+      });
+      setTimeout(() => {
+        setEntries((prev) => {
+          const next = new Map(prev);
+          const e = next.get(key);
+          if (e) next.set(key, { ...e, saved: false });
+          return next;
+        });
+      }, 2500);
+    } catch {
+      setEntries((prev) => {
+        const next = new Map(prev);
+        const e = next.get(key);
+        if (e) next.set(key, { ...e, saving: false });
+        return next;
+      });
+    }
+  };
+
   const handleReset = async (key: AppConfigKey) => {
     const entry = entries.get(key);
     if (!entry) return;
@@ -161,7 +197,7 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
       {keys.map((key) => {
         const entry = entries.get(key) ?? { ...EMPTY_ENTRY, key };
         return (
@@ -172,6 +208,7 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
             onLocalChange={setLocal}
             onSave={handleSave}
             onReset={handleReset}
+            onToggle={handleSaveValue}
           />
         );
       })}
@@ -181,40 +218,104 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
 
 // ─── RuntimeConfigField ────────────────────────────────────────────────────────
 
+// Card container matching LLM Wiki's settings cards (bordered, rounded, surface bg).
+const RC_CARD = {
+  border: "1px solid var(--syn-border)",
+  borderRadius: 10,
+  background: "var(--syn-surface)",
+  padding: "14px 16px",
+} as const;
+
+const RC_BOOL_KEYS = new Set<AppConfigKey>([
+  "embeddings_enabled",
+  "wikilink_enrich_enabled",
+  "vision_captions_enabled",
+]);
+
 function RuntimeConfigField({
   configKey,
   entry,
   onLocalChange,
   onSave,
   onReset,
+  onToggle,
 }: {
   configKey: AppConfigKey;
   entry: RcEntry;
   onLocalChange: (key: AppConfigKey, value: string) => void;
   onSave: (key: AppConfigKey) => Promise<void>;
   onReset: (key: AppConfigKey) => Promise<void>;
+  onToggle: (key: AppConfigKey, value: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
 
   const i18nBase = `config.${configKeyToI18nSuffix(configKey)}`;
-  const label   = t(`${i18nBase}.label`);
-  const help    = t(`${i18nBase}.help`);
+  const label = t(`${i18nBase}.label`);
+  const help = t(`${i18nBase}.help`);
   const isOverride = entry.source === "override";
+  const isDirty = entry.localValue !== entry.value;
 
+  // ── Boolean toggle — LLM Wiki card: title+help LEFT, ON/OFF + switch RIGHT, auto-saves ──
+  if (RC_BOOL_KEYS.has(configKey)) {
+    const isOn = entry.localValue === "true" || entry.localValue === "1";
+    return (
+      <div data-testid={`rc-field-${configKey}`} style={RC_CARD}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--syn-text)", marginBottom: 2 }}>
+              {label}
+            </label>
+            <p style={{ fontSize: 12.5, color: "var(--syn-text-muted)", margin: 0, lineHeight: 1.5 }}>{help}</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", color: "var(--syn-text-dim)" }}>
+              {isOn ? t(`${i18nBase}.on`) : t(`${i18nBase}.off`)}
+            </span>
+            <button
+              data-testid={`rc-control-${configKey}`}
+              role="switch"
+              aria-checked={isOn}
+              aria-label={label}
+              disabled={entry.saving}
+              onClick={() => { void onToggle(configKey, isOn ? "false" : "true"); }}
+              style={{
+                width: 40, height: 22, borderRadius: 11, border: "none",
+                cursor: entry.saving ? "not-allowed" : "pointer", position: "relative",
+                background: isOn ? "var(--syn-accent)" : "var(--syn-border)",
+                transition: "background 0.15s", flexShrink: 0, padding: 0,
+              }}
+            >
+              <span style={{
+                position: "absolute", top: 3, left: isOn ? 21 : 3, width: 16, height: 16,
+                borderRadius: "50%", background: "#fff", transition: "left 0.15s",
+              }} />
+            </button>
+          </div>
+        </div>
+        {isOverride && (
+          <button
+            data-testid={`rc-reset-${configKey}`}
+            onClick={() => { void onReset(configKey); }}
+            disabled={entry.saving}
+            style={{ marginTop: 10, background: "none", border: "none", padding: 0,
+              color: "var(--syn-text-muted)", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+          >
+            {t("config.resetToDefault")}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // ── Non-boolean — card: title + badge + help on top, control below, Save when dirty ──
   return (
-    <div data-testid={`rc-field-${configKey}`}>
-      {/* Label row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
-          {label}
-        </label>
+    <div data-testid={`rc-field-${configKey}`} style={RC_CARD}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+        <label style={{ fontSize: 14, fontWeight: 600, color: "var(--syn-text)" }}>{label}</label>
         <span
           data-testid={`rc-source-badge-${configKey}`}
           style={{
-            padding: "1px 7px",
-            borderRadius: 4,
-            fontSize: 10,
-            fontWeight: 600,
+            padding: "1px 7px", borderRadius: 4, fontSize: 10, fontWeight: 600,
             background: isOverride
               ? "color-mix(in srgb, var(--syn-accent) 12%, var(--syn-mix-base) 88%)"
               : "var(--syn-surface-hover)",
@@ -228,43 +329,39 @@ function RuntimeConfigField({
         </span>
       </div>
 
-      {/* Help text */}
-      <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: "0 0 6px", lineHeight: 1.5 }}>{help}</p>
+      <p style={{ fontSize: 12.5, color: "var(--syn-text-muted)", margin: "0 0 8px", lineHeight: 1.5 }}>{help}</p>
 
-      {/* Control */}
       <RcControl configKey={configKey} entry={entry} onLocalChange={onLocalChange} />
 
-      {/* Hint: underlying env-var key name (secondary, smaller — AC-R11-2-12 compliant) */}
-      <p style={{ fontSize: 10, color: "var(--syn-text-dim)", margin: "4px 0 0", fontFamily: "monospace" }}>
-        {t("config.keyHint", { key: configKey.toUpperCase() })}
-      </p>
-
-      {/* Action row */}
-      <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
-        <button
-          data-testid={`rc-save-${configKey}`}
-          onClick={() => { void onSave(configKey); }}
-          disabled={entry.saving}
-          style={{ ...BTN_PRIMARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
-        >
-          {entry.saving ? t("config.saving") : t("config.save")}
-        </button>
-        {isOverride && (
-          <button
-            data-testid={`rc-reset-${configKey}`}
-            onClick={() => { void onReset(configKey); }}
-            disabled={entry.saving}
-            style={{ ...BTN_SECONDARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
-          >
-            {t("config.resetToDefault")}
-          </button>
-        )}
-        {entry.saved && (
-          <span style={{ fontSize: 11, color: "var(--syn-green)" }}>
-            {isOverride ? t("config.saved") : t("config.resetDone")}
-          </span>
-        )}
-      </div>
+      {(isDirty || isOverride || entry.saved) && (
+        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+          {isDirty && (
+            <button
+              data-testid={`rc-save-${configKey}`}
+              onClick={() => { void onSave(configKey); }}
+              disabled={entry.saving}
+              style={{ ...BTN_PRIMARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
+            >
+              {entry.saving ? t("config.saving") : t("config.save")}
+            </button>
+          )}
+          {isOverride && (
+            <button
+              data-testid={`rc-reset-${configKey}`}
+              onClick={() => { void onReset(configKey); }}
+              disabled={entry.saving}
+              style={{ ...BTN_SECONDARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
+            >
+              {t("config.resetToDefault")}
+            </button>
+          )}
+          {entry.saved && (
+            <span style={{ fontSize: 11, color: "var(--syn-green)" }}>
+              {isOverride ? t("config.saved") : t("config.resetDone")}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
