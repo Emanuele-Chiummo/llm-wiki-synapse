@@ -123,6 +123,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](ADR-0068-source-watch-wider-types.md) | Accepted |
 | **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](ADR-0069-mineru-cloud-pdf-extractor.md) | Accepted |
 | **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](ADR-0070-multi-provider-web-search.md) | Accepted |
+| **0071** | [UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env](ADR-0071-web-search-provider-keys-ui.md) | Accepted |
 
 ---
 

@@ -2226,6 +2226,110 @@ async def put_web_search_config(body: WebSearchConfigRequest) -> WebSearchConfig
     )
 
 
+# ── GET/PUT /web-search/provider-keys — cloud provider API keys (P3-e, ADR-0071) ─────
+
+
+class WebSearchProviderKeyState(BaseModel):
+    """Masked posture for one cloud web-search provider — NEVER the key value."""
+
+    configured: bool = Field(description="True if a key is set (DB or env)")
+    source: str = Field(description="'db' | 'env' | 'none'")
+
+
+class WebSearchProviderKeysResponse(BaseModel):
+    """GET /web-search/provider-keys — masked posture for all cloud providers."""
+
+    secrets_available: bool = Field(
+        description="True if SYNAPSE_SECRET_KEY is set (required to store keys via the UI)"
+    )
+    providers: dict[str, WebSearchProviderKeyState] = Field(
+        description="Per-provider masked posture (tavily/serpapi/firecrawl/brave)"
+    )
+
+
+class WebSearchProviderKeyRequest(BaseModel):
+    """PUT /web-search/provider-keys — set (key) or clear (clear=true) one provider's key."""
+
+    provider: str = Field(description="tavily | serpapi | firecrawl | brave")
+    key: str | None = Field(default=None, description="API key to store; omit when clearing")
+    clear: bool = Field(default=False, description="True to remove the stored key (env resumes)")
+
+
+@router.get(
+    "/web-search/provider-keys",
+    response_model=WebSearchProviderKeysResponse,
+    summary="Masked posture of cloud web-search provider API keys (P3-e)",
+    description=(
+        "Read-only masked posture for the opt-in cloud web-search providers. NEVER returns the "
+        "key value — only whether one is set and its source (db | env | none). Keys are stored "
+        "Fernet-encrypted at rest and require SYNAPSE_SECRET_KEY to set via the UI (ADR-0071)."
+    ),
+)
+async def get_web_search_provider_keys() -> WebSearchProviderKeysResponse:
+    """GET /web-search/provider-keys — masked posture (ADR-0071)."""
+    from app.ops.web_search.keys import get_key_posture
+
+    posture = get_key_posture()
+    return WebSearchProviderKeysResponse(
+        secrets_available=secrets_crypto.is_configured(),
+        providers={
+            p: WebSearchProviderKeyState(configured=bool(v["configured"]), source=str(v["source"]))
+            for p, v in posture.items()
+        },
+    )
+
+
+@router.put(
+    "/web-search/provider-keys",
+    response_model=WebSearchProviderKeysResponse,
+    summary="Set or clear a cloud web-search provider API key (P3-e)",
+    description=(
+        "Store (encrypted at rest) or clear one cloud provider's API key. Setting a key requires "
+        "SYNAPSE_SECRET_KEY (400 when absent) — mirrors the CLI-auth token contract (ADR-0043/W7). "
+        "The stored key wins over the env `{PROVIDER}_API_KEY` fallback. The plaintext is never "
+        "logged or returned. ADR-0071."
+    ),
+    responses={
+        200: {"description": "Key stored/cleared; returns the refreshed masked posture"},
+        400: {"description": "SYNAPSE_SECRET_KEY not set (cannot encrypt) or invalid provider/key"},
+    },
+)
+async def put_web_search_provider_key(
+    body: WebSearchProviderKeyRequest,
+) -> WebSearchProviderKeysResponse:
+    """PUT /web-search/provider-keys — set/clear one provider's key (ADR-0071)."""
+    from app.ops.web_search.keys import (
+        CLOUD_KEY_PROVIDERS,
+        clear_web_search_api_key,
+        set_web_search_api_key,
+    )
+
+    if body.provider not in CLOUD_KEY_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"provider must be one of {sorted(CLOUD_KEY_PROVIDERS)}, got {body.provider!r}",
+        )
+    if body.clear:
+        await clear_web_search_api_key(body.provider)
+    else:
+        if not body.key or not body.key.strip():
+            raise HTTPException(status_code=400, detail="key must be a non-empty string")
+        if not secrets_crypto.is_configured():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "SYNAPSE_SECRET_KEY is not set — cannot encrypt the key at rest. Set it in the "
+                    "server environment, or provide the key via the {PROVIDER}_API_KEY env var."
+                ),
+            )
+        try:
+            await set_web_search_api_key(body.provider, body.key)
+        except secrets_crypto.SecretsNotConfiguredError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return await get_web_search_provider_keys()
+
+
 _CLI_TOKEN_PREFIX: str = "sk-ant-" + "oat01-"
 
 

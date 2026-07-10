@@ -17,7 +17,7 @@ import logging
 
 import httpx
 
-from app.config import settings
+from app.ops.web_search.keys import get_web_search_api_key
 
 from .base import SearchHit, WebSearchProvider
 
@@ -36,10 +36,10 @@ class SerpApiProvider(WebSearchProvider):
 
     def configured(self) -> bool:
         """True iff SERPAPI_API_KEY is set (env-only secret)."""
-        return bool(settings.serpapi_api_key)
+        return get_web_search_api_key("serpapi") is not None
 
     async def _search_one(self, query: str) -> list[SearchHit]:
-        api_key = settings.serpapi_api_key
+        api_key = get_web_search_api_key("serpapi")
         if not api_key:
             logger.warning("serpapi: SERPAPI_API_KEY not set — returning [] (I9 opt-in)")
             return []

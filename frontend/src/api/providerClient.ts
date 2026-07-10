@@ -478,6 +478,43 @@ export async function setWebSearchConfig(
   return (await res.json()) as WebSearchConfigStateResponse;
 }
 
+// ─── Web-search cloud provider API keys (P3-e, ADR-0071) ─────────────────────
+
+export interface WebSearchProviderKeyState {
+  configured: boolean;
+  source: "db" | "env" | "none";
+}
+export interface WebSearchProviderKeysResponse {
+  secrets_available: boolean;
+  providers: Record<string, WebSearchProviderKeyState>;
+}
+
+/** GET /web-search/provider-keys — masked posture (never the key value). */
+export async function fetchWebSearchProviderKeys(
+  signal?: AbortSignal,
+): Promise<WebSearchProviderKeysResponse> {
+  const url = `${apiBase()}/web-search/provider-keys`;
+  const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
+  await checkResponse(res);
+  return (await res.json()) as WebSearchProviderKeysResponse;
+}
+
+/** PUT /web-search/provider-keys — set (key) or clear (clear=true) one provider's key. */
+export async function setWebSearchProviderKey(
+  body: { provider: string; key?: string; clear?: boolean },
+  signal?: AbortSignal,
+): Promise<WebSearchProviderKeysResponse> {
+  const url = `${apiBase()}/web-search/provider-keys`;
+  const res = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as WebSearchProviderKeysResponse;
+}
+
 // ─── CLI Auth config (F17, ADR-0043) ─────────────────────────────────────────
 
 /**

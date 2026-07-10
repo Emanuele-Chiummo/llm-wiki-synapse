@@ -448,7 +448,15 @@
       "maxQueriesHelp": "Maximum SearXNG queries per deep-research iteration (1–50).",
       "maxQueriesSave": "Save",
       "clearButton": "Clear all DB overrides",
-      "clearHelp": "Falls back to SEARXNG_URL env var and code defaults."
+      "clearHelp": "Falls back to SEARXNG_URL env var and code defaults.",
+      "apiKeyLabel": "API key",
+      "apiKeyConfigured": "Configured ({{source}})",
+      "apiKeyNotConfigured": "Not configured",
+      "apiKeyPlaceholder": "Paste the provider API key…",
+      "apiKeySave": "Save key",
+      "apiKeyClear": "Remove",
+      "apiKeyHint": "Stored encrypted at rest (Fernet). The saved key overrides the {PROVIDER}_API_KEY environment variable.",
+      "apiKeyNoSecret": "Set SYNAPSE_SECRET_KEY in the server environment to store keys from the UI, or provide the key via the {PROVIDER}_API_KEY env var."
     },
     "cliAuth": {
       "title": "CLI Subscription Auth",

@@ -14,6 +14,9 @@ import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import {
   fetchWebSearchConfig,
   setWebSearchConfig,
+  fetchWebSearchProviderKeys,
+  setWebSearchProviderKey,
+  type WebSearchProviderKeysResponse,
 } from "../../../api/providerClient";
 import { getAppConfig, putAppConfig } from "../../../api/appConfigClient";
 import type { WebSearchConfigResponse } from "../../../api/types";
@@ -56,6 +59,12 @@ export function SectionWebSearch() {
   const [categoriesInput, setCategoriesInput] = useState("");
   const [maxQueriesInput, setMaxQueriesInput] = useState<number>(3);
 
+  // P3-e (ADR-0071): per-cloud-provider API-key posture + entry field.
+  const [keyPosture, setKeyPosture] = useState<WebSearchProviderKeysResponse | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [keyBusy, setKeyBusy] = useState(false);
+
   useEffect(() => {
     const ac = new AbortController();
     fetchWebSearchConfig(ac.signal)
@@ -77,8 +86,33 @@ export function SectionWebSearch() {
         if (found?.value) setProvider(found.value);
       })
       .catch(() => { /* keep default */ });
+    fetchWebSearchProviderKeys(ac.signal)
+      .then(setKeyPosture)
+      .catch(() => { /* best-effort */ });
     return () => { ac.abort(); };
   }, []);
+
+  const handleSaveKey = async () => {
+    if (keyBusy || !keyInput.trim()) return;
+    setKeyBusy(true);
+    try {
+      const resp = await setWebSearchProviderKey({ provider, key: keyInput.trim() });
+      setKeyPosture(resp);
+      setKeyInput("");
+    } catch { /* checkResponse surfaces the 400 (e.g. no SYNAPSE_SECRET_KEY) via console */ }
+    finally { setKeyBusy(false); }
+  };
+
+  const handleClearKey = async () => {
+    if (keyBusy) return;
+    setKeyBusy(true);
+    try {
+      const resp = await setWebSearchProviderKey({ provider, clear: true });
+      setKeyPosture(resp);
+      setKeyInput("");
+    } catch { /* ignore */ }
+    finally { setKeyBusy(false); }
+  };
 
   const applyResponse = (resp: WebSearchConfigResponse) => {
     setCfg(resp);
@@ -259,6 +293,83 @@ export function SectionWebSearch() {
                   {t("settings.webSearch.cloudWarning")}
                 </p>
               )}
+
+              {/* P3-e: API-key entry for the selected cloud provider (ADR-0071) */}
+              {showCloudWarning && (() => {
+                const posture = keyPosture?.providers?.[provider];
+                const secretsOk = keyPosture?.secrets_available !== false;
+                return (
+                  <div data-testid="web-search-provider-key" style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+                        {t("settings.webSearch.apiKeyLabel")}
+                      </label>
+                      <span
+                        data-testid="web-search-key-badge"
+                        style={{
+                          padding: "1px 8px",
+                          borderRadius: 4,
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          background: posture?.configured
+                            ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)"
+                            : "var(--syn-surface-hover)",
+                          color: posture?.configured ? "var(--syn-green)" : "var(--syn-text-muted)",
+                        }}
+                      >
+                        {posture?.configured
+                          ? t("settings.webSearch.apiKeyConfigured", { source: posture.source })
+                          : t("settings.webSearch.apiKeyNotConfigured")}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <input
+                          type={showKey ? "text" : "password"}
+                          data-testid="web-search-key-input"
+                          value={keyInput}
+                          onChange={(e) => setKeyInput(e.target.value)}
+                          placeholder={t("settings.webSearch.apiKeyPlaceholder")}
+                          autoComplete="new-password"
+                          disabled={keyBusy || !secretsOk}
+                          style={{ ...INPUT_STYLE, width: "100%", paddingRight: 34, fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowKey((v) => !v)}
+                          aria-label={showKey ? t("connect.hideToken") : t("connect.showToken")}
+                          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: 2, fontSize: 11 }}
+                        >
+                          {showKey ? "🙈" : "👁"}
+                        </button>
+                      </div>
+                      <button
+                        data-testid="web-search-key-save"
+                        onClick={() => { void handleSaveKey(); }}
+                        disabled={keyBusy || !keyInput.trim() || !secretsOk}
+                        style={{ ...BTN_PRIMARY, flexShrink: 0, opacity: keyBusy || !keyInput.trim() || !secretsOk ? 0.4 : 1, cursor: keyBusy || !keyInput.trim() || !secretsOk ? "not-allowed" : "pointer" }}
+                      >
+                        {t("settings.webSearch.apiKeySave")}
+                      </button>
+                      {posture?.source === "db" && (
+                        <button
+                          data-testid="web-search-key-clear"
+                          onClick={() => { void handleClearKey(); }}
+                          disabled={keyBusy}
+                          style={{ padding: "6px 12px", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 6, background: "transparent", color: "var(--syn-red)", fontSize: 12, cursor: keyBusy ? "not-allowed" : "pointer", flexShrink: 0 }}
+                        >
+                          {t("settings.webSearch.apiKeyClear")}
+                        </button>
+                      )}
+                    </div>
+                    <p style={{ margin: "6px 0 0", fontSize: 11, color: secretsOk ? "var(--syn-text-dim)" : "var(--syn-amber)", lineHeight: 1.5 }}>
+                      {secretsOk
+                        ? t("settings.webSearch.apiKeyHint")
+                        : t("settings.webSearch.apiKeyNoSecret")}
+                    </p>
+                  </div>
+                );
+              })()}
             </Field>
           </div>
 

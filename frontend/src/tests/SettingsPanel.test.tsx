@@ -351,6 +351,25 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       max_queries: 3,
       source: "db",
     }),
+    // ADR-0071 — web-search cloud provider API-key posture (masked)
+    fetchWebSearchProviderKeys: vi.fn().mockResolvedValue({
+      secrets_available: true,
+      providers: {
+        tavily: { configured: false, source: "none" },
+        serpapi: { configured: false, source: "none" },
+        firecrawl: { configured: false, source: "none" },
+        brave: { configured: false, source: "none" },
+      },
+    }),
+    setWebSearchProviderKey: vi.fn().mockResolvedValue({
+      secrets_available: true,
+      providers: {
+        tavily: { configured: true, source: "db" },
+        serpapi: { configured: false, source: "none" },
+        firecrawl: { configured: false, source: "none" },
+        brave: { configured: false, source: "none" },
+      },
+    }),
     // ADR-0043 — CLI Auth default: token configured (db), auth_mode=subscription
     getCliAuthConfig: vi.fn().mockResolvedValue({
       token_configured: true,
@@ -1811,6 +1830,30 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     });
     // Amber opt-in warning appears for cloud backends (I9); SearXNG fields hide.
     expect(screen.getByTestId("web-search-provider-cloud-warning")).toBeTruthy();
+  });
+
+  it("shows an API-key field for a cloud provider and saves the key (ADR-0071)", async () => {
+    const { setWebSearchProviderKey } = await import("../api/providerClient");
+    (setWebSearchProviderKey as ReturnType<typeof vi.fn>).mockClear();
+    await navigateToWebSearchAndWait();
+
+    fireEvent.click(screen.getByTestId("web-search-provider-tavily"));
+
+    // The encrypted-key entry field appears for the selected cloud provider.
+    await waitFor(() => {
+      expect(screen.getByTestId("web-search-provider-key")).toBeTruthy();
+    });
+    const input = screen.getByTestId("web-search-key-input") as HTMLInputElement;
+    expect(input.type).toBe("password"); // secret is masked by default
+    fireEvent.change(input, { target: { value: "tvly-secret-123" } });
+    fireEvent.click(screen.getByTestId("web-search-key-save"));
+
+    await waitFor(() => {
+      expect(setWebSearchProviderKey).toHaveBeenCalledWith({
+        provider: "tavily",
+        key: "tvly-secret-123",
+      });
+    });
   });
 });
 
