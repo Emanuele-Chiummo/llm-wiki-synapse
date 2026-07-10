@@ -4901,6 +4901,113 @@
             "BearerAuth": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create + scaffold a new project vault",
+        "description": "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the shared bootstrap \u2014 idempotent) and registers it (ADR-0067). Does NOT switch the active vault. Path must be absolute; 409 if a project already exists at that path.",
+        "operationId": "create_project_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Name missing or path not absolute."
+          },
+          "409": {
+            "description": "A project already exists at this path."
+          },
+          "500": {
+            "description": "Could not create the vault on disk."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/open": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Register an existing vault folder as a project",
+        "description": "Adds an existing vault directory to the registry (ADR-0067). Does NOT switch the active vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered path returns the existing entry (touching last_opened_at). Path must be absolute and an existing directory. Server-side path (self-hosted).",
+        "operationId": "open_project_projects_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path is not absolute."
+          },
+          "404": {
+            "description": "Path is not an existing directory."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     }
   },
@@ -6083,6 +6190,25 @@
         ],
         "title": "ConversationResponse",
         "description": "API shape for one conversations row (ADR-0019 \u00a72.5).\n\n`preview` (UXB-1) is a read-only derivation of the conversation's last message: its first\n~80 chars with <think>\u2026</think> and light markdown stripped. It is computed in the list\nhandler (bounded subquery); there is no schema change. None when the conversation has no\nmessages yet."
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "CreateProjectRequest",
+        "description": "Body for POST /projects \u2014 create + scaffold a new vault folder."
       },
       "EmbeddingConfigResponse": {
         "properties": {
@@ -7949,6 +8075,20 @@
         ],
         "title": "McpToolInfo",
         "description": "Schema for a single tool entry in GET /mcp/info (ADR-0027 \u00a72.1)."
+      },
+      "OpenProjectRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "OpenProjectRequest",
+        "description": "Body for POST /projects/open \u2014 register an existing vault folder."
       },
       "OpsScheduleEntry": {
         "properties": {

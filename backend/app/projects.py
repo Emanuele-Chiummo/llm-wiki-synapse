@@ -20,10 +20,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.config import settings
@@ -51,6 +52,19 @@ class ProjectsResponse(BaseModel):
 
     projects: list[Project]
     active_id: str | None
+
+
+class OpenProjectRequest(BaseModel):
+    """Body for POST /projects/open — register an existing vault folder."""
+
+    path: str
+
+
+class CreateProjectRequest(BaseModel):
+    """Body for POST /projects — create + scaffold a new vault folder."""
+
+    name: str
+    path: str
 
 
 # ── State-dir + registry file ────────────────────────────────────────────────
@@ -105,7 +119,34 @@ def read_registry() -> ProjectsResponse:
     return ProjectsResponse(projects=[boot], active_id=boot.id)
 
 
-# ── Endpoint ──────────────────────────────────────────────────────────────────
+def write_registry(reg: ProjectsResponse) -> None:
+    """Persist the registry to ``$SYNAPSE_STATE_DIR/projects.json`` (creates the dir)."""
+    path = _registry_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(reg.model_dump(), indent=2) + "\n", encoding="utf-8")
+
+
+def _slugify(name: str) -> str:
+    """DB/filesystem-safe id base from a display name (lowercase alnum + hyphens)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+    return slug or "vault"
+
+
+def _unique_id(base: str, taken: set[str]) -> str:
+    """Return *base*, or ``base-2``/``base-3``/… if it collides with an existing id."""
+    if base not in taken:
+        return base
+    i = 2
+    while f"{base}-{i}" in taken:
+        i += 1
+    return f"{base}-{i}"
+
+
+def _resolved(path_str: str) -> str:
+    return str(Path(path_str).expanduser().resolve())
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
 @router.get(
@@ -121,3 +162,97 @@ def read_registry() -> ProjectsResponse:
 async def list_projects() -> ProjectsResponse:
     """GET /projects — the project registry snapshot (v1.5 P2 slice 1)."""
     return read_registry()
+
+
+@router.post(
+    "/projects/open",
+    response_model=Project,
+    summary="Register an existing vault folder as a project",
+    description=(
+        "Adds an existing vault directory to the registry (ADR-0067). Does NOT switch the active "
+        "vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered "
+        "path returns the existing entry (touching last_opened_at). Path must be absolute and an "
+        "existing directory. Server-side path (self-hosted)."
+    ),
+    responses={
+        400: {"description": "Path is not absolute."},
+        404: {"description": "Path is not an existing directory."},
+    },
+)
+async def open_project(body: OpenProjectRequest) -> Project:
+    """POST /projects/open — register an existing vault folder (no activation)."""
+    p = Path(body.path).expanduser()
+    if not p.is_absolute():
+        raise HTTPException(status_code=400, detail="Path must be absolute.")
+    if not p.is_dir():
+        raise HTTPException(status_code=404, detail=f"No such directory: {body.path}")
+
+    resolved = _resolved(body.path)
+    reg = read_registry()
+    for existing in reg.projects:
+        if _resolved(existing.path) == resolved:
+            existing.last_opened_at = _now_iso()
+            write_registry(reg)
+            return existing
+
+    pid = _unique_id(_slugify(p.name), {x.id for x in reg.projects})
+    proj = Project(
+        id=pid, name=p.name, path=resolved, created_at=_now_iso(), last_opened_at=_now_iso()
+    )
+    reg.projects.append(proj)
+    write_registry(reg)
+    logger.info("projects: opened %s (id=%s) at %s", p.name, pid, resolved)
+    return proj
+
+
+@router.post(
+    "/projects",
+    response_model=Project,
+    status_code=201,
+    summary="Create + scaffold a new project vault",
+    description=(
+        "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the "
+        "shared bootstrap — idempotent) and registers it (ADR-0067). Does NOT switch the active "
+        "vault. Path must be absolute; 409 if a project already exists at that path."
+    ),
+    responses={
+        400: {"description": "Name missing or path not absolute."},
+        409: {"description": "A project already exists at this path."},
+        500: {"description": "Could not create the vault on disk."},
+    },
+)
+async def create_project(body: CreateProjectRequest) -> Project:
+    """POST /projects — create + scaffold a new vault (no activation)."""
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail="Name is required.")
+    p = Path(body.path).expanduser()
+    if not p.is_absolute():
+        raise HTTPException(status_code=400, detail="Path must be absolute.")
+
+    resolved = _resolved(body.path)
+    reg = read_registry()
+    if any(_resolved(x.path) == resolved for x in reg.projects):
+        raise HTTPException(status_code=409, detail="A project already exists at this path.")
+
+    # Scaffold the vault skeleton at the target path (idempotent, shared with boot bootstrap).
+    from app.vault import bootstrap_vault_at  # noqa: PLC0415 - avoid import cycle at module load
+
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+        bootstrap_vault_at(p)
+    except OSError as exc:
+        logger.error("projects: could not scaffold vault at %s: %s", resolved, exc)
+        raise HTTPException(status_code=500, detail=f"Could not create vault: {exc}") from exc
+
+    pid = _unique_id(_slugify(body.name), {x.id for x in reg.projects})
+    proj = Project(
+        id=pid,
+        name=body.name.strip(),
+        path=resolved,
+        created_at=_now_iso(),
+        last_opened_at=_now_iso(),
+    )
+    reg.projects.append(proj)
+    write_registry(reg)
+    logger.info("projects: created %s (id=%s) at %s", proj.name, pid, resolved)
+    return proj
