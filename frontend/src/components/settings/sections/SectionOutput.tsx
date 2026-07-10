@@ -43,10 +43,10 @@ export function SectionOutput() {
                 aria-pressed={on}
                 style={{
                   padding: "7px 16px",
-                  border: `1px solid ${on ? "var(--syn-text)" : "var(--syn-border)"}`,
+                  border: `1px solid ${on ? "var(--syn-accent)" : "var(--syn-border)"}`,
                   borderRadius: 8,
-                  background: on ? "var(--syn-text)" : "var(--syn-surface)",
-                  color: on ? "var(--syn-bg)" : "var(--syn-text-muted)",
+                  background: on ? "var(--syn-accent)" : "var(--syn-surface)",
+                  color: on ? "#fff" : "var(--syn-text-muted)",
                   fontSize: 12.5,
                   cursor: "pointer",
                   fontWeight: on ? 600 : 500,
@@ -75,10 +75,10 @@ export function SectionOutput() {
                 style={{
                   width: 40,
                   height: 40,
-                  border: `1px solid ${on ? "var(--syn-text)" : "var(--syn-border)"}`,
+                  border: `1px solid ${on ? "var(--syn-accent)" : "var(--syn-border)"}`,
                   borderRadius: 8,
-                  background: on ? "var(--syn-text)" : "var(--syn-surface)",
-                  color: on ? "var(--syn-bg)" : "var(--syn-text-muted)",
+                  background: on ? "var(--syn-accent)" : "var(--syn-surface)",
+                  color: on ? "#fff" : "var(--syn-text-muted)",
                   fontSize: 13,
                   fontWeight: on ? 600 : 500,
                   cursor: "pointer",
