@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synapse — Daily Driver Monitor</title>
+<style>
+  /* ---- tokens (light) ---- */
+  :root{
+    --bg:#f6f7fb; --panel:#ffffff; --panel-2:#fbfcfe; --ink:#171a24; --ink-2:#4a5064;
+    --muted:#7a8099; --line:#e6e8f0; --line-2:#eef0f6;
+    --accent:#5b5bd6; --accent-soft:#ececfb;
+    --ok:#1f9d63; --ok-soft:#e4f4ec; --warn:#c07d10; --warn-soft:#faf0da;
+    --bad:#d24545; --bad-soft:#fbe6e6; --idle:#9aa0b4; --idle-soft:#eef0f5;
+    --haiku:#0e8f8f; --haiku-soft:#dcf1f1; --sonnet:#2f6fdb; --sonnet-soft:#e2ecfb;
+    --opus:#7a49c9; --opus-soft:#efe6fb;
+    --shadow:0 1px 2px rgba(20,24,45,.04),0 6px 20px rgba(20,24,45,.05);
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --panel:#161925; --panel-2:#12141d; --ink:#eef0f7; --ink-2:#c2c7d6;
+      --muted:#868da4; --line:#262a38; --line-2:#1e2230;
+      --accent:#8a8af0; --accent-soft:#20223a;
+      --ok:#4bd493; --ok-soft:#12291f; --warn:#e6b04a; --warn-soft:#2a2312;
+      --bad:#f0736f; --bad-soft:#2a1618; --idle:#6b7188; --idle-soft:#1c1f2b;
+      --haiku:#3fd0d0; --haiku-soft:#0f2828; --sonnet:#6ca2f5; --sonnet-soft:#122036;
+      --opus:#b48bf0; --opus-soft:#1f1730;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f6f7fb; --panel:#ffffff; --panel-2:#fbfcfe; --ink:#171a24; --ink-2:#4a5064;
+    --muted:#7a8099; --line:#e6e8f0; --line-2:#eef0f6; --accent:#5b5bd6; --accent-soft:#ececfb;
+    --ok:#1f9d63; --ok-soft:#e4f4ec; --warn:#c07d10; --warn-soft:#faf0da; --bad:#d24545; --bad-soft:#fbe6e6;
+    --idle:#9aa0b4; --idle-soft:#eef0f5; --haiku:#0e8f8f; --haiku-soft:#dcf1f1;
+    --sonnet:#2f6fdb; --sonnet-soft:#e2ecfb; --opus:#7a49c9; --opus-soft:#efe6fb;
+    --shadow:0 1px 2px rgba(20,24,45,.04),0 6px 20px rgba(20,24,45,.05);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d0f16; --panel:#161925; --panel-2:#12141d; --ink:#eef0f7; --ink-2:#c2c7d6;
+    --muted:#868da4; --line:#262a38; --line-2:#1e2230; --accent:#8a8af0; --accent-soft:#20223a;
+    --ok:#4bd493; --ok-soft:#12291f; --warn:#e6b04a; --warn-soft:#2a2312; --bad:#f0736f; --bad-soft:#2a1618;
+    --idle:#6b7188; --idle-soft:#1c1f2b; --haiku:#3fd0d0; --haiku-soft:#0f2828;
+    --sonnet:#6ca2f5; --sonnet-soft:#122036; --opus:#b48bf0; --opus-soft:#1f1730;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;padding:28px 20px 64px}
+  .wrap{max-width:1080px;margin:0 auto}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  /* header */
+  header.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .glyph{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#9b6cf0);
+    display:grid;place-items:center;color:#fff;font-weight:700;font-family:var(--mono);box-shadow:var(--shadow)}
+  .brand h1{font-size:16px;margin:0;letter-spacing:-.01em;font-weight:650}
+  .brand p{margin:1px 0 0;font-size:12px;color:var(--muted)}
+  .head-meta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+  .dot.stale{background:var(--idle);box-shadow:0 0 0 3px var(--idle-soft)}
+
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+
+  /* summary strip */
+  .summary{display:grid;grid-template-columns:1.6fr .8fr .8fr .8fr;gap:12px;margin-bottom:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 16px;box-shadow:var(--shadow)}
+  .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px}
+  .v{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .v.big{font-size:22px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .v .sub{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:3px}
+
+  /* pills */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+    padding:3px 9px;border-radius:999px;line-height:1.4;white-space:nowrap}
+  .pill.lane{background:var(--accent-soft);color:var(--accent)}
+  .pill.phase{background:var(--warn-soft);color:var(--warn)}
+  .pill.phase.done{background:var(--ok-soft);color:var(--ok)}
+  .pill.phase.failed{background:var(--bad-soft);color:var(--bad)}
+  .m-haiku{background:var(--haiku-soft);color:var(--haiku)}
+  .m-sonnet{background:var(--sonnet-soft);color:var(--sonnet)}
+  .m-opus{background:var(--opus-soft);color:var(--opus)}
+  .m-other{background:var(--idle-soft);color:var(--idle)}
+  .eff{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* section panel */
+  section{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:18px 18px 6px;margin-bottom:16px;box-shadow:var(--shadow)}
+  section h2{font-size:13px;margin:0 0 2px;font-weight:650;letter-spacing:-.005em}
+  section .hint{font-size:12px;color:var(--muted);margin:0 0 12px}
+
+  /* table */
+  .tw{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--muted);padding:0 12px 8px;border-bottom:1px solid var(--line)}
+  td{padding:11px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2)}
+  .agent-name{font-weight:600}
+  .agent-task{color:var(--ink-2);max-width:360px}
+  .status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600}
+  .status .s-dot{width:7px;height:7px;border-radius:50%}
+  .status.running .s-dot{background:var(--warn);animation:pulse 1.6s ease-in-out infinite}
+  .status.done .s-dot{background:var(--ok)}
+  .status.failed .s-dot{background:var(--bad)}
+  .status.running{color:var(--warn)} .status.done{color:var(--ok)} .status.failed{color:var(--bad)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media (prefers-reduced-motion:reduce){.status.running .s-dot{animation:none}}
+
+  /* gates */
+  .gates{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:12px}
+  .gate{display:flex;align-items:center;gap:7px;padding:7px 12px;border-radius:10px;
+    border:1px solid var(--line);font-size:12px;font-weight:600;background:var(--panel-2)}
+  .gate .g-dot{width:8px;height:8px;border-radius:50%;background:var(--idle)}
+  .gate[data-s="pass"] .g-dot{background:var(--ok)} .gate[data-s="pass"]{color:var(--ok);border-color:var(--ok-soft)}
+  .gate[data-s="fail"] .g-dot{background:var(--bad)} .gate[data-s="fail"]{color:var(--bad);border-color:var(--bad-soft)}
+  .gate[data-s="pending"] .g-dot{background:var(--warn)} .gate[data-s="pending"]{color:var(--warn)}
+  .gate[data-s="n/a"]{color:var(--muted)} .gate .g-k{color:inherit}
+
+  .graphstat{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);padding-bottom:14px}
+  .graphstat b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+
+  footer{margin-top:26px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .toggle{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);font-size:12px;
+    padding:6px 11px;border-radius:9px;cursor:pointer;font-family:var(--sans)}
+  .toggle:hover{border-color:var(--accent)}
+  .empty{color:var(--muted);font-size:13px;padding:8px 0 16px}
+  @media (max-width:720px){.summary{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="glyph">S</div>
+      <div>
+        <h1>Synapse · Daily Driver Monitor</h1>
+        <p>Autonomous llm_wiki-parity &amp; bug-fix loop — who's working, on what, with which model</p>
+      </div>
+    </div>
+    <div class="head-meta">
+      <span id="freshDot" class="dot"></span>
+      <span id="freshText">—</span>
+      <button class="toggle" id="themeBtn" type="button">Theme</button>
+    </div>
+  </header>
+
+  <p class="eyebrow">Current run</p>
+  <div class="summary" id="summary"></div>
+
+  <section id="agentsSection">
+    <h2>Agents at work</h2>
+    <p class="hint">One row per delegation. Model &amp; effort are chosen by the routing policy in DAILY-DRIVER.md — cheapest capable model wins.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Agent</th><th>Model</th><th>Effort</th><th>Task</th><th>Status</th><th class="num">Cost</th></tr></thead>
+      <tbody id="agentsBody"></tbody>
+    </table></div>
+    <div id="graphStat" class="graphstat"></div>
+  </section>
+
+  <section id="gatesSection">
+    <h2>Test gates (360°)</h2>
+    <p class="hint">The block ships only when its applicable gates are green — this is how the daily PR is born already-passing CI.</p>
+    <div class="gates" id="gates"></div>
+  </section>
+
+  <section id="historySection">
+    <h2>Run history</h2>
+    <p class="hint">Every scheduled run, newest first — block shipped, models used, gate outcome, PR, cost.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Date</th><th>Lane</th><th>Block</th><th>Models</th><th>Gates</th><th>PR</th><th class="num">Cost</th></tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table></div>
+  </section>
+
+  <footer>
+    <span>Near-live — refreshed at each phase boundary of a run. Between runs: last completed run + history.</span>
+    <span id="genAt">—</span>
+  </footer>
+</div>
+
+<script id="run-data" type="application/json">
+{
+  "run": {
+    "run_id": "2026-07-11-setup",
+    "phase": "done",
+    "lane": "setup",
+    "block": "Bootstrap — graphify memory + daily driver + monitoring dashboard",
+    "block_tag": "architecture",
+    "orchestrator": { "model": "claude-opus-4-8", "effort": "medium" },
+    "agents": [
+      { "name": "Explore", "model": "claude-sonnet-5", "effort": "medium",
+        "task": "Map repo state, release/CI process, parity gaps, TODO hotspots", "status": "done", "cost_usd": null },
+      { "name": "orchestrator (main)", "model": "claude-opus-4-8", "effort": "medium",
+        "task": "Install graphifyy, build memory graph, author driver + dashboard, create Routine", "status": "done", "cost_usd": null }
+    ],
+    "graph": { "nodes": 16640, "edges": 30842, "communities": 761, "files": 768 },
+    "tests": { "lint": "n/a", "typecheck": "n/a", "pytest": "n/a", "vitest": "n/a", "e2e": "n/a" },
+    "pr_url": null,
+    "total_cost_usd": null,
+    "updated_at": "2026-07-11T18:40:00Z"
+  },
+  "history": [
+    { "date": "2026-07-11", "lane": "setup", "block": "Bootstrap — memory + driver + dashboard",
+      "models": ["claude-opus-4-8","claude-sonnet-5"],
+      "tests": {"lint":"n/a","typecheck":"n/a","pytest":"n/a","vitest":"n/a","e2e":"n/a"},
+      "pr_url": null, "total_cost_usd": null }
+  ]
+}
+</script>
+<script>
+(function(){
+  var data = JSON.parse(document.getElementById("run-data").textContent);
+  var run = data.run || {}, hist = data.history || [];
+
+  function modelClass(m){
+    if(!m) return "m-other";
+    m = m.toLowerCase();
+    if(m.indexOf("haiku")>-1) return "m-haiku";
+    if(m.indexOf("sonnet")>-1) return "m-sonnet";
+    if(m.indexOf("opus")>-1) return "m-opus";
+    return "m-other";
+  }
+  function modelShort(m){
+    if(!m) return "—";
+    var t=m.toLowerCase();
+    if(t.indexOf("haiku")>-1) return "Haiku";
+    if(t.indexOf("sonnet")>-1) return "Sonnet";
+    if(t.indexOf("opus")>-1) return "Opus";
+    if(t.indexOf("explore")>-1) return m;
+    return m;
+  }
+  function usd(v){ return (v===null||v===undefined) ? "—" : "$"+Number(v).toFixed(2); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
+
+  // freshness
+  var stale = run.phase==="done" || run.phase==="failed";
+  var fd=document.getElementById("freshDot"), ft=document.getElementById("freshText");
+  if(run.phase==="failed"){ fd.className="dot"; fd.style.background="var(--bad)"; fd.style.boxShadow="0 0 0 3px var(--bad-soft)"; ft.textContent="Last run failed"; }
+  else if(stale){ fd.className="dot stale"; ft.textContent="Idle — last run "+esc(run.run_id||""); }
+  else { fd.className="dot"; ft.textContent="Run in progress — "+esc(run.phase||""); }
+
+  // summary
+  var phaseCls = run.phase==="done"?"done":(run.phase==="failed"?"failed":"");
+  document.getElementById("summary").innerHTML =
+    '<div class="card"><p class="k">Block</p><p class="v">'+esc(run.block||"—")+
+      '<span class="sub">tag: '+esc(run.block_tag||"—")+' · orchestrator '+
+      '<span class="pill '+modelClass(run.orchestrator&&run.orchestrator.model)+'">'+esc(modelShort(run.orchestrator&&run.orchestrator.model))+'</span> '+
+      '<span class="eff">'+esc((run.orchestrator&&run.orchestrator.effort)||"")+'</span></span></p></div>'+
+    '<div class="card"><p class="k">Lane</p><p class="v"><span class="pill lane">'+esc(run.lane||"—")+'</span></p></div>'+
+    '<div class="card"><p class="k">Phase</p><p class="v"><span class="pill phase '+phaseCls+'">'+esc(run.phase||"—")+'</span></p></div>'+
+    '<div class="card"><p class="k">Run cost</p><p class="v big">'+usd(run.total_cost_usd)+
+      (run.pr_url?'<span class="sub"><a href="'+esc(run.pr_url)+'">View PR →</a></span>':'<span class="sub">no PR yet</span>')+'</p></div>';
+
+  // agents
+  var ab=document.getElementById("agentsBody");
+  if(run.agents && run.agents.length){
+    ab.innerHTML = run.agents.map(function(a){
+      return '<tr>'+
+        '<td class="agent-name">'+esc(a.name)+'</td>'+
+        '<td><span class="pill '+modelClass(a.model)+'">'+esc(modelShort(a.model))+'</span></td>'+
+        '<td class="eff">'+esc(a.effort||"—")+'</td>'+
+        '<td class="agent-task">'+esc(a.task||"")+'</td>'+
+        '<td><span class="status '+esc(a.status||"")+'"><span class="s-dot"></span>'+esc(a.status||"—")+'</span></td>'+
+        '<td class="num">'+usd(a.cost_usd)+'</td>'+
+      '</tr>';
+    }).join("");
+  } else { ab.innerHTML='<tr><td colspan="6" class="empty">No delegations recorded for this run.</td></tr>'; }
+
+  // graph stat
+  if(run.graph){
+    var g=run.graph;
+    document.getElementById("graphStat").innerHTML =
+      'Project memory (graphify): <b>'+g.nodes+'</b> nodes &nbsp;·&nbsp; <b>'+g.edges+'</b> edges &nbsp;·&nbsp; <b>'+
+      g.communities+'</b> communities &nbsp;·&nbsp; <b>'+g.files+'</b> files';
+  }
+
+  // gates
+  var order=["lint","typecheck","pytest","vitest","e2e"], labels={lint:"lint",typecheck:"typecheck",pytest:"pytest",vitest:"vitest",e2e:"e2e / preview"};
+  var t=run.tests||{};
+  document.getElementById("gates").innerHTML = order.map(function(k){
+    var s=t[k]||"n/a";
+    return '<span class="gate" data-s="'+esc(s)+'"><span class="g-dot"></span><span class="g-k">'+labels[k]+'</span> · '+esc(s)+'</span>';
+  }).join("");
+
+  // history
+  var hb=document.getElementById("historyBody");
+  if(hist.length){
+    hb.innerHTML = hist.map(function(h){
+      var models=(h.models||[]).map(function(m){return '<span class="pill '+modelClass(m)+'">'+esc(modelShort(m))+'</span>';}).join(" ");
+      var gates="—";
+      if(h.tests){ var vals=Object.keys(h.tests).map(function(k){return h.tests[k];});
+        var pass=vals.filter(function(x){return x==="pass";}).length, fail=vals.filter(function(x){return x==="fail";}).length;
+        gates = fail? ('<span class="status failed"><span class="s-dot"></span>'+fail+' fail</span>') : (pass? ('<span class="status done"><span class="s-dot"></span>'+pass+' pass</span>') : "n/a"); }
+      return '<tr><td class="num" style="text-align:left">'+esc(h.date)+'</td><td><span class="pill lane">'+esc(h.lane||"—")+'</span></td>'+
+        '<td class="agent-task">'+esc(h.block||"")+'</td><td>'+(models||"—")+'</td><td>'+gates+'</td>'+
+        '<td>'+(h.pr_url?'<a href="'+esc(h.pr_url)+'">PR →</a>':'—')+'</td><td class="num">'+usd(h.total_cost_usd)+'</td></tr>';
+    }).join("");
+  } else { hb.innerHTML='<tr><td colspan="7" class="empty">No runs yet.</td></tr>'; }
+
+  document.getElementById("genAt").textContent = "Updated "+(run.updated_at||"");
+
+  // theme toggle
+  var btn=document.getElementById("themeBtn");
+  btn.addEventListener("click",function(){
+    var cur=document.documentElement.getAttribute("data-theme");
+    var next = cur==="dark"?"light":(cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark"));
+    document.documentElement.setAttribute("data-theme",next);
+  });
+})();
+</script>
+</body>
+</html>

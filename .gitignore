@@ -85,3 +85,13 @@ site/
 .agents/
 .claude/skills/
 skills-lock.json
+
+# graphify knowledge-graph memory — rebuilt for FREE (AST-only, zero tokens) by the
+# SessionStart hook / daily driver via `graphify update .`. graph.json is ~18MB and
+# churns on every update, so it is NEVER committed (would bloat history). The memory
+# is a derived artifact, not source of truth. See docs/process/DAILY-DRIVER.md.
+graphify-out/
+.graphify/
+
+# graphify bootstrap log (transient, written by scripts/graphify_bootstrap.sh)
+.graphify-bootstrap.log

@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-07-11-setup",
+  "started_at": "2026-07-11T18:33:00Z",
+  "phase": "done",
+  "lane": "setup",
+  "block": "Bootstrap — graphify memory + daily driver + monitoring dashboard",
+  "block_tag": "architecture",
+  "orchestrator": { "model": "claude-opus-4-8", "effort": "medium" },
+  "agents": [
+    {
+      "name": "Explore",
+      "model": "claude-sonnet-5",
+      "effort": "medium",
+      "task": "Map repo state, release/CI process, tests, llm_wiki parity gaps, TODO hotspots",
+      "status": "done",
+      "cost_usd": null
+    },
+    {
+      "name": "orchestrator (main)",
+      "model": "claude-opus-4-8",
+      "effort": "medium",
+      "task": "Install graphifyy, build code memory graph, author driver + dashboard, create Routine",
+      "status": "done",
+      "cost_usd": null
+    }
+  ],
+  "graph": { "nodes": 16640, "edges": 30842, "communities": 761, "files": 768 },
+  "tests": { "lint": "n/a", "typecheck": "n/a", "pytest": "n/a", "vitest": "n/a", "e2e": "n/a" },
+  "pr_url": null,
+  "total_cost_usd": null,
+  "notes": "Setup run — no code block shipped. First work block ships on the next scheduled/dry-run fire.",
+  "dashboard_artifact_url": "https://claude.ai/code/artifact/864280d0-9cba-47a3-b845-21b42e39f1ac",
+  "updated_at": "2026-07-11T18:40:00Z"
+}
