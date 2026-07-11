@@ -103,6 +103,17 @@ const VENDORS: VendorInfo[] = [
     model_presets: ["claude-opus-4-8"],
     notes: "Uses your Claude subscription via claude-agent-sdk.",
   },
+  {
+    // 0-preset vendor (like the real codex-cli / atlas-cloud): activating it must NOT POST a
+    // null model_id (would 422) — the toggle should prompt for a custom model instead.
+    id: "codex-cli",
+    display_name: "Codex CLI",
+    provider_type: "cli",
+    default_base_url: null,
+    needs_api_key: false,
+    model_presets: [],
+    notes: "OpenAI Codex CLI.",
+  },
 ];
 
 const ACTIVE_CONFIG: ProviderConfigItem = {
@@ -130,8 +141,12 @@ const mockFetchProviderConfigs = vi.fn().mockResolvedValue({ items: [ACTIVE_CONF
 const mockCreateProviderConfig = vi.fn().mockResolvedValue(ACTIVE_CONFIG);
 const mockUpdateProviderConfig = vi.fn().mockResolvedValue(ACTIVE_CONFIG);
 const mockDeleteProviderConfig = vi.fn().mockResolvedValue(undefined);
-const mockTestProviderConnection = vi.fn().mockResolvedValue({ ok: true, latency_ms: 123, detail: null });
-const mockTestProviderFunction = vi.fn().mockResolvedValue({ ok: true, latency_ms: 456, detail: null });
+const mockTestProviderConnection = vi
+  .fn()
+  .mockResolvedValue({ ok: true, latency_ms: 123, detail: null });
+const mockTestProviderFunction = vi
+  .fn()
+  .mockResolvedValue({ ok: true, latency_ms: 456, detail: null });
 
 vi.mock("../api/providerClient", () => ({
   fetchVendors: (...args: unknown[]) => mockFetchVendors(...args),
@@ -237,9 +252,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("renders one row per vendor from the catalog", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
 
     for (const v of VENDORS) {
@@ -248,9 +261,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("shows vendor display names", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     expect(screen.getByText("Anthropic")).toBeTruthy();
     expect(screen.getByText("OpenAI")).toBeTruthy();
@@ -259,27 +270,21 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("shows the active vendor's toggle as pressed", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const toggle = screen.getByTestId("vendor-toggle-anthropic");
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("inactive vendor's toggle has aria-pressed=false", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const toggle = screen.getByTestId("vendor-toggle-openai");
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("clicking an inactive vendor's toggle calls addProvider with correct body", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const toggle = screen.getByTestId("vendor-toggle-openai");
     await act(async () => {
@@ -296,10 +301,41 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
     );
   });
 
-  it("clicking the active vendor's toggle does NOT call addProvider", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
+  it("toggling a 0-preset vendor does NOT POST a null model — it reveals the custom input", async () => {
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
+    render(<SectionLlmModels />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("vendor-toggle-codex-cli"));
+    });
+    // No provider row created with a null model_id (that would 422 server-side)...
+    expect(mockAddProvider).not.toHaveBeenCalled();
+    // ...instead the custom-model input is revealed so the user can supply a model.
+    expect(screen.getByTestId("model-custom-input-codex-cli")).toBeTruthy();
+  });
+
+  it("typing a custom model on a not-yet-activated 0-preset vendor creates the row", async () => {
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
+    render(<SectionLlmModels />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("vendor-toggle-codex-cli"));
+    });
+    const input = screen.getByTestId("model-custom-input-codex-cli");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "gpt-5-codex" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    expect(mockAddProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider_type: "cli",
+        operation: "codex-cli",
+        model_id: "gpt-5-codex",
+      }),
+      expect.any(String),
     );
+  });
+
+  it("clicking the active vendor's toggle does NOT call addProvider", async () => {
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const toggle = screen.getByTestId("vendor-toggle-anthropic");
     await act(async () => {
@@ -309,9 +345,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("expanding a row reveals model chips", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-anthropic");
     await act(async () => {
@@ -322,9 +356,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("expanding a row reveals the API key input for vendors that need a key", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-anthropic");
     await act(async () => {
@@ -334,9 +366,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("Ollama row (no api key needed) does NOT show API key input when expanded", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-ollama");
     await act(async () => {
@@ -346,9 +376,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("clicking a model chip calls updateProvider with the correct model_id", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     // Expand anthropic row
     const row = screen.getByTestId("vendor-row-anthropic");
@@ -367,9 +395,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("clicking a reasoning effort button calls updateProvider with reasoning_effort", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     // Expand anthropic row (api type, shows reasoning)
     const row = screen.getByTestId("vendor-row-anthropic");
@@ -388,9 +414,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("Ollama row (local type) does NOT show reasoning controls when expanded", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-ollama");
     await act(async () => {
@@ -400,9 +424,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("Test connection button calls testProviderConnection with config_id", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-anthropic");
     await act(async () => {
@@ -420,9 +442,7 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("Test function button calls testProviderFunction", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     const row = screen.getByTestId("vendor-row-anthropic");
     await act(async () => {
@@ -440,18 +460,14 @@ describe("SectionLlmModels — vendor catalog [F17]", () => {
   });
 
   it("scope toggle renders Global and Vault buttons", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     expect(screen.getByTestId("scope-btn-global")).toBeTruthy();
     expect(screen.getByTestId("scope-btn-vault")).toBeTruthy();
   });
 
   it("SectionCliAuth is rendered inside the expanded claude-cli vendor row", async () => {
-    const { SectionLlmModels } = await import(
-      "../components/settings/sections/SectionLlmModels"
-    );
+    const { SectionLlmModels } = await import("../components/settings/sections/SectionLlmModels");
     render(<SectionLlmModels />);
     // SectionCliAuth is now embedded in the claude-cli vendor row (v1.4 IA change).
     // It is NOT present before the row is expanded.
