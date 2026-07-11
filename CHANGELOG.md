@@ -9,6 +9,18 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.2] — 2026-07-11 — "Provider update 500 fix"
+
+Patch: selecting a model (or otherwise editing a provider) returned **HTTP 500**. Fixed and
+**verified live against real Postgres/asyncpg** (create → PUT → 200), not just mocked tests.
+
+### Fixed
+- **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
+  the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
+  reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
+  picking a model in Settings). Now `await session.refresh(row)` runs before serialization. Added a
+  regression test for the previously **untested** PUT endpoint (asserts 200 + refresh awaited) [F17].
+
 ## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
 
 Patch: activating the **Claude Code CLI** provider (and any catalog vendor) from Settings failed
