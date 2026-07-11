@@ -126,6 +126,32 @@
   .graphstat{display:flex;gap:22px;flex-wrap:wrap;font-size:13px;color:var(--ink-2);padding-bottom:14px}
   .graphstat b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
 
+  /* next steps / roadmap */
+  .nextbanner{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--accent-soft);
+    border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:16px}
+  .nextbanner .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+  .nextbanner .blk{font-weight:600;font-size:14px}
+  .nextbanner .when{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .lanes{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding-bottom:10px}
+  .laneh{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 10px;color:var(--muted)}
+  .qlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;counter-reset:q}
+  .qitem{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:9px 11px;border:1px solid var(--line-2);
+    border-radius:10px;background:var(--panel-2)}
+  .qitem::before{counter-increment:q;content:counter(q);font-family:var(--mono);font-size:11px;color:var(--muted);
+    min-width:15px;text-align:right;padding-top:1px}
+  .qitem.isnext{border-color:var(--accent);background:var(--accent-soft)}
+  .qbody{flex:1;min-width:0}
+  .qbody .t{color:var(--ink);line-height:1.4}
+  .qmeta{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+  .size{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+  .tagchip{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px}
+  .tag-mechanical{background:var(--haiku-soft);color:var(--haiku)}
+  .tag-standard{background:var(--sonnet-soft);color:var(--sonnet)}
+  .tag-architecture{background:var(--opus-soft);color:var(--opus)}
+  .nextflag{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);
+    align-self:center;white-space:nowrap}
+  @media (max-width:720px){.lanes{grid-template-columns:1fr}}
+
   footer{margin-top:26px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
   .toggle{background:var(--panel);border:1px solid var(--line);color:var(--ink-2);font-size:12px;
     padding:6px 11px;border-radius:9px;cursor:pointer;font-family:var(--sans)}
@@ -168,6 +194,16 @@
     <h2>Test gates (360°)</h2>
     <p class="hint">The block ships only when its applicable gates are green — this is how the daily PR is born already-passing CI.</p>
     <div class="gates" id="gates"></div>
+  </section>
+
+  <section id="nextSection">
+    <h2>Next steps — roadmap</h2>
+    <p class="hint">What the loop ships next. Daily work accrues → one weekly release (Fri 18:00). Interleave: odd day-of-month = parity lane, even = bug lane.</p>
+    <div class="nextbanner" id="nextBanner"></div>
+    <div class="lanes">
+      <div><p class="laneh">Parity — llm_wiki</p><ol class="qlist" id="parityList"></ol></div>
+      <div><p class="laneh">Bug / hardening</p><ol class="qlist" id="bugList"></ol></div>
+    </div>
   </section>
 
   <section id="historySection">
@@ -213,7 +249,29 @@
       "models": ["claude-opus-4-8","claude-sonnet-5"],
       "tests": {"lint":"n/a","typecheck":"n/a","pytest":"n/a","vitest":"n/a","e2e":"n/a"},
       "pr_url": null, "total_cost_usd": null }
-  ]
+  ],
+  "queue": {
+    "next": { "when": "Sat 2026-07-12 · 07:03", "lane": "bug",
+      "block": "AUDIT — Query pages 100% lint placeholders (verify/fix lint.py stub type)" },
+    "release": "Fri · make bump + CHANGELOG + one PR to main (release-cut)",
+    "parity": [
+      { "block": "P3-b (2/3) — Surface proxy in GET /config/app + Settings UI", "size": "M", "tag": "standard" },
+      { "block": "P3-b (3/3) — Wire httpx proxy transport into outbound clients", "size": "M", "tag": "architecture" },
+      { "block": "P3-c — Source Watch wider types (.doc/.odt/.rtf/.csv/.html/…)", "size": "M/L", "tag": "standard" },
+      { "block": "P3-d — MinerU cloud PDF toggle (opt-in, off by default)", "size": "L", "tag": "architecture" },
+      { "block": "P3-e — Multi-provider web search (Tavily/SerpApi/Brave/…)", "size": "L", "tag": "architecture" },
+      { "block": "P4 — Chat composer (Skills · AnyTXT · Fast/Standard/Deep/Local pills)", "size": "L", "tag": "standard" },
+      { "block": "P5 — Skills view (rail scan / enable / disable / rescan)", "size": "M/L", "tag": "standard" }
+    ],
+    "bug": [
+      { "block": "AUDIT — Query pages 100% lint placeholders", "size": "S", "tag": "standard" },
+      { "block": "AUDIT — entity dedup only on exact title-slug → duplicate pages", "size": "M", "tag": "architecture" },
+      { "block": "AUDIT — related: frontmatter population (backfill_related)", "size": "S", "tag": "standard" },
+      { "block": "AUDIT — Save-to-Wiki hard-codes type=query (should be synthesis/)", "size": "S", "tag": "mechanical" },
+      { "block": "BACKLOG WS-B — review queue status filter (confirm first)", "size": "S", "tag": "standard" },
+      { "block": "TODO wiki/index.py — em-dash gloss needs Page.summary column", "size": "M", "tag": "architecture" }
+    ]
+  }
 }
 </script>
 <script>
@@ -290,6 +348,30 @@
     var s=t[k]||"n/a";
     return '<span class="gate" data-s="'+esc(s)+'"><span class="g-dot"></span><span class="g-k">'+labels[k]+'</span> · '+esc(s)+'</span>';
   }).join("");
+
+  // next steps / roadmap
+  var q = data.queue || {};
+  var nb = document.getElementById("nextBanner");
+  if(q.next){
+    nb.innerHTML = '<span class="lbl">Next up</span>'+
+      '<span class="pill lane">'+esc(q.next.lane)+'</span>'+
+      '<span class="blk">'+esc(q.next.block)+'</span>'+
+      '<span class="when">'+esc(q.next.when||"")+'</span>';
+  } else { nb.style.display="none"; }
+  function qrender(items, elId){
+    var el=document.getElementById(elId);
+    if(!items||!items.length){ el.innerHTML='<li class="qitem"><span class="qbody"><span class="t">— empty —</span></span></li>'; return; }
+    el.innerHTML = items.map(function(it,i){
+      var isNext = q.next && it.block && q.next.block && it.block.slice(0,12)===q.next.block.slice(0,12);
+      return '<li class="qitem'+(isNext?' isnext':'')+'">'+
+        '<span class="qbody"><span class="t">'+esc(it.block)+'</span>'+
+        '<span class="qmeta">'+(it.size?'<span class="size">'+esc(it.size)+'</span>':'')+
+        '<span class="tagchip tag-'+esc(it.tag||"standard")+'">'+esc(it.tag||"")+'</span></span></span>'+
+        (i===0?'<span class="nextflag">next in lane</span>':'')+'</li>';
+    }).join("");
+  }
+  qrender(q.parity, "parityList");
+  qrender(q.bug, "bugList");
 
   // history
   var hb=document.getElementById("historyBody");
