@@ -45,7 +45,7 @@ class BraveProvider(WebSearchProvider):
             logger.warning("brave: BRAVE_API_KEY not set — returning [] (I9 opt-in)")
             return []
         try:
-            params = {"q": query, "count": _COUNT}
+            params: dict[str, str | int] = {"q": query, "count": _COUNT}
             headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
             async with httpx.AsyncClient(timeout=_TIMEOUT_S) as client:
                 resp = await client.get(

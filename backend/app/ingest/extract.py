@@ -591,8 +591,8 @@ def _extract_rtf(path: Path) -> str:
         raw = path.read_bytes()
         # RTF files are typically cp1252; let striprtf detect the codepage directive
         rtf_str = raw.decode("utf-8", errors="replace")
-        text = rtf_to_text(rtf_str, errors="ignore")
-        text = text.strip()
+        text = rtf_to_text(rtf_str, errors="ignore")  # type: ignore[no-untyped-call]
+        text = str(text).strip()
     except Exception as exc:  # noqa: BLE001
         logger.warning("extract_rtf: failed for %s: %s", path.name, exc)
         return f"RTF file: text extraction failed for {path.name}."

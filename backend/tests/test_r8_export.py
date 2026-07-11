@@ -119,6 +119,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("clip_allowed_origins_db", Text, nullable=True),
         Column("cli_oauth_token", Text, nullable=True),
         Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
+        Column("web_search_api_keys_encrypted", LargeBinary, nullable=True),
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),
         Column("searxng_max_queries_db", Integer, nullable=True),

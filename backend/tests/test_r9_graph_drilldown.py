@@ -96,6 +96,18 @@ async def db_engine():
                     id TEXT PRIMARY KEY,
                     vault_id TEXT NOT NULL UNIQUE,
                     data_version INTEGER NOT NULL DEFAULT 0,
+                    remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
+                    mcp_access_token_hash TEXT,
+                    mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
+                    clip_enabled_db INTEGER,
+                    clip_access_token TEXT,
+                    clip_allowed_origins_db TEXT,
+                    cli_oauth_token TEXT,
+                    cli_oauth_token_encrypted BLOB,
+                    web_search_api_keys_encrypted BLOB,
+                    searxng_url_db TEXT,
+                    searxng_categories_db TEXT,
+                    searxng_max_queries_db INTEGER,
                     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
                 )
                 """))

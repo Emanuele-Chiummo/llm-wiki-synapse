@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.4.1"
+    "version": "1.5.0"
   },
   "paths": {
     "/sources": {
@@ -678,6 +678,213 @@
           },
           "409": {
             "description": "A reclassify run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/synthesize": {
+      "get": {
+        "summary": "Get Synthesize Status",
+        "description": "Single-flight state + last summary of the corpus synthesize pass (ADR-0067 D3).",
+        "operationId": "get_synthesize_status_ops_synthesize_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizeStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Synthesize",
+        "description": "Start ONE bounded corpus-level synthesis/comparison pass (ADR-0067 D3, P0-3, I6/I7).",
+        "operationId": "start_synthesize_ops_synthesize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynthesizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynthesizeStartResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A synthesize run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/backfill-related": {
+      "get": {
+        "summary": "Get Backfill Related Status",
+        "description": "Single-flight state + last summary of the ADR-0067 D2 backfill [P2-1,P2-2,I1].",
+        "operationId": "get_backfill_related_status_ops_backfill_related_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillRelatedStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Backfill Related",
+        "description": "Start ONE bounded ADR-0067 D2 backfill pass (apply=False \u2192 dry-run) [P2-1,P2-2,I1,I7].\n\nBrings existing wiki pages up to D2 conventions:\n  P2-1 \u2014 sets/replaces ``related:`` from resolved outbound wikilinks (cap 8, slugs only).\n  P2-2 \u2014 rewrites ``[[Title]]`` / ``[[Title|alias]]`` to ``[[slug|Title]]`` /\n          ``[[slug|alias]]`` in page bodies (rendering unchanged).\n\nZero LLM cost.  Dry-run by default; pass ``apply=true`` to commit changes.",
+        "operationId": "start_backfill_related_ops_backfill_related_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackfillRelatedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillRelatedStartResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A backfill-related run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/reconcile-folders": {
+      "get": {
+        "summary": "Get Reconcile Folders Status",
+        "description": "Single-flight state + last summary of the folder-reconcile sweep [K1,I1].",
+        "operationId": "get_reconcile_folders_status_ops_reconcile_folders_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcileFoldersStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Start Reconcile Folders",
+        "description": "Start ONE bounded folder-reconcile sweep (apply=False \u2192 dry-run; apply=True \u2192 moves) [K1,I1].\n\nFinds wiki pages whose physical folder (e.g. ``concepts/``) does not match the folder\nimplied by their ``type`` frontmatter (e.g. ``entity`` \u2192 ``entities/``) and \u2014 when\n``apply=True`` \u2014 moves them, updating Postgres + Qdrant. Zero LLM cost; purely\ndeterministic. The plan is visible via GET /ops/reconcile-folders after the run\ncompletes (dry-run returns plan without writing; apply returns counts + by_folder).",
+        "operationId": "start_reconcile_folders_ops_reconcile_folders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileFoldersRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcileFoldersStartResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A reconcile-folders run is already in flight"
           },
           "422": {
             "description": "Validation Error",
@@ -2730,6 +2937,75 @@
         ]
       }
     },
+    "/web-search/provider-keys": {
+      "get": {
+        "summary": "Masked posture of cloud web-search provider API keys (P3-e)",
+        "description": "Read-only masked posture for the opt-in cloud web-search providers. NEVER returns the key value \u2014 only whether one is set and its source (db | env | none). Keys are stored Fernet-encrypted at rest and require SYNAPSE_SECRET_KEY to set via the UI (ADR-0071).",
+        "operationId": "get_web_search_provider_keys_web_search_provider_keys_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchProviderKeysResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set or clear a cloud web-search provider API key (P3-e)",
+        "description": "Store (encrypted at rest) or clear one cloud provider's API key. Setting a key requires SYNAPSE_SECRET_KEY (400 when absent) \u2014 mirrors the CLI-auth token contract (ADR-0043/W7). The stored key wins over the env `{PROVIDER}_API_KEY` fallback. The plaintext is never logged or returned. ADR-0071.",
+        "operationId": "put_web_search_provider_key_web_search_provider_keys_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebSearchProviderKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Key stored/cleared; returns the refreshed masked posture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebSearchProviderKeysResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "SYNAPSE_SECRET_KEY not set (cannot encrypt) or invalid provider/key"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/config/app": {
       "get": {
         "summary": "List all 13 runtime config overrides with effective value + source (ADR-0053)",
@@ -3144,8 +3420,8 @@
     },
     "/chat/save-to-wiki": {
       "post": {
-        "summary": "Save a chat answer to the wiki as a query page (G-P0-1)",
-        "description": "Mirrors nashsu/llm_wiki F6 'Save to Wiki': saves a cleaned assistant answer as wiki/queries/<slug(title)>.md with type=query frontmatter (I5). Strips <think>\u2026</think> and <!-- cited: \u2026 --> transport artifacts before saving. Persists via the single write_wiki_page seam (I1 \u2014 one data_version bump, no rescan). No inference provider is called (I6/I7). Returns {page_id, file_path}. 422 if title/content is missing.",
+        "summary": "Save a chat answer to the wiki (synthesis by default, query if it is a question)",
+        "description": "Mirrors nashsu/llm_wiki F6 'Save to Wiki' (CG-A2/A5, ADR-0067 P3-3): saves a cleaned assistant answer as wiki/synthesis/<slug(title)>.md with type=synthesis frontmatter \u2014 OR wiki/queries/<slug>.md with type=query when the saved content is itself an open question (title/first line ends with '?' or is interrogative). Strips <think>\u2026</think> and <!-- cited: \u2026 --> transport artifacts before saving. Persists via the single write_wiki_page seam (I1 \u2014 one data_version bump, no rescan; ADR-0067 D2 frontmatter + resolved related). The write makes no provider call (I6); a bounded fire-and-forget wikilink-enrichment pass may follow to graph-connect the page (CG-A3, degrade-safe). Returns {page_id, file_path}. 422 if title/content is missing.",
         "operationId": "save_chat_to_wiki_chat_save_to_wiki_post",
         "requestBody": {
           "content": {
@@ -5246,6 +5522,87 @@
         "title": "BackfillDomainsStatusResponse",
         "description": "GET /ops/backfill-domains \u2014 single-flight state + last completed summary."
       },
+      "BackfillRelatedRequest": {
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Pages",
+            "description": "Cap on wiki pages scanned per run (clamped server-side, I7)."
+          },
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "description": "False (default) = dry-run only \u2014 returns planned counts + samples with no file writes. True = perform actual writes + incremental re-index + data_version bump.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "BackfillRelatedRequest",
+        "description": "Request body for POST /ops/backfill-related (ADR-0067 D2 P2-1+P2-2)."
+      },
+      "BackfillRelatedStartResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 backfill runs in background",
+            "default": "started"
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "description": "Effective (clamped) page cap for this run"
+          },
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "description": "Whether file writes are performed (False = dry-run)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_pages",
+          "apply"
+        ],
+        "title": "BackfillRelatedStartResponse",
+        "description": "202 response for POST /ops/backfill-related."
+      },
+      "BackfillRelatedStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while a backfill-related run is in flight"
+          },
+          "last_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Summary",
+            "description": "Summary of the most recent completed run (null if never ran). Includes 'samples' (first 5 changed pages) in dry-run mode."
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "BackfillRelatedStatusResponse",
+        "description": "GET /ops/backfill-related \u2014 single-flight state + last completed summary."
+      },
       "BatchFindingsRequest": {
         "properties": {
           "ids": {
@@ -5810,6 +6167,18 @@
             "title": "Retrieval Mode",
             "description": "B2-C3: frozen retrieval preset. fast=k4/depth0 \u00b7 standard=k8/depth2 (default) \u00b7 deep=k12/depth2 \u00b7 local_first=k8/depth2+web-gate. expansion_depth is always clamped to \u22642 (I7).",
             "default": "standard"
+          },
+          "use_skills": {
+            "type": "boolean",
+            "title": "Use Skills",
+            "description": "F6/P4: forward-compatible flag \u2014 when True, the client requests skill execution for this chat turn. Accepted and logged; actual execution deferred to P5 Skills view. No behavior change in the current release.",
+            "default": false
+          },
+          "use_anytxt": {
+            "type": "boolean",
+            "title": "Use Anytxt",
+            "description": "F6/P4: forward-compatible flag \u2014 when True, the client requests AnyTXT Searcher local-file search for this chat turn. Accepted and logged; AnyTXT is a Windows-only local-search tool not applicable to the current Mac/TrueNAS/Docker stack. No behavior change in the current release.",
+            "default": false
           }
         },
         "type": "object",
@@ -6833,6 +7202,42 @@
             ],
             "title": "Frequency",
             "description": "'15m' | '1h' | '6h' | 'daily'"
+          },
+          "allowed_extensions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Extensions",
+            "description": "Comma-separated extensions to import; '' \u2192 default wider set. P3-c."
+          },
+          "excluded_folders": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded Folders",
+            "description": "Comma-separated folder names to skip; '' \u2192 none excluded. P3-c."
+          },
+          "max_size_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Size Mb",
+            "description": "Max file size in MB; 0 \u2192 no cap. P3-c."
           }
         },
         "type": "object",
@@ -6864,6 +7269,42 @@
             "title": "Frequency",
             "description": "'15m' | '1h' | '6h' | 'daily'",
             "default": "1h"
+          },
+          "allowed_extensions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Extensions",
+            "description": "Comma-separated extensions the scan imports (e.g. '.pdf,.csv'). null \u2192 default wider set (text + all extractable). P3-c."
+          },
+          "excluded_folders": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded Folders",
+            "description": "Comma-separated folder names skipped during the scan. null \u2192 none. P3-c."
+          },
+          "max_size_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Size Mb",
+            "description": "Max file size in MB the scan imports; larger skipped. null \u2192 no cap. P3-c."
           },
           "last_run_at": {
             "anyOf": [
@@ -6956,6 +7397,42 @@
             "title": "Frequency",
             "description": "'15m' | '1h' | '6h' | 'daily'",
             "default": "1h"
+          },
+          "allowed_extensions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Extensions",
+            "description": "Comma-separated extensions the scan imports (e.g. '.pdf,.csv'). null \u2192 default wider set (text + all extractable). P3-c."
+          },
+          "excluded_folders": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded Folders",
+            "description": "Comma-separated folder names skipped during the scan. null \u2192 none. P3-c."
+          },
+          "max_size_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Size Mb",
+            "description": "Max file size in MB the scan imports; larger skipped. null \u2192 no cap. P3-c."
           },
           "last_run_at": {
             "anyOf": [
@@ -8573,6 +9050,30 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain",
+            "description": "Dominant vocabulary domain derived server-side from 'domain/<name>' tags. null when the page is untagged or no domain vocabulary is configured. Reuses the same derivation logic as GET /stats/sections (stats.py)."
+          },
+          "community": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Community",
+            "description": "Louvain community id persisted by GraphEngine.recompute(). null until the first graph recompute after migration 0020 (G-P0-2, I2)."
           }
         },
         "type": "object",
@@ -9611,6 +10112,87 @@
         ],
         "title": "ReclassifyTypesStatusResponse",
         "description": "GET /ops/reclassify-types \u2014 single-flight state + last completed summary."
+      },
+      "ReconcileFoldersRequest": {
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Pages",
+            "description": "Cap on wiki pages scanned per run (clamped server-side, I7)."
+          },
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "description": "False (default) = dry-run only \u2014 returns a plan with no file writes. True = perform actual moves + DB + Qdrant updates.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ReconcileFoldersRequest",
+        "description": "Request body for POST /ops/reconcile-folders."
+      },
+      "ReconcileFoldersStartResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 reconcile runs in background",
+            "default": "started"
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "description": "Effective (clamped) page cap for this run"
+          },
+          "apply": {
+            "type": "boolean",
+            "title": "Apply",
+            "description": "Whether moves are applied (False = dry-run)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_pages",
+          "apply"
+        ],
+        "title": "ReconcileFoldersStartResponse",
+        "description": "202 response for POST /ops/reconcile-folders."
+      },
+      "ReconcileFoldersStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while a reconcile run is in flight"
+          },
+          "last_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Summary",
+            "description": "Summary of the most recent completed run (null if never ran). Includes 'plan' (list of proposed moves) in dry-run mode."
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "ReconcileFoldersStatusResponse",
+        "description": "GET /ops/reconcile-folders \u2014 single-flight state + last completed summary."
       },
       "ReferencedPage": {
         "properties": {
@@ -10704,7 +11286,7 @@
           "content"
         ],
         "title": "SaveToWikiRequest",
-        "description": "Request body for POST /chat/save-to-wiki (G-P0-1).\n\nSaves a cleaned chat assistant answer as a wiki/queries/<slug>.md page.\nNo inference provider is called (I6); this is a pure DB+file write (I7).",
+        "description": "Request body for POST /chat/save-to-wiki (G-P0-1; CG-A2/A5, ADR-0067 P3-3).\n\nSaves a cleaned chat assistant answer to the vault. A lightweight classifier routes an open\nQUESTION to ``wiki/queries/<slug>.md`` (type=query) and any answer/analysis \u2014 the common case\n\u2014 to ``wiki/synthesis/<slug>.md`` (type=synthesis). The write itself calls no inference\nprovider (I6); a bounded fire-and-forget wikilink-enrichment pass may run afterwards to\ngraph-connect the saved page (CG-A3).",
         "example": {
           "content": "bge-m3 is a multi-lingual dense embedding model...",
           "conversation_id": "00000000-0000-0000-0000-000000000001",
@@ -10720,12 +11302,12 @@
             "type": "string",
             "format": "uuid",
             "title": "Page Id",
-            "description": "UUID of the created/updated wiki/queries page"
+            "description": "UUID of the created/updated wiki page"
           },
           "file_path": {
             "type": "string",
             "title": "File Path",
-            "description": "Relative path in the vault (wiki/queries/<slug>.md)"
+            "description": "Relative path in the vault. Usually wiki/synthesis/<slug>.md (an answer/analysis); wiki/queries/<slug>.md when the saved content is itself an open question."
           }
         },
         "type": "object",
@@ -10734,9 +11316,9 @@
           "file_path"
         ],
         "title": "SaveToWikiResponse",
-        "description": "201 response for POST /chat/save-to-wiki (G-P0-1).",
+        "description": "201 response for POST /chat/save-to-wiki (G-P0-1; CG-A2/A5, ADR-0067 P3-3).",
         "example": {
-          "file_path": "wiki/queries/what-is-bge-m3.md",
+          "file_path": "wiki/synthesis/bge-m3-embedding-tradeoffs.md",
           "page_id": "00000000-0000-0000-0000-000000000001"
         }
       },
@@ -11190,6 +11772,106 @@
           "version": "1.2.0"
         }
       },
+      "SynthesizeRequest": {
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Pages",
+            "description": "Cap on pages auto-written this run (synthesis+comparison; clamped)."
+          },
+          "token_budget": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Budget",
+            "description": "Token budget for the run (clamped server-side, I7)."
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Accepted for endpoint-shape parity; the seeder is already a full re-seed.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "SynthesizeRequest",
+        "description": "Request body for POST /ops/synthesize (ADR-0067 D3)."
+      },
+      "SynthesizeStartResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 synthesize runs in background",
+            "default": "started"
+          },
+          "max_pages": {
+            "type": "integer",
+            "title": "Max Pages",
+            "description": "Effective (clamped) page cap for this run"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget",
+            "description": "Effective (clamped) token budget for this run"
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "description": "Echo of the force flag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_pages",
+          "token_budget",
+          "force"
+        ],
+        "title": "SynthesizeStartResponse",
+        "description": "202 response for POST /ops/synthesize."
+      },
+      "SynthesizeStatusResponse": {
+        "properties": {
+          "running": {
+            "type": "boolean",
+            "title": "Running",
+            "description": "True while a synthesize run is in flight"
+          },
+          "last_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Summary",
+            "description": "Summary of the most recent completed run (null if never ran)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "running"
+        ],
+        "title": "SynthesizeStatusResponse",
+        "description": "GET /ops/synthesize \u2014 single-flight state + last completed summary."
+      },
       "UploadResponse": {
         "properties": {
           "file_path": {
@@ -11553,6 +12235,84 @@
         ],
         "title": "WebSearchConfigStateResponse",
         "description": "Response body for PUT /web-search/config (ADR-0041 \u00a72.4).\n\nAlways reflects post-write posture."
+      },
+      "WebSearchProviderKeyRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "tavily | serpapi | firecrawl | brave"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key",
+            "description": "API key to store; omit when clearing"
+          },
+          "clear": {
+            "type": "boolean",
+            "title": "Clear",
+            "description": "True to remove the stored key (env resumes)",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "title": "WebSearchProviderKeyRequest",
+        "description": "PUT /web-search/provider-keys \u2014 set (key) or clear (clear=true) one provider's key."
+      },
+      "WebSearchProviderKeyState": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "description": "True if a key is set (DB or env)"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "'db' | 'env' | 'none'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "source"
+        ],
+        "title": "WebSearchProviderKeyState",
+        "description": "Masked posture for one cloud web-search provider \u2014 NEVER the key value."
+      },
+      "WebSearchProviderKeysResponse": {
+        "properties": {
+          "secrets_available": {
+            "type": "boolean",
+            "title": "Secrets Available",
+            "description": "True if SYNAPSE_SECRET_KEY is set (required to store keys via the UI)"
+          },
+          "providers": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WebSearchProviderKeyState"
+            },
+            "type": "object",
+            "title": "Providers",
+            "description": "Per-provider masked posture (tavily/serpapi/firecrawl/brave)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "secrets_available",
+          "providers"
+        ],
+        "title": "WebSearchProviderKeysResponse",
+        "description": "GET /web-search/provider-keys \u2014 masked posture for all cloud providers."
       }
     },
     "securitySchemes": {

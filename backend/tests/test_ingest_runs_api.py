@@ -34,6 +34,7 @@ from sqlalchemy import (
     Column,
     Float,
     Integer,
+    LargeBinary,
     MetaData,
     Numeric,
     String,
@@ -88,6 +89,12 @@ def _build_sqlite_meta() -> MetaData:
         Column("clip_enabled_db", Integer, nullable=True),
         Column("clip_access_token", Text, nullable=True),
         Column("clip_allowed_origins_db", Text, nullable=True),
+        # ADR-0043 §2.1 (legacy plaintext — kept for rollback safety; W7 migration 0027)
+        Column("cli_oauth_token", Text, nullable=True),
+        # W7 migration 0027: Fernet-encrypted CLI OAuth token (BYTEA; NULL = not set)
+        Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
+        # P3-e (ADR-0071): Fernet-encrypted web-search API keys (BYTEA; NULL = none set)
+        Column("web_search_api_keys_encrypted", LargeBinary, nullable=True),
         # ADR-0041 §3: SearXNG web-search runtime config (NULL = not set in DB; env fallback)
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),

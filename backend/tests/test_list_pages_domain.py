@@ -29,8 +29,8 @@ from sqlalchemy import text as sa_text
 from tests.test_api import api_client, api_env  # noqa: F401
 from tests.test_related_pages import _ingest_page
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 async def _patch_community(
     api_env: dict[str, Any],
@@ -48,8 +48,7 @@ async def _patch_community(
     async with session_factory() as sess:
         await sess.execute(
             sa_text(
-                "UPDATE pages SET community = :cid "
-                "WHERE REPLACE(id, '-', '') = :pid"
+                "UPDATE pages SET community = :cid " "WHERE REPLACE(id, '-', '') = :pid"
             ).bindparams(cid=community_id, pid=pid_hex)
         )
         await sess.commit()
@@ -64,17 +63,14 @@ async def _get_pages_list(api_client: AsyncClient) -> list[dict]:
 
 # ── T-LPD-001: domain=null when no domain/* tag ───────────────────────────────
 
+
 @pytest.mark.asyncio
-async def test_domain_null_when_untagged(
-    api_client: AsyncClient, api_env: dict[str, Any]
-) -> None:
+async def test_domain_null_when_untagged(api_client: AsyncClient, api_env: dict[str, Any]) -> None:
     """T-LPD-001: page with no domain/* tags → domain=null in GET /pages."""
     await _ingest_page(
         api_env,
         filename="untagged.md",
-        content=(
-            "---\ntype: concept\ntitle: Untagged Concept\nsources: []\n---\n\nBody.\n"
-        ),
+        content=("---\ntype: concept\ntitle: Untagged Concept\nsources: []\n---\n\nBody.\n"),
     )
     with patch(
         "app.routers.pages.effective_domain_vocabulary",
@@ -88,6 +84,7 @@ async def test_domain_null_when_untagged(
 
 
 # ── T-LPD-002: domain matches vocab domain/* tag ─────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_domain_returned_when_tagged(
@@ -115,6 +112,7 @@ async def test_domain_returned_when_tagged(
 
 # ── T-LPD-003: domain=null when vocab is empty ───────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_domain_null_when_vocab_empty(
     api_client: AsyncClient, api_env: dict[str, Any]
@@ -136,24 +134,21 @@ async def test_domain_null_when_vocab_empty(
 
     page = next((p for p in items if p["title"] == "Tagged No Vocab"), None)
     assert page is not None, "page not found in list"
-    assert page.get("domain") is None, (
-        f"expected domain=null when vocab is empty, got {page.get('domain')}"
-    )
+    assert (
+        page.get("domain") is None
+    ), f"expected domain=null when vocab is empty, got {page.get('domain')}"
 
 
 # ── T-LPD-004: community field reflects DB column ────────────────────────────
 
+
 @pytest.mark.asyncio
-async def test_community_field_populated(
-    api_client: AsyncClient, api_env: dict[str, Any]
-) -> None:
+async def test_community_field_populated(api_client: AsyncClient, api_env: dict[str, Any]) -> None:
     """T-LPD-004: community field in GET /pages matches pages.community column."""
     page_id = await _ingest_page(
         api_env,
         filename="community_page.md",
-        content=(
-            "---\ntype: entity\ntitle: Community Entity\nsources: []\n---\n\nBody.\n"
-        ),
+        content=("---\ntype: entity\ntitle: Community Entity\nsources: []\n---\n\nBody.\n"),
     )
     # Simulate GraphEngine assigning community=7 to this page (I2).
     await _patch_community(api_env, page_id, 7)
@@ -161,17 +156,14 @@ async def test_community_field_populated(
     items = await _get_pages_list(api_client)
     page = next((p for p in items if p["title"] == "Community Entity"), None)
     assert page is not None, "page not found in list"
-    assert page.get("community") == 7, (
-        f"expected community=7, got {page.get('community')}"
-    )
+    assert page.get("community") == 7, f"expected community=7, got {page.get('community')}"
 
 
 # ── T-LPD-005: stale domain/* tag not in vocab → domain=null ─────────────────
 
+
 @pytest.mark.asyncio
-async def test_domain_null_for_stale_tag(
-    api_client: AsyncClient, api_env: dict[str, Any]
-) -> None:
+async def test_domain_null_for_stale_tag(api_client: AsyncClient, api_env: dict[str, Any]) -> None:
     """T-LPD-005: page has 'domain/OldDomain' but vocab only has 'SAM' → domain=null."""
     await _ingest_page(
         api_env,
@@ -189,6 +181,6 @@ async def test_domain_null_for_stale_tag(
 
     page = next((p for p in items if p["title"] == "Stale Domain Concept"), None)
     assert page is not None, "page not found in list"
-    assert page.get("domain") is None, (
-        f"expected domain=null for stale tag not in vocab, got {page.get('domain')}"
-    )
+    assert (
+        page.get("domain") is None
+    ), f"expected domain=null for stale tag not in vocab, got {page.get('domain')}"

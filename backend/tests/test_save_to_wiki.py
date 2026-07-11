@@ -92,6 +92,7 @@ async def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
                 clip_allowed_origins_db TEXT,
                 cli_oauth_token TEXT,
                 cli_oauth_token_encrypted BLOB,
+                web_search_api_keys_encrypted BLOB,
                 searxng_url_db TEXT,
                 searxng_categories_db TEXT,
                 searxng_max_queries_db INTEGER,

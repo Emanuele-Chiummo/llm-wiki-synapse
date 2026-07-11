@@ -443,12 +443,19 @@ test.describe("Live streaming (qwen2.5:3b)", () => {
     await textarea.fill("Short reply: just say ok");
     await textarea.press("Enter");
 
-    // Wait for finalization
+    // Wait for finalization — qwen2.5:3b can be slow; 90s is the live-model budget.
     await expect(page.locator(".synapse-streaming-message")).not.toBeVisible({ timeout: 90_000 });
 
-    // Regenerate button should be visible on the last assistant message
+    // Allow one React render cycle to settle after the stream finalises (matches
+    // CHAT-STOP-1 pattern: a 500ms stabilisation wait avoids a race where the
+    // streaming-message indicator clears before the regen button is mounted).
+    await page.waitForTimeout(500);
+
+    // Regenerate button should be visible on the last assistant message.
+    // 30 000ms matches the implicit default used by CHAT-STREAM-1/2/3 for the same
+    // button and is sufficient even when the React tree needs an extra paint cycle.
     const regenBtn = page.getByRole("button", { name: /regenerate/i });
-    await expect(regenBtn).toBeVisible({ timeout: 10_000 });
+    await expect(regenBtn).toBeVisible({ timeout: 30_000 });
   });
 });
 

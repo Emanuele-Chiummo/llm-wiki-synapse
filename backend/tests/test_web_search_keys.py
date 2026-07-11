@@ -102,7 +102,8 @@ class TestAdapterIntegration:
     def test_adapters_read_through_resolver(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A DB-cached key makes each cloud adapter report configured() True."""
         from app import config as cfg
-        from app.ops.web_search import brave, firecrawl, keys as k, serpapi, tavily
+        from app.ops.web_search import brave, firecrawl, serpapi, tavily
+        from app.ops.web_search import keys as k
 
         for p in ("tavily", "serpapi", "firecrawl", "brave"):
             monkeypatch.setattr(cfg.settings, f"{p}_api_key", "", raising=False)
