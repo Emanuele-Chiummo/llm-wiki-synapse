@@ -8,6 +8,8 @@
  *                               capped at 12) — 404 → null (backend still building)
  * GET /ops/backfill-domains   → BackfillDomainStatus (running bool + optional last_summary)
  *                               — 404/error → null (feature not yet active or no backfill run)
+ * GET /ops/synthesize         → SynthesizeStatus (running bool + optional last_summary,
+ *                               ADR-0067 D3) — 404/error → null (no synthesize run yet)
  *
  * Contract: /stats/overview and /stats/sections frozen in ADR-0054 §5.
  * /stats/groups contract: FROZEN by parallel backend agent (A2+A3 amendment).
@@ -140,6 +142,28 @@ export interface BackfillDomainStatus {
   last_summary: BackfillSummary | null;
 }
 
+/** Summary of one completed synthesize run — mirrors ops/synthesize.SynthesizeSummary. */
+export interface SynthesizeSummary {
+  candidates: number;
+  processed: number;
+  synthesis_written: number;
+  comparison_written: number;
+  pages_written: number;
+  proposed: number;
+  skipped: number;
+  failed: number;
+  total_cost_usd: number;
+  stopped_reason: string;
+  max_pages: number;
+  token_budget: number;
+  force: boolean;
+}
+
+export interface SynthesizeStatus {
+  running: boolean;
+  last_summary: SynthesizeSummary | null;
+}
+
 // ─── Client functions ─────────────────────────────────────────────────────────
 
 /**
@@ -229,6 +253,31 @@ export async function getBackfillDomainStatus(
     if (res.status === 405) return null; // endpoint is POST-only on this backend version
     if (!res.ok) return null;
     return (await res.json()) as BackfillDomainStatus;
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw err;
+    return null;
+  }
+}
+
+/**
+ * getSynthesizeStatus — GET /ops/synthesize (ADR-0067 D3).
+ *
+ * Returns {running, last_summary} when the endpoint exists, or null on 404 /
+ * any error (graceful hide — same degrade-safe contract as getBackfillDomainStatus).
+ * Never throws (AbortError is re-thrown for cleanup).
+ *
+ * [F18][ADR-0067 D3]
+ */
+export async function getSynthesizeStatus(
+  signal?: AbortSignal,
+): Promise<SynthesizeStatus | null> {
+  try {
+    const url = `${apiBase()}/ops/synthesize`;
+    const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
+    if (res.status === 404) return null;
+    if (res.status === 405) return null; // endpoint is POST-only on this backend version
+    if (!res.ok) return null;
+    return (await res.json()) as SynthesizeStatus;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw err;
     return null;

@@ -9,6 +9,26 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.3] — 2026-07-11 — "Synthesize/comparison UI trigger"
+
+Patch: exposes the corpus-level synthesis/comparison generator (`POST /ops/synthesize`,
+ADR-0067 D3) in the Home dashboard — previously API-only with no UI trigger.
+
+### Added
+- **"Generate now" nudge for synthesis/comparison pages** — a new Home dashboard banner
+  triggers the bounded corpus-level synthesis/comparison generator on demand. It runs the
+  same deterministic 4-signal-graph cluster seeder as the backend op: high-confidence
+  clusters are auto-written as synthesis (thesis + integration) or comparison (table) pages,
+  borderline clusters are proposed to the F9 review queue. Hidden when the corpus has fewer
+  than 3 entity/concept pages (the seeder's own minimum) or while a run is already in
+  flight. A "Sintesi/confronti in corso" row surfaces in "LAVORI ATTIVI" while the run is
+  running, matching the existing backfill/reclassify pattern [F18][ADR-0067 D3].
+
+### Notes
+- Still a manual, on-demand trigger — synthesis/comparison generation does NOT run
+  automatically at the end of a bulk ingest. That auto-trigger (hooking `POST
+  /ops/synthesize` into `ingest-all` completion) remains a follow-up, tracked separately.
+
 ## [1.5.2] — 2026-07-11 — "Provider config + UX fixes (live-verified)"
 
 Patch: provider-config bugs that broke selecting/using the CLI provider (all **verified live against
