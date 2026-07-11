@@ -9,6 +9,14 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+### Added
+- **Network-proxy settings — config layer (P3-b 1/3)** — the ADR-0053 runtime config-override
+  layer now recognizes and validates three new keys: `network_proxy_enabled`,
+  `network_proxy_url` (http(s)://), and `network_proxy_bypass_local`. Settable/validated via
+  the config surface; surfacing them in `GET /config/app` + a Settings UI section (2/3) and
+  wiring an `httpx` proxy transport into outbound clients (3/3) are tracked as follow-ups
+  [F16][ADR-0053].
+
 ## [1.5.3] — 2026-07-11 — "Synthesize/comparison UI trigger"
 
 Patch: exposes the corpus-level synthesis/comparison generator (`POST /ops/synthesize`,

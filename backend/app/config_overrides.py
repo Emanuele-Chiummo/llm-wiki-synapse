@@ -8,7 +8,7 @@ Load once at lifespan startup; O(1) reads from in-memory cache thereafter (I7).
 
 Public API
 ----------
-ALLOWED_CONFIG_KEYS  : frozenset[str]   — the 18 keys the UI may override (§2.2)
+ALLOWED_CONFIG_KEYS  : frozenset[str]   — the keys the UI may override (§2.2)
 load_overrides(session) → None          — called ONCE at lifespan startup
 get_effective(key, env_default) → str   — O(1) cache read (override-else-default)
 source_of(key) → str                    — "override" | "env"
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # ── Allow-list (security boundary — ADR-0053 §2.2; extended by ADR-0054 §2.1,
 #   further extended by R12-7/A5 for S10/S11; further extended by R12-8 for S12;
 #   further extended by R12-9 for S13; further extended for S14-S18 loop bounds) ─
-# ONLY these 18 keys may be written via PUT /config/app/{key}.
+# ONLY the keys listed below may be written via PUT /config/app/{key}.
 # Infra/secret keys are structurally unreachable through this surface (§2.4).
 ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
     {
@@ -80,6 +80,9 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069) — MinerU cloud base URL (non-secret)
         "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069) — MinerU cloud HTTP timeout (I7)
         "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070) — web-search backend selector
+        "network_proxy_enabled",  # S24 (v1.5 P3-b, ADR-0053) — outbound HTTP proxy master toggle
+        "network_proxy_url",  # S25 (v1.5 P3-b, ADR-0053) — proxy base URL (non-secret), http(s)://
+        "network_proxy_bypass_local",  # S26 (v1.5 P3-b, ADR-0053) — bypass proxy for local targets
     }
 )
 
@@ -170,9 +173,20 @@ def validate_value(key: str, value: str) -> str | None:
         if f < 0:
             return f"cost_alert_threshold_usd must be ≥ 0 (0 disables the alert), got {f!r}"
 
-    elif key in ("embeddings_enabled", "wikilink_enrich_enabled", "vision_captions_enabled"):
+    elif key in (
+        "embeddings_enabled",
+        "wikilink_enrich_enabled",
+        "vision_captions_enabled",
+        "network_proxy_enabled",
+        "network_proxy_bypass_local",
+    ):
         if value.lower() not in _BOOL_VALUES:
             return f"{key} must be 'true' or 'false' (case-insensitive), " f"got {value!r}"
+
+    elif key == "network_proxy_url":
+        # S25 (v1.5 P3-b, ADR-0053): non-secret proxy base URL — same shape as marker_service_url.
+        if not (value.startswith("http://") or value.startswith("https://")):
+            return f"network_proxy_url must start with http:// or https://, got {value!r}"
 
     elif key == "vision_max_images_per_run":
         # S20 (v1.5 P3-a): int in [0, 50] — per-run vision-call cap (I7; 0 disables captioning).

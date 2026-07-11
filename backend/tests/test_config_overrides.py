@@ -547,3 +547,30 @@ def test_validate_vision_keys() -> None:
     assert validate_value("vision_max_images_per_run", "51") is not None
     assert validate_value("vision_max_images_per_run", "-1") is not None
     assert validate_value("vision_max_images_per_run", "x") is not None
+
+
+def test_validate_network_proxy_keys() -> None:
+    """S24/S25/S26 (v1.5 P3-b, ADR-0053): network-proxy keys allow-listed but not yet
+    GET-surfaced (ORDERED_KEYS untouched — deferred to sub-block b1b)."""
+    from app.config_overrides import ALLOWED_CONFIG_KEYS, ORDERED_KEYS, validate_value
+
+    assert "network_proxy_enabled" in ALLOWED_CONFIG_KEYS
+    assert "network_proxy_url" in ALLOWED_CONFIG_KEYS
+    assert "network_proxy_bypass_local" in ALLOWED_CONFIG_KEYS
+
+    assert "network_proxy_enabled" not in ORDERED_KEYS
+    assert "network_proxy_url" not in ORDERED_KEYS
+    assert "network_proxy_bypass_local" not in ORDERED_KEYS
+
+    # bool toggle
+    assert validate_value("network_proxy_enabled", "true") is None
+    assert validate_value("network_proxy_enabled", "FALSE") is None
+    assert validate_value("network_proxy_enabled", "maybe") is not None
+
+    assert validate_value("network_proxy_bypass_local", "1") is None
+    assert validate_value("network_proxy_bypass_local", "nope") is not None
+
+    # url shape
+    assert validate_value("network_proxy_url", "http://proxy.local:8888") is None
+    assert validate_value("network_proxy_url", "https://x") is None
+    assert validate_value("network_proxy_url", "proxy.local") is not None
