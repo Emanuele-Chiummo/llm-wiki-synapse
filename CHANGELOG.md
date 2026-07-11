@@ -63,6 +63,12 @@ real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
   posting the same provider 3× yields **one** row, and re-posting flips it to active. Regression
   tests added [F17].
 
+### Changed
+- **More reviews out-of-the-box, for closer llm_wiki volume parity** — `REVIEW_PROPOSE_MIN_PAGES`
+  default lowered `4 → 1` (the curated LLM review step now runs on ordinary single-page ingests
+  instead of being gated out) and `REVIEW_PROPOSE_MAX_ITEMS` raised `8 → 12`. Both stay bounded and
+  cost-capped by the resolved provider row's `token_budget`; tune via env for fewer/more [F9].
+
 ## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
 
 Patch: activating the **Claude Code CLI** provider (and any catalog vendor) from Settings failed
