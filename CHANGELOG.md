@@ -28,8 +28,9 @@ because the vendor-catalog tag couldn't be persisted. Also fixes an unreadable e
 - **0-preset vendors (`codex-cli`, `atlas-cloud`)** — activating a vendor with no preset models used
   to POST a null `model_id` (422). The toggle now reveals the Custom-model input instead, and
   choosing/typing a model creates the row (activation), so every catalog vendor is configurable [F17].
-- **macOS menu-bar (tray) icon** — enabled `icon_as_template(true)` (tauri 2.11) so the background-free
-  ink mark renders adaptively: **white on dark menu bars, black on light** [F15, Brand v1.0].
+- **macOS menu-bar (tray) icon** — now the **white** Brand mark (`synapse-mark-white`, `tray-white.png`)
+  on a transparent background, rendered as-is (not a template) so it shows white on the menu bar
+  instead of the near-invisible dark ink [F15, Brand v1.0].
 
 ## [1.5.0] — 2026-07-11 — "LLM Wiki 1:1 parity"
 
