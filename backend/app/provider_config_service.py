@@ -184,8 +184,20 @@ async def _query_one(
     session: AsyncSession,
     where_clause: ColumnElement[bool],
 ) -> ProviderConfig | None:
-    """Execute a SELECT with *where_clause* and return the first matching row or None."""
-    stmt = select(ProviderConfig).where(where_clause).limit(1)
+    """Execute a SELECT with *where_clause* and return the MOST RECENT matching row or None.
+
+    Orders by created_at DESC so that, when several rows match a scope (e.g. two global rows:
+    an Anthropic `api` row and a `cli` row), the newest one wins — matching the frontend's
+    `deriveActiveItem` "most recent non-fallback row is active" semantics. Without this ORDER BY
+    the DB returned an arbitrary row, so ingest could resolve a stale `api` provider while the UI
+    showed the newer `cli` provider as active → "No Anthropic API key" despite CLI being configured.
+    """
+    stmt = (
+        select(ProviderConfig)
+        .where(where_clause)
+        .order_by(ProviderConfig.created_at.desc())
+        .limit(1)
+    )
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
