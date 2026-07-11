@@ -106,18 +106,27 @@ class TestAntiSpamGate:
     async def test_trivial_run_skips_llm_call_zero_cost(
         self,
         review_env_0034: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """
-        T-AI-001: a trivial run (1 tiny page, no dangling links, no unwritten suggestion)
-        must NOT invoke the provider — zero proposals, zero cost.
+        T-AI-001: a run below ALL gate conditions must NOT invoke the provider — zero cost.
+
+        v1.5.2 lowered the default review_propose_min_pages 4 → 1, so this test sets the threshold
+        explicitly to exercise the gate-SKIP mechanism itself (independent of the shipped default):
+        one tiny page < min_pages, tiny body < min_chars, no dangling links, no unwritten
+        suggestion → gate short-circuits before the LLM.
         """
+        from app.config import settings as _cfg
         from app.ops import review as review_mod
 
-        # One tiny written page → below MIN_PAGES (4) and MIN_CHARS (10k); no dangling links.
+        monkeypatch.setattr(_cfg, "review_propose_min_pages", 4)
+
+        # One tiny written page → below the (explicit) MIN_PAGES=4 and MIN_CHARS (10k); no dangling.
         page = MagicMock()
         page.id = uuid.uuid4()
         page.title = "Tiny"
         page.page_type = "concept"
+        page.file_path = "wiki/concepts/tiny.md"  # non-existent → gate falls back to title length
 
         provider = _make_chat_provider("{}")
 

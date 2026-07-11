@@ -301,18 +301,21 @@ class Settings(BaseSettings):
     cost. Env var: REVIEW_PROPOSE_MIN_CHARS.
     """
 
-    review_propose_min_pages: int = 4
+    review_propose_min_pages: int = 1
     """
     Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs if at least this many pages were
     written in the run (OR'd with the char / dangling-link / suggested-page conditions).
+    v1.5.2: lowered 4 → 1 so the curated LLM review step runs on ordinary single-page ingests too
+    (nashsu/llm_wiki flags reviews inside generation and never skips; this keeps parity on volume).
     Env var: REVIEW_PROPOSE_MIN_PAGES.
     """
 
-    review_propose_max_items: int = 8
+    review_propose_max_items: int = 12
     """
     Hard cap on proposals emitted per ingest run (ADR-0034 §4.3, Do-NOT #9). The single LLM
     proposal call's output is truncated to this many items — never an unbounded enqueue.
-    Env var: REVIEW_PROPOSE_MAX_ITEMS.
+    v1.5.2: raised 8 → 12 for closer volume parity with llm_wiki (still bounded, cost-capped by
+    the resolved provider row's token_budget). Env var: REVIEW_PROPOSE_MAX_ITEMS.
     """
 
     review_propose_token_budget: int = 4_000

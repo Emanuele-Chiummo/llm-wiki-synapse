@@ -14,6 +14,7 @@ Coverage (ADR-0008 §2, AC-F17-6):
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -28,6 +29,7 @@ def _make_config_row(
     provider_type: str = "api",
     model_id: str = "test-model",
     is_fallback: bool = False,
+    created_at: datetime | None = None,
 ) -> Any:
     """Build a duck-typed ProviderConfig row stub."""
     row = MagicMock()
@@ -41,6 +43,9 @@ def _make_config_row(
     row.max_iter = 3
     row.token_budget = 60_000
     row.base_url = None
+    # Real _query_one orders by created_at DESC (newest wins). Default all stubs to the same
+    # epoch so single-match tests are unaffected; multi-match tests pass explicit timestamps.
+    row.created_at = created_at or datetime(2000, 1, 1, tzinfo=UTC)
     return row
 
 
@@ -99,6 +104,8 @@ async def _resolve(
         else:
             # global
             matched = [r for r in rows if not r.is_fallback and r.scope == "global"]
+        # Mirror the real _query_one: ORDER BY created_at DESC LIMIT 1 (newest match wins).
+        matched.sort(key=lambda r: r.created_at, reverse=True)
         return matched[0] if matched else None
 
     with (
@@ -115,6 +122,34 @@ async def _resolve(
 
 
 class TestResolutionOrder:
+    @pytest.mark.asyncio
+    async def test_newest_global_row_wins(self) -> None:
+        """Among several rows in the SAME scope, the most recently created one wins.
+
+        Regression (v1.5.2, verified live vs Postgres): _query_one had no ORDER BY, so with two
+        global rows (an older Anthropic `api` row and a newer `cli` row) the DB returned an
+        ARBITRARY one — usually the older `api` row. Ingest then resolved the api provider and
+        failed with "No Anthropic API key" even though the UI showed the newer CLI provider active
+        (the frontend's deriveActiveItem picks the newest). The resolver now orders by created_at
+        DESC so backend and UI agree: newest configured provider wins.
+        """
+        older_api = _make_config_row(
+            "global",
+            provider_type="api",
+            model_id="claude-sonnet-4-6",
+            created_at=datetime(2026, 7, 11, 8, 0, tzinfo=UTC),
+        )
+        newer_cli = _make_config_row(
+            "global",
+            provider_type="cli",
+            model_id="claude-haiku-4-5-20251001",
+            created_at=datetime(2026, 7, 11, 9, 0, tzinfo=UTC),
+        )
+        # Pass oldest-first (DB heap/insertion order) to prove ordering — not list position — wins.
+        result = await _resolve([older_api, newer_cli], vault_id="v1")
+        assert result.provider_type == "cli"
+        assert result.model_id == "claude-haiku-4-5-20251001"
+
     @pytest.mark.asyncio
     async def test_operation_vault_wins_over_vault(self) -> None:
         """operation+vault scope takes precedence over vault scope."""

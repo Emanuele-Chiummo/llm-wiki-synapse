@@ -143,6 +143,12 @@ class TestCreateProviderConfig:
         fake_sess.flush = AsyncMock()
         fake_sess.commit = AsyncMock()
         fake_sess.rollback = AsyncMock()
+        fake_sess.refresh = AsyncMock()
+        # Upsert (v1.5.2): create_provider_config first SELECTs an existing identical row.
+        # For the create-path tests, return None so it takes the INSERT branch.
+        _no_match = MagicMock()
+        _no_match.scalar_one_or_none.return_value = None
+        fake_sess.execute = AsyncMock(return_value=_no_match)
 
         # Make ProviderConfig() return a fake row with the expected attributes
         ctx.__aenter__ = AsyncMock(return_value=fake_sess)
@@ -289,6 +295,11 @@ class TestCreateProviderConfig:
         sess = MagicMock()
         sess.add = MagicMock()
         sess.flush = AsyncMock()
+        sess.refresh = AsyncMock()
+        # Upsert (v1.5.2): SELECT existing → None ⇒ INSERT path (this test asserts the insert).
+        _no_match = MagicMock()
+        _no_match.scalar_one_or_none.return_value = None
+        sess.execute = AsyncMock(return_value=_no_match)
         ctx.__aenter__ = AsyncMock(return_value=sess)
         ctx.__aexit__ = AsyncMock(return_value=False)
 
@@ -311,6 +322,147 @@ class TestCreateProviderConfig:
         assert "api_key" not in data
         assert data["api_key_configured"] is True
         assert data["api_key_masked"] == "…6789"
+
+    def test_duplicate_identity_upserts_instead_of_inserting(self) -> None:
+        """Repeated POST of the same logical identity UPDATES the existing row, not a duplicate.
+
+        Regression (v1.5.2, verified live vs Postgres): setActive() (header dropdown) and
+        addProvider() (vendor catalog) both POST here, and "active = newest row" — so pre-fix every
+        activation INSERTed a new row and duplicates piled up (the user saw 3× "CLI / opus"). The
+        handler now SELECTs a matching non-fallback row; when present it updates + bumps created_at
+        (activate) and does NOT insert. Asserts: existing match ⇒ no session.add, row refreshed.
+        """
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+
+        class _Existing:
+            id = uuid.uuid4()
+            scope = "global"
+            operation = None
+            vault_id = None
+            provider_type = "cli"
+            model_id = "claude-opus-4-8"
+            base_url = None
+            api_key_encrypted = None
+            reasoning_effort = None
+            max_iter = 3
+            token_budget = 60000
+            is_fallback = False
+            created_at = now
+            updated_at = now
+
+        existing = _Existing()
+        match = MagicMock()
+        match.scalar_one_or_none.return_value = existing
+
+        async def _refresh(obj: Any) -> None:
+            # Simulate the DB resolving the server-side `created_at = func.now()` bump.
+            obj.created_at = now
+
+        sess = MagicMock()
+        sess.add = MagicMock()
+        sess.flush = AsyncMock()
+        sess.refresh = AsyncMock(side_effect=_refresh)
+        sess.execute = AsyncMock(return_value=match)
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post(
+                "/provider/config",
+                json=_valid_create_body(provider_type="cli", model_id="claude-opus-4-8"),
+            )
+        assert resp.status_code == 201
+        sess.add.assert_not_called()  # no duplicate row inserted
+        sess.refresh.assert_awaited_once()  # existing row refreshed after the created_at bump
+        assert resp.json()["model_id"] == "claude-opus-4-8"
+
+
+# ── PUT /provider/config/{id} ──────────────────────────────────────────────────
+
+
+class TestUpdateProviderConfig:
+    def _put(self, config_id: uuid.UUID, body: dict[str, Any]) -> tuple[Any, Any]:
+        """PUT /provider/config/{id} via TestClient with a patched async session.
+
+        Returns (response, fake_session) so tests can assert on the session interaction.
+        """
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+
+        class _FakeRow:
+            id = config_id
+            scope = "global"
+            operation = "claude-cli"
+            vault_id = None
+            provider_type = "cli"
+            model_id = "old-model"
+            base_url = None
+            api_key_encrypted = None
+            reasoning_effort = None
+            max_iter = 3
+            token_budget = 60000
+            is_fallback = False
+            created_at = now
+            updated_at = now
+
+        row = _FakeRow()
+        exec_result = MagicMock()
+        exec_result.scalar_one_or_none.return_value = row
+
+        fake_sess = MagicMock()
+        fake_sess.execute = AsyncMock(return_value=exec_result)
+        fake_sess.flush = AsyncMock()
+        fake_sess.refresh = AsyncMock()
+        fake_sess.commit = AsyncMock()
+        fake_sess.rollback = AsyncMock()
+
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=fake_sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.put(f"/provider/config/{config_id}", json=body)
+        return resp, fake_sess
+
+    def test_update_model_id_returns_200_and_refreshes_row(self) -> None:
+        """PUT model_id returns 200 with the new model — and the handler MUST refresh the row first.
+
+        Regression (v1.5.2, verified live vs Postgres/asyncpg): the handler serialized the row via
+        `_provider_config_to_response(row)` after the UPDATE flush, but `updated_at` is server-side
+        `onupdate=now()` and is EXPIRED after that flush. Reading it from the sync serializer without
+        an `await session.refresh(row)` triggered an async lazy-load → `MissingGreenlet` → HTTP 500
+        (selecting a model in Settings). Assert the fix: 200 + `session.refresh` awaited exactly once.
+        """
+        cid = uuid.uuid4()
+        resp, sess = self._put(cid, {"model_id": "claude-opus-4-8"})
+        assert resp.status_code == 200
+        assert resp.json()["model_id"] == "claude-opus-4-8"
+        sess.refresh.assert_awaited_once()  # the fix — without it the real endpoint 500s
+
+    def test_update_nonexistent_returns_404(self) -> None:
+        """PUT on an id that resolves to no row returns 404 (not 500)."""
+        from datetime import UTC, datetime
+
+        _ = datetime.now(UTC)
+        exec_result = MagicMock()
+        exec_result.scalar_one_or_none.return_value = None
+        fake_sess = MagicMock()
+        fake_sess.execute = AsyncMock(return_value=exec_result)
+        fake_sess.flush = AsyncMock()
+        fake_sess.refresh = AsyncMock()
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=fake_sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.put(f"/provider/config/{uuid.uuid4()}", json={"model_id": "m"})
+        assert resp.status_code == 404
 
 
 # ── DELETE /provider/config/{id} ───────────────────────────────────────────────

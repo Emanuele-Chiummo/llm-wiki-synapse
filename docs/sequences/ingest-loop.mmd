@@ -51,7 +51,7 @@ sequenceDiagram
         R->>P: propose(analysis_digest + existing_title_list) via resolve_provider_config("ingest") (I6)
         Note over R: ONE call, no loop, no retry via asyncio.wait_for(REVIEW_PROPOSE_TIMEOUT_SECONDS) (I7)
         P-->>R: list[Proposal] (type, proposed_title, proposed_page_type, rationale)
-        Note over R: truncate to REVIEW_PROPOSE_MAX_ITEMS (default 8) and log cost via UsageAccumulator (I7)
+        Note over R: truncate to REVIEW_PROPOSE_MAX_ITEMS (default 12) and log cost via UsageAccumulator (I7)
         R->>PG: INSERT review_items rows (status=pending, item_type, proposed_*, rationale, source_page_id)
     else gate fails OR provider timeout/error
         Note over R: emit only rule-based proposals (if any), log WARNING, zero LLM cost
