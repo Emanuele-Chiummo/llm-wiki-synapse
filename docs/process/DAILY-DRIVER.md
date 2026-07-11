@@ -78,9 +78,16 @@
 > keep items **bounded** (split anything L into S/M sub-blocks before starting).
 
 ### Lane P — llm_wiki parity (odd days)
-- [ ] **P3-b — Network proxy settings page** (M). Config enable/url/bypass-local + wire an `httpx`
-      proxy transport into outbound clients (LLM/embeddings/search/update). Split: (b1) config+UI,
-      (b2) wire transport into each client, (b3) tests. Tag: standard.
+- [x] **P3-b (1/3) — Network proxy config keys** (S) — DONE 2026-07-11 (run1). Added
+      `network_proxy_{enabled,url,bypass_local}` (S24/S25/S26) to `ALLOWED_CONFIG_KEYS` +
+      `validate_value` + pytest, under ADR-0053. `ORDERED_KEYS`/GET/UI untouched (staged).
+- [ ] **P3-b (2/3) — Surface proxy settings in GET /config/app + Settings UI** (M). Add the 3 keys
+      to `ORDERED_KEYS`, per-key field metadata in `routers/config.py`, a Network-proxy section in
+      `SettingsPanel.tsx` + `settingsStore.ts`, update the FE snapshot + `test_config_overrides.py:537`
+      last-two assertion. Tag: standard (touches FE snapshot — needs `npm` + vitest).
+- [ ] **P3-b (3/3) — Wire httpx proxy transport** (M). Read the effective proxy config and apply an
+      `httpx` proxy/bypass transport to outbound clients (LLM/embeddings/search/update). Consider an
+      ADR for the transport seam. Tag: architecture (cross-cutting outbound clients).
 - [ ] **Synthesis/comparison auto-trigger on ingest-all completion** (M). `ops/synthesize.py` +
       Home manual trigger exist (v1.5.3); add the auto-trigger at end of ingest-all. Bounded loop
       (I7). Tag: standard → escalate if it touches the orchestrator core.
@@ -186,3 +193,4 @@ cap). A Routine is durable server-side and spawns a fresh session each day — t
 | Date | Lane | Block | Models used | Tests | PR | Cost USD |
 |------|------|-------|-------------|-------|----|----------|
 | _(bootstrap 2026-07-11 — setup only, no block shipped)_ | — | graphify memory + driver + dashboard scaffolding | opus (setup) | n/a | — | — |
+| 2026-07-11 (run1) | parity | P3-b (1/3) — network-proxy config keys [ADR-0053] | orchestrator opus/med · backend-engineer **sonnet**/med | lint✓ type✓ pytest✓ (30) | (branch) | — |

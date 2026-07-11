@@ -1,34 +1,26 @@
 {
-  "run_id": "2026-07-11-setup",
-  "started_at": "2026-07-11T18:33:00Z",
+  "run_id": "2026-07-11-run1",
+  "started_at": "2026-07-11T19:05:00Z",
   "phase": "done",
-  "lane": "setup",
-  "block": "Bootstrap — graphify memory + daily driver + monitoring dashboard",
-  "block_tag": "architecture",
+  "lane": "parity",
+  "block": "P3-b (1/3) — recognize & validate network-proxy settings in ADR-0053 config layer",
+  "block_tag": "standard",
   "orchestrator": { "model": "claude-opus-4-8", "effort": "medium" },
   "agents": [
     {
-      "name": "Explore",
+      "name": "backend-engineer",
       "model": "claude-sonnet-5",
       "effort": "medium",
-      "task": "Map repo state, release/CI process, tests, llm_wiki parity gaps, TODO hotspots",
-      "status": "done",
-      "cost_usd": null
-    },
-    {
-      "name": "orchestrator (main)",
-      "model": "claude-opus-4-8",
-      "effort": "medium",
-      "task": "Install graphifyy, build code memory graph, author driver + dashboard, create Routine",
+      "task": "Add network_proxy_{enabled,url,bypass_local} to ALLOWED_CONFIG_KEYS + validate_value + pytest (no ORDERED_KEYS change)",
       "status": "done",
       "cost_usd": null
     }
   ],
   "graph": { "nodes": 16640, "edges": 30842, "communities": 761, "files": 768 },
-  "tests": { "lint": "n/a", "typecheck": "n/a", "pytest": "n/a", "vitest": "n/a", "e2e": "n/a" },
+  "tests": { "lint": "pass", "typecheck": "pass", "pytest": "pass", "vitest": "n/a", "e2e": "n/a" },
   "pr_url": null,
   "total_cost_usd": null,
-  "notes": "Setup run — no code block shipped. First work block ships on the next scheduled/dry-run fire.",
+  "notes": "Inaugural manual run. Backend-only green slice on branch claude/graphifyy-daily-plan-p4mv6y. b1b (GET+UI) and b2 (httpx transport) requeued. Model routing honored: standard backend work delegated to Sonnet, not Opus.",
   "dashboard_artifact_url": "https://claude.ai/code/artifact/864280d0-9cba-47a3-b845-21b42e39f1ac",
-  "updated_at": "2026-07-11T18:40:00Z"
+  "updated_at": "2026-07-11T19:12:00Z"
 }
