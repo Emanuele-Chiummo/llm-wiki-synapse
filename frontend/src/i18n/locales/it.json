@@ -1532,6 +1532,7 @@
       "research": "Ricerca profonda",
       "backfill": "Classificazione domini in corso",
       "backfillTagged": "{{count}} pagine taggate nell'ultimo run",
+      "synthesize": "Generazione sintesi/confronti in corso",
       "ingestBatchCount": "{{done}}/{{total}} file",
       "ingestProgressLabel": "Avanzamento importazione: {{pct}}%",
       "ingestEta": "ETA ~{{eta}}s"
@@ -1576,6 +1577,14 @@
       "cta": "Classifica ora",
       "running": "In corso…",
       "done": "Fatto"
+    },
+    "synthesize": {
+      "ariaLabel": "Avviso generazione sintesi/confronti",
+      "message": "Genera pagine di sintesi e confronto trasversali dai cluster di entità/concetti",
+      "messageLastRun": "Ultimo run: {{synthesis}} sintesi + {{comparison}} confronto/i scritti, {{proposed}} proposti alla Review",
+      "cta": "Genera ora",
+      "running": "Avvio…",
+      "done": "Avviato"
     }
   },
   "navTree": {

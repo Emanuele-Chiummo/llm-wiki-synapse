@@ -1532,6 +1532,7 @@
       "research": "Deep Research",
       "backfill": "Domain classification in progress",
       "backfillTagged": "{{count}} pages tagged in the last run",
+      "synthesize": "Synthesis/comparison generation in progress",
       "ingestBatchCount": "{{done}}/{{total}} files",
       "ingestProgressLabel": "Ingest progress: {{pct}}%",
       "ingestEta": "ETA ~{{eta}}s"
@@ -1576,6 +1577,14 @@
       "cta": "Classify now",
       "running": "Running…",
       "done": "Done"
+    },
+    "synthesize": {
+      "ariaLabel": "Synthesis/comparison generation nudge",
+      "message": "Generate cross-cutting synthesis and comparison pages from clustered entities/concepts",
+      "messageLastRun": "Last run: {{synthesis}} synthesis + {{comparison}} comparison page(s) written, {{proposed}} proposed to Review",
+      "cta": "Generate now",
+      "running": "Starting…",
+      "done": "Started"
     }
   },
   "navTree": {
