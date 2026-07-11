@@ -122,6 +122,13 @@ FA2_CLAMP_FACTOR: float = 3.0
 GRAPH_HIDDEN_PAGE_TYPES: frozenset[str] = frozenset({"query"})
 """Page types excluded from the graph (llm_wiki HIDDEN_TYPES, wiki-graph.ts:204-209)."""
 
+GROUP_LABEL_EXCLUDED_TYPES: frozenset[str] = frozenset({"index", "log", "overview"})
+"""Meta-aggregate types that stay graph NODES (D4 parity) but must NEVER label a Louvain
+community. index.md/log.md link to every page, so by structural degree they'd always be the
+community's top member and mislabel the group as 'Synapse Index'/'Synapse Log' — the user sees
+those as bogus automatic groups. Excluded from top_page selection so real content pages label
+the community instead (v1.5.2)."""
+
 GRAPH_RAW_PATH_LIKE: str = "raw/%"
 """SQL LIKE pattern for raw-source tracking rows excluded from the graph."""
 
@@ -719,10 +726,12 @@ def _compute_graph_sync(
         nd = node_index[nid]
         deg = structural_degrees_pre[i]  # structural degree from g_weighted
 
-        # Track top-degree member
-        prev_deg, _prev_i = community_top.get(cid, (-1, -1))
-        if deg > prev_deg:
-            community_top[cid] = (deg, i)
+        # Track top-degree member — but skip meta aggregates (index/log/overview): they link to
+        # everything, so by degree they'd always win and mislabel the group (v1.5.2).
+        if nd.get("page_type") not in GROUP_LABEL_EXCLUDED_TYPES:
+            prev_deg, _prev_i = community_top.get(cid, (-1, -1))
+            if deg > prev_deg:
+                community_top[cid] = (deg, i)
 
         # Tally in-vocab domain tags
         for tag in nd["tags"]:

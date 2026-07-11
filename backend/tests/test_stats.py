@@ -1152,6 +1152,83 @@ async def test_stats_groups_label_from_top_degree_page_and_truncation() -> None:
 
 
 @pytest.mark.asyncio
+async def test_stats_groups_meta_hub_excluded_from_label() -> None:
+    """v1.5.2: index.md/log.md are graph nodes (D4) and, linking to everything, are the highest-
+    degree community members — but they must NOT label the group ('Synapse Index'/'Synapse Log').
+    The label + top_pages come from the highest-degree CONTENT page; the meta page stays counted."""
+    import app.stats as stats_mod
+
+    stats_mod._groups_cache = None
+    engine = _make_engine()
+    await _setup_schema(engine)
+    factory = _make_session_factory(engine)
+
+    async with factory() as sess:
+        now = _now_iso()
+        pid_index = str(uuid.uuid4())
+        pid_c1 = str(uuid.uuid4())
+        pid_c2 = str(uuid.uuid4())
+        # index meta hub: type='index', source of 2 edges → degree=2 (highest)
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, title, type, tags, content_hash, "
+                "updated_at, created_at, community) "
+                "VALUES (:id, :vid, 'index.md', 'Synapse Index', 'index', '[]', 'hidx', :ts, :ts, 0)"
+            ),
+            {"id": pid_index, "vid": VAULT_ID, "ts": now},
+        )
+        for pid, fp, title, h in (
+            (pid_c1, "c1.md", "Real Concept One", "hc1"),
+            (pid_c2, "c2.md", "Real Concept Two", "hc2"),
+        ):
+            await sess.execute(
+                sa_text(
+                    "INSERT INTO pages (id, vault_id, file_path, title, type, tags, content_hash, "
+                    "updated_at, created_at, community) "
+                    "VALUES (:id, :vid, :fp, :title, 'concept', '[]', :h, :ts, :ts, 0)"
+                ),
+                {"id": pid, "vid": VAULT_ID, "fp": fp, "title": title, "h": h, "ts": now},
+            )
+        for s, t in ((pid_index, pid_c1), (pid_index, pid_c2)):
+            await sess.execute(
+                sa_text(
+                    "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
+                    "VALUES (:id, :vid, :s, :t)"
+                ),
+                {"id": str(uuid.uuid4()), "vid": VAULT_ID, "s": s, "t": t},
+            )
+        await sess.commit()
+
+    def _make_ctx() -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    with (
+        patch("app.stats.settings") as mock_settings,
+        patch("app.stats.get_session", side_effect=_make_ctx),
+    ):
+        mock_settings.vault_id = VAULT_ID
+        test_app = _make_test_app(engine)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/stats/groups")
+
+    assert resp.status_code == 200, resp.text
+    g = resp.json()["groups"][0]
+    assert g["pages_total"] == 3, "the index meta page is still counted as a member"
+    # The meta hub must NOT label the group, even though it is the highest-degree node.
+    assert g["label"] != "Synapse Index"
+    assert g["label"] in ("Real Concept One", "Real Concept Two")
+    # ...and it must not appear in the top_pages preview.
+    assert "Synapse Index" not in [p["title"] for p in g["top_pages"]]
+
+
+@pytest.mark.asyncio
 async def test_stats_groups_unassigned_excluded() -> None:
     """
     T-STATS-016: pages with community NULL or -1 are excluded from groups.

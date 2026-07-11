@@ -35,6 +35,12 @@ real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
   carries a mandatory output-language directive (`analysis.language → overview_language`), rationales
   localise (IT/EN), the CLI route uses the vault language, and the gate uses real on-disk body sizes
   so the detailed proposals run and stay in the vault language [F9, F3].
+- **`index.md`/`log.md` showed up as bogus automatic groups ("Synapse Index"/"Synapse Log")** — v1.5
+  made them graph nodes (D4 parity), and being all-linking hubs they were the highest-degree member
+  of their Louvain community, so they labelled the group (both in the graph and `/stats/groups`).
+  Meta types (`index`/`log`/`overview`) are now excluded from community **labels + top-page
+  previews** (they remain graph nodes and members). The files themselves are unchanged — still
+  `index.md`/`log.md`; the displayed name was their frontmatter `title` [F18, F4].
 - **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
   the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
   reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
