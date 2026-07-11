@@ -62,9 +62,12 @@
 > CADENCE (owner decision 2026-07-11): **daily work accrues, release is WEEKLY.** Daily runs
 > commit + push but DO NOT open a PR. One consolidated release PR is cut every **Friday ~18:00**
 > (see §4.5). This means the owner reviews/merges **one PR per week**, not one per day.
-- Weekly integration branch: **`claude/weekly-<YYYY-Www>`** (ISO week, e.g. `claude/weekly-2026-W28`).
-  On the week's FIRST run, create it off latest `origin/main`; on later runs of the same week,
-  `git fetch` and continue on it (rebase onto origin if it moved).
+- **Cycle = Saturday → Friday** (owner decision 2026-07-11; works 7/7, weekend included). The
+  integration branch is **`claude/weekly-<SAT>`** where `<SAT>` = the `YYYY-MM-DD` of the Saturday
+  that STARTS the current cycle (if today is Saturday, that's today; else the most recent Saturday).
+  On Saturday (cycle start) create it off latest `origin/main`; Sun→Fri runs `git fetch` and
+  continue on it (rebase onto origin if it moved). The Friday release (§4.5) closes this exact
+  cycle, so a full 7-day Sat→Fri window is always captured — no weekend work is orphaned.
 - Commit(s): `feat|fix(module): description [Fxx|Kxx]` (CLAUDE.md §11). Reference a feature ID.
 - Update `CHANGELOG.md [Unreleased]` (accumulates all week's entries; the Friday run turns
   `[Unreleased]` into the versioned section).
@@ -79,7 +82,8 @@
 
 **§4.5 — Weekly release run (Fridays ~18:00)**
 A separate scheduled run consolidates the week into ONE release, following the repo's release flow:
-1. `git fetch origin`; ensure the weekly branch `claude/weekly-<YYYY-Www>` is rebased on `origin/main`.
+1. `git fetch origin`; identify the current cycle's branch `claude/weekly-<SAT>` (SAT = Saturday that
+   started this Sat→Fri cycle) and rebase it on `origin/main`.
 2. Run the full 360° gate on the whole week's accumulation (`make lint` · `make typecheck` ·
    `make test`; frontend if touched; `make er`/`make openapi` zero-diff if schema/routes moved).
 3. Pick the version bump (patch/minor per what shipped) and run `make bump VERSION=x.y.z` (updates
@@ -88,8 +92,8 @@ A separate scheduled run consolidates the week into ONE release, following the r
 4. Open ONE **PR** `main ← claude/weekly-<YYYY-Www>` (mirror `.github/PULL_REQUEST_TEMPLATE.md`),
    summarizing every block shipped that week. NEVER merge — owner reviews & merges, then the
    `release-cut.yml` / `desktop-release.yml` workflows cut the tag + images from `main`.
-5. After the owner merges, the NEXT week starts a fresh `claude/weekly-<next-week>` off `origin/main`
-   (a merged PR is finished — never restack on merged history).
+5. After the owner merges, the NEXT cycle's Saturday run starts a fresh `claude/weekly-<next-SAT>`
+   off `origin/main` (a merged PR is finished — never restack on merged history).
 - If the week produced nothing shippable, skip the release (log "no release this week") — do not
   open an empty PR.
 
@@ -224,9 +228,11 @@ Artifact tool) so the link stays stable — never mint a new one.
 
 ## 6. How it is scheduled (two jobs)
 
-Two schedules drive the loop:
-- **Daily work** — `cron "3 7 * * *"` (07:03): run ONE block, commit+push to the weekly branch, NO PR.
-- **Weekly release** — `cron "3 18 * * 5"` (Fri 18:03): the §4.5 release run — bump + ONE PR to `main`.
+Two schedules drive the loop (cycle = **Saturday → Friday**, works 7/7):
+- **Daily work** — `cron "3 7 * * *"` (07:03, every day incl. weekend): run ONE block, commit+push
+  to the current cycle's `claude/weekly-<SAT>` branch, NO PR.
+- **Weekly release** — `cron "3 18 * * 5"` (Fri 18:03): the §4.5 release run — closes the Sat→Fri
+  cycle, bump + ONE PR to `main`. Saturday's run then opens the next cycle's branch.
 
 **Preferred vehicle: durable Routine** via `mcp__Claude_Code_Remote__create_trigger`
 (`create_new_session_on_fire: true`, `notifications: {push:true}`). Durable server-side, spawns a
