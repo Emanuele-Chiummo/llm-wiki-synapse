@@ -19,7 +19,14 @@ real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
   tooltip; it never opened the corresponding wiki page. Clicking now selects the node and switches
   to the pages section (Obsidian-style), opening the page in NoteView [F4].
 - **Overview / page "updated" line showed a raw microsecond ISO** (`…09:44:24.021477Z`) — now
-  trimmed to a clean second-precision ISO (`…09:44:24Z`), matching the llm_wiki overview footer [F16].
+  trimmed to a clean second-precision ISO (`…09:44:24Z`), matching the llm_wiki overview footer.
+  The `log.md` content already used clean day/second timestamps; this covers its page view too [F16].
+- **File drag-drop into Convert didn't work in the native Tauri (macOS) app** — Tauri v2 intercepts
+  OS drag-drop by default, so the webview's HTML5 drop never fired. Set `dragDropEnabled: false` on
+  the window so the drop zone receives files normally (PWA/browser were unaffected) [F15].
+- **Convert now deletes the source PDF after producing the `.md`** — a Marker conversion left both
+  the bulky PDF and its `.extracted.md` in `raw/sources/`; the PDF is now removed on success and
+  `sources[]` points at the retained `.md` (best-effort delete never fails the conversion) [F12].
 - **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
   the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
   reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
