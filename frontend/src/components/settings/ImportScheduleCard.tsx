@@ -234,6 +234,7 @@ export function ImportScheduleCard() {
           >
             <input
               type="checkbox"
+              data-testid="import-schedule-enabled"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
               style={{ width: 14, height: 14, cursor: "pointer", accentColor: "var(--syn-accent)" }}

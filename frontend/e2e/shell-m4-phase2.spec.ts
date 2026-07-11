@@ -66,14 +66,14 @@ test("backend is reachable", async ({ request }) => {
 // ── NavRail ───────────────────────────────────────────────────────────────────
 
 test.describe("NavRail", () => {
-  test("CHECK-NAVRAIL-1: renders 12 buttons (6 top + 5 M5 + 1 settings)", async ({ page }) => {
-    // v1.3 NavRail: TOP_ITEMS(6) = home/chat/pages/sources/search/graph
+  test("CHECK-NAVRAIL-1: renders 13 buttons (6 top + 5 M5 + 2 bottom)", async ({ page }) => {
+    // v1.5 NavRail: TOP_ITEMS(6) = home/chat/pages/sources/search/graph
     //               M5_ITEMS(5)  = lint/review/deep-search/ingest/convert
-    //               BOTTOM_ITEMS(1) = settings
-    //               Total = 12 <button> elements (the "Tools" group label is a <span>, not a button)
+    //               BOTTOM_ITEMS(2) = settings + projects (⇄ switcher)
+    //               Total = 13 <button> elements (the "Tools" group label is a <span>, not a button)
     await gotoApp(page);
     const buttons = page.getByTestId("nav-rail").getByRole("button");
-    await expect(buttons).toHaveCount(12);
+    await expect(buttons).toHaveCount(13);
   });
 
   test("CHECK-NAVRAIL-2: Home is active by default (v1.2 [F18] changed default from chat to home)", async ({ page }) => {

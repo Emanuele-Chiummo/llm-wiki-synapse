@@ -245,7 +245,7 @@ test("SCHEDULE-2: import-schedule-card has enabled toggle, source_dir input, fre
   await page.waitForTimeout(1000);
 
   // Enabled toggle (checkbox)
-  const enabledToggle = card.locator("input[type='checkbox']");
+  const enabledToggle = card.getByTestId("import-schedule-enabled");
   await expect(enabledToggle).toBeVisible();
 
   // Source dir input
@@ -316,7 +316,7 @@ test("SCHEDULE-3: saving schedule (source_dir=/import) → PUT /import-schedule 
   await sourceDirInput.fill("/import");
 
   // Enable the schedule
-  const enabledToggle = card.locator("input[type='checkbox']");
+  const enabledToggle = card.getByTestId("import-schedule-enabled");
   const isChecked = await enabledToggle.isChecked();
   if (!isChecked) {
     await enabledToggle.check();
