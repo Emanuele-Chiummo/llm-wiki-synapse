@@ -128,10 +128,10 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   // Model chip selection
   const currentModelId = vendorConfig?.model_id ?? null;
-  const isCustomModel =
-    currentModelId !== null &&
-    !vendor.model_presets.includes(currentModelId);
-  const [customModelInput, setCustomModelInput] = useState(isCustomModel ? (currentModelId ?? "") : "");
+  const isCustomModel = currentModelId !== null && !vendor.model_presets.includes(currentModelId);
+  const [customModelInput, setCustomModelInput] = useState(
+    isCustomModel ? (currentModelId ?? "") : "",
+  );
   const [showCustomModel, setShowCustomModel] = useState(isCustomModel);
 
   // Reasoning effort
@@ -145,13 +145,20 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   const handleActivate = useCallback(async () => {
     if (active) return; // already active — no-op (radio button semantics)
-    const firstModel = vendor.model_presets[0] ?? null;
+    const model = currentModelId ?? vendor.model_presets[0] ?? null;
+    if (!model) {
+      // Vendors with no preset models (e.g. codex-cli, atlas-cloud) need a custom model first —
+      // activating with a null model_id would 422. Expand and prompt for a custom model instead.
+      setExpanded(true);
+      setShowCustomModel(true);
+      return;
+    }
     await addProvider(
       {
         scope,
         vault_id: scope === "vault" ? vaultId : null,
         provider_type: vendor.provider_type,
-        model_id: currentModelId ?? firstModel,
+        model_id: model,
         base_url: vendor.default_base_url,
         operation: vendor.id,
       },
@@ -185,9 +192,10 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
           setApiKeyInput("");
         } catch (err: unknown) {
           const msg = (err as Error).message ?? "";
-          const hint = msg.includes("400") || msg.toLowerCase().includes("key storage")
-            ? t("settings.llmModels.apiKeyNoStorage")
-            : t("settings.llmModels.apiKeySaveError");
+          const hint =
+            msg.includes("400") || msg.toLowerCase().includes("key storage")
+              ? t("settings.llmModels.apiKeyNoStorage")
+              : t("settings.llmModels.apiKeySaveError");
           setApiKeyMsg({ ok: false, text: hint });
         } finally {
           setApiKeySaving(false);
@@ -202,9 +210,10 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         setApiKeyInput("");
       } catch (err: unknown) {
         const msg = (err as Error).message ?? "";
-        const hint = msg.includes("400") || msg.toLowerCase().includes("key storage")
-          ? t("settings.llmModels.apiKeyNoStorage")
-          : t("settings.llmModels.apiKeySaveError");
+        const hint =
+          msg.includes("400") || msg.toLowerCase().includes("key storage")
+            ? t("settings.llmModels.apiKeyNoStorage")
+            : t("settings.llmModels.apiKeySaveError");
         setApiKeyMsg({ ok: false, text: hint });
       } finally {
         setApiKeySaving(false);
@@ -235,10 +244,27 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   const handleModelSelect = useCallback(
     async (modelId: string | null) => {
-      if (!vendorConfig) return;
+      if (!modelId) return;
+      if (!vendorConfig) {
+        // No row yet: create it with this model so choosing a model also activates the vendor.
+        // Covers 0-preset vendors (configured via a custom model) and chip clicks before activation.
+        await addProvider(
+          {
+            scope,
+            vault_id: scope === "vault" ? vaultId : null,
+            provider_type: vendor.provider_type,
+            model_id: modelId,
+            base_url: vendor.default_base_url,
+            operation: vendor.id,
+          },
+          vaultId ?? "",
+        );
+        setExpanded(true);
+        return;
+      }
       await updateProvider(vendorConfig.id, { model_id: modelId }, vaultId ?? "");
     },
-    [vendorConfig, updateProvider, vaultId],
+    [vendorConfig, updateProvider, addProvider, scope, vaultId, vendor],
   );
 
   const handleChipClick = (preset: string) => {
@@ -269,12 +295,20 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   // ─── Provider tests ──────────────────────────────────────────────────────
 
+  // Inline probe target for a not-yet-activated vendor: the backend requires a model, so pass
+  // the vendor's first preset (or the typed custom model). Without it the probe 422s.
+  const inlineProbeModel = currentModelId ?? vendor.model_presets[0] ?? undefined;
+
   const handleTestConnection = async () => {
     setTestConn({ running: true, ok: null, latency: null, detail: null });
     try {
       const req = vendorConfig
         ? { config_id: vendorConfig.id }
-        : { provider_type: vendor.provider_type, base_url: vendor.default_base_url };
+        : {
+            provider_type: vendor.provider_type,
+            base_url: vendor.default_base_url,
+            ...(inlineProbeModel ? { model: inlineProbeModel } : {}),
+          };
       const res = await testProviderConnection(req);
       setTestConn({ running: false, ok: res.ok, latency: res.latency_ms, detail: res.detail });
     } catch (err: unknown) {
@@ -287,7 +321,11 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
     try {
       const req = vendorConfig
         ? { config_id: vendorConfig.id }
-        : { provider_type: vendor.provider_type, base_url: vendor.default_base_url };
+        : {
+            provider_type: vendor.provider_type,
+            base_url: vendor.default_base_url,
+            ...(inlineProbeModel ? { model: inlineProbeModel } : {}),
+          };
       const res = await testProviderFunction(req);
       setTestFunc({ running: false, ok: res.ok, latency: res.latency_ms, detail: res.detail });
     } catch (err: unknown) {
@@ -354,7 +392,9 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
     border: "1px solid var(--syn-border)",
     borderRadius: 10,
     marginBottom: 8,
-    background: active ? "color-mix(in srgb, var(--syn-accent) 5%, var(--syn-surface) 95%)" : "var(--syn-surface)",
+    background: active
+      ? "color-mix(in srgb, var(--syn-accent) 5%, var(--syn-surface) 95%)"
+      : "var(--syn-surface)",
     overflow: "hidden",
   };
 
@@ -398,8 +438,12 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
             lineHeight: 1.6,
           }}
         >
-          <p style={{ margin: "0 0 4px", fontWeight: 600 }}>{t("settings.llmModels.codexAuthTitle")}</p>
-          <p style={{ margin: 0, whiteSpace: "pre-line" }}>{t("settings.llmModels.codexAuthNote")}</p>
+          <p style={{ margin: "0 0 4px", fontWeight: 600 }}>
+            {t("settings.llmModels.codexAuthTitle")}
+          </p>
+          <p style={{ margin: 0, whiteSpace: "pre-line" }}>
+            {t("settings.llmModels.codexAuthNote")}
+          </p>
         </div>
       )}
 
@@ -418,7 +462,14 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
             {t("settings.llmModels.apiKey")}
           </label>
           {vendorConfig?.api_key_masked && (
-            <p style={{ margin: "0 0 5px", fontSize: 11, color: "var(--syn-text-dim)", fontFamily: "monospace" }}>
+            <p
+              style={{
+                margin: "0 0 5px",
+                fontSize: 11,
+                color: "var(--syn-text-dim)",
+                fontFamily: "monospace",
+              }}
+            >
               {vendorConfig.api_key_masked}
             </p>
           )}
@@ -437,7 +488,9 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
               data-testid={`api-key-input-${vendor.id}`}
             />
             {apiKeySaving && (
-              <span style={{ fontSize: 11, color: "var(--syn-text-dim)", alignSelf: "center" }}>…</span>
+              <span style={{ fontSize: 11, color: "var(--syn-text-dim)", alignSelf: "center" }}>
+                …
+              </span>
             )}
             {vendorConfig?.api_key_configured && (
               <button
@@ -469,93 +522,91 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         </div>
       )}
 
-      {/* Model selection */}
-      {vendor.model_presets.length > 0 && (
-        <div>
-          <label
-            style={{
-              display: "block",
-              marginBottom: 6,
-              fontSize: 11,
-              fontWeight: 600,
-              color: "var(--syn-text-muted)",
-            }}
-          >
-            {t("settings.llmModels.modelLabel")}
-          </label>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {vendor.model_presets.map((preset) => {
-              const sel = !showCustomModel && currentModelId === preset;
-              return (
-                <button
-                  key={preset}
-                  onClick={() => handleChipClick(preset)}
-                  data-testid={`model-chip-${vendor.id}-${preset}`}
-                  style={{
-                    padding: "3px 9px",
-                    border: sel
-                      ? "1px solid var(--syn-accent)"
-                      : "1px solid var(--syn-border)",
-                    borderRadius: 12,
-                    background: sel ? "var(--syn-accent-soft)" : "transparent",
-                    color: sel ? "var(--syn-accent)" : "var(--syn-text-muted)",
-                    fontSize: 11,
-                    cursor: "pointer",
-                    fontFamily: "monospace",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {preset}
-                </button>
-              );
-            })}
-            <button
-              onClick={handleCustomChipClick}
-              data-testid={`model-chip-${vendor.id}-custom`}
-              style={{
-                padding: "3px 9px",
-                border: showCustomModel
-                  ? "1px solid var(--syn-accent)"
-                  : "1px solid var(--syn-border)",
-                borderRadius: 12,
-                background: showCustomModel ? "var(--syn-accent-soft)" : "transparent",
-                color: showCustomModel ? "var(--syn-accent)" : "var(--syn-text-muted)",
-                fontSize: 11,
-                cursor: "pointer",
-              }}
-            >
-              {t("settings.llmModels.modelCustom")}
-            </button>
-          </div>
-          {showCustomModel && (
-            <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
-              <input
-                type="text"
-                value={customModelInput}
-                onChange={(e) => setCustomModelInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCustomModelSave();
-                }}
-                placeholder={t("settings.llmModels.modelCustomPlaceholder")}
-                style={{ ...INPUT_STYLE, flex: 1 }}
-                data-testid={`model-custom-input-${vendor.id}`}
-              />
+      {/* Model selection — shown for every vendor. 0-preset vendors (codex-cli, atlas-cloud)
+          render only the Custom option, so they can still be configured/activated with a
+          typed model id (choosing a model creates the row when none exists yet). */}
+      <div>
+        <label
+          style={{
+            display: "block",
+            marginBottom: 6,
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+          }}
+        >
+          {t("settings.llmModels.modelLabel")}
+        </label>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {vendor.model_presets.map((preset) => {
+            const sel = !showCustomModel && currentModelId === preset;
+            return (
               <button
-                onClick={handleCustomModelSave}
-                disabled={!customModelInput.trim()}
+                key={preset}
+                onClick={() => handleChipClick(preset)}
+                data-testid={`model-chip-${vendor.id}-${preset}`}
                 style={{
-                  ...BTN_PRIMARY,
+                  padding: "3px 9px",
+                  border: sel ? "1px solid var(--syn-accent)" : "1px solid var(--syn-border)",
+                  borderRadius: 12,
+                  background: sel ? "var(--syn-accent-soft)" : "transparent",
+                  color: sel ? "var(--syn-accent)" : "var(--syn-text-muted)",
                   fontSize: 11,
-                  padding: "4px 10px",
-                  opacity: customModelInput.trim() ? 1 : 0.4,
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {t("settings.llmModels.add")}
+                {preset}
               </button>
-            </div>
-          )}
+            );
+          })}
+          <button
+            onClick={handleCustomChipClick}
+            data-testid={`model-chip-${vendor.id}-custom`}
+            style={{
+              padding: "3px 9px",
+              border: showCustomModel
+                ? "1px solid var(--syn-accent)"
+                : "1px solid var(--syn-border)",
+              borderRadius: 12,
+              background: showCustomModel ? "var(--syn-accent-soft)" : "transparent",
+              color: showCustomModel ? "var(--syn-accent)" : "var(--syn-text-muted)",
+              fontSize: 11,
+              cursor: "pointer",
+            }}
+          >
+            {t("settings.llmModels.modelCustom")}
+          </button>
         </div>
-      )}
+        {showCustomModel && (
+          <div style={{ display: "flex", gap: 6, marginTop: 7 }}>
+            <input
+              type="text"
+              value={customModelInput}
+              onChange={(e) => setCustomModelInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCustomModelSave();
+              }}
+              placeholder={t("settings.llmModels.modelCustomPlaceholder")}
+              style={{ ...INPUT_STYLE, flex: 1 }}
+              data-testid={`model-custom-input-${vendor.id}`}
+            />
+            <button
+              onClick={handleCustomModelSave}
+              disabled={!customModelInput.trim()}
+              style={{
+                ...BTN_PRIMARY,
+                fontSize: 11,
+                padding: "4px 10px",
+                opacity: customModelInput.trim() ? 1 : 0.4,
+              }}
+            >
+              {t("settings.llmModels.add")}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Context window */}
       <div>
@@ -601,7 +652,8 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {REASONING_OPTIONS.map((effort) => {
               const sel = currentReasoning === effort;
-              const labelKey = `settings.llmModels.reasoning${effort.charAt(0).toUpperCase()}${effort.slice(1)}` as const;
+              const labelKey =
+                `settings.llmModels.reasoning${effort.charAt(0).toUpperCase()}${effort.slice(1)}` as const;
               return (
                 <button
                   key={effort}
@@ -609,9 +661,7 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
                   data-testid={`reasoning-${vendor.id}-${effort}`}
                   style={{
                     padding: "3px 9px",
-                    border: sel
-                      ? "1px solid var(--syn-accent)"
-                      : "1px solid var(--syn-border)",
+                    border: sel ? "1px solid var(--syn-accent)" : "1px solid var(--syn-border)",
                     borderRadius: 4,
                     background: sel ? "var(--syn-accent-soft)" : "transparent",
                     color: sel ? "var(--syn-accent)" : "var(--syn-text-muted)",
@@ -641,7 +691,9 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
             }}
             data-testid={`test-conn-${vendor.id}`}
           >
-            {testConn.running ? t("settings.llmModels.testRunning") : t("settings.llmModels.testConnectionBtn")}
+            {testConn.running
+              ? t("settings.llmModels.testRunning")
+              : t("settings.llmModels.testConnectionBtn")}
           </button>
           <button
             onClick={() => void handleTestFunction()}
@@ -654,19 +706,35 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
             }}
             data-testid={`test-func-${vendor.id}`}
           >
-            {testFunc.running ? t("settings.llmModels.testRunning") : t("settings.llmModels.testFunctionBtn")}
+            {testFunc.running
+              ? t("settings.llmModels.testRunning")
+              : t("settings.llmModels.testFunctionBtn")}
           </button>
         </div>
         {testConn.ok !== null && (
-          <p style={{ margin: "4px 0 0", fontSize: 11, color: testConn.ok ? "var(--syn-green)" : "var(--syn-red)" }}>
-            Connection: {testConn.ok ? t("settings.llmModels.testOk") : t("settings.llmModels.testFailed")}
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: 11,
+              color: testConn.ok ? "var(--syn-green)" : "var(--syn-red)",
+            }}
+          >
+            Connection:{" "}
+            {testConn.ok ? t("settings.llmModels.testOk") : t("settings.llmModels.testFailed")}
             {testConn.latency !== null && ` — ${testConn.latency}ms`}
             {testConn.detail && ` (${testConn.detail})`}
           </p>
         )}
         {testFunc.ok !== null && (
-          <p style={{ margin: "2px 0 0", fontSize: 11, color: testFunc.ok ? "var(--syn-green)" : "var(--syn-red)" }}>
-            Function: {testFunc.ok ? t("settings.llmModels.testOk") : t("settings.llmModels.testFailed")}
+          <p
+            style={{
+              margin: "2px 0 0",
+              fontSize: 11,
+              color: testFunc.ok ? "var(--syn-green)" : "var(--syn-red)",
+            }}
+          >
+            Function:{" "}
+            {testFunc.ok ? t("settings.llmModels.testOk") : t("settings.llmModels.testFailed")}
             {testFunc.latency !== null && ` — ${testFunc.latency}ms`}
             {testFunc.detail && ` (${testFunc.detail})`}
           </p>
@@ -824,9 +892,7 @@ export function SectionLlmModels() {
 
   // Filter configs to the current scope
   const scopedConfigs = providerList.filter(
-    (c) =>
-      c.scope === scope &&
-      (scope === "vault" ? c.vault_id === vaultId : true),
+    (c) => c.scope === scope && (scope === "vault" ? c.vault_id === vaultId : true),
   );
 
   return (
@@ -837,7 +903,17 @@ export function SectionLlmModels() {
       />
 
       {/* Scope selector */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 20, border: "1px solid var(--syn-border)", borderRadius: 6, overflow: "hidden", width: "fit-content" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          marginBottom: 20,
+          border: "1px solid var(--syn-border)",
+          borderRadius: 6,
+          overflow: "hidden",
+          width: "fit-content",
+        }}
+      >
         {(["global", "vault"] as const).map((s) => (
           <button
             key={s}
@@ -854,7 +930,9 @@ export function SectionLlmModels() {
               cursor: "pointer",
             }}
           >
-            {s === "global" ? t("settings.llmModels.globalScoped") : t("settings.llmModels.vaultScoped")}
+            {s === "global"
+              ? t("settings.llmModels.globalScoped")
+              : t("settings.llmModels.vaultScoped")}
           </button>
         ))}
       </div>

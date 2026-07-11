@@ -9,6 +9,29 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
+
+Patch: activating the **Claude Code CLI** provider (and any catalog vendor) from Settings failed
+because the vendor-catalog tag couldn't be persisted. Also fixes an unreadable error toast.
+
+### Fixed
+- **CLI/vendor provider activation 422** — the Settings vendor catalog tags each `provider_config`
+  row with its vendor id in the `operation` column (to disambiguate vendors that share
+  `provider_type`+`base_url`, e.g. `claude-cli`/`codex-cli`, `anthropic`/`azure-openai`), but the
+  `POST /provider/config` validator only accepted `{ingest, chat, lint}` and rejected vendor ids
+  with **422**. The row was never created, so the toggle silently failed and model chips / Test
+  buttons stayed inert. The validator now also accepts vendor-catalog ids [F17].
+- **`422 [object Object]` toast** — FastAPI returns a 422 `detail` as an array of `{loc, msg, type}`
+  objects; the client interpolated it directly. It now renders as readable `field: message` text.
+- **Pre-activation provider Test** — "Test connessione"/"Test funzione" on a not-yet-activated vendor
+  now include the vendor's default model in the inline probe, so they no longer 422 [F17].
+- **0-preset vendors (`codex-cli`, `atlas-cloud`)** — activating a vendor with no preset models used
+  to POST a null `model_id` (422). The toggle now reveals the Custom-model input instead, and
+  choosing/typing a model creates the row (activation), so every catalog vendor is configurable [F17].
+- **macOS menu-bar (tray) icon** — now the **white** Brand mark (`synapse-mark-white`, `tray-white.png`)
+  on a transparent background, rendered as-is (not a template) so it shows white on the menu bar
+  instead of the near-invisible dark ink [F15, Brand v1.0].
+
 ## [1.5.0] — 2026-07-11 — "LLM Wiki 1:1 parity"
 
 Brings Synapse's generated output and UX to 1:1 parity with the LLM Wiki gold vault (same corpus,

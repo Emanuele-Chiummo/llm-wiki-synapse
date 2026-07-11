@@ -182,9 +182,21 @@ class TestCreateProviderConfig:
         assert resp.status_code == 422
 
     def test_invalid_operation_value_rejected(self) -> None:
-        """operation not in {ingest, chat, lint} → 422."""
+        """operation not a routing op, vendor id, nor null → 422."""
         resp = self._post(_valid_create_body(scope="operation", vault_id="v1", operation="export"))
         assert resp.status_code == 422
+
+    def test_vendor_id_operation_accepted(self) -> None:
+        """The catalog toggle tags rows with operation=<vendor-id>; must be accepted (v1.5.1).
+
+        Regression: the vendor-catalog activation POSTs operation='claude-cli' (etc.). Before the
+        fix the validator only allowed {ingest, chat, lint} and 422'd, so the CLI provider row was
+        never created and the toggle silently failed.
+        """
+        resp = self._post(
+            _valid_create_body(scope="global", provider_type="cli", operation="claude-cli")
+        )
+        assert resp.status_code == 201
 
     def test_operation_scope_requires_operation_field(self) -> None:
         """scope='operation' without operation field → 422."""

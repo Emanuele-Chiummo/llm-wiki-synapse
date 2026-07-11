@@ -33,12 +33,38 @@ import { ApiError } from "./graphClient";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
+/**
+ * Coerce a FastAPI error `detail` into a human-readable string.
+ * FastAPI returns `detail` as a plain string for HTTPException, but as an ARRAY of
+ * {loc, msg, type} objects for 422 request-validation errors — interpolating that array
+ * naively yields "[object Object]". Extract each `msg` (prefixed with the field name) instead.
+ */
+export function formatDetail(detail: unknown): string | undefined {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const msgs = detail
+      .map((d) => {
+        if (d && typeof d === "object" && "msg" in d) {
+          const loc = Array.isArray((d as { loc?: unknown[] }).loc)
+            ? (d as { loc: unknown[] }).loc.slice(1).join(".")
+            : "";
+          const msg = String((d as { msg: unknown }).msg);
+          return loc ? `${loc}: ${msg}` : msg;
+        }
+        return null;
+      })
+      .filter((m): m is string => Boolean(m));
+    if (msgs.length) return msgs.join("; ");
+  }
+  return undefined;
+}
+
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
     let detail = res.statusText;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = (await res.json()) as { detail?: unknown };
+      detail = formatDetail(body.detail) ?? detail;
     } catch {
       // ignore parse error
     }
@@ -84,10 +110,7 @@ export async function createProviderConfig(
  * DELETE /provider/config/{id}
  * 204 No Content on success.
  */
-export async function deleteProviderConfig(
-  id: string,
-  signal?: AbortSignal,
-): Promise<void> {
+export async function deleteProviderConfig(id: string, signal?: AbortSignal): Promise<void> {
   const url = `${apiBase()}/provider/config/${encodeURIComponent(id)}`;
   const res = await apiFetch(url, {
     method: "DELETE",
@@ -124,9 +147,7 @@ export async function updateProviderConfig(
  * GET /provider/vendors
  * Returns 15 vendors; needs_api_key + model_presets drive the expanded-row UI.
  */
-export async function fetchVendors(
-  signal?: AbortSignal,
-): Promise<VendorListResponse> {
+export async function fetchVendors(signal?: AbortSignal): Promise<VendorListResponse> {
   const url = `${apiBase()}/provider/vendors`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -183,9 +204,7 @@ export interface EmbeddingConfig {
  * Fetch current embedding configuration (read-only, from env vars).
  * GET /config/embedding
  */
-export async function fetchEmbeddingConfig(
-  signal?: AbortSignal,
-): Promise<EmbeddingConfig> {
+export async function fetchEmbeddingConfig(signal?: AbortSignal): Promise<EmbeddingConfig> {
   const url = `${apiBase()}/config/embedding`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -333,9 +352,7 @@ export interface McpRemoteStateResponse {
  * GET /mcp/info  — ADR-0027 §2.1 / ADR-0032 §2.5.
  * Display only — no tool invocation (I9). The toggle PUT is separate (setRemoteMcpEnabled).
  */
-export async function fetchMcpInfo(
-  signal?: AbortSignal,
-): Promise<McpInfoResponse> {
+export async function fetchMcpInfo(signal?: AbortSignal): Promise<McpInfoResponse> {
   const url = `${apiBase()}/mcp/info`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -403,9 +420,7 @@ export async function setMcpAuth(
  * max_body_bytes. Token value NEVER returned.
  * I3: single fetch on mount; no Zustand store.
  */
-export async function fetchClipConfig(
-  signal?: AbortSignal,
-): Promise<ClipConfigResponse> {
+export async function fetchClipConfig(signal?: AbortSignal): Promise<ClipConfigResponse> {
   const url = `${apiBase()}/clip/config`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -445,9 +460,7 @@ export async function setClipConfig(
  * SearXNG is the ONLY supported web-search backend (I9).
  * I3: single fetch on mount; no Zustand store.
  */
-export async function fetchWebSearchConfig(
-  signal?: AbortSignal,
-): Promise<WebSearchConfigResponse> {
+export async function fetchWebSearchConfig(signal?: AbortSignal): Promise<WebSearchConfigResponse> {
   const url = `${apiBase()}/web-search/config`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
@@ -529,9 +542,7 @@ export async function setWebSearchProviderKey(
  *
  * I3: single fetch on mount; no Zustand store.
  */
-export async function getCliAuthConfig(
-  signal?: AbortSignal,
-): Promise<CliAuthConfig> {
+export async function getCliAuthConfig(signal?: AbortSignal): Promise<CliAuthConfig> {
   const url = `${apiBase()}/provider/cli-auth`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
