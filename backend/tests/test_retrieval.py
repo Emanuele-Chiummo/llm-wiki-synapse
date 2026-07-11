@@ -607,3 +607,105 @@ async def test_soft_deleted_page_not_cited(env: _Env) -> None:
     assert p1 in cited
     assert p2 not in cited
     _assert_citation_authority(ctx)
+
+
+# ── CG-A1 — page-path exposed in the citation context block ─────────────────────
+
+
+def test_display_path_strips_wiki_root_and_md() -> None:
+    from app.rag.retrieval import _display_path
+
+    assert _display_path("wiki/concepts/bge-m3.md") == "concepts/bge-m3"
+    assert _display_path("wiki/entities/aws.md") == "entities/aws"
+    assert _display_path("overview.md") == "overview"
+
+
+def test_strip_path_suffix_recovers_bare_title() -> None:
+    from app.rag.retrieval import _strip_path_suffix
+
+    assert _strip_path_suffix("bge-m3 (concepts/bge-m3)") == "bge-m3"
+    # A title that itself ends with a parenthetical keeps it; only the appended path drops.
+    assert (
+        _strip_path_suffix("Amazon Web Services (AWS) (entities/aws)")
+        == "Amazon Web Services (AWS)"
+    )
+    # No appended path → returned unchanged.
+    assert _strip_path_suffix("Plain Title") == "Plain Title"
+
+
+async def test_context_block_exposes_page_path(env: _Env) -> None:
+    """CG-A1: the assembled block header carries the compact page path after the title."""
+    p1 = _uid(1)
+    async with env.factory() as sess:
+        await _set_data_version(sess, vault_id=VAULT, version=1)
+        await _insert_page(
+            sess, page_id=p1, vault_id=VAULT, file_path="wiki/concepts/bge-m3.md", title="bge-m3"
+        )
+        await sess.commit()
+    _write_source(env.vault_root, "wiki/concepts/bge-m3.md", "bge-m3 is a hybrid embedding model.")
+
+    retrieval_mod.get_qdrant_client = lambda: _FakeQdrant([(p1, 0.9)])  # type: ignore[assignment]
+    async with env.factory() as sess:
+        ctx = await retrieve("bge", vault_id=VAULT, context_window=10_000, session=sess)
+
+    assert "[1] bge-m3 (concepts/bge-m3)" in ctx.text
+    # The parenthetical path is NOT counted as an [n] marker → citation authority holds.
+    _assert_citation_authority(ctx)
+
+
+# ── CG-A6 — chat retrieval excludes type=query lint-stub pages ──────────────────
+
+
+async def test_load_page_meta_excludes_query_stubs() -> None:
+    """CG-A6: exclude_stub_pages drops type=query stubs (tags stub+lint), keeps real pages."""
+    from app.rag.retrieval import _load_page_meta
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as conn:
+        await conn.execute(sa_text("""
+            CREATE TABLE pages (
+                id TEXT PRIMARY KEY,
+                vault_id TEXT NOT NULL,
+                file_path TEXT NOT NULL,
+                title TEXT,
+                type TEXT,
+                tags TEXT,
+                deleted_at TEXT
+            )
+        """))
+    factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    concept_id, stub_id, genuine_q_id = _uid(10), _uid(11), _uid(12)
+
+    async def _insert(sess: AsyncSession, pid: str, fp: str, ty: str, tags: str | None) -> None:
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, title, type, tags) "
+                "VALUES (:id, :v, :fp, :t, :ty, :tags)"
+            ).bindparams(id=pid, v=VAULT, fp=fp, t="X", ty=ty, tags=tags)
+        )
+
+    async with factory() as sess:
+        await _insert(sess, concept_id, "wiki/concepts/aws.md", "concept", None)
+        # Lint stub: type=query with tags containing both stub and lint.
+        await _insert(sess, stub_id, "wiki/queries/salesforce.md", "query", '["stub", "lint"]')
+        # Genuine open question: type=query but NO stub/lint tags (NULL) → must be kept.
+        await _insert(sess, genuine_q_id, "wiki/queries/does-scale.md", "query", None)
+        await sess.commit()
+
+    ids = [concept_id, stub_id, genuine_q_id]
+    async with factory() as sess:
+        kept = await _load_page_meta(ids, sess, exclude_stub_pages=True)
+    assert concept_id in kept
+    assert genuine_q_id in kept, "a genuine query (no stub/lint tags) must NOT be excluded"
+    assert stub_id not in kept, "a type=query stub (tags stub+lint) must be excluded"
+
+    async with factory() as sess:
+        default_meta = await _load_page_meta(ids, sess, exclude_stub_pages=False)
+    assert stub_id in default_meta, "default (False) keeps stubs — search path unchanged"
+
+    await engine.dispose()

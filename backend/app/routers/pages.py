@@ -30,6 +30,7 @@ from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
 
 from app.config import settings
+from app.config_overrides import effective_domain_vocabulary
 from app.models import Page
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,22 @@ class PageResponse(BaseModel):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    # Additive fields (backward-compatible — nullable, absent on old responses)
+    domain: str | None = Field(
+        None,
+        description=(
+            "Dominant vocabulary domain derived server-side from 'domain/<name>' tags. "
+            "null when the page is untagged or no domain vocabulary is configured. "
+            "Reuses the same derivation logic as GET /stats/sections (stats.py)."
+        ),
+    )
+    community: int | None = Field(
+        None,
+        description=(
+            "Louvain community id persisted by GraphEngine.recompute(). "
+            "null until the first graph recompute after migration 0020 (G-P0-2, I2)."
+        ),
+    )
 
     model_config = {"populate_by_name": True, "from_attributes": True}
 
@@ -133,10 +150,43 @@ class PageContentPutResponse(BaseModel):
     updated_at: datetime
 
 
+# ── Domain derivation helper ───────────────────────────────────────────────────
+# Same logic as GET /stats/sections in app/stats.py — reuses effective_domain_vocabulary()
+# from app.config_overrides (ADR-0054 §2.1).  A page's dominant domain is the first tag
+# that starts with "domain/" whose suffix is present in the controlled vocabulary.
+# Returns None when untagged, when the vocabulary is empty, or when the page has no
+# matching domain/* tag.
+
+_DOMAIN_PREFIX = "domain/"
+
+
+def _derive_domain(tags: list[str] | None, vocab_set: frozenset[str]) -> str | None:
+    """Return the first matching vocabulary domain from a page's tags, or None."""
+    if not tags or not vocab_set:
+        return None
+    for tag in tags:
+        if tag.startswith(_DOMAIN_PREFIX):
+            candidate = tag[len(_DOMAIN_PREFIX):]
+            if candidate in vocab_set:
+                return candidate
+    return None
+
+
 # ── Model serialisation helper ─────────────────────────────────────────────────
 
 
-def _page_to_response(page: Page) -> PageResponse:
+def _page_to_response(
+    page: Page,
+    vocab_set: frozenset[str] | None = None,
+) -> PageResponse:
+    """Serialise a Page ORM row into a PageResponse.
+
+    vocab_set: the current domain vocabulary as a frozenset (pre-computed per
+    request so effective_domain_vocabulary() is called ONCE, not per-page).
+    Pass None (or omit) to skip domain derivation — e.g. for single-page endpoints
+    where the caller does not need domain context.
+    """
+    domain = _derive_domain(page.tags, vocab_set if vocab_set is not None else frozenset())
     return PageResponse(
         id=page.id,
         vault_id=page.vault_id,
@@ -149,6 +199,8 @@ def _page_to_response(page: Page) -> PageResponse:
         deleted_at=page.deleted_at,
         created_at=page.created_at,
         updated_at=page.updated_at,
+        domain=domain,
+        community=page.community,
     )
 
 
@@ -190,8 +242,12 @@ async def list_pages(
         )
         pages = rows.scalars().all()
 
+    # Derive domain vocabulary ONCE per request (O(1) from ADR-0053 cache).
+    # Passed to _page_to_response so effective_domain_vocabulary() is not called per-page.
+    vocab_set = frozenset(effective_domain_vocabulary())
+
     return PageListResponse(
-        items=[_page_to_response(p) for p in pages],
+        items=[_page_to_response(p, vocab_set) for p in pages],
         total=total,
         limit=limit,
         offset=offset,

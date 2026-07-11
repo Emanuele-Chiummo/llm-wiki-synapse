@@ -8,11 +8,13 @@ Covers:
   DELETE /conversations/{id}           — soft-delete conversation
   PATCH  /conversations/{id}           — rename conversation
   POST   /chat/stream                  — bounded streaming chat turn
-  POST   /chat/save-to-wiki            — save answer to wiki/queries/
+  POST   /chat/save-to-wiki            — save answer to wiki/synthesis/ (or wiki/queries/ if it
+                                         is itself an open question)
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re as _re
 import sys as _sys
@@ -269,17 +271,43 @@ class ConversationRenameResponse(BaseModel):
     title: str
 
 
-# ── POST /chat/save-to-wiki (G-P0-1) ──────────────────────────────────────────
-# Mirror of nashsu/llm_wiki F6 "Save to Wiki": routes a chat assistant answer into
-# wiki/queries/<slug>.md as a typed "query" page (I1/I5/I6/I7):
+# ── POST /chat/save-to-wiki (G-P0-1; CG-A2/A3/A5, ADR-0067 P3-3) ──────────────
+# Mirror of nashsu/llm_wiki F6 "Save to Wiki": files a durable chat assistant answer into the
+# vault (I1/I5/I6/I7). ADR-0067 P3-3 fixes CG-D2/D3 (audit): the type is no longer hard-coded to
+# `query`. A lightweight classifier routes an OPEN QUESTION → wiki/queries/ (type=query) and any
+# ANSWER/ANALYSIS (the common case) → wiki/synthesis/ (type=synthesis), matching LLM Wiki, so
+# saved answers stop inflating queries/ and start seeding synthesis/. A bounded, fire-and-forget
+# wikilink-enrichment pass then links the saved page to existing pages so it is graph-connected
+# (real F4 edges), not an isolated node.
 #   I1 — single write via write_wiki_page (one data_version bump, no rescan)
-#   I5 — Obsidian-valid frontmatter (type=query, sources=[])
-#   I6 — NO provider call; pure DB/file write
-#   I7 — no loop; single bounded operation
+#   I5 — Obsidian-valid frontmatter (ADR-0067 D2 shape: type/title/created/updated/tags/related)
+#   I6 — the write itself makes NO provider call; the OPTIONAL enrichment pass routes through the
+#        ingest provider (fire-and-forget, degrade-safe — no provider → skip, never a default)
+#   I7 — no orchestrated loop; the enrichment pass is a single bounded call (own caps + cost log)
 
 
 _THINK_BLOCK_RE = _re.compile(r"<think>.*?</think>", _re.DOTALL | _re.IGNORECASE)
 _CITED_TRAILER_RE = _re.compile(r"<!--\s*cited:.*?-->", _re.DOTALL | _re.IGNORECASE)
+
+# Strong refs to fire-and-forget enrichment tasks: asyncio holds only WEAK refs to scheduled
+# tasks, so without this set a task can be garbage-collected before it runs (mirrors stream.py).
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+# CG-A2/A5: interrogative sentence leads (EN + IT — the vault is IT/EN, F16). Used only as a
+# secondary signal on a SHORT, single-clause title lacking a trailing '?'; the trailing '?' on
+# the title or first content line is the primary, language-agnostic signal.
+_INTERROGATIVE_LEADS: frozenset[str] = frozenset(
+    # English
+    "what why how when where who which whose whom "
+    "is are am do does did can could should would "
+    "will shall may might was were has have had "
+    # Italian (vault is IT/EN, F16)
+    "cosa come perche perché quando dove chi quale quali "
+    "quanto quanti quanta quante è sono puo può dovrebbe".split()
+)
+
+# Leading word of a title (letters + accents + apostrophe), used for the interrogative-lead check.
+_LEAD_WORD_RE = _re.compile(r"[a-zàèéìòù']+", _re.IGNORECASE | _re.UNICODE)
 
 
 def _clean_chat_content(content: str) -> str:
@@ -296,12 +324,78 @@ def _clean_chat_content(content: str) -> str:
     return cleaned.strip()
 
 
+def _first_meaningful_line(content: str) -> str:
+    """First non-empty content line with common markdown lead markers (#, >, -, *) stripped."""
+    for line in content.splitlines():
+        stripped = line.strip().lstrip("#>-*").strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _is_open_question(title: str, content: str) -> bool:
+    """
+    CG-A2/A5: is the saved page itself an OPEN QUESTION (→ queries/) rather than an
+    answer/analysis (→ synthesis/)?
+
+    Signals, cheapest first:
+      1. Trailing '?' on the title OR the first content line — the strongest,
+         language-agnostic signal ("What is bge-m3?", "Perché scala il modello?").
+      2. An interrogative lead word (EN/IT) on a SHORT, single-clause title: no ':'
+         (so 'Topic: analysis' headings stay analytical) and ≤ 12 words (so a
+         declarative sentence is not misread as a question).
+
+    Defaults to False (→ synthesis) — the common 'save an answer' case.
+    """
+    title_s = title.strip()
+    first_line = _first_meaningful_line(content)
+    if title_s.endswith("?") or first_line.endswith("?"):
+        return True
+    if ":" not in title_s and len(title_s.split()) <= 12:
+        lead = _LEAD_WORD_RE.match(title_s.lower())
+        if lead is not None and lead.group(0) in _INTERROGATIVE_LEADS:
+            return True
+    return False
+
+
+def _schedule_wikilink_enrichment(page: Any) -> None:
+    """
+    CG-A3 (ADR-0067 P3-3): fire-and-forget bounded wikilink-enrichment on the just-saved page,
+    reusing the SAME ``ops/enrich_wikilinks`` seam the ingest post-hook uses (import, don't
+    reinvent). It injects ``[[wikilinks]]`` to existing pages into the saved body; the enrich
+    reindex re-derives the K5 links, so the saved answer gains real F4 direct-link (×3) edges and
+    stops being an isolated graph node.
+
+    NEVER fails the save: ``enrich_wikilinks`` is itself degrade-safe (no provider → skip; any
+    error → EnrichResult), and this wrapper additionally swallows scheduling/runtime errors.
+    """
+
+    async def _run() -> None:
+        try:
+            from app.ops.enrich_wikilinks import enrich_wikilinks
+
+            vault_id = getattr(page, "vault_id", None) or settings.vault_id
+            await enrich_wikilinks([page], str(vault_id))
+        except Exception as exc:  # noqa: BLE001 — fire-and-forget; never surface to the caller
+            logger.warning("save-to-wiki: wikilink enrichment failed (non-fatal): %s", exc)
+
+    try:
+        task = asyncio.create_task(_run())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    except RuntimeError as exc:  # pragma: no cover — no running loop (never under FastAPI)
+        logger.debug("save-to-wiki: could not schedule enrichment (%s)", exc)
+
+
 class SaveToWikiRequest(BaseModel):
     """
-    Request body for POST /chat/save-to-wiki (G-P0-1).
+    Request body for POST /chat/save-to-wiki (G-P0-1; CG-A2/A5, ADR-0067 P3-3).
 
-    Saves a cleaned chat assistant answer as a wiki/queries/<slug>.md page.
-    No inference provider is called (I6); this is a pure DB+file write (I7).
+    Saves a cleaned chat assistant answer to the vault. A lightweight classifier routes an open
+    QUESTION to ``wiki/queries/<slug>.md`` (type=query) and any answer/analysis — the common case
+    — to ``wiki/synthesis/<slug>.md`` (type=synthesis). The write itself calls no inference
+    provider (I6); a bounded fire-and-forget wikilink-enrichment pass may run afterwards to
+    graph-connect the saved page (CG-A3).
     """
 
     vault_id: str | None = Field(default=None, description="Defaults to settings.vault_id")
@@ -329,16 +423,22 @@ class SaveToWikiRequest(BaseModel):
 
 
 class SaveToWikiResponse(BaseModel):
-    """201 response for POST /chat/save-to-wiki (G-P0-1)."""
+    """201 response for POST /chat/save-to-wiki (G-P0-1; CG-A2/A5, ADR-0067 P3-3)."""
 
-    page_id: uuid.UUID = Field(..., description="UUID of the created/updated wiki/queries page")
-    file_path: str = Field(..., description="Relative path in the vault (wiki/queries/<slug>.md)")
+    page_id: uuid.UUID = Field(..., description="UUID of the created/updated wiki page")
+    file_path: str = Field(
+        ...,
+        description=(
+            "Relative path in the vault. Usually wiki/synthesis/<slug>.md (an answer/analysis); "
+            "wiki/queries/<slug>.md when the saved content is itself an open question."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "page_id": "00000000-0000-0000-0000-000000000001",
-                "file_path": "wiki/queries/what-is-bge-m3.md",
+                "file_path": "wiki/synthesis/bge-m3-embedding-tradeoffs.md",
             }
         }
     }
@@ -616,13 +716,17 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
     "/chat/save-to-wiki",
     response_model=SaveToWikiResponse,
     status_code=201,
-    summary="Save a chat answer to the wiki as a query page (G-P0-1)",
+    summary="Save a chat answer to the wiki (synthesis by default, query if it is a question)",
     description=(
-        "Mirrors nashsu/llm_wiki F6 'Save to Wiki': saves a cleaned assistant answer as "
-        "wiki/queries/<slug(title)>.md with type=query frontmatter (I5). "
+        "Mirrors nashsu/llm_wiki F6 'Save to Wiki' (CG-A2/A5, ADR-0067 P3-3): saves a cleaned "
+        "assistant answer as wiki/synthesis/<slug(title)>.md with type=synthesis frontmatter — "
+        "OR wiki/queries/<slug>.md with type=query when the saved content is itself an open "
+        "question (title/first line ends with '?' or is interrogative). "
         "Strips <think>…</think> and <!-- cited: … --> transport artifacts before saving. "
-        "Persists via the single write_wiki_page seam (I1 — one data_version bump, no rescan). "
-        "No inference provider is called (I6/I7). "
+        "Persists via the single write_wiki_page seam (I1 — one data_version bump, no rescan; "
+        "ADR-0067 D2 frontmatter + resolved related). The write makes no provider call (I6); a "
+        "bounded fire-and-forget wikilink-enrichment pass may follow to graph-connect the page "
+        "(CG-A3, degrade-safe). "
         "Returns {page_id, file_path}. 422 if title/content is missing."
     ),
     responses={
@@ -632,13 +736,14 @@ async def chat_stream(body: ChatRequest) -> StreamingResponse:
 )
 async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
     """
-    POST /chat/save-to-wiki — save a chat answer as a wiki/queries page (G-P0-1).
+    POST /chat/save-to-wiki — file a chat answer into the wiki (G-P0-1; CG-A2/A3/A5).
 
     Invariant compliance:
       I1 — single write_wiki_page call → one data_version bump, no rescan.
-      I5 — Obsidian-valid YAML frontmatter (type=query, sources list, lang=en).
-      I6 — NO provider call; pure DB/file write.
-      I7 — no loop; single bounded operation.
+      I5 — Obsidian-valid YAML frontmatter (ADR-0067 D2 shape, emitted by write_wiki_page).
+      I6 — the write itself makes NO provider call; the optional enrichment pass routes through
+           the ingest provider (fire-and-forget, degrade-safe — no provider → skip).
+      I7 — no orchestrated loop; enrichment is a single bounded call with its own caps + cost log.
     """
     from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
@@ -651,32 +756,44 @@ async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
             detail="content is empty after stripping think/citation blocks",
         )
 
-    # Build sources list (conversation provenance as a pseudo-source reference)
+    # CG-A2/A5: classify the saved content. An open question stays a query (queries/); any
+    # answer/analysis — the common case — files as synthesis (synthesis/), matching LLM Wiki and
+    # ending the queries/ inflation + synthesis starvation the audit flagged (CG-D2/D3).
+    page_type = (
+        PageType.QUERY if _is_open_question(body.title, cleaned_content) else PageType.SYNTHESIS
+    )
+
+    # Build sources list (conversation provenance as a pseudo-source reference). NB (ADR-0067 D2):
+    # sources are carried on the object + written to Postgres for F3 traceability; they are no
+    # longer emitted in the .md by write_wiki_page.
     sources: list[str] = list(body.sources) if body.sources else []
     if body.conversation_id:
         conv_ref = f"conversation/{body.conversation_id}"
         if conv_ref not in sources:
             sources.append(conv_ref)
-    # Ensure at least one source so WikiFrontmatter validator passes (F3 traceability)
     if not sources:
         sources = ["chat"]
 
     fm = WikiFrontmatter(
-        type=PageType.QUERY,
+        type=page_type,
         title=body.title,
         sources=sources,
         lang="en",
     )
     wiki_page = WikiPage(
         title=body.title,
-        type=PageType.QUERY,
+        type=page_type,
         content=cleaned_content,
         frontmatter=fm,
     )
 
     # Single write seam (I1): persists file, Postgres row, Qdrant vector, links, index.md,
-    # bumps data_version once. No provider call (I6/I7).
+    # bumps data_version once. No provider call here (I6/I7).
     persisted = await write_wiki_page(None, wiki_page, "")
+
+    # CG-A3: fire-and-forget graph-connect the saved page (reuse the ingest enrich seam). Never
+    # blocks or fails the save; degrade-safe when no ingest provider resolves (I6/I7).
+    _schedule_wikilink_enrichment(persisted)
 
     return SaveToWikiResponse(
         page_id=persisted.id,

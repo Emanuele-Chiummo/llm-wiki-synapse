@@ -230,4 +230,48 @@ export default defineConfig({
     // (Header badge, Settings → About, ConnectScreen footer). Bumped per release.
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  build: {
+    rollupOptions: {
+      output: {
+        /**
+         * P4 vendor chunking — splits large vendors so they are independently
+         * cached by the browser and paired with code-splitting (P1 lazy views):
+         *
+         *   vendor-react  → react + react-dom + scheduler (rarely changes)
+         *   vendor-graph  → sigma + graphology* (lazy-loaded with GraphPanel)
+         *   vendor-editor → @codemirror/* + @lezer/* (lazy-loaded with NoteView/PanelGroup)
+         *
+         * INVARIANT I2: no layout packages may appear in the graph chunk — the
+         * no-client-layout bundle test (AC-FE-2) catches any violation.
+         * Dev server is unaffected (manualChunks applies to build only).
+         */
+        manualChunks(id: string) {
+          // React core — stable, high-cache-value chunk
+          if (
+            id.includes("/node_modules/react/") ||
+            id.includes("/node_modules/react-dom/") ||
+            id.includes("/node_modules/scheduler/") ||
+            id.includes("/node_modules/react-is/")
+          ) {
+            return "vendor-react";
+          }
+          // sigma.js + graphology* — heavy WebGL/graph libraries (lazy with GraphPanel)
+          if (
+            id.includes("/node_modules/sigma/") ||
+            id.includes("/node_modules/graphology")
+          ) {
+            return "vendor-graph";
+          }
+          // CodeMirror + Lezer parser — heavy editor libraries (lazy with PanelGroup/NoteView)
+          if (
+            id.includes("/node_modules/@codemirror/") ||
+            id.includes("/node_modules/codemirror/") ||
+            id.includes("/node_modules/@lezer/")
+          ) {
+            return "vendor-editor";
+          }
+        },
+      },
+    },
+  },
 });
