@@ -166,7 +166,7 @@ def _derive_domain(tags: list[str] | None, vocab_set: frozenset[str]) -> str | N
         return None
     for tag in tags:
         if tag.startswith(_DOMAIN_PREFIX):
-            candidate = tag[len(_DOMAIN_PREFIX):]
+            candidate = tag[len(_DOMAIN_PREFIX) :]
             if candidate in vocab_set:
                 return candidate
     return None

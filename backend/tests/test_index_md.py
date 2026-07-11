@@ -203,9 +203,9 @@ class TestIndexMdAdr0067D6:
         content = await _run_update_index(rows, tmp_path)
 
         # Only one wikilink for the case-insensitive duplicate pair.
-        assert content.count("[[AWS]]") + content.count("[[aws]]") == 1, (
-            "duplicate case-insensitive titles must collapse to a single catalogue entry"
-        )
+        assert (
+            content.count("[[AWS]]") + content.count("[[aws]]") == 1
+        ), "duplicate case-insensitive titles must collapse to a single catalogue entry"
 
     @pytest.mark.asyncio
     async def test_duplicate_titles_cross_type_both_rendered(self, tmp_path: Path) -> None:
@@ -219,9 +219,9 @@ class TestIndexMdAdr0067D6:
         ]
         content = await _run_update_index(rows, tmp_path)
 
-        assert content.count("[[Cloud]]") == 2, (
-            "same title in different type sections must each render once"
-        )
+        assert (
+            content.count("[[Cloud]]") == 2
+        ), "same title in different type sections must each render once"
 
     @pytest.mark.asyncio
     async def test_total_count_reflects_deduplicated_set(self, tmp_path: Path) -> None:
@@ -236,9 +236,9 @@ class TestIndexMdAdr0067D6:
         ]
         content = await _run_update_index(rows, tmp_path)
 
-        assert "**Total pages:** 2" in content, (
-            "total must be 2 after dedup collapses AWS/aws to a single entry"
-        )
+        assert (
+            "**Total pages:** 2" in content
+        ), "total must be 2 after dedup collapses AWS/aws to a single entry"
 
     @pytest.mark.asyncio
     async def test_null_type_not_counted_in_total(self, tmp_path: Path) -> None:
@@ -251,9 +251,9 @@ class TestIndexMdAdr0067D6:
         ]
         content = await _run_update_index(rows, tmp_path)
 
-        assert "**Total pages:** 1" in content, (
-            "NULL-type ghost must not be counted; only 1 real page exists"
-        )
+        assert (
+            "**Total pages:** 1" in content
+        ), "NULL-type ghost must not be counted; only 1 real page exists"
 
 
 class TestIndexMdIdempotency:
