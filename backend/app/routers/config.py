@@ -36,7 +36,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
 
 from app import cli_auth as _cli_auth
@@ -720,22 +720,58 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
         api_key_encrypted = _encrypt_api_key_or_400(body.api_key)
 
     async with _m.get_session() as session:
-        row = _m.ProviderConfig(
-            id=uuid.uuid4(),
-            scope=body.scope,
-            operation=body.operation,
-            vault_id=body.vault_id,
-            provider_type=body.provider_type,
-            model_id=body.model_id,
-            base_url=body.base_url,
-            api_key_encrypted=api_key_encrypted,
-            reasoning_effort=body.reasoning_effort,
-            max_iter=body.max_iter,
-            token_budget=body.token_budget,
-            is_fallback=body.is_fallback,
+        # UPSERT by logical identity so repeated "activate" clicks don't pile up duplicate rows.
+        # The frontend has no upsert endpoint: setActive() (header dropdown) and addProvider()
+        # (vendor catalog) BOTH POST here, and "active = newest row" — so, pre-v1.5.2, selecting a
+        # provider created a brand-new row every time and duplicates accumulated. Now: match an
+        # existing non-fallback row with the same (scope, vault_id, operation, provider_type,
+        # model_id, base_url); if one exists, update its mutable fields and bump created_at so it
+        # becomes the newest → active row (no duplicate). limit(1) tolerates pre-existing dupes.
+        # Use the directly-imported model class (not the _LazyMain proxy) for the query so the
+        # statement builds against the real mapped entity.
+        existing = await session.execute(
+            select(ProviderConfig)
+            .where(
+                ProviderConfig.scope == body.scope,
+                ProviderConfig.vault_id == body.vault_id,
+                ProviderConfig.operation == body.operation,
+                ProviderConfig.provider_type == body.provider_type,
+                ProviderConfig.model_id == body.model_id,
+                ProviderConfig.base_url == body.base_url,
+                ProviderConfig.is_fallback.is_(False),
+            )
+            .order_by(ProviderConfig.created_at.desc())
+            .limit(1)
         )
-        session.add(row)
+        row = existing.scalar_one_or_none()
+        if row is not None:
+            # Re-activate the existing row and refresh its mutable fields (no new row).
+            if body.api_key:
+                row.api_key_encrypted = api_key_encrypted
+            row.reasoning_effort = body.reasoning_effort
+            row.max_iter = body.max_iter
+            row.token_budget = body.token_budget
+            row.created_at = func.now()  # bump → newest → active (matches resolution order)
+        else:
+            row = _m.ProviderConfig(
+                id=uuid.uuid4(),
+                scope=body.scope,
+                operation=body.operation,
+                vault_id=body.vault_id,
+                provider_type=body.provider_type,
+                model_id=body.model_id,
+                base_url=body.base_url,
+                api_key_encrypted=api_key_encrypted,
+                reasoning_effort=body.reasoning_effort,
+                max_iter=body.max_iter,
+                token_budget=body.token_budget,
+                is_fallback=body.is_fallback,
+            )
+            session.add(row)
         await session.flush()
+        # created_at (and, on the update path, updated_at) are server-side; refresh before the
+        # sync serializer reads them, else an async lazy-load raises MissingGreenlet (v1.5.2).
+        await session.refresh(row)
         response = _provider_config_to_response(row)
 
     return response

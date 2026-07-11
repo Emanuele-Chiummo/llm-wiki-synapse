@@ -27,6 +27,15 @@ against real Postgres/asyncpg** (not just mocked tests) before release.
   showed CLI active — so ingest demanded an Anthropic key. The resolver now orders by `created_at`
   DESC, so backend and UI agree that the newest configured provider is active. Regression test added
   (newest global row wins) [F17, I6].
+- **Duplicate provider rows piling up + the header dropdown listing them all** — `POST /provider/config`
+  always INSERTed, and since "active = newest row" every activation (header dropdown `setActive`,
+  catalog toggle) created a new row, so identical providers accumulated (e.g. 3× "CLI / opus"). POST
+  is now an **upsert**: it reuses a matching non-fallback row `(scope, vault_id, operation,
+  provider_type, model_id, base_url)`, updating it and bumping `created_at` (so selecting a provider
+  still activates it) instead of inserting a duplicate. The header **ProviderSelector** now
+  **de-duplicates** its display (one row per identity, newest = active). Verified live vs Postgres:
+  posting the same provider 3× yields **one** row, and re-posting flips it to active. Regression
+  tests added [F17].
 
 ## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
 

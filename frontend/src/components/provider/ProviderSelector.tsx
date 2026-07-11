@@ -20,7 +20,7 @@
  * This is informational only — the actual routing decision is server-side.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -76,6 +76,23 @@ export function ProviderSelector() {
   const setWriteScope = useProviderStore(selectSetWriteScope);
   const vaultId = useGraphStore(selectVaultId);
 
+  // De-duplicate the list for display. Historically each activation POSTed a NEW row (no upsert),
+  // so the raw list can contain many identical rows (and fallback rows). Show one entry per logical
+  // provider identity — the newest — so the dropdown lists each provider once, with the active one
+  // highlighted (active = newest, so it always survives the dedupe). (v1.5.2)
+  const dedupedList = useMemo(() => {
+    const seen = new Set<string>();
+    return [...list]
+      .filter((r) => !r.is_fallback)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .filter((r) => {
+        const key = `${r.scope}|${r.provider_type}|${r.model_id ?? ""}|${r.base_url ?? ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }, [list]);
+
   const [open, setOpen] = useState(false);
   const [writing, setWriting] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -100,8 +117,10 @@ export function ProviderSelector() {
     if (!open) return;
     function handleClick(e: MouseEvent) {
       if (
-        panelRef.current && !panelRef.current.contains(e.target as Node) &&
-        triggerRef.current && !triggerRef.current.contains(e.target as Node)
+        panelRef.current &&
+        !panelRef.current.contains(e.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(e.target as Node)
       ) {
         setOpen(false);
       }
@@ -131,8 +150,8 @@ export function ProviderSelector() {
   const triggerLabel = active
     ? providerLabel(active, t)
     : loading
-    ? t("common.loading")
-    : t("provider.label");
+      ? t("common.loading")
+      : t("provider.label");
 
   return (
     <div style={{ position: "relative" }}>
@@ -167,14 +186,20 @@ export function ProviderSelector() {
             width: 6,
             height: 6,
             borderRadius: "50%",
-            background: error ? "var(--syn-red)" : active ? "var(--syn-green)" : "var(--syn-text-dim)",
+            background: error
+              ? "var(--syn-red)"
+              : active
+                ? "var(--syn-green)"
+                : "var(--syn-text-dim)",
             flexShrink: 0,
           }}
         />
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1, textAlign: "left" }}>
           {triggerLabel}
         </span>
-        <span aria-hidden="true" style={{ fontSize: 10, opacity: 0.6, flexShrink: 0 }}>▾</span>
+        <span aria-hidden="true" style={{ fontSize: 10, opacity: 0.6, flexShrink: 0 }}>
+          ▾
+        </span>
       </button>
 
       {/* Dropdown panel */}
@@ -207,12 +232,10 @@ export function ProviderSelector() {
               borderBottom: "1px solid var(--syn-border)",
             }}
           >
-            <span style={{ fontSize: 11, color: "var(--syn-text-muted)", flex: 1 }}>{t("provider.scope.vault")} / {t("provider.scope.global")}</span>
-            <div
-              role="group"
-              aria-label="Scope"
-              style={{ display: "flex", gap: 4 }}
-            >
+            <span style={{ fontSize: 11, color: "var(--syn-text-muted)", flex: 1 }}>
+              {t("provider.scope.vault")} / {t("provider.scope.global")}
+            </span>
+            <div role="group" aria-label="Scope" style={{ display: "flex", gap: 4 }}>
               {(["vault", "global"] as const).map((scope) => (
                 <button
                   key={scope}
@@ -236,21 +259,18 @@ export function ProviderSelector() {
           </div>
 
           {/* Provider list */}
-          <div
-            aria-label={t("provider.label")}
-            style={{ maxHeight: 280, overflow: "auto" }}
-          >
+          <div aria-label={t("provider.label")} style={{ maxHeight: 280, overflow: "auto" }}>
             {loading && (
               <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--syn-text-dim)" }}>
                 {t("common.loading")}
               </div>
             )}
-            {!loading && list.length === 0 && (
+            {!loading && dedupedList.length === 0 && (
               <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--syn-text-dim)" }}>
                 {t("provider.noProviders")}
               </div>
             )}
-            {list.map((item) => {
+            {dedupedList.map((item) => {
               const isActive = active?.id === item.id;
               const capability = capabilityKey(item);
               const label = providerLabel(item, t);
@@ -289,10 +309,26 @@ export function ProviderSelector() {
                     }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div
+                      style={{
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {label}
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--syn-text-muted)", marginTop: 2, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "var(--syn-text-muted)",
+                        marginTop: 2,
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <span
                         style={{
                           padding: "1px 5px",
