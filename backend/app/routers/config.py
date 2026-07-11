@@ -95,6 +95,15 @@ _VALID_PROVIDER_TYPES = {"local", "api", "cli"}
 _VALID_SCOPES = {"global", "vault", "operation"}
 _VALID_OPERATIONS = {"ingest", "chat", "lint"}
 
+# The vendor-catalog UI (W1, v1.4+) tags each provider_config row with its vendor id in the
+# `operation` column so the Settings catalog can map rows↔vendors unambiguously — vendors that
+# share provider_type+base_url (e.g. claude-cli/codex-cli, anthropic/azure-openai) are otherwise
+# indistinguishable. Those vendor ids are therefore ALSO valid `operation` values, not just the
+# three routing operations. Without this, activating a vendor from the catalog toggle POSTs
+# operation=<vendor-id> and the validator 422s, so the row is never created (v1.5.1 fix).
+_VENDOR_CATALOG_IDS = frozenset(v.id for v in VENDORS)
+_VALID_OPERATION_VALUES = _VALID_OPERATIONS | _VENDOR_CATALOG_IDS
+
 
 def _valid_reasoning_effort(v: str | None) -> str | None:
     """Shared validator body for reasoning_effort (W1). None passes through (provider default)."""
@@ -172,9 +181,11 @@ class ProviderConfigCreate(BaseModel):
     @field_validator("operation")
     @classmethod
     def _valid_operation(cls, v: str | None) -> str | None:
-        if v is not None and v not in _VALID_OPERATIONS:
+        # Accepts the three routing operations OR a vendor-catalog id (W1 tag) OR null.
+        if v is not None and v not in _VALID_OPERATION_VALUES:
             raise ValueError(
-                f"operation must be one of {sorted(_VALID_OPERATIONS)} or null, got {v!r}"
+                f"operation must be one of {sorted(_VALID_OPERATIONS)}, a vendor id, "
+                f"or null, got {v!r}"
             )
         return v
 

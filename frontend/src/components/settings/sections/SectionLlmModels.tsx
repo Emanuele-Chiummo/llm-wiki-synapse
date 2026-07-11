@@ -269,12 +269,20 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   // ─── Provider tests ──────────────────────────────────────────────────────
 
+  // Inline probe target for a not-yet-activated vendor: the backend requires a model, so pass
+  // the vendor's first preset (or the typed custom model). Without it the probe 422s.
+  const inlineProbeModel = currentModelId ?? vendor.model_presets[0] ?? undefined;
+
   const handleTestConnection = async () => {
     setTestConn({ running: true, ok: null, latency: null, detail: null });
     try {
       const req = vendorConfig
         ? { config_id: vendorConfig.id }
-        : { provider_type: vendor.provider_type, base_url: vendor.default_base_url };
+        : {
+            provider_type: vendor.provider_type,
+            base_url: vendor.default_base_url,
+            ...(inlineProbeModel ? { model: inlineProbeModel } : {}),
+          };
       const res = await testProviderConnection(req);
       setTestConn({ running: false, ok: res.ok, latency: res.latency_ms, detail: res.detail });
     } catch (err: unknown) {
@@ -287,7 +295,11 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
     try {
       const req = vendorConfig
         ? { config_id: vendorConfig.id }
-        : { provider_type: vendor.provider_type, base_url: vendor.default_base_url };
+        : {
+            provider_type: vendor.provider_type,
+            base_url: vendor.default_base_url,
+            ...(inlineProbeModel ? { model: inlineProbeModel } : {}),
+          };
       const res = await testProviderFunction(req);
       setTestFunc({ running: false, ok: res.ok, latency: res.latency_ms, detail: res.detail });
     } catch (err: unknown) {
