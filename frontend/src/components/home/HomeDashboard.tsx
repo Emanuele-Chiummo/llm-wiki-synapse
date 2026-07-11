@@ -67,6 +67,7 @@ import {
   FlaskConical,
   HelpCircle,
   Tag,
+  Sparkles,
 } from "lucide-react";
 import {
   fetchPageBySlug,
@@ -82,6 +83,7 @@ import {
 import {
   triggerBackfillDomains,
   triggerReclassifyTypes,
+  triggerSynthesize,
 } from "../../api/opsClient";
 import type { ReviewItem, PageListItem } from "../../api/types";
 import {
@@ -89,12 +91,14 @@ import {
   getStatsSections,
   getStatsGroups,
   getBackfillDomainStatus,
+  getSynthesizeStatus,
   type StatsOverview,
   type StatsSections,
   type SectionEntry,
   type StatsGroups,
   type StatsGroup,
   type BackfillDomainStatus,
+  type SynthesizeStatus,
 } from "../../api/statsClient";
 import { fetchResearchRuns } from "../../api/researchClient";
 import { fetchCostsSummary } from "../../api/costsClient";
@@ -574,9 +578,12 @@ interface ActiveJobsBlockProps {
    * Used when batch is null to show per-task phase and aggregate ETA.
    */
   ingestTasks: IngestTaskProgress[];
+  /** v1.5.3: true while a synthesize run (ADR-0067 D3) is in flight — status fetched by the parent. */
+  synthesizeRunning: boolean;
   onNavigateIngest: () => void;
   onNavigateResearch: () => void;
   onNavigateBackfill: () => void;
+  onNavigateSynthesize: () => void;
 }
 
 /**
@@ -659,9 +666,11 @@ function ActiveJobsBlock({
   ingestPending,
   ingestBatch,
   ingestTasks,
+  synthesizeRunning,
   onNavigateIngest,
   onNavigateResearch,
   onNavigateBackfill,
+  onNavigateSynthesize,
 }: ActiveJobsBlockProps) {
   const { t } = useTranslation();
 
@@ -708,6 +717,7 @@ function ActiveJobsBlock({
   const hasIngest = ingestProcessing > 0 || ingestPending > 0;
   const hasResearch = runningResearch.length > 0;
   const hasBackfill = backfillStatus?.running === true;
+  const hasSynthesize = synthesizeRunning;
 
   // ── WS-C [F3/F16]: Compute ingest progress values ──────────────────────────
   // Batch mode (bulk "index all"): use batch.done/total/eta_seconds directly.
@@ -747,7 +757,7 @@ function ActiveJobsBlock({
   if (jobsLoading && !hasIngest) return null;
 
   // Nothing active at all → render nothing
-  if (!hasIngest && !hasResearch && !hasBackfill) return null;
+  if (!hasIngest && !hasResearch && !hasBackfill && !hasSynthesize) return null;
 
   return (
     <section
@@ -915,6 +925,16 @@ function ActiveJobsBlock({
               : undefined
           }
           onClick={onNavigateBackfill}
+        />
+      )}
+
+      {/* Sintesi/confronti row (v1.5.3, ADR-0067 D3) */}
+      {hasSynthesize && (
+        <JobRow
+          testId="home-active-jobs-synthesize"
+          icon={<Loader2 size={12} />}
+          label={t("home.activeJobs.synthesize")}
+          onClick={onNavigateSynthesize}
         />
       )}
     </section>
@@ -2007,6 +2027,126 @@ function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
   );
 }
 
+// ─── Synthesize Nudge [v1.5.3] ────────────────────────────────────────────────
+
+/**
+ * Minimum entity+concept page count before offering the trigger — mirrors the
+ * backend's own MIN_SYNTHESIS_CLUSTER (ops/synthesize.py): below that the
+ * deterministic cluster seeder cannot find even one candidate, so the CTA
+ * would just be a guaranteed no-op.
+ */
+const SYNTHESIZE_MIN_MEMBER_PAGES = 3;
+
+interface SynthesizeNudgeProps {
+  overview: StatsOverview;
+  synthesizeStatus: SynthesizeStatus | null;
+  /** Bump this after a trigger so the parent re-fetches the status once (I3-safe, no polling). */
+  onTriggered: () => void;
+}
+
+/**
+ * SynthesizeNudge — slim banner offering the bounded corpus-level synthesis/
+ * comparison generator (POST /ops/synthesize, ADR-0067 D3). Previously this
+ * was API-only with no UI trigger — this closes that gap [v1.5.3].
+ *
+ * Uses already-fetched overview data + the once-on-mount synthesize status
+ * (fetched by ActiveJobsBlock and passed down) — NO new poller (I3).
+ * Renders null when the corpus has too few entity/concept pages to seed a
+ * cluster, or while a run is already in flight (surfaced instead in
+ * "LAVORI ATTIVI").
+ */
+function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: SynthesizeNudgeProps) {
+  const { t } = useTranslation();
+  const [triggering, setTriggering] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const memberPages =
+    (overview.pages_by_type.entity ?? 0) + (overview.pages_by_type.concept ?? 0);
+
+  if (memberPages < SYNTHESIZE_MIN_MEMBER_PAGES) return null;
+  if (synthesizeStatus?.running) return null;
+
+  const lastSummary = synthesizeStatus?.last_summary ?? null;
+
+  const handleTrigger = () => {
+    if (triggering || done) return;
+    setTriggering(true);
+    void (async () => {
+      try {
+        await triggerSynthesize();
+        setDone(true);
+        onTriggered();
+      } catch {
+        /* non-fatal — nudge stays visible; user can retry */
+      } finally {
+        setTriggering(false);
+      }
+    })();
+  };
+
+  return (
+    <section
+      aria-label={t("home.synthesize.ariaLabel")}
+      data-testid="home-synthesize-nudge"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "8px 14px",
+        borderRadius: "var(--syn-radius-md)",
+        border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
+        background: "var(--syn-bg-soft)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Sparkles
+          size={12}
+          aria-hidden="true"
+          style={{ color: "var(--syn-accent)", flexShrink: 0 }}
+        />
+        <span
+          data-testid="home-synthesize-message"
+          style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
+        >
+          {lastSummary
+            ? t("home.synthesize.messageLastRun", {
+                synthesis: lastSummary.synthesis_written,
+                comparison: lastSummary.comparison_written,
+                proposed: lastSummary.proposed,
+              })
+            : t("home.synthesize.message")}
+        </span>
+      </div>
+      <button
+        type="button"
+        data-testid="home-synthesize-cta"
+        onClick={handleTrigger}
+        disabled={triggering || done}
+        style={{
+          fontSize: 11,
+          padding: "4px 10px",
+          borderRadius: "var(--syn-radius-md)",
+          border: "1px solid var(--syn-accent)",
+          background: "transparent",
+          color: "var(--syn-accent)",
+          cursor: triggering || done ? "default" : "pointer",
+          flexShrink: 0,
+          fontWeight: 500,
+          opacity: triggering || done ? 0.6 : 1,
+          transition: "opacity 0.1s ease",
+        }}
+      >
+        {done
+          ? t("home.synthesize.done")
+          : triggering
+            ? t("home.synthesize.running")
+            : t("home.synthesize.cta")}
+      </button>
+    </section>
+  );
+}
+
 // ─── HomeDashboard ─────────────────────────────────────────────────────────────
 
 /** Number of groups to show by default before "Espandi" toggle (A4). */
@@ -2035,6 +2175,28 @@ export function HomeDashboard() {
   const allTasks = useActivityTasks();
   // Filter to processing tasks only — these carry phase/progress/eta (AC-WS-C-3).
   const ingestTasks = allTasks.filter((tk) => tk.status === "processing");
+
+  // v1.5.3: synthesize (ADR-0067 D3) status — fetched ONCE on mount (+ once after the
+  // SynthesizeNudge CTA fires), shared by ActiveJobsBlock (running row) and
+  // SynthesizeNudge (message/last_summary). One fetch, two consumers — no duplicate
+  // polling (I3).
+  const [synthesizeStatus, setSynthesizeStatus] = useState<SynthesizeStatus | null>(null);
+  const synthesizeAbortRef = useRef<AbortController | null>(null);
+  const fetchSynthesizeStatus = useCallback(() => {
+    if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
+    const ac = new AbortController();
+    synthesizeAbortRef.current = ac;
+    void (async () => {
+      const result = await getSynthesizeStatus(ac.signal).catch(() => null);
+      if (!ac.signal.aborted) setSynthesizeStatus(result);
+    })();
+  }, []);
+  useEffect(() => {
+    fetchSynthesizeStatus();
+    return () => {
+      if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
+    };
+  }, [fetchSynthesizeStatus]);
 
   // A4 — expand/collapse state for GRUPPI AUTOMATICI (component-local, default collapsed).
   const [groupsExpanded, setGroupsExpanded] = useState(false);
@@ -2305,9 +2467,11 @@ export function HomeDashboard() {
         ingestPending={ingestPending}
         ingestBatch={ingestBatch}
         ingestTasks={ingestTasks}
+        synthesizeRunning={synthesizeStatus?.running === true}
         onNavigateIngest={() => setActiveSection("ingest")}
         onNavigateResearch={() => setActiveSection("deep-search")}
         onNavigateBackfill={() => setActiveSection("settings")}
+        onNavigateSynthesize={() => setActiveSection("pages")}
       />
 
       {/* ── 3. KPI row ── */}
@@ -2371,6 +2535,13 @@ export function HomeDashboard() {
 
       {/* ── 3a. Data quality nudge (v1.5, F18) — slim amber banner ── */}
       <DataQualityNudge overview={overview} sections={sections} />
+
+      {/* ── 3a-bis. Synthesize nudge (v1.5.3, ADR-0067 D3) — corpus synthesis/comparison ── */}
+      <SynthesizeNudge
+        overview={overview}
+        synthesizeStatus={synthesizeStatus}
+        onTriggered={fetchSynthesizeStatus}
+      />
 
       {/* ── 3b. Review preview + open questions — two-column block (v1.5, F18) ── */}
       <div

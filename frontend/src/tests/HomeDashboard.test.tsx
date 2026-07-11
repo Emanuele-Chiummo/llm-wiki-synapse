@@ -94,6 +94,7 @@ vi.mock("../api/statsClient", () => ({
   getStatsSections: vi.fn(),
   getStatsGroups: vi.fn(),
   getBackfillDomainStatus: vi.fn(),
+  getSynthesizeStatus: vi.fn(),
 }));
 
 // ─── researchClient mock ──────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ vi.mock("../api/reviewClient", () => ({
 vi.mock("../api/opsClient", () => ({
   triggerBackfillDomains: vi.fn(),
   triggerReclassifyTypes: vi.fn(),
+  triggerSynthesize: vi.fn(),
 }));
 
 // ─── costsClient mock (already used by HomeDashboard sparkline) ───────────────
@@ -177,12 +179,12 @@ vi.mock("../api/costsClient", () => ({
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
-import { getStatsOverview, getStatsSections, getStatsGroups, getBackfillDomainStatus } from "../api/statsClient";
+import { getStatsOverview, getStatsSections, getStatsGroups, getBackfillDomainStatus, getSynthesizeStatus } from "../api/statsClient";
 import { fetchResearchRuns } from "../api/researchClient";
 import { getHealthDetailed } from "../api/healthClient";
 import { fetchPageBySlug, fetchPageContent, fetchPages } from "../api/pagesClient";
 import { fetchReviewQueue, createReviewItem, skipReviewItem, deepResearchReviewItem } from "../api/reviewClient";
-import { triggerBackfillDomains, triggerReclassifyTypes } from "../api/opsClient";
+import { triggerBackfillDomains, triggerReclassifyTypes, triggerSynthesize } from "../api/opsClient";
 import type { StatsOverview, StatsSections, StatsGroups } from "../api/statsClient";
 import type { DetailedHealth } from "../api/healthClient";
 import type { ResearchRunListResponse, ReviewItem, PageListItem } from "../api/types";
@@ -193,6 +195,7 @@ const mockGetStatsOverview = vi.mocked(getStatsOverview);
 const mockGetStatsSections = vi.mocked(getStatsSections);
 const mockGetStatsGroups = vi.mocked(getStatsGroups);
 const mockGetBackfillDomainStatus = vi.mocked(getBackfillDomainStatus);
+const mockGetSynthesizeStatus = vi.mocked(getSynthesizeStatus);
 const mockFetchResearchRuns = vi.mocked(fetchResearchRuns);
 const mockGetHealthDetailed = vi.mocked(getHealthDetailed);
 const mockFetchPageBySlug = vi.mocked(fetchPageBySlug);
@@ -204,6 +207,7 @@ const mockSkipReviewItem = vi.mocked(skipReviewItem);
 const mockDeepResearchReviewItem = vi.mocked(deepResearchReviewItem);
 const mockTriggerBackfillDomains = vi.mocked(triggerBackfillDomains);
 const mockTriggerReclassifyTypes = vi.mocked(triggerReclassifyTypes);
+const mockTriggerSynthesize = vi.mocked(triggerSynthesize);
 
 // ─── Test data ────────────────────────────────────────────────────────────────
 
@@ -456,6 +460,7 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { sessionStorage.clear(); } catch { /* ignore */ }
   });
@@ -525,6 +530,7 @@ describe("HomeDashboard — system status block (A2)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     mockBackendVersion.mockReturnValue("1.2.0");
     mockActiveProvider.mockReturnValue({ provider_type: "api", model_id: "claude-sonnet-4-6" });
@@ -624,6 +630,7 @@ describe("HomeDashboard — groups grid (A3)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { localStorage.clear(); } catch { /* ignore */ }
   });
@@ -744,6 +751,7 @@ describe("HomeDashboard — empty vocabulary but groups present (A3)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -793,6 +801,7 @@ describe("HomeDashboard — empty vocabulary (AC-R12-1-5b)", () => {
     mockGetStatsGroups.mockResolvedValue(null);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -825,6 +834,7 @@ describe("HomeDashboard — section cards render (AC-R12-1-5c)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -873,6 +883,7 @@ describe("HomeDashboard — I3: no chart library, SVG sparklines only (AC-R12-1-
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -908,6 +919,7 @@ describe("HomeDashboard — section card click navigation (AC-R12-1-7)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
     try { localStorage.clear(); } catch { /* ignore */ }
   });
@@ -953,6 +965,7 @@ describe("HomeDashboard — 404 backend placeholder", () => {
     mockGetStatsGroups.mockResolvedValue(null);
     mockGetHealthDetailed.mockResolvedValue(null);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -1051,6 +1064,7 @@ describe("HomeDashboard — active jobs block hidden when nothing active (A4)", 
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -1068,6 +1082,7 @@ describe("HomeDashboard — active jobs block: ingest row (A4)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -1121,6 +1136,7 @@ describe("HomeDashboard — active jobs block: backfill row (A4)", () => {
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
   });
 
   it("backfill row is rendered when running=true", async () => {
@@ -1192,6 +1208,7 @@ describe("HomeDashboard — groups cap + expand/collapse toggle (A4)", () => {
     mockGetStatsGroups.mockResolvedValue(MANY_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -1510,6 +1527,7 @@ describe("HomeDashboard — WS-C: ingest progress bar (AC-WS-C-1/2/3/5/6)", () =
     mockGetStatsGroups.mockResolvedValue(MOCK_GROUPS);
     mockGetHealthDetailed.mockResolvedValue(MOCK_HEALTH);
     mockGetBackfillDomainStatus.mockResolvedValue(null);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
   });
 
@@ -1962,5 +1980,63 @@ describe("HomeDashboard v1.5 — DataQualityNudge (dataQuality)", () => {
       expect(mockTriggerBackfillDomains).toHaveBeenCalledTimes(1);
       expect(mockTriggerReclassifyTypes).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// ─── v1.5.3: SynthesizeNudge (ADR-0067 D3 UI trigger) ─────────────────────────
+
+describe("HomeDashboard v1.5.3 — SynthesizeNudge (synthesize)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+    try { sessionStorage.clear(); } catch { /* ignore */ }
+  });
+
+  it("renders the nudge when the corpus has >=3 entity/concept pages and no run is in flight", async () => {
+    // MOCK_OVERVIEW: entity=40, concept=55 → 95 member pages, well above the 3-page floor.
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-synthesize-nudge")).not.toBeNull();
+    });
+    expect(screen.getByTestId("home-synthesize-cta")).not.toBeNull();
+  });
+
+  it("does NOT render when the corpus has fewer than 3 entity/concept pages", async () => {
+    const TINY_OVERVIEW = {
+      ...MOCK_OVERVIEW,
+      pages_by_type: { entity: 1, concept: 1, source: 20 },
+    };
+    mockGetStatsOverview.mockResolvedValue(TINY_OVERVIEW);
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    await renderDashboard();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("home-synthesize-nudge")).toBeNull();
+  });
+
+  it("does NOT render the nudge while a synthesize run is already in flight (surfaced in active jobs instead)", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue({ running: true, last_summary: null });
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-active-jobs-synthesize")).not.toBeNull();
+    });
+    expect(screen.queryByTestId("home-synthesize-nudge")).toBeNull();
+  });
+
+  it("clicking 'Generate now' triggers POST /ops/synthesize and disables the button", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-synthesize-cta")).not.toBeNull();
+    });
+    fireEvent.click(screen.getByTestId("home-synthesize-cta"));
+    await waitFor(() => {
+      expect(mockTriggerSynthesize).toHaveBeenCalledTimes(1);
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("home-synthesize-cta")).toHaveProperty("disabled", true);
+    });
+    // Re-fetches status once after triggering (I3-safe single re-check, no polling).
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,6 +3,10 @@
  *
  * POST /ops/backfill-domains  → trigger domain classification for unclassified pages
  * POST /ops/reclassify-types  → trigger type reclassification for untyped pages
+ * POST /ops/synthesize        → trigger the bounded corpus-level synthesis/comparison
+ *                                generator (ADR-0067 D3) — writes synthesis/comparison
+ *                                pages from high-confidence graph clusters, proposes
+ *                                borderline clusters to the F9 review queue.
  *
  * These are fire-on-demand triggers distinct from the schedule-driven equivalents
  * in opsScheduleClient.ts (POST /ops/schedules/{op}/run-now).
@@ -55,4 +59,18 @@ export async function triggerBackfillDomains(signal?: AbortSignal): Promise<OpsT
  */
 export async function triggerReclassifyTypes(signal?: AbortSignal): Promise<OpsTriggerResponse> {
   return postOp("/ops/reclassify-types", signal);
+}
+
+/**
+ * triggerSynthesize — POST /ops/synthesize (ADR-0067 D3).
+ *
+ * Triggers a bounded corpus-level pass that seeds candidate clusters from the
+ * 4-signal graph and, per cluster, either auto-writes a synthesis/comparison
+ * page (high confidence) or proposes it to the F9 review queue (borderline).
+ * The backend accepts an empty body; this client never sends run-bound
+ * overrides (max_pages/token_budget/force) — the server-side defaults (I7)
+ * are used, matching how the "Classify now" trigger works for backfill/reclassify.
+ */
+export async function triggerSynthesize(signal?: AbortSignal): Promise<OpsTriggerResponse> {
+  return postOp("/ops/synthesize", signal);
 }
