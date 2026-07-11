@@ -67,7 +67,7 @@ fn main() {
                 //   IF the filename ends with "Template" (native NSImage behaviour).
                 #[cfg(target_os = "macos")]
                 let tray_icon = {
-                    tauri::image::Image::from_bytes(include_bytes!("../../icons/tray-Template.png"))
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/tray-Template.png"))
                         .expect("tray template icon")
                 };
                 #[cfg(not(target_os = "macos"))]
