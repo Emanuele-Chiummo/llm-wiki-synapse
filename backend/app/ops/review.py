@@ -1839,7 +1839,9 @@ async def propose_reviews(
     for p in written_pages:
         try:
             total_chars += (settings.vault_root / p.file_path).stat().st_size
-        except OSError:
+        except (
+            Exception
+        ):  # noqa: BLE001 — best-effort gate: any path/stat issue → title-len fallback
             total_chars += len(p.title or "")
     spam_gate_passes = (
         len(written_pages) >= int(getattr(settings, "review_propose_min_pages", 4))
