@@ -2,13 +2,15 @@
 
 > **What this is:** the durable playbook a scheduled, no-human-input daily session reads to
 > pick and ship ONE bounded block of work — advancing nashsu/llm_wiki parity **and** bug-fixes —
-> then opens a PR for review. It is the single source of truth for the autonomous loop.
+> committing it to a **weekly integration branch**. It is the single source of truth for the loop.
 >
-> **Who runs it:** a durable Routine (see §6) fires a fresh Claude Code session at ~07:03 local
-> daily. That session follows this file top-to-bottom, then stops. No human input required.
+> **Who runs it:** a scheduled session (see §6) fires at ~07:03 local daily, follows this file
+> top-to-bottom for one block, commits+pushes (no PR), then stops. No human input required.
 >
-> **Owner gate:** the job NEVER merges. Every day's output is a PR Emanuele reviews. This is the
-> DoD "human checkpoint" (CLAUDE.md §8) preserved.
+> **Cadence & owner gate (owner decision 2026-07-11):** daily work accrues; **release is WEEKLY.**
+> A Friday ~18:00 run consolidates the week into ONE release PR (bump + CHANGELOG + `release-cut`).
+> The job NEVER merges — the owner reviews & merges that single weekly PR. DoD "human checkpoint"
+> (CLAUDE.md §8) preserved, without a daily PR flood.
 
 ---
 
@@ -56,18 +58,40 @@
   `docs/screens/`. This is the "test from preview" step. Record pass/fail per gate in `run-status.json`.
 - If a gate is red: fix within budget, or revert the block and open a DRAFT PR explaining the blocker.
 
-**Phase 4 — Release process** (Haiku-class, effort low)
-- Branch: `claude/daily-<YYYY-MM-DD>` off latest `main`.
+**Phase 4 — Persist to the weekly integration branch** (Haiku-class, effort low)
+> CADENCE (owner decision 2026-07-11): **daily work accrues, release is WEEKLY.** Daily runs
+> commit + push but DO NOT open a PR. One consolidated release PR is cut every **Friday ~18:00**
+> (see §4.5). This means the owner reviews/merges **one PR per week**, not one per day.
+- Weekly integration branch: **`claude/weekly-<YYYY-Www>`** (ISO week, e.g. `claude/weekly-2026-W28`).
+  On the week's FIRST run, create it off latest `origin/main`; on later runs of the same week,
+  `git fetch` and continue on it (rebase onto origin if it moved).
 - Commit(s): `feat|fix(module): description [Fxx|Kxx]` (CLAUDE.md §11). Reference a feature ID.
-- Update `CHANGELOG.md [Unreleased]`.
-- Open a **PR** to `main` (never merge). Title mirrors the block; body = what/why/tests/screens.
+- Update `CHANGELOG.md [Unreleased]` (accumulates all week's entries; the Friday run turns
+  `[Unreleased]` into the versioned section).
+- `git push` the weekly branch. **Do NOT open a PR** (the Friday release run does that).
 
 **Phase 5 — Record & publish dashboard** (Haiku-class, effort low)
 - Tick the shipped item in §3; append a row to the run log (§7).
-- Finalize `run-status.json` (`phase: "done"`, `pr_url`, totals) and append to `history.jsonl`.
+- Finalize `run-status.json` (`phase: "done"`, totals) and append to `history.jsonl`.
 - Regenerate `docs/dashboard/index.html` from the two status files and **re-publish the Artifact**
-  to the stored URL (§5). Commit the status/dashboard/queue changes on the same branch.
+  to the stored URL (§5). Commit the status/dashboard/queue changes on the weekly branch and push.
 - Report a 5-line summary and STOP.
+
+**§4.5 — Weekly release run (Fridays ~18:00)**
+A separate scheduled run consolidates the week into ONE release, following the repo's release flow:
+1. `git fetch origin`; ensure the weekly branch `claude/weekly-<YYYY-Www>` is rebased on `origin/main`.
+2. Run the full 360° gate on the whole week's accumulation (`make lint` · `make typecheck` ·
+   `make test`; frontend if touched; `make er`/`make openapi` zero-diff if schema/routes moved).
+3. Pick the version bump (patch/minor per what shipped) and run `make bump VERSION=x.y.z` (updates
+   the 4 version files) — this is the single "release commit". Finalize `CHANGELOG.md` (move
+   `[Unreleased]` → `[x.y.z] — <date>`).
+4. Open ONE **PR** `main ← claude/weekly-<YYYY-Www>` (mirror `.github/PULL_REQUEST_TEMPLATE.md`),
+   summarizing every block shipped that week. NEVER merge — owner reviews & merges, then the
+   `release-cut.yml` / `desktop-release.yml` workflows cut the tag + images from `main`.
+5. After the owner merges, the NEXT week starts a fresh `claude/weekly-<next-week>` off `origin/main`
+   (a merged PR is finished — never restack on merged history).
+- If the week produced nothing shippable, skip the release (log "no release this week") — do not
+  open an empty PR.
 
 ---
 
@@ -175,16 +199,24 @@ Artifact tool) so the link stays stable — never mint a new one.
 
 ---
 
-## 6. The Routine (how it is scheduled)
+## 6. How it is scheduled (two jobs)
 
-Created once via `mcp__Claude_Code_Remote__create_trigger`:
-- `cron_expression: "3 7 * * *"` · `create_new_session_on_fire: true` · `notifications: {push:true}`
-- Standalone prompt = "Follow `docs/process/DAILY-DRIVER.md` top-to-bottom for exactly one block,
-  then stop." (Full prompt stored with the Routine.)
-- Stop the whole loop anytime with `delete_trigger`. Fire an extra run now with `fire_trigger`.
+Two schedules drive the loop:
+- **Daily work** — `cron "3 7 * * *"` (07:03): run ONE block, commit+push to the weekly branch, NO PR.
+- **Weekly release** — `cron "3 18 * * 5"` (Fri 18:03): the §4.5 release run — bump + ONE PR to `main`.
 
-Why a Routine and not `CronCreate`: `CronCreate` is session-only and dies with the session (7-day
-cap). A Routine is durable server-side and spawns a fresh session each day — true no-input autonomy.
+**Preferred vehicle: durable Routine** via `mcp__Claude_Code_Remote__create_trigger`
+(`create_new_session_on_fire: true`, `notifications: {push:true}`). Durable server-side, spawns a
+fresh isolated session each fire — true no-input autonomy that survives this session ending.
+Stop with `delete_trigger`; fire an extra run with `fire_trigger`.
+
+**Current stopgap: session-cron bridge** (`CronCreate`). Until the owner grants the client
+permission for `create_trigger`, the daily job runs as a session-cron (job `0830c896`). Caveat:
+session-only — fires into THIS session while idle, dies when it ends, auto-expires after 7 days.
+Upgrade to the durable Routine as soon as the permission is granted, then delete the bridge.
+
+Why not rely on `CronCreate` long-term: it is session-only (7-day cap, no fresh session). The
+Routine is the real autonomy mechanism.
 
 ---
 
