@@ -9,6 +9,47 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-07-11 — "LLM Wiki 1:1 parity"
+
+Brings Synapse's generated output and UX to 1:1 parity with the LLM Wiki gold vault (same corpus,
+same Haiku 4.5). See `docs/adr/ADR-0067` and `docs/reference/AUDIT-SYNAPSE-VS-LLMWIKI-1TO1-2026-07-10.md`.
+
+### Added
+- **Corpus-level synthesis/comparison generator** (`ops/synthesize.py`, `POST /ops/synthesize`) — a
+  bounded graph-clustered pass authors cross-cutting synthesis and side-by-side comparison pages
+  after import; the ingest-time prohibition on generating them stays intact [F4, ADR-0067 D3].
+- **Contradiction → open-question** — an applied contradiction lint finding authors a genuine `query`
+  page (Question / Hypothesis / Open Points / Impact / References) with real sources [F9, K2, K4].
+- **Vault-maintenance ops** (dry-run by default): `migrate_lint_query_stubs`, `reconcile_folders`
+  (folder = type), `dedup_entities` (alias merge via Review), `backfill_related` (adds `related:` and
+  converts `[[Title]]` → `[[slug|Title]]` in place) [F13, K6].
+- **`related:` frontmatter** (by slug) on generated pages, seeding the 4-signal graph [F4, ADR-0067 D2].
+- **Home additions** (all additive — nothing removed): wiki-thesis hero, quick actions, inline review
+  preview, open-questions, and a data-quality nudge; and **Sfoglia** now filters the Wiki tree to a
+  domain/group, with the overview always kept visible [F18].
+
+### Changed
+- **Frontmatter mirrors LLM Wiki** — `type`-first key order, `related:` by slug; `sources`/`lang` kept
+  in Postgres (graph source-overlap ×4 and cascade-delete intact) but no longer written to the `.md`
+  [F3, ADR-0067 D2].
+- **Overview** gains a keyword tag-cloud, a bolded thesis lead, and an `## Open Questions` block that
+  lists the live query pages [F3, ADR-0067 D6].
+- **Entity canonicalization at ingest** — `AWS` / `Amazon Web Services (AWS)` merge to one page (exact
+  normalized key; fuzzy variants routed to Review) [F3, ADR-0067 D5].
+- **Chat "save to wiki"** files analytical answers to `synthesis/` (not `query`), graph-connects them,
+  and citations reference page paths [F5, F6].
+- **Frontend code-split** — heavy views (graph, editor, chat) lazy-load; initial JS bundle
+  ~2010 kB → ~332 kB (−83%); the graph revisit reuses the cached store instead of refetching [I2, I3].
+
+### Fixed
+- **Wiki Lint no longer manufactures `type:query` stub pages** for missing wikilinks — they route to
+  entity/concept (or the Review queue), reserving `queries/` for genuine open questions
+  [K2, ADR-0067 D1].
+- **Index** — `## Queries` heading (was `## Querys`), the `## Uncategorised` ghost section removed,
+  and duplicate titles collapsed [K3].
+- **CLI-delegated ingest** now runs the wikilink-enrichment post-pass, so delegated pages are no
+  longer graph-sparse [F4].
+
 ## [1.4.1] — 2026-07-10 — "Large PDFs & graph counts"
 
 ### Added
