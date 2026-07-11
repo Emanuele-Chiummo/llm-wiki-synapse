@@ -258,18 +258,32 @@ async def _marker_batch_driver(
             companion_name = f"{entry.safe_stem}.extracted.md"
             companion_dst = raw_sources / companion_name
             pdf_dst = Path(entry.pdf_abs_path)
-            raw_rel = str(pdf_dst.relative_to(vault_root))
+            companion_rel = str(companion_dst.relative_to(vault_root))
+            # The converted .md becomes the retained source of record and the raw PDF is deleted
+            # below (user request), so point sources[] at the .md — never at the soon-deleted PDF —
+            # to keep traceability/cascade-delete valid.
             companion_content = (
                 "---\n"
                 f"type: source\n"
                 f"title: {entry.safe_stem}\n"
-                f'sources: ["{raw_rel}"]\n'
+                f'sources: ["{companion_rel}"]\n'
                 "---\n\n" + marker_markdown
             )
             try:
                 companion_dst.write_text(companion_content, encoding="utf-8")
-                entry.companion_rel = str(companion_dst.relative_to(vault_root))
+                entry.companion_rel = companion_rel
                 entry.status = "ok"
+                # After a successful conversion, delete the source PDF so raw/sources/ isn't left
+                # holding both the bulky PDF and its markdown (and so the watcher ingests only the
+                # .md, not the PDF too). Best-effort: a failed unlink must NOT fail the conversion —
+                # the .md is already written and will be ingested.
+                try:
+                    pdf_dst.unlink(missing_ok=True)
+                    logger.info("marker_converter: deleted source PDF %s after conversion", pdf_dst)
+                except OSError as exc:
+                    logger.warning(
+                        "marker_converter: could not delete source PDF %s — %s", pdf_dst, exc
+                    )
                 logger.info(
                     "marker_converter: %s → %s (%d chars) — watcher will ingest (I1)",
                     entry.file,
