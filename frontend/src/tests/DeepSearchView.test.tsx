@@ -18,6 +18,7 @@ vi.mock("../api/researchClient", () => ({
   startResearch: vi.fn(),
   fetchResearchRuns: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 }),
   fetchResearchRunDetail: vi.fn(),
+  deleteResearchRun: vi.fn(),
 }));
 
 import * as researchClient from "../api/researchClient";
@@ -128,6 +129,8 @@ beforeEach(() => {
     runningCount: 0,
     starting: false,
     startError: null,
+    deletingRunId: null,
+    deleteError: null,
   });
   // Default: fetchResearchRuns returns empty
   vi.mocked(researchClient.fetchResearchRuns).mockResolvedValue({

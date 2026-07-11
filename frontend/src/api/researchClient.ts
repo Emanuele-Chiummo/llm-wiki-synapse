@@ -1,20 +1,17 @@
 /**
  * researchClient.ts — typed API client for Synapse deep-research endpoints (F10, ADR-0024 §8).
  *
- * POST /research/optimize-topic → OptimizeTopicResponse
- * POST /research/start          → ResearchStartResponse (202)
- * GET  /research/runs           → ResearchRunListResponse
- * GET  /research/runs/{id}      → ResearchRunDetail
+ * POST   /research/optimize-topic → OptimizeTopicResponse
+ * POST   /research/start          → ResearchStartResponse (202)
+ * GET    /research/runs           → ResearchRunListResponse
+ * GET    /research/runs/{id}      → ResearchRunDetail
+ * DELETE /research/runs/{id}      → ResearchDeleteResponse (v1.5.4)
  *
  * No secrets in this file (CLAUDE.md §12).
  * No provider/model literals hardcoded (I6).
  */
 
-import type {
-  ResearchStartResponse,
-  ResearchRunListResponse,
-  ResearchRunDetail,
-} from "./types";
+import type { ResearchStartResponse, ResearchRunListResponse, ResearchRunDetail } from "./types";
 import { ApiError } from "./graphClient";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
@@ -124,4 +121,32 @@ export async function fetchResearchRunDetail(
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ResearchRunDetail;
+}
+
+/** Response of DELETE /research/runs/{id} (v1.5.4). */
+export interface ResearchDeleteResponse {
+  id: string;
+  raw_source_deleted: boolean;
+}
+
+/**
+ * Delete one deep-research run from history (v1.5.4).
+ * DELETE /research/runs/{id}
+ *
+ * History cleanup only — does NOT touch a wiki page the run may have produced
+ * (that stays a normal wiki page, deletable separately via DELETE /pages/{id}).
+ * 404 if unknown; 409 while the run is still "running" (caller should not offer
+ * the delete action for a running row — the running badge already signals this).
+ */
+export async function deleteResearchRun(
+  runId: string,
+  signal?: AbortSignal,
+): Promise<ResearchDeleteResponse> {
+  const url = `${apiBase()}/research/runs/${encodeURIComponent(runId)}`;
+  const res = await apiFetch(url, {
+    method: "DELETE",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as ResearchDeleteResponse;
 }

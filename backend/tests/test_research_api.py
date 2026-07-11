@@ -16,6 +16,11 @@ Tests:
   T-RA-012  GET /research/runs/{id} 404 for unknown id
   T-RA-013  synthesis_text null before step 5 (AC-F10-4c)
   T-RA-014  POST /research/start schedules background task (does not block)
+  T-RA-015  DELETE /research/runs/{id} 200, run + sources removed
+  T-RA-016  DELETE /research/runs/{id} 404 for unknown id
+  T-RA-017  DELETE /research/runs/{id} 409 while status == "running"
+  T-RA-018  DELETE removes raw/sources/deep-research-<id>.md when synthesis_page_id is NULL
+  T-RA-019  DELETE leaves the raw file in place when synthesis_page_id is set
 
 Uses SQLite in-memory (GAP-4 pattern).  No live Postgres, Qdrant, or SearXNG needed.
 Test isolation: patch app.db.async_session_factory, app.main.get_session, app.db.get_session.
@@ -668,6 +673,116 @@ class TestResearchRunDetailEndpoint:
         ), f"synthesis_text must be null while running; got {data['synthesis_text']!r}"
         # completed_at must also be null for running (mirrors ingest_runs)
         assert data["completed_at"] is None or data["status"] == "running"
+
+
+# ── T-RA-015..019: DELETE /research/runs/{id} ─────────────────────────────────
+
+
+class TestResearchDeleteEndpoint:
+    """T-RA-015..019 — DELETE /research/runs/{id} contract."""
+
+    async def test_200_removes_run_and_sources(
+        self,
+        research_client: AsyncClient,
+        research_env: dict[str, Any],
+    ) -> None:
+        """T-RA-015: 200, and the run + its sources are actually gone from the DB."""
+        run_id = await _insert_run(research_env, status="converged")
+        await _insert_source(research_env, run_id=run_id, url="https://example.com/a")
+        await _insert_source(research_env, run_id=run_id, url="https://example.com/b")
+
+        resp = await research_client.delete(f"/research/runs/{run_id}")
+        assert resp.status_code == 200, f"Expected 200; got {resp.status_code}: {resp.text}"
+        data = resp.json()
+        assert data["id"] == run_id
+        assert "raw_source_deleted" in data
+
+        # Run is gone (GET now 404)
+        get_resp = await research_client.get(f"/research/runs/{run_id}")
+        assert get_resp.status_code == 404, "Run must be gone after delete"
+
+        # Sources are gone too (no orphaned rows left behind)
+        async with research_env["session_factory"]() as sess:
+            count = (
+                await sess.execute(
+                    sa_text("SELECT COUNT(*) FROM deep_research_sources WHERE run_id = :rid"),
+                    {"rid": run_id},
+                )
+            ).scalar_one()
+        assert count == 0, f"Expected 0 orphaned sources; got {count}"
+
+    async def test_404_for_unknown_run_id(
+        self,
+        research_client: AsyncClient,
+    ) -> None:
+        """T-RA-016: 404 for unknown run_id."""
+        unknown_id = uuid.uuid4()
+        resp = await research_client.delete(f"/research/runs/{unknown_id}")
+        assert resp.status_code == 404, f"Expected 404; got {resp.status_code}"
+
+    async def test_409_while_running(
+        self,
+        research_client: AsyncClient,
+        research_env: dict[str, Any],
+    ) -> None:
+        """T-RA-017: 409 while the run is still 'running' — cannot delete in-flight."""
+        run_id = await _insert_run(research_env, status="running", completed_at=None)
+
+        resp = await research_client.delete(f"/research/runs/{run_id}")
+        assert resp.status_code == 409, f"Expected 409; got {resp.status_code}: {resp.text}"
+
+        # Row must still exist (rejected delete is a no-op)
+        get_resp = await research_client.get(f"/research/runs/{run_id}")
+        assert get_resp.status_code == 200, "Rejected delete must not remove the row"
+
+    async def test_removes_raw_source_when_no_page_was_created(
+        self,
+        research_client: AsyncClient,
+        research_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        """T-RA-018: synthesis_page_id NULL → the orphaned raw file is also removed."""
+        from app import config as cfg
+
+        monkeypatch.setattr(cfg.settings, "vault_path", str(tmp_path))
+        run_id = await _insert_run(research_env, status="max_iter_reached", synthesis_page_id=None)
+
+        raw_dir = tmp_path / "raw" / "sources"
+        raw_dir.mkdir(parents=True)
+        raw_file = raw_dir / f"deep-research-{run_id}.md"
+        raw_file.write_text("---\ntype: source\n---\n\norphaned synthesis\n", encoding="utf-8")
+
+        resp = await research_client.delete(f"/research/runs/{run_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["raw_source_deleted"] is True
+        assert not raw_file.exists(), "Orphan raw file must be removed"
+
+    async def test_keeps_raw_source_when_a_page_was_created(
+        self,
+        research_client: AsyncClient,
+        research_env: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        """T-RA-019: synthesis_page_id set → the raw file is left in place."""
+        from app import config as cfg
+
+        monkeypatch.setattr(cfg.settings, "vault_path", str(tmp_path))
+        page_id = str(uuid.uuid4())
+        run_id = await _insert_run(research_env, status="converged", synthesis_page_id=page_id)
+
+        raw_dir = tmp_path / "raw" / "sources"
+        raw_dir.mkdir(parents=True)
+        raw_file = raw_dir / f"deep-research-{run_id}.md"
+        raw_file.write_text("---\ntype: source\n---\n\nsynthesis with a page\n", encoding="utf-8")
+
+        resp = await research_client.delete(f"/research/runs/{run_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["raw_source_deleted"] is False
+        assert raw_file.exists(), "Raw file backing a real page must be kept"
 
 
 # ── T-RA-014: POST /research/start is non-blocking ───────────────────────────

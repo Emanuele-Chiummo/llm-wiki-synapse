@@ -6,7 +6,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { optimizeResearchTopic, startResearch, fetchResearchRuns, fetchResearchRunDetail } from "../api/researchClient";
+import {
+  optimizeResearchTopic,
+  startResearch,
+  fetchResearchRuns,
+  fetchResearchRunDetail,
+  deleteResearchRun,
+} from "../api/researchClient";
 import type { ResearchRunListResponse, ResearchRunDetail, ResearchStartResponse } from "../api/types";
 
 // Inline type for fetch init to avoid ESLint no-undef on the DOM global FetchInit
@@ -229,5 +235,49 @@ describe("fetchResearchRunDetail", () => {
   it("throws ApiError on 404", async () => {
     mockFetch({ detail: "Not found" }, 404);
     await expect(fetchResearchRunDetail("bad-id")).rejects.toThrow("404");
+  });
+});
+
+// ─── deleteResearchRun (v1.5.4) ───────────────────────────────────────────────
+
+describe("deleteResearchRun", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("DELETEs /research/runs/{id} and returns the response body", async () => {
+    mockFetch({ id: "run-1", raw_source_deleted: true });
+
+    const result = await deleteResearchRun("run-1");
+
+    expect(globalThis.fetch).toHaveBeenCalledOnce();
+    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
+    expect(url).toContain("/research/runs/run-1");
+    expect(opts.method).toBe("DELETE");
+    expect(result).toEqual({ id: "run-1", raw_source_deleted: true });
+  });
+
+  it("passes AbortSignal to fetch", async () => {
+    mockFetch({ id: "run-1", raw_source_deleted: false });
+    const ctrl = new AbortController();
+
+    await deleteResearchRun("run-1", ctrl.signal);
+
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
+    expect(opts?.signal).toBe(ctrl.signal);
+  });
+
+  it("throws ApiError on 404", async () => {
+    mockFetch({ detail: "Not found" }, 404);
+    await expect(deleteResearchRun("bad-id")).rejects.toThrow("404");
+  });
+
+  it("throws ApiError on 409 (running run)", async () => {
+    mockFetch({ detail: "Run is still running" }, 409);
+    await expect(deleteResearchRun("running-id")).rejects.toThrow("409");
   });
 });

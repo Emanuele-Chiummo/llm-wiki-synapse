@@ -705,6 +705,12 @@
     "noRunSelected": "Select a run to see its detail and synthesis.",
     "loadMore": "Load more",
     "runLabel": "Research run",
+    "deleteRun": {
+      "button": "Delete run",
+      "confirmTitle": "Delete this research run?",
+      "confirmBody": "This removes \"{{topic}}\" from your research history. If it produced a wiki page, that page is not affected — delete it separately from the wiki if you want it gone too.",
+      "confirmLabel": "Delete"
+    },
     "cost": "Cost",
     "iterations": "Iterations",
     "sources": "Sources",

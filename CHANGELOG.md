@@ -9,6 +9,23 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.4] — 2026-07-11 — "Delete Deep Research runs"
+
+Patch: adds the missing way to delete a Deep Research run from history — previously there was
+no DELETE endpoint and no UI action at all.
+
+### Added
+- **`DELETE /research/runs/{id}`** — removes one `deep_research_runs` row (+ its
+  `deep_research_sources` child rows) from history. History cleanup only: a wiki page the run
+  produced is untouched (delete it separately via `DELETE /pages/{id}` if desired). The run's
+  `raw/sources/deep-research-<id>.md` file is best-effort removed ONLY when no page was ever
+  created from it (pure orphan cleanup) — otherwise it stays in place since a live page still
+  documents it as its source. 404 for an unknown run; 409 while the run is still "running"
+  (deleting an in-flight row would race the background task's writes).
+- **Delete action in the Deep Search UI** — a trash icon on each terminal run row (hidden while
+  "running") opens a confirmation dialog (never `window.confirm`), then removes the run from the
+  list. Failures surface as a dismissible inline error banner.
+
 ## [1.5.3] — 2026-07-11 — "Synthesize/comparison UI trigger"
 
 Patch: exposes the corpus-level synthesis/comparison generator (`POST /ops/synthesize`,

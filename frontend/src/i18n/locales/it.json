@@ -705,6 +705,12 @@
     "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli e la sintesi.",
     "loadMore": "Carica altri",
     "runLabel": "Esecuzione ricerca",
+    "deleteRun": {
+      "button": "Elimina ricerca",
+      "confirmTitle": "Eliminare questa ricerca?",
+      "confirmBody": "Rimuove \"{{topic}}\" dallo storico delle ricerche. Se ha prodotto una pagina wiki, quella pagina non viene toccata — eliminala separatamente dal wiki se vuoi farla sparire anche lei.",
+      "confirmLabel": "Elimina"
+    },
     "cost": "Costo",
     "iterations": "Iterazioni",
     "sources": "Fonti",

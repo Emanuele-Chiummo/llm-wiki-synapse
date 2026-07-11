@@ -91,6 +91,8 @@ beforeEach(() => {
     runningCount: 0,
     starting: false,
     startError: null,
+    deletingRunId: null,
+    deleteError: null,
     prefill: null,
   });
 });
@@ -275,6 +277,101 @@ describe("startRun", () => {
     const state = useResearchStore.getState();
     expect(state.startError).toBe("503 SEARXNG not configured");
     expect(state.starting).toBe(false);
+  });
+});
+
+// ─── deleteRun (v1.5.4) ───────────────────────────────────────────────────────
+
+describe("deleteRun", () => {
+  it("removes the run from runs[], decrements total, clears deletingRunId", async () => {
+    useResearchStore.setState({
+      runs: [
+        makeRun({ id: "r1" }),
+        makeRun({ id: "r2" }),
+      ] as ResearchRunListResponse["items"],
+      total: 2,
+    });
+    mockFetch({ id: "r1", raw_source_deleted: false });
+
+    await useResearchStore.getState().deleteRun("r1");
+
+    const state = useResearchStore.getState();
+    expect(state.runs.map((r) => r.id)).toEqual(["r2"]);
+    expect(state.total).toBe(1);
+    expect(state.deletingRunId).toBeNull();
+    expect(state.deleteError).toBeNull();
+  });
+
+  it("clears the selection and detail when the deleted run was selected", async () => {
+    useResearchStore.setState({
+      runs: [makeRun({ id: "r1" })] as ResearchRunListResponse["items"],
+      total: 1,
+      selectedRunId: "r1",
+      detail: makeDetail({ id: "r1" }),
+    });
+    mockFetch({ id: "r1", raw_source_deleted: false });
+
+    await useResearchStore.getState().deleteRun("r1");
+
+    const state = useResearchStore.getState();
+    expect(state.selectedRunId).toBeNull();
+    expect(state.detail).toBeNull();
+  });
+
+  it("leaves the selection untouched when a DIFFERENT run is deleted", async () => {
+    useResearchStore.setState({
+      runs: [
+        makeRun({ id: "r1" }),
+        makeRun({ id: "r2" }),
+      ] as ResearchRunListResponse["items"],
+      total: 2,
+      selectedRunId: "r2",
+      detail: makeDetail({ id: "r2" }),
+    });
+    mockFetch({ id: "r1", raw_source_deleted: false });
+
+    await useResearchStore.getState().deleteRun("r1");
+
+    const state = useResearchStore.getState();
+    expect(state.selectedRunId).toBe("r2");
+    expect(state.detail?.id).toBe("r2");
+  });
+
+  it("recomputes runningCount after removing a running run", async () => {
+    useResearchStore.setState({
+      runs: [
+        makeRun({ id: "r1", status: "running" }),
+        makeRun({ id: "r2", status: "running" }),
+      ] as ResearchRunListResponse["items"],
+      total: 2,
+      runningCount: 2,
+    });
+    mockFetch({ id: "r1", raw_source_deleted: false });
+
+    await useResearchStore.getState().deleteRun("r1");
+
+    expect(useResearchStore.getState().runningCount).toBe(1);
+  });
+
+  it("sets deleteError and leaves runs[] untouched on failure", async () => {
+    useResearchStore.setState({
+      runs: [makeRun({ id: "r1" })] as ResearchRunListResponse["items"],
+      total: 1,
+    });
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("409 Run is still running"));
+
+    await useResearchStore.getState().deleteRun("r1");
+
+    const state = useResearchStore.getState();
+    expect(state.deleteError).toBe("409 Run is still running");
+    expect(state.deletingRunId).toBeNull();
+    expect(state.runs).toHaveLength(1); // untouched — the failed delete is a no-op
+  });
+
+  it("clearDeleteError resets deleteError to null", () => {
+    useResearchStore.setState({ deleteError: "boom" });
+    useResearchStore.getState().clearDeleteError();
+    expect(useResearchStore.getState().deleteError).toBeNull();
   });
 });
 

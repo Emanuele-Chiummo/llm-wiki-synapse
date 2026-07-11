@@ -2,9 +2,10 @@
 Per-domain APIRouter: /research/* endpoints (F10 Deep Research).
 
 Covers:
-  POST /research/start            — start a bounded deep-research run
-  GET  /research/runs             — paginated run history
-  GET  /research/runs/{id}        — run detail + sources
+  POST   /research/start            — start a bounded deep-research run
+  GET    /research/runs             — paginated run history
+  GET    /research/runs/{id}        — run detail + sources
+  DELETE /research/runs/{id}        — delete one run from history (v1.5.4)
 """
 
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 
 from app.config import settings
@@ -249,6 +251,20 @@ class ResearchRunDetail(BaseModel):
         return float(v) if v is not None else 0.0
 
     model_config = {"from_attributes": True}
+
+
+class ResearchDeleteResponse(BaseModel):
+    """200 response for DELETE /research/runs/{run_id} (v1.5.4)."""
+
+    id: uuid.UUID = Field(..., description="Deleted run id")
+    raw_source_deleted: bool = Field(
+        description=(
+            "True if the run's raw/sources/deep-research-<id>.md file was also removed. "
+            "Only happens when no wiki page was ever created from it (synthesis_page_id was "
+            "NULL) — pure orphan cleanup. A run whose synthesis WAS ingested into a page keeps "
+            "its raw file in place (that page still documents it as its source, I1/I5)."
+        )
+    )
 
 
 @router.post(
@@ -533,3 +549,80 @@ async def get_research_run(run_id: uuid.UUID) -> ResearchRunDetail:
         completed_at=run.completed_at,
         error_message=run.error_message,
     )
+
+
+@router.delete(
+    "/research/runs/{run_id}",
+    response_model=ResearchDeleteResponse,
+    summary="Delete a deep-research run from history",
+    description=(
+        "Removes one deep_research_runs row — and its deep_research_sources child rows (ORM "
+        "cascade, ADR-0024 §7.2) — from the run history list (GET /research/runs). History "
+        "cleanup only: this does NOT touch a wiki page the run may have produced "
+        "(synthesis_page_id) — that page is ordinary wiki content and must be removed via "
+        "DELETE /pages/{page_id} (F13 cascade-delete) if desired, independently. The run's "
+        "raw/sources/deep-research-<id>.md file is best-effort removed ONLY when no page was "
+        "ever created from it (synthesis_page_id IS NULL) — pure orphan cleanup; otherwise the "
+        "file is left in place. Makes ZERO inference calls. 404 if unknown run_id. 409 while "
+        "the run is still 'running' (deleting an in-flight row would race the background task's "
+        "writes)."
+    ),
+    responses={
+        200: {"description": "Run deleted from history"},
+        404: {"description": "No run with this id"},
+        409: {"description": "Run is still running — cannot delete an in-flight run"},
+    },
+)
+async def delete_research_run(run_id: uuid.UUID) -> ResearchDeleteResponse:
+    """DELETE /research/runs/{run_id} — remove one run from history (v1.5.4, not F13)."""
+    run_id_str = str(run_id)
+
+    async with _m.get_session() as session:
+        run_result = await session.execute(
+            select(DeepResearchRun).where(DeepResearchRun.id == run_id_str)
+        )
+        run = run_result.scalar_one_or_none()
+
+        if run is None:
+            raise HTTPException(status_code=404, detail=f"Deep research run {run_id} not found")
+
+        if run.status == "running":
+            raise HTTPException(
+                status_code=409,
+                detail="Run is still running — cannot delete an in-flight run",
+            )
+
+        synthesis_page_id = run.synthesis_page_id
+
+        # Explicit two-step delete (children before parent) rather than ORM
+        # session.delete(run): DeepResearchRun.sources is cascade="all, delete-orphan"
+        # BUT lazy="raise" (ADR-0024 §7.2) — relying on the ORM cascade would try to
+        # lazy-load run.sources to process the cascade and raise. This also avoids
+        # depending on the DB-level ON DELETE CASCADE FK behaving identically across
+        # backends (SQLite test schema vs Postgres prod).
+        await session.execute(
+            sa_delete(DeepResearchSource).where(DeepResearchSource.run_id == run_id_str)
+        )
+        await session.execute(sa_delete(DeepResearchRun).where(DeepResearchRun.id == run_id_str))
+
+        raw_source_deleted = False
+        if synthesis_page_id is None:
+            # Orphan cleanup only — a page that documents this raw file as its source keeps it.
+            rel = f"raw/sources/deep-research-{run_id_str}.md"
+            abs_path = settings.vault_root / rel
+            try:
+                if abs_path.exists():
+                    abs_path.unlink()
+                    raw_source_deleted = True
+            except OSError as exc:  # noqa: BLE001 — best-effort, never fails the delete
+                logger.warning(
+                    "DELETE /research/runs/%s: failed to remove raw source %s: %s",
+                    run_id,
+                    rel,
+                    exc,
+                )
+
+    logger.info(
+        "DELETE /research/runs/%s: deleted (raw_source_deleted=%s)", run_id, raw_source_deleted
+    )
+    return ResearchDeleteResponse(id=run_id, raw_source_deleted=raw_source_deleted)

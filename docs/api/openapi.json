@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.5.3"
+    "version": "1.5.4"
   },
   "paths": {
     "/sources": {
@@ -3854,6 +3854,56 @@
           },
           "404": {
             "description": "No run with this id"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete a deep-research run from history",
+        "description": "Removes one deep_research_runs row \u2014 and its deep_research_sources child rows (ORM cascade, ADR-0024 \u00a77.2) \u2014 from the run history list (GET /research/runs). History cleanup only: this does NOT touch a wiki page the run may have produced (synthesis_page_id) \u2014 that page is ordinary wiki content and must be removed via DELETE /pages/{page_id} (F13 cascade-delete) if desired, independently. The run's raw/sources/deep-research-<id>.md file is best-effort removed ONLY when no page was ever created from it (synthesis_page_id IS NULL) \u2014 pure orphan cleanup; otherwise the file is left in place. Makes ZERO inference calls. 404 if unknown run_id. 409 while the run is still 'running' (deleting an in-flight row would race the background task's writes).",
+        "operationId": "delete_research_run_research_runs__run_id__delete",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run deleted from history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchDeleteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No run with this id"
+          },
+          "409": {
+            "description": "Run is still running \u2014 cannot delete an in-flight run"
           },
           "422": {
             "description": "Validation Error",
@@ -10405,6 +10455,28 @@
           "reconnected": 42,
           "remaining_dangling": 7
         }
+      },
+      "ResearchDeleteResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Deleted run id"
+          },
+          "raw_source_deleted": {
+            "type": "boolean",
+            "title": "Raw Source Deleted",
+            "description": "True if the run's raw/sources/deep-research-<id>.md file was also removed. Only happens when no wiki page was ever created from it (synthesis_page_id was NULL) \u2014 pure orphan cleanup. A run whose synthesis WAS ingested into a page keeps its raw file in place (that page still documents it as its source, I1/I5)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "raw_source_deleted"
+        ],
+        "title": "ResearchDeleteResponse",
+        "description": "200 response for DELETE /research/runs/{run_id} (v1.5.4)."
       },
       "ResearchOptimizeTopicRequest": {
         "properties": {

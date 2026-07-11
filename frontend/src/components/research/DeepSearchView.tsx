@@ -22,11 +22,14 @@ import {
   useState,
   useCallback,
   type KeyboardEvent,
+  type MouseEvent,
   type CSSProperties,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
+import { Trash2 } from "lucide-react";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   useResearchStore,
   selectResearchRuns,
@@ -46,6 +49,10 @@ import {
   selectStartRun,
   selectStartPollingDetail,
   selectClearStartError,
+  selectDeletingRunId,
+  selectDeleteRun,
+  selectDeleteError,
+  selectClearDeleteError,
   isTerminal,
 } from "../../store/researchStore";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
@@ -87,8 +94,7 @@ function ResearchStatusBadge({ status }: ResearchStatusBadgeProps) {
   const bg = RESEARCH_STATUS_BG[status] ?? "var(--syn-surface-hover)";
 
   const reducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   return (
     <span
@@ -144,10 +150,24 @@ interface RunCardProps {
   lang: string;
   style: CSSProperties;
   onClick: () => void;
+  /** v1.5.4: opens the delete confirmation for this run. Not shown while status=="running". */
+  onDeleteClick: (e: MouseEvent) => void;
+  /** v1.5.4: true while this specific run is being deleted (disables the button). */
+  deleting: boolean;
   t: (key: string) => string;
 }
 
-function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
+function RunCard({
+  run,
+  selected,
+  lang,
+  style,
+  onClick,
+  onDeleteClick,
+  deleting,
+  t,
+}: RunCardProps) {
+  const deletable = run.status !== "running";
   return (
     <div
       role="button"
@@ -174,7 +194,7 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         if (e.key === "Enter" || e.key === " ") onClick();
       }}
     >
-      {/* Row 1: status badge + cost */}
+      {/* Row 1: status badge + cost + delete (v1.5.4) */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <ResearchStatusBadge status={run.status} />
         <span style={{ fontSize: 12, color: "var(--syn-text-dim)", marginLeft: "auto" }}>
@@ -183,6 +203,32 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
             {formatCost(run.total_cost_usd)}
           </span>
         </span>
+        {deletable && (
+          <button
+            type="button"
+            data-testid="research-run-delete"
+            aria-label={t("research.deleteRun.button")}
+            title={t("research.deleteRun.button")}
+            disabled={deleting}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteClick(e);
+            }}
+            style={{
+              padding: 3,
+              border: "none",
+              background: "transparent",
+              color: "var(--syn-text-dim)",
+              cursor: deleting ? "default" : "pointer",
+              opacity: deleting ? 0.5 : 1,
+              display: "flex",
+              alignItems: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Trash2 size={12} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* Row 2: topic (truncated) */}
@@ -268,10 +314,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
 
   if (error) {
     return (
-      <div
-        role="alert"
-        style={{ padding: 16, color: "var(--syn-red)", fontSize: 12 }}
-      >
+      <div role="alert" style={{ padding: 16, color: "var(--syn-red)", fontSize: 12 }}>
         {error}
       </div>
     );
@@ -310,7 +353,9 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <ResearchStatusBadge status={detail.status} />
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
-          {t("research.iterations")}: <strong style={{ color: "var(--syn-text)" }}>{detail.iterations_used}</strong>/{detail.max_iter}
+          {t("research.iterations")}:{" "}
+          <strong style={{ color: "var(--syn-text)" }}>{detail.iterations_used}</strong>/
+          {detail.max_iter}
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("research.cost")}:{" "}
@@ -319,16 +364,14 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
           </span>
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
-          {t("research.sources")}: <strong style={{ color: "var(--syn-text)" }}>{detail.sources_fetched}</strong>
+          {t("research.sources")}:{" "}
+          <strong style={{ color: "var(--syn-text)" }}>{detail.sources_fetched}</strong>
         </span>
       </div>
 
       {/* Error message */}
       {detail.error_message && (
-        <div
-          role="alert"
-          className="syn-section-notice syn-section-notice--danger"
-        >
+        <div role="alert" className="syn-section-notice syn-section-notice--danger">
           {detail.error_message}
         </div>
       )}
@@ -507,6 +550,15 @@ function ResearchRunList({ vaultId }: RunListProps) {
   const selectRun = useResearchStore(selectSelectRun);
   const fetchMore = useResearchStore(selectFetchMoreResearch);
 
+  // v1.5.4: delete-run wiring. pendingDeleteId drives the ConfirmDialog (never
+  // window.confirm, AC-R7-12-2); deletingRunId/deleteError come from the store.
+  const deletingRunId = useResearchStore(selectDeletingRunId);
+  const deleteError = useResearchStore(selectDeleteError);
+  const deleteRun = useResearchStore(selectDeleteRun);
+  const clearDeleteError = useResearchStore(selectClearDeleteError);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingDeleteRun = runs.find((r) => r.id === pendingDeleteId) ?? null;
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -516,23 +568,77 @@ function ResearchRunList({ vaultId }: RunListProps) {
     overscan: 5,
   });
 
-  if (runs.length === 0 && !loading) {
-    return (
-      <div
-        data-testid="research-run-list-empty"
+  // v1.5.4: delete confirm dialog + error banner — shared across both return branches below.
+  const deleteDialog = pendingDeleteRun && (
+    <ConfirmDialog
+      title={t("research.deleteRun.confirmTitle")}
+      body={t("research.deleteRun.confirmBody", {
+        topic: pendingDeleteRun.topic.slice(0, 80),
+      })}
+      confirmLabel={t("research.deleteRun.confirmLabel")}
+      cancelLabel={t("common.cancel")}
+      danger
+      onConfirm={() => {
+        const id = pendingDeleteRun.id;
+        setPendingDeleteId(null);
+        void deleteRun(id);
+      }}
+      onCancel={() => setPendingDeleteId(null)}
+    />
+  );
+  const deleteErrorBanner = deleteError && (
+    <div
+      role="alert"
+      data-testid="research-delete-error"
+      style={{
+        padding: "8px 16px",
+        borderBottom: "1px solid var(--syn-border)",
+        flexShrink: 0,
+        fontSize: 12,
+        color: "var(--syn-red)",
+        background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
+      }}
+    >
+      {deleteError}
+      <button
+        onClick={clearDeleteError}
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "var(--syn-text-dim)",
-          fontSize: 13,
-          padding: 24,
-          textAlign: "center",
+          marginLeft: 8,
+          fontSize: 12,
+          color: "var(--syn-text-muted)",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          textDecoration: "underline",
+          padding: 0,
         }}
       >
-        {t("research.empty")}
-      </div>
+        {t("common.close")}
+      </button>
+    </div>
+  );
+
+  if (runs.length === 0 && !loading) {
+    return (
+      <>
+        {deleteErrorBanner}
+        <div
+          data-testid="research-run-list-empty"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: "100%",
+            color: "var(--syn-text-dim)",
+            fontSize: 13,
+            padding: 24,
+            textAlign: "center",
+          }}
+        >
+          {t("research.empty")}
+        </div>
+        {deleteDialog}
+      </>
     );
   }
 
@@ -541,52 +647,58 @@ function ResearchRunList({ vaultId }: RunListProps) {
   const hasMore = runs.length < total;
 
   return (
-    <div
-      ref={scrollRef}
-      style={{ overflow: "auto", height: "100%", flex: 1, minHeight: 0 }}
-      data-testid="research-run-list"
-    >
-      <div style={{ height: totalHeight + (hasMore ? 48 : 0), position: "relative" }}>
-        {items.map((vRow) => {
-          const run = runs[vRow.index];
-          if (!run) return null;
-          return (
-            <RunCard
-              key={run.id}
-              run={run}
-              selected={run.id === selectedRunId}
-              lang={i18n.language}
-              style={{ position: "absolute", top: vRow.start, width: "100%" }}
-              onClick={() => void selectRun(run.id)}
-              t={t}
-            />
-          );
-        })}
+    <>
+      {deleteErrorBanner}
+      <div
+        ref={scrollRef}
+        style={{ overflow: "auto", height: "100%", flex: 1, minHeight: 0 }}
+        data-testid="research-run-list"
+      >
+        <div style={{ height: totalHeight + (hasMore ? 48 : 0), position: "relative" }}>
+          {items.map((vRow) => {
+            const run = runs[vRow.index];
+            if (!run) return null;
+            return (
+              <RunCard
+                key={run.id}
+                run={run}
+                selected={run.id === selectedRunId}
+                lang={i18n.language}
+                style={{ position: "absolute", top: vRow.start, width: "100%" }}
+                onClick={() => void selectRun(run.id)}
+                onDeleteClick={() => setPendingDeleteId(run.id)}
+                deleting={run.id === deletingRunId}
+                t={t}
+              />
+            );
+          })}
 
-        {hasMore && (
-          <button
-            onClick={() => void fetchMore(vaultId)}
-            disabled={loading}
-            style={{
-              position: "absolute",
-              top: totalHeight,
-              left: 0,
-              right: 0,
-              height: 40,
-              margin: "4px 12px",
-              border: "1px solid var(--syn-border)",
-              borderRadius: 6,
-              background: "var(--syn-bg-soft)",
-              color: "var(--syn-text-muted)",
-              fontSize: 12,
-              cursor: loading ? "wait" : "pointer",
-            }}
-          >
-            {loading ? t("common.loading") : t("research.loadMore")}
-          </button>
-        )}
+          {hasMore && (
+            <button
+              onClick={() => void fetchMore(vaultId)}
+              disabled={loading}
+              style={{
+                position: "absolute",
+                top: totalHeight,
+                left: 0,
+                right: 0,
+                height: 40,
+                margin: "4px 12px",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 6,
+                background: "var(--syn-bg-soft)",
+                color: "var(--syn-text-muted)",
+                fontSize: 12,
+                cursor: loading ? "wait" : "pointer",
+              }}
+            >
+              {loading ? t("common.loading") : t("research.loadMore")}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+      {deleteDialog}
+    </>
   );
 }
 
@@ -792,7 +904,8 @@ export function DeepSearchView() {
                 padding: "6px 16px",
                 border: "none",
                 borderRadius: 6,
-                background: !topic.trim() || starting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                background:
+                  !topic.trim() || starting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
                 color: !topic.trim() || starting ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,

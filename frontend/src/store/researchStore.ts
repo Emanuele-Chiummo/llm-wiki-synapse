@@ -23,6 +23,7 @@ import {
   fetchResearchRuns,
   fetchResearchRunDetail,
   startResearch,
+  deleteResearchRun,
 } from "../api/researchClient";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,12 +32,7 @@ const POLL_INTERVAL_MS = 5_000;
 const PAGE_LIMIT = 20;
 
 /** Statuses that mean the run is finished; polling MUST stop. */
-const TERMINAL_STATUSES = new Set([
-  "converged",
-  "max_iter_reached",
-  "budget_exhausted",
-  "error",
-]);
+const TERMINAL_STATUSES = new Set(["converged", "max_iter_reached", "budget_exhausted", "error"]);
 
 export function isTerminal(status: string): boolean {
   return TERMINAL_STATUSES.has(status);
@@ -76,6 +72,10 @@ interface ResearchState {
   /** Whether a "start research" request is in-flight. */
   starting: boolean;
   startError: string | null;
+
+  /** id of the run currently being deleted (v1.5.4), or null. Drives per-row spinner/disable. */
+  deletingRunId: string | null;
+  deleteError: string | null;
 
   /**
    * Prefill data written by Graph Insights (B5/D3).
@@ -117,6 +117,14 @@ interface ResearchActions {
 
   clearStartError: () => void;
 
+  /**
+   * Delete one run from history (v1.5.4). Removes it from `runs[]` + decrements
+   * `total` on success; clears the selection/detail if the deleted run was selected.
+   * Never throws — failures surface via `deleteError` for the caller to display.
+   */
+  deleteRun: (runId: string) => Promise<void>;
+  clearDeleteError: () => void;
+
   /** Write prefill data so DeepSearchView opens the confirm dialog on next mount (B5/D3). */
   setResearchPrefill: (prefill: ResearchPrefill) => void;
   /** Clear the prefill slice (called when dialog opens, cancels, or confirms). */
@@ -149,6 +157,9 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
 
   starting: false,
   startError: null,
+
+  deletingRunId: null,
+  deleteError: null,
 
   prefill: null,
 
@@ -284,6 +295,31 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
 
   clearStartError: () => set({ startError: null }),
 
+  // ── deleteRun (v1.5.4) ────────────────────────────────────────────────────
+  deleteRun: async (runId) => {
+    set({ deletingRunId: runId, deleteError: null });
+    try {
+      await deleteResearchRun(runId);
+      set((s) => {
+        const runs = s.runs.filter((r) => r.id !== runId);
+        const wasSelected = s.selectedRunId === runId;
+        return {
+          runs,
+          total: Math.max(0, s.total - 1),
+          runningCount: countRunning(runs),
+          deletingRunId: null,
+          selectedRunId: wasSelected ? null : s.selectedRunId,
+          detail: wasSelected ? null : s.detail,
+          detailError: wasSelected ? null : s.detailError,
+        };
+      });
+    } catch (err: unknown) {
+      set({ deletingRunId: null, deleteError: (err as Error).message });
+    }
+  },
+
+  clearDeleteError: () => set({ deleteError: null }),
+
   // ── prefill (B5/D3) ───────────────────────────────────────────────────────
   setResearchPrefill: (prefill) => set({ prefill }),
   clearResearchPrefill: () => set({ prefill: null }),
@@ -324,14 +360,10 @@ export function selectStarting(s: ResearchStore): boolean {
 export function selectStartError(s: ResearchStore): string | null {
   return s.startError;
 }
-export function selectFetchFreshResearch(
-  s: ResearchStore,
-): ResearchActions["fetchFresh"] {
+export function selectFetchFreshResearch(s: ResearchStore): ResearchActions["fetchFresh"] {
   return s.fetchFresh;
 }
-export function selectFetchMoreResearch(
-  s: ResearchStore,
-): ResearchActions["fetchMore"] {
+export function selectFetchMoreResearch(s: ResearchStore): ResearchActions["fetchMore"] {
   return s.fetchMore;
 }
 export function selectSelectRun(s: ResearchStore): ResearchActions["selectRun"] {
@@ -340,22 +372,28 @@ export function selectSelectRun(s: ResearchStore): ResearchActions["selectRun"] 
 export function selectStartRun(s: ResearchStore): ResearchActions["startRun"] {
   return s.startRun;
 }
-export function selectStartPollingDetail(
-  s: ResearchStore,
-): ResearchActions["startPollingDetail"] {
+export function selectStartPollingDetail(s: ResearchStore): ResearchActions["startPollingDetail"] {
   return s.startPollingDetail;
 }
-export function selectClearStartError(
-  s: ResearchStore,
-): ResearchActions["clearStartError"] {
+export function selectClearStartError(s: ResearchStore): ResearchActions["clearStartError"] {
   return s.clearStartError;
+}
+export function selectDeletingRunId(s: ResearchStore): string | null {
+  return s.deletingRunId;
+}
+export function selectDeleteError(s: ResearchStore): string | null {
+  return s.deleteError;
+}
+export function selectDeleteRun(s: ResearchStore): ResearchActions["deleteRun"] {
+  return s.deleteRun;
+}
+export function selectClearDeleteError(s: ResearchStore): ResearchActions["clearDeleteError"] {
+  return s.clearDeleteError;
 }
 export function selectResearchPrefill(s: ResearchStore): ResearchPrefill | null {
   return s.prefill;
 }
-export function selectSetResearchPrefill(
-  s: ResearchStore,
-): ResearchActions["setResearchPrefill"] {
+export function selectSetResearchPrefill(s: ResearchStore): ResearchActions["setResearchPrefill"] {
   return s.setResearchPrefill;
 }
 export function selectClearResearchPrefill(
