@@ -3638,15 +3638,15 @@ chmod<span class="w"> </span><span class="m">755</span><span class="w"> </span>/
 </tr>
 <tr>
 <td><code>REVIEW_PROPOSE_MIN_PAGES</code></td>
-<td><code>4</code></td>
+<td><code>1</code></td>
 <td>No</td>
-<td>Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs if at least this many pages were written in the run (OR'd with the char / dangling-link / suggested-page conditions). (I7)</td>
+<td>Anti-spam gate (ADR-0034 §4.2): the proposal LLM call runs if at least this many pages were written in the run (OR'd with the char / dangling-link / suggested-page conditions). v1.5.2 lowered 4 → 1 so reviews are proposed on ordinary single-page ingests (llm_wiki volume parity). (I7)</td>
 </tr>
 <tr>
 <td><code>REVIEW_PROPOSE_MAX_ITEMS</code></td>
-<td><code>8</code></td>
+<td><code>12</code></td>
 <td>No</td>
-<td>Hard cap on proposals emitted per ingest run (ADR-0034 §4.3). The single LLM proposal call's output is truncated to this count — never an unbounded enqueue. (I7)</td>
+<td>Hard cap on proposals emitted per ingest run (ADR-0034 §4.3). The single LLM proposal call's output is truncated to this count — never an unbounded enqueue. v1.5.2 raised 8 → 12. (I7)</td>
 </tr>
 <tr>
 <td><code>REVIEW_PROPOSE_TOKEN_BUDGET</code></td>
