@@ -102,6 +102,29 @@ A separate scheduled run consolidates the week into ONE release, following the r
 > keep items **bounded** (split anything L into S/M sub-blocks before starting).
 
 ### Lane P — llm_wiki parity (odd days)
+
+> **PARITY MEANS FULL 1:1 COVERAGE (owner mandate 2026-07-11).** The goal is not just to close
+> the *known open gaps* — it is to verify the **ENTIRE nashsu/llm_wiki (R1) feature surface**,
+> item by item, **including features Synapse already claims to implement**. "Already done" is a
+> hypothesis to be re-verified against the live llm_wiki behavior, not a reason to skip. Every
+> feature ends in one of: `at-parity` (verified, evidence noted) · `divergent` (fix queued) ·
+> `missing` (implement queued). The lane is DONE only when the whole matrix is `at-parity`.
+
+- [ ] **P-MATRIX — Build/refresh the exhaustive Parity Coverage Matrix** (M, standard→analyst).
+      Clone/refresh nashsu/llm_wiki (R1; `graphify clone` or git), enumerate EVERY feature (UI rail,
+      settings subsection, chat composer, ingest/analysis behavior, ops, retrieval, graph, prompts,
+      file/frontmatter conventions). Cross-check each against Synapse via `graphify query` + code.
+      Output: refresh `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` into a COMPLETE matrix (one row
+      per feature, verdict at-parity|divergent|missing + evidence). This matrix then FEEDS every
+      subsequent parity block (re-verify `at-parity` claims periodically; each `divergent`/`missing`
+      becomes a queued block below). Bounded: build the matrix; do not fix within this block.
+- [ ] **P-VERIFY — Re-verify an "already implemented" cluster** (recurring, S/M each). Pick the next
+      not-yet-reverified Synapse feature the matrix marks "done" (e.g. K1–K8 vault/log/wikilink/
+      frontmatter/Obsidian, F3 two-step ingest, F5 4-phase retrieval, F9 review, F10 deep-research,
+      F13 cascade-delete) and PROVE it matches llm_wiki behavior (test/preview evidence). Log the
+      verdict in the matrix; if divergent, queue a fix. Rotate through until all "done" items are
+      re-verified.
+
 - [x] **P3-b (1/3) — Network proxy config keys** (S) — DONE 2026-07-11 (run1). Added
       `network_proxy_{enabled,url,bypass_local}` (S24/S25/S26) to `ALLOWED_CONFIG_KEYS` +
       `validate_value` + pytest, under ADR-0053. `ORDERED_KEYS`/GET/UI untouched (staged).
