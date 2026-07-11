@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Synapse daily-driver — runs ONE bounded block/day at 07:03 (driver §6: cron "3 7 * * *").
+     Placeholders __HOME__ / __REPO__ are substituted by scripts/launchd/install.sh. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.synapse.daily-driver</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/loop-run.sh</string>
+    <string>daily</string>
+  </array>
+
+  <!-- 07:03 every day (Sat→Fri cycle works 7/7). launchd runs a missed calendar
+       job once on the next wake, so a sleeping Mac still gets its daily block. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>7</integer>
+    <key>Minute</key><integer>3</integer>
+  </dict>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>__HOME__</string>
+    <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <!-- OWNER AUTHORIZATION for full no-input autonomy: change to bypassPermissions.
+         Default acceptEdits is safe but pauses for shell tools (not truly unattended). -->
+    <key>LOOP_PERMISSION_MODE</key><string>acceptEdits</string>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/synapse-loop/launchd-daily.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/synapse-loop/launchd-daily.err.log</string>
+
+  <key>ProcessType</key><string>Background</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>
