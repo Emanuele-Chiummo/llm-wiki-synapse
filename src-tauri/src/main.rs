@@ -58,13 +58,12 @@ fn main() {
                 // Brand v1.0: use the monochrome ink-mark template on macOS so the
                 // menu-bar icon adapts to light/dark menu-bar themes automatically.
                 // The tray-Template.png / tray-Template@2x.png files (16×16 / 32×32)
-                // are the `synapse-mark-ink` at 1-bit-compatible opacity —
-                // macOS renders Template-named icons as adaptive (inverted in dark).
-                // TODO(brand): call .icon_as_template(true) once tauri-plugin-tray
-                //   exposes the API in stable (tracked: tauri-apps/tauri#9860).
-                //   For now the ink PNG is dark-on-transparent and visible on light
-                //   menu bars; dark menu bar shows it inverted by macOS automatically
-                //   IF the filename ends with "Template" (native NSImage behaviour).
+                // are the `synapse-mark-ink` at 1-bit-compatible opacity — a black mark
+                // on a fully transparent background (no white box). Because the icon is
+                // loaded from bytes (not a "*Template"-named file), the NSImage filename
+                // hint doesn't apply, so we set .icon_as_template(true) explicitly below
+                // (tauri 2.11 exposes it): macOS then renders it white on a dark menu bar
+                // and black on a light one, always background-free.
                 #[cfg(target_os = "macos")]
                 let tray_icon = {
                     tauri::image::Image::from_bytes(include_bytes!("../icons/tray-Template.png"))
@@ -73,8 +72,13 @@ fn main() {
                 #[cfg(not(target_os = "macos"))]
                 let tray_icon = app.default_window_icon().expect("bundled window icon").clone();
 
-                TrayIconBuilder::with_id("synapse-tray")
-                    .icon(tray_icon)
+                let tray_builder = TrayIconBuilder::with_id("synapse-tray").icon(tray_icon);
+                // macOS: treat the ink mark as a template image so the menu-bar renders it
+                // adaptively (white on dark bars, black on light) with no white background.
+                // cfg-gated shadowing avoids an `unused_mut` warning on non-macOS targets.
+                #[cfg(target_os = "macos")]
+                let tray_builder = tray_builder.icon_as_template(true);
+                tray_builder
                     .tooltip("Synapse")
                     .menu(&menu)
                     .show_menu_on_left_click(false)

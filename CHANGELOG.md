@@ -25,6 +25,11 @@ because the vendor-catalog tag couldn't be persisted. Also fixes an unreadable e
   objects; the client interpolated it directly. It now renders as readable `field: message` text.
 - **Pre-activation provider Test** — "Test connessione"/"Test funzione" on a not-yet-activated vendor
   now include the vendor's default model in the inline probe, so they no longer 422 [F17].
+- **0-preset vendors (`codex-cli`, `atlas-cloud`)** — activating a vendor with no preset models used
+  to POST a null `model_id` (422). The toggle now reveals the Custom-model input instead, and
+  choosing/typing a model creates the row (activation), so every catalog vendor is configurable [F17].
+- **macOS menu-bar (tray) icon** — enabled `icon_as_template(true)` (tauri 2.11) so the background-free
+  ink mark renders adaptively: **white on dark menu bars, black on light** [F15, Brand v1.0].
 
 ## [1.5.0] — 2026-07-11 — "LLM Wiki 1:1 parity"
 
