@@ -55,20 +55,18 @@ fn main() {
                 let quit_i = MenuItem::with_id(app, "tray_quit", "Esci", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
-                // Brand v1.0: use the monochrome ink-mark template on macOS so the
-                // menu-bar icon adapts to light/dark menu-bar themes automatically.
-                // The tray-Template.png / tray-Template@2x.png files (16×16 / 32×32)
-                // are the `synapse-mark-ink` at 1-bit-compatible opacity —
-                // macOS renders Template-named icons as adaptive (inverted in dark).
-                // TODO(brand): call .icon_as_template(true) once tauri-plugin-tray
-                //   exposes the API in stable (tracked: tauri-apps/tauri#9860).
-                //   For now the ink PNG is dark-on-transparent and visible on light
-                //   menu bars; dark menu bar shows it inverted by macOS automatically
-                //   IF the filename ends with "Template" (native NSImage behaviour).
+                // Brand v1.0: macOS menu-bar mark is the WHITE `synapse-mark-white` on a fully
+                // transparent background (no white box). tray-white.png / tray-white@2x.png
+                // (16×16 / 32×32) are downscaled from Brand/png/mark/synapse-mark-white-1024.png.
+                // We deliberately do NOT use template mode: a template image ignores the source
+                // colour and auto-tints to the system's menu-bar colour, which would make the
+                // WHITE choice meaningless. Rendering the raw pixels keeps the mark white — ideal
+                // on a dark menu bar (the common setup). Trade-off: on a LIGHT macOS menu bar the
+                // white mark is low-contrast; switch to .icon_as_template(true) if that matters.
                 #[cfg(target_os = "macos")]
                 let tray_icon = {
-                    tauri::image::Image::from_bytes(include_bytes!("../icons/tray-Template.png"))
-                        .expect("tray template icon")
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/tray-white.png"))
+                        .expect("tray white icon")
                 };
                 #[cfg(not(target_os = "macos"))]
                 let tray_icon = app.default_window_icon().expect("bundled window icon").clone();
