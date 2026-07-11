@@ -50,7 +50,7 @@ from sqlalchemy.engine import CursorResult
 
 from app.config import settings
 from app.db import get_session
-from app.ingest.schemas import PageType
+from app.ingest.schemas import PageType, type_subdir
 from app.models import Page, ReviewItem, VaultState
 
 if TYPE_CHECKING:
@@ -1625,6 +1625,80 @@ async def enqueue_review(
     return loaded
 
 
+# ── SC-D3 (ADR-0067 D3): corpus-shape proposal seeder ────────────────────────────
+# Additive rule-based seeder for the corpus-level synthesis/comparison shapes detected from the
+# 4-signal graph (source-overlap / type-affinity) by ops/synthesize.py. Today those shapes are
+# rarely proposed (the LLM propose prompt keys on missing-page/duplicate/contradiction, not on the
+# comparison/synthesis SHAPE — audit SC-D3). This surfaces borderline clusters (below synthesize's
+# auto-write confidence) to the human with the RIGHT proposed_page_type, so obvious comparisons and
+# syntheses are always offered as Create-able review items instead of sitting undiscovered.
+#
+# Deliberately ADDITIVE: it changes no existing propose_reviews / _llm_propose_reviews behaviour, so
+# it cannot break existing review tests. Pure DB write via enqueue_review (NO provider call). Its
+# rows are ordinary `suggestion` proposals — the existing Create path (_resolve_create_page_type)
+# already honours proposed_page_type=synthesis/comparison, so nothing downstream needs to change.
+_CORPUS_SHAPE_TYPES = frozenset({PageType.SYNTHESIS.value, PageType.COMPARISON.value})
+
+
+async def propose_corpus_shape_review(
+    *,
+    vault_id: str,
+    kind: str,
+    proposed_title: str,
+    cluster_page_ids: list[str],
+    rationale: str,
+) -> ReviewItem | None:
+    """
+    Propose ONE corpus-level synthesis/comparison shape to the F9 review queue (SC-D3).
+
+    Rule-based, provider-free, idempotent (stable content_key → UPSERT-on-re-run). Emits a
+    `suggestion` review item whose ``proposed_page_type`` is the cluster kind and whose
+    ``referenced_page_ids`` are the cluster members (the [[wikilink]] seeds a human Create will
+    integrate). Returns the enqueued ReviewItem, or None on bad input / failure (never raises into
+    the caller's bounded loop).
+
+    Args:
+      kind: "synthesis" | "comparison" (anything else → None).
+      cluster_page_ids: member page ids (str UUIDs) → referenced_page_ids on the proposal.
+    """
+    if kind not in _CORPUS_SHAPE_TYPES:
+        logger.debug("propose_corpus_shape_review: unsupported kind=%r (vault=%s)", kind, vault_id)
+        return None
+    title = (proposed_title or "").strip()
+    if not title:
+        return None
+
+    proposed_dir: str | None = None
+    try:
+        proposed_dir = type_subdir(PageType(kind))
+    except (ValueError, KeyError):
+        proposed_dir = None
+
+    ref_ids = [str(pid) for pid in (cluster_page_ids or []) if str(pid).strip()] or None
+    content_key = _content_key(vault_id=vault_id, item_type="suggestion", proposed_title=title)
+
+    try:
+        return await enqueue_review(
+            vault_id=vault_id,
+            item_type="suggestion",
+            proposed_title=title,
+            proposed_page_type=kind,
+            proposed_dir=proposed_dir,
+            rationale=rationale,
+            content_key=content_key,
+            referenced_page_ids=ref_ids,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort seeder; never break the caller's loop
+        logger.warning(
+            "propose_corpus_shape_review: enqueue failed (vault=%s kind=%s title=%r): %s",
+            vault_id,
+            kind,
+            title,
+            exc,
+        )
+        return None
+
+
 async def propose_reviews(
     *,
     vault_id: str,
@@ -2833,13 +2907,21 @@ async def deep_research(
     503 if SEARXNG_URL is unset (I9).
     404 if item not found.
     """
-    # 503 guard (I9 — no fake run, no fallback engine)
-    if not settings.searxng_url:
+    # 503 guard (I9 — no fake run): the SELECTED web-search provider must be configured (ADR-0070).
+    from app.ops.web_search import get_web_search_provider
+
+    _provider = get_web_search_provider()
+    if not _provider.configured():
         from fastapi import HTTPException
 
         raise HTTPException(
             status_code=503,
-            detail="SEARXNG_URL is not configured. Set SEARXNG_URL to enable deep research (I9).",
+            detail=(
+                f"The selected web-search provider {_provider.name!r} is not configured. "
+                "Configure it (SEARXNG_URL for searxng; the matching API key for the opt-in "
+                "cloud backends; OLLAMA_URL for ollama_web) or switch via "
+                "PUT /config/app/web_search_provider to enable deep research (I9, ADR-0070)."
+            ),
         )
 
     item_id_str = str(item_id)

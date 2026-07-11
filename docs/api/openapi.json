@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.4.0"
+    "version": "1.4.1"
   },
   "paths": {
     "/sources": {
@@ -22,14 +22,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded).",
+              "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded); 'vault' = the whole vault root (raw/ + wiki/ + purpose.md + schema.md; read-only; hidden dirs excluded \u2014 v1.5 P1 Files-tab parity).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded)."
+            "description": "Which directory tree to list. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden dirs excluded); 'vault' = the whole vault root (raw/ + wiki/ + purpose.md + schema.md; read-only; hidden dirs excluded \u2014 v1.5 P1 Files-tab parity)."
           }
         ],
         "responses": {
@@ -135,14 +136,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1)."
           }
         ],
         "responses": {
@@ -197,14 +199,15 @@
             "schema": {
               "enum": [
                 "sources",
-                "wiki"
+                "wiki",
+                "vault"
               ],
               "type": "string",
-              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected).",
+              "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1).",
               "default": "sources",
               "title": "Root"
             },
-            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected)."
+            "description": "Which directory to resolve path against. 'sources' (default) = vault/raw/sources/; 'wiki' = vault/wiki/ (read-only; hidden files rejected); 'vault' = whole vault root (read-only; hidden files rejected \u2014 v1.5 P1)."
           }
         ],
         "responses": {
@@ -1411,7 +1414,7 @@
     "/ingest/convert-marker": {
       "post": {
         "summary": "Queue one or more PDFs for async Marker conversion (R11-1, W0)",
-        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
+        "description": "F12 / R11-1 \u2014 explicit Marker PDF conversion endpoint (W0 async). Accepts multipart files[] (\u226410 files, each \u2264 MARKER_MAX_UPLOAD_BYTES, .pdf only). Validates + saves each raw PDF synchronously, then enqueues background Marker conversion (concurrency=1 \u2014 single-GPU Marker service; I7). Returns 202 immediately with batch_id and per-file entries. Poll GET /ingest/convert-marker/status for per-file progress/result. On success the driver writes <stem>.extracted.md (I5 YAML frontmatter) and the watcher ingests it incrementally (I1). Per-file Marker failures mark that file 'failed' without aborting the rest of the batch. NO silent pypdf fallback (ADR-0051). 400 if > 10 files. 409 if a batch is already running. 413 if any file > MARKER_MAX_UPLOAD_BYTES. 415 for non-.pdf files.",
         "operationId": "convert_marker_ingest_convert_marker_post",
         "requestBody": {
           "content": {
@@ -1441,7 +1444,7 @@
             "description": "A Marker conversion batch is already running."
           },
           "413": {
-            "description": "A file exceeds MAX_UPLOAD_BYTES."
+            "description": "A file exceeds MARKER_MAX_UPLOAD_BYTES."
           },
           "415": {
             "description": "A non-.pdf file was submitted."
@@ -4802,10 +4805,283 @@
           }
         ]
       }
+    },
+    "/vault/meta/{name}": {
+      "put": {
+        "summary": "Write a vault meta file (schema.md or purpose.md)",
+        "description": "Overwrites one vault-root meta file with the supplied content. `name` MUST be exactly `schema.md` or `purpose.md` \u2014 any other value is 404 (this allow-list is the only path-traversal guard; no globs, no relative segments ever reach disk). Writes UTF-8 directly to the vault root; no Postgres/Qdrant/ingest side effects \u2014 these files are vault-meta, not wiki content (K1, I1, I5). v1.5 P1: makes purpose/schema editable in-app (ADR-0066).",
+        "operationId": "put_vault_meta_vault_meta__name__put",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "vault_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Vault identifier (currently unused).",
+              "default": "default",
+              "title": "Vault Id"
+            },
+            "description": "Vault identifier (currently unused)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VaultMetaWriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File written; returns the persisted entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VaultMetaFile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "name is not schema.md or purpose.md."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List known projects (vaults) and the active one",
+        "description": "Returns the multi-vault project registry (ADR-0067): all known project vaults + which is active. Seeded from the boot vault when the registry does not exist yet, so single-vault deploys always see exactly their one vault. Read-only; no DB, no Qdrant.",
+        "operationId": "list_projects_projects_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create + scaffold a new project vault",
+        "description": "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the shared bootstrap \u2014 idempotent) and registers it (ADR-0067). Does NOT switch the active vault. Path must be absolute; 409 if a project already exists at that path.",
+        "operationId": "create_project_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Name missing or path not absolute."
+          },
+          "409": {
+            "description": "A project already exists at this path."
+          },
+          "500": {
+            "description": "Could not create the vault on disk."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/open": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Register an existing vault folder as a project",
+        "description": "Adds an existing vault directory to the registry (ADR-0067). Does NOT switch the active vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered path returns the existing entry (touching last_opened_at). Path must be absolute and an existing directory. Server-side path (self-hosted).",
+        "operationId": "open_project_projects_open_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Path is not absolute."
+          },
+          "404": {
+            "description": "Path is not an existing directory."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/projects/{project_id}/activate": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Switch the active vault to this project",
+        "description": "Makes *project_id* the active vault at runtime (ADR-0067 \u00a72c): records it in the registry, re-points settings, restarts the watcher on the new root, invalidates the graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown.",
+        "operationId": "activate_project_projects__project_id__activate_post",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project id."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "ActivateResponse": {
+        "properties": {
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "active_vault_epoch": {
+            "type": "integer",
+            "title": "Active Vault Epoch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "project",
+          "active_vault_epoch"
+        ],
+        "title": "ActivateResponse",
+        "description": "Response for POST /projects/{id}/activate \u2014 the now-active project + reload epoch."
+      },
       "AppConfigListResponse": {
         "properties": {
           "settings": {
@@ -5983,6 +6259,25 @@
         ],
         "title": "ConversationResponse",
         "description": "API shape for one conversations row (ADR-0019 \u00a72.5).\n\n`preview` (UXB-1) is a read-only derivation of the conversation's last message: its first\n~80 chars with <think>\u2026</think> and light markdown stripped. It is computed in the list\nhandler (bounded subquery); there is no schema change. None when the conversation has no\nmessages yet."
+      },
+      "CreateProjectRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "CreateProjectRequest",
+        "description": "Body for POST /projects \u2014 create + scaffold a new vault folder."
       },
       "EmbeddingConfigResponse": {
         "properties": {
@@ -7850,6 +8145,20 @@
         "title": "McpToolInfo",
         "description": "Schema for a single tool entry in GET /mcp/info (ADR-0027 \u00a72.1)."
       },
+      "OpenProjectRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "title": "OpenProjectRequest",
+        "description": "Body for POST /projects/open \u2014 register an existing vault folder."
+      },
       "OpsScheduleEntry": {
         "properties": {
           "op": {
@@ -8353,6 +8662,75 @@
           "action": "skip",
           "resolved": true
         }
+      },
+      "Project": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "last_opened_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "path",
+          "created_at"
+        ],
+        "title": "Project",
+        "description": "One known project (vault). ``id`` is the vault_id used for its DB/Qdrant rows."
+      },
+      "ProjectsResponse": {
+        "properties": {
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "active_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "projects",
+          "active_id"
+        ],
+        "title": "ProjectsResponse",
+        "description": "Response for GET /projects \u2014 the registry snapshot."
       },
       "ProviderConfigCreate": {
         "properties": {
@@ -10929,6 +11307,20 @@
         ],
         "title": "VaultMetaResponse",
         "description": "Response body for GET /vault/meta."
+      },
+      "VaultMetaWriteRequest": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "VaultMetaWriteRequest",
+        "description": "Request body for PUT /vault/meta/{name} \u2014 the full new file content."
       },
       "VendorInfo": {
         "properties": {

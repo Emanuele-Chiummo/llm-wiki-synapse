@@ -1,13 +1,18 @@
+<!--
+  Synapse S-mark — Brand v1.0 gradient variant (docs reference copy).
+  Diagonal gradient BL→TR: #1D4ED8 (Blue) · #4338CA (Indigo) · #7C3AED (Violet).
+  No squircle background; transparent background.
+-->
 <svg viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Synapse logo">
   <defs>
     <linearGradient id="synGrad" x1="40" y1="216" x2="216" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2563eb"/>
-      <stop offset="0.55" stop-color="#5b4de0"/>
-      <stop offset="1" stop-color="#8250df"/>
+      <stop offset="0"   stop-color="#1D4ED8"/>
+      <stop offset="0.5" stop-color="#4338CA"/>
+      <stop offset="1"   stop-color="#7C3AED"/>
     </linearGradient>
     <linearGradient id="synGradSoft" x1="40" y1="216" x2="216" y2="40" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2563eb" stop-opacity="0.35"/>
-      <stop offset="1" stop-color="#8250df" stop-opacity="0.35"/>
+      <stop offset="0" stop-color="#1D4ED8" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7C3AED" stop-opacity="0.35"/>
     </linearGradient>
   </defs>
 
@@ -21,16 +26,16 @@
         stroke="url(#synGrad)" stroke-width="22" stroke-linecap="round" fill="none"/>
 
   <!-- core nodes (degree-proportional, echoing the knowledge graph) -->
-  <circle cx="186" cy="62" r="26" fill="url(#synGrad)"/>
-  <circle cx="70" cy="194" r="26" fill="url(#synGrad)"/>
+  <circle cx="186" cy="62"  r="26" fill="url(#synGrad)"/>
+  <circle cx="70"  cy="194" r="26" fill="url(#synGrad)"/>
   <circle cx="128" cy="128" r="15" fill="url(#synGrad)"/>
 
   <!-- satellite nodes -->
-  <circle cx="224" cy="34" r="10" fill="#8250df"/>
-  <circle cx="32" cy="222" r="10" fill="#2563eb"/>
-  <circle cx="206" cy="150" r="8" fill="#6157e2"/>
+  <circle cx="224" cy="34"  r="10" fill="#7C3AED"/>
+  <circle cx="32"  cy="222" r="10" fill="#1D4ED8"/>
+  <circle cx="206" cy="150" r="8"  fill="#4338CA"/>
 
   <!-- synaptic spark highlights -->
-  <circle cx="186" cy="62" r="9" fill="#ffffff" fill-opacity="0.92"/>
-  <circle cx="70" cy="194" r="9" fill="#ffffff" fill-opacity="0.92"/>
+  <circle cx="186" cy="62"  r="9" fill="#ffffff" fill-opacity="0.92"/>
+  <circle cx="70"  cy="194" r="9" fill="#ffffff" fill-opacity="0.92"/>
 </svg>

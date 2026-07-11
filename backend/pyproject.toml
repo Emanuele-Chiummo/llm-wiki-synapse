@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synapse-backend"
-version = "1.4.0"
+version = "1.4.1"
 description = "Synapse — self-organising wiki backend (FastAPI + walking skeleton)"
 requires-python = ">=3.11"
 dependencies = [
@@ -35,6 +35,13 @@ dependencies = [
     "python-docx>=1.1,<2",
     "python-pptx>=0.6.23,<1.1",
     "openpyxl>=3.1,<4",
+    # P3-c additions (v1.5 LLM Wiki parity) [F12] — pure-python, no system deps:
+    "markdownify>=0.11,<1",   # .html → GFM markdown (strip scripts/styles)
+    "striprtf>=0.0.26,<1",    # .rtf  → plain text (codepage-aware)
+    "odfpy>=1.4,<2",          # .odt/.ods/.odp → text/table/slide extraction
+    # .csv uses stdlib csv — no new dep.
+    # .mdx uses stdlib re  — no new dep.
+    # .doc NOT implemented  — see ingest/extract.py module docstring for ADR note.
 ]
 
 [project.optional-dependencies]
@@ -95,6 +102,7 @@ ignore = [
 # function-parameter fixture name at call sites — the documented pytest pattern.
 "tests/test_related_pages.py" = ["ANN", "S", "F811"]
 "tests/test_strip_leading_frontmatter.py" = ["ANN", "S", "F811"]
+"tests/test_adr0067_generation_parity.py" = ["ANN", "S", "F811"]
 "scripts/*" = ["ANN", "S", "E501"]  # scripts are not production code — relax annotations and line length
 
 [tool.ruff.lint.flake8-bugbear]

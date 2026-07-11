@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { OpsScheduleCard } from "./OpsScheduleCard";
+import { SettingsSaveFooter } from "./SettingsSaveFooter";
 import { SectionGeneral } from "./sections/SectionGeneral";
 import { SectionLlmModels } from "./sections/SectionLlmModels";
 import { SectionEmbeddings } from "./sections/SectionEmbeddings";
@@ -38,11 +39,11 @@ import {
   SectionHeader, GroupDivider, BTN_PRIMARY,
   IconSliders, IconCpu, IconFolder, IconWrench, IconBook, IconLink, IconShield,
   IconPalette, IconWand, IconBolt, IconVectors, IconGlobe, IconClock,
-  IconScissors, IconFileText, IconLock, IconDollar, IconInfo, IconHistory,
+  IconScissors, IconFileText, IconImage, IconLock, IconDollar, IconInfo, IconHistory,
 } from "./ui";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
-// 19 stable page IDs — one per leaf page in the 2-level nav.
+// 20 stable page IDs — one per leaf page in the 2-level nav.
 
 type SettingsPage =
   // Group: essentials
@@ -53,6 +54,7 @@ type SettingsPage =
   | "sourceWatch"
   | "clipper"
   | "pdf"
+  | "imageCaptioning"
   | "generation"
   | "scenarios"
   // Group: aiBehavior (advanced)
@@ -105,6 +107,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <IconFolder /> },
       { id: "clipper",     labelKey: "settings.nav.clipper",      icon: <IconScissors /> },
       { id: "pdf",         labelKey: "settings.nav.pdf",          icon: <IconFileText /> },
+      { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <IconImage /> },
       { id: "generation",  labelKey: "settings.nav.generation",   icon: <IconBook /> },
       { id: "scenarios",   labelKey: "settings.nav.scenarios",    icon: <IconBolt /> },
     ],
@@ -266,128 +269,105 @@ export function SettingsPanel() {
           </p>
         )}
 
-        {groupsToRender.map(({ group, pages }) => (
-          <div key={group.id}>
-            {/* Group header — non-clickable label */}
-            <p
-              style={{
-                margin: "12px 12px 2px",
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--syn-text-dim)",
-                opacity: 0.7,
-              }}
-            >
-              {t(group.labelKey)}
-            </p>
-            {/* Group description — novice guidance */}
-            <p
-              style={{
-                margin: "0 12px 4px",
-                fontSize: 10,
-                color: "var(--syn-text-dim)",
-                opacity: 0.65,
-                lineHeight: 1.4,
-              }}
-            >
-              {t(group.descKey)}
-            </p>
-
-            {/* Page items (filtered by the quick search) */}
-            {pages.map((page) => {
-              const globalIdx = ALL_PAGES.indexOf(page.id);
-              const isActive = activePage === page.id;
-              return (
-                <button
-                  key={page.id}
-                  ref={(el) => { pageRefs.current[globalIdx] = el; }}
-                  data-settings-section={page.id}
-                  data-testid={`settings-nav-${page.id}`}
-                  aria-current={isActive ? "true" : undefined}
-                  tabIndex={isActive ? 0 : -1}
-                  onClick={() => setActivePage(page.id)}
+        {/* Grouped page list — group headers aid scannability (Synapse has more settings
+            than LLM Wiki, so the 5 groups let the eye jump to the right area at a glance) */}
+        <div style={{ marginTop: 6 }}>
+          {groupsToRender.map(({ group, pages }) => {
+            if (pages.length === 0) return null;
+            return (
+              <div key={group.id} style={{ marginBottom: 8 }}>
+                <p
+                  data-testid={`settings-nav-group-${group.id}`}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    padding: "6px 12px 6px 18px",
-                    border: "none",
-                    background: isActive ? "var(--syn-accent-soft)" : "transparent",
-                    color: isActive ? "var(--syn-text)" : "var(--syn-text-dim)",
-                    fontSize: 12,
-                    cursor: "pointer",
-                    textAlign: "left",
-                    borderRadius: 0,
-                    borderLeft: isActive ? "2px solid var(--syn-accent)" : "2px solid transparent",
-                    transition: "background 0.1s ease, color 0.1s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
-                      (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                      (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
-                    }
+                    margin: "12px 12px 4px",
+                    fontSize: 10.5,
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "var(--syn-text-dim)",
                   }}
                 >
-                  <span style={{ display: "inline-flex", flexShrink: 0, opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
-                    {page.icon}
-                  </span>
-                  {t(page.labelKey)}
-                  {page.advanced && (
-                    <span
-                      aria-label={t("settings.nav.advancedBadge")}
+                  {t(group.labelKey)}
+                </p>
+                {pages.map((page) => {
+                  const globalIdx = ALL_PAGES.indexOf(page.id);
+                  const isActive = activePage === page.id;
+                  return (
+                    <button
+                      key={page.id}
+                      ref={(el) => { pageRefs.current[globalIdx] = el; }}
+                      data-settings-section={page.id}
+                      data-testid={`settings-nav-${page.id}`}
+                      aria-current={isActive ? "true" : undefined}
+                      tabIndex={isActive ? 0 : -1}
+                      onClick={() => setActivePage(page.id)}
                       style={{
-                        marginLeft: "auto",
-                        fontSize: 9,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        color: "var(--syn-text-dim)",
-                        opacity: 0.6,
-                        border: "1px solid var(--syn-border)",
-                        borderRadius: 3,
-                        padding: "1px 4px",
-                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        width: "100%",
+                        padding: "7px 12px",
+                        border: "none",
+                        background: isActive ? "var(--syn-accent-soft)" : "transparent",
+                        color: isActive ? "var(--syn-text)" : "var(--syn-text-dim)",
+                        fontSize: 12.5,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        borderRadius: 6,
+                        transition: "background 0.1s ease, color 0.1s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
+                        }
                       }}
                     >
-                      {t("settings.nav.advancedBadge")}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ))}
+                      <span style={{ display: "inline-flex", flexShrink: 0, opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
+                        {page.icon}
+                      </span>
+                      {t(page.labelKey)}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </aside>
 
-      {/* ── Content area ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
-        {activePage === "appearance" && <PageAppearance />}
-        {activePage === "setup"      && <PageSetup />}
-        {activePage === "providers"  && <SectionLlmModels />}
-        {activePage === "scenarios"  && <SectionScenarios />}
-        {activePage === "context"    && <SectionGeneral />}
-        {activePage === "embeddings" && <PageEmbeddings />}
-        {activePage === "webSearch"  && <SectionWebSearch />}
-        {activePage === "generation" && <PageGeneration />}
-        {activePage === "automation" && <PageAutomation />}
-        {activePage === "limits"     && <PageLimits />}
-        {activePage === "sourceWatch" && <SectionSourceWatch />}
-        {activePage === "clipper"    && <SectionWebClipper />}
-        {activePage === "pdf"        && <PagePdf />}
-        {activePage === "apiMcp"     && <SectionApiMcp />}
-        {activePage === "security"   && <SectionSecurity />}
-        {activePage === "costs"      && <SectionCosts />}
-        {activePage === "maintenance" && <SectionMaintenance />}
-        {activePage === "changelog"  && <SectionChangelog />}
-        {activePage === "about"      && <SectionAbout />}
+      {/* ── Content area (flex column: scroll region + sticky Save footer) ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
+          {activePage === "appearance" && <PageAppearance />}
+          {activePage === "setup"      && <PageSetup />}
+          {activePage === "providers"  && <SectionLlmModels />}
+          {activePage === "scenarios"  && <SectionScenarios />}
+          {activePage === "context"    && <SectionGeneral />}
+          {activePage === "embeddings" && <PageEmbeddings />}
+          {activePage === "webSearch"  && <SectionWebSearch />}
+          {activePage === "generation" && <PageGeneration />}
+          {activePage === "automation" && <PageAutomation />}
+          {activePage === "limits"     && <PageLimits />}
+          {activePage === "sourceWatch" && <SectionSourceWatch />}
+          {activePage === "clipper"    && <SectionWebClipper />}
+          {activePage === "pdf"        && <PagePdf />}
+          {activePage === "imageCaptioning" && <PageImageCaptioning />}
+          {activePage === "apiMcp"     && <SectionApiMcp />}
+          {activePage === "security"   && <SectionSecurity />}
+          {activePage === "costs"      && <SectionCosts />}
+          {activePage === "maintenance" && <SectionMaintenance />}
+          {activePage === "changelog"  && <SectionChangelog />}
+          {activePage === "about"      && <SectionAbout />}
+        </div>
+        {/* Sticky Save bar — visible only when client-preference drafts are dirty */}
+        <SettingsSaveFooter />
       </div>
     </div>
   );
@@ -493,7 +473,7 @@ function PageLimits() {
   );
 }
 
-/** pdf: runtime keys pdf_extractor + marker_service_url + marker_timeout_seconds */
+/** pdf: pdf_extractor + marker_* (local) + mineru_* (cloud, opt-in — P3-d) runtime keys */
 function PagePdf() {
   const { t } = useTranslation();
   return (
@@ -502,7 +482,29 @@ function PagePdf() {
         title={t("config.pdfExtractorSection.title")}
         desc={t("config.pdfExtractorSection.desc")}
       />
-      <SectionRuntimeConfig keys={["pdf_extractor", "marker_service_url", "marker_timeout_seconds"]} />
+      <SectionRuntimeConfig
+        keys={[
+          "pdf_extractor",
+          "marker_service_url",
+          "marker_timeout_seconds",
+          "mineru_api_url",
+          "mineru_timeout_seconds",
+        ]}
+      />
+    </div>
+  );
+}
+
+/** imageCaptioning: vision caption master toggle + per-run cap (v1.5 P3-a, llm_wiki parity) */
+function PageImageCaptioning() {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <SectionHeader
+        title={t("config.imageCaptioningSection.title")}
+        desc={t("config.imageCaptioningSection.desc")}
+      />
+      <SectionRuntimeConfig keys={["vision_captions_enabled", "vision_max_images_per_run"]} />
     </div>
   );
 }

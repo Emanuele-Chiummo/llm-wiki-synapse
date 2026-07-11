@@ -8,6 +8,9 @@ Coverage:
     - Pages with excluded types (overview, index) are excluded from the catalogue
     - Pages without a title fall back to the file stem
     - Empty vault (no live pages) produces a valid minimal index.md
+    - ADR-0067 D6 IL-D4: 'query' type produces '## Queries' (not '## Querys')
+    - ADR-0067 D6 IL-D3: NULL-type rows produce no '## Uncategorised' section
+    - ADR-0067 D6 IL-D2/CE-D5: duplicate display titles are collapsed to a single line
 """
 
 from __future__ import annotations
@@ -130,6 +133,127 @@ class TestIndexMdCatalogue:
         content = await _run_update_index(rows, tmp_path)
         # 2 user-content pages (OV is excluded)
         assert "**Total pages:** 2" in content
+
+
+class TestIndexMdAdr0067D6:
+    """Regression tests for ADR-0067 D6 catalogue fixes (IL-D1..D4)."""
+
+    @pytest.mark.asyncio
+    async def test_query_type_heading_is_queries_not_querys(self, tmp_path: Path) -> None:
+        """
+        IL-D4: 'query' page_type must produce '## Queries', never '## Querys'.
+
+        Before ADR-0067 D6, 'query' was missing from _TYPE_ORDER and _PLURAL_EXCEPTIONS
+        so the generic naïve pluraliser appended 's' → 'Querys'. This regression test
+        locks in the correct heading.
+        """
+        rows = [
+            _make_row("How does X work?", "query", "wiki/queries/how-does-x-work.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert "## Queries" in content, "heading must be '## Queries'"
+        assert "## Querys" not in content, "'## Querys' must never appear"
+        assert "[[How does X work?]]" in content
+
+    @pytest.mark.asyncio
+    async def test_null_type_produces_no_uncategorised_section(self, tmp_path: Path) -> None:
+        """
+        IL-D3: pages with NULL page_type are silently dropped — no '## Uncategorised'.
+
+        Ghost rows (unresolved stubs with no type) must not pollute the catalogue.
+        """
+        rows = [
+            _make_row("Ghost Page", None, "wiki/concepts/ghost.md"),
+            _make_row("Real Entity", "entity", "wiki/entities/real.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert "## Uncategorised" not in content, "'## Uncategorised' must not appear"
+        assert "[[Ghost Page]]" not in content, "NULL-type page must not be listed"
+        assert "[[Real Entity]]" in content, "typed page must still be listed"
+
+    @pytest.mark.asyncio
+    async def test_empty_string_type_produces_no_uncategorised_section(
+        self, tmp_path: Path
+    ) -> None:
+        """
+        IL-D3 (empty-string variant): pages with empty-string page_type are also dropped.
+        """
+        rows = [
+            _make_row("Empty Type", "", "wiki/concepts/empty-type.md"),
+            _make_row("Real Concept", "concept", "wiki/concepts/real.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert "## Uncategorised" not in content
+        assert "[[Empty Type]]" not in content
+        assert "[[Real Concept]]" in content
+
+    @pytest.mark.asyncio
+    async def test_duplicate_titles_collapsed_to_single_entry(self, tmp_path: Path) -> None:
+        """
+        IL-D2/CE-D5: two rows with the same case-insensitive display title in the same
+        type section must render as a single '- [[…]]' line (first occurrence wins).
+        """
+        rows = [
+            _make_row("AWS", "entity", "wiki/entities/aws.md"),
+            _make_row("aws", "entity", "wiki/entities/aws-alias.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        # Only one wikilink for the case-insensitive duplicate pair.
+        assert content.count("[[AWS]]") + content.count("[[aws]]") == 1, (
+            "duplicate case-insensitive titles must collapse to a single catalogue entry"
+        )
+
+    @pytest.mark.asyncio
+    async def test_duplicate_titles_cross_type_both_rendered(self, tmp_path: Path) -> None:
+        """
+        IL-D2: dedup is scoped per type section; the same title in different types
+        must appear once per type (they are distinct pages).
+        """
+        rows = [
+            _make_row("Cloud", "concept", "wiki/concepts/cloud.md"),
+            _make_row("Cloud", "entity", "wiki/entities/cloud.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert content.count("[[Cloud]]") == 2, (
+            "same title in different type sections must each render once"
+        )
+
+    @pytest.mark.asyncio
+    async def test_total_count_reflects_deduplicated_set(self, tmp_path: Path) -> None:
+        """
+        After dedup, **Total pages:** must reflect the visible (deduplicated) count,
+        not the raw row count.
+        """
+        rows = [
+            _make_row("AWS", "entity", "wiki/entities/aws.md"),
+            _make_row("aws", "entity", "wiki/entities/aws-alias.md"),  # duplicate → dropped
+            _make_row("Google", "entity", "wiki/entities/google.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert "**Total pages:** 2" in content, (
+            "total must be 2 after dedup collapses AWS/aws to a single entry"
+        )
+
+    @pytest.mark.asyncio
+    async def test_null_type_not_counted_in_total(self, tmp_path: Path) -> None:
+        """
+        IL-D3: NULL-type ghost rows must not increment the **Total pages:** counter.
+        """
+        rows = [
+            _make_row("Ghost", None, "wiki/concepts/ghost.md"),
+            _make_row("Real", "concept", "wiki/concepts/real.md"),
+        ]
+        content = await _run_update_index(rows, tmp_path)
+
+        assert "**Total pages:** 1" in content, (
+            "NULL-type ghost must not be counted; only 1 real page exists"
+        )
 
 
 class TestIndexMdIdempotency:

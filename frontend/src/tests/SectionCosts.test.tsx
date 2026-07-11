@@ -42,10 +42,21 @@ vi.mock("../store/settingsStore", () => ({
       conversationHistoryLength: 10,
       language: "en",
       theme: "system",
+      // draft fields — identical to committed so isDirty=false → footer hidden
+      draftContextWindowTokens: 32768,
+      draftConversationHistoryLength: 10,
+      draftLanguage: "en",
+      draftTheme: "system",
       setContextWindow: vi.fn(),
       setConversationHistoryLength: vi.fn(),
       setLanguage: vi.fn(),
       setTheme: vi.fn(),
+      setDraftContextWindow: vi.fn(),
+      setDraftConversationHistoryLength: vi.fn(),
+      setDraftLanguage: vi.fn(),
+      setDraftTheme: vi.fn(),
+      commitDraft: vi.fn(),
+      discardDraft: vi.fn(),
       reset: vi.fn(),
     }),
   selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
@@ -59,6 +70,29 @@ vi.mock("../store/settingsStore", () => ({
   selectSetLanguage: (s: { setLanguage: unknown }) => s.setLanguage,
   selectSetTheme: (s: { setTheme: unknown }) => s.setTheme,
   selectResetSettings: (s: { reset: unknown }) => s.reset,
+  // draft selectors (required by SettingsSaveFooter mounted inside SettingsPanel)
+  selectDraftContextWindow: (s: { draftContextWindowTokens: number }) => s.draftContextWindowTokens,
+  selectDraftConversationHistoryLength: (s: { draftConversationHistoryLength: number }) =>
+    s.draftConversationHistoryLength,
+  selectDraftLanguage: (s: { draftLanguage: string }) => s.draftLanguage,
+  selectDraftTheme: (s: { draftTheme: string }) => s.draftTheme,
+  selectSetDraftContextWindow: (s: { setDraftContextWindow: unknown }) => s.setDraftContextWindow,
+  selectSetDraftConversationHistoryLength: (s: { setDraftConversationHistoryLength: unknown }) =>
+    s.setDraftConversationHistoryLength,
+  selectSetDraftLanguage: (s: { setDraftLanguage: unknown }) => s.setDraftLanguage,
+  selectSetDraftTheme: (s: { setDraftTheme: unknown }) => s.setDraftTheme,
+  selectCommitDraft: (s: { commitDraft: unknown }) => s.commitDraft,
+  selectDiscardDraft: (s: { discardDraft: unknown }) => s.discardDraft,
+  selectIsDirty: (s: {
+    draftTheme: string; theme: string;
+    draftLanguage: string; language: string;
+    draftConversationHistoryLength: number; conversationHistoryLength: number;
+    draftContextWindowTokens: number; contextWindowTokens: number;
+  }) =>
+    s.draftTheme !== s.theme ||
+    s.draftLanguage !== s.language ||
+    s.draftConversationHistoryLength !== s.conversationHistoryLength ||
+    s.draftContextWindowTokens !== s.contextWindowTokens,
   CONTEXT_WINDOW_OPTIONS: [4096, 8192, 32768],
   CONV_HISTORY_OPTIONS: [2, 4, 10],
   computeBudgetSplit: () => ({ history: 0, retrieved: 0, system: 0, generation: 0 }),

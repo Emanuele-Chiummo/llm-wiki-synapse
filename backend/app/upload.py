@@ -34,7 +34,24 @@ _ALLOWED_EXTENSIONS: frozenset[str] = frozenset({".md", ".txt", ".markdown"})
 # ── F12: binary extensions extracted synchronously on upload (ADR-0025 §4.2) ──
 # These produce a companion .extracted.md; the binary is preserved in raw/sources/.
 # NOT added to _ALLOWED_EXTENSIONS so the watcher ignores the binary (I1).
-_EXTRACTABLE_EXTENSIONS: frozenset[str] = frozenset({".pdf", ".docx", ".pptx", ".xlsx"})
+# MUST stay in sync with EXTRACTABLE_BINARY_EXTENSIONS in ingest/extract.py.
+_EXTRACTABLE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".docx",
+        ".pptx",
+        ".xlsx",
+        # P3-c additions (v1.5 LLM Wiki parity) [F12]:
+        ".csv",
+        ".html",
+        ".mdx",
+        ".rtf",
+        ".odt",
+        ".ods",
+        ".odp",
+        # .doc NOT included — see ingest/extract.py module docstring for ADR note
+    }
+)
 
 # ── F12: placeholder-only extensions (§4.5 — no OCR/transcript in M5) ─────────
 _PLACEHOLDER_EXTENSIONS: frozenset[str] = frozenset(
@@ -109,7 +126,8 @@ def safe_source_name(raw_filename: str) -> str:
             detail=(
                 f"Unsupported file type: {suffix!r}. "
                 "Accepted text formats: .md, .txt, .markdown. "
-                "Accepted binary formats (F12): .pdf, .docx, .pptx, .xlsx. "
+                "Accepted binary formats (F12): .pdf, .docx, .pptx, .xlsx, "
+                ".csv, .html, .mdx, .rtf, .odt, .ods, .odp. "
                 "Accepted placeholder formats: .png, .jpg, .jpeg, .gif, .webp, "
                 ".mp3, .mp4, .wav, .m4a."
             ),

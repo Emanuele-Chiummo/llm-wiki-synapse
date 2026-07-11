@@ -1,0 +1,8 @@
+# TODO(brand): Drop Geist woff2 files here to activate the brand typography.
+# Download from https://github.com/vercel/geist-font/releases (assets: Geist.zip)
+# Required files:
+#   Geist-Regular.woff2   (weight 400)
+#   Geist-Medium.woff2    (weight 500)
+#   Geist-SemiBold.woff2  (weight 600)
+# Then uncomment the @font-face block in frontend/src/styles/theme.css.
+# The system-font fallback stack is identical, so nothing breaks before drop-in.

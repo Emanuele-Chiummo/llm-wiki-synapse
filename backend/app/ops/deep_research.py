@@ -32,7 +32,8 @@ from typing import Any, Literal
 from app.db import get_session
 from app.ingest.provider.base import UsageAccumulator
 from app.models import DeepResearchRun, DeepResearchSource
-from app.ops.searxng import SearchHit, _semaphore, searxng_search_many
+from app.ops.searxng import SearchHit, _semaphore
+from app.ops.web_search import web_search_many
 from app.security_net import SSRFError, safe_fetch
 
 logger = logging.getLogger(__name__)
@@ -648,11 +649,14 @@ async def _generate_queries(
 
 async def _search_searxng(queries: list[str]) -> list[SearchHit]:
     """
-    Execute queries via SearXNG, concurrency bounded by the shared module semaphore (I9).
+    Execute queries via the selected web-search backend, concurrency bounded by the shared
+    module semaphore (I7).
 
-    Uses ops/searxng.searxng_search_many — the ONLY web-search call path (Do-NOT #3).
+    Routes through ops/web_search.web_search_many — the single web-search dispatcher (ADR-0070).
+    SearXNG is the default backend; the alternatives are opt-in, off by default (ADR-0066).
+    Bounds (max_queries + semaphore) and URL-dedup are unchanged.
     """
-    return await searxng_search_many(queries)
+    return await web_search_many(queries)
 
 
 # ── Fetched-body handling (v1.3.3) ────────────────────────────────────────────

@@ -252,7 +252,8 @@ export function SourcesView() {
   // Session-only (not persisted). "sources" = raw/sources/ (default, read-write).
   // "wiki" = vault's wiki/ folder (read-only tree + preview).
   const [root, setRoot] = useState<SourceRoot>("sources");
-  const isWiki = root === "wiki";
+  // v1.5 P1: "wiki" AND "vault" are read-only browse trees — only "sources" is writable.
+  const isReadOnly = root !== "sources";
 
   const [entries, setEntries]               = useState<SourceEntry[]>([]);
   const [total, setTotal]                   = useState<number>(0);
@@ -677,7 +678,15 @@ export function SourcesView() {
         >
           {t("sources.tabWiki")}
         </button>
-        {isWiki && (
+        <button
+          data-testid="sources-tab-vault"
+          style={tabBtnStyle(root === "vault")}
+          onClick={() => setRoot("vault")}
+          aria-pressed={root === "vault"}
+        >
+          {t("sources.tabVault")}
+        </button>
+        {isReadOnly && (
           <span style={WIKI_BADGE_STYLE}>
             {t("sources.wikiReadOnly")}
           </span>
@@ -691,7 +700,7 @@ export function SourcesView() {
         </span>
         <div style={{ display: "flex", gap: 6 }}>
           {/* Index All button — hidden in wiki tab (read-only) */}
-          {!isWiki && (
+          {!isReadOnly && (
             <button
               data-testid="sources-ingest-all"
               style={{
@@ -734,7 +743,7 @@ export function SourcesView() {
             {t("sources.refresh")}
           </button>
           {/* Import + Folder buttons — hidden in wiki tab (read-only) */}
-          {!isWiki && (
+          {!isReadOnly && (
             <>
               <button
                 style={IMPORT_BTN_STYLE}
@@ -775,14 +784,14 @@ export function SourcesView() {
       </div>
 
       {/* ── Import zone (collapsible) — sources tab only ── */}
-      {!isWiki && showImport && (
+      {!isReadOnly && showImport && (
         <div style={{ borderBottom: "1px solid var(--syn-border)", paddingBottom: 8 }}>
           <UploadZone onSuccess={() => { setShowImport(false); void fetchSources(); }} />
         </div>
       )}
 
       {/* ── R7-11: Bulk actions bar (appears when >0 selected, sources tab only) ── */}
-      {!isWiki && someSelected && !bulkProgress && (
+      {!isReadOnly && someSelected && !bulkProgress && (
         <div
           data-testid="sources-bulk-bar"
           style={{
@@ -907,7 +916,7 @@ export function SourcesView() {
               style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
             >
               {/* R7-11: select-all header checkbox — sources tab only */}
-              {!isWiki && (
+              {!isReadOnly && (
                 <div
                   style={{
                     display: "flex",
@@ -955,7 +964,7 @@ export function SourcesView() {
                           style={style}
                           armed={armedPath === row.path}
                           deleting={deletingPath === row.path}
-                          readOnly={isWiki}
+                          readOnly={isReadOnly}
                           onToggle={toggleFolder}
                           onDelete={handleFolderDeleteClick}
                         />
@@ -970,7 +979,7 @@ export function SourcesView() {
                         armed={armedPath === row.path}
                         deleting={deletingPath === row.path}
                         ingesting={ingestingPath === row.path}
-                        readOnly={isWiki}
+                        readOnly={isReadOnly}
                         style={style}
                         onClick={() => setSelectedPath(row.path)}
                         onToggleCheck={() => handleToggleSelect(row.path)}

@@ -244,6 +244,315 @@ async def get_reclassify_types_status() -> ReclassifyTypesStatusResponse:
     )
 
 
+# ── POST/GET /ops/synthesize — bounded corpus-level synthesis/comparison generator ──
+# ADR-0067 D3 / audit P0-3: seeds candidate clusters from the 4-signal graph, then AUTO-WRITES a
+# synthesis (thesis+integration) / comparison (table) page per high-confidence cluster and
+# PROPOSES borderline clusters to the F9 review queue. Background asyncio task + 202, single-flight
+# (409 while running). No dormant-400 — it runs whenever called (no-provider vault → clean no-op).
+# Strong task reference kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_synthesize_tasks: set[asyncio.Task[Any]] = set()
+
+
+class SynthesizeRequest(BaseModel):
+    """Request body for POST /ops/synthesize (ADR-0067 D3)."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on pages auto-written this run (synthesis+comparison; clamped).",
+    )
+    token_budget: int | None = Field(
+        default=None, ge=1, description="Token budget for the run (clamped server-side, I7)."
+    )
+    force: bool = Field(
+        default=False,
+        description="Accepted for endpoint-shape parity; the seeder is already a full re-seed.",
+    )
+
+
+class SynthesizeStartResponse(BaseModel):
+    """202 response for POST /ops/synthesize."""
+
+    status: str = Field(default="started", description="'started' — synthesize runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    token_budget: int = Field(description="Effective (clamped) token budget for this run")
+    force: bool = Field(description="Echo of the force flag")
+
+
+class SynthesizeStatusResponse(BaseModel):
+    """GET /ops/synthesize — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a synthesize run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None, description="Summary of the most recent completed run (null if never ran)"
+    )
+
+
+@router.post(
+    "/ops/synthesize",
+    status_code=202,
+    response_model=SynthesizeStartResponse,
+    responses={409: {"description": "A synthesize run is already in flight"}},
+)
+async def start_synthesize(body: SynthesizeRequest) -> SynthesizeStartResponse:
+    """Start ONE bounded corpus-level synthesis/comparison pass (ADR-0067 D3, P0-3, I6/I7)."""
+    from app.ops import synthesize as _sy
+
+    if _sy.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A synthesize run is already running. Poll GET /ops/synthesize.",
+        )
+
+    mp, tb = _sy.clamp_bounds(body.max_pages, body.token_budget)
+
+    async def _run() -> None:
+        try:
+            await _sy.run_synthesize(
+                vault_id=settings.vault_id,
+                max_pages=body.max_pages,
+                token_budget=body.token_budget,
+                force=body.force,
+            )
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 — run_synthesize never raises by contract; belt+braces
+            logger.error("synthesize: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _synthesize_tasks.add(task)
+    task.add_done_callback(_synthesize_tasks.discard)
+
+    return SynthesizeStartResponse(
+        status="started", max_pages=mp, token_budget=tb, force=body.force
+    )
+
+
+@router.get("/ops/synthesize", response_model=SynthesizeStatusResponse)
+async def get_synthesize_status() -> SynthesizeStatusResponse:
+    """Single-flight state + last summary of the corpus synthesize pass (ADR-0067 D3)."""
+    from app.ops import synthesize as _sy
+
+    last = _sy.get_last_summary()
+    return SynthesizeStatusResponse(
+        running=_sy.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
+# ── POST/GET /ops/backfill-related — ADR-0067 D2 related: + slug-link conversion ──
+# Brings EXISTING wiki pages up to ADR-0067 D2 conventions (P2-1 related: backfill and
+# P2-2 title→slug link rewrite) WITHOUT re-ingesting. Zero LLM cost; DRY-RUN by default.
+# Background asyncio task + 202, single-flight (409 while running). Strong task reference
+# kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_backfill_related_tasks: set[asyncio.Task[Any]] = set()
+
+
+class BackfillRelatedRequest(BaseModel):
+    """Request body for POST /ops/backfill-related (ADR-0067 D2 P2-1+P2-2)."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on wiki pages scanned per run (clamped server-side, I7).",
+    )
+    apply: bool = Field(
+        default=False,
+        description=(
+            "False (default) = dry-run only — returns planned counts + samples with no file "
+            "writes. True = perform actual writes + incremental re-index + data_version bump."
+        ),
+    )
+
+
+class BackfillRelatedStartResponse(BaseModel):
+    """202 response for POST /ops/backfill-related."""
+
+    status: str = Field(default="started", description="'started' — backfill runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    apply: bool = Field(description="Whether file writes are performed (False = dry-run)")
+
+
+class BackfillRelatedStatusResponse(BaseModel):
+    """GET /ops/backfill-related — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a backfill-related run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Summary of the most recent completed run (null if never ran). "
+            "Includes 'samples' (first 5 changed pages) in dry-run mode."
+        ),
+    )
+
+
+@router.post(
+    "/ops/backfill-related",
+    status_code=202,
+    response_model=BackfillRelatedStartResponse,
+    responses={409: {"description": "A backfill-related run is already in flight"}},
+)
+async def start_backfill_related(
+    body: BackfillRelatedRequest,
+) -> BackfillRelatedStartResponse:
+    """
+    Start ONE bounded ADR-0067 D2 backfill pass (apply=False → dry-run) [P2-1,P2-2,I1,I7].
+
+    Brings existing wiki pages up to D2 conventions:
+      P2-1 — sets/replaces ``related:`` from resolved outbound wikilinks (cap 8, slugs only).
+      P2-2 — rewrites ``[[Title]]`` / ``[[Title|alias]]`` to ``[[slug|Title]]`` /
+              ``[[slug|alias]]`` in page bodies (rendering unchanged).
+
+    Zero LLM cost.  Dry-run by default; pass ``apply=true`` to commit changes.
+    """
+    from app.ops import backfill_related as _br  # noqa: PLC0415
+
+    if _br.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A backfill-related run is already in flight. " "Poll GET /ops/backfill-related."
+            ),
+        )
+
+    mp = _br.clamp_bounds(body.max_pages)
+
+    async def _run() -> None:
+        try:
+            await _br.run_backfill_related(
+                vault_id=settings.vault_id,
+                apply=body.apply,
+                max_pages=body.max_pages,
+            )
+        except Exception as exc:  # noqa: BLE001 — run_backfill_related never raises; belt+braces
+            logger.error("backfill-related: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _backfill_related_tasks.add(task)
+    task.add_done_callback(_backfill_related_tasks.discard)
+
+    return BackfillRelatedStartResponse(status="started", max_pages=mp, apply=body.apply)
+
+
+@router.get("/ops/backfill-related", response_model=BackfillRelatedStatusResponse)
+async def get_backfill_related_status() -> BackfillRelatedStatusResponse:
+    """Single-flight state + last summary of the ADR-0067 D2 backfill [P2-1,P2-2,I1]."""
+    from app.ops import backfill_related as _br  # noqa: PLC0415
+
+    last = _br.get_last_summary()
+    return BackfillRelatedStatusResponse(
+        running=_br.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
+# ── POST/GET /ops/reconcile-folders — bounded folder-vs-type reconcile sweep ──
+# Physically moves wiki pages whose filesystem folder does not match the folder
+# implied by their ``type`` (e.g. an entity living under concepts/ → entities/).
+# Background asyncio task + 202, single-flight (409 while running), DRY-RUN by default.
+# Zero LLM cost (deterministic folder routing via type_subdir). Strong task reference
+# kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_reconcile_tasks: set[asyncio.Task[Any]] = set()
+
+
+class ReconcileFoldersRequest(BaseModel):
+    """Request body for POST /ops/reconcile-folders."""
+
+    max_pages: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on wiki pages scanned per run (clamped server-side, I7).",
+    )
+    apply: bool = Field(
+        default=False,
+        description=(
+            "False (default) = dry-run only — returns a plan with no file writes. "
+            "True = perform actual moves + DB + Qdrant updates."
+        ),
+    )
+
+
+class ReconcileFoldersStartResponse(BaseModel):
+    """202 response for POST /ops/reconcile-folders."""
+
+    status: str = Field(default="started", description="'started' — reconcile runs in background")
+    max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    apply: bool = Field(description="Whether moves are applied (False = dry-run)")
+
+
+class ReconcileFoldersStatusResponse(BaseModel):
+    """GET /ops/reconcile-folders — single-flight state + last completed summary."""
+
+    running: bool = Field(description="True while a reconcile run is in flight")
+    last_summary: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Summary of the most recent completed run (null if never ran). "
+            "Includes 'plan' (list of proposed moves) in dry-run mode."
+        ),
+    )
+
+
+@router.post(
+    "/ops/reconcile-folders",
+    status_code=202,
+    response_model=ReconcileFoldersStartResponse,
+    responses={409: {"description": "A reconcile-folders run is already in flight"}},
+)
+async def start_reconcile_folders(
+    body: ReconcileFoldersRequest,
+) -> ReconcileFoldersStartResponse:
+    """
+    Start ONE bounded folder-reconcile sweep (apply=False → dry-run; apply=True → moves) [K1,I1].
+
+    Finds wiki pages whose physical folder (e.g. ``concepts/``) does not match the folder
+    implied by their ``type`` frontmatter (e.g. ``entity`` → ``entities/``) and — when
+    ``apply=True`` — moves them, updating Postgres + Qdrant. Zero LLM cost; purely
+    deterministic. The plan is visible via GET /ops/reconcile-folders after the run
+    completes (dry-run returns plan without writing; apply returns counts + by_folder).
+    """
+    from app.ops import reconcile_folders as _rf  # noqa: PLC0415
+
+    if _rf.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="A reconcile-folders run is already in flight. Poll GET /ops/reconcile-folders.",
+        )
+
+    mp = _rf.clamp_bounds(body.max_pages)
+
+    async def _run() -> None:
+        try:
+            await _rf.run_reconcile(
+                vault_id=settings.vault_id,
+                apply=body.apply,
+                max_pages=body.max_pages,
+            )
+        except Exception as exc:  # noqa: BLE001 — run_reconcile never raises by contract
+            logger.error("reconcile-folders: unhandled error in background run: %s", exc)
+
+    task = asyncio.create_task(_run())
+    _reconcile_tasks.add(task)
+    task.add_done_callback(_reconcile_tasks.discard)
+
+    return ReconcileFoldersStartResponse(status="started", max_pages=mp, apply=body.apply)
+
+
+@router.get("/ops/reconcile-folders", response_model=ReconcileFoldersStatusResponse)
+async def get_reconcile_folders_status() -> ReconcileFoldersStatusResponse:
+    """Single-flight state + last summary of the folder-reconcile sweep [K1,I1]."""
+    from app.ops import reconcile_folders as _rf  # noqa: PLC0415
+
+    last = _rf.get_last_summary()
+    return ReconcileFoldersStatusResponse(
+        running=_rf.is_running(),
+        last_summary=last.as_dict() if last is not None else None,
+    )
+
+
 # ── GET /ops/schedules + POST /ops/schedules/{op}/run-now (R12-7/A5) ─────────
 # OpsScheduler status + manual trigger. Schedule FREQUENCIES are set via the existing
 # PUT /config/app/{key} (S10 lint_schedule / S11 backfill_schedule — no new write endpoint).

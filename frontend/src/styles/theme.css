@@ -1,4 +1,50 @@
 /*
+ * ── GEIST FONT (Brand v1.0) ────────────────────────────────────────────────
+ * Self-hosted Geist (Regular 400 / Medium 500 / Semibold 600) for offline-first
+ * operation (CSP forbids external CDN). Drop the woff2 files here to activate:
+ *   frontend/src/assets/fonts/Geist-Regular.woff2
+ *   frontend/src/assets/fonts/Geist-Medium.woff2
+ *   frontend/src/assets/fonts/Geist-SemiBold.woff2
+ *
+ * Download from: https://github.com/vercel/geist-font/releases
+ *
+ * TODO(brand): drop Geist woff2 files into frontend/src/assets/fonts/ and
+ *   uncomment the @font-face block below. The system-font fallback stack is
+ *   intentionally identical so nothing breaks until the files are added.
+ */
+
+/*
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/fonts/Geist-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../assets/fonts/Geist-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../assets/fonts/Geist-SemiBold.woff2") format("woff2");
+}
+*/
+
+/*
+ * Wordmark style (apply to any element rendering "Synapse" as a logotype):
+ *   font-family: var(--syn-font-wordmark);
+ *   font-weight: 600;
+ *   letter-spacing: -0.02em;
+ */
+
+/*
  * theme.css — Synapse design system, light + dark.
  *
  * Single source of truth for colors/typography/spacing. Components consume the --syn-*
@@ -104,7 +150,26 @@
    */
   --syn-bg-card: #f6f7f9;
 
+  /* ── Brand v1.0 gradient tokens ──────────────────────────────────────────
+   * DO NOT change --syn-accent / --syn-accent-strong / --syn-accent-soft —
+   * they already match the brand; these are ADDITIVE gradient tokens only.
+   *
+   * --syn-brand-grad       : primary diagonal gradient (light app surfaces)
+   * --syn-brand-grad-dark  : icon/squircle bg gradient for dark variant
+   * --syn-mark-dark-from/to: mark fill gradient colours in dark app icon
+   * --syn-font-wordmark    : font stack to use for the "Synapse" logotype
+   *                          (Geist Semibold when woff2 files are present;
+   *                           system sans-serif fallback otherwise)
+   */
+  --syn-brand-grad: linear-gradient(to top right, #1D4ED8, #4338CA, #7C3AED);
+  --syn-brand-grad-horizontal: linear-gradient(90deg, #1D4ED8 0%, #7C3AED 100%);
+  --syn-brand-grad-dark: linear-gradient(to top right, #0B0E20, #211A4F);
+  --syn-mark-dark-from: #58A6FF;
+  --syn-mark-dark-to: #C084FC;
+  --syn-font-wordmark: "Geist", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
   font-family:
+    "Geist",
     Inter,
     ui-sans-serif,
     system-ui,

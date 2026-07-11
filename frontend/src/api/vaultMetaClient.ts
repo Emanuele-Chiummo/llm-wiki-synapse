@@ -78,3 +78,40 @@ export async function fetchVaultMeta(
     return { files: [] };
   }
 }
+
+/**
+ * saveVaultMeta — write schema.md or purpose.md back to the vault (v1.5 P1, ADR-0066).
+ *
+ * PUT /vault/meta/{name}  body { content }  → 200 VaultMetaFile
+ *
+ * `name` must be exactly "schema.md" or "purpose.md" (the backend allow-list); any other
+ * value is a 404. Throws ApiError on non-2xx so callers can surface the failure and keep
+ * the editor dirty. Unlike fetchVaultMeta, this does NOT swallow errors — a failed save
+ * must be visible.
+ */
+export async function saveVaultMeta(
+  name: string,
+  content: string,
+  signal?: AbortSignal,
+): Promise<VaultMetaFile> {
+  const url = `${apiBase()}/vault/meta/${encodeURIComponent(name)}`;
+  const res = await fetchWithTimeout(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = (await res.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new ApiError(res.status, `${res.status} ${detail}`);
+  }
+
+  return (await res.json()) as VaultMetaFile;
+}

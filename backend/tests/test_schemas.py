@@ -3,7 +3,8 @@ Infra-free unit tests for the locked ingest schemas + the stubbed chat() contrac
 ADR-0007 §6). No live Ollama/Anthropic/SDK needed.
 
 Coverage:
-  - WikiFrontmatter rejects empty sources[] (F3 traceability / I5).
+  - WikiFrontmatter accepts empty/omitted sources[] + omitted lang (ADR-0067 D2 — provenance
+    moved to Postgres) and a `related` slug list.
   - WikiFrontmatter accepts a valid page.
   - WikiPage rejects empty content / empty title.
   - chat() raises NotImplementedError on ALL THREE providers (AC-F17-2).
@@ -40,17 +41,56 @@ def _valid_frontmatter() -> WikiFrontmatter:
     )
 
 
-# ── WikiFrontmatter — I5/F3 traceability ────────────────────────────────────────
+# ── WikiFrontmatter — I5 + ADR-0067 D2 (sources/lang optional; provenance in DB) ────
 
 
-def test_frontmatter_rejects_empty_sources() -> None:
+def test_frontmatter_accepts_empty_sources() -> None:
+    """
+    ADR-0067 D2: `sources` is OPTIONAL and no longer required non-empty — traceability moved to
+    Postgres (pages.sources, injected by the orchestrator). Empty sources must NOT raise.
+    """
+    fm = WikiFrontmatter(type=PageType.CONCEPT, title="X", sources=[], lang="en")
+    assert fm.sources == []
+
+
+def test_frontmatter_default_sources_is_empty_list() -> None:
+    """`sources` defaults to [] when omitted entirely (ADR-0067 D2)."""
+    fm = WikiFrontmatter(type=PageType.CONCEPT, title="X", lang="en")
+    assert fm.sources == []
+
+
+def test_frontmatter_sources_cleaned_of_blanks_no_raise() -> None:
+    """Blank-only sources are CLEANED to [] (kept-non-blank) rather than raising (ADR-0067 D2)."""
+    fm = WikiFrontmatter(type=PageType.CONCEPT, title="X", sources=["", "   "], lang="en")
+    assert fm.sources == []
+
+
+def test_frontmatter_default_lang_when_missing() -> None:
+    """ADR-0067 D2: `lang` is OPTIONAL and defaults to 'en' (still min_length 2 when present)."""
+    fm = WikiFrontmatter(type=PageType.CONCEPT, title="X", sources=["raw/sources/bio.md"])
+    assert fm.lang == "en"
+
+
+def test_frontmatter_short_lang_still_rejected() -> None:
+    """A present but too-short `lang` is still rejected (min_length 2)."""
     with pytest.raises(ValidationError):
-        WikiFrontmatter(type=PageType.CONCEPT, title="X", sources=[], lang="en")
+        WikiFrontmatter(type=PageType.CONCEPT, title="X", lang="e")
 
 
-def test_frontmatter_rejects_sources_of_only_blanks() -> None:
-    with pytest.raises(ValidationError):
-        WikiFrontmatter(type=PageType.CONCEPT, title="X", sources=["", "   "], lang="en")
+def test_frontmatter_accepts_related_list() -> None:
+    """ADR-0067 D2: `related` is a first-class list of page slugs (deduped, blanks dropped)."""
+    fm = WikiFrontmatter(
+        type=PageType.CONCEPT,
+        title="X",
+        related=["aws", "aws", "  s3  ", ""],
+    )
+    # Deduped (first wins), trimmed, blanks dropped, NOT lowercased.
+    assert fm.related == ["aws", "s3"]
+
+
+def test_frontmatter_related_defaults_empty() -> None:
+    fm = _valid_frontmatter()
+    assert fm.related == []
 
 
 def test_frontmatter_accepts_valid() -> None:

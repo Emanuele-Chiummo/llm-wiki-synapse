@@ -15,6 +15,7 @@
     "toolsGroup": "Tools",
     "convert": "Convert",
     "settings": "Settings",
+    "projects": "Projects",
     "settingsShort": "Settings",
     "chatComingSoon": "Phase 3",
     "comingSoon": "Coming soon",
@@ -181,6 +182,7 @@
       "sourceWatch2": "Watched sources",
       "clipper": "Web clipper",
       "pdf": "PDF extraction",
+      "imageCaptioning": "Image captioning",
       "apiMcp2": "MCP integrations",
       "security2": "Security & access",
       "costs2": "Costs",
@@ -413,9 +415,23 @@
       "copied": "Copied!"
     },
     "webSearch": {
-      "desc": "SearXNG is the only supported web-search backend (I9). Used by Deep Research to fetch sources. Configure the URL and categories here.",
+      "desc": "Choose the web-search backend used by Deep Research and chat web-search. SearXNG is the default, privacy-preserving backend; the others are opt-in.",
       "loading": "Loading web search config…",
       "error": "Could not load web search config. Is the backend running?",
+      "providerLabel": "Web-search provider",
+      "providerHelp": "SearXNG (self-hosted) is the default and keeps queries on your network. The cloud backends are opt-in and require the matching API key in the server environment.",
+      "provider": {
+        "searxng": "SearXNG",
+        "tavily": "Tavily",
+        "serpapi": "SerpApi",
+        "firecrawl": "Firecrawl",
+        "brave": "Brave Search",
+        "ollama_web": "Ollama Web"
+      },
+      "providerDefaultBadge": "Default · privacy-preserving",
+      "providerCloudBadge": "Cloud · opt-in · needs API key",
+      "providerLocalBadge": "Local · opt-in",
+      "cloudWarning": "This is a third-party cloud search provider: your search queries are sent to an external service. It only works once the matching API key is set in the server environment (TAVILY_API_KEY / SERPAPI_API_KEY / FIRECRAWL_API_KEY / BRAVE_API_KEY).",
       "configuredBadge": "Configured",
       "notConfiguredBadge": "Not configured",
       "sourceBadge": "Source: {{source}}",
@@ -433,7 +449,14 @@
       "maxQueriesSave": "Save",
       "clearButton": "Clear all DB overrides",
       "clearHelp": "Falls back to SEARXNG_URL env var and code defaults.",
-      "searxngOnly": "Only SearXNG is supported as the web-search backend. No other provider can be configured here (I9)."
+      "apiKeyLabel": "API key",
+      "apiKeyConfigured": "Configured ({{source}})",
+      "apiKeyNotConfigured": "Not configured",
+      "apiKeyPlaceholder": "Paste the provider API key…",
+      "apiKeySave": "Save key",
+      "apiKeyClear": "Remove",
+      "apiKeyHint": "Stored encrypted at rest (Fernet). The saved key overrides the {PROVIDER}_API_KEY environment variable.",
+      "apiKeyNoSecret": "Set SYNAPSE_SECRET_KEY in the server environment to store keys from the UI, or provide the key via the {PROVIDER}_API_KEY env var."
     },
     "cliAuth": {
       "title": "CLI Subscription Auth",
@@ -479,6 +502,18 @@
       "freq1h": "Every hour",
       "freq6h": "Every 6 hours",
       "freqDaily": "Daily",
+      "allowedTypes": "Importable file types",
+      "allowedTypesHint": "Only checked types are imported. Binary/document types are converted to text on import.",
+      "typeGroupText": "Text / Markdown",
+      "typeGroupDocs": "Documents",
+      "typeGroupSheets": "Spreadsheets",
+      "typeGroupSlides": "Presentations",
+      "typeGroupWeb": "Web",
+      "excludedFolders": "Excluded folders",
+      "excludedFoldersHint": "Comma-separated folder names to skip during the scan (e.g. node_modules, .git).",
+      "maxSize": "Maximum file size",
+      "maxSizeUnit": "MB (0 = no limit)",
+      "maxSizeHint": "Files larger than this are skipped. 0 means no size limit.",
       "lastRun": "Last run",
       "imported": "imported",
       "runNow": "Run now",
@@ -576,6 +611,10 @@
       "totalUsd": "Total (USD)",
       "callCount": "Calls",
       "noData": "No cost data for this period."
+    },
+    "footer": {
+      "save": "Save changes",
+      "discard": "Cancel"
     }
   },
   "chat": {
@@ -643,7 +682,13 @@
     },
     "imageTooLarge": "Image \"{{name}}\" exceeds {{maxMb}} MB limit",
     "tooManyImages": "Maximum {{max}} images per message",
-    "webSources": "WEB SOURCES"
+    "webSources": "WEB SOURCES",
+    "skills": "Skills",
+    "skillsOn": "Skills on — click to disable",
+    "skillsOff": "Skills off — click to enable",
+    "anytxt": "AnyTXT",
+    "anytxtOn": "AnyTXT on — click to disable",
+    "anytxtOff": "AnyTXT off — requires a running AnyTXT Searcher service (Windows only)"
   },
   "research": {
     "title": "Deep Search",
@@ -1009,6 +1054,7 @@
     "title": "Sources",
     "tabSources": "Sources",
     "tabWiki": "Wiki",
+    "tabVault": "Vault",
     "wikiReadOnly": "Read-only",
     "import": "Import",
     "importFolder": "+ Folder",
@@ -1172,12 +1218,33 @@
     "dataVersion": "Version",
     "close": "Close",
     "copy": "Copy",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "launcher": {
+    "title": "Projects",
+    "subtitle": "Open, create or switch between Synapse vaults. Each project is a vault folder.",
+    "newTitle": "New project",
+    "namePlaceholder": "Project name",
+    "pathPlaceholder": "Absolute vault folder path (server-side)",
+    "create": "Create",
+    "openTitle": "Open existing",
+    "open": "Open",
+    "recent": "RECENT PROJECTS",
+    "empty": "No projects yet.",
+    "active": "Active",
+    "switch": "Switch",
+    "switching": "Switching…",
+    "openFolder": "Open folder",
+    "pathCopied": "Path copied"
   },
   "meta": {
     "vaultSection": "Vault",
     "readOnly": "Read-only",
-    "drawer": "Vault meta file"
+    "drawer": "Vault meta file",
+    "saving": "Saving…"
   },
   "previewPanel": {
     "connectedTo": "Connected to {{count}} other pages",
@@ -1230,11 +1297,28 @@
     "saved": "Saved",
     "resetDone": "Reset to default",
     "keyHint": "Key: {{key}}",
+    "imageCaptioningSection": {
+      "title": "Image captioning",
+      "desc": "Generate factual captions for images extracted from PDFs / DOCX / PPTX at ingest. Captions become alt text inside the source markdown, so semantic search can match image content. Cached by image hash so duplicate logos/charts only call the model once."
+    },
+    "visionCaptionsEnabled": {
+      "label": "Caption images at ingest",
+      "help": "Off: image references are stripped from ingested content — no captions, search won't match them. On: each new image gets a caption from the vision-capable provider (cached by hash) and lands in the page's alt text.",
+      "on": "Enabled",
+      "off": "Disabled"
+    },
+    "visionMaxImagesPerRun": {
+      "label": "Max images captioned per run",
+      "help": "Cap on how many images call the vision model per ingest run (cost/time bound). 0–50; 0 disables captioning even when the toggle is on.",
+      "placeholder": "5"
+    },
     "pdfExtractor": {
       "label": "PDF extractor",
       "help": "Choose which engine extracts text from PDF files on ingest.",
       "optionPypdf": "pypdf (built-in, no external service required)",
-      "optionMarker": "Marker (higher quality, requires the Marker microservice)"
+      "optionMarker": "Marker (higher quality, requires the Marker microservice)",
+      "optionMineru": "MinerU (cloud, highest quality — uploads the PDF to an external service)",
+      "mineruCloudWarning": "⚠️ Cloud provider: selecting MinerU uploads your PDF content to an external service. It stays off until MINERU_API_KEY is set in the environment; on any error it falls back to the built-in pypdf extractor."
     },
     "markerServiceUrl": {
       "label": "Marker service URL",
@@ -1324,6 +1408,16 @@
       "wizardComingSoon": "Coming soon",
       "wizardOpen": "Open setup wizard",
       "wizardReopen": "Reopen setup wizard"
+    },
+    "mineruApiUrl": {
+      "label": "MinerU API URL",
+      "help": "Base URL of the MinerU cloud API. Only used when the PDF extractor is set to MinerU. The API key is set separately via the MINERU_API_KEY environment variable (never stored here).",
+      "placeholder": "https://mineru.net/api/v4"
+    },
+    "mineruTimeoutSeconds": {
+      "label": "MinerU timeout (s)",
+      "help": "Seconds to wait for the MinerU cloud API before timing out. Must be between 1 and 3600.",
+      "placeholder": "600"
     }
   },
   "wizard": {
@@ -1421,6 +1515,8 @@
       "title": "GRUPPI AUTOMATICI",
       "pages": "pages",
       "openTopPage": "Open top page",
+      "topPage": "Top page",
+      "browseHint": "Browse group",
       "lastActivity": "Last activity",
       "noTopPages": "No pages yet",
       "expand": "Expand ({{count}} more)",
@@ -1448,6 +1544,42 @@
       "message": "Server is at v{{backendVersion}} — frontend expects v{{appVersion}}. Update the backend image to get the latest features.",
       "deployLink": "How to update",
       "dismiss": "Dismiss version notice"
+    },
+    "wikiThesis": {
+      "ariaLabel": "Wiki central thesis",
+      "title": "Wiki thesis",
+      "keyQuestionsLabel": "Key questions"
+    },
+    "quickActions": {
+      "ariaLabel": "Quick actions",
+      "ingestSource": "Ingest source",
+      "askQuestion": "Ask a question",
+      "deepResearch": "Deep research"
+    },
+    "reviewPreview": {
+      "ariaLabel": "Pending review items preview",
+      "title": "To review",
+      "seeAll": "see all ({{count}}) →",
+      "noTitle": "(no title)",
+      "create": "Create",
+      "creating": "Creating…",
+      "deepResearch": "Research",
+      "skip": "Skip"
+    },
+    "openQuestions": {
+      "ariaLabel": "Open questions",
+      "title": "Open questions"
+    },
+    "dataQuality": {
+      "ariaLabel": "Data quality nudge",
+      "message": "{{untyped}} untyped page(s), {{undomained}} without domain",
+      "cta": "Classify now",
+      "running": "Running…",
+      "done": "Done"
     }
+  },
+  "navTree": {
+    "filterBanner": "Filtered by: {{label}}",
+    "clearFilter": "Clear filter"
   }
 }

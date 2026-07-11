@@ -467,8 +467,9 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
         ingest_run_args.update(kwargs)
 
     # ADR-0046: also stub ingest_queue so run_ingest_pipeline doesn't need a live event loop
-    from app.ingest.queue_manager import IngestQueueManager
     import asyncio as _smoke_asyncio
+
+    from app.ingest.queue_manager import IngestQueueManager
 
     class _FakeQueueHandle:
         run_id = _smoke_uuid.uuid4()
@@ -605,12 +606,24 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
             try:
                 doc = fm_lib.loads(md_file.read_text(encoding="utf-8"))
                 meta = dict(doc.metadata)
-                for req in ("type", "title", "sources", "lang"):
+                # ADR-0067 D2: on-disk generated-page frontmatter mirrors LLM Wiki — `type` +
+                # `title` are the required on-disk keys; `sources`/`lang` are NO LONGER emitted
+                # in the .md (F3 provenance moved to Postgres pages.sources, populated by the
+                # orchestrator and covered by tests/test_adr0067_generation_parity.py). Assert the
+                # required keys are present AND that sources/lang did NOT leak into the file.
+                for req in ("type", "title"):
                     if not meta.get(req):
                         failures.append(f"{md_file.name}: missing frontmatter field {req!r} (I5)")
-                sources = meta.get("sources", [])
-                if not isinstance(sources, list) or not sources:
-                    failures.append(f"{md_file.name}: sources[] is empty or not a list (F3)")
+                for dropped in ("sources", "lang"):
+                    if dropped in meta:
+                        failures.append(
+                            f"{md_file.name}: {dropped!r} must NOT be emitted in the .md "
+                            f"(ADR-0067 D2 — provenance lives in the DB)"
+                        )
+                # `related`, when present, is a YAML list of slugs (a second F4 graph-edge seed).
+                related = meta.get("related")
+                if related is not None and not isinstance(related, list):
+                    failures.append(f"{md_file.name}: related must be a YAML list (ADR-0067 D2)")
                 # K5: verify wikilinks are parseable
                 body = doc.content
                 parse_wikilinks(body)  # K5: verify no parse exception; count not asserted

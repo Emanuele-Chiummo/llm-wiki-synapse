@@ -126,11 +126,13 @@ async def test_convert_marker_rejects_non_pdf() -> None:
 async def test_convert_marker_rejects_oversize_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """AC-R11-1-1: file > MAX_UPLOAD_BYTES → HTTP 413."""
+    """AC-R11-1-1: file > MARKER_MAX_UPLOAD_BYTES → HTTP 413 (ADR-0065: dedicated cap)."""
     from app import config as cfg_mod
 
-    # Set a very small upload limit (1 byte) to trigger the 413
-    monkeypatch.setattr(cfg_mod.settings, "max_upload_bytes", 1)
+    # Set a very small MARKER cap (1 byte) to trigger the 413. The generic max_upload_bytes
+    # (25 MB) is deliberately NOT what this endpoint checks — convert-marker uses its own,
+    # larger cap so chunked large PDFs are accepted.
+    monkeypatch.setattr(cfg_mod.settings, "marker_max_upload_bytes", 1)
 
     files = [("files", ("big.pdf", io.BytesIO(_make_pdf_bytes()), "application/pdf"))]
 

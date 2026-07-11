@@ -115,6 +115,17 @@ class TestChatContext:
         # 20% of 4096 tokens * 4 chars ≈ 3276 chars cap — far below 1M.
         assert len(ctx) < 10_000
 
+    def test_preamble_allows_page_path_mentions(self, tmp_path: Path) -> None:
+        """CG-A1: the softened preamble lets the model name page paths in prose, keeping [n]."""
+        ctx = build_chat_context(vault_root=tmp_path)
+        low = ctx.lower()
+        # Bare-number example still present (the resolvable anchor).
+        assert "[1]" in ctx
+        # Naming the relevant page path in prose is now explicitly permitted.
+        assert "path" in low and "prose" in low
+        # …but the marker itself must stay a bare number.
+        assert "bare number" in low
+
 
 # ── 3. Endpoint tests with a mocked provider ──────────────────────────────────
 

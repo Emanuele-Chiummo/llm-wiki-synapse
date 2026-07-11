@@ -4,9 +4,17 @@
  * Mirrors SectionApiMcp token UX — generate/rotate/clear with one-time reveal.
  * I3: single fetch on mount; PUT on each user action; local state only.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader, Field, EmbedRow, INPUT_STYLE, BTN_PRIMARY } from "../ui";
+
+// Match this section's existing soft-panel blocks (brand colors only, never black).
+const WC_PANEL: CSSProperties = {
+  padding: "12px 14px",
+  background: "var(--syn-bg-soft)",
+  border: "1px solid var(--syn-border)",
+  borderRadius: 8,
+};
 import { fetchClipConfig, setClipConfig } from "../../../api/providerClient";
 import type { ClipConfigResponse, ClipConfigStateResponse } from "../../../api/types";
 
@@ -215,7 +223,7 @@ export function SectionWebClipper() {
           </div>
 
           {/* Allowed origins */}
-          <div>
+          <div style={WC_PANEL}>
             <Field label={t("settings.webClipper.originsLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>{t("settings.webClipper.originsHelp")}</p>
               <div style={{ display: "flex", gap: 8 }}>
@@ -237,7 +245,7 @@ export function SectionWebClipper() {
           </div>
 
           {/* Clip endpoint URL */}
-          <div>
+          <div style={WC_PANEL}>
             <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>{t("settings.webClipper.extensionUrlLabel")}</p>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span data-testid="clip-endpoint-url" style={{ flex: 1, fontFamily: "monospace", fontSize: 12, color: "var(--syn-accent)", padding: "5px 8px", background: "var(--syn-accent-soft)", border: "1px solid color-mix(in srgb, var(--syn-accent) 30%, var(--syn-mix-base) 70%)", borderRadius: 4, wordBreak: "break-all" }}>

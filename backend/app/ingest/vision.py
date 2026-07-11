@@ -29,6 +29,7 @@ import logging
 from dataclasses import dataclass, field
 
 from app.config import settings
+from app.config_overrides import effective_bool, effective_int
 from app.db import get_session
 from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
@@ -48,7 +49,11 @@ class VisionRunBudget:
     placeholder.
     """
 
-    max_images: int = field(default_factory=lambda: max(0, int(settings.vision_max_images_per_run)))
+    max_images: int = field(
+        default_factory=lambda: max(
+            0, effective_int("vision_max_images_per_run", settings.vision_max_images_per_run)
+        )
+    )
     used: int = 0
 
     def try_consume(self) -> bool:
@@ -130,7 +135,7 @@ async def maybe_caption_image(
     per-run cap → ONE bounded provider.caption_image() call (Usage on *accumulator* → run ledger,
     I7) → store in cache. Any failure returns None (placeholder fallback) — ingest never breaks.
     """
-    if not settings.vision_captions_enabled:
+    if not effective_bool("vision_captions_enabled", settings.vision_captions_enabled):
         return None
 
     provider: InferenceProvider = resolve_provider(provider_config_row)

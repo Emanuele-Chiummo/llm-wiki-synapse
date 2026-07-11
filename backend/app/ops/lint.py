@@ -52,6 +52,7 @@ from sqlalchemy import func, select, update
 
 from app.config import settings
 from app.db import get_session
+from app.ingest.schemas import PageType
 from app.models import LintFinding, LintRun, Page
 
 logger = logging.getLogger(__name__)
@@ -78,14 +79,16 @@ _VALID_SEVERITIES = frozenset({"info", "warning", "error"})
 _VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
 
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
-# contradiction / stale-claim → apply is a no-op status change to 'applied'
-# with a resolution_note (the human still has to fix them by editing the wiki).
+# stale-claim → apply is a no-op status change to 'applied' with a resolution_note (the human
+# still has to fix it by editing the wiki).
 # broken-wikilink WITHOUT a suggestion is also flag-only (no safe fix when target unknown).
 # suggestion — always flag-only (semantic category; no deterministic fix).
 # no-outlinks and orphan-page are handled specially in apply_lint_fix:
 #   - if suggested_target/suggested_page_id present → apply a real fix
 #   - otherwise → fall back to flag-only
-_FLAG_ONLY_CATEGORIES = frozenset({"contradiction", "stale-claim", "suggestion"})
+# ADR-0067 D4/P0-4: `contradiction` is NO LONGER flag-only — an applied contradiction AUTHORS a
+# genuine open-question `type=query` page (the only sanctioned query generator besides chat-save).
+_FLAG_ONLY_CATEGORIES = frozenset({"stale-claim", "suggestion"})
 
 # Bounded reads (I7 — never an unbounded scan).
 _ORPHAN_SCAN_MAX_PAGES: int = 1_000
@@ -101,6 +104,15 @@ _SINGLE_CJK_TOKEN_WEIGHT: float = 0.35
 _WORD_RE: re.Pattern[str] = re.compile(r"[^\W_]+", re.UNICODE)
 # CJK unified ideographs range (used in single-char expansion for CJK tokens).
 _CJK_RE: re.Pattern[str] = re.compile(r"[㐀-鿿]")
+
+# ── Stub-page type heuristic (ADR-0067 D1) ─────────────────────────────────────
+# Legal organisation suffixes (case-insensitive).
+_LEGAL_SUFFIX_RE: re.Pattern[str] = re.compile(
+    r"\b(Inc\.?|Ltd\.?|Corp\.?|S\.p\.A\.?|GmbH|PRIVATE\s+LIMITED|LLC|PLC|LLP)\b",
+    re.IGNORECASE,
+)
+# All-caps acronym token: ≥2 consecutive uppercase ASCII letters (e.g. "AWS", "NATO").
+_ALL_CAPS_TOKEN_RE: re.Pattern[str] = re.compile(r"\b[A-Z]{2,}\b")
 
 
 # ── Public result types ────────────────────────────────────────────────────────
@@ -395,7 +407,11 @@ async def apply_lint_fix(finding_id: uuid.UUID) -> LintFinding:
       missing-xref  — reuse the wikilink-enrichment seam (ops/enrich_wikilinks.py) to add the
                       [[target]] link into the referencing page's BODY (I5 atomic, K7-valid).
       missing-page  — delegate to the lazy-generation seam used by review.create_page_from_review.
-      orphan-page / contradiction / stale-claim — FLAG-ONLY: status→applied + resolution_note
+      contradiction — AUTHOR a genuine open-question `type=query` page (ADR-0067 D4): question
+                      title + ## Question/## Hypothesis/## Open Points/## Impact/## References,
+                      related[]=both conflicting pages, DB sources[]=union of both. Bounded
+                      provider call (I6/I7) with a deterministic template fallback.
+      orphan-page / stale-claim — FLAG-ONLY: status→applied + resolution_note
                       (no deterministic safe fix; the human edits the wiki — ADR-0037 §5).
 
     Raises:
@@ -431,6 +447,14 @@ async def apply_lint_fix(finding_id: uuid.UUID) -> LintFinding:
             f"{category}: flag-only — no automatic fix is safe; resolved by acknowledgement. "
             "Edit the affected wiki page(s) to address the finding."
         )
+        return await _set_finding_status(finding_id, "applied", resolution_note=note)
+
+    # ── contradiction — AUTHOR a genuine open-question query page (ADR-0067 D4/P0-4) ──
+    # Human-gated (K8: this apply action IS the gate). Bounded provider call (I6/I7) to phrase
+    # the question; deterministic template fallback when no provider resolves (never fails apply).
+    # One data_version bump — write_wiki_page owns it (I1).
+    if category == "contradiction":
+        note = await _apply_contradiction(finding)
         return await _set_finding_status(finding_id, "applied", resolution_note=note)
 
     # ── broken-wikilink — rewrite [[old]] → [[Suggested]] or create stub (L3/L4/I1/I5) ──
@@ -1742,13 +1766,53 @@ async def _apply_orphan_page(finding: LintFinding) -> str:
     )
 
 
+def _infer_stub_page_type(target_title: str) -> PageType:
+    """
+    Derive the correct PageType for a broken-wikilink stub WITHOUT an LLM call (ADR-0067 D1).
+
+    Rules applied cheapest-first:
+      1. Title contains a legal organisation suffix (Inc./Ltd./Corp./S.p.A./GmbH/
+         "PRIVATE LIMITED"/LLC/PLC/LLP) → ENTITY (organisation/company name).
+      2. Title contains an all-caps token of ≥2 letters (e.g. "AWS", "NATO", "GDPR")
+         → ENTITY (acronym-style proper noun).
+      3. Any individual word starts with an uppercase letter
+         → ENTITY (proper noun / product name / title-cased term).
+      4. Default → CONCEPT (common-noun phrase, technical term, abstract idea).
+
+    NEVER returns PageType.QUERY — queries/ is reserved for genuine open questions
+    (ADR-0067 D1; LN-D1 fix).
+    """
+    title = target_title.strip()
+    if not title:
+        return PageType.CONCEPT
+
+    # Rule 1: legal suffix → organisation → entity
+    if _LEGAL_SUFFIX_RE.search(title):
+        return PageType.ENTITY
+
+    # Rule 2: all-caps acronym token (≥2 uppercase letters) → entity
+    if _ALL_CAPS_TOKEN_RE.search(title):
+        return PageType.ENTITY
+
+    # Rule 3: any word starts with an uppercase letter → proper noun → entity
+    if any(word and word[0].isupper() for word in title.split()):
+        return PageType.ENTITY
+
+    # Rule 4: default → concept
+    return PageType.CONCEPT
+
+
 async def _create_broken_link_stub(finding: LintFinding) -> str:
     """
     Create a stub page for a broken-wikilink finding that has no suggested_target (L4).
 
-    Writes a type=query, tags=[stub, lint] stub page under queries/ via the normal
-    write_wiki_page seam, then re-resolves links for the referencing page so the
+    Writes a typed stub page (entity or concept — NEVER query; ADR-0067 D1) via the
+    normal write_wiki_page seam, then re-resolves links for the referencing page so the
     previously-dangling link connects to the new stub.  One data_version bump (I1).
+
+    The page type is inferred deterministically from the broken target text by
+    _infer_stub_page_type (no LLM call).  Legal-suffix/all-caps → entity; proper noun
+    → entity; common phrase → concept.  queries/ is NEVER used for stubs.
 
     Port of lint-fixes.ts::ensureBrokenLinkStub.
     Falls back to flag-only acknowledgement on any failure (502 path).
@@ -1769,17 +1833,20 @@ async def _create_broken_link_stub(finding: LintFinding) -> str:
     )
 
     from app.ingest.orchestrator import write_wiki_page
-    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.schemas import WikiFrontmatter, WikiPage
+
+    stub_type = _infer_stub_page_type(stub_title)
 
     stub_page = WikiPage(
         title=stub_title,
-        type=PageType.QUERY,
+        type=stub_type,
         content=(
             f"# {stub_title}\n\n"
-            "Created by Wiki Lint as a placeholder for a missing wikilink target.\n"
+            "Stub created by Wiki Lint for a referenced but not-yet-written page. "
+            "Enrich or merge.\n"
         ),
         frontmatter=WikiFrontmatter(
-            type=PageType.QUERY,
+            type=stub_type,
             title=stub_title,
             sources=[f"lint:{finding.id}"],
             lang="en",
@@ -1820,9 +1887,352 @@ async def _create_broken_link_stub(finding: LintFinding) -> str:
         except Exception as exc:  # noqa: BLE001
             logger.warning("_create_broken_link_stub: reresolve_dangling_links failed: %s", exc)
 
+    from app.ingest.schemas import type_subdir
+
+    stub_subdir = type_subdir(stub_type)
     return (
-        f"broken-wikilink: created stub page {stub_title!r} (page_id={created_page_id}) "
-        f"under queries/ (data_version bumped once via write_wiki_page, I1)."
+        f"broken-wikilink: created stub page {stub_title!r} (type={stub_type.value}, "
+        f"page_id={created_page_id}) under {stub_subdir}/ "
+        f"(data_version bumped once via write_wiki_page, I1)."
+    )
+
+
+# ── contradiction → open-question query authoring (ADR-0067 D4/P0-4) ─────────────
+
+
+@dataclass
+class _ContradictionPage:
+    """One live page a contradiction finding concerns (resolved from the finding)."""
+
+    page_id: str
+    title: str
+    slug: str  # on-disk file stem == the `related:` slug write_wiki_page emits
+    sources: list[str]  # DB `pages.sources` — unioned into the query page's sources[]
+
+
+def _parse_sources(raw: Any) -> list[str]:
+    """
+    Coerce a `pages.sources` cell to a clean list[str]. Portable across the Postgres runtime
+    (JSONB → list) and the SQLite test harness (Text → JSON string). Blanks dropped.
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(s).strip() for s in raw if s and str(s).strip()]
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return []
+        try:
+            parsed = json.loads(s)
+        except (json.JSONDecodeError, ValueError):
+            return [s]
+        if isinstance(parsed, list):
+            return [str(x).strip() for x in parsed if x and str(x).strip()]
+        return [str(parsed).strip()] if parsed and str(parsed).strip() else []
+    return []
+
+
+def _contradiction_candidate_titles(finding: LintFinding) -> list[str]:
+    """
+    Ordered, de-duplicated candidate page titles the contradiction concerns. A contradiction
+    finding names the two conflicting pages in `target_title` (page A) and in its `description`
+    (the LLM phrases it as "[[A]] claims X but [[B]] claims Y"). We harvest, in order: the
+    target_title, then any `[[wikilink]]` targets in the description, then any quoted titles.
+    """
+    from app.wiki.links import parse_wikilinks
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def _add(t: str | None) -> None:
+        if not t:
+            return
+        t = t.strip()
+        if not t or t.lower() in seen:
+            return
+        seen.add(t.lower())
+        candidates.append(t)
+
+    _add(finding.target_title)
+    for pl in parse_wikilinks(finding.description or ""):
+        _add(pl.target)
+    for quoted in re.findall(r"[\"'“”‘’]([^\"'“”‘’]{2,})[\"'“”‘’]", finding.description or ""):
+        _add(quoted)
+    return candidates
+
+
+async def _resolve_contradiction_pages(finding: LintFinding) -> list[_ContradictionPage]:
+    """
+    Resolve up to TWO distinct live pages the contradiction concerns (I1 — indexed reads only).
+
+    Uses the shared tolerant title resolver (exact → case-insensitive → slug) over the candidate
+    titles, then fetches each hit's file_path (→ slug) and `pages.sources` (→ union into the query
+    page's sources[]). Returns [] when nothing resolves (caller still writes a valid page).
+    """
+    from pathlib import Path
+
+    from sqlalchemy import text as sa_text
+
+    from app.wiki.links import resolve_suggested_target
+
+    out: list[_ContradictionPage] = []
+    seen_ids: set[str] = set()
+    async with get_session() as session:
+        for title in _contradiction_candidate_titles(finding):
+            hit = await resolve_suggested_target(title, session)
+            if hit is None:
+                continue
+            page_id, matched_title = hit
+            pid = str(page_id)
+            if pid in seen_ids:
+                continue
+            row = (
+                await session.execute(
+                    sa_text(
+                        "SELECT file_path, sources FROM pages "
+                        "WHERE CAST(id AS TEXT) = :pid AND deleted_at IS NULL"
+                    ).bindparams(pid=pid)
+                )
+            ).first()
+            if row is None or not row.file_path:
+                continue
+            seen_ids.add(pid)
+            out.append(
+                _ContradictionPage(
+                    page_id=pid,
+                    title=matched_title,
+                    slug=Path(row.file_path).stem,
+                    sources=_parse_sources(row.sources),
+                )
+            )
+            if len(out) >= 2:
+                break
+    return out
+
+
+def _deterministic_contradiction_copy(
+    pages: list[_ContradictionPage], description: str
+) -> dict[str, Any]:
+    """
+    Deterministic (no-LLM) fallback copy for the query page (never fails the apply — I7).
+    Returns {question, question_body, hypothesis, open_points[], impact}.
+    """
+    if len(pages) >= 2:
+        a, b = pages[0].title, pages[1].title
+        question = f"How should the conflict between {a} and {b} be resolved?"
+        q_body = (
+            f"[[{a}]] and [[{b}]] make claims that appear to conflict. "
+            f"{description.strip()}".strip()
+        )
+    elif len(pages) == 1:
+        a = pages[0].title
+        question = f"Is the claim in {a} consistent with the rest of the wiki?"
+        q_body = f"[[{a}]] carries a claim flagged as contradictory. {description.strip()}".strip()
+    else:
+        question = "How should this contradiction be resolved?"
+        q_body = description.strip() or "A contradiction was flagged across the wiki."
+    return {
+        "question": question,
+        "question_body": q_body,
+        "hypothesis": (
+            "One of the conflicting statements is out of date, scoped to a different context, "
+            "or measured differently; reconcile the definitions/timeframes before deciding."
+        ),
+        "open_points": [
+            "Which source is authoritative / most recent?",
+            "Are the two claims actually about the same scope, or different contexts?",
+            "What evidence would settle the conflict?",
+        ],
+        "impact": (
+            "Until resolved, downstream pages may cite conflicting facts and mislead readers."
+        ),
+    }
+
+
+async def _phrase_contradiction_query(
+    finding: LintFinding, pages: list[_ContradictionPage]
+) -> dict[str, Any]:
+    """
+    Phrase the open-question copy for a contradiction (I6/I7). Makes AT MOST ONE bounded provider
+    chat() call (resolved via resolve_provider_config('ingest'), wrapped in wait_for) asking for a
+    JSON object {question, question_body, hypothesis, open_points[], impact}. Binds a run-scoped
+    UsageAccumulator and logs total_cost_usd. ANY failure (no provider, timeout, bad JSON) →
+    deterministic template (never raises — the apply must not fail, K8/I7).
+    """
+    fallback = _deterministic_contradiction_copy(pages, finding.description or "")
+
+    resolved = await _resolve_lint_provider(finding.vault_id)
+    if resolved is None:
+        logger.info(
+            "_phrase_contradiction_query: no ingest provider — deterministic template (I6)."
+        )
+        return fallback
+    provider, config_row = resolved
+
+    titles = " vs ".join(p.title for p in pages) if pages else "(unresolved pages)"
+    excerpt_block = "\n".join(f"- {p.title}: (see page)" for p in pages) or "(none)"
+    instruction = (
+        "You are the LINT step of a self-organizing wiki. A CONTRADICTION was flagged between "
+        "wiki pages. Phrase it as ONE neutral open research QUESTION (a genuine query page — "
+        "Karpathy queries/), NOT a fix.\n\n"
+        f"# Conflicting pages\n{titles}\n\n"
+        f"# Page notes\n{excerpt_block}\n\n"
+        f"# Contradiction description\n{(finding.description or '').strip()}\n\n"
+        "Respond in the SAME LANGUAGE as the page titles/description. Return ONLY a JSON object "
+        "with keys:\n"
+        '  "question": a single interrogative sentence ENDING WITH "?" (the page title),\n'
+        '  "question_body": 1-3 sentences framing the conflict,\n'
+        '  "hypothesis": 1-2 sentences proposing a likely reconciliation,\n'
+        '  "open_points": a list of 2-5 short strings,\n'
+        '  "impact": 1 sentence on why resolving it matters.\n'
+        "No prose outside the JSON object."
+    )
+
+    from app.ingest.provider.base import UsageAccumulator
+
+    accumulator = UsageAccumulator()
+    try:
+        provider.bind_accumulator(accumulator)
+    except Exception as exc:  # noqa: BLE001 — accumulator binding is best-effort
+        logger.debug("_phrase_contradiction_query: bind_accumulator failed: %s", exc)
+
+    timeout_s = float(getattr(settings, "lint_timeout_seconds", 30.0))
+    degraded = False
+    raw = ""
+    try:
+        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+    except (
+        Exception
+    ) as exc:  # noqa: BLE001 — degrade to template, never fail apply (TimeoutError too)
+        logger.warning(
+            "_phrase_contradiction_query: provider call failed (%s) — deterministic template.",
+            exc,
+        )
+        degraded = True
+    finally:
+        logger.info(
+            "contradiction query provider call: tokens=%d cost_usd=%.4f calls=%d finding=%s",
+            accumulator.total_tokens,
+            round(accumulator.total_cost_usd, 4),
+            accumulator.calls,
+            finding.id,
+        )
+        if accumulator.total_cost_usd > _COST_ANOMALY_THRESHOLD_USD:
+            logger.warning(
+                "COST ANOMALY: contradiction query finding=%s total_cost_usd=%.4f exceeds $%.2f",
+                finding.id,
+                accumulator.total_cost_usd,
+                _COST_ANOMALY_THRESHOLD_USD,
+            )
+
+    if degraded:
+        return fallback
+
+    parsed = _loads_json_lenient(raw)
+    if not isinstance(parsed, dict):
+        return fallback
+
+    question = _clean_str(parsed.get("question")) or fallback["question"]
+    if not question.rstrip().endswith("?"):
+        question = question.rstrip().rstrip(".") + "?"
+    open_points_raw = parsed.get("open_points")
+    open_points = (
+        [s.strip() for s in open_points_raw if isinstance(s, str) and s.strip()]
+        if isinstance(open_points_raw, list)
+        else []
+    ) or fallback["open_points"]
+    return {
+        "question": question,
+        "question_body": _clean_str(parsed.get("question_body")) or fallback["question_body"],
+        "hypothesis": _clean_str(parsed.get("hypothesis")) or fallback["hypothesis"],
+        "open_points": open_points,
+        "impact": _clean_str(parsed.get("impact")) or fallback["impact"],
+    }
+
+
+async def _apply_contradiction(finding: LintFinding) -> str:
+    """
+    Apply a contradiction finding by AUTHORING a genuine open-question `type=query` page
+    (ADR-0067 D4/P0-4). This is the ONLY sanctioned query generator besides chat save-to-wiki;
+    the ingest generation prohibition on `query` as free provider output is UNTOUCHED — this is
+    an internal PIPELINE writer, not free model output.
+
+    Shape (LLM Wiki query parity): question TITLE + body sections
+    ## Question / ## Hypothesis / ## Open Points / ## Impact / ## References, with the two
+    conflicting pages wikilinked under ## References (→ write_wiki_page emits related[]=both
+    slugs), and DB sources[] = union of both pages' sources (no synthetic `lint:` source).
+
+    Human-gated (K8 — the apply action IS the gate). Bounded provider call (I6/I7) with a
+    deterministic template fallback (never fails the apply). ONE data_version bump —
+    write_wiki_page owns it (I1).
+    """
+    from fastapi import HTTPException
+
+    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+
+    pages = await _resolve_contradiction_pages(finding)
+    copy = await _phrase_contradiction_query(finding, pages)
+
+    references = "\n".join(f"- [[{p.title}]]" for p in pages) or "- (conflicting pages)"
+    open_points = "\n".join(f"- {pt}" for pt in copy["open_points"])
+    body = (
+        f"# {copy['question']}\n\n"
+        f"## Question\n{copy['question_body']}\n\n"
+        f"## Hypothesis\n{copy['hypothesis']}\n\n"
+        f"## Open Points\n{open_points}\n\n"
+        f"## Impact\n{copy['impact']}\n\n"
+        f"## References\n{references}\n"
+    )
+
+    # DB sources[] = union of both pages' sources (ADR-0067 D4 — real raw docs, not `lint:`).
+    union_sources: list[str] = []
+    for p in pages:
+        for s in p.sources:
+            if s not in union_sources:
+                union_sources.append(s)
+    related_slugs = [p.slug for p in pages]
+
+    query_page = WikiPage(
+        title=copy["question"],
+        type=PageType.QUERY,
+        content=body,
+        frontmatter=WikiFrontmatter(
+            type=PageType.QUERY,
+            title=copy["question"],
+            sources=union_sources,
+            related=related_slugs,
+            tags=["open-question", "contradiction"],
+        ),
+    )
+
+    try:
+        # origin_source="" so write_wiki_page injects NO synthetic source — DB sources[] stays the
+        # clean union of both pages' raw docs (ADR-0067 D4). The writer owns the single bump (I1).
+        created = await write_wiki_page(None, query_page, "")
+        created_id = str(created.id)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "_apply_contradiction: write_wiki_page failed for %r: %s — left open",
+            copy["question"],
+            exc,
+        )
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                f"contradiction apply failed writing query page {copy['question']!r}: {exc}. "
+                "Finding left open — retry or dismiss."
+            ),
+        ) from exc
+
+    linked = " & ".join(f"[[{p.title}]]" for p in pages) or "(no live pages resolved)"
+    return (
+        f"contradiction: authored open-question page {copy['question']!r} (type=query, "
+        f"page_id={created_id}) under queries/ linking {linked}; DB sources[] unioned from "
+        f"both pages ({len(union_sources)} source(s)). One data_version bump via write_wiki_page."
     )
 
 

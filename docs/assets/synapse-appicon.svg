@@ -1,19 +1,25 @@
+<!--
+  Synapse app icon — Brand v1.0 (docs reference copy).
+  Squircle bg: diagonal BL→TR gradient #1D4ED8 · #4338CA · #7C3AED.
+  Corner radius 22% of 1024 ≈ 225px. White S-mark on gradient bg.
+  For rasterised sizes see docs/assets/brand/app-icon/*.png
+-->
 <svg viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Synapse app icon">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="1024" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1d4ed8"/>
-      <stop offset="0.5" stop-color="#4338ca"/>
-      <stop offset="1" stop-color="#7c3aed"/>
+      <stop offset="0"   stop-color="#1D4ED8"/>
+      <stop offset="0.5" stop-color="#4338CA"/>
+      <stop offset="1"   stop-color="#7C3AED"/>
     </linearGradient>
     <radialGradient id="glow" cx="0.32" cy="0.28" r="0.9">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.16"/>
       <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
-  <!-- squircle background -->
-  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#bgGrad)"/>
-  <rect x="32" y="32" width="960" height="960" rx="224" fill="url(#glow)"/>
+  <!-- squircle background (corner radius 22% of 1024 = ~225) -->
+  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#bgGrad)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="225" fill="url(#glow)"/>
 
   <!-- satellite edges -->
   <path d="M700 312 L806 234" stroke="#ffffff" stroke-opacity="0.45" stroke-width="20" stroke-linecap="round"/>
@@ -35,6 +41,6 @@
   <circle cx="744" cy="578" r="24" fill="#ffffff" fill-opacity="0.9"/>
 
   <!-- synaptic spark cores (gradient dot inside white nodes) -->
-  <circle cx="700" cy="312" r="30" fill="#4338ca"/>
-  <circle cx="324" cy="712" r="30" fill="#4338ca"/>
+  <circle cx="700" cy="312" r="30" fill="#4338CA"/>
+  <circle cx="324" cy="712" r="30" fill="#4338CA"/>
 </svg>

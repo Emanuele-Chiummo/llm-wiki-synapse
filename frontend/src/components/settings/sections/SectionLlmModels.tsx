@@ -352,17 +352,17 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
 
   const rowStyle: CSSProperties = {
     border: "1px solid var(--syn-border)",
-    borderRadius: 8,
-    marginBottom: 6,
-    background: active ? "color-mix(in srgb, var(--syn-accent) 3%, var(--syn-surface) 97%)" : "var(--syn-surface)",
+    borderRadius: 10,
+    marginBottom: 8,
+    background: active ? "color-mix(in srgb, var(--syn-accent) 5%, var(--syn-surface) 95%)" : "var(--syn-surface)",
     overflow: "hidden",
   };
 
   const headerStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    padding: "10px 12px",
+    gap: 12,
+    padding: "12px 16px",
     cursor: "pointer",
     userSelect: "none",
   };
@@ -685,63 +685,7 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         aria-expanded={expanded}
         aria-label={vendor.display_name}
       >
-        {/* Toggle (radio-style) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleActivate();
-          }}
-          data-testid={`vendor-toggle-${vendor.id}`}
-          aria-pressed={active}
-          title={active ? vendor.display_name : t("settings.llmModels.activate")}
-          style={{
-            width: 32,
-            height: 18,
-            borderRadius: 9,
-            border: "none",
-            background: active ? "var(--syn-accent)" : "var(--syn-border)",
-            cursor: active ? "default" : "pointer",
-            position: "relative",
-            flexShrink: 0,
-            transition: "background 0.15s",
-          }}
-        >
-          <span
-            style={{
-              position: "absolute",
-              top: 2,
-              left: active ? 16 : 2,
-              width: 14,
-              height: 14,
-              borderRadius: "50%",
-              background: "white",
-              transition: "left 0.15s",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-            }}
-          />
-        </button>
-
-        {/* Vendor name */}
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "var(--syn-text)",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          {vendor.display_name}
-        </span>
-
-        {/* Badges */}
-        <div style={{ display: "flex", gap: 5, alignItems: "center", flexShrink: 0 }}>
-          {typeBadge}
-          {activeBadge}
-          {vendor.needs_api_key && keyBadge}
-        </div>
-
-        {/* Expand chevron */}
+        {/* Expand chevron — LEFT (LLM Wiki: › that rotates down when open) */}
         <svg
           width="14"
           height="14"
@@ -753,30 +697,80 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
           strokeLinejoin="round"
           style={{
             color: "var(--syn-text-dim)",
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
             transition: "transform 0.15s",
             flexShrink: 0,
           }}
           aria-hidden="true"
         >
-          <polyline points="6 9 12 15 18 9" />
+          <polyline points="9 6 15 12 9 18" />
         </svg>
+
+        {/* Name block: name + badges on top, sublabel below (LLM Wiki row) */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--syn-text)" }}>
+              {vendor.display_name}
+            </span>
+            {typeBadge}
+            {activeBadge}
+            {vendor.needs_api_key && keyBadge}
+          </div>
+          {vendor.notes && (
+            <div
+              style={{
+                fontSize: 12.5,
+                color: "var(--syn-text-muted)",
+                marginTop: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {vendor.notes}
+            </div>
+          )}
+        </div>
+
+        {/* Toggle (radio-style) — RIGHT */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleActivate();
+          }}
+          data-testid={`vendor-toggle-${vendor.id}`}
+          aria-pressed={active}
+          title={active ? vendor.display_name : t("settings.llmModels.activate")}
+          style={{
+            width: 40,
+            height: 22,
+            borderRadius: 11,
+            border: "none",
+            background: active ? "var(--syn-accent)" : "var(--syn-border)",
+            cursor: active ? "default" : "pointer",
+            position: "relative",
+            flexShrink: 0,
+            transition: "background 0.15s",
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 3,
+              left: active ? 21 : 3,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              background: "white",
+              transition: "left 0.15s",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }}
+          />
+        </button>
       </div>
 
       {/* Vendor notes (visible when expanded) */}
-      {expanded && vendor.notes && (
-        <p
-          style={{
-            margin: "0",
-            padding: "4px 14px 0",
-            fontSize: 11,
-            color: "var(--syn-text-dim)",
-            lineHeight: 1.5,
-          }}
-        >
-          {vendor.notes}
-        </p>
-      )}
+      {/* notes are now shown as the always-visible sublabel in the row header (LLM Wiki style) */}
 
       {expandedContent}
     </div>

@@ -111,6 +111,20 @@ FA2_SCALING_RATIO_LARGE: float = 3.0  # n > 400
 FA2_CLAMP_PERCENTILE: float = 90.0
 FA2_CLAMP_FACTOR: float = 3.0
 
+# ── Graph node-inclusion rules (shared with the /graph count queries) ─────────
+# A page becomes a graph node ONLY if it is BOTH (a) not a raw-source tracking row
+# (file_path NOT LIKE 'raw/%') AND (b) not a hidden page type. These two constants are
+# the SINGLE SOURCE OF TRUTH for "graph-eligible": the engine filters nodes with them
+# (below) and routers/graph.py applies the SAME rule to total_nodes/total_edges so the
+# "N/total pages" + "hidden" chips can never drift (parity with nashsu/llm_wiki, which
+# counts only graph-eligible pages). Before this was shared, total_nodes counted raw/
+# and query rows the engine had already excluded → a permanent phantom "hidden" count.
+GRAPH_HIDDEN_PAGE_TYPES: frozenset[str] = frozenset({"query"})
+"""Page types excluded from the graph (llm_wiki HIDDEN_TYPES, wiki-graph.ts:204-209)."""
+
+GRAPH_RAW_PATH_LIKE: str = "raw/%"
+"""SQL LIKE pattern for raw-source tracking rows excluded from the graph."""
+
 # ── Type-affinity matrix — 4th weight signal (G-P1-7, llm_wiki parity) ────────
 # Mirrors nashsu/llm_wiki src/lib/graph-relevance.ts TYPE_AFFINITY: a MODULATOR of
 # already-structural edges (never creates an edge — ADR-0016 §1). It REWARDS cross-type
@@ -490,8 +504,9 @@ def _compute_graph_sync(
     # wiki-graph.ts:204-209 HIDDEN_TYPES = {"query"}:
     #   "Query pages are intermediate research artifacts; the entity/concept pages
     #    extracted FROM them via auto-ingest are what belong in the knowledge graph."
-    _HIDDEN_TYPES: frozenset[str] = frozenset({"query"})
-    node_index = {k: v for k, v in node_index.items() if v.get("page_type") not in _HIDDEN_TYPES}
+    node_index = {
+        k: v for k, v in node_index.items() if v.get("page_type") not in GRAPH_HIDDEN_PAGE_TYPES
+    }
 
     node_ids: list[str] = list(node_index.keys())
     id_to_idx: dict[str, int] = {nid: i for i, nid in enumerate(node_ids)}
