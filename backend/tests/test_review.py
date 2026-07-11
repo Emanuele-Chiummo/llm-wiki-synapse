@@ -1129,3 +1129,58 @@ class TestMissingPageFanOut:
         assert len(call_log) == 1
         assert call_log[0] == "Single Concept"
         assert item.status == "created"
+
+
+class TestReviewLanguageDirective:
+    """v1.5.2: the review propose prompt must carry a mandatory output-language directive so
+    reviews come out in the vault language instead of defaulting to English."""
+
+    def test_propose_prompt_injects_language_from_analysis(self) -> None:
+        from app.ingest.schemas import Analysis, PageType, SuggestedPage
+        from app.ops.review import _build_propose_instruction
+
+        analysis = Analysis(
+            topics=["Foo"],
+            language="it",
+            suggested_pages=[SuggestedPage(title="Foo", type=PageType.CONCEPT)],
+        )
+        prompt = _build_propose_instruction(
+            analysis=analysis,
+            written_pages=[],
+            existing_titles=[],
+            max_items=8,
+            token_budget=1000,
+        )
+        assert "MANDATORY OUTPUT LANGUAGE" in prompt
+        # the directive names the vault language
+        head = prompt.split("MANDATORY OUTPUT LANGUAGE")[1][:160]
+        assert "it" in head
+
+    def test_lang_directive_empty_when_no_language(self) -> None:
+        from app.ops.review import _review_lang_directive
+
+        assert _review_lang_directive("") == ""
+        assert _review_lang_directive("  ") == ""
+        assert _review_lang_directive("it").startswith("# MANDATORY OUTPUT LANGUAGE")
+
+    def test_propose_prompt_falls_back_to_overview_language(self, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        from app.ingest.schemas import Analysis, PageType, SuggestedPage
+        from app.ops import review as review_mod
+        from app.ops.review import _build_propose_instruction
+
+        # analysis.language blank → resolver falls back to settings.overview_language
+        monkeypatch.setattr(review_mod.settings, "overview_language", "it")
+        analysis = Analysis(
+            topics=["Foo"],
+            language="en",  # will be overridden below to blank via a fresh object
+            suggested_pages=[SuggestedPage(title="Foo", type=PageType.CONCEPT)],
+        )
+        object.__setattr__(analysis, "language", "")  # simulate undetected language
+        prompt = _build_propose_instruction(
+            analysis=analysis,
+            written_pages=[],
+            existing_titles=[],
+            max_items=8,
+            token_budget=1000,
+        )
+        assert "MANDATORY OUTPUT LANGUAGE" in prompt

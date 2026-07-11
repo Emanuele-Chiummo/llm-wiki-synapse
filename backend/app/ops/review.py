@@ -1731,6 +1731,9 @@ async def propose_reviews(
 
     # ── Rule-based: dangling wikilinks → missing-page ─────────────────────────
     rule_proposals: list[ProposalDTO] = []
+    # v1.5.2: localise rule-based rationales to the vault language (IT/EN supported; else EN),
+    # so they don't stay English on a non-English vault like the LLM-proposed items used to.
+    _rule_lang = _resolve_review_language(analysis)
     # ADR-0044 §4.1: rule-based referenced ids resolved BY ID (no title round-trip), keyed by
     # proposed_title. Merged into the persist loop's resolved referenced_page_ids.
     _rule_ref_ids: dict[str, list[str]] = {}
@@ -1780,7 +1783,11 @@ async def propose_reviews(
                         item_type="missing-page",
                         proposed_title=target_title,
                         proposed_page_type=None,  # heuristic at Create time
-                        rationale=f"Dangling wikilink [[{target_title}]] in ingested content.",
+                        rationale=(
+                            f"Wikilink pendente [[{target_title}]] nel contenuto acquisito."
+                            if _rule_lang == "it"
+                            else f"Dangling wikilink [[{target_title}]] in ingested content."
+                        ),
                         target_page_title=None,
                         # ADR-0044 §4.1 rule-based seeds: [referencing page id] + [proposed_title].
                         referenced_page_titles=[],  # resolved via id below, not titles
@@ -1809,7 +1816,10 @@ async def propose_reviews(
                             rationale=(
                                 suggested.rationale
                                 or (
-                                    f"Analysis proposed '{suggested.title}'"
+                                    f"L'analisi ha proposto '{suggested.title}' "
+                                    "ma non è stato generato."
+                                    if _rule_lang == "it"
+                                    else f"Analysis proposed '{suggested.title}'"
                                     " but it was not generated."
                                 )
                             ),
@@ -1820,9 +1830,17 @@ async def propose_reviews(
                     )
 
     # ── Anti-spam gate (ADR-0034 §4.2) ───────────────────────────────────────
-    total_chars = sum(
-        len(p.title or "") for p in written_pages
-    )  # approximate; real content is on disk
+    # Real generated-content size (v1.5.2 fix). The old approximation summed TITLE lengths, which
+    # never reached review_propose_min_chars — so the detailed LLM propose step was skipped for any
+    # run with < review_propose_min_pages pages and no dangling links (common on nashsu-parity
+    # single-doc ingests, which emit few dangling wikilinks), leaving only terse rule-based items.
+    # Sum the actual on-disk body sizes of the just-written pages (bounded: a handful of files).
+    total_chars = 0
+    for p in written_pages:
+        try:
+            total_chars += (settings.vault_root / p.file_path).stat().st_size
+        except OSError:
+            total_chars += len(p.title or "")
     spam_gate_passes = (
         len(written_pages) >= int(getattr(settings, "review_propose_min_pages", 4))
         or total_chars >= int(getattr(settings, "review_propose_min_chars", 10_000))
@@ -3123,6 +3141,32 @@ def _digest_written_pages(written_pages: list[Page], *, max_pages: int = 20) -> 
     return "\n".join(lines) if lines else "(none)"
 
 
+def _review_lang_directive(lang: str) -> str:
+    """
+    Return a mandatory output-language block for review prompts, or "" when no language is known.
+
+    Mirrors the generation directive (provider/_common.py:build_generate_prompt) so review items
+    (proposed_title + rationale) come out in the VAULT language instead of defaulting to English —
+    the review propose/sweep prompts were never language-aware, so on an Italian vault the reviews
+    came out in English (v1.5.2 fix). JSON keys stay English; only human-facing text is localised.
+    """
+    lang = (lang or "").strip()
+    if not lang:
+        return ""
+    return (
+        "# MANDATORY OUTPUT LANGUAGE\n"
+        f"Write every proposal's `proposed_title` and `rationale` in {lang} (ISO-639-1) — the "
+        f"vault's language. Do NOT translate to English unless {lang!r} is 'en'. The JSON keys "
+        "themselves stay in English.\n\n"
+    )
+
+
+def _resolve_review_language(analysis: Analysis | None = None) -> str:
+    """Resolve the review output language: analysis.language → settings.overview_language."""
+    lang = (getattr(analysis, "language", "") or "").strip() if analysis is not None else ""
+    return lang or (getattr(settings, "overview_language", "") or "").strip()
+
+
 def _build_propose_instruction(
     *,
     analysis: Analysis,
@@ -3152,7 +3196,8 @@ def _build_propose_instruction(
     query_max = int(getattr(settings, "review_search_queries_max", 3))
 
     return (
-        "You are the review-proposal step of a self-organizing wiki ingest pipeline.\n"
+        _review_lang_directive(_resolve_review_language(analysis))
+        + "You are the review-proposal step of a self-organizing wiki ingest pipeline.\n"
         "Given the ingest analysis, the pages just written, and the existing vault titles, "
         "propose follow-up work the human should review. Propose ONLY genuinely useful items "
         "(missing pages, research gaps, conflicts, possible duplicates, or things to confirm).\n\n"

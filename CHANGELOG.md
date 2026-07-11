@@ -27,6 +27,14 @@ real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
 - **Convert now deletes the source PDF after producing the `.md`** — a Marker conversion left both
   the bulky PDF and its `.extracted.md` in `raw/sources/`; the PDF is now removed on success and
   `sources[]` points at the retained `.md` (best-effort delete never fails the conversion) [F12].
+- **Review items came out in English, fewer, and terser on non-English vaults** — the review
+  propose prompt was never language-aware (unlike page generation), the delegated/CLI route
+  hardcoded `language="en"`, and rule-based rationales were English literals; **and** the anti-spam
+  gate summed page *title* lengths (never reaching the char threshold), so the detailed LLM propose
+  step was skipped whenever a run produced few pages and few dangling links. Now: the propose prompt
+  carries a mandatory output-language directive (`analysis.language → overview_language`), rationales
+  localise (IT/EN), the CLI route uses the vault language, and the gate uses real on-disk body sizes
+  so the detailed proposals run and stay in the vault language [F9, F3].
 - **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
   the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
   reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
