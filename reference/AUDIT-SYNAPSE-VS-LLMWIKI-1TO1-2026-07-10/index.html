@@ -1,0 +1,1317 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/AUDIT-SYNAPSE-VS-LLMWIKI-1TO1-2026-07-10/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse vs LLM Wiki — 1:1 Parity Audit (Solution Architect Synthesis) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-vs-llm-wiki-11-parity-audit-solution-architect-synthesis" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse vs LLM Wiki — 1:1 Parity Audit (Solution Architect Synthesis)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Executive summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-ranked-divergence-register" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Ranked divergence register
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-alignment-plan-phased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Alignment plan (phased)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Alignment plan (phased)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#p0-correctness-must-land-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P0 — Correctness (must land first)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p1-structure-after-p0-lands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P1 — Structure (after P0 lands)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p2-conventions-parallelisable-with-p1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P2 — Conventions (parallelisable with P1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#p3-larger-structural-highest-effort-depends-on-p0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P3 — Larger structural (highest effort, depends on P0)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-invariant-decision-escalations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Invariant / decision escalations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-validation-strategy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Validation strategy
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-vs-llm-wiki-11-parity-audit-solution-architect-synthesis">Synapse vs LLM Wiki — 1:1 Parity Audit (Solution Architect Synthesis)<a class="headerlink" href="#synapse-vs-llm-wiki-11-parity-audit-solution-architect-synthesis" title="Permanent link">&para;</a></h1>
+<p><strong>Scope:</strong> 9 dimension-deltas from a live prod-vault comparison (<code>/Volumes/synapse/vault/wiki</code> vs the nashsu/llm_wiki gold vault). <strong>Corpus reality:</strong> Synapse entities 149 / concepts 527 / sources 158 / queries 133 / synthesis 0 / comparisons 0 (1123 live pages). LLM Wiki entities 202 / concepts 460 / queries 110 / synthesis 4 / comparisons 5 (deduped). This document is the authoritative remediation plan.</p>
+<hr />
+<h2 id="1-executive-summary">1. Executive summary<a class="headerlink" href="#1-executive-summary" title="Permanent link">&para;</a></h2>
+<p>Synapse and LLM Wiki diverge in <strong>three structurally-linked ways</strong>, all traceable to a small number of code seams. The headline counts (queries 133-vs-110, synthesis/comparison 0-vs-9, entities 149-vs-202) are symptoms of the same handful of defects.</p>
+<ol>
+<li>
+<p><strong><code>wiki/queries/</code> is 100% garbage, and it poisons everything downstream.</strong> Every one of Synapse's 133 query pages is a lint placeholder — <code>type: query, tags:[stub,lint]</code>, named after an <em>entity/concept</em> (<code>alphabet.md</code>, <code>amazon-s3.md</code>, <code>dora.md</code>), created because a <code>[[wikilink]]</code> had no target. The single culprit is <code>ops/lint.py:1774-1786 _create_broken_link_stub()</code>, which hard-codes <code>type=PageType.QUERY</code> for every dangling link. LLM Wiki's 110 query pages are <em>genuine open research questions</em> ("Azure OpenAI F1 threshold: 85% vs 90%?"). Because query pages are hidden from the graph (<code>engine.py:122</code>), these mis-typed ghosts silently <strong>drop the inbound wikilinks that would have anchored real entity hubs</strong>, collapsing the graph backbone. They also inflate the index, break the overview's would-be "Open Questions" section, and get cited as empty <code>[n]</code> footnotes in chat.</p>
+</li>
+<li>
+<p><strong>The same real-world entity mints multiple pages because dedup keys only on exact title-slug.</strong> <code>write_wiki_page</code> (<code>orchestrator.py:1376,1390-1414</code>) reuses an existing page id ONLY when <code>_slugify(title)</code> matches exactly. Since the LLM names the same thing differently per source, <strong>AWS became three pages</strong> (<code>aws.md</code> "AWS", <code>amazon-web-services.md</code>, <code>amazon-web-services-aws.md</code>), plus families like <code>azure</code>+<code>microsoft-azure</code>, <code>deloitte</code>+<code>deloitte-italia</code>+<code>deloitte-italy-it-advisory</code>. LLM Wiki keeps one canonical page per thing and extracts <em>finer</em> granularity (14 <code>aws-*</code> entities vs Synapse's 8). Net: Synapse has fewer distinct entities AND splits the ones it has → 149 vs 202.</p>
+</li>
+<li>
+<p><strong>Synapse copied llm_wiki's ingest-time prohibition on synthesis/comparison but never built the compensating generator.</strong> <code>_common.py:81-83,105-107</code> forbid the model from emitting synthesis/comparison during ingest (correct parity), delegating them to "the review queue" — but nothing in bulk import ever resolves a review item, so both counts are permanently <strong>0 vs 4+5</strong>. LLM Wiki authors these as an end-of-import corpus-level pass (their <code>related:[5]</code> cross-links prove they were built <em>after</em> the corpus existed). These missing pages are also the high-affinity <strong>cross-type bridges</strong> the graph needs; without them 527 concepts ball up with no connective tissue.</p>
+</li>
+</ol>
+<p>Two more process-level (not count-level) divergences round out the picture:</p>
+<ol>
+<li>
+<p><strong>Ingest fragments instead of integrating.</strong> LLM Wiki reads each existing entity/concept page and <em>rewrites it enriched</em> (one source touches 10-15 pages, mostly edits). Synapse feeds the model <strong>titles only</strong> (<code>orchestrator.py:2814-2818</code>, capped at 400/8000 chars) with a "link, don't duplicate" instruction — it never sees existing page bodies, so it links or invents fresh fragments. This is why concepts over-count (527 vs 460) while entities lag.</p>
+</li>
+<li>
+<p><strong>Chat citations and file-back are mis-shaped.</strong> Chat cites bare <code>[n]</code> indices into a throwaway context block, not page paths; "Save to Wiki" hard-codes <code>type=query</code> (<code>chat.py:664-679</code>), feeding the query-inflation and synthesis-starvation directly, whereas LLM Wiki files durable answers to <code>wiki/synthesis/</code>.</p>
+</li>
+</ol>
+<p><strong>One correction to the parity program:</strong> the assumed <code>domain/</code>/<code>vendor/</code>/<code>tool/</code> tag-taxonomy work is moot — both corpora already use flat lowercase-kebab tags (0 slash-prefixed on either side). Drop it.</p>
+<hr />
+<h2 id="2-ranked-divergence-register">2. Ranked divergence register<a class="headerlink" href="#2-ranked-divergence-register" title="Permanent link">&para;</a></h2>
+<p>Sorted critical → major → minor → cosmetic. IDs are prefixed by dimension: <strong>CE</strong> classification-entities · <strong>QP</strong> query-pages · <strong>SC</strong> synthesis/comparison · <strong>OV</strong> overview · <strong>IL</strong> index/log · <strong>FW</strong> frontmatter/wikilinks · <strong>LN</strong> lint · <strong>IN</strong> ingest-flow · <strong>CG</strong> chat/graph.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Dimension</th>
+<th>Sev</th>
+<th>Divergence</th>
+<th>Root cause (code)</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QP-Q1</td>
+<td>query-pages</td>
+<td><strong>critical</strong></td>
+<td>133/133 query pages are entity/concept-named lint placeholders, not open questions</td>
+<td><code>lint.py:1774-1786</code> hard-codes <code>type=PageType.QUERY</code> for every dangling <code>[[link]]</code>; <code>schemas.py:65</code> maps QUERY→<code>queries/</code></td>
+<td><code>grep 'Created by Wiki Lint as a placeholder'</code> = 133 of 133; samples <code>alphabet.md</code>, <code>amazon-s3.md</code>, <code>dora.md</code></td>
+</tr>
+<tr>
+<td>QP-Q2</td>
+<td>query-pages</td>
+<td><strong>critical</strong></td>
+<td>Genuine contradiction→open-question generation never fires; contradictions are flag-only no-ops</td>
+<td><code>lint.py:88 _FLAG_ONLY_CATEGORIES</code> includes <code>contradiction</code>; apply branch only flips status='applied' (~<code>lint.py:425-434</code>)</td>
+<td><code>schema.md:89-91</code> prescribes the workflow, no code implements it; synthesis=0, comparisons=0 confirm the whole pipeline is inert</td>
+</tr>
+<tr>
+<td>CE-D1</td>
+<td>classification</td>
+<td><strong>critical</strong></td>
+<td>Same real entity mints multiple pages (dedup keys only on exact title-slug)</td>
+<td><code>orchestrator.py:1376,1390-1414</code> reuse id only on identical <code>_slugify(title)</code>; no normalization/alias/embedding match</td>
+<td>3 AWS pages; <code>azure</code>+<code>microsoft-azure</code>, <code>deloitte</code>+<code>deloitte-italia</code>+<code>deloitte-italy-it-advisory</code>, <code>onetrust</code>+<code>onetrust-trust-intelligence-platform</code></td>
+</tr>
+<tr>
+<td>SC-D1</td>
+<td>synthesis/comp</td>
+<td><strong>critical</strong></td>
+<td>No corpus-level pass ever generates synthesis/comparison; prohibition copied, generator never built</td>
+<td><code>_common.py:105-107,81-83</code> forbid both at ingest; only counterpart (<code>review.py:3285</code>) is human-gated, never fires in bulk import</td>
+<td><code>synthesis/</code> &amp; <code>comparisons/</code> empty (0 .md) vs 4+5; <code>_common.py:88-92</code> comment admits prohibition added for parity but no generator added</td>
+</tr>
+<tr>
+<td>IL-D2</td>
+<td>index/log</td>
+<td><strong>critical</strong></td>
+<td>Index has no dedup — dumps all 1123 live rows including alias duplicates</td>
+<td><code>index.py:82-88</code> emits every live Page row verbatim; no canonicalisation/ghost filtering</td>
+<td><code>[[AWS]]</code>+<code>[[Amazon Web Services]]</code>+<code>[[Amazon Web Services (AWS)]]</code>, <code>[[Cloudability]]</code>+<code>[[Apptio Cloudability]]</code>; 1123 vs 84</td>
+</tr>
+<tr>
+<td>FW-D1</td>
+<td>frontmatter</td>
+<td><strong>critical</strong></td>
+<td><code>related:</code> frontmatter 100% present in LLM Wiki (curated graph seed), entirely absent in Synapse</td>
+<td><code>schemas.py:102-124</code> WikiFrontmatter has no <code>related</code> field; no code path emits one</td>
+<td>LLM 916/916 have <code>related:</code> (avg 5.1, 83% resolve); Synapse 0/967</td>
+</tr>
+<tr>
+<td>FW-D2</td>
+<td>frontmatter</td>
+<td><strong>critical</strong></td>
+<td>Wikilink targets inverted: LLM links by SLUG, Synapse by TITLE — root of the queries stub flood</td>
+<td>Generation emits title-cased targets; <code>lint.py:1745</code> then materializes each unresolved title-link as a query stub</td>
+<td>LLM 85% slug/4% title; Synapse 9% slug/92% title; <code>[[DORA Designated Critical ICT Third-Party Service Provider Status]]</code></td>
+</tr>
+<tr>
+<td>IN-D1</td>
+<td>ingest-flow</td>
+<td><strong>critical</strong></td>
+<td>Ingest does NOT integrate facts into existing pages — it links or spawns fragments (concept over-count)</td>
+<td><code>orchestrator.py:2772-2850</code> feeds TITLES ONLY + "link, don't duplicate"; generate() never receives existing bodies; only merge seam is slug-collision (<code>page_merge.py</code>)</td>
+<td><code>orchestrator.py:2814-2818</code>; <code>_common.py:93-108</code> has no "read+enrich" step; concepts 527 vs 460, entities 149 vs 202</td>
+</tr>
+<tr>
+<td>IN-D2</td>
+<td>ingest-flow</td>
+<td><strong>critical</strong></td>
+<td>Contradiction→query rule is dead text; contradictions degrade to flag-only review items</td>
+<td><code>_common.py:75-85</code> restricts suggested_pages to entity|concept|source; QUERY provider-forbidden (<code>schemas.py:39-46</code>); <code>vault.py:137-143</code> rule has no executing code</td>
+<td><code>lint.py:88 _FLAG_ONLY_CATEGORIES</code>; synthesis=0, comparisons=0, queries are stubs</td>
+</tr>
+<tr>
+<td>CG-D1</td>
+<td>chat/graph</td>
+<td><strong>critical</strong></td>
+<td>Chat cites bare <code>[n]</code> into an ephemeral context block, not durable page paths/wikilinks</td>
+<td><code>context.py:41-52 _SYSTEM_PREAMBLE</code> forces <code>[n]</code>, forbids titles/paths in marker; <code>retrieval.py:677</code> assembles <code>[n] &lt;title&gt;</code></td>
+<td><code>context.py:44-49</code>; done-event citations <code>{n,id,title,slug}</code> resolved client-side, never inline page paths</td>
+</tr>
+<tr>
+<td>CG-D2</td>
+<td>chat/graph</td>
+<td><strong>critical</strong></td>
+<td>"Save to Wiki" files durable answers to <code>queries/</code> as <code>type=query</code>; LLM Wiki files to <code>synthesis/</code></td>
+<td><code>chat.py:664-679</code> hard-codes <code>PageType.QUERY</code> + <code>queries/&lt;slug&gt;.md</code>; no synthesis file-back path</td>
+<td><code>chat.py:668,672</code>; feeds query-inflation (133 vs 110) and synthesis-starvation (0 vs 4)</td>
+</tr>
+<tr>
+<td>CG-D4</td>
+<td>chat/graph</td>
+<td><strong>critical</strong></td>
+<td>Entity-hub deficit + query-stub inflation collapses graph hub structure</td>
+<td><code>engine.py:507-509</code> filters type=query nodes before id_to_idx; <code>engine.py:518-521</code> keeps a link only if BOTH endpoints survive → inbound links to stub-hubs silently dropped</td>
+<td>entities 149 vs 202 (−26%); stubs <code>[[Salesforce, Inc.]]</code>,<code>[[Oracle Corporation]]</code>; <code>GRAPH_HIDDEN_PAGE_TYPES={'query'}</code></td>
+</tr>
+<tr>
+<td>CE-D2</td>
+<td>classification</td>
+<td>major</td>
+<td>Generation prompt has no canonical-naming policy; model freely varies entity titles</td>
+<td><code>_common.py:74-84,92-123</code> say WHAT types to emit, nothing about naming at official/canonical name or reusing an existing title</td>
+<td><code>_common.py:110-123</code> schema is <code>{title,type,content,frontmatter}</code> only; "AWS"/"Amazon Web Services"/"Amazon Web Services (AWS)" all accepted</td>
+</tr>
+<tr>
+<td>CE-D3</td>
+<td>classification</td>
+<td>major</td>
+<td>Existing-pages context is LINK-only and truncated (400/8000), can't converge at scale</td>
+<td><code>orchestrator.py:2766-2767</code> caps; framed as wikilink targets only; 1123 live pages</td>
+<td>Header <code>2814-2818</code> targets linking, not naming/reuse</td>
+</tr>
+<tr>
+<td>CE-D4</td>
+<td>classification</td>
+<td>major</td>
+<td>Lower distinct-entity granularity; detail folded into concept prose</td>
+<td><code>_common.py:74-84,92-108</code> fully LLM-discretionary; concept is low-friction default</td>
+<td>LLM 14 <code>aws-*</code> entities vs Synapse 8; concepts higher 527 vs 460</td>
+</tr>
+<tr>
+<td>QP-Q3</td>
+<td>query-pages</td>
+<td>major</td>
+<td>Query frontmatter diverges: Synapse forces <code>sources:[lint:&lt;uuid&gt;]</code>+<code>lang:</code>; LLM has real sources + question title</td>
+<td>F3 non-empty sources applied uniformly → synthetic <code>lint:</code> sources</td>
+<td>SYN <code>sources:[lint:edd9c104-…]</code>; GOLD real raw path + title as question</td>
+</tr>
+<tr>
+<td>QP-Q4</td>
+<td>query-pages</td>
+<td>major</td>
+<td>133 legacy stubs already pollute prod <code>queries/</code>, index, and counts — need migration not just fix-forward</td>
+<td>Historical bulk-apply via <code>lint.py:1743</code>; <code>engine.py:122</code> hides them from graph so pollution is invisible there but real in tree/index/counts</td>
+<td>queries 133 vs 110; all 133 are stubs</td>
+</tr>
+<tr>
+<td>SC-D2</td>
+<td>synthesis/comp</td>
+<td>major</td>
+<td>Synthesis/comparison creation reachable ONLY via human F9 Create; proposals sit pending forever</td>
+<td><code>review.py:569 _resolve_create_page_type</code> called only from <code>_run_generation</code> (POST create only); no auto-create sweep</td>
+<td><code>routers/chat.py:274-276</code> save-to-wiki hard-codes query; <code>propose_reviews</code> items stay <code>pending</code></td>
+</tr>
+<tr>
+<td>OV-D1</td>
+<td>overview</td>
+<td>major</td>
+<td>Overview has no "Open Questions/Tensioni Irrisolte" block listing <code>[[query]]</code> pages</td>
+<td><code>_build_overview_instruction</code> (<code>orchestrator.py:2243-2277</code>) never asks for it and forbids bulleted lists; no deterministic append</td>
+<td>LLM <code>overview.md:82-108</code> "19 Query Aperte" (13 resolve); Synapse grep = NONE</td>
+</tr>
+<tr>
+<td>OV-D2</td>
+<td>overview</td>
+<td>major</td>
+<td>Overview frontmatter minimal (title+type); LLM has ~129-keyword tag cloud + related/sources/created/updated</td>
+<td>Prod predates tag-cloud seam; prompt requests only 20-40 tags, <code>_OVERVIEW_MAX_TAGS=50</code>; never emits related/sources/dates</td>
+<td>LLM <code>overview.md:6</code> 129 tags; Synapse 0 tags</td>
+</tr>
+<tr>
+<td>IL-D1</td>
+<td>index/log</td>
+<td>major</td>
+<td>Index entries are bare wikilinks, no em-dash description gloss</td>
+<td><code>index.py:139,148,155</code> emit <code>- [[title]]</code>; query selects only title/type/path</td>
+<td>SYN 0/1123 glossed; LLM 84/84 e.g. <code>- [[onetrust]] — OneTrust Platform ⭐ UPDATED</code></td>
+</tr>
+<tr>
+<td>IL-D3</td>
+<td>index/log</td>
+<td>major</td>
+<td>156-entry <code>## Uncategorised</code> section of NULL-type ghost pages; LLM has none</td>
+<td><code>index.py:99-102,151-156</code> routes falsy page_type to bucket; upstream unresolved-wikilink ghosts</td>
+<td><code>## Uncategorised</code> at <code>index.md:993</code>, 156 entries</td>
+</tr>
+<tr>
+<td>IL-D5</td>
+<td>index/log</td>
+<td>major</td>
+<td>Log is per-page (1198 machine bullets, verb always <code>indexed</code>); LLM is coarse per-document narrative (~21 <code>Ingest:</code>)</td>
+<td><code>orchestrator.py:1506,276</code> call <code>append_log</code> once per <code>write_wiki_page</code>; no per-source aggregation</td>
+<td>SYN 1198 bullets, <code>[[BYOL]]</code>×12; LLM 21 <code>- Ingest: &lt;Doc&gt; — created N pages</code> + 7 grouped blocks</td>
+</tr>
+<tr>
+<td>FW-D3</td>
+<td>frontmatter</td>
+<td>major</td>
+<td><code>sources[]</code> is a single clean raw pointer in LLM, a noisy 2-entry (label + path) list in Synapse</td>
+<td><code>orchestrator.py:1450</code> persists both label and raw path; no dedup</td>
+<td>LLM single item; SYN mean 1.95, 685 pages exactly 2, max 13</td>
+</tr>
+<tr>
+<td>FW-D4</td>
+<td>frontmatter</td>
+<td>major</td>
+<td>Frontmatter key ORDER differs: LLM human-ordered (type/title first), Synapse alphabetical</td>
+<td><code>frontmatter.dumps</code> (<code>orchestrator.py:1478-1479</code>) uses PyYAML <code>sort_keys=True</code></td>
+<td>Every SYN page opens <code>created:</code> then <code>lang:</code>; every LLM page opens <code>type:</code> then <code>title:</code></td>
+</tr>
+<tr>
+<td>LN-D1</td>
+<td>lint</td>
+<td>major</td>
+<td>Broken-link stub-fix dumps every no-suggestion target into <code>queries/</code> as type=query, forced non-empty sources</td>
+<td><code>lint.py:1745-1826</code> hard-codes QUERY + flat <code>queries/</code>, <code>sources=[lint:id]</code>; omits LLM Wiki folder-aware <code>stubRelativePathFromBrokenTarget</code> + empty <code>sources:[]</code></td>
+<td><code>lint.py:1774-1788</code> vs <code>lint-fixes.ts:50-104</code>; LLM queries=110 (0 stubs) vs SYN 133 stubs</td>
+</tr>
+<tr>
+<td>IN-D3</td>
+<td>ingest-flow</td>
+<td>major</td>
+<td>Entity identity resolved by title-slug only → name variants duplicate instead of merging</td>
+<td><code>orchestrator.py:1376,1396-1406</code> slugs+matches exactly; no canonical/alias resolution pre-slug</td>
+<td><code>[[AWS]]</code>+<code>[[Amazon Web Services]]</code>+<code>[[Amazon Web Services (AWS)]]</code></td>
+</tr>
+<tr>
+<td>IN-D4</td>
+<td>ingest-flow</td>
+<td>major</td>
+<td>No fan-out breadth: a source can yield as little as 1 page vs LLM's 10-15 touched</td>
+<td><code>_common.py:93-108</code> gives no page-count expectation; <code>_ensure_source_summary</code> guarantees only the source page</td>
+<td><code>orchestrator.py:1842-1890</code></td>
+</tr>
+<tr>
+<td>CG-D5</td>
+<td>chat/graph</td>
+<td>major</td>
+<td>Zero synthesis+comparison removes high-affinity cross-type bridges; concept blob has no connective tissue</td>
+<td>type_affinity rewards concept↔synthesis=1.2 but penalizes concept↔concept=0.8 (<code>engine.py:137-140</code>); 0 bridges + 527 penalized concepts</td>
+<td>synthesis 0 vs 4, comparisons 0 vs 5; gold synthesis carry <code>related:[5]</code></td>
+</tr>
+<tr>
+<td>CG-D3</td>
+<td>chat/graph</td>
+<td>major</td>
+<td>Saved chat answers are graph-invisible &amp; isolated (type=query + no wikilinks/related)</td>
+<td><code>chat.py:664-679</code> saves cleaned text, <code>sources=['chat']</code>, no link/generation pass; edges require resolved <code>[[wikilink]]</code></td>
+<td>gold <code>risk-register-cloud-licensing.md</code> has <code>related:[5]</code> — 5 edges Synapse never creates</td>
+</tr>
+<tr>
+<td>CE-D5</td>
+<td>classification</td>
+<td>minor</td>
+<td>index.md lists every alias — duplication is user-visible, inflates catalogue</td>
+<td><code>index.py</code> regen from live rows, no alias collapse</td>
+<td><code>index.md:18-22</code> three AWS entries</td>
+</tr>
+<tr>
+<td>SC-D3</td>
+<td>synthesis/comp</td>
+<td>minor</td>
+<td><code>propose_reviews</code> rarely even PROPOSES synthesis/comparison — prompt keys on missing-page/duplicate/contradiction, not comparison/synthesis SHAPE</td>
+<td><code>review.py:3081-3103</code> taxonomy, <code>proposed_page_type</code> an afterthought</td>
+<td><code>engine.py:136-140</code> computes type-affinity/source-overlap signals unused for seeding</td>
+</tr>
+<tr>
+<td>OV-D3</td>
+<td>overview</td>
+<td>minor</td>
+<td>No guaranteed bolded thesis / "Nucleo centrale" lead</td>
+<td>prompt asks for thesis only in H1 title (<code>orchestrator.py:2259-2264</code>)</td>
+<td>LLM <code>overview.md:13</code> <code>**Nucleo centrale**: [[…]]</code></td>
+</tr>
+<tr>
+<td>OV-D4</td>
+<td>overview</td>
+<td>minor</td>
+<td>Even with an Open-Questions block, query pages are ghost stubs — block would be garbage</td>
+<td>Upstream query-misfiling defect</td>
+<td>queries named <code>[[Salesforce, Inc.]]</code> vs <code>does-scale-improve-reasoning.md</code></td>
+</tr>
+<tr>
+<td>IL-D4</td>
+<td>index/log</td>
+<td>minor</td>
+<td>Query section header mis-spelled <code>Querys</code></td>
+<td><code>index.py:161-167 _PLURAL_EXCEPTIONS</code> omits <code>query</code> → <code>capitalize()+'s'</code></td>
+<td><code>## Querys</code> at <code>index.md:857</code> vs <code>## Queries</code></td>
+</tr>
+<tr>
+<td>IL-D6</td>
+<td>index/log</td>
+<td>minor</td>
+<td>Log verb vocabulary only indexed/deleted; no ingest/query/lint operation-level actions</td>
+<td><code>append_log</code> action defaults to <code>indexed</code>; no coarse summary writer</td>
+<td>1198/1198 <code>· indexed ·</code>, 0 ingest/query/lint</td>
+</tr>
+<tr>
+<td>FW-D5</td>
+<td>frontmatter</td>
+<td>minor</td>
+<td>Synapse has a required <code>lang:</code> key on every page; LLM has none</td>
+<td><code>schemas.py:116 lang</code> required (min_length=2) for F3 language-aware ingest</td>
+<td>967/967 SYN vs 0 LLM</td>
+</tr>
+<tr>
+<td>LN-D2</td>
+<td>lint</td>
+<td>minor</td>
+<td>Dead <code>missing-xref</code> category has no LLM counterpart, never emitted, still in enum+apply router</td>
+<td>retained in <code>_VALID_CATEGORIES</code> (<code>lint.py:63-76</code>) + apply (<code>442</code>) but <code>_parse_findings</code> drops it (<code>2107-2110</code>)</td>
+<td>LLM type union has no xref (<code>lint.ts:10</code>)</td>
+</tr>
+<tr>
+<td>LN-D3</td>
+<td>lint</td>
+<td>minor</td>
+<td><code>missing-page</code> fix runs a full orchestrated generation loop — far heavier than LLM's stub/review</td>
+<td><code>_apply_missing_page</code> (<code>lint.py:1555-1628</code>) calls <code>_run_generation</code></td>
+<td>vs LLM semantic findings (no generative fix)</td>
+</tr>
+<tr>
+<td>IN-D5</td>
+<td>ingest-flow</td>
+<td>minor</td>
+<td>synthesis/comparison never populated (ingest prohibited + review path not firing)</td>
+<td><code>_common.py:104-108</code> prohibition, no review-driven creation</td>
+<td>synthesis 0/comparisons 0 vs 4/5</td>
+</tr>
+<tr>
+<td>CG-D6</td>
+<td>chat/graph</td>
+<td>minor</td>
+<td>Chat retrieval can cite near-empty ghost query-stubs, degrading citation quality</td>
+<td><code>retrieval.py:820-826</code> filters only <code>raw/</code>; <code>stream.py:204-210</code> passes no type_filter</td>
+<td><code>[3] Salesforce, Inc.</code> stub citation possible</td>
+</tr>
+<tr>
+<td>CE-D6</td>
+<td>classification</td>
+<td>cosmetic</td>
+<td>Entity-vs-concept DEFINITIONS identical both sides — divergence is process-driven, not rule-driven</td>
+<td>Both <code>schema.md</code> define entity/concept verbatim</td>
+<td>same wording both files</td>
+</tr>
+<tr>
+<td>IL-D7</td>
+<td>index/log</td>
+<td>cosmetic</td>
+<td>Index preamble is a machine marker; LLM is curated human doc with dated section headings + rich tags</td>
+<td><code>index.py:48-61,124-129</code> hardcode auto-gen banner+total+timestamp</td>
+<td>SYN "auto-generated…overwritten", "Total pages: 1123" vs LLM <code>## Sources — … (luglio 2026)</code></td>
+</tr>
+<tr>
+<td>FW-D6</td>
+<td>frontmatter</td>
+<td>cosmetic</td>
+<td>Parity premise wrong: neither side uses <code>domain/</code>/<code>vendor/</code>/<code>tool/</code> tag prefixes</td>
+<td>Assumption in the brief; actual tags flat kebab both sides</td>
+<td><code>grep</code> slash-in-tags = 0 both</td>
+</tr>
+<tr>
+<td>LN-D4</td>
+<td>lint</td>
+<td>cosmetic</td>
+<td>Category label strings &amp; semantic finding shape differ (breaks 1:1 UI/label parity)</td>
+<td>Synapse uses distinct category strings + 4 separate semantic categories, single-target; LLM uses one <code>semantic</code> type + <code>affectedPages[]</code></td>
+<td><code>lint.py:63-76</code> vs <code>lint.json</code> semantic objects</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-alignment-plan-phased">3. Alignment plan (phased)<a class="headerlink" href="#3-alignment-plan-phased" title="Permanent link">&para;</a></h2>
+<p><strong>Ordering rationale:</strong> P0 fixes the correctness defects that everything else depends on — <strong>the query-misclassification fix (P0-1) MUST land before</strong> the overview open-questions block (P1), the index dedup/uncategorised cleanup (P1), and the graph-hub restoration (P0-2), or those features surface garbage. Entity canonicalisation (P0-2) is a prerequisite for index dedup. Synthesis/comparison generation (P0-3) unblocks the graph bridges and the chat file-back.</p>
+<h3 id="p0-correctness-must-land-first">P0 — Correctness (must land first)<a class="headerlink" href="#p0-correctness-must-land-first" title="Permanent link">&para;</a></h3>
+<p><strong>P0-1 · Stop mis-filing broken wikilinks as <code>type=query</code>; reserve <code>queries/</code> for real open questions.</strong>
+<em>Consolidates QP-A1, LN-A1, LN-A2, FW-A3.</em>
+- <strong>Change:</strong> In <code>_create_broken_link_stub</code>, replace hard-coded <code>type=PageType.QUERY</code> with folder-aware routing mirroring LLM Wiki's <code>stubRelativePathFromBrokenTarget</code> — multi-segment target <code>entities/x</code> → <code>entities/x.md</code>, single-segment → infer ENTITY (proper-noun/Inc./Corp. heuristic) else CONCEPT, never QUERY. <strong>Preferred:</strong> make stub materialisation opt-in and default the no-suggestion path to <code>send_finding_to_review</code> (F9), matching LLM Wiki prod reality (0 stub pages in <code>queries/</code>). Keep <code>tags:[stub,lint]</code> for greppability.
+- <strong>Target files:</strong> <code>backend/app/ops/lint.py:1745-1826</code> (<code>_create_broken_link_stub</code>); <code>:437-439</code> (broken-wikilink apply branch); <code>:489-557</code> (<code>send_finding_to_review</code>); helper mirroring <code>lint-fixes.ts:50-66</code>.
+- <strong>Effort:</strong> S-M · <strong>Risk:</strong> existing tests assert "under queries/" + <code>type=query</code> — update fixtures; F3 requires non-empty <code>sources</code> so <code>sources:[]</code> on stubs needs a schema exception for stub pages (see escalation Q1); avoid double-enqueue with the existing <code>broken-wikilink→missing-page</code> review bridge (<code>lint.py:477-486</code>). · <strong>Invariant:</strong> F3 vs I5/K7; K2/K6/K8/F9.</p>
+<p><strong>P0-2 · Entity-identity canonicalisation before slugging + a HITL dedup sweep for the existing vault.</strong>
+<em>Consolidates CE-A1, CE-A2, CE-A3, CE-A4, IN-A3, IL-A2.</em>
+- <strong>Change (fix-forward):</strong> Add <code>_resolve_canonical_entity</code> invoked in <code>write_wiki_page</code> <strong>before</strong> <code>_slugify</code>. For <code>type=entity</code>, compute a normalized identity key (casefold; strip parenthetical acronyms <code>(AWS)</code>; strip legal suffixes <code>Inc./Ltd./S.p.A./PRIVATE LIMITED</code>; fold known acronym↔longform pairs) and match against existing live entity titles by that key; on match, target the EXISTING file (reuse id, union <code>sources[]</code>, run <code>page_merge.mergePageContent</code>). Deterministic key first; a bge-m3 title-embedding nearest-neighbour is a bounded opt-in second pass routed to the review queue, never a silent fuzzy merge. Inject a canonical-naming rule into ingest prompts + <code>schema.md</code> ("name every entity at its canonical short name; reuse an existing entity's EXACT title if it denotes the same thing; never append parenthetical acronyms or legal suffixes"). Give generation a dedicated <strong>untruncated entity-canon index</strong> separate from the 400/8000 link catalogue.
+- <strong>Change (retrofit):</strong> New <code>backend/app/ops/dedup_entities.py</code> (mirror <code>ops/reclassify_types.py</code>): cluster entity pages by the normalized key, propose merges to the F9 review queue (human confirms — Deloitte vs Deloitte Italia are edge cases), on accept union <code>sources[]</code>/<code>related[]</code>, LLM-merge bodies, repoint inbound <code>[[wikilinks]]</code> to canonical, soft-delete aliases, regenerate <code>index.md</code>. One <code>data_version</code> bump per batch; log <code>total_cost_usd</code>.
+- <strong>Target files:</strong> <code>orchestrator.py</code> (write_wiki_page ~1376-1414; new <code>_resolve_canonical_entity</code>, <code>_load_entity_canon</code> ~2772-2840); <code>_common.py</code> (ANALYZE_SYSTEM/GENERATION_SCAFFOLD); <code>models.py</code> (optional <code>entity_alias</code> table); new <code>ops/dedup_entities.py</code>; endpoint in <code>main.py</code>; <code>/Volumes/synapse/vault/schema.md</code>.
+- <strong>Effort:</strong> L (fix-forward) + XL (retrofit sweep) · <strong>Risk:</strong> over-merging distinct entities — conservative key-only auto-merge, everything fuzzy goes to review; wikilink repointing must not orphan edges; HITL-gated, incremental (I1), never full rescan. · <strong>Invariant:</strong> I1, F13, F9, K3, K6, I7.</p>
+<p><strong>P0-3 · Build the missing corpus-level synthesis/comparison generator (keep ingest prohibition intact).</strong>
+<em>Consolidates SC-A1, SC-A2, SC-A3, IN-A5, CG-A5.</em>
+- <strong>Change:</strong> New <code>backend/app/ops/synthesize.py</code>: a bounded post-bulk-import pass (and explicit UI/API action) that (1) picks candidate clusters from graph neighborhoods with high source-overlap ×4 / type-affinity / Adamic-Adar (reuse <code>graph/engine.py</code>); (2) <code>provider.generate</code> a synthesis body (thesis + integration) and, for ≥2 same-class entities, a comparison table; (3) writes via <code>write_wiki_page</code> as <code>PageType.SYNTHESIS/COMPARISON</code> with <code>related[]</code>=cluster wikilinks, <code>sources[]</code>=union of contributing sources. Min-cluster-size + confidence threshold; borderline clusters go to F9 instead of auto-write. Additionally: promote high-confidence synthesis/comparison <strong>review proposals</strong> to auto-create in the bounded sweep, and extend <code>_llm_propose_reviews</code> to actively DETECT the comparison/synthesis shape (rule-based seed from graph signals so obvious comparisons are always proposed).
+- <strong>Target files:</strong> new <code>ops/synthesize.py</code>; <code>graph/engine.py</code> (reuse cluster/neighbourhood); <code>orchestrator.py</code> (write seam); <code>routers/ops.py</code> (endpoint); <code>ops/review.py</code> (<code>sweep_reviews</code>+<code>_run_generation</code> seam; <code>_llm_propose_reviews</code> prompt <code>3081-3103</code>).
+- <strong>Effort:</strong> L · <strong>Risk:</strong> over-production of low-value pages (the exact thing the prohibition guarded) — gate on cluster-size/confidence, route borderline to review, cap <code>max_iter</code>+<code>token_budget</code>, log cost; keep the single-doc ingest prohibition (<code>_common.py</code>) intact — <strong>this new path is a deliberate exception → escalate to solution-architect per the invariant-change rule.</strong> · <strong>Invariant:</strong> F3/K2 (new op), F4 (reuses 4-signal graph), F9, I1 (single write seam), I7.</p>
+<p><strong>P0-4 · Implement genuine contradiction → open-question query generation.</strong>
+<em>Consolidates QP-A2, QP-A4, IN-A2.</em>
+- <strong>Change:</strong> Remove <code>contradiction</code> from <code>_FLAG_ONLY_CATEGORIES</code> (or add a dedicated human-gated apply branch). On an applied contradiction finding, author a <code>type=query</code> page via an internal pipeline writer (not free provider output): title phrased as a question, body <code>## Question / ## Hypothesis / ## Open Points / ## Impact / ## References</code>, real <code>sources[]</code>=raw docs of both conflicting pages, <code>related[]</code>=the two page slugs. Use the InferenceProvider (bounded I7) to phrase question+hypotheses. This unblocks the resolve-in-synthesis step (<code>schema.md:91</code>).
+- <strong>Target files:</strong> <code>ops/lint.py:88</code> + new query writer; <code>orchestrator.py</code> (post-write contradiction hook); <code>ops/review.py</code> (contradiction path); <code>schemas.py</code> (allow query as a <em>pipeline-written</em> type via the internal writer, still provider-forbidden).
+- <strong>Effort:</strong> L-XL · <strong>Risk:</strong> false-positive contradictions spawn noisy questions — keep human-gated, confidence gate, cap per run; touches the K8 boundary. · <strong>Invariant:</strong> F3/K2/K4, I6/I7, F9, K8.</p>
+<p><strong>P0-5 · Migrate/clean the 133 legacy lint stubs out of <code>queries/</code>.</strong>
+<em>Consolidates QP-A3, LN reclassify.</em>
+- <strong>Change:</strong> One-off reviewed batch: select pages where <code>tags</code> contains <code>stub</code>+<code>lint</code> AND <code>type=query</code> (greppable by placeholder body). Reclassify to concept/entity stub (move file, rewrite <code>type</code>) via the P0-1 folder-aware logic, OR <code>cascade_delete</code> if the dangling target is now resolvable/duplicate, then <code>reresolve_dangling_links</code>. Dedupe against <code>index.md</code> in the same pass. One <code>data_version</code> bump per batch.
+- <strong>Target files:</strong> migration script under <code>scripts/</code>/<code>ops</code>; reuse <code>cascade_delete</code> + <code>reresolve_dangling_links</code>.
+- <strong>Effort:</strong> M · <strong>Risk:</strong> cascade_delete must preserve pages a stub was legitimately linked from; file moves must keep <code>[[wikilinks]]</code> resolving (I5); do as reviewed batch, not silent. · <strong>Invariant:</strong> I1, I5, F13.</p>
+<h3 id="p1-structure-after-p0-lands">P1 — Structure (after P0 lands)<a class="headerlink" href="#p1-structure-after-p0-lands" title="Permanent link">&para;</a></h3>
+<p><strong>P1-1 · Deterministic "Open Questions / Tensioni Irrisolte" closing block on <code>overview.md</code>.</strong> <em>(OV-A1)</em>
+- Append a <code>## Open Questions (&lt;period&gt;)</code> numbered list of <code>[[title]]</code> links built from a bounded DB query of live <code>page_type=='query'</code> rows (not the LLM), localized via <code>overview_language</code>, skipped when zero. <strong>Depends on P0-1/P0-5</strong> — gate on query pages that look like questions or ship after reclassification.
+- <strong>Files:</strong> <code>orchestrator.py</code> (<code>_write_and_index_overview ~2372</code>; new <code>_build_open_questions_block</code>; called from <code>_update_overview ~2065</code>). <strong>Effort:</strong> M · <strong>Invariant:</strong> F3, K4/F9.</p>
+<p><strong>P1-2 · Index entry descriptions (em-dash gloss) + kill the Uncategorised ghost section + fix <code>Querys</code>.</strong> <em>(IL-A1, IL-A3, IL-A4)</em>
+- Extend index query to select a per-page one-liner (frontmatter description / first-sentence summary / persisted <code>summary</code> column populated at generate time — must be <strong>deterministic</strong>, derived from stored data, not a live LLM call, to preserve <code>update_index</code> idempotency). Render <code>- [[title]] — {description}</code>. Stop rendering <code>## Uncategorised</code> (fix NULL <code>page_type</code> at source — resolved by P0-1). Add <code>"query":"Queries"</code> to <code>_PLURAL_EXCEPTIONS</code> with a regression test.
+- <strong>Files:</strong> <code>wiki/index.py</code> (<code>82-88</code>, <code>99-102</code>, <code>138-155</code>, <code>151-156</code>, <code>161-167</code>); <code>models.py</code> (optional <code>summary</code> column). <strong>Effort:</strong> M+S · <strong>Invariant:</strong> K3, I1, K6.</p>
+<p><strong>P1-3 · Coarse per-document ingest log + operation-level verbs.</strong> <em>(IL-A5, IL-A6)</em>
+- Aggregate created/updated page titles in the orchestrator run context; flush ONE narrative bullet per source at end of run: <code>## YYYY-MM-DD</code> / <code>- Ingest: &lt;Source&gt; — created N pages (X entities, Y concepts, 1 source): [[..]]</code>. Add coarse verbs for lint (<code>- Lint: fixed 4 dead wikilinks across 3 pages</code>) and query/contradiction sweeps.
+- <strong>Files:</strong> <code>orchestrator.py:3054-3120</code> (<code>append_log</code>) + call sites <code>276,1506</code>; <code>ops/lint.py</code>. <strong>Effort:</strong> L · <strong>Risk:</strong> verify no K4 incremental-refresh consumer parses the per-page log lines before changing granularity; keep cost logging (I7). · <strong>Invariant:</strong> K4, I1, I7.</p>
+<h3 id="p2-conventions-parallelisable-with-p1">P2 — Conventions (parallelisable with P1)<a class="headerlink" href="#p2-conventions-parallelisable-with-p1" title="Permanent link">&para;</a></h3>
+<p><strong>P2-1 · Add <code>related: list[str]</code> to WikiFrontmatter and populate from resolved outbound wikilinks + top graph neighbours (cap ~8, slugs not titles).</strong> <em>(FW-A1)</em> — Restores the F4 direct-link seed; <strong>keep <code>sources</code>+<code>lang</code> untouched</strong> (F3). Additive, <code>extra=allow</code> already permits round-trip. <strong>Files:</strong> <code>schemas.py:102-124</code>, <code>orchestrator.py:1449-1477</code>. <strong>Effort:</strong> M · <strong>Invariant:</strong> F4, I5; F3 untouched.</p>
+<p><strong>P2-2 · Switch wikilink emission to SLUG targets with <code>[[slug|Title]]</code> alias.</strong> <em>(FW-A2)</em> — Add a title→slug resolver (reuse slugify + Page index), rewrite generated links at write time. This is the deep root fix for the ghost flood — most of the 8087 title-links become resolvable. <strong>Files:</strong> <code>wiki/links.py</code>, <code>ops/enrich_wikilinks.py</code>, generation prompts, <code>provider/cli.py:474</code>. <strong>Effort:</strong> L · <strong>Risk:</strong> collisions; run against a vault copy first. · <strong>Invariant:</strong> K5, I5, F4.</p>
+<p><strong>P2-3 · Canonicalise <code>sources[]</code> to a single clean raw pointer; move the human label into the source page's own frontmatter.</strong> <em>(FW-A4)</em> — Reduces mean 1.95→~1. <strong>Verify the F13 3-method cascade-delete match still works on canonical paths.</strong> <strong>Files:</strong> <code>orchestrator.py:1450</code>, <code>schemas.py:126-132</code>. <strong>Effort:</strong> M · <strong>Invariant:</strong> F3, F13.</p>
+<p><strong>P2-4 · Emit frontmatter in human key order (<code>type,title,created,updated,tags,related,sources,…</code>) via <code>sort_keys=False</code>.</strong> <em>(FW-A5)</em> Output-only; improves 1:1 diffability. <strong>Files:</strong> <code>orchestrator.py:1478-1479</code>. <strong>Effort:</strong> S · <strong>Invariant:</strong> I5.</p>
+<p><strong>P2-5 · Grow + guarantee the overview tag cloud; add <code>related:[]</code>/<code>sources:[]</code>/created/updated to overview frontmatter; add a bolded thesis anchor.</strong> <em>(OV-A2, OV-A3, OV-A4)</em> — Raise prompt to 40-120 keywords, <code>_OVERVIEW_MAX_TAGS</code>→~130; write empty <code>related:[]</code>/<code>sources:[]</code> YAML keys for the meta page; preserve <code>created</code> across regens; require <code>**Central thesis**:</code> lead. <strong>Re-run overview regen</strong> so prod (0 tags) gets its cloud. <strong>Files:</strong> <code>orchestrator.py:2267-2273,2329,2385-2436,2248-2258</code>. <strong>Effort:</strong> S · <strong>Risk:</strong> overview is a meta page — empty <code>sources[]</code> must be explicitly allowed for <code>type==overview</code> (see escalation Q1); token budget I7. · <strong>Invariant:</strong> I5, F3, I7.</p>
+<p><strong>P2-6 · Drop the tag-taxonomy work item; correct the parity tracker.</strong> <em>(FW-A6, LN cleanup)</em> — Both corpora use flat kebab tags. Also remove the dead <code>missing-xref</code> category (LN-D2) accepting it on read, rejecting on write; align lint reporting labels + <code>affected_pages[]</code> at the API boundary (LN-D4); make <code>missing-page</code> lint fix lightweight (LN-D3) — stub/review instead of full generation loop. <strong>Files:</strong> <code>docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md</code>, <code>ops/lint.py:63-76,442,1496-1628,145-171,2083-2138</code>. <strong>Effort:</strong> S-M · <strong>Invariant:</strong> none / I7 (lowers per-fix cost).</p>
+<h3 id="p3-larger-structural-highest-effort-depends-on-p0">P3 — Larger structural (highest effort, depends on P0)<a class="headerlink" href="#p3-larger-structural-highest-effort-depends-on-p0" title="Permanent link">&para;</a></h3>
+<p><strong>P3-1 · Ingest fact-integration: enrich existing pages instead of fragmenting.</strong> <em>(IN-A1, IN-A4)</em> — After <code>analyze()</code>, resolve <code>analysis.entities/topics</code> against existing Page titles (indexed query, I1, matched pages only — no rescan), pass those BODIES as an "ENRICH THESE" block, and change the scaffold from "link, don't duplicate" to "when a subject already exists below, RE-EMIT it enriched (it will be merged), else link or create". Add a fan-out breadth expectation ("a rich source typically yields ~8-15 pages including enriched existing ones; do NOT invent pages the source doesn't support"). <strong>Files:</strong> <code>orchestrator.py</code> (<code>_load_existing_pages_catalogue</code>/new <code>_load_matched_page_bodies</code>), <code>_common.py</code> (<code>build_generate_prompt</code>+GENERATION_SCAFFOLD), <code>loop.py</code>. <strong>Effort:</strong> L · <strong>Risk:</strong> larger prompts (token budget I7); over-rewrite mitigated by the degrade-safe page_merge shrink guard; fetch only matched pages (I1). · <strong>Invariant:</strong> F3/K5, I1, I7.</p>
+<p><strong>P3-2 · Reclassify entity/concept-named query-stubs → entity/concept to rebuild the graph backbone.</strong> <em>(CG-A4)</em> — Run the bounded <code>reclassify_types</code> sweep over <code>type=query</code> pages whose title matches a known entity/concept; un-hiding them restores dropped inbound wikilink edges (<code>engine.py:518-521</code>) and hub degree. Targets the −53 entity deficit + the 133→~110 query correction in one pass. <strong>Overlaps P0-5</strong> — sequence together to avoid whack-a-mole. <strong>Files:</strong> <code>ops/reclassify_types.py</code>, <code>POST /ops/reclassify-types</code>. <strong>Effort:</strong> M · <strong>Risk:</strong> provider cost (I7); mis-classifying a genuine question — strict <code>schema.md</code> gating, <code>force=false</code>. · <strong>Invariant:</strong> F4, K6, I7.</p>
+<p><strong>P3-3 · Chat file-back → synthesis + linking pass; page-path-style citations; retrieval excludes query stubs.</strong> <em>(CG-A1, CG-A2, CG-A3, CG-A6)</em> — Flip <code>save_chat_to_wiki</code> <code>PageType.QUERY→SYNTHESIS</code> + <code>wiki/synthesis/</code> (optional lightweight classifier: genuine follow-up questions still go to queries, answered/analytical content to synthesis). Add a bounded provider link-extraction pass on file-back so saved pages carry <code>[[wikilinks]]</code>+<code>related[]</code> (edges the engine needs). Expose each context block's slug to the model (<code>[n] &lt;title&gt; (concepts/&lt;slug&gt;)</code>) and soften the preamble to allow naming page paths in prose while keeping <code>[n]</code> as the resolvable anchor. Pass a default <code>type_filter</code> excluding query on the chat retrieval path (setting-gated). <strong>Files:</strong> <code>chat.py:646-679</code>, <code>chat/context.py:41-52</code>, <code>rag/retrieval.py:677,820-826</code>, <code>chat/stream.py:204-210</code>, frontend <code>decorateCitations</code>. <strong>Effort:</strong> S-M each · <strong>Risk:</strong> endpoint contract change (file_path); new bounded provider call on a previously pure write (I6/I7 — keep no-provider fallback); small local models drifting off the <code>[n]</code> grammar. · <strong>Invariant:</strong> F4, F5, F6, I5, I6/I7, I3 (parse at stream end unchanged).</p>
+<hr />
+<h2 id="4-invariant-decision-escalations">4. Invariant / decision escalations<a class="headerlink" href="#4-invariant-decision-escalations" title="Permanent link">&para;</a></h2>
+<p>These require <strong>solution-architect ADR + owner (Emanuele) sign-off</strong> before the corresponding P-actions land.</p>
+<p><strong>Q1 — F3 sources-traceability vs stub/meta pages with empty <code>sources[]</code>.</strong>
+LLM Wiki writes lint stubs and the <code>overview.md</code> meta page with <code>sources: []</code> (empty). Synapse's F3 invariant + <code>schemas.py:116</code> require <strong>non-empty</strong> <code>sources[]</code>, forcing synthetic <code>lint:&lt;uuid&gt;</code> entries (QP-Q3) and blocking clean overview frontmatter (OV-A2/P2-5).</p>
+<blockquote>
+<p><strong>Decision needed:</strong> Do we carve a documented F3 exception for <code>type ∈ {overview, and lint-stub pages}</code> to permit <code>sources: []</code>, or keep a schema-compliant sentinel? This is a genuine invariant amendment — needs an ADR (successor to ADR-0066).</p>
+</blockquote>
+<p><strong>Q2 — <code>related:</code> frontmatter as a first-class field (FW-A1/P2-1).</strong>
+LLM Wiki's graph seed is <code>related:</code> on 100% of pages; Synapse has none and its 4-signal graph derives edges only from resolved <code>[[wikilinks]]</code>. Adding <code>related:</code> is additive and Obsidian-valid, but it becomes a <strong>second edge source</strong> feeding F4.</p>
+<blockquote>
+<p><strong>Decision needed:</strong> Is <code>related:</code> authoritative for graph edges (parity with LLM Wiki), or advisory metadata only, with <code>[[wikilinks]]</code> remaining the sole edge source? Affects <code>graph/engine.py</code> edge construction and whether <code>related</code> values must be validated as live slugs (else they become new ghosts).</p>
+</blockquote>
+<p><strong>Q3 — New automated writers of <code>query</code> and <code>synthesis</code>/<code>comparison</code> pages (P0-3, P0-4, P3-3).</strong>
+<code>schemas.py:39-46</code> states QUERY is "never generated by an InferenceProvider" and <code>_common.py:105-107</code> prohibits synthesis/comparison at ingest — both deliberate nashsu-parity fixes. P0-3/P0-4 introduce <strong>new pipeline paths</strong> that write these types outside single-doc ingest.</p>
+<blockquote>
+<p><strong>Decision needed:</strong> Confirm that a <em>corpus-level maintenance pass</em> and a <em>contradiction handler</em> are legitimate writers of these types (distinct from the prohibited single-doc ingest), and how strongly they must be HITL-gated vs auto-write above a confidence threshold (K8 boundary). Per the invariant-change rule this MUST be an explicit architect decision, not a silent workaround.</p>
+</blockquote>
+<p><strong>Q4 — Chat save-to-wiki contract change (P3-3).</strong>
+Flipping <code>PageType.QUERY→SYNTHESIS</code> changes the <code>POST /chat/save-to-wiki</code> response <code>file_path</code> and the page type users get. </p>
+<blockquote>
+<p><strong>Decision needed:</strong> Acceptable as a breaking behavioural change (update <code>SaveToWikiResponse</code> example + frontend copy), or ship behind a classifier/flag so existing "save creates a query" behaviour is opt-in?</p>
+</blockquote>
+<p><strong>Q5 — Entity over-merge tolerance (P0-2).</strong>
+Deterministic key-merge is safe for <code>AWS</code>/<code>Amazon Web Services (AWS)</code> but ambiguous for <code>Deloitte</code> vs <code>Deloitte Italia</code> vs <code>Deloitte Italy IT Advisory</code> and <code>Azure</code> vs <code>Microsoft Azure</code>.</p>
+<blockquote>
+<p><strong>Decision needed:</strong> Where is the auto-merge/review boundary? Recommendation: normalized-key exact match auto-merges; anything requiring embedding/fuzzy similarity is a review-queue proposal, never silent. Owner confirms the legal-suffix and acronym fold-lists.</p>
+</blockquote>
+<hr />
+<h2 id="5-validation-strategy">5. Validation strategy<a class="headerlink" href="#5-validation-strategy" title="Permanent link">&para;</a></h2>
+<p>Parity is proven by <strong>re-running the live ops against a reloaded KB and diffing the prod vault against the gold vault</strong>, not by unit tests alone. A <strong>full KB reload is required</strong> for P0-2/P0-5/P3-2 (they rewrite/merge/delete pages and bump <code>data_version</code>); P1/P2 formatting changes can be validated on a targeted regen.</p>
+<p><strong>A. Fixture + unit gates (fast, per-PR):</strong>
+- New/updated tests: <code>test_index_md.py</code> asserts <code>## Queries</code> (not <code>Querys</code>) and em-dash glosses present; broken-link stub test asserts the stub lands in <code>entities/</code>/<code>concepts/</code> (or a review item), never <code>queries/</code> with <code>type=query</code>; canonical-entity resolver test asserts <code>AWS</code>/<code>Amazon Web Services (AWS)</code> resolve to one file id; frontmatter serializer test asserts <code>type</code> is the first key.
+- Run the existing suite green (pytest + the flaky-tolerant SourcesView vitest per the CI gotchas), plus <code>black</code> (not <code>ruff format</code>) and the mermaid Docs Gate.</p>
+<p><strong>B. Live re-run functions (against a reloaded prod-copy vault):</strong>
+1. <strong>Ingest</strong> — re-ingest 3-5 representative multi-source docs (a Cloud Licensing set that historically produced the AWS aliases) through the orchestrated loop. <strong>Assert:</strong> second AWS source enriches the existing <code>aws.md</code> (body grows, <code>sources[]</code> unions) instead of minting <code>amazon-web-services.md</code>; one source touches ~8-15 pages (P3-1); log emits ONE coarse <code>- Ingest:</code> bullet.
+2. <strong><code>ops/dedup_entities</code></strong> — run the sweep, confirm review proposals cluster the known families, accept, verify aliases soft-deleted, inbound wikilinks repointed, <code>index.md</code> shows one <code>[[AWS]]</code> entry, single <code>data_version</code> bump, <code>total_cost_usd</code> logged.
+3. <strong><code>ops/reclassify_types</code></strong> — run over <code>type=query</code>; confirm entity/concept-named stubs migrate and query count drops 133→~110.
+4. <strong>Contradiction handler</strong> — feed two docs with a known numeric conflict (an 85% vs 90% threshold analogue); assert a <code>queries/&lt;question&gt;.md</code> appears with <code>## Question/## Hypothesis</code>, real <code>sources[]</code>=both raw docs, <code>related[]</code>=both pages.
+5. <strong><code>ops/synthesize</code></strong> — run the corpus pass; assert ≥1 <code>synthesis/</code> + ≥1 <code>comparison/</code> page written with <code>related[]</code> cluster links and unioned <code>sources[]</code>.
+6. <strong>Overview regen</strong> — assert frontmatter now carries a ≥100-keyword tag cloud + <code>related:[]</code>/<code>sources:[]</code>/created/updated, a <code>**Central thesis**</code> lead, and a closing <code>## Open Questions</code> block whose links resolve to real <code>queries/*.md</code>.
+7. <strong>Chat</strong> — issue a query, save-to-wiki; assert it lands in <code>synthesis/</code>, carries <code>[[wikilinks]]</code>+<code>related</code>, and appears as a connected graph node; verify chat citations expose page slugs and no <code>[n]</code> resolves to a stub.
+8. <strong>Graph</strong> — trigger FA2 recompute; assert entity nodes are the high-degree hubs, query nodes remain hidden, and synthesis/comparison nodes bridge concept clusters.</p>
+<p><strong>C. Corpus-diff parity metrics (the acceptance scorecard):</strong> After reload, recompute and compare to gold:</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Synapse now</th>
+<th>Gold</th>
+<th>Target post-alignment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>entities</td>
+<td>149</td>
+<td>202</td>
+<td>≥190 (dedup + granularity)</td>
+</tr>
+<tr>
+<td>concepts</td>
+<td>527</td>
+<td>460</td>
+<td>~460-490 (integration reduces fragmentation)</td>
+</tr>
+<tr>
+<td>queries</td>
+<td>133 stubs</td>
+<td>110 real</td>
+<td>~90-120, 0 with <code>tags:[stub,lint]</code></td>
+</tr>
+<tr>
+<td>synthesis</td>
+<td>0</td>
+<td>4</td>
+<td>≥4</td>
+</tr>
+<tr>
+<td>comparisons</td>
+<td>0</td>
+<td>5</td>
+<td>≥5</td>
+</tr>
+<tr>
+<td><code>## Uncategorised</code> entries</td>
+<td>156</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>index entries with em-dash gloss</td>
+<td>0/1123</td>
+<td>84/84</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>pages with <code>related:</code></td>
+<td>0/967</td>
+<td>916/916</td>
+<td>~100%</td>
+</tr>
+<tr>
+<td>wikilinks resolving to slug</td>
+<td>9%</td>
+<td>85%</td>
+<td>≥80%</td>
+</tr>
+<tr>
+<td>overview tags</td>
+<td>0</td>
+<td>129</td>
+<td>≥100</td>
+</tr>
+</tbody>
+</table>
+<p>Automate with a <code>scripts/parity_report.py</code> that greps both vaults and prints this table (extends the existing <code>docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md</code> tracker).</p>
+<p><strong>D. Screenshots (D5 / Playwright, refreshed for the UI-parity program):</strong> capture (1) the tree panel showing <code>queries/</code> populated with question-titled pages; (2) <code>overview.md</code> rendered with its tag cloud + Open Questions block; (3) <code>index.md</code> with deduped, glossed entries; (4) the graph with entity hubs + synthesis/comparison bridges visible; (5) a chat answer with page-path citations; (6) the lint view showing broken links routed to review rather than creating query ghosts. Diff each against the equivalent LLM Wiki screen per the required live-vs-live parity modus operandi.</p>
+<p><strong>E. Invariant guardrails to assert in CI:</strong> no full-rescan on any of the new ops (I1 — assert single <code>data_version</code> bump per batch); every new provider loop logs <code>total_cost_usd</code> and honours <code>max_iter</code>+<code>token_budget</code> (I7); <code>wiki/</code> still opens as a valid Obsidian vault after migrations (I5); the ingest-time synthesis/comparison prohibition remains in <code>_common.py</code> (only the new corpus-level path may write them — assert via a test that single-doc ingest still rejects those types).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

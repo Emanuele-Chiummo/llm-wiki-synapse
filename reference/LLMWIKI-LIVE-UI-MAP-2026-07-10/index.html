@@ -1,0 +1,1114 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/LLMWIKI-LIVE-UI-MAP-2026-07-10/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>LLM Wiki — Live UI + Function Map (2026-07-10) & Synapse 1:1 Delta - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#llm-wiki-live-ui-function-map-2026-07-10-synapse-11-delta" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              LLM Wiki — Live UI + Function Map (2026-07-10) &amp; Synapse 1:1 Delta
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-left-icon-rail-primary-nav" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Left icon rail (primary nav)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-home-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Home / Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Chat
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-wiki-page-render-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Wiki page (render + edit)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-files-vault-tree-key-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Files (vault tree) — ⚠ key gap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-vault-configuration-purposemd-schemamd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Vault configuration = purpose.md + schema.md
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Graph
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-wiki-lint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Wiki Lint
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-review-deep-research-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Review / Deep Research / Search
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-skills-missing-in-synapse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Skills — ❌ missing in Synapse
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-settings-subsection-by-subsection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Settings — subsection-by-subsection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-concrete-gaps-to-close-draft-pending-scope-confirmation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Concrete gaps to close (draft, pending scope confirmation)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-divergences-to-not-mirror-invariant-protected-escalate-before-touching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Divergences to NOT mirror (invariant-protected — escalate before touching)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-multi-vault-project-launcherswitcher-resolved" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. Multi-vault = Project Launcher/Switcher (RESOLVED)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-confirmed-scope-user-2026-07-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Confirmed scope (user, 2026-07-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="llm-wiki-live-ui-function-map-2026-07-10-synapse-11-delta">LLM Wiki — Live UI + Function Map (2026-07-10) &amp; Synapse 1:1 Delta<a class="headerlink" href="#llm-wiki-live-ui-function-map-2026-07-10-synapse-11-delta" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Method:</strong> live control of the desktop LLM Wiki app (bundle <code>com.llmwiki.app</code>, vault
+<code>~/Documents/00_Personal/01_Wiki/LLM Wiki</code>), every view + every Settings subsection opened and
+screenshotted. <strong>This supersedes the stale audits</strong> in <code>llm_wiki-audit/</code> and
+<code>SYNAPSE-VS-LLMWIKI-PARITY.md</code>, which were anchored to llm_wiki <strong>v0.5.4</strong>. The live app is a
+much newer build (Skills, MinerU, multi-provider web search, image captioning, 15-vendor LLM
+catalog, <code>801/804 pages</code> graph header).
+<strong>Synapse side</strong> is code-anchored (frontend <code>NavRail.tsx</code>, <code>SettingsPanel.tsx</code>, <code>MetaFileView</code>,
+single-vault posture) — the desktop React UI, NOT the native mobile wrapper.</p>
+<p>Legend: ✅ match · 🟡 partial · ❌ missing in Synapse · ⭐ Synapse-diverges-by-design (invariant).</p>
+</blockquote>
+<hr />
+<h2 id="1-left-icon-rail-primary-nav">1. Left icon rail (primary nav)<a class="headerlink" href="#1-left-icon-rail-primary-nav" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>LLM Wiki</th>
+<th>Synapse (<code>NavRail.tsx</code>)</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Home (grid) → Review + Deep Research dashboard</td>
+<td><code>home</code> (House)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Chat</td>
+<td><code>chat</code> (MessageSquare)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Wiki (page render/edit)</td>
+<td><code>pages</code> (FileText)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Files (whole-vault tree)</td>
+<td><code>sources</code> (FolderOpen) — raw-source browser only</td>
+<td>🟡 scope differs (see §5)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Search</td>
+<td><code>search</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Graph</td>
+<td><code>graph</code> (Share2)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Wiki Lint</td>
+<td><code>lint</code> (ClipboardCheck)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Review (99+ badge)</td>
+<td><code>review</code> (ListChecks)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Deep Research (globe)</td>
+<td><code>deep-search</code> (Globe)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Skills</strong> (sparkle)</td>
+<td>—</td>
+<td>❌ <strong>no Skills view</strong></td>
+</tr>
+<tr>
+<td>—</td>
+<td>Settings (gear, bottom)</td>
+<td><code>settings</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>—</td>
+<td><strong>Project Switcher (two-arrows ⇄, very bottom)</strong></td>
+<td>—</td>
+<td>❌ <strong>the multi-vault entry</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Top tabs (Wiki/Files):</strong> LLM Wiki splits the left panel into <code>Knowledge</code> (page tree) and <code>Files</code>
+(filesystem) tabs. Synapse uses separate rail items (<code>pages</code> vs <code>sources</code>) instead of tabs.</p>
+<hr />
+<h2 id="2-home-dashboard">2. Home / Dashboard<a class="headerlink" href="#2-home-dashboard" title="Permanent link">&para;</a></h2>
+<p>LLM Wiki: center = <strong>Review</strong> list (count badge, <code>Refresh</code>, <code>Clear resolved</code>, bulk: Select
+pending / Mark selected resolved / Dismiss selected); each item = checkbox + type icon + title +
+description + optional <code>Pages:</code> refs + <strong>Deep Research / Create Page / Skip</strong>. Right = <strong>Deep
+Research</strong> panel (<code>Enter a research topic…</code> + send, task list). → Synapse Home + ReviewQueueView +
+DeepSearchView. ✅ (verify bulk-action parity).</p>
+<h2 id="3-chat">3. Chat<a class="headerlink" href="#3-chat" title="Permanent link">&para;</a></h2>
+<p>Composer toolbar: <strong>Attach image · Web search (toggle) · AnyTXT search (toggle) · Skills</strong> + mode
+pills <strong>Fast / Standard / Deep / Local first</strong> + Send. Left = conversation list (<code>+ New Chat</code>).
+→ Synapse chat exists (B2 composer). 🟡 check: <code>Skills</code> button, <code>AnyTXT</code>, and the 4 mode pills.</p>
+<h2 id="4-wiki-page-render-edit">4. Wiki page (render + edit)<a class="headerlink" href="#4-wiki-page-render-edit" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Render:</strong> book icon + title + <strong>Edit</strong>; frontmatter as chips (TYPE badge, date, tag pills);
+  <code>More</code> expander + <code>updated:</code>; body = GFM with blue <code>[[wikilinks]]</code>. Tabbed (closeable <code>x</code>).</li>
+<li><strong>Edit:</strong> raw markdown <strong>source</strong> editor (monospace/CodeMirror); top-right toggles to
+  <strong>Done</strong> (eye/preview). → Synapse CodeMirror 6 (I4). ✅ (verify tag-chip + <code>More</code> parity).</li>
+</ul>
+<h2 id="5-files-vault-tree-key-gap">5. Files (vault tree) — ⚠ key gap<a class="headerlink" href="#5-files-vault-tree-key-gap" title="Permanent link">&para;</a></h2>
+<p>LLM Wiki <code>Files</code> tab shows the <strong>entire vault</strong>: <code>raw/{assets,sources}</code>, <code>wiki/{comparisons,
+concepts,entities,media,queries,sources,synthesis, index.md, log.md, overview.md}</code>, <strong><code>purpose.md</code></strong>,
+<strong><code>schema.md</code></strong>, + <strong><code>Open project folder</code></strong>. Clicking <code>purpose.md</code>/<code>schema.md</code> opens them as
+<strong>editable</strong> pages (render + Edit, same as any wiki page).
+- Synapse <code>sources</code> (SourcesView) = raw-source browser only; <code>purpose.md</code>/<code>schema.md</code> are shown
+  <strong>read-only</strong> in <code>MetaFileView</code> drawer (WS-D8). 🟡→❌ <strong>purpose/schema not editable in-app</strong>;
+  no single whole-vault file tree with <code>Open project folder</code>.</p>
+<h2 id="6-vault-configuration-purposemd-schemamd">6. Vault configuration = <code>purpose.md</code> + <code>schema.md</code><a class="headerlink" href="#6-vault-configuration-purposemd-schemamd" title="Permanent link">&para;</a></h2>
+<p>There is <strong>no dedicated vault-config settings page</strong> in LLM Wiki. The vault is configured by
+editing two markdown files: <code>purpose.md</code> (<strong>Project Purpose</strong>: Goal / Key Questions / Scope
+in-out / Thesis) and <code>schema.md</code> (rules). Both are normal editable wiki pages. Synapse structure
+is identical (F2) but <strong>read-only in-app</strong> → alignment = make them editable like any page.</p>
+<h2 id="7-graph">7. Graph<a class="headerlink" href="#7-graph" title="Permanent link">&para;</a></h2>
+<p>Header pills: <strong><code>801/804 pages</code> · <code>2438/2823 links</code> · <code>3 hidden</code></strong>; toolbar: Search · Filter ·
+Reset · <strong>Type</strong> · <strong>Community</strong> · <strong>Insights (13)</strong> · Refresh; zoom in/out/fit; <strong>Node Types</strong>
+legend (Entity 202, Concept 458, Source 132, Synthesis 4, Overview 1, Comparison 5, Index 1,
+Log 1 = 804). → Synapse GraphViewer mirrors pills/toolbar/legend. ✅.
+<strong>Validated the 1.4.1 hidden-count fix:</strong> LLM Wiki <code>total (804) ≈ shown (801)</code>, <code>hidden = 3</code>
+because it counts only graph-eligible pages. Synapse's phantom "233 hidden" was <code>total_nodes</code>
+counting raw/query rows; the fix aligns the denominator → hidden ≈ 0. ✅ confirmed live.</p>
+<h2 id="8-wiki-lint">8. Wiki Lint<a class="headerlink" href="#8-wiki-lint" title="Permanent link">&para;</a></h2>
+<p><code>Run Lint</code>, <strong>Semantic (LLM)</strong> toggle, bulk (Select all / Fix selected / Send selected to Review /
+Ignore selected), sections (<code>Warnings (744)</code>…), per-issue: type (Broken Link) + message +
+<code>Suggested target:</code> + <strong>Open / Fix</strong>. → Synapse lint (B1). ✅ (verify Semantic toggle + suggested-
+target + send-to-review).</p>
+<h2 id="9-review-deep-research-search">9. Review / Deep Research / Search<a class="headerlink" href="#9-review-deep-research-search" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Review</strong> (icon 8): same list as Home center.</li>
+<li><strong>Deep Research</strong> (globe): topic input + task list (right rail everywhere).</li>
+<li><strong>Search</strong>: single center box <code>Search wiki pages… (Enter to search)</code> (semantic + token).
+→ Synapse has all three. ✅ (spot-check controls).</li>
+</ul>
+<h2 id="10-skills-missing-in-synapse">10. Skills — ❌ missing in Synapse<a class="headerlink" href="#10-skills-missing-in-synapse" title="Permanent link">&para;</a></h2>
+<p>Full-screen view: scans <code>.llm-wiki/skills, ~/.claude/skills, ~/.codex/skills, ~/.agents/skills</code>;
+search box; <code>1 enabled / 1 discovered</code>; <strong>Enable all / Disable all / Rescan</strong>; per-skill card
+(name + provider tag + description + <strong>Enabled</strong> toggle). Lets Chat use agent skills. <strong>No Synapse
+equivalent.</strong></p>
+<hr />
+<h2 id="11-settings-subsection-by-subsection">11. Settings — subsection-by-subsection<a class="headerlink" href="#11-settings-subsection-by-subsection" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>LLM Wiki subsection</th>
+<th>Contents (live)</th>
+<th>Synapse (<code>SettingsPanel</code>)</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>General</strong></td>
+<td>Launch at startup; On window close: Ask / <strong>Hide</strong> / Quit</td>
+<td>desktop-shell only — Synapse is web/Tauri; N/A on web</td>
+<td>🟡 Tauri-only</td>
+</tr>
+<tr>
+<td><strong>LLM Models</strong></td>
+<td>1 row/vendor, mutually-exclusive toggles, <code>configured</code>/<code>active</code> badges, expand per vendor; 15 vendors (Anthropic, Claude Code CLI, Codex CLI, OpenAI, Gemini, Azure, DeepSeek, Atlas, Groq, xAI, NVIDIA NIM, Kimi×3)</td>
+<td><code>providers</code> / <code>SectionLlmModels</code> (v1.4 vendor catalog)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Embeddings</strong></td>
+<td>Enable vector search; Endpoint; API key (opt); Model; Output dimensionality (Gemini); Custom request headers; Chunking (max chunk size)</td>
+<td><code>embeddings</code> / <code>SectionEmbeddings</code> + runtime keys</td>
+<td>✅ (verify custom headers + dimensionality)</td>
+</tr>
+<tr>
+<td><strong>Image Captioning</strong></td>
+<td>Enable captioning at ingest (vision LLM on extracted images, cache by hash)</td>
+<td>— (Synapse has vision path G-P2-1)</td>
+<td>🟡 no dedicated toggle page</td>
+</tr>
+<tr>
+<td><strong>External Information Sources</strong></td>
+<td>Deep Research mode (Web/AnyTXT/Both); AnyTXT local; Web providers: Ollama, Tavily, SerpApi, SearXNG, Firecrawl, Brave</td>
+<td>Synapse = <strong>SearXNG only</strong> (I9)</td>
+<td>⭐ divergence-by-invariant</td>
+</tr>
+<tr>
+<td><strong>Network</strong></td>
+<td>Enable proxy; Proxy URL; Bypass local</td>
+<td>—</td>
+<td>❌ no proxy settings</td>
+</tr>
+<tr>
+<td><strong>Source Watch</strong></td>
+<td>Monitor + auto-ingest toggles; <strong>Allowed file types</strong> by group (Docs/Presentations/Spreadsheets/Web/Data-config); max auto-ingest size (MB); Excluded folders</td>
+<td><code>sourceWatch</code> / <code>SectionSourceWatch</code></td>
+<td>🟡 narrower allowed-types set (see §12)</td>
+</tr>
+<tr>
+<td><strong>Scheduled Import</strong></td>
+<td>Enable; Monitor directory (external); Scan interval; Scan Now; last scan</td>
+<td>Synapse <code>OpsScheduleCard</code> / import scheduler</td>
+<td>🟡 verify external-dir + Scan Now</td>
+</tr>
+<tr>
+<td><strong>MinerU PDF</strong></td>
+<td>Enable MinerU <strong>cloud</strong> parser</td>
+<td>Synapse = <strong>Marker local</strong> (<code>pdf_extractor</code>)</td>
+<td>⭐ divergence-by-design (superset)</td>
+</tr>
+<tr>
+<td><strong>API + MCP</strong></td>
+<td>Enable local HTTP API; allow-without-token; LAN access; status+base URL; access token (generate/reveal/copy); <code>curl … /api/v1/projects</code></td>
+<td><code>apiMcp</code> / <code>SectionApiMcp</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Output</strong></td>
+<td>AI Output Language (Auto/lang); Conversation History Length (2/4/6/8/10/20)</td>
+<td><code>SectionOutput</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Interface</strong></td>
+<td>UI Language (English/中文); Theme (Light/Dark/System); Interface zoom %</td>
+<td><code>SectionInterface</code> (IT/EN)</td>
+<td>✅ (lang set differs: IT/EN vs EN/中文)</td>
+</tr>
+<tr>
+<td><strong>Maintenance</strong></td>
+<td><strong>Detect duplicate entities/concepts</strong> → Scan for duplicates (guided merge)</td>
+<td><code>maintenance</code> / <code>SectionMaintenance</code></td>
+<td>🟡 verify dedupe-merge tool</td>
+</tr>
+<tr>
+<td><strong>Changelog</strong></td>
+<td>renders CHANGELOG</td>
+<td><code>changelog</code></td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>About</strong></td>
+<td>version/info</td>
+<td><code>about</code></td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Settings IA note:</strong> LLM Wiki = flat 15-item list. Synapse = grouped nav (providers/context/
+sourceWatch/embeddings/apiMcp/appearance{Interface+Output}/maintenance/changelog/about + runtime-
+config sections). Alignment decision needed: flatten to mirror, or keep grouped.</p>
+<hr />
+<h2 id="12-concrete-gaps-to-close-draft-pending-scope-confirmation">12. Concrete gaps to close (draft, pending scope confirmation)<a class="headerlink" href="#12-concrete-gaps-to-close-draft-pending-scope-confirmation" title="Permanent link">&para;</a></h2>
+<ol>
+<li>❌ <strong>Skills view</strong> (rail #10) — discover/enable agent skills for Chat.</li>
+<li>❌ <strong>Editable purpose.md / schema.md</strong> in-app (currently read-only <code>MetaFileView</code>).</li>
+<li>❌ <strong>Whole-vault Files tree</strong> + <code>Open project folder</code> (vs raw-only SourcesView).</li>
+<li>🟡 <strong>Source Watch allowed types</strong> — add .doc/.odt/.rtf/.odp/.ods/.csv/.html/.mdx (Synapse:
+   pdf/docx/pptx/xlsx only) + grouped checkbox UI + excluded-folders + max-size (ties to 1.4.1 Marker work).</li>
+<li>🟡 <strong>Image Captioning</strong> dedicated toggle page.</li>
+<li>❌ <strong>Network proxy</strong> settings page.</li>
+<li>🟡 <strong>Chat composer</strong>: <code>Skills</code> button, <code>AnyTXT</code> toggle, <code>Fast/Standard/Deep/Local first</code> pills.</li>
+<li>🟡 <strong>Maintenance</strong>: duplicate-entity detection + guided merge.</li>
+<li>🟡 <strong>Settings IA</strong>: decide flat-15 vs grouped.</li>
+</ol>
+<h2 id="13-divergences-to-not-mirror-invariant-protected-escalate-before-touching">13. Divergences to NOT mirror (invariant-protected — escalate before touching)<a class="headerlink" href="#13-divergences-to-not-mirror-invariant-protected-escalate-before-touching" title="Permanent link">&para;</a></h2>
+<ul>
+<li>⭐ <strong>Web search backend:</strong> LLM Wiki offers Tavily/SerpApi/Firecrawl/Brave/Ollama; Synapse
+  invariant <strong>I9 = SearXNG only</strong>. Mirroring the multi-provider picker violates I9.</li>
+<li>⭐ <strong>PDF parser:</strong> MinerU <strong>cloud</strong> vs Synapse <strong>Marker local</strong> (privacy). Mirror the <em>toggle
+  concept</em> ("high-quality PDF parser on/off"), not the cloud upload.</li>
+</ul>
+<h2 id="14-multi-vault-project-launcherswitcher-resolved">14. Multi-vault = Project Launcher/Switcher (RESOLVED)<a class="headerlink" href="#14-multi-vault-project-launcherswitcher-resolved" title="Permanent link">&para;</a></h2>
+<p>Reached via the <strong>two-arrows (⇄) icon at the very bottom of the rail</strong> (below Settings). Full-screen
+launcher:
+- Title <code>LLM Wiki</code> + tagline "Build and maintain your personal knowledge base with LLMs".
+- <strong><code>+ New Project</code></strong> — create a new vault (choose a folder → scaffolds <code>raw/</code>, <code>wiki/</code>,
+  <code>purpose.md</code>, <code>schema.md</code>).
+- <strong><code>Open Project</code></strong> — folder picker to open an existing vault.
+- <strong>Recent Projects</strong> list — name + path, click to switch active vault. Live entries:
+  <code>LLM Wiki</code> and <code>LLM Wiki Local</code> (both under <code>~/Documents/00_Personal/01_Wiki/</code>).
+Each <strong>project = a vault folder</strong>. This maps to the HTTP API's <code>/api/v1/projects</code>.
+→ <strong>Synapse gap:</strong> Synapse is single-vault (FastAPI single <code>VAULT_ID</code>; <code>vault_id</code> column plumbed
+but unused). Alignment = (a) backend: multi-vault registry + active-vault switch + new/open;
+(b) frontend: launcher screen + ⇄ rail icon + recent-projects store. <strong>Large cross-stack feature.</strong></p>
+<hr />
+<h2 id="15-confirmed-scope-user-2026-07-10">15. Confirmed scope (user, 2026-07-10)<a class="headerlink" href="#15-confirmed-scope-user-2026-07-10" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Multi-vault:</strong> build the Project Launcher/Switcher in Synapse (⇄ bottom icon → New/Open/Recent).</li>
+<li><strong>Invariant divergences:</strong> <strong>mirror LLM Wiki literally</strong> — add multi-provider web search
+  (Tavily/SerpApi/Firecrawl/Brave/Ollama alongside SearXNG) and the MinerU cloud PDF toggle.
+  → <strong>Requires amending CLAUDE.md invariants I9 (SearXNG-only) + the Marker-only posture, with an
+  ADR.</strong> Escalation acknowledged by the owner.</li>
+<li><strong>Priority gaps (all):</strong> Settings parity · Chat composer · editable purpose/schema + Files tree ·
+  Skills view.</li>
+<li><strong>Sequencing note:</strong> this is a v1.5-scale program, distinct from the ready 1.4.1 patch
+  (Marker chunking + graph-count fix).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

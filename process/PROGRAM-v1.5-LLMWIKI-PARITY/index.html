@@ -1,0 +1,807 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/PROGRAM-v1.5-LLMWIKI-PARITY/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Program v1.5 — LLM Wiki 1:1 Parity - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#program-v15-llm-wiki-11-parity" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Program v1.5 — LLM Wiki 1:1 Parity
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-per-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance per phase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#p3-settings-parity-slice-plan-grounded-in-the-current-code-2026-07-10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        P3 — Settings parity: slice plan (grounded in the current code, 2026-07-10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="program-v15-llm-wiki-11-parity">Program v1.5 — LLM Wiki 1:1 Parity<a class="headerlink" href="#program-v15-llm-wiki-11-parity" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Goal:</strong> Synapse desktop UI = 1:1 mirror of the current nashsu/llm_wiki build.
+<strong>Spec:</strong> <code>docs/reference/LLMWIKI-LIVE-UI-MAP-2026-07-10.md</code> (live map). <strong>Decision:</strong> ADR-0066.
+<strong>Branch:</strong> <code>release/v1.5.0-llmwiki-parity</code>. <strong>Started:</strong> 2026-07-10.
+Each phase gate: green tests · architect review · docs (D-artifacts / ER if schema) · live preview · owner checkpoint.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Title</th>
+<th>Depends on</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>P0</strong></td>
+<td>Foundations — ADR-0066, I9 amendment, this tracker</td>
+<td>—</td>
+<td>✅ done</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Vault config &amp; Files — editable purpose/schema + whole-vault tree + Open project folder</td>
+<td>P0</td>
+<td>✅ <strong>complete</strong> — editable purpose/schema (Edit→CodeMirror→Save) · whole-vault "Vault" tab (<code>root=vault</code>) · "Open folder" (copy server-side path). All verified live.</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Multi-vault Project Launcher — ⇄ rail entry, New/Open/Recent, backend vault registry + active-vault switch</td>
+<td>P0</td>
+<td>✅ <strong>complete</strong> — ADR-0067; registry + create/open + <code>activate</code> runtime switch (14 tests); ⇄ launcher UI <strong>verified live</strong> (renders + <code>GET /projects</code> shows the active vault). Full end-to-end vault-switch to be smoke-tested against a non-shared backend.</td>
+</tr>
+<tr>
+<td><strong>P3</strong></td>
+<td>Settings parity — Image Captioning, Network proxy, Scheduled Import (external), Source Watch types, MinerU toggle, multi-provider web search, IA decision</td>
+<td>P0</td>
+<td>⏳ <strong>planned</strong> — 6 sized slices (P3-a…P3-f) grounded in the current code (see "P3 slice plan" below). Synapse settings already cover most of LLM Wiki, grouped differently; real gaps = Image Captioning page (S), Network proxy (M), wider Source-Watch types (M/L), <strong>MinerU</strong> + <strong>multi-provider web search</strong> (L, invariant-amended).</td>
+</tr>
+<tr>
+<td><strong>P4</strong></td>
+<td>Chat composer — Skills · AnyTXT · Fast/Standard/Deep/Local-first pills</td>
+<td>P0</td>
+<td>▫ todo</td>
+</tr>
+<tr>
+<td><strong>P5</strong></td>
+<td>Skills view — rail #10 scan/enable/disable/rescan</td>
+<td>P0</td>
+<td>▫ todo</td>
+</tr>
+<tr>
+<td><strong>BR</strong></td>
+<td>Brand v1.0 integration — new logo art, dark app-icon, Geist, gradient tokens</td>
+<td>—</td>
+<td>🟡 integrated (2 TODOs: drop Geist woff2 into <code>frontend/src/assets/fonts/</code>; Tauri tray <code>set_icon_as_template</code> API when it lands)</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>BR stream</strong> was authored in an isolated worktree, then applied to the branch as a <strong>cherry
+of only the branding commit's own files</strong> (<code>git checkout &lt;brandcommit&gt; -- &lt;files&gt;</code>) — NOT a
+<code>git merge</code>, because the worktree branched from a STALE base (018f38c) and a merge would have
+reverted 1.4.1 + P1 on shared files. Verified zero overlap first. Spec:
+<code>docs/reference/BRAND-v1-INTEGRATION.md</code>. The definitive logo = the S-node mark in the owner's
+<code>__Synapse_Logo_Redesign.pdf</code>; the <code>Brand/png/</code> assets already match it 1:1.</p>
+</blockquote>
+<h2 id="acceptance-per-phase">Acceptance per phase<a class="headerlink" href="#acceptance-per-phase" title="Permanent link">&para;</a></h2>
+<p><strong>P1</strong> — <code>purpose.md</code>/<code>schema.md</code> open as editable pages (render ↔ Edit like any wiki page, save
+persists to disk via a write path); a whole-vault file tree (raw/ + wiki/ + purpose/schema) with an
+"Open project folder" action; <code>MetaFileView</code> read-only drawer removed or upgraded. Tests: save
+round-trips; tree lists the full vault.</p>
+<p><strong>P2</strong> — Launcher reachable from a ⇄ bottom-rail icon: New Project (scaffold raw/wiki/purpose/schema),
+Open Project (folder picker), Recent Projects (name+path, switch). Backend: multi-vault registry,
+active-vault selection, <code>vault_id</code> honored end-to-end. Tests: create/open/switch; queries scoped per vault.</p>
+<p><strong>P3</strong> — Settings mirror LLM Wiki subsections (see map §11). Cloud providers (Tavily/SerpApi/
+Firecrawl/Brave, MinerU) opt-in + off by default + upload warning (ADR-0066). Source Watch adds
+.doc/.odt/.rtf/.odp/.ods/.csv/.html/.mdx + grouped checkboxes + excluded folders + max size.</p>
+<p><strong>P4</strong> — Chat composer gains Skills toggle, AnyTXT toggle, and the 4 retrieval-mode pills, wired to
+the chat/retrieval backend.</p>
+<p><strong>P5</strong> — Skills view scans skill folders, lists cards (name/provider/desc), enable/disable/rescan,
+gates which skills Chat may use.</p>
+<h2 id="p3-settings-parity-slice-plan-grounded-in-the-current-code-2026-07-10">P3 — Settings parity: slice plan (grounded in the current code, 2026-07-10)<a class="headerlink" href="#p3-settings-parity-slice-plan-grounded-in-the-current-code-2026-07-10" title="Permanent link">&para;</a></h2>
+<p>Synapse Settings are already RICHER and grouped, not LLM Wiki's flat-15 — most subsections already
+exist, organised differently. The real gaps + sizing:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Slice</th>
+<th>Synapse today</th>
+<th>Size</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P3-a</td>
+<td><strong>Image Captioning page</strong> ✅ <strong>DONE</strong></td>
+<td>now runtime-overridable (S19/S20) + a settings page; verified live</td>
+<td><strong>S</strong></td>
+<td>Snapshot tests (FE+BE) updated 18→20. Commit <code>807965d</code>.</td>
+</tr>
+<tr>
+<td>P3-b</td>
+<td><strong>Network proxy page</strong></td>
+<td>none</td>
+<td><strong>M</strong></td>
+<td>New config (enable/url/bypass-local) + wire an <code>httpx</code> proxy transport into outbound clients (LLM/embeddings/search/update). Applying the proxy everywhere is the work.</td>
+</tr>
+<tr>
+<td>P3-c</td>
+<td><strong>Source Watch wider types</strong></td>
+<td><code>_EXTRACTABLE_EXTENSIONS</code> = pdf/docx/pptx/xlsx only</td>
+<td><strong>M/L</strong></td>
+<td>LLM Wiki adds .doc/.odt/.rtf/.odp/.ods/.csv/.html/.mdx — needs real <strong>extractors</strong> for the new formats (not just a config flag) + grouped-checkbox UI + excluded-folders + max-size in the Source Watch page.</td>
+</tr>
+<tr>
+<td>P3-d</td>
+<td><strong>MinerU cloud PDF toggle</strong></td>
+<td><code>pdf</code> page has Marker (<code>pdf_extractor</code> pypdf/marker)</td>
+<td><strong>L</strong></td>
+<td>ADR-0066: add MinerU as a 3rd <code>pdf_extractor</code> value + a MinerU cloud client + opt-in/off-default + upload warning. Backend integration.</td>
+</tr>
+<tr>
+<td>P3-e</td>
+<td><strong>Multi-provider web search</strong></td>
+<td><code>SectionWebSearch</code> = <strong>SearXNG-only</strong> (ADR-0041)</td>
+<td><strong>L</strong></td>
+<td>ADR-0066: add Tavily/SerpApi/Firecrawl/Brave/Ollama-Web as opt-in providers alongside SearXNG — needs backend search adapters behind a provider seam + the multi-row UI (like the LLM Models catalog). The headline "mirror literally" item.</td>
+</tr>
+<tr>
+<td>P3-f</td>
+<td><strong>Settings IA</strong></td>
+<td>grouped nav</td>
+<td><strong>S (decision)</strong></td>
+<td>Decide: keep Synapse's richer grouped IA, or flatten toward LLM Wiki's 15. Recommendation: <strong>keep grouped</strong> (Synapse has more surface); just ensure every LLM Wiki subsection has a home.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended sequencing:</strong> P3-a (small, visible parity win — but bundle the snapshot-test update) →
+P3-b → then the two big invariant-amended integrations <strong>P3-d (MinerU)</strong> and <strong>P3-e (multi-provider
+web search)</strong> each as its <strong>own focused turn</strong> (backend adapters + tests + live verify). P3-c (new
+extractors) sized separately. P3-f is a one-line decision.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

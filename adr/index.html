@@ -1206,6 +1206,46 @@
 <td><a href="ADR-0063-ingest-quality-parity/">Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)</a></td>
 <td>Accepted</td>
 </tr>
+<tr>
+<td><strong>0064</strong></td>
+<td><a href="ADR-0064-missing-page-fanout/">Missing-page fan-out (F9 review suggestions)</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0065</strong></td>
+<td><a href="ADR-0065-marker-large-pdf-chunking/">Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated <code>MARKER_MAX_UPLOAD_BYTES</code>, raised timeout (F12/I7/I1, v1.4.1)</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0066</strong></td>
+<td><a href="ADR-0066-llmwiki-1to1-parity-program/">LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0067</strong></td>
+<td><a href="ADR-0067-multi-vault-project-launcher/">Multi-vault: Project Launcher &amp; runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0068</strong></td>
+<td><a href="ADR-0068-source-watch-wider-types/">Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0069</strong></td>
+<td><a href="ADR-0069-mineru-cloud-pdf-extractor/">MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0070</strong></td>
+<td><a href="ADR-0070-multi-provider-web-search/">Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0071</strong></td>
+<td><a href="ADR-0071-web-search-provider-keys-ui/">UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env</a></td>
+<td>Accepted</td>
+</tr>
 </tbody>
 </table>
 <hr />

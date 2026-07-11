@@ -1,0 +1,789 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0067-llmwiki-1to1-generation-parity/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0067 — LLM Wiki 1:1 generation-semantics parity - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0067-llm-wiki-11-generation-semantics-parity" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0067 — LLM Wiki 1:1 generation-semantics parity
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decisions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decisions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D1 — queries/ is reserved for genuine open questions (fixes QP-Q1/LN-D1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + ## Queries (not Querys) + drop ## Uncategorised; overview gains a deterministic ## Open Questions block (DB query of live query pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one - Ingest: &lt;doc&gt; — created N pages bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#invariant-impact-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant impact (explicit)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0067-llm-wiki-11-generation-semantics-parity">ADR-0067 — LLM Wiki 1:1 generation-semantics parity<a class="headerlink" href="#adr-0067-llm-wiki-11-generation-semantics-parity" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted (owner: Emanuele, 2026-07-10)</li>
+<li><strong>Supersedes/extends:</strong> ADR-0066 (llm_wiki 1:1 parity program), ADR-0058 (lint parity), ADR-0063 (ingest quality parity)</li>
+<li><strong>Driver:</strong> Live audit <code>docs/reference/AUDIT-SYNAPSE-VS-LLMWIKI-1TO1-2026-07-10.md</code> — with the same raw corpus (~87% overlap) and same model class (Haiku 4.5), the Synapse PROD vault (<code>/Volumes/synapse/vault</code>) diverges structurally from the LLM Wiki app vault (<code>~/Documents/00_Personal/01_Wiki/LLM Wiki</code>): queries 133-stubs vs 110-real, entities 149 vs 202, synthesis/comparison 0/0 vs 4/5, <code>related:</code> 0% vs 100%.</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>Synapse reproduces the Karpathy page-type model but three generation seams diverge from LLM Wiki. This ADR records the invariant-touching decisions the owner approved so implementation is not a silent workaround (per the CLAUDE.md invariant-change rule).</p>
+<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
+<h3 id="d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1">D1 — <code>queries/</code> is reserved for genuine open questions (fixes QP-Q1/LN-D1)<a class="headerlink" href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" title="Permanent link">&para;</a></h3>
+<p>Wiki Lint MUST NOT materialise a missing wikilink target as <code>type: query</code>. <code>_create_broken_link_stub</code> is replaced with folder-aware routing: a target that resolves to a known type is stubbed in that type's folder; a bare proper-noun target → <code>entity</code> stub, otherwise <code>concept</code> stub; when uncertain the no-suggestion path routes to the <strong>Review queue (F9)</strong> instead of writing. <code>query</code> pages are written ONLY by (a) the contradiction handler (D4) and (b) chat save-to-wiki when the saved content is itself a question. This restores nashsu parity (LLM Wiki <code>queries/</code> = 0 lint stubs).</p>
+<h3 id="d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3">D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)<a class="headerlink" href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" title="Permanent link">&para;</a></h3>
+<p>On-disk generated-page frontmatter is emitted in LLM Wiki's shape and key order:
+<code>type, title, created, updated, tags, related</code> (+ <code>authors, year, url, venue</code> on sources). Serializer switches to <code>sort_keys=False</code>.
+- <strong><code>related: list[str]</code></strong> becomes a first-class field (slugs), populated from resolved outbound wikilinks + top graph neighbours (cap ~8). It is a <strong>second graph-edge seed</strong> alongside <code>[[wikilinks]]</code>, but only <em>resolvable</em> slugs are emitted (an unresolved <code>related</code> entry is dropped, never a new ghost).
+- <strong><code>sources</code> and <code>lang</code> are no longer emitted in the markdown</strong> and become <strong>optional</strong> on <code>WikiFrontmatter</code> (default <code>[]</code>/<code>"en"</code>). <strong>F3 traceability is preserved in Postgres</strong>: the ingest pipeline still populates <code>pages.sources</code>/links (the graph source-overlap ×4 signal F4 and cascade-delete F13 read the DB, not the file). This is the documented F3 amendment: traceability moves from an inline <code>sources:</code> path list to (a) the DB and (b) the <code>source</code> page + <code>related:</code> links, exactly as LLM Wiki expresses it.
+- Overview and lint-stub pages may carry <code>sources: []</code> (no synthetic <code>lint:&lt;uuid&gt;</code> sources).</p>
+<h3 id="d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3">D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)<a class="headerlink" href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" title="Permanent link">&para;</a></h3>
+<p>The ingest-time prohibition on synthesis/comparison (<code>_common.py</code>) STAYS. A new bounded op <code>ops/synthesize.py</code> runs after bulk import (and as an explicit action): it seeds candidate clusters from the 4-signal graph (source-overlap/type-affinity/Adamic-Adar), generates a synthesis (thesis+integration) per high-confidence cluster and a comparison table for ≥2 same-class entities, writing them via the single <code>write_wiki_page</code> seam with <code>related[]</code>=cluster + unioned <code>sources[]</code>. Borderline clusters → Review (F9). Bounded by <code>max_iter</code>+<code>token_budget</code>; logs <code>total_cost_usd</code> (I7). These are legitimate writers of synthesis/comparison, distinct from the still-prohibited single-doc ingest.</p>
+<h3 id="d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3">D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)<a class="headerlink" href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" title="Permanent link">&para;</a></h3>
+<p><code>contradiction</code> leaves <code>_FLAG_ONLY_CATEGORIES</code>; an applied contradiction authors a <code>type: query</code> page via an internal pipeline writer (not free provider output): question title + <code>## Question / ## Hypothesis / ## Open Points / ## Impact / ## References</code>, <code>sources[]</code>=both raw docs, <code>related[]</code>=both pages. Human-gated (K8); confidence-gated; bounded (I7). <code>query</code> stays provider-forbidden as free output; only the internal writer may emit it.</p>
+<h3 id="d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5">D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)<a class="headerlink" href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" title="Permanent link">&para;</a></h3>
+<p><code>write_wiki_page</code> resolves a normalized identity key for <code>type=entity</code> <strong>before</strong> slugging (casefold; strip parenthetical acronyms <code>(AWS)</code>; strip legal suffixes <code>Inc./Ltd./S.p.A./PRIVATE LIMITED</code>; fold known acronym↔longform). Exact normalized-key match → reuse the existing page (union <code>sources[]</code>, merge body). Anything requiring fuzzy/embedding similarity → Review proposal, <strong>never a silent merge</strong> (<code>Deloitte</code> vs <code>Deloitte Italia</code> stays human-decided). A retrofit sweep <code>ops/dedup_entities.py</code> clusters the existing vault and proposes merges to Review. Ingest prompt + <code>schema.md</code> gain a canonical-naming rule.</p>
+<h3 id="d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4">D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + <code>## Queries</code> (not <code>Querys</code>) + drop <code>## Uncategorised</code>; overview gains a deterministic <code>## Open Questions</code> block (DB query of live <code>query</code> pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one <code>- Ingest: &lt;doc&gt; — created N pages</code> bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).<a class="headerlink" href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" title="Permanent link">&para;</a></h3>
+<h2 id="invariant-impact-explicit">Invariant impact (explicit)<a class="headerlink" href="#invariant-impact-explicit" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>F3</strong> amended (D2): inline <code>sources:</code> no longer required in file frontmatter; traceability preserved in DB + source pages. Reversible (re-enable emission).</li>
+<li><strong>F4</strong> extended (D2): <code>related:</code> is a second edge seed (resolvable slugs only).</li>
+<li><strong>I1/I5/I7</strong> unchanged: every new op is incremental (single <code>data_version</code> bump/batch), Obsidian-valid, bounded + cost-logged.</li>
+<li><strong>K8/F9</strong> strengthened: entity merges and contradiction questions are human-gated.</li>
+<li>The single-doc ingest prohibition on synthesis/comparison/query as free provider output is retained (asserted in tests).</li>
+</ul>
+<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
+<p>Per audit §5: fixture/unit gates + live re-run of ingest/dedup/reclassify/contradiction/synthesize/overview/chat/graph against a <strong>reloaded dev KB</strong> (PROD untouched), scored against the acceptance table. <code>scripts/parity_report.py</code> greps both vaults and prints the scorecard.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
