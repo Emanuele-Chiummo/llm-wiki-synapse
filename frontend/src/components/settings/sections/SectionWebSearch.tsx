@@ -1,17 +1,49 @@
 /**
- * SectionWebSearch.tsx — SearXNG web search config (ADR-0041).
- * Extracted from SettingsPanel monolith (ADR-0055).
- * ADR-0041: SearXNG is the ONLY web-search backend (I9). No provider field.
- * I3: single fetch on mount; PUT on each user action; local state only.
+ * SectionWebSearch.tsx — web-search backend config (ADR-0041 + ADR-0070).
+ * ADR-0066 amends I9: SearXNG stays the DEFAULT, bundled, privacy-preserving backend; the
+ * alternatives (Tavily · SerpApi · Firecrawl · Brave · Ollama-Web) are OPT-IN, off by default.
+ * The provider selector persists the `web_search_provider` config-override key (S23) via
+ * /config/app; the SearXNG URL/categories/max-queries fields (shown only when SearXNG is active)
+ * persist to /web-search/config as before.
+ * BRANDING: never black — selected/active uses var(--syn-accent) + white; cloud warnings use
+ * var(--syn-amber). I3: local state only, single fetch on mount, PUT on each user action.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import {
   fetchWebSearchConfig,
   setWebSearchConfig,
+  fetchWebSearchProviderKeys,
+  setWebSearchProviderKey,
+  type WebSearchProviderKeysResponse,
 } from "../../../api/providerClient";
+import { getAppConfig, putAppConfig } from "../../../api/appConfigClient";
 import type { WebSearchConfigResponse } from "../../../api/types";
+
+// LLM Wiki card style — bordered surface card (brand colors only, never black).
+const WS_CARD: CSSProperties = {
+  border: "1px solid var(--syn-border)",
+  borderRadius: 10,
+  background: "var(--syn-surface)",
+  padding: "14px 16px",
+};
+
+// Provider catalog — the single source of truth mirrors backend ops.web_search.PROVIDERS.
+// isCloud drives the amber opt-in warning (queries leave the local network — I9).
+interface ProviderMeta {
+  id: string;
+  isCloud: boolean;
+}
+const PROVIDERS: ProviderMeta[] = [
+  { id: "searxng", isCloud: false },
+  { id: "tavily", isCloud: true },
+  { id: "serpapi", isCloud: true },
+  { id: "firecrawl", isCloud: true },
+  { id: "brave", isCloud: true },
+  { id: "ollama_web", isCloud: false },
+];
+const DEFAULT_PROVIDER = "searxng";
 
 export function SectionWebSearch() {
   const { t } = useTranslation();
@@ -19,10 +51,19 @@ export function SectionWebSearch() {
   const [err, setErr] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [provider, setProvider] = useState<string>(DEFAULT_PROVIDER);
+  const [providerBusy, setProviderBusy] = useState(false);
+
   const [urlInput, setUrlInput] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
   const [categoriesInput, setCategoriesInput] = useState("");
   const [maxQueriesInput, setMaxQueriesInput] = useState<number>(3);
+
+  // P3-e (ADR-0071): per-cloud-provider API-key posture + entry field.
+  const [keyPosture, setKeyPosture] = useState<WebSearchProviderKeysResponse | null>(null);
+  const [keyInput, setKeyInput] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [keyBusy, setKeyBusy] = useState(false);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -37,8 +78,41 @@ export function SectionWebSearch() {
       .catch((e: unknown) => {
         if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
       });
+    // Provider selector value from the app-config override layer (S23). Best-effort: on any
+    // failure the selector stays at the SearXNG default (never blocks the SearXNG fields).
+    getAppConfig(ac.signal)
+      .then((resp) => {
+        const found = resp.settings.find((s) => s.key === "web_search_provider");
+        if (found?.value) setProvider(found.value);
+      })
+      .catch(() => { /* keep default */ });
+    fetchWebSearchProviderKeys(ac.signal)
+      .then(setKeyPosture)
+      .catch(() => { /* best-effort */ });
     return () => { ac.abort(); };
   }, []);
+
+  const handleSaveKey = async () => {
+    if (keyBusy || !keyInput.trim()) return;
+    setKeyBusy(true);
+    try {
+      const resp = await setWebSearchProviderKey({ provider, key: keyInput.trim() });
+      setKeyPosture(resp);
+      setKeyInput("");
+    } catch { /* checkResponse surfaces the 400 (e.g. no SYNAPSE_SECRET_KEY) via console */ }
+    finally { setKeyBusy(false); }
+  };
+
+  const handleClearKey = async () => {
+    if (keyBusy) return;
+    setKeyBusy(true);
+    try {
+      const resp = await setWebSearchProviderKey({ provider, clear: true });
+      setKeyPosture(resp);
+      setKeyInput("");
+    } catch { /* ignore */ }
+    finally { setKeyBusy(false); }
+  };
 
   const applyResponse = (resp: WebSearchConfigResponse) => {
     setCfg(resp);
@@ -46,6 +120,20 @@ export function SectionWebSearch() {
     setCategoriesInput(resp.categories.join(","));
     setMaxQueriesInput(resp.max_queries);
     setUrlError(null);
+  };
+
+  const handleSelectProvider = async (id: string) => {
+    if (providerBusy || id === provider) return;
+    const prev = provider;
+    setProvider(id); // optimistic
+    setProviderBusy(true);
+    try {
+      await putAppConfig("web_search_provider", id);
+    } catch {
+      setProvider(prev); // revert on failure
+    } finally {
+      setProviderBusy(false);
+    }
   };
 
   const validateUrl = (raw: string): boolean => {
@@ -116,22 +204,13 @@ export function SectionWebSearch() {
     }
   };
 
+  const selectedMeta = PROVIDERS.find((p) => p.id === provider);
+  const showCloudWarning = selectedMeta?.isCloud === true;
+  const isSearxng = provider === "searxng";
+
   return (
     <div>
       <SectionHeader title={t("settings.nav.webSearch")} desc={t("settings.webSearch.desc")} />
-
-      <div style={{
-        marginBottom: 20,
-        padding: "8px 12px",
-        background: "var(--syn-bg-soft)",
-        border: "1px solid var(--syn-border)",
-        borderRadius: 6,
-        fontSize: 11,
-        color: "var(--syn-text-muted)",
-        lineHeight: 1.5,
-      }}>
-        {t("settings.webSearch.searxngOnly")}
-      </div>
 
       {err ? (
         <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.webSearch.error")}</p>
@@ -140,6 +219,163 @@ export function SectionWebSearch() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
+          {/* ── Provider selector (S23, ADR-0070) ── */}
+          <div style={WS_CARD} data-testid="web-search-provider-card">
+            <Field label={t("settings.webSearch.providerLabel")}>
+              <p style={{ margin: "0 0 10px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+                {t("settings.webSearch.providerHelp")}
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {PROVIDERS.map((p) => {
+                  const active = p.id === provider;
+                  return (
+                    <button
+                      key={p.id}
+                      data-testid={`web-search-provider-${p.id}`}
+                      role="radio"
+                      aria-checked={active}
+                      disabled={providerBusy}
+                      onClick={() => { void handleSelectProvider(p.id); }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        cursor: providerBusy ? "not-allowed" : "pointer",
+                        border: active
+                          ? "1px solid var(--syn-accent)"
+                          : "1px solid var(--syn-border)",
+                        background: active ? "var(--syn-accent)" : "var(--syn-surface)",
+                        color: active ? "#fff" : "var(--syn-text)",
+                        transition: "background 0.12s, border-color 0.12s",
+                      }}
+                    >
+                      <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>
+                          {t(`settings.webSearch.provider.${p.id}`)}
+                        </span>
+                        <span style={{
+                          fontSize: 11,
+                          color: active ? "rgba(255,255,255,0.85)" : "var(--syn-text-muted)",
+                        }}>
+                          {p.id === DEFAULT_PROVIDER
+                            ? t("settings.webSearch.providerDefaultBadge")
+                            : p.isCloud
+                              ? t("settings.webSearch.providerCloudBadge")
+                              : t("settings.webSearch.providerLocalBadge")}
+                        </span>
+                      </span>
+                      {active && (
+                        <span aria-hidden style={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {showCloudWarning && (
+                <p
+                  data-testid="web-search-provider-cloud-warning"
+                  style={{
+                    margin: "10px 0 0",
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, var(--syn-mix-base) 70%)",
+                    background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+                    color: "var(--syn-amber)",
+                    fontSize: 11.5,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {t("settings.webSearch.cloudWarning")}
+                </p>
+              )}
+
+              {/* P3-e: API-key entry for the selected cloud provider (ADR-0071) */}
+              {showCloudWarning && (() => {
+                const posture = keyPosture?.providers?.[provider];
+                const secretsOk = keyPosture?.secrets_available !== false;
+                return (
+                  <div data-testid="web-search-provider-key" style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+                        {t("settings.webSearch.apiKeyLabel")}
+                      </label>
+                      <span
+                        data-testid="web-search-key-badge"
+                        style={{
+                          padding: "1px 8px",
+                          borderRadius: 4,
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          background: posture?.configured
+                            ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)"
+                            : "var(--syn-surface-hover)",
+                          color: posture?.configured ? "var(--syn-green)" : "var(--syn-text-muted)",
+                        }}
+                      >
+                        {posture?.configured
+                          ? t("settings.webSearch.apiKeyConfigured", { source: posture.source })
+                          : t("settings.webSearch.apiKeyNotConfigured")}
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <input
+                          type={showKey ? "text" : "password"}
+                          data-testid="web-search-key-input"
+                          value={keyInput}
+                          onChange={(e) => setKeyInput(e.target.value)}
+                          placeholder={t("settings.webSearch.apiKeyPlaceholder")}
+                          autoComplete="new-password"
+                          disabled={keyBusy || !secretsOk}
+                          style={{ ...INPUT_STYLE, width: "100%", paddingRight: 34, fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowKey((v) => !v)}
+                          aria-label={showKey ? t("connect.hideToken") : t("connect.showToken")}
+                          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: 2, fontSize: 11 }}
+                        >
+                          {showKey ? "🙈" : "👁"}
+                        </button>
+                      </div>
+                      <button
+                        data-testid="web-search-key-save"
+                        onClick={() => { void handleSaveKey(); }}
+                        disabled={keyBusy || !keyInput.trim() || !secretsOk}
+                        style={{ ...BTN_PRIMARY, flexShrink: 0, opacity: keyBusy || !keyInput.trim() || !secretsOk ? 0.4 : 1, cursor: keyBusy || !keyInput.trim() || !secretsOk ? "not-allowed" : "pointer" }}
+                      >
+                        {t("settings.webSearch.apiKeySave")}
+                      </button>
+                      {posture?.source === "db" && (
+                        <button
+                          data-testid="web-search-key-clear"
+                          onClick={() => { void handleClearKey(); }}
+                          disabled={keyBusy}
+                          style={{ padding: "6px 12px", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 6, background: "transparent", color: "var(--syn-red)", fontSize: 12, cursor: keyBusy ? "not-allowed" : "pointer", flexShrink: 0 }}
+                        >
+                          {t("settings.webSearch.apiKeyClear")}
+                        </button>
+                      )}
+                    </div>
+                    <p style={{ margin: "6px 0 0", fontSize: 11, color: secretsOk ? "var(--syn-text-dim)" : "var(--syn-amber)", lineHeight: 1.5 }}>
+                      {secretsOk
+                        ? t("settings.webSearch.apiKeyHint")
+                        : t("settings.webSearch.apiKeyNoSecret")}
+                    </p>
+                  </div>
+                );
+              })()}
+            </Field>
+          </div>
+
+          {/* SearXNG-specific configuration — shown only when SearXNG is the active backend. */}
+          {isSearxng && (
+            <>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span
               data-testid="web-search-configured-badge"
@@ -169,7 +405,7 @@ export function SectionWebSearch() {
             </span>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.urlLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.urlHelp")}
@@ -198,7 +434,7 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.categoriesLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.categoriesHelp")}
@@ -224,7 +460,7 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div>
+          <div style={WS_CARD}>
             <Field label={t("settings.webSearch.maxQueriesLabel")}>
               <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
                 {t("settings.webSearch.maxQueriesHelp")}
@@ -251,8 +487,8 @@ export function SectionWebSearch() {
             </Field>
           </div>
 
-          <div style={{ paddingTop: 8, borderTop: "1px solid var(--syn-border)" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+          <div style={WS_CARD}>
+            <p style={{ margin: "0 0 10px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.webSearch.clearHelp")}
             </p>
             <button
@@ -274,6 +510,8 @@ export function SectionWebSearch() {
               {t("settings.webSearch.clearButton")}
             </button>
           </div>
+            </>
+          )}
         </div>
       )}
     </div>

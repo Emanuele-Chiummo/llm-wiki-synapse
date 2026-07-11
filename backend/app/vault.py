@@ -149,12 +149,21 @@ When sources contradict each other:
 
 def bootstrap_vault() -> None:
     """
-    Ensure the full vault directory skeleton exists.
+    Ensure the boot vault's directory skeleton exists (``settings.vault_root``).
 
-    Idempotent — safe to call on every startup.  Existing files are NOT overwritten
-    (creates only if absent).
+    Idempotent — safe to call on every startup.  Existing files are NOT overwritten.
     """
-    vault = settings.vault_root
+    bootstrap_vault_at(settings.vault_root)
+
+
+def bootstrap_vault_at(vault: Path) -> None:
+    """
+    Ensure the full vault directory skeleton exists at *vault* (v1.5 P2 — multi-vault).
+
+    Idempotent — creates only what is absent; existing files are NOT overwritten. Used both for
+    the boot vault (via :func:`bootstrap_vault`) and when creating a new project vault at an
+    arbitrary path (``POST /projects``, ADR-0067).
+    """
 
     # ── raw/ (K1) — never written to by the service at runtime ────────────────
     _mkdir(vault / "raw" / "sources")  # watched dir

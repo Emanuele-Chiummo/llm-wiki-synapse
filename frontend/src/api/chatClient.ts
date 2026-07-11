@@ -151,6 +151,18 @@ export interface ChatStreamRequest {
    * "fast" | "standard" | "deep" | "local_first". Default "standard".
    */
   retrieval_mode?: "fast" | "standard" | "deep" | "local_first";
+  /**
+   * Whether to invoke skill execution for this chat turn (F6/P4).
+   * Forward-compatible flag — actual skill execution deferred to P5 Skills view.
+   * Default false.
+   */
+  use_skills?: boolean;
+  /**
+   * Whether to invoke AnyTXT Searcher local-file search for this chat turn (F6/P4).
+   * Forward-compatible flag — requires a running AnyTXT Searcher service (Windows-only).
+   * Default false.
+   */
+  use_anytxt?: boolean;
 }
 
 // ─── NDJSON event types (ADR-0019 §2.2 frozen schema) ────────────────────────

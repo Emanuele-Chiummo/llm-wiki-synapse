@@ -15,6 +15,12 @@
  *   settings    → <SettingsPanel/> (single column)
  *   convert     → <ConvertPanel/> (v1.1 [F12/R11-1 A1] — dedicated Marker PDF conversion)
  *
+ * P1 — code-split: all heavy views are loaded with React.lazy() so the initial
+ * bundle only ships the Home dashboard and the shell. Each section chunk is fetched
+ * on first navigation to that section and then cached by the browser.
+ * HomeDashboard stays eager (it is the default landing view — lazy would add a
+ * visible flash on first load).
+ *
  * Light design: var(--syn-bg) content areas, var(--syn-bg-soft) side detail panels,
  * var(--syn-border) dividers, var(--syn-text-dim) placeholder text.
  *
@@ -22,21 +28,101 @@
  * INVARIANT I3: reads only activeSection (scalar) — no unrelated store keys subscribed.
  */
 
+import React, { Suspense } from "react";
 import { useGraphStore, selectActiveSection } from "../store/graphStore";
 import { SectionErrorBoundary } from "./common/SectionErrorBoundary";
-import { PanelGroup } from "./panels/PanelGroup";
-import { GraphPanel } from "./center/GraphPanel";
-import { IngestView } from "./ingest/IngestView";
-import { IngestRunDetail } from "./ingest/IngestRunDetail";
-import { SettingsPanel } from "./settings/SettingsPanel";
-import { ChatSection } from "./chat/ChatSection";
-import { DeepSearchView } from "./research/DeepSearchView";
-import { ReviewQueueView } from "./review/ReviewQueueView";
-import { LintView } from "./lint/LintView";
-import { SearchView } from "./search/SearchView";
-import { SourcesView } from "./sources/SourcesView";
-import { ConvertPanel } from "./convert/ConvertPanel";
+// HomeDashboard is EAGER — it is the default landing view; lazy would add a flash.
 import { HomeDashboard } from "./home/HomeDashboard";
+
+// ─── Lazy section imports (P1 — code-split) ───────────────────────────────────
+// Each section is its own async chunk. The browser fetches and caches it on first
+// navigation; subsequent visits use the local cache (no re-download).
+// Named-export wrapper: React.lazy requires a module with a `default` export.
+
+const GraphPanel = React.lazy(() =>
+  import("./center/GraphPanel").then((m) => ({ default: m.GraphPanel })),
+);
+
+const PanelGroup = React.lazy(() =>
+  import("./panels/PanelGroup").then((m) => ({ default: m.PanelGroup })),
+);
+
+const ChatSection = React.lazy(() =>
+  import("./chat/ChatSection").then((m) => ({ default: m.ChatSection })),
+);
+
+const IngestView = React.lazy(() =>
+  import("./ingest/IngestView").then((m) => ({ default: m.IngestView })),
+);
+
+const IngestRunDetail = React.lazy(() =>
+  import("./ingest/IngestRunDetail").then((m) => ({ default: m.IngestRunDetail })),
+);
+
+const SettingsPanel = React.lazy(() =>
+  import("./settings/SettingsPanel").then((m) => ({ default: m.SettingsPanel })),
+);
+
+const DeepSearchView = React.lazy(() =>
+  import("./research/DeepSearchView").then((m) => ({ default: m.DeepSearchView })),
+);
+
+const ReviewQueueView = React.lazy(() =>
+  import("./review/ReviewQueueView").then((m) => ({ default: m.ReviewQueueView })),
+);
+
+const LintView = React.lazy(() =>
+  import("./lint/LintView").then((m) => ({ default: m.LintView })),
+);
+
+const SearchView = React.lazy(() =>
+  import("./search/SearchView").then((m) => ({ default: m.SearchView })),
+);
+
+const SourcesView = React.lazy(() =>
+  import("./sources/SourcesView").then((m) => ({ default: m.SourcesView })),
+);
+
+const ConvertPanel = React.lazy(() =>
+  import("./convert/ConvertPanel").then((m) => ({ default: m.ConvertPanel })),
+);
+
+const ProjectLauncher = React.lazy(() =>
+  import("./projects/ProjectLauncher").then((m) => ({ default: m.ProjectLauncher })),
+);
+
+// ─── Loading skeleton (P1 — Suspense fallback) ────────────────────────────────
+// Tiny, theme-aware placeholder shown while a lazy chunk downloads.
+// Uses .syn-skeleton shimmer animation from theme.css (prefers-reduced-motion safe).
+// Kept in this file to avoid an extra async chunk for the fallback itself.
+
+function SectionSkeleton(): React.JSX.Element {
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Loading section"
+      style={{
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+        background: "var(--syn-bg)",
+      }}
+    >
+      <span
+        className="syn-skeleton"
+        style={{
+          display: "inline-block",
+          width: 120,
+          height: 6,
+          borderRadius: 3,
+        }}
+      />
+    </div>
+  );
+}
 
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
@@ -44,7 +130,12 @@ export function SectionRouter() {
   const activeSection = useGraphStore(selectActiveSection);
   return (
     <SectionErrorBoundary sectionId={activeSection}>
-      <SectionContent activeSection={activeSection} />
+      {/* Suspense catches async chunk loading (P1). SectionErrorBoundary above
+          catches both lazy-load failures (network error on chunk fetch) and
+          runtime render errors inside the loaded section. */}
+      <Suspense fallback={<SectionSkeleton />}>
+        <SectionContent activeSection={activeSection} />
+      </Suspense>
     </SectionErrorBoundary>
   );
 }
@@ -168,6 +259,17 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
         data-testid="section-convert"
       >
         <ConvertPanel />
+      </div>
+    );
+  }
+
+  if (activeSection === "projects") {
+    return (
+      <div
+        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        data-testid="section-projects"
+      >
+        <ProjectLauncher />
       </div>
     );
   }

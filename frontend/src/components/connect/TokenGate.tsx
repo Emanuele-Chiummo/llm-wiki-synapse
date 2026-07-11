@@ -22,7 +22,7 @@
 import { useState, useCallback, useRef, useEffect, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff } from "lucide-react";
-import logoUrl from "../../assets/synapse-logo.svg";
+import { SynapseMark } from "../brand/SynapseMark";
 import { setAuthToken, clearAuthToken, apiBase, apiFetch } from "../../api/base";
 
 interface TokenGateProps {
@@ -144,14 +144,8 @@ export function TokenGate({ onSuccess }: TokenGateProps) {
             }}
           />
 
-          {/* Logo */}
-          <img
-            src={logoUrl}
-            alt="Synapse"
-            width={64}
-            height={64}
-            style={{ marginBottom: 16 }}
-          />
+          {/* Logo — theme-aware: gradient on light, white-knockout on dark [Brand v1.0] */}
+          <SynapseMark size={64} style={{ marginBottom: 16 }} />
 
           {/* Heading */}
           <h1

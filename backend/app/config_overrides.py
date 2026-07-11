@@ -75,6 +75,11 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "deep_research_max_queries",  # S16 — int 1–10; caps SearXNG query fan-out (I7)
         "lint_max_iter",  # S17 — int 1–10; caps LintScan semantic loop (I7)
         "lint_token_budget",  # S18 — int 1000–500_000; caps LintScan token spend (I7)
+        "vision_captions_enabled",  # S19 (v1.5 P3-a) — Image Captioning master toggle (R8-2)
+        "vision_max_images_per_run",  # S20 (v1.5 P3-a) — int 0–50; per-run vision-call cap (I7)
+        "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069) — MinerU cloud base URL (non-secret)
+        "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069) — MinerU cloud HTTP timeout (I7)
+        "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070) — web-search backend selector
     }
 )
 
@@ -99,10 +104,20 @@ ORDERED_KEYS: list[str] = [
     "deep_research_max_queries",  # S16 — loop bound (I7)
     "lint_max_iter",  # S17 — loop bound (I7)
     "lint_token_budget",  # S18 — loop bound (I7)
+    "vision_captions_enabled",  # S19 (v1.5 P3-a)
+    "vision_max_images_per_run",  # S20 (v1.5 P3-a)
+    "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069)
+    "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069)
+    "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070)
 ]
 
+# S23 (ADR-0070): allowed web-search backend ids — keep in sync with ops.web_search.PROVIDERS.
+_WEB_SEARCH_PROVIDER_VALUES: frozenset[str] = frozenset(
+    {"searxng", "tavily", "serpapi", "firecrawl", "brave", "ollama_web"}
+)
+
 # ── Per-key value validation rules (ADR-0053 §2.3) ───────────────────────────
-_PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker"})
+_PDF_EXTRACTOR_VALUES: frozenset[str] = frozenset({"pypdf", "marker", "mineru"})
 _EMBEDDING_FORMAT_VALUES: frozenset[str] = frozenset({"ollama", "openai"})
 _BOOL_TRUE: frozenset[str] = frozenset({"true", "1", "yes"})
 _BOOL_FALSE: frozenset[str] = frozenset({"false", "0", "no"})
@@ -135,6 +150,18 @@ def validate_value(key: str, value: str) -> str | None:
         if not (0 < f <= 3600):
             return f"marker_timeout_seconds must be > 0 and ≤ 3600, got {f!r}"
 
+    elif key == "mineru_api_url":
+        if not (value.startswith("http://") or value.startswith("https://")):
+            return f"mineru_api_url must start with http:// or https://, got {value!r}"
+
+    elif key == "mineru_timeout_seconds":
+        try:
+            f = float(value)
+        except ValueError:
+            return f"mineru_timeout_seconds must be a float > 0 and ≤ 3600, got {value!r}"
+        if not (0 < f <= 3600):
+            return f"mineru_timeout_seconds must be > 0 and ≤ 3600, got {f!r}"
+
     elif key == "cost_alert_threshold_usd":
         try:
             f = float(value)
@@ -143,14 +170,31 @@ def validate_value(key: str, value: str) -> str | None:
         if f < 0:
             return f"cost_alert_threshold_usd must be ≥ 0 (0 disables the alert), got {f!r}"
 
-    elif key in ("embeddings_enabled", "wikilink_enrich_enabled"):
+    elif key in ("embeddings_enabled", "wikilink_enrich_enabled", "vision_captions_enabled"):
         if value.lower() not in _BOOL_VALUES:
             return f"{key} must be 'true' or 'false' (case-insensitive), " f"got {value!r}"
+
+    elif key == "vision_max_images_per_run":
+        # S20 (v1.5 P3-a): int in [0, 50] — per-run vision-call cap (I7; 0 disables captioning).
+        try:
+            i = int(value)
+        except ValueError:
+            return f"vision_max_images_per_run must be an integer between 0 and 50, got {value!r}"
+        if not (0 <= i <= 50):
+            return f"vision_max_images_per_run must be between 0 and 50, got {i!r}"
 
     elif key == "embedding_format":
         if value not in _EMBEDDING_FORMAT_VALUES:
             return (
                 f"embedding_format must be one of {sorted(_EMBEDDING_FORMAT_VALUES)}, "
+                f"got {value!r}"
+            )
+
+    elif key == "web_search_provider":
+        # S23 (ADR-0070): enum searxng|tavily|serpapi|firecrawl|brave|ollama_web.
+        if value not in _WEB_SEARCH_PROVIDER_VALUES:
+            return (
+                f"web_search_provider must be one of {sorted(_WEB_SEARCH_PROVIDER_VALUES)}, "
                 f"got {value!r}"
             )
 

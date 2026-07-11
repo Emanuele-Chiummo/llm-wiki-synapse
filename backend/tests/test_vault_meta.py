@@ -235,6 +235,61 @@ async def test_vault_meta_response_schema(tmp_vault_with_meta: Path) -> None:
         assert isinstance(entry["content"], str)  # content may be empty string theoretically
 
 
+# ── PUT /vault/meta/{name} — v1.5 P1 editable meta (ADR-0066) ─────────────────
+
+
+@pytest.mark.asyncio
+async def test_put_vault_meta_purpose_roundtrips(tmp_vault_with_meta: Path) -> None:
+    """PUT purpose.md persists to disk and a subsequent GET returns the new content."""
+    new_content = "# Vault Purpose\n\n## Goal\n\nAligned with LLM Wiki.\n"
+    async with _make_client(tmp_vault_with_meta) as client:
+        put = await client.put("/vault/meta/purpose.md", json={"content": new_content})
+        assert put.status_code == 200, put.text
+        assert put.json() == {
+            "name": "purpose.md",
+            "path": "purpose.md",
+            "title": "Purpose",
+            "content": new_content,
+        }
+        get = await client.get("/vault/meta")
+    files = {f["name"]: f for f in get.json()["files"]}
+    assert files["purpose.md"]["content"] == new_content
+    # And it actually hit disk.
+    assert (tmp_vault_with_meta / "purpose.md").read_text(encoding="utf-8") == new_content
+
+
+@pytest.mark.asyncio
+async def test_put_vault_meta_schema_roundtrips(tmp_vault_with_meta: Path) -> None:
+    """PUT schema.md persists and returns the Schema title."""
+    async with _make_client(tmp_vault_with_meta) as client:
+        put = await client.put("/vault/meta/schema.md", json={"content": "# Rules\n"})
+    assert put.status_code == 200
+    assert put.json()["title"] == "Schema"
+    assert (tmp_vault_with_meta / "schema.md").read_text(encoding="utf-8") == "# Rules\n"
+
+
+@pytest.mark.asyncio
+async def test_put_vault_meta_creates_when_absent(tmp_vault_empty: Path) -> None:
+    """PUT writes purpose.md even on a fresh vault where it did not exist yet."""
+    async with _make_client(tmp_vault_empty) as client:
+        put = await client.put("/vault/meta/purpose.md", json={"content": "x"})
+    assert put.status_code == 200
+    assert (tmp_vault_empty / "purpose.md").read_text(encoding="utf-8") == "x"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_name", ["index.md", "overview.md", "..%2f..%2fetc", "secrets.md"])
+async def test_put_vault_meta_rejects_non_allowlisted_name(
+    tmp_vault_with_meta: Path, bad_name: str
+) -> None:
+    """Only schema.md / purpose.md are writable — anything else is 404, nothing written."""
+    async with _make_client(tmp_vault_with_meta) as client:
+        put = await client.put(f"/vault/meta/{bad_name}", json={"content": "pwned"})
+    assert put.status_code == 404
+    # No stray file created in the vault root.
+    assert not (tmp_vault_with_meta / bad_name).exists()
+
+
 # ── T-VMETA-007: static I1 guard — router does not glob/walk ──────────────────
 
 

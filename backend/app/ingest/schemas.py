@@ -101,19 +101,48 @@ class Analysis(BaseModel):
 
 class WikiFrontmatter(BaseModel):
     """
-    Typed YAML frontmatter enforcing I5 (Obsidian-valid) + F3 (traceability) at the schema
-    boundary. `extra="allow"` keeps future frontmatter keys (e.g. tags) round-trippable.
+    Typed YAML frontmatter enforcing I5 (Obsidian-valid) at the schema boundary.
+    `extra="allow"` keeps future / source-only frontmatter keys (e.g. authors, year, url,
+    venue) round-trippable.
 
-    The non-empty `sources` rule (incl. the originating source's relative path) is the F3
-    traceability guarantee — a page with empty sources[] is invalid (ADR-0007 §5).
+    ADR-0067 D2 (LLM Wiki 1:1 frontmatter parity) amends F3: the on-disk generated-page
+    frontmatter now MIRRORS LLM Wiki's byte-shape — `type, title, created, updated, tags,
+    related` (+ `authors, year, url, venue` on source pages) — and NO LONGER emits `sources`
+    or `lang` keys. Traceability (F3) is preserved in Postgres: the ingest pipeline still
+    populates `pages.sources`/`links` (the graph source-overlap ×4 signal F4 and cascade-delete
+    F13 read the DB, not the file). Consequently `sources` and `lang` become OPTIONAL on this
+    model (default `[]` / `"en"`): the object + the DB write still carry them, but the serializer
+    drops them from the .md. `related` is a first-class list of resolvable page slugs — a second
+    graph-edge seed (F4) alongside `[[wikilinks]]`.
     """
 
     model_config = ConfigDict(extra="allow")
 
     type: PageType
     title: str = Field(..., min_length=1)
-    sources: list[str] = Field(..., min_length=1)
-    lang: str = Field(..., min_length=2, description="ISO-639-1; == Analysis.language")
+    sources: list[str] = Field(
+        default_factory=list,
+        description=(
+            "F3 provenance carried on the object + written to Postgres (pages.sources). "
+            "ADR-0067 D2: no longer emitted in the .md and no longer required non-empty "
+            "(cleaned of blanks at the boundary; the orchestrator injects the ingest origin)."
+        ),
+    )
+    lang: str = Field(
+        default="en",
+        min_length=2,
+        description="ISO-639-1; == Analysis.language. ADR-0067 D2: optional, not emitted in .md.",
+    )
+    related: list[str] = Field(
+        default_factory=list,
+        description=(
+            "ADR-0067 D2: list of page SLUGS this page relates to (resolved outbound wikilinks + "
+            "top graph neighbours; the orchestrator emits only resolvable slugs, capped ~8). A "
+            "second F4 graph-edge seed. Normalized at the boundary: stringified, trimmed, "
+            "de-duplicated (order preserved), blanks dropped — NOT lowercased (slugs are already "
+            "lowercase). Serializes as a YAML list (I5)."
+        ),
+    )
     tags: list[str] = Field(
         default_factory=list,
         description=(
@@ -125,10 +154,37 @@ class WikiFrontmatter(BaseModel):
 
     @field_validator("sources")
     @classmethod
-    def _sources_non_empty_strings(cls, v: list[str]) -> list[str]:
-        cleaned = [s for s in v if isinstance(s, str) and s.strip()]
-        if not cleaned:
-            raise ValueError("sources[] must be a non-empty list of non-empty strings (F3)")
+    def _sources_clean_strings(cls, v: list[str]) -> list[str]:
+        """
+        Clean the sources list (ADR-0067 D2): keep only non-blank strings. NO LONGER raises on
+        an empty list — traceability lives in Postgres (pages.sources), which the orchestrator
+        always populates from the ingest origin regardless of what the model emitted.
+        """
+        return [s for s in v if isinstance(s, str) and s.strip()]
+
+    @field_validator("related", mode="before")
+    @classmethod
+    def _normalize_related(cls, v: object) -> list[str]:
+        """
+        Coerce → clean the related-slug list (ADR-0067 D2). Absent/None → []. Accepts a scalar
+        string (one slug) or a list. Each item is stringified + trimmed; blanks dropped; the list
+        de-duplicated (first occurrence wins, order preserved). NOT lowercased — slugs are already
+        lowercase. Never raises (navigation/graph metadata, not the F3 guarantee). The write-time
+        cap (≤ 8, resolvable slugs only) is applied by the orchestrator, not here.
+        """
+        if v is None:
+            return []
+        items = v if isinstance(v, (list, tuple)) else [v]
+        cleaned: list[str] = []
+        seen: set[str] = set()
+        for item in items:
+            if item is None:
+                continue
+            slug = str(item).strip()
+            if not slug or slug in seen:
+                continue
+            seen.add(slug)
+            cleaned.append(slug)
         return cleaned
 
     @field_validator("tags", mode="before")

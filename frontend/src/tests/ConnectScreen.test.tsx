@@ -67,6 +67,9 @@ vi.mock("../store/settingsStore", () => ({
       setServerUrl: mockStoreSetServerUrl,
     }),
   selectSetServerUrl: (s: { setServerUrl: unknown }) => s.setServerUrl,
+  // SynapseMark (brand logo) reads the resolved theme — provide stubs so it renders
+  selectTheme: () => "light",
+  resolveTheme: () => "light",
 }));
 
 // ─── Setup ────────────────────────────────────────────────────────────────────

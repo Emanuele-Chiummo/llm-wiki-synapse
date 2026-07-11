@@ -1,15 +1,17 @@
 /**
- * ChatComposer.test.tsx — unit tests for the B2 chat composer toolbar.
+ * ChatComposer.test.tsx — unit tests for the B2/P4 chat composer toolbar.
  *
  * Coverage:
  *   A. Attach-image button gated on supports_vision
  *   B. Thumbnail add / remove + CHAT_MAX_IMAGES cap
  *   C. Web-search toggle wires to settingsStore
+ *   C2. AnyTXT + Skills toggles wire to settingsStore (P4)
  *   D. Retrieval-mode segmented control
  *   E. Send payload includes images + use_web_search + retrieval_mode
  *   F. WebSourcesPanel renders web_citations with [Wn] links
  *   G. decorateWebCitations wraps [Wn] markers correctly
- *   H. i18n key parity spot-check for new B2 keys
+ *   H. i18n key parity spot-check for new B2/P4 keys
+ *   I. settingsStore P4 flags persist and reset correctly
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -217,6 +219,88 @@ describe("C — web-search toggle wires to settingsStore", () => {
     expect(btn.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(btn);
     expect(useSettingsStore.getState().webSearchEnabled).toBe(false);
+  });
+});
+
+// ─── C2. AnyTXT + Skills toggles (P4) ───────────────────────────────────────
+
+describe("C2 — AnyTXT + Skills toggles wire to settingsStore (P4)", () => {
+  beforeEach(() => {
+    useSettingsStore.getState().setAnytxtEnabled(false);
+    useSettingsStore.getState().setSkillsEnabled(false);
+  });
+
+  afterEach(() => {
+    useSettingsStore.getState().setAnytxtEnabled(false);
+    useSettingsStore.getState().setSkillsEnabled(false);
+  });
+
+  it("anytxt-toggle button is rendered", () => {
+    renderComposer();
+    expect(screen.getByTestId("anytxt-toggle")).toBeTruthy();
+  });
+
+  it("skills-toggle button is rendered", () => {
+    renderComposer();
+    expect(screen.getByTestId("skills-toggle")).toBeTruthy();
+  });
+
+  it("anytxt-toggle aria-pressed is false by default", () => {
+    renderComposer();
+    const btn = screen.getByTestId("anytxt-toggle");
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("skills-toggle aria-pressed is false by default", () => {
+    renderComposer();
+    const btn = screen.getByTestId("skills-toggle");
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("clicking anytxt-toggle toggles settingsStore.anytxtEnabled on", () => {
+    renderComposer();
+    const btn = screen.getByTestId("anytxt-toggle");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().anytxtEnabled).toBe(true);
+  });
+
+  it("clicking skills-toggle toggles settingsStore.skillsEnabled on", () => {
+    renderComposer();
+    const btn = screen.getByTestId("skills-toggle");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().skillsEnabled).toBe(true);
+  });
+
+  it("re-clicking anytxt-toggle toggles back to false", () => {
+    useSettingsStore.getState().setAnytxtEnabled(true);
+    renderComposer();
+    const btn = screen.getByTestId("anytxt-toggle");
+    expect(btn.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().anytxtEnabled).toBe(false);
+  });
+
+  it("re-clicking skills-toggle toggles back to false", () => {
+    useSettingsStore.getState().setSkillsEnabled(true);
+    renderComposer();
+    const btn = screen.getByTestId("skills-toggle");
+    expect(btn.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(btn);
+    expect(useSettingsStore.getState().skillsEnabled).toBe(false);
+  });
+
+  it("anytxt-toggle has a tooltip (title attribute)", () => {
+    renderComposer();
+    const btn = screen.getByTestId("anytxt-toggle");
+    expect(btn.getAttribute("title")).toBeTruthy();
+    expect(btn.getAttribute("title")!.length).toBeGreaterThan(3);
+  });
+
+  it("skills-toggle has a tooltip (title attribute)", () => {
+    renderComposer();
+    const btn = screen.getByTestId("skills-toggle");
+    expect(btn.getAttribute("title")).toBeTruthy();
+    expect(btn.getAttribute("title")!.length).toBeGreaterThan(3);
   });
 });
 
@@ -464,9 +548,59 @@ describe("G — decorateWebCitations wraps [Wn] markers", () => {
   });
 });
 
-// ─── H. i18n spot-check for new B2 keys ──────────────────────────────────────
+// ─── I. settingsStore P4 flags ────────────────────────────────────────────────
 
-describe("H — i18n key presence for B2 composer keys", () => {
+describe("I — settingsStore P4 flags persist and reset (use_skills, use_anytxt)", () => {
+  afterEach(() => {
+    useSettingsStore.getState().reset();
+  });
+
+  it("skillsEnabled defaults to false", () => {
+    expect(useSettingsStore.getState().skillsEnabled).toBe(false);
+  });
+
+  it("anytxtEnabled defaults to false", () => {
+    expect(useSettingsStore.getState().anytxtEnabled).toBe(false);
+  });
+
+  it("setSkillsEnabled(true) updates state", () => {
+    useSettingsStore.getState().setSkillsEnabled(true);
+    expect(useSettingsStore.getState().skillsEnabled).toBe(true);
+  });
+
+  it("setAnytxtEnabled(true) updates state", () => {
+    useSettingsStore.getState().setAnytxtEnabled(true);
+    expect(useSettingsStore.getState().anytxtEnabled).toBe(true);
+  });
+
+  it("setSkillsEnabled(true) then reset() returns to false", () => {
+    useSettingsStore.getState().setSkillsEnabled(true);
+    useSettingsStore.getState().reset();
+    expect(useSettingsStore.getState().skillsEnabled).toBe(false);
+  });
+
+  it("setAnytxtEnabled(true) then reset() returns to false", () => {
+    useSettingsStore.getState().setAnytxtEnabled(true);
+    useSettingsStore.getState().reset();
+    expect(useSettingsStore.getState().anytxtEnabled).toBe(false);
+  });
+
+  it("setSkillsEnabled does not affect webSearchEnabled", () => {
+    useSettingsStore.getState().setWebSearchEnabled(false);
+    useSettingsStore.getState().setSkillsEnabled(true);
+    expect(useSettingsStore.getState().webSearchEnabled).toBe(false);
+  });
+
+  it("setAnytxtEnabled does not affect webSearchEnabled", () => {
+    useSettingsStore.getState().setWebSearchEnabled(false);
+    useSettingsStore.getState().setAnytxtEnabled(true);
+    expect(useSettingsStore.getState().webSearchEnabled).toBe(false);
+  });
+});
+
+// ─── H. i18n spot-check for new B2/P4 keys ───────────────────────────────────
+
+describe("H — i18n key presence for B2/P4 composer keys", () => {
   const REQUIRED_B2_KEYS = [
     "chat.attachImage",
     "chat.attachImageDisabled",
@@ -481,6 +615,13 @@ describe("H — i18n key presence for B2 composer keys", () => {
     "chat.imageTooLarge",
     "chat.tooManyImages",
     "chat.webSources",
+    // P4 additions
+    "chat.skills",
+    "chat.skillsOn",
+    "chat.skillsOff",
+    "chat.anytxt",
+    "chat.anytxtOn",
+    "chat.anytxtOff",
   ];
 
   it.each(REQUIRED_B2_KEYS)("en has key: %s", (key) => {

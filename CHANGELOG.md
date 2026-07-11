@@ -9,6 +9,35 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-07-10 — "Large PDFs & graph counts"
+
+### Added
+- **Large-PDF Marker conversion via page-range chunking** — the Marker microservice now splits a
+  PDF larger than `--pages-per-chunk` pages (default 25) into page-range sub-PDFs, converts them
+  one at a time with a single shared model set, and concatenates the markdown. This bounds peak
+  VRAM to *models + one chunk*, so a ~190 MB / several-hundred-page ServiceNow export converts on a
+  12 GB GPU without OOM. Small PDFs keep the identical whole-file path; any split error falls back
+  to whole-file. Response gains an additive `chunks` field [F12, ADR-0065].
+- **Dedicated `MARKER_MAX_UPLOAD_BYTES` (default 300 MB)** for `POST /ingest/convert-marker`,
+  separate from the 25 MB generic upload cap so large PDFs are accepted only where they can be
+  chunked. Marker service `--max-upload-mb` default raised 50 → 300 [F12, ADR-0065].
+
+### Changed
+- **`MARKER_TIMEOUT_SECONDS` default 120 → 1800 s** — a chunked conversion runs all chunks inside
+  one HTTP request, so the timeout must cover the whole job (a ceiling, not a fixed wait) [I7].
+
+### Fixed
+- **Graph "hidden" chip no longer shows a phantom count.** `total_nodes` (the denominator behind
+  the pages/hidden pills) counted raw-source tracking rows and `query` pages that the graph engine
+  deliberately excludes as nodes, so a source-heavy vault showed e.g. "233 hidden" that no UI
+  filter could clear. `total_nodes` now applies the engine's exact node-eligibility rule
+  (exclude `raw/*` + hidden page types, NULL-safe), so with no filters active the hidden count is
+  0 — matching nashsu/llm_wiki [F4].
+
+### Notes
+- Uploads through a reverse proxy / Cloudflare Tunnel may hit a lower request-body cap (~100 MB on
+  CF) regardless of `MARKER_MAX_UPLOAD_BYTES` — import very large PDFs over the LAN / Tailscale.
+
 ## [1.4.0] — 2026-07-10 — "UI parity & secrets"
 
 ### Added

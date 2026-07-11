@@ -443,6 +443,22 @@ class VaultState(Base):
         ),
     )
 
+    # ── P3-e: web-search cloud provider API keys (ADR-0071, encrypted at rest) ───
+    web_search_api_keys_encrypted: Mapped[bytes | None] = mapped_column(
+        LargeBinary,
+        nullable=True,
+        default=None,
+        comment=(
+            "P3-e (ADR-0071). Fernet-encrypted JSON map {provider: api_key} for the opt-in cloud "
+            "web-search providers (tavily/serpapi/firecrawl/brave). Master key from "
+            "SYNAPSE_SECRET_KEY env (app/secrets_crypto.py). NULL = no UI keys; env "
+            "`{PROVIDER}_API_KEY` govern. When a provider's key is present here the DB value wins "
+            "over env. Plaintext NEVER stored/logged/returned (GET exposes only a masked posture). "
+            "Requires SYNAPSE_SECRET_KEY to store (PUT /web-search/provider-keys → 400 when "
+            "absent). Fail-closed on tampered ciphertext. Migration 0029."
+        ),
+    )
+
     # ── ADR-0041: SearXNG web-search runtime configuration ───────────────────────
     searxng_url_db: Mapped[str | None] = mapped_column(
         Text,
@@ -1221,6 +1237,34 @@ class ImportSchedule(Base):
         default="1h",
         server_default=sa_text("'1h'"),
         comment="Scan interval enum: '15m' | '1h' | '6h' | 'daily' (I7 — bounded, ADR-0020 §4.1)",
+    )
+
+    # ── P3-c: wider Source-Watch file types (v1.5 LLM Wiki parity) ──────────────
+    allowed_extensions: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Comma-separated file extensions the scheduled scan imports (e.g. '.pdf,.csv'). "
+            "NULL → default wider set (text + all extractable). P3-c (v1.5, ADR-0068)."
+        ),
+    )
+
+    excluded_folders: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Comma-separated folder names skipped during the scan (matched against path parts). "
+            "NULL → nothing excluded. P3-c (v1.5, ADR-0068)."
+        ),
+    )
+
+    max_size_mb: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        comment=(
+            "Max file size in MB the scan will import; larger files are skipped (I7). "
+            "NULL → no size cap. P3-c (v1.5, ADR-0068)."
+        ),
     )
 
     last_run_at: Mapped[datetime | None] = mapped_column(

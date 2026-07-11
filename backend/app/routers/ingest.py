@@ -787,7 +787,7 @@ class MarkerBatchStatusResponse(BaseModel):
     summary="Queue one or more PDFs for async Marker conversion (R11-1, W0)",
     description=(
         "F12 / R11-1 — explicit Marker PDF conversion endpoint (W0 async). "
-        "Accepts multipart files[] (≤10 files, each ≤ MAX_UPLOAD_BYTES, .pdf only). "
+        "Accepts multipart files[] (≤10 files, each ≤ MARKER_MAX_UPLOAD_BYTES, .pdf only). "
         "Validates + saves each raw PDF synchronously, then enqueues background Marker "
         "conversion (concurrency=1 — single-GPU Marker service; I7). "
         "Returns 202 immediately with batch_id and per-file entries. "
@@ -797,13 +797,13 @@ class MarkerBatchStatusResponse(BaseModel):
         "'failed' without aborting the rest of the batch. "
         "NO silent pypdf fallback (ADR-0051). "
         "400 if > 10 files. 409 if a batch is already running. "
-        "413 if any file > MAX_UPLOAD_BYTES. 415 for non-.pdf files."
+        "413 if any file > MARKER_MAX_UPLOAD_BYTES. 415 for non-.pdf files."
     ),
     responses={
         202: {"description": "Files queued for background Marker conversion."},
         400: {"description": "More than 10 files submitted."},
         409: {"description": "A Marker conversion batch is already running."},
-        413: {"description": "A file exceeds MAX_UPLOAD_BYTES."},
+        413: {"description": "A file exceeds MARKER_MAX_UPLOAD_BYTES."},
         415: {"description": "A non-.pdf file was submitted."},
     },
 )
@@ -852,7 +852,9 @@ async def convert_marker(
             ),
         )
 
-    max_bytes: int = settings.max_upload_bytes
+    # Dedicated cap for Marker (ADR-0065): large PDFs are chunked by page range, so this
+    # endpoint accepts far larger files than the 25 MB generic upload limit.
+    max_bytes: int = settings.marker_max_upload_bytes
 
     # ── Read effective Marker settings (captured at enqueue time — ADR-0053) ─
     _eff_marker_url: str = (

@@ -586,6 +586,10 @@ async def schedule_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[
         sa.Column("enabled", sa.Boolean, nullable=False, server_default=sa.text("0")),
         sa.Column("source_dir", sa.Text, nullable=True),
         sa.Column("frequency", sa.Text, nullable=False, server_default=sa.text("'1h'")),
+        # P3-c: wider Source-Watch types
+        sa.Column("allowed_extensions", sa.Text, nullable=True),
+        sa.Column("excluded_folders", sa.Text, nullable=True),
+        sa.Column("max_size_mb", sa.Integer, nullable=True),
         sa.Column("last_run_at", sa.Text, nullable=True),
         sa.Column("last_status", sa.Text, nullable=True),
         sa.Column("last_imported_count", sa.Integer, nullable=False, server_default=sa.text("0")),
@@ -847,10 +851,14 @@ class TestBoundedScan:
         assert status == "ok"
 
     @pytest.mark.asyncio
-    async def test_scan_skips_non_text_files(
+    async def test_scan_skips_placeholder_media_by_default(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """T-SCAN: Non-text files (.pdf, .docx) are skipped silently (F12/M5 boundary)."""
+        """
+        T-SCAN: Placeholder image/AV files (.png) are NOT auto-imported by the scheduler
+        even under the P3-c wider default. Extractable document types (.csv/.pdf/...) ARE
+        now imported — that boundary is covered in test_source_watch_p3c.py.
+        """
         from app import config as cfg
 
         source_dir = tmp_path / "source"
@@ -858,12 +866,10 @@ class TestBoundedScan:
         raw_sources = tmp_path / "raw" / "sources"
         raw_sources.mkdir(parents=True)
 
-        (source_dir / "doc.pdf").write_bytes(b"%PDF-1.4 fake")
+        (source_dir / "photo.png").write_bytes(b"\x89PNG\r\n fake")
         (source_dir / "note.md").write_text("# Note\n")
 
-        monkeypatch.setattr(
-            type(cfg.settings), "raw_sources_dir", property(lambda self: raw_sources)
-        )
+        monkeypatch.setattr(type(cfg.settings), "vault_root", property(lambda self: tmp_path))
         monkeypatch.setattr(cfg.settings, "import_scan_max_files", 200)
         monkeypatch.setattr(cfg.settings, "import_scan_max_seconds", 60)
 
@@ -871,11 +877,12 @@ class TestBoundedScan:
 
         cfg_obj = MagicMock()
         cfg_obj.source_dir = str(source_dir)
+        # MagicMock's non-str attrs → treated as unconfigured → P3-c wider DEFAULT set
 
         count, status, error = await run_one_scan(cfg_obj)
-        assert count == 1  # only note.md copied; doc.pdf skipped
+        assert count == 1  # only note.md copied; photo.png (placeholder) skipped
         assert (raw_sources / "note.md").exists()
-        assert not (raw_sources / "doc.pdf").exists()
+        assert not (raw_sources / "photo.png").exists()
 
     @pytest.mark.asyncio
     async def test_scan_missing_dir_returns_dir_missing(

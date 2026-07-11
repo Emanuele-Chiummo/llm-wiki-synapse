@@ -118,6 +118,8 @@ async def run_chat_stream(
     regenerate: bool,
     use_web_search: bool = False,
     retrieval_mode: str = "standard",
+    use_skills: bool = False,
+    use_anytxt: bool = False,
 ) -> AsyncIterator[str]:
     """
     Async generator yielding NDJSON lines for one bounded chat turn (ADR-0019 §2.2).
@@ -198,6 +200,11 @@ async def run_chat_stream(
     retrieval_citations: list[Citation] = []
     retrieval_text = ""
     r_k, r_depth = retrieval_mode_params(retrieval_mode)
+    # CG-A6 (ADR-0067 P3-3): on the chat path, exclude type=query lint-stub pages (tags contain
+    # stub+lint) from citations so a near-empty ghost stub never resolves an [n] footnote.
+    # Setting-gated, default ON: an operator can flip `chat_exclude_stub_pages` off (env/settings)
+    # to restore stub citations; when the field is absent the getattr default keeps it enabled.
+    exclude_stub_pages = bool(getattr(settings, "chat_exclude_stub_pages", True))
     try:
         rctx = await retrieve(
             query=last_user.content if last_user else "",
@@ -205,6 +212,7 @@ async def run_chat_stream(
             context_window=window,
             k=r_k,
             expansion_depth=r_depth,
+            exclude_stub_pages=exclude_stub_pages,
         )
         retrieval_text = rctx.text
         retrieval_citations = rctx.citations
@@ -234,6 +242,21 @@ async def run_chat_stream(
                     effective_vault_id,
                     exc,
                 )
+
+    # ── F6/P4: log forward-compatible flags (skills + anytxt — no behavior yet) ─────────
+    # use_skills and use_anytxt are accepted as request flags for composer parity. Skill
+    # execution is deferred to P5 Skills view; AnyTXT is Windows-only / not applicable to
+    # this stack. We log at INFO so the operator knows they were requested (I7 cost tracing).
+    if use_skills:
+        logger.info(
+            "chat: use_skills=True requested (vault=%s) — execution deferred to P5",
+            effective_vault_id,
+        )
+    if use_anytxt:
+        logger.info(
+            "chat: use_anytxt=True requested (vault=%s) — AnyTXT not available on this stack",
+            effective_vault_id,
+        )
 
     # ── Build the bounded provider call args (I6: provider chooses model; we pass ctx) ──
     # Prepend light grounding header (purpose.md + overview.md) to the retrieval context text

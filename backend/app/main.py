@@ -791,6 +791,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _load_clip_config_cache()
     await _load_web_search_config_cache()
     await _load_cli_auth_config_cache()
+    # P3-e (ADR-0071): decrypt UI-stored cloud web-search API keys into the sync cache.
+    from app.ops.web_search.keys import load_cache_from_db as _load_ws_keys  # noqa: PLC0415
+
+    await _load_ws_keys()
 
     # 2b. Load app_config override layer (ADR-0053 §4.1).
     #     MUST run BEFORE _validate_embedding_and_collection so effective S5
@@ -1006,6 +1010,7 @@ app.include_router(stats_router)
 
 
 # ── Per-domain APIRouter modules (R13-1 refactor) ─────────────────────────────
+from app.projects import router as projects_router  # noqa: E402
 from app.routers.chat import router as chat_router  # noqa: E402
 from app.routers.clip import router as clip_router  # noqa: E402
 from app.routers.config import router as config_router  # noqa: E402
@@ -1035,6 +1040,7 @@ app.include_router(lint_router)
 app.include_router(clip_router)
 app.include_router(scenarios_router)
 app.include_router(vault_meta_router)  # WS-D8: vault-root meta files (schema.md, purpose.md)
+app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (ADR-0067)
 
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares

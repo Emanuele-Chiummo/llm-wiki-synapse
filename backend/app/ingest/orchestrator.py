@@ -557,6 +557,23 @@ async def run_ingest_pipeline(
                     "(non-fatal): %s",
                     _il_exc,
                 )
+            # ── F4 delegated-route wikilink enrichment (ADR-0067; parity with orchestrated) ─
+            # The CLI agent writes prose that often omits [[wikilinks]]; without this the
+            # delegated pages are graph-sparse (no back-links / related:). Mirror the
+            # orchestrated enrich hook (below) so BOTH routes build the same link graph.
+            # Runs BEFORE the F9 proposals so proposals see the enriched links.
+            # Fire-and-forget: NEVER raises into the ingest critical path.
+            try:
+                await _enrich_wikilinks_for_delegated(
+                    vault_id=settings.vault_id,
+                    written_page_ids=delegated_page_ids,
+                )
+            except Exception as _enr_d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F4 delegated wikilink-enrich hook failed "
+                    "(non-fatal): %s",
+                    _enr_d_exc,
+                )
             # ── F9 delegated-route proposals (ADR-0044 §4.2, closes ADR-0034 §9 risk 1) ─
             # Load the pages the CLI agent wrote through MCP write_page, synthesize a minimal
             # Analysis, and drive the SAME bounded propose_reviews seam (≤1 provider call, same
@@ -1104,6 +1121,53 @@ async def _delegate_ingest(
     return converged, pages_written, written_page_ids
 
 
+async def _enrich_wikilinks_for_delegated(
+    *,
+    vault_id: str,
+    written_page_ids: list[str],
+) -> None:
+    """
+    Run the wikilink-enrichment post-pass for the delegated (CLI) route (ADR-0067, F4 parity).
+
+    The CLI agent writes pages via MCP write_page; the orchestrated post-write enrich hook never
+    sees them, so without this the delegated route yields graph-sparse pages (no back-links /
+    ``related:``). Loads the written pages by id (bounded indexed read, I1 — no vault re-scan) and
+    drives the SAME ``enrich_wikilinks`` seam the orchestrated route uses (I6 — no provider-type
+    branch). Short-circuits on an empty set; ``enrich_wikilinks`` itself never raises.
+    """
+    if not written_page_ids:
+        return
+    # String-form id compare keeps the read dialect-portable (mirrors the propose_reviews loader).
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast, select
+
+    from app.models import Page
+    from app.ops.enrich_wikilinks import enrich_wikilinks as _enrich_wikilinks
+
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(Page).where(
+                        cast(Page.id, _SAString).in_([str(i) for i in written_page_ids]),
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for r in rows:
+            session.expunge(r)
+    result = await _enrich_wikilinks(rows, vault_id)
+    logger.info(
+        "run_ingest_pipeline: delegated wikilink enrichment pages=%d links=%d cost_usd=%.4f",
+        result.pages_enriched,
+        result.links_added,
+        result.total_cost_usd,
+    )
+
+
 async def _propose_reviews_for_delegated(
     *,
     vault_id: str,
@@ -1348,6 +1412,171 @@ def _strip_leading_frontmatter(body: str) -> str:
     return "\n".join(lines[rest:])
 
 
+# ── D5 (ADR-0067): entity canonicalisation (no silent fuzzy merge) ───────────────
+#
+# Legal-suffix token sequences stripped from the END of an entity title, matching the ADR-0067
+# D5 list exactly (Inc/Inc., Ltd/Ltd., Corp/Corp., LLC, PLC, LLP, GmbH, S.p.A., "PRIVATE LIMITED").
+# Compared token-wise on the punctuation-normalized casefolded title, so "Inc." / "Inc" collapse
+# to the token "inc" and "S.p.A." to the token sequence ("s", "p", "a").
+_LEGAL_SUFFIX_TOKENS: tuple[tuple[str, ...], ...] = (
+    ("private", "limited"),
+    ("s", "p", "a"),
+    ("inc",),
+    ("ltd",),
+    ("corp",),
+    ("llc",),
+    ("plc",),
+    ("llp",),
+    ("gmbh",),
+)
+
+# SMALL, conservative acronym → longform fold. EXACT keys only — never a fuzzy / embedding fold
+# (those are a later Review-queue retrofit — ADR-0067 D5). A longform not in this map maps to
+# itself, so acronym and longform resolve to the same canonical key.
+_ACRONYM_FOLD: dict[str, str] = {
+    "aws": "amazon web services",
+    "gcp": "google cloud platform",
+    "azure": "microsoft azure",
+}
+
+# Non-word / non-space run → single space (unicode-aware: keeps accented letters, drops
+# punctuation). Applied after parenthetical stripping when computing a canonical entity key.
+_CANON_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_CANON_PARENS_RE = re.compile(r"\([^)]*\)")
+
+
+def _resolve_canonical_entity_key(title: str) -> str:
+    """
+    Normalized identity key for an entity title (ADR-0067 D5) — pure + deterministic.
+
+    Steps: casefold → strip parenthetical acronyms ``(AWS)`` → punctuation → single spaces →
+    strip trailing legal suffixes (``Inc./Ltd./Corp./LLC/PLC/LLP/GmbH/S.p.A./PRIVATE LIMITED``) →
+    apply the small conservative acronym↔longform fold. Used to detect an EXACT-key match with an
+    existing live entity page BEFORE slugging, so ``Amazon Web Services (AWS)`` / ``AWS`` /
+    ``amazon web services inc.`` collapse to one page. NEVER a fuzzy/embedding merge — that is a
+    Review-queue retrofit (TODO: ops/dedup_entities.py). Two genuinely different entities
+    (``Deloitte`` vs ``Deloitte Italia``) MUST NOT collide.
+    """
+    s = (title or "").casefold()
+    s = _CANON_PARENS_RE.sub(" ", s)
+    s = _CANON_PUNCT_RE.sub(" ", s)
+    tokens = s.split()
+    # Strip trailing legal suffixes (bounded loop; never strips the entire name away).
+    changed = True
+    while changed and tokens:
+        changed = False
+        for suffix in _LEGAL_SUFFIX_TOKENS:
+            n = len(suffix)
+            if len(tokens) > n and tuple(tokens[-n:]) == suffix:
+                tokens = tokens[:-n]
+                changed = True
+                break
+    key = " ".join(tokens)
+    return _ACRONYM_FOLD.get(key, key)
+
+
+async def _find_canonical_entity_page(title: str, *, exclude_rel_path: str) -> Page | None:
+    """
+    Find a LIVE entity page whose canonical key (``_resolve_canonical_entity_key``) EXACTLY
+    matches *title*'s and whose file_path differs from *exclude_rel_path* (the naive-slug target,
+    which the caller's own existing-row lookup already handles). Returns None when there is no
+    cross-slug canonical match (ADR-0067 D5).
+
+    Indexed query over live entity pages only (I1 — no vault re-scan), bounded to ``type=entity``.
+    EXACT-key match only; the caller reuses the returned page's id + file_path (merge, not mint).
+    """
+    from sqlalchemy import select
+
+    key = _resolve_canonical_entity_key(title)
+    if not key:
+        return None
+    match: Page | None = None
+    async with get_session() as sess:
+        rows = (
+            (
+                await sess.execute(
+                    select(Page).where(
+                        Page.vault_id == settings.vault_id,
+                        Page.page_type == PageType.ENTITY.value,
+                        Page.deleted_at.is_(None),
+                        Page.title.is_not(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            if row.file_path == exclude_rel_path:
+                continue  # the naive-slug target itself → existing-row lookup handles id reuse
+            if _resolve_canonical_entity_key(row.title or "") == key:
+                match = row
+                break
+        if match is not None:
+            sess.expunge(match)
+    return match
+
+
+async def _resolve_related_slugs(body: str, *, exclude_rel_path: str, cap: int = 8) -> list[str]:
+    """
+    Resolve *body*'s outbound ``[[wikilinks]]`` to the SLUGS of live pages they point to
+    (ADR-0067 D2 — the ``related:`` frontmatter seed). Only RESOLVABLE slugs are returned (a
+    target that does not map to a live page is dropped — never a ghost slug), self-links are
+    excluded, order is preserved, deduped, capped at *cap*.
+
+    Resolution precedence mirrors K5 ``persist_links``/``_resolve_target`` (exact title →
+    case-insensitive → slug-of-title), so the ``related`` seed and the wikilink edges agree. The
+    emitted slug is the target page's on-disk file stem (authoritative — handles source-identity
+    stems). One indexed query over live pages (I1 — no N+1, no re-scan).
+    """
+    from sqlalchemy import select
+
+    from app.wiki.links import parse_wikilinks
+
+    parsed = parse_wikilinks(body)
+    if not parsed:
+        return []
+    async with get_session() as sess:
+        rows = (
+            await sess.execute(
+                select(Page.title, Page.file_path).where(
+                    Page.vault_id == settings.vault_id,
+                    Page.deleted_at.is_(None),
+                    Page.title.is_not(None),
+                )
+            )
+        ).all()
+
+    by_title: dict[str, str] = {}
+    by_lower: dict[str, str] = {}
+    by_slug: dict[str, str] = {}
+    for row in rows:
+        title = row.title
+        file_path = row.file_path
+        if not title or not file_path:
+            continue
+        slug = Path(file_path).stem
+        by_title.setdefault(title, slug)
+        by_lower.setdefault(title.lower(), slug)
+        by_slug.setdefault(_slugify(title), slug)
+
+    exclude_slug = Path(exclude_rel_path).stem
+    out: list[str] = []
+    seen: set[str] = set()
+    for pl in parsed:
+        target = pl.target
+        resolved = (
+            by_title.get(target) or by_lower.get(target.lower()) or by_slug.get(_slugify(target))
+        )
+        if not resolved or resolved == exclude_slug or resolved in seen:
+            continue
+        seen.add(resolved)
+        out.append(resolved)
+        if len(out) >= cap:
+            break
+    return out
+
+
 async def write_wiki_page(
     session: object | None,
     page: WikiPage,
@@ -1385,7 +1614,24 @@ async def write_wiki_page(
         if _identity_stem:
             slug = _slugify(_identity_stem)
     rel_path = f"wiki/{subdir}/{slug}.md"
-    abs_path = settings.vault_root / subdir_path(subdir) / f"{slug}.md"
+
+    # D5 (ADR-0067): entity canonicalisation. For type=entity ONLY, BEFORE committing to the
+    # naive-slug path, look up an existing LIVE entity whose CANONICAL key matches and redirect
+    # this write to it (reuse id + file_path; union sources + merge body via the seams below).
+    # EXACT-key match only — a fuzzy/embedding merge is a later Review-queue retrofit (never a
+    # silent merge; e.g. "Deloitte" vs "Deloitte Italia" stay distinct). Collapses
+    # "Amazon Web Services (AWS)" / "AWS" / "amazon web services inc." into one page.
+    if page.type is PageType.ENTITY:
+        _canonical = await _find_canonical_entity_page(page.title, exclude_rel_path=rel_path)
+        if _canonical is not None and _canonical.file_path:
+            logger.info(
+                "write_wiki_page: entity canonical merge — %r → existing %s (id=%s) [ADR-0067 D5]",
+                page.title,
+                _canonical.file_path,
+                _canonical.id,
+            )
+            rel_path = _canonical.file_path
+    abs_path = settings.vault_root / rel_path
 
     # Reuse the existing LIVE page's id when this slug already exists — e.g. the same entity is
     # (re-)generated from a second source, or the same source is re-ingested. persist_metadata
@@ -1446,17 +1692,14 @@ async def write_wiki_page(
             title=page.title,
             origin_source=origin_source,
         )
-    fm_dump = page.frontmatter.model_dump()
-    fm_dump["sources"] = sources
-    fm_dump["type"] = page_type  # serialize enum as its string value for Obsidian (I5)
     # K6 navigation tags (nashsu/llm_wiki parity): the WikiFrontmatter validator already
     # trimmed/lowercased/deduped/capped them. Serialize as an Obsidian-valid YAML list ONLY when
     # non-empty so pages without tags keep a clean, minimal frontmatter block (I5).
     tags = list(page.frontmatter.tags)
-    if tags:
-        fm_dump["tags"] = tags
-    else:
-        fm_dump.pop("tags", None)
+    # D2 (ADR-0067): `related` = SLUGS of live pages the (final, possibly-merged) body links to —
+    # a second F4 graph-edge seed. Resolvable slugs only (a ghost target is dropped), self
+    # excluded, capped at 8. Resolved against currently-live pages BEFORE this page is persisted.
+    related = await _resolve_related_slugs(body, exclude_rel_path=rel_path, cap=8)
     # created/updated (nashsu/llm_wiki parity) — date-only, Obsidian-friendly. `created` is
     # preserved across re-generation by reading the prior on-disk file (still the OLD bytes here,
     # since abs_path is overwritten below); `updated` always advances to today.
@@ -1473,10 +1716,29 @@ async def write_wiki_page(
                 rel_path,
                 _created_exc,
             )
-    fm_dump["created"] = _created
-    fm_dump["updated"] = _today
-    post = frontmatter.Post(body, **fm_dump)
-    serialized = frontmatter.dumps(post)
+    # D2 (ADR-0067): emit frontmatter in LLM Wiki BYTE-SHAPE + key order and DROP `sources`/`lang`
+    # from the .md (sort_keys=False). Provenance is preserved in Postgres — pages.sources is
+    # written below from `sources` (origin injected), which the graph source-overlap ×4 (F4) +
+    # cascade-delete (F13) read. This is EMISSION-ONLY: the WikiFrontmatter object + the DB write
+    # still carry sources/lang. Source pages additionally emit bibliographic keys when present.
+    _extra = page.frontmatter.model_dump()
+    ordered: dict[str, Any] = {
+        "type": page_type,  # serialize enum as its string value for Obsidian (I5)
+        "title": page.frontmatter.title,
+        "created": _created,
+        "updated": _today,
+    }
+    if tags:
+        ordered["tags"] = tags
+    if related:
+        ordered["related"] = related
+    if page.type is PageType.SOURCE:
+        for _bib_key in ("authors", "year", "url", "venue"):
+            _bib_val = _extra.get(_bib_key)
+            if _bib_val not in (None, "", [], {}):
+                ordered[_bib_key] = _bib_val
+    post = frontmatter.Post(body, **ordered)
+    serialized = frontmatter.dumps(post, sort_keys=False)
     # content_hash MUST hash the exact bytes written to disk (serialized + trailing newline), NOT
     # `serialized` alone — otherwise the stored hash never matches the file and every on-disk hash
     # comparison (GET/PUT /pages/{id}/content optimistic-lock, ADR-0035) sees a spurious mismatch.
@@ -1634,6 +1896,8 @@ async def apply_domain_tags(page: Page, new_tags: list[str]) -> None:
     fm_block, body = _split_frontmatter(text)
 
     # Parse the whole file so python-frontmatter round-trips every key; set tags authoritatively.
+    # NOTE: callers pass the ALREADY-MERGED list (merge_domain_tags(page.tags, classified)), which
+    # preserves non-domain keyword/nav tags (e.g. the overview's F3 tag cloud) + the domain/* set.
     post = frontmatter.loads(text)
     cleaned = [t for t in new_tags if t]
     if cleaned:
@@ -2061,7 +2325,7 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
             return
 
         # ── OVERWRITE overview.md with valid frontmatter (I5) + index it ────────────
-        await _write_and_index_overview(narrative)
+        await _write_and_index_overview(narrative, lang=overview_lang)
     except Exception as exc:  # noqa: BLE001
         # Belt-and-braces: never let overview maintenance fail an ingest (I7).
         logger.warning(
@@ -2245,7 +2509,10 @@ def _build_overview_instruction(
         "and the key context a reader needs before diving in.\n\n"
         "STYLE — write a flowing, DISCURSIVE narrative, like a well-written encyclopedia "
         "overview essay (NOT a bulleted index):\n"
-        "  - Open with a short paragraph on what this wiki covers and why.\n"
+        "  - Open the body with a short paragraph on what this wiki covers and why, and BEGIN "
+        "that first paragraph with a BOLDED thesis anchor: write `**Central thesis**:` (or its "
+        "translation in the output language — e.g. `**Tesi centrale**:` for Italian) immediately "
+        "followed by ONE sentence stating the wiki's core thesis/angle, then continue the prose.\n"
         "  - Organize the rest into a few thematic paragraphs; you MAY put a short `## Heading` "
         "before each major theme, but the body of each theme MUST be PROSE, not a list.\n"
         "  - Weave the [[wikilinks]] INLINE into full sentences — explain how pages relate and "
@@ -2261,7 +2528,14 @@ def _build_overview_instruction(
         "(for an Italian wiki, e.g. '# Procurement Analytics Wiki — Visione Progettuale "
         "Integrata (Luglio 2026)'). Put a blank line after the title, then the body.\n"
         "Do NOT output YAML frontmatter or any preamble like 'Here is' — output the single `# ` "
-        "title line followed by ONLY the Markdown body.\n\n"
+        "title line followed by the Markdown body.\n\n"
+        "AFTER the body, on the VERY LAST line, output a tag cloud exactly in this form:\n"
+        "`TAGS: keyword-one, keyword-two, keyword-three, ...`\n"
+        "List 40-120 SHORT lowercase hyphenated topic keywords that capture the wiki's themes — "
+        "the key domains, regulations, standards, technologies, processes and concepts a reader "
+        "would filter by (e.g. `procurement, licensing-governance, sla-maturity, dora, nis2, "
+        "gdpr, iso-27001, cost-accounting`). Keywords only (no page titles, no sentences); this "
+        "single `TAGS:` line is the ONLY exception to the no-frontmatter rule.\n\n"
         f"# Wiki purpose\n{purpose_block}\n\n"
         f"# Existing pages (title [type])\n{existing_digest}\n\n"
         f"# Most recent ingest analysis\n{analysis_block}\n"
@@ -2316,30 +2590,175 @@ def _extract_overview_title(narrative: str) -> tuple[str, str]:
     return candidate, body
 
 
-async def _write_and_index_overview(narrative: str) -> None:
+# Max keyword tags kept on the overview (ADR-0067 D6/P2-5 — LLM Wiki's overview carries a
+# ~129-keyword tag cloud; the prompt asks for 40-120, this caps the parse for sanity, I7).
+_OVERVIEW_MAX_TAGS = 130
+
+
+def _slugify_tag(raw: str) -> str:
+    """Normalise one keyword to a short lowercase hyphenated tag (llm_wiki tag-cloud style)."""
+    s = raw.strip().lower().strip("#").strip()
+    s = re.sub(r"[^\w\s-]", "", s)  # drop punctuation except hyphen/underscore
+    s = re.sub(r"[\s_]+", "-", s).strip("-")
+    return s
+
+
+def _extract_overview_keyword_tags(body: str) -> tuple[list[str], str]:
+    """
+    Pull the trailing ``TAGS: kw1, kw2, ...`` line the overview prompt asks for (F3 tag cloud,
+    current llm_wiki parity) out of the narrative body.
+
+    Returns (tags, body_without_the_tags_line). The line is matched case-insensitively on the LAST
+    non-empty line; keywords are slugified, de-duplicated (order-preserving), and capped. If no
+    TAGS line is present (older prompt / degraded model) → ([], body) — always degrade-safe.
+    """
+    lines = (body or "").rstrip().splitlines()
+    idx = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip():
+            if re.match(r"^\s*tags\s*:", lines[i], re.IGNORECASE):
+                idx = i
+            break  # only consider the LAST non-empty line
+    if idx is None:
+        return [], body
+    raw = re.sub(r"^\s*tags\s*:", "", lines[idx], flags=re.IGNORECASE)
+    seen: set[str] = set()
+    tags: list[str] = []
+    for tok in raw.split(","):
+        slug = _slugify_tag(tok)
+        if slug and slug not in seen:
+            seen.add(slug)
+            tags.append(slug)
+        if len(tags) >= _OVERVIEW_MAX_TAGS:
+            break
+    new_body = "\n".join(lines[:idx]).rstrip() + "\n"
+    return tags, new_body
+
+
+async def _write_and_index_overview(narrative: str, *, lang: str | None = None) -> None:
     """
     OVERWRITE vault/wiki/overview.md with valid frontmatter (I5) + index it as a Page (I1).
 
-    Frontmatter: type: overview, title: <descriptive title from the narrative H1, else
-    overview_title> (v1.3.14, F3 parity). The file is rebuilt from scratch (full
-    overwrite — F3 regeneration). Then a Page row is upserted via persist_metadata (key by
-    (vault_id, file_path), hash over the exact file bytes) and embedded via upsert_vector so
-    GET /pages returns it and the nav Overview section shows count 1.
+    Frontmatter (ADR-0067 D6/P2-5 — LLM Wiki 1:1 overview meta page): emitted in the SAME
+    key order the D2 generated-page serializer uses — `type, title, created, updated, tags,
+    related` — plus a `sources` key. `related`/`sources` are EMPTY lists (the overview is a
+    meta page: ADR-0067 D2 permits `sources: []` here, and it carries no outbound wikilink
+    seed). `created` is PRESERVED across regenerations (read from the prior on-disk file);
+    `updated` always advances to today. `lang`/non-empty `sources` are NOT emitted (D2). The
+    file is rebuilt from scratch (full overwrite — F3 regeneration), then a Page row is upserted
+    via persist_metadata (key by (vault_id, file_path), hash over the exact file bytes) and
+    embedded via upsert_vector so GET /pages returns it and the nav Overview section shows 1.
+
+    Open-Questions closing block (ADR-0067 D6/P1-1): a DETERMINISTIC (no LLM) `## Open Questions`
+    / `## Domande Aperte` numbered list of live `type=query` page wikilinks is appended AFTER the
+    LLM body (idempotent — the same query set yields the same block; omitted when zero queries).
     """
     title, body = _extract_overview_title(narrative)
-    post = frontmatter.Post(body, type="overview", title=title)
-    serialized = frontmatter.dumps(post)
-    file_text = serialized + "\n"
+    # F3 tag cloud (current llm_wiki parity): pull the trailing `TAGS:` line into frontmatter tags.
+    keyword_tags, body = _extract_overview_keyword_tags(body)
+
+    # ── Open-Questions closing block (deterministic — no LLM, I1/K3, ADR-0067 D6/P1-1) ──
+    open_questions = await _build_open_questions_block(lang)
+    if open_questions:
+        body = body.rstrip() + "\n\n" + open_questions + "\n"
 
     overview_path = settings.wiki_dir / "overview.md"
+    # created/updated (LLM Wiki parity): preserve `created` from the prior on-disk overview so it
+    # is STABLE across regenerations; `updated` always advances to today. Mirrors write_wiki_page.
+    _today = datetime.now(UTC).strftime("%Y-%m-%d")
+    _created = _today
+    if overview_path.exists():
+        try:
+            _prior_created = frontmatter.load(str(overview_path)).metadata.get("created")
+            if _prior_created:
+                _created = str(_prior_created)
+        except Exception as _created_exc:  # noqa: BLE001 — best-effort; fall back to today
+            logger.debug(
+                "_write_and_index_overview: could not read prior 'created': %s", _created_exc
+            )
+
+    # D2 key order (type, title, created, updated, tags, related) + empty related/sources for the
+    # meta page. sort_keys=False so the on-disk order matches the D2 generated-page serializer.
+    ordered: dict[str, Any] = {
+        "type": "overview",
+        "title": title,
+        "created": _created,
+        "updated": _today,
+    }
+    if keyword_tags:
+        ordered["tags"] = keyword_tags
+    ordered["related"] = []
+    ordered["sources"] = []
+    post = frontmatter.Post(body, **ordered)
+    serialized = frontmatter.dumps(post, sort_keys=False)
+    file_text = serialized + "\n"
+
     overview_path.parent.mkdir(parents=True, exist_ok=True)
     overview_path.write_text(file_text, encoding="utf-8")
 
-    await _index_overview_file(file_text, title)
-    logger.info("_update_overview: regenerated + indexed overview.md (title=%r)", title)
+    await _index_overview_file(file_text, title, keyword_tags or None)
+    logger.info(
+        "_update_overview: regenerated + indexed overview.md (title=%r, %d tags, open_q=%s)",
+        title,
+        len(keyword_tags),
+        bool(open_questions),
+    )
 
 
-async def _index_overview_file(file_text: str, title: str) -> None:
+# Max live `type=query` pages listed in the overview Open-Questions block (ADR-0067 D6/P1-1;
+# bounded indexed read — I1/I7). Newest-first, deterministic (idempotent regen).
+_OVERVIEW_OPEN_QUESTIONS_MAX = 30
+
+
+async def _build_open_questions_block(lang: str | None) -> str:
+    """
+    Build the DETERMINISTIC `## Open Questions` closing block for the overview (ADR-0067 D6/P1-1,
+    LLM Wiki `## Tensioni Irrisolte … — N Query Aperte` parity). NO LLM call.
+
+    Content: a numbered list of `[[Title]]` wikilinks to the vault's live `type=query` pages,
+    from a BOUNDED indexed DB query (I1 — no vault re-scan), newest-first, capped at
+    ``_OVERVIEW_OPEN_QUESTIONS_MAX``. Ordering is (created_at DESC, title ASC) so regenerating
+    with the same query set yields a BYTE-IDENTICAL block (idempotent — K3/I1).
+
+    Localised by the overview output language: an Italian overview gets `## Domande Aperte`,
+    every other language gets `## Open Questions`. Returns "" (block omitted) when zero live
+    query pages exist, so a vault without open questions carries no empty section.
+    """
+    from sqlalchemy import select
+
+    try:
+        async with get_session() as session:
+            rows = list(
+                (
+                    await session.execute(
+                        select(Page.title)
+                        .where(
+                            Page.vault_id == settings.vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.page_type == "query",
+                            Page.title.isnot(None),
+                        )
+                        .order_by(Page.created_at.desc(), Page.title.asc())
+                        .limit(_OVERVIEW_OPEN_QUESTIONS_MAX)
+                    )
+                ).all()
+            )
+    except Exception as exc:  # noqa: BLE001 — best-effort; never fail overview on the query
+        logger.debug("_build_open_questions_block: query-page read failed (non-fatal): %s", exc)
+        return ""
+
+    titles = [(t or "").strip() for (t,) in rows if (t or "").strip()]
+    if not titles:
+        return ""
+
+    heading = "## Domande Aperte" if (lang or "").lower().startswith("it") else "## Open Questions"
+    lines = [heading, ""]
+    for i, t in enumerate(titles, start=1):
+        lines.append(f"{i}. [[{t}]]")
+    return "\n".join(lines)
+
+
+async def _index_overview_file(file_text: str, title: str, tags: list[str] | None = None) -> None:
     """
     Upsert the Page row for wiki/overview.md (type="overview") from the given file bytes (I1).
 
@@ -2369,7 +2788,7 @@ async def _index_overview_file(file_text: str, title: str) -> None:
         title=title,
         page_type="overview",
         sources=None,
-        tags=None,
+        tags=tags,
         content_hash=_sha256(file_bytes),
         source_mtime_ns=0,
     )

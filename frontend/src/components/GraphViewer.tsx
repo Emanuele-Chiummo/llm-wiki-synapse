@@ -2268,8 +2268,45 @@ export const GraphViewer: React.FC = () => {
   }, [regenerating, vaultId, setGraph, setError, t]);
 
   // ── Fetch graph on mount / vaultId change ────────────────────────────────
+  //
+  // P2 — skip redundant fetch when the Zustand store already holds current data.
+  //
+  // On a REVISIT (navigate away → navigate back), the component unmounts/remounts
+  // but the graphStore retains its nodes + dataVersion from the previous fetch.
+  // If the store's dataVersion matches the latest statusDataVersion (from the
+  // ActivityBar's existing /status poll), the data is already current and we can
+  // rebuild sigma directly from the store without a network round-trip.
+  //
+  // Guards:
+  //  - storeNodes.length > 0        : store actually has data (not first load)
+  //  - storeDataVersion !== null     : store knows its version
+  //  - currentStatusVersion !== null : status store has polled at least once
+  //  - versions match                : data is confirmed current
+  //
+  // Read store state imperatively via .getState() — this avoids adding reactive
+  // deps to the effect and keeps I3 clean (no extra subscriptions).
+  //
+  // INVARIANT I2: no layout algorithm invoked — sigma rebuilds from precomputed
+  // server coords stored in the Zustand nodes array (unchanged).
 
   useEffect(() => {
+    // P2: cache-hit check — skip fetch when store data is already at the current version.
+    const { nodes: storeNodes, dataVersion: storeDataVersion } = useGraphStore.getState();
+    const currentStatusVersion = useStatusStore.getState().dataVersion;
+
+    if (
+      storeNodes.length > 0 &&
+      storeDataVersion !== null &&
+      currentStatusVersion !== null &&
+      storeDataVersion === currentStatusVersion
+    ) {
+      // Store data is current. Sigma will rebuild from the existing nodes array.
+      // Initialise the WS-A ref so a same-version status tick doesn't trigger a
+      // redundant re-fetch via the WS-A effect below (AC-WS-A-3).
+      lastFetchedGraphVersionRef.current = storeDataVersion;
+      return; // no AbortController cleanup needed
+    }
+
     const ctrl = new AbortController();
     setLoading(true);
 

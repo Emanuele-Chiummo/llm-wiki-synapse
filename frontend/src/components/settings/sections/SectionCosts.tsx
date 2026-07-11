@@ -8,6 +8,14 @@ import { useTranslation } from "react-i18next";
 import { SectionHeader, INPUT_STYLE, BTN_PRIMARY } from "../ui";
 import { fetchCostsSummary, type CostsSummary } from "../../../api/costsClient";
 
+// LLM Wiki card style — bordered surface card (brand colors only, never black).
+const COST_CARD: React.CSSProperties = {
+  border: "1px solid var(--syn-border)",
+  borderRadius: 10,
+  background: "var(--syn-surface)",
+  padding: "14px 16px",
+};
+
 export function SectionCosts() {
   const { t } = useTranslation();
   const [data, setData] = useState<CostsSummary | null>(null);
@@ -90,7 +98,7 @@ export function SectionCosts() {
       {data !== null && (
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-          <div>
+          <div style={COST_CARD}>
             {data.threshold_alert && (
               <div data-testid="costs-threshold-alert" style={{ marginBottom: 12, padding: "8px 12px", background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 6, fontSize: 12, color: "var(--syn-red)", fontWeight: 600 }} role="alert">
                 {t("settings.costs.thresholdAlert", { threshold: data.threshold_usd.toFixed(2) })}
@@ -107,7 +115,7 @@ export function SectionCosts() {
           </div>
 
           {data.by_day.length > 0 && (
-            <div>
+            <div style={COST_CARD}>
               <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {t("settings.costs.byDay")}
               </p>
@@ -116,7 +124,7 @@ export function SectionCosts() {
           )}
 
           {data.by_provider.length > 0 && (
-            <div>
+            <div style={COST_CARD}>
               <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {t("settings.costs.byProvider")}
               </p>
@@ -145,7 +153,7 @@ export function SectionCosts() {
           )}
 
           {data.by_operation.length > 0 && (
-            <div>
+            <div style={COST_CARD}>
               <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
                 {t("settings.costs.byOperation")}
               </p>

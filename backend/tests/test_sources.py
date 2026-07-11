@@ -1838,3 +1838,49 @@ class TestWikiRoot:
         data = resp.json()
         assert data["entries"] == []
         assert data["total"] == 0
+
+
+class TestVaultRoot:
+    """v1.5 P1 (ADR-0066): root='vault' lists/previews the WHOLE vault (llm_wiki Files-tab)."""
+
+    async def test_vault_root_lists_whole_tree(
+        self, src_client: AsyncClient, src_env: dict[str, Any]
+    ) -> None:
+        """root='vault' returns raw/ + wiki/ + purpose.md + schema.md; prunes .obsidian."""
+        vault_root = src_env["vault_root"]
+        (vault_root / "purpose.md").write_text("# Purpose\n", encoding="utf-8")
+        (vault_root / "schema.md").write_text("# Schema\n", encoding="utf-8")
+
+        resp = await src_client.get("/sources", params={"root": "vault"})
+        assert resp.status_code == 200, resp.text
+        paths = {e["path"] for e in resp.json()["entries"]}
+        # Top-level structure + meta files
+        assert {"raw", "wiki", "purpose.md", "schema.md"} <= paths
+        # Nested entries from BOTH trees (relative to the vault root)
+        assert "raw/sources" in paths
+        assert "raw/sources/note.md" in paths
+        assert "wiki/log.md" in paths
+        # .obsidian internals are pruned (I5)
+        assert not any(p == "wiki/.obsidian" or p.startswith("wiki/.obsidian/") for p in paths)
+
+    async def test_vault_root_previews_wiki_file(self, src_client: AsyncClient) -> None:
+        """A wiki file is previewable through the vault root (vault-relative path)."""
+        resp = await src_client.get(
+            "/sources/content", params={"root": "vault", "path": "wiki/log.md"}
+        )
+        assert resp.status_code == 200, resp.text
+        assert "Synapse Ingest Log" in resp.text
+
+    async def test_vault_root_rejects_hidden(self, src_client: AsyncClient) -> None:
+        """Hidden entries (.obsidian) are 404 through the vault root, like the wiki root."""
+        resp = await src_client.get(
+            "/sources/content", params={"root": "vault", "path": "wiki/.obsidian/app.json"}
+        )
+        assert resp.status_code == 404
+
+    async def test_vault_root_rejects_traversal(self, src_client: AsyncClient) -> None:
+        """Path traversal out of the vault root is 404 (containment guard)."""
+        resp = await src_client.get(
+            "/sources/content", params={"root": "vault", "path": "../../etc/passwd"}
+        )
+        assert resp.status_code == 404

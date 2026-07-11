@@ -48,16 +48,31 @@ const mockSetTheme = vi.fn();
 vi.mock("../store/settingsStore", () => ({
   useSettingsStore: (selector: (s: unknown) => unknown) =>
     selector({
+      // Committed values
       contextWindowTokens: 32768,
       conversationHistoryLength: 10,
       language: "en",
       theme: "system",
+      // Draft values (equal to committed → isDirty = false → footer hidden)
+      draftContextWindowTokens: 32768,
+      draftConversationHistoryLength: 10,
+      draftLanguage: "en",
+      draftTheme: "system",
+      // Existing committed setters
       setContextWindow: vi.fn(),
       setConversationHistoryLength: vi.fn(),
       setLanguage: vi.fn(),
       setTheme: mockSetTheme,
       reset: vi.fn(),
+      // Draft setters
+      setDraftContextWindow: vi.fn(),
+      setDraftConversationHistoryLength: vi.fn(),
+      setDraftLanguage: vi.fn(),
+      setDraftTheme: vi.fn(),
+      commitDraft: vi.fn(),
+      discardDraft: vi.fn(),
     }),
+  // Existing committed selectors (kept for backward-compat with any code still using them)
   selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
   selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
     s.conversationHistoryLength,
@@ -69,6 +84,30 @@ vi.mock("../store/settingsStore", () => ({
   selectSetLanguage: (s: { setLanguage: unknown }) => s.setLanguage,
   selectSetTheme: (s: { setTheme: unknown }) => s.setTheme,
   selectResetSettings: (s: { reset: unknown }) => s.reset,
+  // Draft selectors
+  selectDraftContextWindow: (s: { draftContextWindowTokens: number }) => s.draftContextWindowTokens,
+  selectDraftConversationHistoryLength: (s: { draftConversationHistoryLength: number }) =>
+    s.draftConversationHistoryLength,
+  selectDraftLanguage: (s: { draftLanguage: string }) => s.draftLanguage,
+  selectDraftTheme: (s: { draftTheme: string }) => s.draftTheme,
+  selectSetDraftContextWindow: (s: { setDraftContextWindow: unknown }) => s.setDraftContextWindow,
+  selectSetDraftConversationHistoryLength: (s: { setDraftConversationHistoryLength: unknown }) =>
+    s.setDraftConversationHistoryLength,
+  selectSetDraftLanguage: (s: { setDraftLanguage: unknown }) => s.setDraftLanguage,
+  selectSetDraftTheme: (s: { setDraftTheme: unknown }) => s.setDraftTheme,
+  selectCommitDraft: (s: { commitDraft: unknown }) => s.commitDraft,
+  selectDiscardDraft: (s: { discardDraft: unknown }) => s.discardDraft,
+  // isDirty: false in mock (draft === committed for all fields)
+  selectIsDirty: (s: {
+    draftTheme: string; theme: string;
+    draftLanguage: string; language: string;
+    draftConversationHistoryLength: number; conversationHistoryLength: number;
+    draftContextWindowTokens: number; contextWindowTokens: number;
+  }) =>
+    s.draftTheme !== s.theme ||
+    s.draftLanguage !== s.language ||
+    s.draftConversationHistoryLength !== s.conversationHistoryLength ||
+    s.draftContextWindowTokens !== s.contextWindowTokens,
   CONTEXT_WINDOW_OPTIONS: [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576],
   CONV_HISTORY_OPTIONS: [2, 4, 6, 8, 10, 20],
   computeBudgetSplit: (tokens: number) => ({
@@ -312,6 +351,25 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       max_queries: 3,
       source: "db",
     }),
+    // ADR-0071 — web-search cloud provider API-key posture (masked)
+    fetchWebSearchProviderKeys: vi.fn().mockResolvedValue({
+      secrets_available: true,
+      providers: {
+        tavily: { configured: false, source: "none" },
+        serpapi: { configured: false, source: "none" },
+        firecrawl: { configured: false, source: "none" },
+        brave: { configured: false, source: "none" },
+      },
+    }),
+    setWebSearchProviderKey: vi.fn().mockResolvedValue({
+      secrets_available: true,
+      providers: {
+        tavily: { configured: true, source: "db" },
+        serpapi: { configured: false, source: "none" },
+        firecrawl: { configured: false, source: "none" },
+        brave: { configured: false, source: "none" },
+      },
+    }),
     // ADR-0043 — CLI Auth default: token configured (db), auth_mode=subscription
     getCliAuthConfig: vi.fn().mockResolvedValue({
       token_configured: true,
@@ -392,6 +450,7 @@ const EXPECTED_PAGE_IDS = [
   "sourceWatch",
   "clipper",
   "pdf",
+  "imageCaptioning",
   "generation",
   "scenarios",
   "context",
@@ -416,11 +475,11 @@ describe("SettingsPanel — 19 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / A
     renderPanel();
   });
 
-  it("renders exactly 19 page buttons in the left nav aside (AC-R11-2-11)", () => {
+  it("renders exactly 20 page buttons in the left nav aside (AC-R11-2-11)", () => {
     const aside = document.querySelector("aside");
     expect(aside).not.toBeNull();
     const buttons = aside!.querySelectorAll("button");
-    expect(buttons).toHaveLength(19);
+    expect(buttons).toHaveLength(20);
   });
 
   EXPECTED_PAGE_IDS.forEach((pageId) => {
@@ -662,11 +721,11 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("ArrowDown cycles past 'about' (last, index 18) back to 'providers' (first, index 0)", () => {
+  it("ArrowDown cycles past 'about' (last, index 19) back to 'providers' (first, index 0)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
-    // Navigate to "about" (index 18) — 18 ArrowDown presses from "providers"
-    for (let i = 0; i < 18; i++) {
+    // Navigate to "about" (index 19) — 19 ArrowDown presses from "providers"
+    for (let i = 0; i < 19; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
     expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
@@ -1748,10 +1807,53 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     });
   });
 
-  it("shows SearXNG-only note (I9) on the web search section", async () => {
+  it("renders the provider selector with SearXNG selected by default (ADR-0070)", async () => {
     await navigateToWebSearchAndWait();
-    // i18n mock: "settings.webSearch.searxngOnly" → "searxngOnly"
-    expect(screen.getByText("searxngOnly")).toBeTruthy();
+    const searxngBtn = screen.getByTestId("web-search-provider-searxng");
+    expect(searxngBtn).toBeTruthy();
+    // No web_search_provider override in the appConfig mock ⇒ SearXNG is the default selection.
+    expect(searxngBtn.getAttribute("aria-checked")).toBe("true");
+    // The four cloud providers are offered as opt-in alternatives (ADR-0066).
+    expect(screen.getByTestId("web-search-provider-tavily")).toBeTruthy();
+    expect(screen.getByTestId("web-search-provider-brave")).toBeTruthy();
+  });
+
+  it("selecting a cloud provider persists web_search_provider and shows the amber warning", async () => {
+    const { putAppConfig } = await import("../api/appConfigClient");
+    (putAppConfig as ReturnType<typeof vi.fn>).mockClear();
+    await navigateToWebSearchAndWait();
+
+    fireEvent.click(screen.getByTestId("web-search-provider-tavily"));
+
+    await waitFor(() => {
+      expect(putAppConfig).toHaveBeenCalledWith("web_search_provider", "tavily");
+    });
+    // Amber opt-in warning appears for cloud backends (I9); SearXNG fields hide.
+    expect(screen.getByTestId("web-search-provider-cloud-warning")).toBeTruthy();
+  });
+
+  it("shows an API-key field for a cloud provider and saves the key (ADR-0071)", async () => {
+    const { setWebSearchProviderKey } = await import("../api/providerClient");
+    (setWebSearchProviderKey as ReturnType<typeof vi.fn>).mockClear();
+    await navigateToWebSearchAndWait();
+
+    fireEvent.click(screen.getByTestId("web-search-provider-tavily"));
+
+    // The encrypted-key entry field appears for the selected cloud provider.
+    await waitFor(() => {
+      expect(screen.getByTestId("web-search-provider-key")).toBeTruthy();
+    });
+    const input = screen.getByTestId("web-search-key-input") as HTMLInputElement;
+    expect(input.type).toBe("password"); // secret is masked by default
+    fireEvent.change(input, { target: { value: "tvly-secret-123" } });
+    fireEvent.click(screen.getByTestId("web-search-key-save"));
+
+    await waitFor(() => {
+      expect(setWebSearchProviderKey).toHaveBeenCalledWith({
+        provider: "tavily",
+        key: "tvly-secret-123",
+      });
+    });
   });
 });
 

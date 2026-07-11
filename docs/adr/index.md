@@ -116,6 +116,14 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0056** | [Bounded watcher ingest concurrency (`INGEST_MAX_CONCURRENCY`, default 3) — prevents bulk-drop flood of DB pool / embedding host / RAM (I7, v1.2)](ADR-0056-ingest-concurrency-cap.md) | Accepted |
 | **0057** | [Responsive strategy for iPhone/iPad: 3 viewport tiers (767/1023), `useViewport()` hook, PanelDrawer + `uiStore`, iOS safe-area/`100dvh` (R13-11, v1.3)](ADR-0057-responsive-mobile-tablet.md) | Accepted |
 | **0063** | [Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)](ADR-0063-ingest-quality-parity.md) | Accepted |
+| **0064** | [Missing-page fan-out (F9 review suggestions)](ADR-0064-missing-page-fanout.md) | Accepted |
+| **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](ADR-0065-marker-large-pdf-chunking.md) | Accepted |
+| **0066** | [LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope](ADR-0066-llmwiki-1to1-parity-program.md) | Accepted |
+| **0067** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change](ADR-0067-multi-vault-project-launcher.md) | Accepted |
+| **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](ADR-0068-source-watch-wider-types.md) | Accepted |
+| **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](ADR-0069-mineru-cloud-pdf-extractor.md) | Accepted |
+| **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](ADR-0070-multi-provider-web-search.md) | Accepted |
+| **0071** | [UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env](ADR-0071-web-search-provider-keys-ui.md) | Accepted |
 
 ---
 

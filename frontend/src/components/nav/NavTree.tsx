@@ -33,6 +33,7 @@ import {
   Plus,
   FolderKey,
   FileText,
+  X,
 } from "lucide-react";
 import {
   useGraphStore,
@@ -350,8 +351,8 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const toggleGroup = useGraphStore(selectToggleGroup);
   const collapsed = useTreeCollapsed(); // shallow equality
 
-  // Data hook (WS-D8: now also returns metaFiles)
-  const { rows, loading, error, refresh } = useNavTreeData(vaultId, collapsed);
+  // Data hook (WS-D8: now also returns metaFiles; NavFilter: filterLabel + clearFilter)
+  const { rows, loading, error, refresh, filterLabel, clearFilter } = useNavTreeData(vaultId, collapsed);
 
   // New page modal state (R7-2)
   const [showNewPageModal, setShowNewPageModal] = useState(false);
@@ -497,6 +498,55 @@ export function NavTree({ vaultId }: NavTreeProps) {
           </button>
         </div>
 
+        {/* ── Active filter banner (NavFilter — dismissible) ── */}
+        {filterLabel !== null && (
+          <div
+            data-testid="nav-tree-filter-banner"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 8px",
+              background: "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-bg-soft) 90%)",
+              borderBottom: "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                flex: 1,
+                fontSize: 10,
+                color: "var(--syn-text-muted)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("navTree.filterBanner", { label: filterLabel })}
+            </span>
+            <button
+              type="button"
+              data-testid="nav-tree-filter-clear"
+              onClick={clearFilter}
+              title={t("navTree.clearFilter")}
+              aria-label={t("navTree.clearFilter")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                padding: 2,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "var(--syn-text-dim)",
+                borderRadius: 3,
+                flexShrink: 0,
+              }}
+            >
+              <X size={11} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
         <div
           ref={scrollRef}
           className="nav-tree__scroll"
@@ -569,10 +619,15 @@ export function NavTree({ vaultId }: NavTreeProps) {
         />
       )}
 
-      {/* WS-D8: meta file drawer — reads schema.md / purpose.md read-only */}
+      {/* WS-D8 + v1.5 P1: meta file drawer — reads AND edits schema.md / purpose.md */}
       <MetaFileView
         file={openMetaFile}
         onClose={() => setOpenMetaFile(null)}
+        onSaved={(updated) => {
+          // Reflect the saved content in the open drawer + refresh the tree cache.
+          setOpenMetaFile(updated);
+          void refresh();
+        }}
       />
     </>
   );

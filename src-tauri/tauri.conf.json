@@ -1,6 +1,6 @@
 {
   "productName": "Synapse",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "identifier": "ai.synapse.app",
   "build": {
     "beforeBuildCommand": "npm --prefix ../frontend run build",

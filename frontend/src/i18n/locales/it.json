@@ -15,6 +15,7 @@
     "toolsGroup": "Strumenti",
     "convert": "Converti",
     "settings": "Opzioni",
+    "projects": "Progetti",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
     "comingSoon": "Prossimamente",
@@ -181,6 +182,7 @@
       "sourceWatch2": "Sorgenti osservate",
       "clipper": "Web clipper",
       "pdf": "Estrazione PDF",
+      "imageCaptioning": "Didascalie immagini",
       "apiMcp2": "Integrazioni MCP",
       "security2": "Sicurezza e accesso",
       "costs2": "Costi",
@@ -413,9 +415,23 @@
       "copied": "Copiato!"
     },
     "webSearch": {
-      "desc": "SearXNG è l'unico backend di ricerca web supportato (I9). Usato da Ricerca Profonda per recuperare fonti. Configura URL e categorie qui.",
+      "desc": "Scegli il backend di ricerca web usato da Ricerca Profonda e dalla ricerca web in chat. SearXNG è il backend predefinito e rispettoso della privacy; gli altri sono opt-in.",
       "loading": "Caricamento configurazione ricerca web…",
       "error": "Impossibile caricare la configurazione ricerca web. Il backend è in esecuzione?",
+      "providerLabel": "Provider di ricerca web",
+      "providerHelp": "SearXNG (self-hosted) è il predefinito e mantiene le query sulla tua rete. I backend cloud sono opt-in e richiedono la relativa API key nell'ambiente del server.",
+      "provider": {
+        "searxng": "SearXNG",
+        "tavily": "Tavily",
+        "serpapi": "SerpApi",
+        "firecrawl": "Firecrawl",
+        "brave": "Brave Search",
+        "ollama_web": "Ollama Web"
+      },
+      "providerDefaultBadge": "Predefinito · rispettoso della privacy",
+      "providerCloudBadge": "Cloud · opt-in · richiede API key",
+      "providerLocalBadge": "Locale · opt-in",
+      "cloudWarning": "Questo è un provider di ricerca cloud di terze parti: le tue query di ricerca vengono inviate a un servizio esterno. Funziona solo quando la relativa API key è impostata nell'ambiente del server (TAVILY_API_KEY / SERPAPI_API_KEY / FIRECRAWL_API_KEY / BRAVE_API_KEY).",
       "configuredBadge": "Configurato",
       "notConfiguredBadge": "Non configurato",
       "sourceBadge": "Sorgente: {{source}}",
@@ -433,7 +449,14 @@
       "maxQueriesSave": "Salva",
       "clearButton": "Cancella tutti i valori DB",
       "clearHelp": "Torna alla variabile d'ambiente SEARXNG_URL e ai valori predefiniti del codice.",
-      "searxngOnly": "Solo SearXNG è supportato come backend di ricerca web. Nessun altro provider può essere configurato qui (I9)."
+      "apiKeyLabel": "Chiave API",
+      "apiKeyConfigured": "Configurata ({{source}})",
+      "apiKeyNotConfigured": "Non configurata",
+      "apiKeyPlaceholder": "Incolla la chiave API del provider…",
+      "apiKeySave": "Salva chiave",
+      "apiKeyClear": "Rimuovi",
+      "apiKeyHint": "Salvata cifrata a riposo (Fernet). La chiave salvata ha priorità sulla variabile d'ambiente {PROVIDER}_API_KEY.",
+      "apiKeyNoSecret": "Imposta SYNAPSE_SECRET_KEY nell'ambiente del server per salvare le chiavi dalla UI, oppure fornisci la chiave con la variabile {PROVIDER}_API_KEY."
     },
     "cliAuth": {
       "title": "Autenticazione abbonamento CLI",
@@ -479,6 +502,18 @@
       "freq1h": "Ogni ora",
       "freq6h": "Ogni 6 ore",
       "freqDaily": "Giornaliero",
+      "allowedTypes": "Tipi di file importabili",
+      "allowedTypesHint": "Vengono importati solo i tipi selezionati. I formati binari/documento sono convertiti in testo all'import.",
+      "typeGroupText": "Testo / Markdown",
+      "typeGroupDocs": "Documenti",
+      "typeGroupSheets": "Fogli di calcolo",
+      "typeGroupSlides": "Presentazioni",
+      "typeGroupWeb": "Web",
+      "excludedFolders": "Cartelle escluse",
+      "excludedFoldersHint": "Nomi di cartelle separati da virgola da saltare durante la scansione (es. node_modules, .git).",
+      "maxSize": "Dimensione massima file",
+      "maxSizeUnit": "MB (0 = nessun limite)",
+      "maxSizeHint": "I file più grandi vengono saltati. 0 significa nessun limite di dimensione.",
       "lastRun": "Ultima esecuzione",
       "imported": "importate",
       "runNow": "Esegui ora",
@@ -576,6 +611,10 @@
       "totalUsd": "Totale (USD)",
       "callCount": "Chiamate",
       "noData": "Nessun dato di costo per questo periodo."
+    },
+    "footer": {
+      "save": "Salva modifiche",
+      "discard": "Annulla"
     }
   },
   "chat": {
@@ -643,7 +682,13 @@
     },
     "imageTooLarge": "L'immagine \"{{name}}\" supera il limite di {{maxMb}} MB",
     "tooManyImages": "Massimo {{max}} immagini per messaggio",
-    "webSources": "FONTI WEB"
+    "webSources": "FONTI WEB",
+    "skills": "Skills",
+    "skillsOn": "Skills attivo — clicca per disattivare",
+    "skillsOff": "Skills disattivo — clicca per attivare",
+    "anytxt": "AnyTXT",
+    "anytxtOn": "AnyTXT attivo — clicca per disattivare",
+    "anytxtOff": "AnyTXT disattivo — richiede AnyTXT Searcher in esecuzione (solo Windows)"
   },
   "research": {
     "title": "Ricerca Profonda",
@@ -1009,6 +1054,7 @@
     "title": "Sorgenti",
     "tabSources": "Sorgenti",
     "tabWiki": "Wiki",
+    "tabVault": "Vault",
     "wikiReadOnly": "Sola lettura",
     "import": "Importa",
     "importFolder": "+ Cartella",
@@ -1172,12 +1218,33 @@
     "dataVersion": "Versione",
     "close": "Chiudi",
     "copy": "Copia",
-    "unknown": "Sconosciuto"
+    "unknown": "Sconosciuto",
+    "edit": "Modifica",
+    "save": "Salva",
+    "cancel": "Annulla"
+  },
+  "launcher": {
+    "title": "Progetti",
+    "subtitle": "Apri, crea o passa da un vault Synapse all'altro. Ogni progetto è una cartella-vault.",
+    "newTitle": "Nuovo progetto",
+    "namePlaceholder": "Nome del progetto",
+    "pathPlaceholder": "Percorso assoluto della cartella-vault (lato server)",
+    "create": "Crea",
+    "openTitle": "Apri esistente",
+    "open": "Apri",
+    "recent": "PROGETTI RECENTI",
+    "empty": "Nessun progetto ancora.",
+    "active": "Attivo",
+    "switch": "Passa",
+    "switching": "Passaggio…",
+    "openFolder": "Apri cartella",
+    "pathCopied": "Percorso copiato"
   },
   "meta": {
     "vaultSection": "Vault",
     "readOnly": "Sola lettura",
-    "drawer": "File meta vault"
+    "drawer": "File meta vault",
+    "saving": "Salvataggio…"
   },
   "previewPanel": {
     "connectedTo": "Collegata a {{count}} altre pagine",
@@ -1230,11 +1297,28 @@
     "saved": "Salvato",
     "resetDone": "Ripristinato al predefinito",
     "keyHint": "Chiave: {{key}}",
+    "imageCaptioningSection": {
+      "title": "Didascalie immagini",
+      "desc": "Genera didascalie fattuali per le immagini estratte da PDF / DOCX / PPTX all'ingest. Le didascalie diventano testo alternativo nel markdown sorgente, così la ricerca semantica trova il contenuto delle immagini. Cache per hash: loghi/grafici duplicati chiamano il modello una volta sola."
+    },
+    "visionCaptionsEnabled": {
+      "label": "Didascalie immagini all'ingest",
+      "help": "Off: i riferimenti alle immagini vengono rimossi dai contenuti ingeriti — niente didascalie, la ricerca non le trova. On: ogni nuova immagine riceve una didascalia dal provider con capacità vision (cache per hash) e finisce nel testo alternativo della pagina.",
+      "on": "Attivo",
+      "off": "Disattivo"
+    },
+    "visionMaxImagesPerRun": {
+      "label": "Max immagini per esecuzione",
+      "help": "Limite di quante immagini chiamano il modello vision per esecuzione di ingest (vincolo costo/tempo). 0–50; 0 disabilita le didascalie anche col toggle attivo.",
+      "placeholder": "5"
+    },
     "pdfExtractor": {
       "label": "Estrattore PDF",
       "help": "Scegli quale motore estrae il testo dai file PDF durante l'importazione.",
       "optionPypdf": "pypdf (integrato, nessun servizio esterno richiesto)",
-      "optionMarker": "Marker (qualità superiore, richiede il microservizio Marker)"
+      "optionMarker": "Marker (qualità superiore, richiede il microservizio Marker)",
+      "optionMineru": "MinerU (cloud, qualità massima — carica il PDF su un servizio esterno)",
+      "mineruCloudWarning": "⚠️ Provider cloud: selezionando MinerU il contenuto del PDF viene caricato su un servizio esterno. Resta disattivo finché MINERU_API_KEY non è impostata nell'ambiente; in caso di errore ripiega sull'estrattore integrato pypdf."
     },
     "markerServiceUrl": {
       "label": "URL servizio Marker",
@@ -1324,6 +1408,16 @@
       "wizardComingSoon": "Prossimamente",
       "wizardOpen": "Apri configurazione guidata",
       "wizardReopen": "Riapri configurazione guidata"
+    },
+    "mineruApiUrl": {
+      "label": "URL API MinerU",
+      "help": "URL base dell'API cloud MinerU. Usato solo quando l'estrattore PDF è impostato su MinerU. La chiave API si imposta separatamente con la variabile d'ambiente MINERU_API_KEY (mai salvata qui).",
+      "placeholder": "https://mineru.net/api/v4"
+    },
+    "mineruTimeoutSeconds": {
+      "label": "Timeout MinerU (s)",
+      "help": "Secondi di attesa per l'API cloud MinerU prima del timeout. Deve essere tra 1 e 3600.",
+      "placeholder": "600"
     }
   },
   "wizard": {
@@ -1421,6 +1515,8 @@
       "title": "GRUPPI AUTOMATICI",
       "pages": "pagine",
       "openTopPage": "Apri pagina principale",
+      "topPage": "Pagina principale",
+      "browseHint": "Sfoglia gruppo",
       "lastActivity": "Ultima attività",
       "noTopPages": "Nessuna pagina ancora",
       "expand": "Espandi ({{count}} altri)",
@@ -1448,6 +1544,42 @@
       "message": "Il server Synapse è alla v{{backendVersion}} — il frontend si aspetta la v{{appVersion}}. Aggiorna l'immagine del backend per le ultime funzionalità.",
       "deployLink": "Come aggiornare",
       "dismiss": "Chiudi avviso versione"
+    },
+    "wikiThesis": {
+      "ariaLabel": "Tesi centrale del wiki",
+      "title": "Tesi del wiki",
+      "keyQuestionsLabel": "Domande chiave"
+    },
+    "quickActions": {
+      "ariaLabel": "Azioni rapide",
+      "ingestSource": "Ingerisci fonte",
+      "askQuestion": "Fai una domanda",
+      "deepResearch": "Ricerca profonda"
+    },
+    "reviewPreview": {
+      "ariaLabel": "Anteprima elementi da revisionare",
+      "title": "Da revisionare",
+      "seeAll": "vedi tutte ({{count}}) →",
+      "noTitle": "(nessun titolo)",
+      "create": "Crea",
+      "creating": "Creazione…",
+      "deepResearch": "Ricerca",
+      "skip": "Salta"
+    },
+    "openQuestions": {
+      "ariaLabel": "Domande aperte",
+      "title": "Domande aperte"
+    },
+    "dataQuality": {
+      "ariaLabel": "Avviso qualità dati",
+      "message": "{{untyped}} pagina/e senza tipo, {{undomained}} senza dominio",
+      "cta": "Classifica ora",
+      "running": "In corso…",
+      "done": "Fatto"
     }
+  },
+  "navTree": {
+    "filterBanner": "Filtrato per: {{label}}",
+    "clearFilter": "Rimuovi filtro"
   }
 }

@@ -313,6 +313,21 @@ class ImportScheduleResponse(BaseModel):
         default="1h",
         description="'15m' | '1h' | '6h' | 'daily'",
     )
+    allowed_extensions: str | None = Field(
+        default=None,
+        description=(
+            "Comma-separated extensions the scan imports (e.g. '.pdf,.csv'). "
+            "null → default wider set (text + all extractable). P3-c."
+        ),
+    )
+    excluded_folders: str | None = Field(
+        default=None,
+        description="Comma-separated folder names skipped during the scan. null → none. P3-c.",
+    )
+    max_size_mb: int | None = Field(
+        default=None,
+        description="Max file size in MB the scan imports; larger skipped. null → no cap. P3-c.",
+    )
     last_run_at: datetime | None = Field(
         default=None,
         description="Timestamp of the last completed scan; null if never run",
@@ -345,12 +360,31 @@ class ImportSchedulePutBody(BaseModel):
         default=None,
         description="'15m' | '1h' | '6h' | 'daily'",
     )
+    allowed_extensions: str | None = Field(
+        default=None,
+        description="Comma-separated extensions to import; '' → default wider set. P3-c.",
+    )
+    excluded_folders: str | None = Field(
+        default=None,
+        description="Comma-separated folder names to skip; '' → none excluded. P3-c.",
+    )
+    max_size_mb: int | None = Field(
+        default=None,
+        description="Max file size in MB; 0 → no cap. P3-c.",
+    )
 
     @field_validator("frequency")
     @classmethod
     def _valid_frequency(cls, v: str | None) -> str | None:
         if v is not None and v not in _VALID_FREQUENCIES:
             raise ValueError(f"frequency must be one of {sorted(_VALID_FREQUENCIES)}, got {v!r}")
+        return v
+
+    @field_validator("max_size_mb")
+    @classmethod
+    def _valid_max_size(cls, v: int | None) -> int | None:
+        if v is not None and v < 0:
+            raise ValueError(f"max_size_mb must be >= 0 (0 = no cap), got {v!r}")
         return v
 
 
@@ -562,6 +596,14 @@ def _build_app_config_response() -> AppConfigListResponse:
         "deep_research_max_queries": str(settings.deep_research_max_queries),
         "lint_max_iter": str(settings.lint_max_iter),
         "lint_token_budget": str(settings.lint_token_budget),
+        # S19/S20: Image Captioning (v1.5 P3-a) — env-var baseline from settings.
+        "vision_captions_enabled": str(settings.vision_captions_enabled).lower(),
+        "vision_max_images_per_run": str(settings.vision_max_images_per_run),
+        # S21/S22: MinerU cloud PDF (v1.5 P3-d, ADR-0069) — non-secret keys only.
+        "mineru_api_url": settings.mineru_api_url,
+        "mineru_timeout_seconds": str(settings.mineru_timeout_seconds),
+        # S23: web-search provider selector (v1.5 P3-e, ADR-0070) — non-secret; keys are env-only.
+        "web_search_provider": settings.web_search_provider,
     }
 
     result: list[AppConfigSetting] = []
@@ -1542,6 +1584,9 @@ def _schedule_to_response(schedule: ImportSchedule | None) -> ImportScheduleResp
         enabled=schedule.enabled,
         source_dir=schedule.source_dir,
         frequency=schedule.frequency,
+        allowed_extensions=schedule.allowed_extensions,
+        excluded_folders=schedule.excluded_folders,
+        max_size_mb=schedule.max_size_mb,
         last_run_at=schedule.last_run_at,
         last_status=schedule.last_status,
         last_imported_count=schedule.last_imported_count,
@@ -1597,6 +1642,12 @@ async def put_import_schedule(body: ImportSchedulePutBody) -> ImportSchedulePutR
         update_kwargs["source_dir"] = body.source_dir
     if body.frequency is not None:
         update_kwargs["frequency"] = body.frequency
+    if body.allowed_extensions is not None:
+        update_kwargs["allowed_extensions"] = body.allowed_extensions or None
+    if body.excluded_folders is not None:
+        update_kwargs["excluded_folders"] = body.excluded_folders or None
+    if body.max_size_mb is not None:
+        update_kwargs["max_size_mb"] = body.max_size_mb or None
     update_kwargs["updated_at"] = datetime.now(UTC)
 
     await upsert_schedule(settings.vault_id, **update_kwargs)
@@ -1624,6 +1675,9 @@ async def put_import_schedule(body: ImportSchedulePutBody) -> ImportSchedulePutR
         enabled=base.enabled,
         source_dir=base.source_dir,
         frequency=base.frequency,
+        allowed_extensions=base.allowed_extensions,
+        excluded_folders=base.excluded_folders,
+        max_size_mb=base.max_size_mb,
         last_run_at=base.last_run_at,
         last_status=base.last_status,
         last_imported_count=base.last_imported_count,
@@ -2170,6 +2224,110 @@ async def put_web_search_config(body: WebSearchConfigRequest) -> WebSearchConfig
         max_queries=_m._web_search_config_cache.resolved_max_queries(),
         source=_m._web_search_config_cache.url_source(),
     )
+
+
+# ── GET/PUT /web-search/provider-keys — cloud provider API keys (P3-e, ADR-0071) ─────
+
+
+class WebSearchProviderKeyState(BaseModel):
+    """Masked posture for one cloud web-search provider — NEVER the key value."""
+
+    configured: bool = Field(description="True if a key is set (DB or env)")
+    source: str = Field(description="'db' | 'env' | 'none'")
+
+
+class WebSearchProviderKeysResponse(BaseModel):
+    """GET /web-search/provider-keys — masked posture for all cloud providers."""
+
+    secrets_available: bool = Field(
+        description="True if SYNAPSE_SECRET_KEY is set (required to store keys via the UI)"
+    )
+    providers: dict[str, WebSearchProviderKeyState] = Field(
+        description="Per-provider masked posture (tavily/serpapi/firecrawl/brave)"
+    )
+
+
+class WebSearchProviderKeyRequest(BaseModel):
+    """PUT /web-search/provider-keys — set (key) or clear (clear=true) one provider's key."""
+
+    provider: str = Field(description="tavily | serpapi | firecrawl | brave")
+    key: str | None = Field(default=None, description="API key to store; omit when clearing")
+    clear: bool = Field(default=False, description="True to remove the stored key (env resumes)")
+
+
+@router.get(
+    "/web-search/provider-keys",
+    response_model=WebSearchProviderKeysResponse,
+    summary="Masked posture of cloud web-search provider API keys (P3-e)",
+    description=(
+        "Read-only masked posture for the opt-in cloud web-search providers. NEVER returns the "
+        "key value — only whether one is set and its source (db | env | none). Keys are stored "
+        "Fernet-encrypted at rest and require SYNAPSE_SECRET_KEY to set via the UI (ADR-0071)."
+    ),
+)
+async def get_web_search_provider_keys() -> WebSearchProviderKeysResponse:
+    """GET /web-search/provider-keys — masked posture (ADR-0071)."""
+    from app.ops.web_search.keys import get_key_posture
+
+    posture = get_key_posture()
+    return WebSearchProviderKeysResponse(
+        secrets_available=secrets_crypto.is_configured(),
+        providers={
+            p: WebSearchProviderKeyState(configured=bool(v["configured"]), source=str(v["source"]))
+            for p, v in posture.items()
+        },
+    )
+
+
+@router.put(
+    "/web-search/provider-keys",
+    response_model=WebSearchProviderKeysResponse,
+    summary="Set or clear a cloud web-search provider API key (P3-e)",
+    description=(
+        "Store (encrypted at rest) or clear one cloud provider's API key. Setting a key requires "
+        "SYNAPSE_SECRET_KEY (400 when absent) — mirrors the CLI-auth token contract (ADR-0043/W7). "
+        "The stored key wins over the env `{PROVIDER}_API_KEY` fallback. The plaintext is never "
+        "logged or returned. ADR-0071."
+    ),
+    responses={
+        200: {"description": "Key stored/cleared; returns the refreshed masked posture"},
+        400: {"description": "SYNAPSE_SECRET_KEY not set (cannot encrypt) or invalid provider/key"},
+    },
+)
+async def put_web_search_provider_key(
+    body: WebSearchProviderKeyRequest,
+) -> WebSearchProviderKeysResponse:
+    """PUT /web-search/provider-keys — set/clear one provider's key (ADR-0071)."""
+    from app.ops.web_search.keys import (
+        CLOUD_KEY_PROVIDERS,
+        clear_web_search_api_key,
+        set_web_search_api_key,
+    )
+
+    if body.provider not in CLOUD_KEY_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"provider must be one of {sorted(CLOUD_KEY_PROVIDERS)}, got {body.provider!r}",
+        )
+    if body.clear:
+        await clear_web_search_api_key(body.provider)
+    else:
+        if not body.key or not body.key.strip():
+            raise HTTPException(status_code=400, detail="key must be a non-empty string")
+        if not secrets_crypto.is_configured():
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "SYNAPSE_SECRET_KEY is not set — cannot encrypt the key at rest. Set it in the "
+                    "server environment, or provide the key via the {PROVIDER}_API_KEY env var."
+                ),
+            )
+        try:
+            await set_web_search_api_key(body.provider, body.key)
+        except secrets_crypto.SecretsNotConfiguredError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return await get_web_search_provider_keys()
 
 
 _CLI_TOKEN_PREFIX: str = "sk-ant-" + "oat01-"
