@@ -27,9 +27,8 @@
   <dict>
     <key>HOME</key><string>__HOME__</string>
     <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-    <!-- OWNER AUTHORIZATION for full no-input autonomy: change to bypassPermissions.
-         Default acceptEdits is safe but pauses for shell tools (not truly unattended). -->
-    <key>LOOP_PERMISSION_MODE</key><string>acceptEdits</string>
+    <!-- Owner authorized full no-input autonomy 2026-07-12. Revert to acceptEdits to disarm. -->
+    <key>LOOP_PERMISSION_MODE</key><string>bypassPermissions</string>
   </dict>
 
   <key>StandardOutPath</key><string>__HOME__/Library/Logs/synapse-loop/launchd-release.out.log</string>
