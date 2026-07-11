@@ -52,6 +52,7 @@ from sqlalchemy import func, literal_column, select
 from app.config import settings
 from app.config_overrides import effective_domain_vocabulary
 from app.db import get_session
+from app.graph.engine import GROUP_LABEL_EXCLUDED_TYPES
 from app.models import Edge, LintFinding, Page, ReviewItem, VaultState
 
 logger = logging.getLogger(__name__)
@@ -560,8 +561,16 @@ async def get_stats_groups() -> JSONResponse:
 
         sorted_rows = sorted(rows, key=_sort_key)
 
-        # label = title of highest-degree page, truncated to _LABEL_MAX_CHARS
-        label_title = (sorted_rows[0].title or "") if sorted_rows else ""
+        # Meta aggregates (index/log/overview) link to every page, so by degree they'd top this
+        # sort and mislabel the group as "Synapse Index"/"Synapse Log" (bogus automatic groups the
+        # user reported). Exclude them from the label + the top_pages preview; they remain counted
+        # in pages_total / pages_by_type. Fallback to sorted_rows if a community is all-meta.
+        # (v1.5.2)
+        content_rows = [r for r in sorted_rows if r.page_type not in GROUP_LABEL_EXCLUDED_TYPES]
+        label_rows = content_rows or sorted_rows
+
+        # label = title of highest-degree CONTENT page, truncated to _LABEL_MAX_CHARS
+        label_title = (label_rows[0].title or "") if label_rows else ""
         label = label_title[:_LABEL_MAX_CHARS]
 
         # top_pages: cap 5
@@ -572,7 +581,7 @@ async def get_stats_groups() -> JSONResponse:
                 "slug": _slugify(r.title or ""),
                 "degree": degree_map.get(str(r.id), 0),
             }
-            for r in sorted_rows[:5]
+            for r in label_rows[:5]
         ]
 
         return {

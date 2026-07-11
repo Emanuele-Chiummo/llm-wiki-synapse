@@ -9,6 +9,66 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.2] — 2026-07-11 — "Provider config + UX fixes (live-verified)"
+
+Patch: provider-config bugs that broke selecting/using the CLI provider (all **verified live against
+real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
+
+### Fixed
+- **Graph node click now opens the page** — clicking a node in the graph only showed an info
+  tooltip; it never opened the corresponding wiki page. Clicking now selects the node and switches
+  to the pages section (Obsidian-style), opening the page in NoteView [F4].
+- **Overview / page "updated" line showed a raw microsecond ISO** (`…09:44:24.021477Z`) — now
+  trimmed to a clean second-precision ISO (`…09:44:24Z`), matching the llm_wiki overview footer.
+  The `log.md` content already used clean day/second timestamps; this covers its page view too [F16].
+- **File drag-drop into Convert didn't work in the native Tauri (macOS) app** — Tauri v2 intercepts
+  OS drag-drop by default, so the webview's HTML5 drop never fired. Set `dragDropEnabled: false` on
+  the window so the drop zone receives files normally (PWA/browser were unaffected) [F15].
+- **Convert now deletes the source PDF after producing the `.md`** — a Marker conversion left both
+  the bulky PDF and its `.extracted.md` in `raw/sources/`; the PDF is now removed on success and
+  `sources[]` points at the retained `.md` (best-effort delete never fails the conversion) [F12].
+- **Review items came out in English, fewer, and terser on non-English vaults** — the review
+  propose prompt was never language-aware (unlike page generation), the delegated/CLI route
+  hardcoded `language="en"`, and rule-based rationales were English literals; **and** the anti-spam
+  gate summed page *title* lengths (never reaching the char threshold), so the detailed LLM propose
+  step was skipped whenever a run produced few pages and few dangling links. Now: the propose prompt
+  carries a mandatory output-language directive (`analysis.language → overview_language`), rationales
+  localise (IT/EN), the CLI route uses the vault language, and the gate uses real on-disk body sizes
+  so the detailed proposals run and stay in the vault language [F9, F3].
+- **`index.md`/`log.md` showed up as bogus automatic groups ("Synapse Index"/"Synapse Log")** — v1.5
+  made them graph nodes (D4 parity), and being all-linking hubs they were the highest-degree member
+  of their Louvain community, so they labelled the group (both in the graph and `/stats/groups`).
+  Meta types (`index`/`log`/`overview`) are now excluded from community **labels + top-page
+  previews** (they remain graph nodes and members). The files themselves are unchanged — still
+  `index.md`/`log.md`; the displayed name was their frontmatter `title` [F18, F4].
+- **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
+  the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
+  reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
+  picking a model in Settings). Now `await session.refresh(row)` runs before serialization. Added a
+  regression test for the previously **untested** PUT endpoint (asserts 200 + refresh awaited) [F17].
+- **Ingest resolved the wrong provider → "No Anthropic API key" despite CLI configured** — the
+  backend resolver (`_query_one`) selected a matching `provider_config` row with `LIMIT 1` and **no
+  `ORDER BY`**, returning an arbitrary row. With two global rows (an older Anthropic `api` row and a
+  newer `cli` row) it picked the stale `api` row, while the UI (`deriveActiveItem`, newest-wins)
+  showed CLI active — so ingest demanded an Anthropic key. The resolver now orders by `created_at`
+  DESC, so backend and UI agree that the newest configured provider is active. Regression test added
+  (newest global row wins) [F17, I6].
+- **Duplicate provider rows piling up + the header dropdown listing them all** — `POST /provider/config`
+  always INSERTed, and since "active = newest row" every activation (header dropdown `setActive`,
+  catalog toggle) created a new row, so identical providers accumulated (e.g. 3× "CLI / opus"). POST
+  is now an **upsert**: it reuses a matching non-fallback row `(scope, vault_id, operation,
+  provider_type, model_id, base_url)`, updating it and bumping `created_at` (so selecting a provider
+  still activates it) instead of inserting a duplicate. The header **ProviderSelector** now
+  **de-duplicates** its display (one row per identity, newest = active). Verified live vs Postgres:
+  posting the same provider 3× yields **one** row, and re-posting flips it to active. Regression
+  tests added [F17].
+
+### Changed
+- **More reviews out-of-the-box, for closer llm_wiki volume parity** — `REVIEW_PROPOSE_MIN_PAGES`
+  default lowered `4 → 1` (the curated LLM review step now runs on ordinary single-page ingests
+  instead of being gated out) and `REVIEW_PROPOSE_MAX_ITEMS` raised `8 → 12`. Both stay bounded and
+  cost-capped by the resolved provider row's `token_budget`; tune via env for fewer/more [F9].
+
 ## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
 
 Patch: activating the **Claude Code CLI** provider (and any catalog vendor) from Settings failed

@@ -742,11 +742,9 @@ export function NoteView() {
            scrolls naturally inside this single pane. ── */}
       {mode === "read" ? (
         <div style={SCROLL_AREA_STYLE}>
-
           {/* ── Sticky card header ── */}
           <div style={STICKY_HEADER_STYLE}>
             <div className="syn-card" style={CARD_INNER_STYLE}>
-
               {/* ── Tier 1: always-visible row (title + actions + badge + date + toggle) ── */}
               <div style={CARD_TITLE_ROW_STYLE}>
                 <h2 style={TITLE_STYLE} title={data.file_path}>
@@ -788,79 +786,82 @@ export function NoteView() {
 
               {/* ── Metadata (ISO line + tags + sources + related) — scrolls with the body ── */}
               <div data-testid="note-meta-expanded">
-                  {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
-                  {data.updated_at && (
-                    <div
-                      data-testid="note-updated-iso"
-                      style={{
-                        fontFamily: "var(--syn-font-mono, monospace)",
-                        fontSize: 11,
-                        color: "var(--syn-text-dim)",
-                        marginBottom: 6,
-                        marginTop: 4,
-                      }}
-                    >
-                      {t("noteView.updatedLabel", { iso: data.updated_at })}
-                    </div>
-                  )}
+                {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
+                {data.updated_at && (
+                  <div
+                    data-testid="note-updated-iso"
+                    style={{
+                      fontFamily: "var(--syn-font-mono, monospace)",
+                      fontSize: 11,
+                      color: "var(--syn-text-dim)",
+                      marginBottom: 6,
+                      marginTop: 4,
+                    }}
+                  >
+                    {t("noteView.updatedLabel", {
+                      // Trim Postgres microseconds (…024.021477Z) to a clean second-precision
+                      // ISO (…024Z) — mirrors llm_wiki's overview footer instead of a raw dump.
+                      iso: new Date(data.updated_at).toISOString().replace(/\.\d+Z$/, "Z"),
+                    })}
+                  </div>
+                )}
 
-                  {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
-                  {tags && <TagOverflow tags={tags} />}
+                {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
+                {tags && <TagOverflow tags={tags} />}
 
-                  {/* Sources subsection */}
-                  {sources && (
-                    <div style={SOURCES_SECTION_STYLE}>
-                      <span style={CARD_SECTION_LABEL_STYLE}>
-                        {t("noteView.sources")} ({sources.length})
-                      </span>
-                      {/* Single wrapper carries the data-testid so tests can assert textContent
+                {/* Sources subsection */}
+                {sources && (
+                  <div style={SOURCES_SECTION_STYLE}>
+                    <span style={CARD_SECTION_LABEL_STYLE}>
+                      {t("noteView.sources")} ({sources.length})
+                    </span>
+                    {/* Single wrapper carries the data-testid so tests can assert textContent
                           contains all source paths (mirrors original single-span contract). */}
-                      <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
-                        {sources.map((src) => {
-                          // A chip is navigable when it looks like a raw/sources/ path.
-                          const RAW_PREFIX = "raw/sources/";
-                          const isSourcePath =
-                            src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
-                          if (isSourcePath) {
-                            return (
-                              <button
-                                key={src}
-                                className="syn-chip"
-                                title={src}
-                                style={{ ...SOURCE_CHIP_STYLE, cursor: "pointer", border: "none" }}
-                                onClick={() => {
-                                  setActiveSection("sources");
-                                }}
-                              >
-                                {src}
-                              </button>
-                            );
-                          }
+                    <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
+                      {sources.map((src) => {
+                        // A chip is navigable when it looks like a raw/sources/ path.
+                        const RAW_PREFIX = "raw/sources/";
+                        const isSourcePath =
+                          src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
+                        if (isSourcePath) {
                           return (
-                            <span
+                            <button
                               key={src}
                               className="syn-chip"
                               title={src}
-                              style={SOURCE_CHIP_STYLE}
+                              style={{ ...SOURCE_CHIP_STYLE, cursor: "pointer", border: "none" }}
+                              onClick={() => {
+                                setActiveSection("sources");
+                              }}
                             >
                               {src}
-                            </span>
+                            </button>
                           );
-                        })}
-                      </div>
+                        }
+                        return (
+                          <span
+                            key={src}
+                            className="syn-chip"
+                            title={src}
+                            style={SOURCE_CHIP_STYLE}
+                          >
+                            {src}
+                          </span>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Related subsection — inside card, below sources */}
-                  <RelatedPanel
-                    items={relatedState.items}
-                    total={relatedState.total}
-                    loading={relatedState.phase === "loading"}
-                    error={relatedState.phase === "error"}
-                    onSelect={handleRelatedSelect}
-                  />
-                </div>
-
+                {/* Related subsection — inside card, below sources */}
+                <RelatedPanel
+                  items={relatedState.items}
+                  total={relatedState.total}
+                  loading={relatedState.phase === "loading"}
+                  error={relatedState.phase === "error"}
+                  onSelect={handleRelatedSelect}
+                />
+              </div>
             </div>
           </div>
 

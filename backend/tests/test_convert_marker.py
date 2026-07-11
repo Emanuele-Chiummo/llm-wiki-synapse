@@ -279,6 +279,13 @@ async def test_convert_marker_success_writes_frontmatter(
     assert "---" in content[4:]  # closing ---
     # Contains the Marker output
     assert marker_markdown in content
+    # v1.5.2: the converted .md is the retained source of record — sources[] points at it,
+    # NOT at the PDF (which is deleted below).
+    assert "report.extracted.md" in content
+    # v1.5.2: the source PDF is deleted after a successful conversion to .md.
+    assert not (
+        vault_path / "raw" / "sources" / "report.pdf"
+    ).exists(), "source PDF should be deleted after conversion"
 
 
 @pytest.mark.asyncio
