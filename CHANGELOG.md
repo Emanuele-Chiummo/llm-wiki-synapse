@@ -9,12 +9,17 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
-## [1.5.2] — 2026-07-11 — "Provider config fixes (live-verified)"
+## [1.5.2] — 2026-07-11 — "Provider config + UX fixes (live-verified)"
 
-Patch: two provider-config bugs that broke selecting/using the CLI provider. Both **verified live
-against real Postgres/asyncpg** (not just mocked tests) before release.
+Patch: provider-config bugs that broke selecting/using the CLI provider (all **verified live against
+real Postgres/asyncpg**, not just mocked tests), plus a few UX regressions.
 
 ### Fixed
+- **Graph node click now opens the page** — clicking a node in the graph only showed an info
+  tooltip; it never opened the corresponding wiki page. Clicking now selects the node and switches
+  to the pages section (Obsidian-style), opening the page in NoteView [F4].
+- **Overview / page "updated" line showed a raw microsecond ISO** (`…09:44:24.021477Z`) — now
+  trimmed to a clean second-precision ISO (`…09:44:24Z`), matching the llm_wiki overview footer [F16].
 - **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
   the UPDATE flush, but `updated_at` is server-side `onupdate=now()` and is expired at that point;
   reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
