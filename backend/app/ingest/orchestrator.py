@@ -1225,12 +1225,14 @@ async def _propose_reviews_for_delegated(
     # dangling-link path + the LLM path run on the written set; ADR-0044 §4.2). Analysis requires
     # ≥1 topic and ≥1 suggested_page by schema, so we seed both from the written titles — these
     # are already-written pages, so they never re-propose themselves (the not-written filter
-    # drops them). language is left generic; the proposal prompt does not depend on it.
+    # drops them). language = the vault language (settings.overview_language) so the CLI/delegated
+    # route's reviews come out localised too, not English (v1.5.2 — the propose prompt is now
+    # language-aware).
     titles = [(r.title or "").strip() for r in rows if (r.title or "").strip()]
     synthesized = Analysis(
         topics=titles[:8] or ["ingest"],
         entities=[],
-        language="en",
+        language=(getattr(settings, "overview_language", "") or "en"),
         suggested_pages=[SuggestedPage(title=t, type=PageType.CONCEPT) for t in titles[:1]]
         or [SuggestedPage(title="(delegated ingest)", type=PageType.CONCEPT)],
         summary=None,
