@@ -754,3 +754,141 @@ class TestR710SynthesisClassification:
         instr = captured["instruction"]
         assert "synthesis" in instr.lower()
         assert "classified as page type 'synthesis'" in instr
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# v1.5.4 — Deep Research synthesis output language (owner report: wiki content came
+# out in English on an Italian vault regardless of the vault's language)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestDeepResearchSynthesisLanguage:
+    """
+    The synthesis prompt (the part that becomes the actual wiki page body) was never
+    language-aware — same class of bug as the v1.5.2 review-propose fix. Query generation
+    intentionally stays untouched (English search queries get better SearXNG recall).
+    """
+
+    def test_lang_directive_empty_for_blank_input(self) -> None:
+        from app.ops.deep_research import _synthesis_lang_directive
+
+        assert _synthesis_lang_directive("") == ""
+        assert _synthesis_lang_directive("   ") == ""
+
+    def test_lang_directive_names_the_language(self) -> None:
+        from app.ops.deep_research import _synthesis_lang_directive
+
+        directive = _synthesis_lang_directive("it")
+        assert "MANDATORY OUTPUT LANGUAGE" in directive
+        assert "'it'" in directive
+
+    @pytest.mark.asyncio
+    async def test_synthesize_injects_lang_directive_when_lang_given(self) -> None:
+        from app.ops.deep_research import FetchedSource, _synthesize
+
+        captured: dict[str, str] = {}
+        provider = MagicMock()
+
+        async def _chat(messages: Any, retrieval_context: str = "") -> AsyncIterator[str]:
+            captured["instruction"] = messages[0].content
+
+            async def _gen() -> AsyncIterator[str]:
+                yield "# doc"
+
+            return _gen()
+
+        provider.chat = _chat
+
+        await _synthesize(
+            provider,
+            "Kubernetes networking",
+            [FetchedSource(url="https://x", title="t", content_md="c", iteration=1)],
+            "it",
+        )
+        instr = captured["instruction"]
+        assert "MANDATORY OUTPUT LANGUAGE" in instr
+        assert "'it'" in instr
+        # The directive is the FIRST thing the model sees, ahead of the topic/sources.
+        assert instr.index("MANDATORY OUTPUT LANGUAGE") < instr.index("Kubernetes networking")
+
+    @pytest.mark.asyncio
+    async def test_synthesize_omits_lang_directive_when_lang_is_none(self) -> None:
+        """Regression guard: no lang resolved (None/"") → identical prompt to pre-fix behavior."""
+        from app.ops.deep_research import FetchedSource, _synthesize
+
+        captured: dict[str, str] = {}
+        provider = MagicMock()
+
+        async def _chat(messages: Any, retrieval_context: str = "") -> AsyncIterator[str]:
+            captured["instruction"] = messages[0].content
+
+            async def _gen() -> AsyncIterator[str]:
+                yield "# doc"
+
+            return _gen()
+
+        provider.chat = _chat
+
+        await _synthesize(
+            provider,
+            "Kubernetes networking",
+            [FetchedSource(url="https://x", title="t", content_md="c", iteration=1)],
+        )
+        assert "MANDATORY OUTPUT LANGUAGE" not in captured["instruction"]
+
+    @pytest.mark.asyncio
+    async def test_resolve_language_prefers_explicit_override_without_touching_db(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An OVERVIEW_LANGUAGE override must short-circuit — never calls _detect_vault_language."""
+        from app import config as cfg
+        from app.ops import deep_research as dr
+
+        monkeypatch.setattr(cfg.settings, "overview_language", "it")
+        detect_called = {"count": 0}
+
+        async def _boom() -> str | None:
+            detect_called["count"] += 1
+            raise AssertionError("must not be called when an explicit override is set")
+
+        monkeypatch.setattr("app.ingest.orchestrator._detect_vault_language", _boom)
+
+        result = await dr._resolve_synthesis_language()
+        assert result == "it"
+        assert detect_called["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_resolve_language_degrades_to_empty_on_detection_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No override + vault-language detection raising (e.g. DB unavailable) → "" never raises."""
+        from app import config as cfg
+        from app.ops import deep_research as dr
+
+        monkeypatch.setattr(cfg.settings, "overview_language", None)
+
+        async def _boom() -> str | None:
+            raise RuntimeError("simulated DB failure")
+
+        monkeypatch.setattr("app.ingest.orchestrator._detect_vault_language", _boom)
+
+        result = await dr._resolve_synthesis_language()
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_resolve_language_uses_detected_vault_language(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No override → falls back to the detected modal vault language."""
+        from app import config as cfg
+        from app.ops import deep_research as dr
+
+        monkeypatch.setattr(cfg.settings, "overview_language", None)
+
+        async def _detected() -> str | None:
+            return "de"
+
+        monkeypatch.setattr("app.ingest.orchestrator._detect_vault_language", _detected)
+
+        result = await dr._resolve_synthesis_language()
+        assert result == "de"

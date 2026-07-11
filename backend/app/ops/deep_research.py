@@ -283,7 +283,8 @@ async def run_deep_research(
         # non-answer that must NOT be ingested as a wiki page (would create noise).
         if status in ("converged", "max_iter_reached", "budget_exhausted"):
             if collected:
-                synthesis_md = await _synthesize(provider, topic, collected)
+                synthesis_lang = await _resolve_synthesis_language()
+                synthesis_md = await _synthesize(provider, topic, collected, synthesis_lang)
                 synthesis_page_id = await _ingest_synthesis(run_id, vault_id, synthesis_md, topic)
             else:
                 logger.info(
@@ -872,16 +873,70 @@ async def _assess_sufficiency(
     return Sufficiency(sufficient=False, gaps=gaps)
 
 
+def _synthesis_lang_directive(lang: str) -> str:
+    """
+    Mandatory output-language block for the synthesis prompt, or "" when no language is known.
+
+    Mirrors ops/review.py::_review_lang_directive (same v1.5.2-class bug: the synthesis prompt
+    was never language-aware, so on an Italian vault the deep-research WIKI PAGE came out in
+    English regardless of the vault's language). Only the synthesis body is localised — query
+    generation (_generate_queries) intentionally stays English-agnostic for better SearXNG
+    recall; this directive must NOT be applied there.
+    """
+    lang = (lang or "").strip()
+    if not lang:
+        return ""
+    return (
+        "# MANDATORY OUTPUT LANGUAGE\n"
+        f"Write the ENTIRE article body in {lang} (ISO-639-1) — the vault's language. Do NOT "
+        f"write in English unless {lang!r} is 'en', even though the sources below may be in a "
+        "different language. Headings, prose, and wikilink display text are all localised; "
+        "only literal source URLs stay as-is.\n\n"
+    )
+
+
+async def _resolve_synthesis_language() -> str:
+    """
+    Resolve the vault language for the synthesis prompt (ADR-0024 §6 amendment).
+
+    Called ONCE by run_deep_research (never by _synthesize itself, which stays a pure/mockable
+    function — AQ-v0.5-testability): an explicit OVERVIEW_LANGUAGE override wins, else the modal
+    `lang` frontmatter across recent wiki pages (orchestrator._detect_vault_language, reused —
+    not copied). Best-effort: any failure (e.g. DB unavailable) degrades to "" — the directive is
+    then omitted and generation proceeds in the provider's default/English behavior, exactly like
+    before this feature existed. Never raises; never blocks the run.
+    """
+    from app.config import settings
+    from app.config_overrides import effective_str
+
+    forced = effective_str("overview_language", settings.overview_language)
+    if forced:
+        return forced.strip()
+    try:
+        from app.ingest.orchestrator import _detect_vault_language
+
+        detected = await _detect_vault_language()
+        return (detected or "").strip()
+    except Exception as exc:  # noqa: BLE001 — best-effort language hint, never fails the run
+        logger.debug("_resolve_synthesis_language: vault-language detection failed: %s", exc)
+        return ""
+
+
 async def _synthesize(
     provider: Any,
     topic: str,
     collected: list[FetchedSource],
+    lang: str | None = None,
 ) -> str:
     """
     Ask the provider to synthesize a well-structured markdown document from the collected sources.
 
     Rides provider.chat() — no new ABC method (Do-NOT #10).
     Instructs the model to include [[wikilinks]] and source URLs (ADR-0024 §6).
+    `lang` (resolved ONCE by the caller via _resolve_synthesis_language, best-effort) steers the
+    body's output language so it matches the vault's language instead of defaulting to English
+    regardless of what language the collected web sources are in. None/"" → no directive, same
+    behavior as before this feature existed.
     Returns the markdown body.
     """
     if provider is None:
@@ -894,8 +949,10 @@ async def _synthesize(
         return "\n".join(parts)
 
     sources_full = _format_sources_for_prompt(collected, max_chars=40_000)
+    lang_directive = _synthesis_lang_directive(lang or "")
 
     instruction = (
+        f"{lang_directive}"
         f"You are writing a research SYNTHESIS article about: {topic}\n\n"
         f"Use the following web research sources:\n{sources_full}\n\n"
         f"Write a comprehensive markdown document that:\n"

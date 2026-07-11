@@ -9,6 +9,23 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.5] — 2026-07-11 — "Deep Research output language"
+
+Patch: Deep Research's synthesis prompt — the part that becomes the actual wiki page body —
+was never language-aware, so on a non-English vault (e.g. Italian) the generated page came out
+in English regardless of the vault's language, even when the collected web sources were in the
+vault's language too. Same bug class as the v1.5.2 review-propose fix.
+
+### Fixed
+- **Deep Research wiki pages now match the vault's language** — the synthesis prompt now
+  carries a mandatory output-language directive. Resolution order: an explicit
+  `OVERVIEW_LANGUAGE` override wins; otherwise the vault's dominant content language is
+  detected from existing wiki pages' `lang` frontmatter (reuses the same detector the overview
+  regenerator already uses — no new logic). Best-effort: any detection failure degrades
+  silently to no directive (today's unchanged English-default behavior), never fails or slows
+  down a run. Search-query generation is intentionally left untouched — English queries get
+  better SearXNG recall regardless of the vault's language [F10, ADR-0024 §6].
+
 ## [1.5.4] — 2026-07-11 — "Delete Deep Research runs"
 
 Patch: adds the missing way to delete a Deep Research run from history — previously there was

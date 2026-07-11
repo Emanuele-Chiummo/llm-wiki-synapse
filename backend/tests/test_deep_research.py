@@ -349,7 +349,9 @@ async def test_all_six_steps_execute() -> None:
         steps_executed.append("assess_sufficiency")
         return Sufficiency(sufficient=True, gaps=[])
 
-    async def _mock_synthesize(p: Any, topic: str, collected: list[Any]) -> str:
+    async def _mock_synthesize(
+        p: Any, topic: str, collected: list[Any], lang: str | None = None
+    ) -> str:
         steps_executed.append("synthesize")
         return "# Synthesis\n\nContent."
 
@@ -472,7 +474,7 @@ async def test_zero_sources_skips_synthesis_and_page() -> None:
 
     from app.ops.deep_research import Sufficiency
 
-    async def _mock_synth(p: Any, topic: str, collected: list[Any]) -> str:
+    async def _mock_synth(p: Any, topic: str, collected: list[Any], lang: str | None = None) -> str:
         synth_calls[0] += 1
         return "synthesis"
 
@@ -551,7 +553,7 @@ async def test_no_provider_calls_after_max_iter() -> None:
         assess_calls[0] += 1
         return Sufficiency(sufficient=False, gaps=["need more"])
 
-    async def _mock_synth(p: Any, topic: str, collected: list[Any]) -> str:
+    async def _mock_synth(p: Any, topic: str, collected: list[Any], lang: str | None = None) -> str:
         synth_calls[0] += 1
         return "synthesis"
 
