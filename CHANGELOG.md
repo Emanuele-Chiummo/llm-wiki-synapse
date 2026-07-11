@@ -9,10 +9,10 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
-## [1.5.2] — 2026-07-11 — "Provider update 500 fix"
+## [1.5.2] — 2026-07-11 — "Provider config fixes (live-verified)"
 
-Patch: selecting a model (or otherwise editing a provider) returned **HTTP 500**. Fixed and
-**verified live against real Postgres/asyncpg** (create → PUT → 200), not just mocked tests.
+Patch: two provider-config bugs that broke selecting/using the CLI provider. Both **verified live
+against real Postgres/asyncpg** (not just mocked tests) before release.
 
 ### Fixed
 - **`PUT /provider/config/{id}` → 500 `MissingGreenlet`** — the handler serialized the row after
@@ -20,6 +20,13 @@ Patch: selecting a model (or otherwise editing a provider) returned **HTTP 500**
   reading it in the sync serializer triggered an async lazy-load outside a greenlet → 500 (seen when
   picking a model in Settings). Now `await session.refresh(row)` runs before serialization. Added a
   regression test for the previously **untested** PUT endpoint (asserts 200 + refresh awaited) [F17].
+- **Ingest resolved the wrong provider → "No Anthropic API key" despite CLI configured** — the
+  backend resolver (`_query_one`) selected a matching `provider_config` row with `LIMIT 1` and **no
+  `ORDER BY`**, returning an arbitrary row. With two global rows (an older Anthropic `api` row and a
+  newer `cli` row) it picked the stale `api` row, while the UI (`deriveActiveItem`, newest-wins)
+  showed CLI active — so ingest demanded an Anthropic key. The resolver now orders by `created_at`
+  DESC, so backend and UI agree that the newest configured provider is active. Regression test added
+  (newest global row wins) [F17, I6].
 
 ## [1.5.1] — 2026-07-11 — "CLI provider activation fix"
 
