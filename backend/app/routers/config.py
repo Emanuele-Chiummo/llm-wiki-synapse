@@ -741,6 +741,12 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
     return response
 
 
+# NOTE: create uses INSERT ... RETURNING (asyncpg), so server-default created_at/updated_at
+# are populated after flush. UPDATE has no RETURNING for onupdate columns, so updated_at is
+# expired after flush and must be refreshed (async-safe) before the sync serializer reads it —
+# otherwise the read triggers a lazy-load in a non-greenlet context → MissingGreenlet (v1.5.2).
+
+
 # ── PUT /provider/config/{id} ──────────────────────────────────────────────────
 
 
@@ -802,6 +808,10 @@ async def update_provider_config(
             row.api_key_encrypted = new_encrypted  # new ciphertext or None (clear)
 
         await session.flush()
+        # updated_at is server-side (onupdate=now()); after an UPDATE flush it is expired and
+        # would be lazily reloaded when the sync serializer reads it — which raises MissingGreenlet
+        # in the async engine. Refresh explicitly (async-safe) so all columns are populated first.
+        await session.refresh(row)
         response = _provider_config_to_response(row)
 
     return response

@@ -313,6 +313,90 @@ class TestCreateProviderConfig:
         assert data["api_key_masked"] == "…6789"
 
 
+# ── PUT /provider/config/{id} ──────────────────────────────────────────────────
+
+
+class TestUpdateProviderConfig:
+    def _put(self, config_id: uuid.UUID, body: dict[str, Any]) -> tuple[Any, Any]:
+        """PUT /provider/config/{id} via TestClient with a patched async session.
+
+        Returns (response, fake_session) so tests can assert on the session interaction.
+        """
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+
+        class _FakeRow:
+            id = config_id
+            scope = "global"
+            operation = "claude-cli"
+            vault_id = None
+            provider_type = "cli"
+            model_id = "old-model"
+            base_url = None
+            api_key_encrypted = None
+            reasoning_effort = None
+            max_iter = 3
+            token_budget = 60000
+            is_fallback = False
+            created_at = now
+            updated_at = now
+
+        row = _FakeRow()
+        exec_result = MagicMock()
+        exec_result.scalar_one_or_none.return_value = row
+
+        fake_sess = MagicMock()
+        fake_sess.execute = AsyncMock(return_value=exec_result)
+        fake_sess.flush = AsyncMock()
+        fake_sess.refresh = AsyncMock()
+        fake_sess.commit = AsyncMock()
+        fake_sess.rollback = AsyncMock()
+
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=fake_sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.put(f"/provider/config/{config_id}", json=body)
+        return resp, fake_sess
+
+    def test_update_model_id_returns_200_and_refreshes_row(self) -> None:
+        """PUT model_id returns 200 with the new model — and the handler MUST refresh the row first.
+
+        Regression (v1.5.2, verified live vs Postgres/asyncpg): the handler serialized the row via
+        `_provider_config_to_response(row)` after the UPDATE flush, but `updated_at` is server-side
+        `onupdate=now()` and is EXPIRED after that flush. Reading it from the sync serializer without
+        an `await session.refresh(row)` triggered an async lazy-load → `MissingGreenlet` → HTTP 500
+        (selecting a model in Settings). Assert the fix: 200 + `session.refresh` awaited exactly once.
+        """
+        cid = uuid.uuid4()
+        resp, sess = self._put(cid, {"model_id": "claude-opus-4-8"})
+        assert resp.status_code == 200
+        assert resp.json()["model_id"] == "claude-opus-4-8"
+        sess.refresh.assert_awaited_once()  # the fix — without it the real endpoint 500s
+
+    def test_update_nonexistent_returns_404(self) -> None:
+        """PUT on an id that resolves to no row returns 404 (not 500)."""
+        from datetime import UTC, datetime
+
+        _ = datetime.now(UTC)
+        exec_result = MagicMock()
+        exec_result.scalar_one_or_none.return_value = None
+        fake_sess = MagicMock()
+        fake_sess.execute = AsyncMock(return_value=exec_result)
+        fake_sess.flush = AsyncMock()
+        fake_sess.refresh = AsyncMock()
+        ctx = MagicMock()
+        ctx.__aenter__ = AsyncMock(return_value=fake_sess)
+        ctx.__aexit__ = AsyncMock(return_value=False)
+        with patch("app.main.get_session", return_value=ctx):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.put(f"/provider/config/{uuid.uuid4()}", json={"model_id": "m"})
+        assert resp.status_code == 404
+
+
 # ── DELETE /provider/config/{id} ───────────────────────────────────────────────
 
 
