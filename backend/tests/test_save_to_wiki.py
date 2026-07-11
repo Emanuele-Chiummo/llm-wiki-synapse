@@ -8,14 +8,17 @@ Coverage:
   - Returns {page_id, file_path} on success (201)
   - Missing / empty title → 422
   - Content empty after strip → 422
-  - Resulting page has type=query; file_path = wiki/queries/<slug>.md
+  - CG-A2/A5 classifier: an open question → type=query (queries/); an answer/analysis →
+    type=synthesis (synthesis/)
+  - CG-A3: a bounded fire-and-forget wikilink-enrichment pass is scheduled on the saved page
   - Sources list is forwarded; conversation_id is appended as pseudo-source
   - Upsert semantics: calling twice with same title reuses write_wiki_page (idempotent, I1)
-  - No inference provider call (I6)
+  - The write itself makes no inference provider call (I6)
 """
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -232,10 +235,10 @@ class TestSaveToWikiEndpoint:
         assert resp.status_code == 201, resp.text
         assert call_log == ["write_wiki_page"], "Only write_wiki_page should be called (I6)"
 
-    async def test_page_type_is_query(
+    async def test_question_page_type_is_query(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The WikiPage written has type=query, landing in wiki/queries/."""
+        """CG-A2/A5: an open QUESTION keeps type=query, landing in wiki/queries/."""
         captured: list[Any] = []
 
         async def _capture_write(session: Any, page: Any, origin: Any) -> Any:
@@ -247,11 +250,91 @@ class TestSaveToWikiEndpoint:
         with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
-                json={"title": "My Query Page", "content": "Some answer."},
+                json={"title": "What is bge-m3?", "content": "bge-m3 is a model."},
             )
         assert resp.status_code == 201, resp.text
         assert len(captured) == 1
         assert str(captured[0].type) == "query", f"Expected type=query, got {captured[0].type!r}"
+        assert str(captured[0].frontmatter.type) == "query"
+
+    async def test_analytical_answer_is_synthesis(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CG-A2/A5: an answer/analysis (the common case) files as type=synthesis (synthesis/)."""
+        captured: list[Any] = []
+
+        async def _capture_write(session: Any, page: Any, origin: Any) -> Any:
+            captured.append(page)
+            return _make_fake_page(
+                file_path=f"wiki/synthesis/{page.title.lower().replace(' ', '-')}.md"
+            )
+
+        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+            resp = await client.post(
+                "/chat/save-to-wiki",
+                json={
+                    "title": "bge-m3 embedding tradeoffs",
+                    "content": "bge-m3 balances dense and sparse retrieval for multilingual recall.",
+                },
+            )
+        assert resp.status_code == 201, resp.text
+        assert len(captured) == 1
+        assert (
+            str(captured[0].type) == "synthesis"
+        ), f"Expected type=synthesis, got {captured[0].type!r}"
+        assert str(captured[0].frontmatter.type) == "synthesis"
+        assert resp.json()["file_path"].startswith("wiki/synthesis/")
+
+    async def test_schedules_wikilink_enrichment(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CG-A3: a fire-and-forget enrich_wikilinks pass is scheduled on the saved page."""
+        enrich_mock = AsyncMock(return_value=None)
+
+        async def _fake_write(session: Any, page: Any, origin: Any) -> Any:
+            return _make_fake_page(file_path="wiki/synthesis/aws-pricing-analysis.md")
+
+        with (
+            patch("app.ingest.orchestrator.write_wiki_page", new=_fake_write),
+            patch("app.ops.enrich_wikilinks.enrich_wikilinks", new=enrich_mock),
+        ):
+            resp = await client.post(
+                "/chat/save-to-wiki",
+                json={"title": "AWS pricing analysis", "content": "AWS charges per-hour."},
+            )
+            assert resp.status_code == 201, resp.text
+            # Drain the fire-and-forget enrichment task (bounded wait).
+            for _ in range(50):
+                if enrich_mock.await_count:
+                    break
+                await asyncio.sleep(0.01)
+
+        assert enrich_mock.await_count == 1, "enrich_wikilinks should be scheduled once (CG-A3)"
+        called_pages = enrich_mock.call_args.args[0]
+        assert isinstance(called_pages, list) and len(called_pages) == 1
+
+    async def test_enrichment_failure_never_fails_save(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CG-A3: a raising enrichment pass must NOT fail the 201 save (fire-and-forget)."""
+        boom = AsyncMock(side_effect=RuntimeError("provider exploded"))
+
+        async def _fake_write(session: Any, page: Any, origin: Any) -> Any:
+            return _make_fake_page(file_path="wiki/synthesis/x.md")
+
+        with (
+            patch("app.ingest.orchestrator.write_wiki_page", new=_fake_write),
+            patch("app.ops.enrich_wikilinks.enrich_wikilinks", new=boom),
+        ):
+            resp = await client.post(
+                "/chat/save-to-wiki",
+                json={"title": "Some analysis", "content": "A durable answer."},
+            )
+            assert resp.status_code == 201, resp.text
+            for _ in range(50):
+                if boom.await_count:
+                    break
+                await asyncio.sleep(0.01)
 
     async def test_think_block_stripped_before_write(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
@@ -387,3 +470,50 @@ class TestSaveToWikiValidation:
         assert "/chat/save-to-wiki" in schema.get(
             "paths", {}
         ), "POST /chat/save-to-wiki must appear in the OpenAPI schema (G-P0-1)"
+
+
+# ── Classifier heuristic (CG-A2/A5, pure — no app fixture) ───────────────────────
+
+
+class TestSaveToWikiClassifier:
+    """CG-A2/A5: _is_open_question — open question → query; answer/analysis → synthesis."""
+
+    def test_trailing_question_mark_title(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        assert _is_open_question("What is bge-m3?", "bge-m3 is a model.") is True
+
+    def test_trailing_question_mark_first_line(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        # Title is not a question, but the opening content line is (85% vs 90% analogue).
+        assert _is_open_question("Azure OpenAI threshold", "Should it be 85% or 90%?") is True
+
+    def test_interrogative_lead_without_mark(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        # Short, single-clause, interrogative-led title with no '?' still reads as a question.
+        assert _is_open_question("How does bge-m3 work", "It uses a hybrid index.") is True
+
+    def test_italian_question(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        assert _is_open_question("Perché scala il modello?", "Perché ...") is True
+
+    def test_declarative_noun_phrase_is_not_question(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        assert _is_open_question("bge-m3 embedding tradeoffs", "bge-m3 balances ...") is False
+
+    def test_topic_colon_heading_is_not_question(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        # 'What' lead but a ':' present → an analytical heading, not an open question.
+        assert _is_open_question("What we learned: cloud licensing", "We found ...") is False
+
+    def test_long_declarative_sentence_is_not_question(self) -> None:
+        from app.routers.chat import _is_open_question
+
+        # Interrogative-ish lead but > 12 words → a declarative sentence, not a question.
+        title = "How the team migrated the entire fleet from on-prem to cloud over two years"
+        assert _is_open_question(title, "The migration ...") is False

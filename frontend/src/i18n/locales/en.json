@@ -1515,6 +1515,8 @@
       "title": "GRUPPI AUTOMATICI",
       "pages": "pages",
       "openTopPage": "Open top page",
+      "topPage": "Top page",
+      "browseHint": "Browse group",
       "lastActivity": "Last activity",
       "noTopPages": "No pages yet",
       "expand": "Expand ({{count}} more)",
@@ -1542,6 +1544,42 @@
       "message": "Server is at v{{backendVersion}} — frontend expects v{{appVersion}}. Update the backend image to get the latest features.",
       "deployLink": "How to update",
       "dismiss": "Dismiss version notice"
+    },
+    "wikiThesis": {
+      "ariaLabel": "Wiki central thesis",
+      "title": "Wiki thesis",
+      "keyQuestionsLabel": "Key questions"
+    },
+    "quickActions": {
+      "ariaLabel": "Quick actions",
+      "ingestSource": "Ingest source",
+      "askQuestion": "Ask a question",
+      "deepResearch": "Deep research"
+    },
+    "reviewPreview": {
+      "ariaLabel": "Pending review items preview",
+      "title": "To review",
+      "seeAll": "see all ({{count}}) →",
+      "noTitle": "(no title)",
+      "create": "Create",
+      "creating": "Creating…",
+      "deepResearch": "Research",
+      "skip": "Skip"
+    },
+    "openQuestions": {
+      "ariaLabel": "Open questions",
+      "title": "Open questions"
+    },
+    "dataQuality": {
+      "ariaLabel": "Data quality nudge",
+      "message": "{{untyped}} untyped page(s), {{undomained}} without domain",
+      "cta": "Classify now",
+      "running": "Running…",
+      "done": "Done"
     }
+  },
+  "navTree": {
+    "filterBanner": "Filtered by: {{label}}",
+    "clearFilter": "Clear filter"
   }
 }
