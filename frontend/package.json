@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "private": true,
   "description": "Synapse — self-hosted LLM wiki workspace with knowledge graph and provider-selectable AI",
   "type": "module",
