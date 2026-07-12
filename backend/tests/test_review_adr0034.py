@@ -1047,6 +1047,84 @@ class TestSweepPass1:
                 ), f"Pass-1 must NOT auto-resolve {item_id!r} (type != missing-page/duplicate)"
 
 
+class TestSweepPass2EarlyExit:
+    """Pass-2 LLM sweep stops issuing batches once one resolves nothing (llm_wiki parity)."""
+
+    async def test_stops_after_first_empty_batch(
+        self,
+        review_env_0034: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """
+        nashsu/llm_wiki sweep-reviews.ts:307-310 breaks the batch loop when a batch resolves
+        nothing. With batch_size=1 and 3 pending items, a judge that resolves nothing must be
+        called EXACTLY ONCE, not once per item — the early-exit saves the remaining LLM calls.
+        """
+        import app.config as cfg
+        from app.ops import review as review_mod
+
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_enabled", True, raising=False)
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_max_items", 1, raising=False)
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_max_batches", 5, raising=False)
+
+        for i in range(3):
+            await _insert_proposal(
+                review_env_0034, item_type="suggestion", proposed_title=f"Sugg {i}"
+            )
+
+        judge_spy = AsyncMock(return_value=set())
+        monkeypatch.setattr(review_mod, "_llm_sweep_judge", judge_spy)
+
+        result = await review_mod.sweep_reviews("test-vault")
+
+        assert judge_spy.await_count == 1  # early-exit after the first empty batch
+        assert result.llm_resolved == 0
+        assert result.kept == 3
+
+    async def test_continues_while_batches_resolve(
+        self,
+        review_env_0034: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A batch that resolves its item continues; the next empty batch then stops the loop."""
+        import app.config as cfg
+        from app.ops import review as review_mod
+
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_enabled", True, raising=False)
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_max_items", 1, raising=False)
+        monkeypatch.setattr(cfg.settings, "review_sweep_llm_max_batches", 5, raising=False)
+
+        ids = [
+            await _insert_proposal(
+                review_env_0034, item_type="suggestion", proposed_title=f"Sugg {i}"
+            )
+            for i in range(3)
+        ]
+
+        # First batch resolves its single item; second batch resolves nothing → break.
+        calls = {"n": 0}
+
+        async def _judge(*, vault_id: str, candidate_items: Any, existing_titles: Any) -> set[str]:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {str(candidate_items[0].id)}
+            return set()
+
+        monkeypatch.setattr(review_mod, "_llm_sweep_judge", _judge)
+
+        result = await review_mod.sweep_reviews("test-vault")
+
+        assert calls["n"] == 2  # one resolving batch + one empty batch, then stop
+        assert result.llm_resolved == 1
+        # The first item was auto-resolved; the other two stay pending.
+        async with review_env_0034["session_factory"]() as sess:
+            row = await sess.execute(
+                sa_text("SELECT status FROM review_items WHERE id=:id"),
+                {"id": ids[0]},
+            )
+            assert row.one().status == "auto_resolved"
+
+
 # ── T-0034-020..022: Migration 0013 ───────────────────────────────────────────
 
 

@@ -2241,6 +2241,14 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                         existing_titles=existing_titles,
                     )
 
+                    # Early-exit (nashsu/llm_wiki parity — sweep-reviews.ts:307-310): a batch that
+                    # resolved NOTHING means the conservative judge is keeping everything; later
+                    # batches (older, even less resolvable items) will almost certainly do the same.
+                    # Stop spending LLM calls (I7 cost control). A provider failure/timeout also
+                    # returns set() → we stop rather than burn the budget on likely-failing calls.
+                    if not ids_to_resolve:
+                        break
+
                     for item in batch:
                         item_id_str = str(item.id)
                         if item_id_str in ids_to_resolve:
