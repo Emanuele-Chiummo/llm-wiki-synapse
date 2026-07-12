@@ -1319,10 +1319,13 @@ class TestBrokenWikilinkDetection:
         # Should be deduplicated to at most 1
         assert len(same_target) <= 1
 
-    async def test_broken_wikilink_dedup_against_existing_open(
+    async def test_broken_wikilink_reemitted_no_cross_run_dedup(
         self, lint_env: dict[str, Any]
     ) -> None:
-        """L1: (b) skip if OPEN finding with same category+target_page_id+target_title exists."""
+        """The cross-run (b) dedup was removed: a broken-wikilink is RE-EMITTED even when an OPEN
+        finding for the same (referencing_page, target) already exists — the category-aware
+        supersede (run_lint_scan §4) closes the stale prior-run row instead, so accumulation is
+        prevented without dropping the fresh finding (llm_wiki fresh-recompute parity)."""
         from app.ops.lint import _detect_broken_wikilinks
 
         ref_page = await _insert_page(lint_env, title="Referencing Page")
@@ -1344,7 +1347,49 @@ class TestBrokenWikilinkDetection:
 
         findings = await _detect_broken_wikilinks("test-vault")
         already = [f for f in findings if f.target_title == "AlreadyReported"]
-        assert len(already) == 0, "Should skip already-open finding (dedup b)"
+        assert len(already) == 1, "Fresh finding must be re-emitted (supersede handles the old one)"
+
+    async def test_supersede_prior_open_findings_category_aware(
+        self, lint_env: dict[str, Any]
+    ) -> None:
+        """A new scan closes prior runs' OPEN findings it recomputed (llm_wiki fresh-recompute),
+        category-aware and preserving human-acted (applied/dismissed) findings."""
+        import uuid as _uuid
+
+        from app.ops.lint import _supersede_prior_open_findings
+
+        f_open_det = await _insert_finding(lint_env, category="broken-wikilink", status="open")
+        f_open_sem = await _insert_finding(lint_env, category="contradiction", status="open")
+        f_applied = await _insert_finding(lint_env, category="broken-wikilink", status="applied")
+        f_dismissed = await _insert_finding(lint_env, category="contradiction", status="dismissed")
+
+        async def _status(fid: str) -> str:
+            async with lint_env["session_factory"]() as sess:
+                row = await sess.execute(
+                    sa_text("SELECT status FROM lint_findings WHERE id = :id"), {"id": fid}
+                )
+                return str(row.scalar_one())
+
+        # Deterministic-only scan → supersede only deterministic OPEN findings.
+        n = await _supersede_prior_open_findings(
+            vault_id="test-vault",
+            current_run_id=_uuid.uuid4(),
+            categories=frozenset({"broken-wikilink", "no-outlinks", "orphan-page", "missing-xref"}),
+        )
+        assert n == 1
+        assert await _status(f_open_det) == "superseded"  # deterministic open → closed
+        assert await _status(f_open_sem) == "open"  # semantic not recomputed → preserved
+        assert await _status(f_applied) == "applied"  # human-acted → preserved
+        assert await _status(f_dismissed) == "dismissed"  # human-acted → preserved
+
+        # A semantic scan additionally supersedes the semantic OPEN finding.
+        n2 = await _supersede_prior_open_findings(
+            vault_id="test-vault",
+            current_run_id=_uuid.uuid4(),
+            categories=frozenset({"contradiction", "stale-claim", "missing-page", "suggestion"}),
+        )
+        assert n2 == 1
+        assert await _status(f_open_sem) == "superseded"
 
     async def test_broken_wikilink_in_scan_endpoint(
         self, lint_env: dict[str, Any], lint_client: AsyncClient

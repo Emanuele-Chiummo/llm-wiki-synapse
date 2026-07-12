@@ -76,7 +76,18 @@ _VALID_CATEGORIES = frozenset(
     }
 )
 _VALID_SEVERITIES = frozenset({"info", "warning", "error"})
-_VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
+# `superseded` (v1.5.x): a terminal status set by a NEW scan on the prior run's still-OPEN
+# findings that it recomputed — llm_wiki recomputes lint fresh each run (clearLintItems), so a
+# fixed issue simply vanishes. Synapse persists findings, so we emulate the fresh recompute by
+# closing stale open findings instead of accumulating them. Distinct from human `dismissed`.
+_VALID_STATUSES = frozenset({"open", "applied", "dismissed", "superseded"})
+
+# Which categories each scan phase RECOMPUTES — drives the category-aware supersede so a
+# deterministic-only scan (semantic=False) never closes semantic findings it did not re-check.
+_DETERMINISTIC_CATEGORIES = frozenset(
+    {"orphan-page", "broken-wikilink", "no-outlinks", "missing-xref"}
+)
+_SEMANTIC_CATEGORIES = frozenset({"contradiction", "stale-claim", "missing-page", "suggestion"})
 
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
 # stale-claim → apply is a no-op status change to 'applied' with a resolution_note (the human
@@ -351,6 +362,33 @@ async def run_lint_scan(
         # + max_findings — still a hard ceiling (I7), just not one that hides free findings.
         findings = findings[: det_baseline + max_findings]
         await _persist_findings(run_id=run_id, vault_id=vault_id, findings=findings)
+
+        # ── 4. Supersede prior runs' stale OPEN findings (llm_wiki fresh-recompute parity) ──
+        # A new scan REPLACES the prior scan's open findings for the categories it recomputed,
+        # so the queue never accumulates duplicates (48→90→107) and a fixed issue vanishes on
+        # the next run. Category-aware: deterministic always runs; semantic only when enabled.
+        # Runs AFTER persist so this scan's fresh rows are never touched. Non-fatal.
+        supersede_categories = _DETERMINISTIC_CATEGORIES | (
+            _SEMANTIC_CATEGORIES if semantic else frozenset()
+        )
+        try:
+            n_superseded = await _supersede_prior_open_findings(
+                vault_id=vault_id,
+                current_run_id=run_id,
+                categories=supersede_categories,
+            )
+            if n_superseded:
+                logger.info(
+                    "run_lint_scan: superseded %d stale open finding(s) from prior runs "
+                    "(vault=%s, run_id=%s)",
+                    n_superseded,
+                    vault_id,
+                    run_id,
+                )
+        except Exception as sup_exc:  # noqa: BLE001 — never fail the scan on cleanup
+            logger.warning(
+                "run_lint_scan: supersede of prior findings failed (non-fatal): %s", sup_exc
+            )
 
     except Exception as exc:  # noqa: BLE001
         status = "error"
@@ -925,22 +963,12 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
             # Build resolver maps ONCE for all suggestions (I1 — no N+1).
             from app.wiki.links import resolve_suggested_target
 
-            # Load existing OPEN broken-wikilink findings for dedup (b).
-            existing_open = {
-                (str(r[0]), str(r[1]))
-                for r in (
-                    await session.execute(
-                        select(LintFinding.target_page_id, LintFinding.target_title).where(
-                            LintFinding.vault_id == vault_id,
-                            LintFinding.category == "broken-wikilink",
-                            LintFinding.status == "open",
-                        )
-                    )
-                ).all()
-                if r[0] is not None and r[1] is not None
-            }
-
-            # within-scan dedup set: (source_page_id_str, target_text)
+            # within-scan dedup set: (source_page_id_str, target_text).
+            # NOTE: the previous cross-run dedup (skip if an OPEN broken-wikilink already exists)
+            # was a workaround for finding accumulation. The category-aware supersede (§4 in
+            # run_lint_scan) now closes prior runs' open findings each scan, so cross-run dedup is
+            # redundant AND harmful (it would skip re-emitting a finding that supersede then
+            # closes → the finding vanishes). Within-scan dedup is all that's needed now.
             seen_within_scan: set[tuple[str, str]] = set()
 
             for _link_id, source_page_id, target_text, referencing_title in dangling_rows:
@@ -953,10 +981,6 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
                 if dedup_key in seen_within_scan:
                     continue
                 seen_within_scan.add(dedup_key)
-
-                # (b) existing OPEN finding with same (referencing_page_id, target_title)
-                if dedup_key in existing_open:
-                    continue
 
                 ref_title = referencing_title or src_str
                 description = (
@@ -2332,6 +2356,48 @@ async def _persist_findings(
                 reviewed_at=None,
             )
             session.add(finding_row)
+
+
+async def _supersede_prior_open_findings(
+    *,
+    vault_id: str,
+    current_run_id: uuid.UUID,
+    categories: frozenset[str],
+) -> int:
+    """
+    Close (status='superseded') the prior runs' still-OPEN findings that THIS scan recomputed,
+    so the queue reflects the fresh scan instead of accumulating (llm_wiki clearLintItems parity).
+
+    Scope (safety):
+      - Only OPEN findings are touched — human-`applied`/`dismissed`/already-`superseded` are
+        preserved (their outcome is durable; a re-scan must not resurrect or re-close them).
+      - Only findings in ``categories`` are touched — a deterministic-only scan (semantic=False)
+        passes the deterministic set only, so it never closes semantic findings it did not
+        re-check.
+      - Only OTHER runs are touched (``lint_run_id != current_run_id``) — never this scan's own
+        just-persisted rows.
+
+    Returns the number of findings superseded. Never raises into the scan (caller wraps it).
+    """
+    if not categories:
+        return 0
+    async with get_session() as session:
+        result = await session.execute(
+            update(LintFinding)
+            .where(
+                LintFinding.vault_id == vault_id,
+                LintFinding.status == "open",
+                LintFinding.lint_run_id != str(current_run_id),
+                LintFinding.category.in_(tuple(categories)),
+            )
+            .values(
+                status="superseded",
+                reviewed_at=datetime.now(UTC),
+                resolution_note=f"superseded by lint run {current_run_id}",
+            )
+        )
+        await session.commit()
+        return int(result.rowcount or 0)
 
 
 async def _set_finding_status(
