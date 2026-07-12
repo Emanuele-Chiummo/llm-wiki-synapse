@@ -42,6 +42,31 @@ async function postOp(path: string, signal?: AbortSignal): Promise<OpsTriggerRes
   return res.json() as Promise<OpsTriggerResponse>;
 }
 
+async function postJsonOp(
+  path: string,
+  body: unknown,
+  signal?: AbortSignal,
+): Promise<OpsTriggerResponse> {
+  const url = `${apiBase()}${path}`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const responseBody = (await res.json()) as { detail?: string };
+      if (responseBody.detail) detail = responseBody.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`POST ${path}: ${detail}`);
+  }
+  return res.json() as Promise<OpsTriggerResponse>;
+}
+
 /**
  * triggerBackfillDomains — POST /ops/backfill-domains
  *
@@ -67,10 +92,10 @@ export async function triggerReclassifyTypes(signal?: AbortSignal): Promise<OpsT
  * Triggers a bounded corpus-level pass that seeds candidate clusters from the
  * 4-signal graph and, per cluster, either auto-writes a synthesis/comparison
  * page (high confidence) or proposes it to the F9 review queue (borderline).
- * The backend accepts an empty body; this client never sends run-bound
- * overrides (max_pages/token_budget/force) — the server-side defaults (I7)
- * are used, matching how the "Classify now" trigger works for backfill/reclassify.
+ * The backend request model has all-default fields, but FastAPI still treats
+ * body params as a body contract; send an explicit empty object so strict
+ * deployments do not return 422.
  */
 export async function triggerSynthesize(signal?: AbortSignal): Promise<OpsTriggerResponse> {
-  return postOp("/ops/synthesize", signal);
+  return postJsonOp("/ops/synthesize", {}, signal);
 }
