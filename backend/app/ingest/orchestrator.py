@@ -521,10 +521,27 @@ async def run_ingest_pipeline(
             # forbids post-processing the agent's own MCP writes here).
             from app.ingest.provider._common import GENERATION_SCAFFOLD
 
-            _delegated_system_prompt = (
-                f"{ingest_context}\n\n{GENERATION_SCAFFOLD}"
-                if ingest_context
-                else GENERATION_SCAFFOLD
+            # F3 language parity: the orchestrated route injects a MANDATORY OUTPUT LANGUAGE
+            # directive (build_generate_prompt) derived from the detected/target language; the
+            # delegated agent got no such instruction and could silently translate to English.
+            # Mirror nashsu/llm_wiki, which threads its configured `outputLanguage` (targetLang,
+            # ingest.ts:1706/2137) into the ingest prompt: use the vault language so delegated
+            # pages come out in the vault's language too. Prompt text only (I6) — no provider
+            # branch. Empty → omit (agent auto-detects from the source, prior behaviour).
+            _vault_lang = (getattr(settings, "overview_language", "") or "").strip()
+            _lang_directive = (
+                (
+                    "## Mandatory output language\n"
+                    f"Write every page's body, section headings, and frontmatter `lang` in "
+                    f"{_vault_lang} (ISO-639-1). Do NOT translate to English unless "
+                    f"{_vault_lang!r} is 'en'. Preserve proper nouns, acronyms, model/dataset/tool "
+                    "names, code identifiers, URLs, and citation strings in their original form."
+                )
+                if _vault_lang
+                else ""
+            )
+            _delegated_system_prompt = "\n\n".join(
+                part for part in (ingest_context, GENERATION_SCAFFOLD, _lang_directive) if part
             )
             converged, delegated_pages_written, delegated_page_ids = await _delegate_ingest(
                 provider=provider,
@@ -539,6 +556,31 @@ async def run_ingest_pipeline(
             # IngestCancelled handler above.
             if cancel_event.is_set():
                 raise IngestCancelled(origin_source)
+
+            # ── F3 delegated-route source-summary guarantee (nashsu/llm_wiki parity) ────
+            # The orchestrated route guarantees exactly one source page via _ensure_source_summary
+            # before write; the delegated agent may omit it. llm_wiki runs the SAME deterministic
+            # fallback (ingest.ts:1209-1244 hasSourceSummary → writeFile) AFTER its ingest streams,
+            # so mirror it here: ADD a minimal source page only when none traceable to origin_source
+            # exists among the agent's writes. Additive, never mutates the agent's own writes
+            # (I6-safe) and never duplicates. Runs BEFORE overview/proposals so they see it. The
+            # new page's id is threaded into delegated_page_ids so downstream hooks include it.
+            try:
+                _src_pg = await _ensure_source_summary_for_delegated(
+                    vault_id=settings.vault_id,
+                    written_page_ids=delegated_page_ids,
+                    origin_source=origin_source,
+                )
+                if _src_pg is not None:
+                    delegated_page_ids.append(str(_src_pg.id))
+                    delegated_pages_written += 1
+                    ingest_queue.record_written(run_id, _src_pg.id)
+            except Exception as _src_d_exc:  # noqa: BLE001
+                logger.warning(
+                    "run_ingest_pipeline: F3 delegated source-summary guarantee failed "
+                    "(non-fatal): %s",
+                    _src_d_exc,
+                )
 
             # ── F3 delegated-route overview regen (nashsu/llm_wiki parity) ──────────────
             # The CLI agent writes pages via MCP write_page but does NOT maintain overview.md.
@@ -1179,6 +1221,86 @@ async def _enrich_wikilinks_for_delegated(
         result.links_added,
         result.total_cost_usd,
     )
+
+
+async def _ensure_source_summary_for_delegated(
+    *,
+    vault_id: str,
+    written_page_ids: list[str],
+    origin_source: str,
+) -> Page | None:
+    """
+    Deterministic source-summary guarantee for the delegated (CLI) route (nashsu/llm_wiki
+    parity — ingest.ts:1209-1244 ``hasSourceSummary`` fallback).
+
+    The orchestrated route calls ``_ensure_source_summary`` before write; the delegated agent
+    writes its own pages via MCP ``write_page`` and may omit the source summary. This ADDITIVE
+    guarantee mirrors llm_wiki, which writes the same fallback source file when no source summary
+    was produced. It inspects the pages the agent actually wrote and, ONLY when none is a
+    ``source`` page traceable to *origin_source*, synthesizes + writes the minimal fallback via the
+    shared ``write_wiki_page`` seam.
+
+    I6-safe: additive (creates a page the agent didn't write) — it never mutates or deletes the
+    agent's own writes, and it never duplicates an existing source page (the same dedupe guard as
+    the orchestrated ``_ensure_source_summary``). Analysis is None on the delegated route, so the
+    body degrades to "(Analysis not available)" exactly like llm_wiki's
+    ``analysis ? … : "(Analysis not available)"``; the vault language is used for the frontmatter
+    ``lang`` so a non-English vault gets a localised stub. Returns the newly written ``Page`` (so
+    the caller can thread its id into the downstream delegated hooks) or ``None`` when a source
+    page already existed / nothing was written.
+    """
+    from sqlalchemy import String as _SAString
+    from sqlalchemy import cast, select
+
+    from app.ingest.schemas import Analysis, PageType, SuggestedPage
+    from app.models import Page as _PageModel
+
+    if written_page_ids:
+        async with get_session() as session:
+            rows = list(
+                (
+                    await session.execute(
+                        select(_PageModel).where(
+                            cast(_PageModel.id, _SAString).in_([str(i) for i in written_page_ids]),
+                            _PageModel.deleted_at.is_(None),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for r in rows:
+                session.expunge(r)
+        # llm_wiki hasSourceSummary dedupe guard: a source page traceable to the origin already
+        # exists → nothing to do (no churn, no duplicate).
+        for r in rows:
+            if r.page_type == PageType.SOURCE.value and origin_source in (r.sources or []):
+                logger.debug(
+                    "delegated source-summary: agent already wrote a source page for %s",
+                    origin_source,
+                )
+                return None
+
+    # Synthesize the minimal fallback source page. summary=None → body "(Analysis not available)"
+    # (llm_wiki parity); language = the vault language so the stub matches the vault, not English.
+    synthesized = Analysis(
+        topics=["ingest"],
+        entities=[],
+        language=(getattr(settings, "overview_language", "") or "en"),
+        suggested_pages=[SuggestedPage(title="(delegated ingest)", type=PageType.SOURCE)],
+        summary=None,
+    )
+    fallback_pages = _ensure_source_summary([], synthesized, origin_source)
+    if not fallback_pages:
+        return None
+    written = await write_wiki_page(None, fallback_pages[0], origin_source)
+    logger.info(
+        "delegated source-summary: agent omitted the source page — wrote fallback %r for %s "
+        "(nashsu/llm_wiki hasSourceSummary parity)",
+        written.title,
+        origin_source,
+    )
+    return written
 
 
 async def _propose_reviews_for_delegated(
