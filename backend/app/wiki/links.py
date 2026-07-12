@@ -163,6 +163,105 @@ def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
     return maps.by_slug.get(_slugify(target))
 
 
+# ── Fuzzy broken-link suggestion (L2b — port of lint.ts suggestBrokenTarget) ─────
+#
+# The exact→case→slug resolver above already ran and MISSED (that is why the link is
+# dangling). llm_wiki then offers a *repair suggestion* via a typo-tolerant score
+# (Levenshtein over the basename, plus same-basename / substring shortcuts). This is a
+# SUGGESTION ONLY — it never creates a graph edge, so a wrong guess cannot pollute the
+# graph; it just pre-fills the "Rewrite [[x]] → [[y]]" fix for human review. Threshold and
+# scores are copied verbatim from src/lib/lint.ts so behaviour matches 1:1.
+_BROKEN_LINK_SUGGESTION_MIN_SCORE: float = 0.74
+_SAME_BASENAME_SCORE: float = 0.96
+_CONTAINS_TARGET_SCORE: float = 0.82
+_FUZZY_MIN_BASENAME_LEN: int = 5  # below this, Levenshtein is too noisy (llm_wiki parity)
+
+
+def _normalize_link_target(target: str) -> str:
+    """Port of lint.ts normalizeLinkTarget: drop a leading ``wiki/`` and ``.md``, lower, trim."""
+    value = target.replace("\\", "/").strip()
+    value = re.sub(r"^wiki/", "", value, flags=re.IGNORECASE)
+    value = re.sub(r"\.md$", "", value, flags=re.IGNORECASE)
+    return value.strip().lower()
+
+
+def _basename(value: str) -> str:
+    """Port of path-utils.getFileName over a normalized target (segment after the last ``/``)."""
+    return value.split("/")[-1] if value else value
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Iterative Levenshtein edit distance (two-row) — direct port of lint.ts levenshtein."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    previous = list(range(len(b) + 1))
+    current = [0] * (len(b) + 1)
+    for i in range(1, len(a) + 1):
+        current[0] = i
+        for j in range(1, len(b) + 1):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            current[j] = min(current[j - 1] + 1, previous[j] + 1, previous[j - 1] + cost)
+        previous = current[:]
+    return previous[len(b)]
+
+
+def _string_similarity(a: str, b: str) -> float:
+    """
+    Typo-tolerant similarity in ``[0, 1]`` — verbatim port of lint.ts stringSimilarity.
+
+    Exact-normalized → 1.0; same basename → 0.96; substring containment → 0.82; otherwise
+    ``1 - levenshtein(base_a, base_b) / max_len`` once both basenames are long enough to trust.
+    """
+    left = _normalize_link_target(a)
+    right = _normalize_link_target(b)
+    if not left or not right:
+        return 0.0
+    if left == right:
+        return 1.0
+    left_base = _basename(left)
+    right_base = _basename(right)
+    if left_base == right_base:
+        return _SAME_BASENAME_SCORE
+    if right.find(left) != -1 or left.find(right) != -1:
+        return _CONTAINS_TARGET_SCORE
+    if len(left_base) < _FUZZY_MIN_BASENAME_LEN or len(right_base) < _FUZZY_MIN_BASENAME_LEN:
+        return 0.0
+    max_len = max(len(left_base), len(right_base))
+    if max_len == 0:
+        return 0.0
+    return 1.0 - _levenshtein(left_base, right_base) / max_len
+
+
+def _fuzzy_suggest_target(target: str, maps: _ResolverMaps) -> tuple[uuid.UUID, str] | None:
+    """
+    Best typo-tolerant repair candidate for a dangling *target*, or None below threshold.
+
+    Scores *target* against every live page's title AND its slug (mirroring llm_wiki, which
+    scores against slug/shortName/title) and keeps the highest. Returns ``(page_id, title)``
+    only when the best score clears ``_BROKEN_LINK_SUGGESTION_MIN_SCORE`` (0.74). Pure/in-memory:
+    reuses the maps already built for the exact resolver, so no extra query (I1).
+    """
+    best_id: uuid.UUID | None = None
+    best_title: str | None = None
+    best_score = 0.0
+    for title, pid in maps.by_title.items():
+        score = max(
+            _string_similarity(target, title),
+            _string_similarity(target, _slugify(title)),
+        )
+        if score > best_score:
+            best_score = score
+            best_id = pid
+            best_title = title
+    if best_id is None or best_title is None or best_score < _BROKEN_LINK_SUGGESTION_MIN_SCORE:
+        return None
+    return best_id, best_title
+
+
 # ── Persistence ────────────────────────────────────────────────────────────────
 
 
@@ -237,18 +336,22 @@ async def resolve_suggested_target(
 ) -> tuple[uuid.UUID, str] | None:
     """
     Resolve *target* to the best-matching live page using the tolerant 3-step matcher
-    (exact → case-insensitive → slug).  Returns ``(page_id, matched_title)`` or
-    ``None`` when no live page matches.
+    (exact → case-insensitive → slug), then a typo-tolerant fuzzy fallback (L2b).  Returns
+    ``(page_id, matched_title)`` or ``None`` when nothing clears the fuzzy threshold.
 
     Builds the resolver maps in ONE query (I1 — no N+1).  Scoped to ALL live pages
     (vault-agnostic, matching the behaviour of persist_links and reresolve_dangling_links).
 
     Used by the broken-wikilink scan (L2) to compute suggested_target/suggested_page_id.
+    A dangling link means the exact matcher already missed, so the fuzzy fallback is what
+    actually surfaces "did you mean [[Transformer]]?" re-point suggestions (llm_wiki
+    suggestBrokenTarget parity) instead of forcing a stub page for every typo.
     """
     maps = await _build_resolver_maps(session)
     hit = _resolve_target(target, maps)
     if hit is None:
-        return None
+        # L2b — exact/case/slug all missed; try the typo-tolerant fuzzy repair candidate.
+        return _fuzzy_suggest_target(target, maps)
     # Reverse-look-up the canonical title from the exact map (first-hit-wins, conservative).
     for title, pid in maps.by_title.items():
         if pid == hit:
