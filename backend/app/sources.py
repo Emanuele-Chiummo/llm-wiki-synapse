@@ -460,6 +460,104 @@ async def _get_derived_pages(rel_path: str) -> list[SourceDerivedPage]:
     return results
 
 
+async def _get_page_sources(page_id: uuid.UUID) -> list[str]:
+    """Return a page's current sources[] (empty list if missing/deleted/malformed)."""
+    from sqlalchemy import select
+
+    from app.db import get_session
+    from app.models import Page
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(Page.sources).where(Page.id == page_id, Page.deleted_at.is_(None))
+        )
+        r = row.first()
+    if r is None or r[0] is None:
+        return []
+    sources = r[0]
+    if isinstance(sources, str):
+        import json as _json
+
+        try:
+            sources = _json.loads(sources)
+        except Exception:  # noqa: BLE001
+            return []
+    if not isinstance(sources, list):
+        return []
+    return [str(s) for s in sources]
+
+
+async def _cascade_or_prune_derived(rel_path: str) -> tuple[int, int]:
+    """
+    F13 preserve-shared source delete (ADR-0026 §4.1) — the fix for the multi-source data-loss bug.
+
+    For each wiki page derived from source *rel_path*, remove THIS source from its sources[]:
+      • sources[] becomes EMPTY  → cascade-delete the page (full removal: wikilinks, index.md,
+        Qdrant, edges, graph — the existing ``cascade_delete`` machinery).
+      • ANOTHER source remains   → KEEP the page and prune only this source from sources[]
+        (``_prune_sources``). Never destroy an entity/concept still supported by another source.
+
+    Previously the delete path cascade-deleted EVERY derived page unconditionally, and the
+    preserve-shared branch in ``cascade_delete`` only fires for ``raw/sources/`` *page* targets
+    (which sources never are) — so a shared "AWS" entity was wiped when deleting one of its
+    sources. Returns (pages_cascaded, pages_pruned).
+    """
+    from app.ops.cascade_delete import PageNotFoundError, _prune_sources
+
+    derived = await _get_derived_pages(rel_path)
+    if not derived:
+        return 0, 0
+
+    # Same candidate forms _get_derived_pages matched on — a page may store any of them.
+    candidates = {rel_path, f"raw/sources/{rel_path}", rel_path.rsplit("/", 1)[-1]}
+
+    pages_cascaded = 0
+    pages_pruned = 0
+    for derived_page in derived:
+        try:
+            page_uuid = uuid.UUID(derived_page.id)
+        except ValueError:
+            continue
+
+        sources_list = await _get_page_sources(page_uuid)
+        present = [s for s in sources_list if s in candidates]
+        remaining = [s for s in sources_list if s not in candidates]
+
+        if remaining:
+            # Shared page — preserve it, prune only this source (each stored form).
+            for form in present or [rel_path]:
+                try:
+                    await _prune_sources(page_uuid, form)
+                except Exception as exc:  # noqa: BLE001
+                    logger.error(
+                        "sources.delete: prune failed for page %s: %s", derived_page.id, exc
+                    )
+            pages_pruned += 1
+            logger.info(
+                "sources.delete: preserved shared page %s (pruned source %s; %d source(s) remain)",
+                derived_page.id,
+                rel_path,
+                len(remaining),
+            )
+        else:
+            try:
+                await _cascade_delete_page(page_uuid)
+                pages_cascaded += 1
+                logger.info(
+                    "sources.delete: cascade-deleted page %s (last source %s removed)",
+                    derived_page.id,
+                    rel_path,
+                )
+            except PageNotFoundError:
+                logger.debug("sources.delete: page %s already deleted (skipping)", derived_page.id)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "sources.delete: cascade_delete failed for page %s: %s", derived_page.id, exc
+                )
+
+    return pages_cascaded, pages_pruned
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 
@@ -912,39 +1010,10 @@ async def _delete_single_source_file(
     """
     rel_path = abs_path.relative_to(sources_dir).as_posix()
 
-    # Find all derived pages (non-deleted) via sources[] JSONB pivot
-    derived = await _get_derived_pages(rel_path)
-
-    pages_cascaded = 0
-
-    if derived:
-        # Cascade-delete each derived page using the existing machinery (F13/ADR-0026).
-        # _cascade_delete_page() wraps ops.cascade_delete.cascade_delete — which computes
-        # the plan + applies it (soft-delete, Qdrant, wikilinks, index.md, raw-source file
-        # cleanup, data_version bump). Since the raw SOURCE file we are deleting is NOT a
-        # Page row itself (it's the raw file on disk), we call cascade on each DERIVED WIKI
-        # PAGE — not on the source file's page entry.
-        from app.ops.cascade_delete import PageNotFoundError
-
-        for derived_page in derived:
-            try:
-                page_uuid = uuid.UUID(derived_page.id)
-                await _cascade_delete_page(page_uuid)
-                pages_cascaded += 1
-                logger.info(
-                    "sources.delete: cascade-deleted page %s (derived from %s)",
-                    derived_page.id,
-                    rel_path,
-                )
-            except PageNotFoundError:
-                # Already deleted in a previous iteration or by a race — skip
-                logger.debug("sources.delete: page %s already deleted (skipping)", derived_page.id)
-            except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "sources.delete: cascade_delete failed for page %s: %s",
-                    derived_page.id,
-                    exc,
-                )
+    # F13 preserve-shared (ADR-0026): cascade-delete derived pages that become source-less, but
+    # KEEP pages still supported by another source (prune this source only). The raw SOURCE file
+    # is not a Page row itself, so we operate on each DERIVED WIKI PAGE.
+    pages_cascaded, pages_pruned = await _cascade_or_prune_derived(rel_path)
 
     # Delete the raw source file from disk
     try:
@@ -957,9 +1026,10 @@ async def _delete_single_source_file(
             detail=f"Failed to delete source file: {exc}",
         ) from exc
 
-    # If no derived pages existed, still bump data_version + notify graph cache
-    # so the frontend's sources-tree and graph are kept consistent (I2).
-    if not derived:
+    # cascade_delete bumps data_version once per deletion; when NO page was cascade-deleted
+    # (no derived pages, or every derived page was preserved-with-pruned-source) we still bump
+    # once so the sources-tree + graph stay consistent (I2).
+    if pages_cascaded == 0:
         await _bump_version_no_derived()
 
     return SourceDeleteResponse(
@@ -1036,37 +1106,16 @@ async def _delete_source_directory(
         rel_dir,
     )
 
-    # ── Step 3: Cascade each file (reuses existing per-file seam) ─────────────
-    from app.ops.cascade_delete import PageNotFoundError
-
+    # ── Step 3: Cascade each file (reuses _cascade_or_prune_derived — preserve-shared) ──
     total_pages_cascaded = 0
     files_deleted = 0
 
     for fpath in all_files:
         file_rel = fpath.relative_to(sources_dir).as_posix()
-        derived = await _get_derived_pages(file_rel)
-
-        if derived:
-            for derived_page in derived:
-                try:
-                    page_uuid = uuid.UUID(derived_page.id)
-                    await _cascade_delete_page(page_uuid)
-                    total_pages_cascaded += 1
-                    logger.info(
-                        "sources.delete_dir: cascade-deleted page %s (derived from %s)",
-                        derived_page.id,
-                        file_rel,
-                    )
-                except PageNotFoundError:
-                    logger.debug(
-                        "sources.delete_dir: page %s already deleted (skipping)", derived_page.id
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.error(
-                        "sources.delete_dir: cascade_delete failed for page %s: %s",
-                        derived_page.id,
-                        exc,
-                    )
+        # F13 preserve-shared: cascade source-less pages, keep pages still supported by another
+        # source (same helper as the single-file path).
+        pc, _pp = await _cascade_or_prune_derived(file_rel)
+        total_pages_cascaded += pc
 
         # Remove the raw file from disk after cascade completes for this file
         try:
@@ -1076,8 +1125,9 @@ async def _delete_source_directory(
         except Exception as exc:  # noqa: BLE001
             logger.error("sources.delete_dir: failed to unlink %s: %s", file_rel, exc)
 
-        # If this file had no derived pages, bump data_version (mirrors single-file logic)
-        if not derived:
+        # Bump data_version when no page was cascade-deleted for this file (no derived, or all
+        # preserved-with-pruned-source) — mirrors single-file logic (I2).
+        if pc == 0:
             await _bump_version_no_derived()
 
     # ── Step 4: Remove now-empty subdirectories bottom-up ──────────────────────

@@ -19,8 +19,10 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit
 
 import httpx
 
@@ -53,13 +55,79 @@ _ANTHROPIC_BASE_ENV = "ANTHROPIC_BASE_URL"
 _PRICE_MAP_ENV = "PROVIDER_PRICE_MAP"  # JSON: {model_id: {input: usd_per_tok, output: ...}}
 _ANTHROPIC_VERSION = "2023-06-01"
 _DEFAULT_MAX_CONTEXT = 200_000
-_DEFAULT_MAX_TOKENS = 4096
+# Max OUTPUT tokens per API call. The generation step returns a JSON object with the full text of
+# several wiki pages in ONE response; too low a cap truncates it mid-JSON on rich sources → a
+# downstream "Expecting ',' delimiter" parse error. max_tokens is a CAP, not a target — a higher
+# value costs nothing unless the model actually emits more — so we default generously. 16384 fits
+# comfortably under Claude Haiku 4.5's 64K native output cap (no beta header needed on Claude 4+
+# models). Env-tunable via PROVIDER_MAX_OUTPUT_TOKENS for very large sources (Haiku accepts up to
+# 64000) or capped down for OpenAI-compatible models with smaller output windows. Clamped ≥1024.
+_DEFAULT_MAX_TOKENS = max(1024, int(os.environ.get("PROVIDER_MAX_OUTPUT_TOKENS", "16384")))
 
 # W1 (F17): reasoning/thinking effort → backend-native knobs. auto/off/custom/None ⇒ no override
 # (degrade-safe; existing behaviour). Only applied when the user explicitly opts into a level, so
 # endpoints that don't support it are never sent an unknown field by default.
 _ANTHROPIC_THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 8192, "max": 16000}
 _OPENAI_REASONING_EFFORT = {"low": "low", "medium": "medium", "high": "high", "max": "high"}
+
+
+# ── Azure OpenAI wire (nashsu/llm_wiki azure-openai.ts parity) ─────────────────────────────────
+# Azure OpenAI is OpenAI-compatible but differs on the wire: the deployment lives in the URL path,
+# auth uses an `api-key` header (NOT `Authorization: Bearer`), an `?api-version=` query param is
+# required, and the request body OMITS `model`. We detect Azure from the base_url hostname — the
+# SAME signal llm_wiki uses (isAzureOpenAiEndpoint) — so no vendor id needs threading through the
+# provider layer. Before this, an azure-openai vendor row hit the generic OpenAI path (Bearer, no
+# api-version) → 401/404, and with no base_url it silently hit the Anthropic-native path.
+_AZURE_OPENAI_API_VERSION = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-10-21")
+_AZURE_HOST_SUFFIX = ".openai.azure.com"
+
+
+def _is_azure_endpoint(base_url: str | None) -> bool:
+    """True when *base_url*'s host ends with .openai.azure.com (llm_wiki isAzureOpenAiEndpoint)."""
+    if not base_url:
+        return False
+    raw = base_url.strip()
+    candidate = raw if "://" in raw else f"https://{raw}"
+    try:
+        host = urlsplit(candidate).hostname or ""
+    except ValueError:
+        return False
+    return host.lower().endswith(_AZURE_HOST_SUFFIX)
+
+
+def _azure_chat_url(base_url: str, deployment: str) -> str:
+    """
+    Build the Azure chat-completions URL (llm_wiki buildAzureOpenAiUrl parity).
+
+    Accepts base_url in any common shape — bare resource host, resource + deployment path, or a
+    full chat URL. A deployment embedded in the path wins over *deployment* (the model_id
+    fallback). An `?api-version=` already present in base_url wins over the default. Always ends
+    with `/chat/completions?api-version=<ver>`.
+    """
+    version = _AZURE_OPENAI_API_VERSION
+    qm = re.search(r"[?&]api-version=([^&]+)", base_url, re.IGNORECASE)
+    if qm:
+        version = unquote(qm.group(1))
+    version = quote(version.strip() or _AZURE_OPENAI_API_VERSION, safe="")
+
+    trimmed = base_url.split("?")[0].rstrip("/")
+    with_deployment = re.match(
+        r"^(https?://[^/]+\.openai\.azure\.com)/openai/deployments/([^/]+)(?:/chat/completions)?$",
+        trimmed,
+        re.IGNORECASE,
+    )
+    if with_deployment:
+        resource = with_deployment.group(1)
+        dep = quote(unquote(with_deployment.group(2)), safe="")
+        return f"{resource}/openai/deployments/{dep}/chat/completions?api-version={version}"
+
+    resource_only = re.match(
+        r"^(https?://[^/]+\.openai\.azure\.com)(?:/openai)?$", trimmed, re.IGNORECASE
+    )
+    resource = resource_only.group(1) if resource_only else trimmed
+    dep = quote(deployment, safe="")
+    return f"{resource}/openai/deployments/{dep}/chat/completions?api-version={version}"
+
 
 # One-time guard so the "no price map" warning fires once per process, not once per
 # ApiProvider instance (which is constructed per ingest/chat run).
@@ -165,6 +233,10 @@ class ApiProvider(InferenceProvider):
         self._price_map = _load_price_map()
         # OpenAI-compatible iff base_url is set; otherwise Anthropic-native.
         self._openai_compatible = bool(config.base_url)
+        # Azure OpenAI is detected from the base_url host (llm_wiki parity) and routed on a
+        # distinct wire (api-key header, /openai/deployments/<dep>/chat/completions?api-version).
+        self._is_azure = self._openai_compatible and _is_azure_endpoint(config.base_url)
+        self._azure_base_url_raw = config.base_url or ""
         if self._openai_compatible:
             assert config.base_url is not None
             self._base_url = config.base_url.rstrip("/")
@@ -172,6 +244,26 @@ class ApiProvider(InferenceProvider):
             self._base_url = os.environ.get(
                 _ANTHROPIC_BASE_ENV, "https://api.anthropic.com"
             ).rstrip("/")
+
+    # ── OpenAI-compatible wire helpers (generic Bearer OR Azure api-key) ──────────
+
+    def _openai_post_url(self) -> str:
+        """chat/completions URL — Azure deployment URL when the endpoint is Azure, else generic."""
+        if self._is_azure:
+            return _azure_chat_url(self._azure_base_url_raw, self._model)
+        return f"{self._base_url}/chat/completions"
+
+    def _openai_headers(self, api_key: str) -> dict[str, str]:
+        """Auth headers — Azure uses `api-key`; every other OpenAI-compatible host uses Bearer."""
+        if self._is_azure:
+            return {"api-key": api_key, "content-type": "application/json"}
+        return {"authorization": f"Bearer {api_key}", "content-type": "application/json"}
+
+    def _finalize_openai_body(self, body: dict[str, object]) -> dict[str, object]:
+        """Azure carries the deployment in the URL and rejects a body `model` — drop it there."""
+        if self._is_azure:
+            body.pop("model", None)
+        return body
 
     # ── Capabilities ─────────────────────────────────────────────────────────────
 
@@ -372,10 +464,8 @@ class ApiProvider(InferenceProvider):
             "stream_options": {"include_usage": True},
         }
         self._apply_reasoning(body, anthropic=False)  # W1 (F17); no-op unless opted in
-        headers = {
-            "authorization": f"Bearer {api_key}",
-            "content-type": "application/json",
-        }
+        self._finalize_openai_body(body)
+        headers = self._openai_headers(api_key)
 
         in_tok = 0
         out_tok = 0
@@ -389,7 +479,7 @@ class ApiProvider(InferenceProvider):
         try:
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 async with client.stream(
-                    "POST", f"{self._base_url}/chat/completions", json=body, headers=headers
+                    "POST", self._openai_post_url(), json=body, headers=headers
                 ) as resp:
                     resp.raise_for_status()
                     async for sse_line in resp.aiter_lines():
@@ -507,7 +597,7 @@ class ApiProvider(InferenceProvider):
     async def _caption_openai(self, b64: str, media_type: str, prompt: str) -> str:
         api_key = self._openai_key()
         data_uri = f"data:{media_type};base64,{b64}"
-        body = {
+        body: dict[str, object] = {
             "model": self._model,  # from provider_config (I6)
             "messages": [
                 {
@@ -519,14 +609,10 @@ class ApiProvider(InferenceProvider):
                 }
             ],
         }
-        headers = {
-            "authorization": f"Bearer {api_key}",
-            "content-type": "application/json",
-        }
+        self._finalize_openai_body(body)
+        headers = self._openai_headers(api_key)
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions", json=body, headers=headers
-            )
+            resp = await client.post(self._openai_post_url(), json=body, headers=headers)
             resp.raise_for_status()
             payload = resp.json()
         usage = payload.get("usage", {})
@@ -597,6 +683,18 @@ class ApiProvider(InferenceProvider):
         text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
         if not text.strip():
             raise ValueError("Anthropic returned empty content")
+        # Truncation detection: when the model hits the output cap it stops with
+        # stop_reason="max_tokens" and the JSON body is cut off mid-object → the
+        # downstream json.loads surfaces a cryptic "Expecting ',' delimiter". Turn
+        # that into an ACTIONABLE error naming the exact remedy (Haiku 4.5 accepts
+        # up to 64000). Checked AFTER the empty guard so a truncated-but-nonempty
+        # body still reports truncation rather than being parsed.
+        if payload.get("stop_reason") == "max_tokens":
+            raise ValueError(
+                f"generation truncated at max_tokens={_DEFAULT_MAX_TOKENS} — the source is too "
+                f"rich to fit one response. Raise PROVIDER_MAX_OUTPUT_TOKENS "
+                f"(Claude Haiku 4.5 accepts up to 64000)."
+            )
         return text
 
     async def _complete_openai(self, *, system: str, user: str) -> str:
@@ -610,14 +708,10 @@ class ApiProvider(InferenceProvider):
             "response_format": {"type": "json_object"},
         }
         self._apply_reasoning(body, anthropic=False)  # W1 (F17); no-op unless opted in
-        headers = {
-            "authorization": f"Bearer {api_key}",
-            "content-type": "application/json",
-        }
+        self._finalize_openai_body(body)
+        headers = self._openai_headers(api_key)
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._base_url}/chat/completions", json=body, headers=headers
-            )
+            resp = await client.post(self._openai_post_url(), json=body, headers=headers)
             resp.raise_for_status()
             payload = resp.json()
 
@@ -637,4 +731,12 @@ class ApiProvider(InferenceProvider):
         content = choices[0].get("message", {}).get("content", "")
         if not isinstance(content, str) or not content.strip():
             raise ValueError("OpenAI-compatible endpoint returned empty content")
+        # Truncation detection (OpenAI wire): finish_reason="length" means the output
+        # cap was hit and the JSON body is cut off → actionable error instead of the
+        # cryptic downstream json.loads failure.
+        if choices[0].get("finish_reason") == "length":
+            raise ValueError(
+                f"generation truncated at max_tokens={_DEFAULT_MAX_TOKENS} — the source is too "
+                f"rich to fit one response. Raise PROVIDER_MAX_OUTPUT_TOKENS."
+            )
         return content

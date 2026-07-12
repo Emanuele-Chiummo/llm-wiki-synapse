@@ -310,7 +310,7 @@ class Settings(BaseSettings):
     Env var: REVIEW_PROPOSE_MIN_PAGES.
     """
 
-    review_propose_max_items: int = 12
+    review_propose_max_items: int = 40
     """
     Hard cap on proposals emitted per ingest run (ADR-0034 §4.3, Do-NOT #9). The single LLM
     proposal call's output is truncated to this many items — never an unbounded enqueue.
@@ -323,6 +323,17 @@ class Settings(BaseSettings):
     Fallback token budget for the single proposal call (ADR-0034 §4.3, I7) when the resolved
     provider row carries none. Small: a compact analysis digest + ≤8 proposals fits comfortably.
     Env var: REVIEW_PROPOSE_TOKEN_BUDGET.
+    """
+
+    review_propose_source_chars: int = 6_000
+    """
+    Max characters of the RAW source text fed into the proposal prompt (llm_wiki
+    buildReviewSuggestionPrompt parity). llm_wiki feeds the model the source *content* — not just
+    the analysis — which is what lets it quote the document ("the doc excludes X as out-of-scope")
+    and spot in-scope/out-of-scope handoff gaps, producing source-grounded suggestions instead of
+    generic "missing from vault" ones. Trimmed head+tail so a scope/exclusions section near either
+    end is captured. Bounded to keep the single call (I7) cost-capped; 0 disables the excerpt.
+    Env var: REVIEW_PROPOSE_SOURCE_CHARS.
     """
 
     review_propose_timeout_seconds: float = 30.0
@@ -462,10 +473,19 @@ class Settings(BaseSettings):
     (keep all pending). Env var: REVIEW_SWEEP_LLM_ENABLED.
     """
 
-    review_sweep_llm_max_items: int = 8
+    review_sweep_llm_max_items: int = 40
     """
-    Cap on the number of candidate items batched into the single sweep Pass-2 LLM call
-    (ADR-0034 §6.3, Do-NOT #9). Env var: REVIEW_SWEEP_LLM_MAX_ITEMS.
+    Items per sweep Pass-2 LLM judge call — the BATCH size (nashsu/llm_wiki JUDGE_BATCH_SIZE=40).
+    The sweep processes up to review_sweep_llm_max_batches batches, so the effective ceiling is
+    review_sweep_llm_max_items × review_sweep_llm_max_batches items per run (I7-bounded).
+    Env var: REVIEW_SWEEP_LLM_MAX_ITEMS.
+    """
+
+    review_sweep_llm_max_batches: int = 5
+    """
+    Max sweep Pass-2 LLM judge calls per run (nashsu/llm_wiki MAX_JUDGE_BATCHES=5). Bounds the
+    sweep at review_sweep_llm_max_items × this many items (I7).
+    Env var: REVIEW_SWEEP_LLM_MAX_BATCHES.
     """
 
     review_sweep_llm_token_budget: int = 4_000

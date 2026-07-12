@@ -295,9 +295,11 @@ class SynthesizeStatusResponse(BaseModel):
     response_model=SynthesizeStartResponse,
     responses={409: {"description": "A synthesize run is already in flight"}},
 )
-async def start_synthesize(body: SynthesizeRequest) -> SynthesizeStartResponse:
+async def start_synthesize(body: SynthesizeRequest | None = None) -> SynthesizeStartResponse:
     """Start ONE bounded corpus-level synthesis/comparison pass (ADR-0067 D3, P0-3, I6/I7)."""
     from app.ops import synthesize as _sy
+
+    body = body or SynthesizeRequest()
 
     if _sy.is_running():
         raise HTTPException(

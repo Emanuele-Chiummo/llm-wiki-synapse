@@ -543,6 +543,54 @@ describe("ReviewQueueView — deep-research action", () => {
     });
   });
 
+  it("shows Deep Research on suggestion + missing-page, hides it on other types (llm_wiki parity)", async () => {
+    // llm_wiki review-view.tsx:471 — Deep Research button only on suggestion / missing-page.
+    resetStore({
+      items: [
+        makeItem("mp", { item_type: "missing-page" }),
+        makeItem("sg", { item_type: "suggestion" }),
+        makeItem("ct", { item_type: "contradiction", page_title: "Conflict" }),
+        makeItem("dp", { item_type: "duplicate", page_title: "Dup" }),
+      ],
+      total: 4,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => {
+      // Only the missing-page and suggestion rows expose the Deep Research action.
+      expect(screen.getAllByTestId("review-action-deep-research")).toHaveLength(2);
+    });
+  });
+
+  it("renders Deep Research first + as the filled primary CTA (llm_wiki button-order parity)", async () => {
+    // llm_wiki review-view.tsx: the leading per-item action is Deep Research, styled as the
+    // dark/filled primary button, followed by Create then Skip. Synapse substitutes the brand
+    // accent (never-black policy) → the deep-research button carries .syn-btn--primary and
+    // precedes the create button in DOM order.
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [makeItem("mp", { item_type: "missing-page" })],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    const deepBtn = await screen.findByTestId("review-action-deep-research");
+    const createBtn = screen.getByTestId("review-action-create");
+
+    // Emphasis: filled primary, not the ghost/outline secondary.
+    expect(deepBtn.className).toContain("syn-btn--primary");
+    expect(deepBtn.className).not.toContain("syn-btn--secondary");
+    expect(createBtn.className).toContain("syn-btn--secondary");
+
+    // Order: Deep Research precedes Create in the document.
+    expect(
+      deepBtn.compareDocumentPosition(createBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("clicking 'View run' navigates to deep-search section", async () => {
     resetStore({
       lastDeepResearch: { itemId: "X", runId: "run-abc-12345678" },
@@ -856,9 +904,7 @@ describe("ReviewQueueView — status tabs (ADR-0044 §7)", () => {
     await waitFor(() => {
       // The second call (tab switch) must carry status=resolved
       const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
-      const tabSwitchCall = calls.find(
-        (c) => (c[0] as { status?: string }).status === "resolved",
-      );
+      const tabSwitchCall = calls.find((c) => (c[0] as { status?: string }).status === "resolved");
       expect(tabSwitchCall).toBeDefined();
     });
   });
@@ -1079,7 +1125,10 @@ describe("ReviewQueueView — R2: Approve action for confirm only", () => {
       offset: 0,
     });
     // resolveReviewItem wraps bulkReview; the mock intercepts at the client boundary.
-    vi.mocked(reviewClient.resolveReviewItem).mockResolvedValueOnce({ updated: 1, skipped_terminal: 0 });
+    vi.mocked(reviewClient.resolveReviewItem).mockResolvedValueOnce({
+      updated: 1,
+      skipped_terminal: 0,
+    });
 
     render(<ReviewQueueView />);
 
@@ -1362,11 +1411,13 @@ describe("ReviewQueueView — UXB-2 design-system class assertions (AC-UXB2-2 + 
     // Spy on document.createElement to detect inline <style> injections.
     const originalCreate = document.createElement.bind(document);
     const styleCreations: string[] = [];
-    const spy = vi.spyOn(document, "createElement").mockImplementation((tag: string, ...args: unknown[]) => {
-      if (tag === "style") styleCreations.push(tag);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return originalCreate(tag, ...(args as any[]));
-    });
+    const spy = vi
+      .spyOn(document, "createElement")
+      .mockImplementation((tag: string, ...args: unknown[]) => {
+        if (tag === "style") styleCreations.push(tag);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return originalCreate(tag, ...(args as any[]));
+      });
 
     render(<ReviewQueueView />);
 
@@ -1405,7 +1456,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
   });
 
   it("resolved item (auto_resolved) shows status badge and no action buttons", async () => {
-    const resolvedItem = makeItem("r1", { status: "auto_resolved", reviewed_at: new Date().toISOString() });
+    const resolvedItem = makeItem("r1", {
+      status: "auto_resolved",
+      reviewed_at: new Date().toISOString(),
+    });
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [resolvedItem],
       total: 1,
@@ -1430,7 +1484,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
   });
 
   it("resolved item (created) shows 'created' badge and no action buttons", async () => {
-    const createdItem = makeItem("r2", { status: "created", reviewed_at: new Date().toISOString() });
+    const createdItem = makeItem("r2", {
+      status: "created",
+      reviewed_at: new Date().toISOString(),
+    });
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [createdItem],
       total: 1,
@@ -1452,7 +1509,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
   });
 
   it("resolved item (deep_researched) shows 'deep_researched' badge and no action buttons", async () => {
-    const deepItem = makeItem("r3", { status: "deep_researched", reviewed_at: new Date().toISOString() });
+    const deepItem = makeItem("r3", {
+      status: "deep_researched",
+      reviewed_at: new Date().toISOString(),
+    });
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [deepItem],
       total: 1,
@@ -1474,7 +1534,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
   });
 
   it("dismissed item shows 'dismissed' badge and no action buttons", async () => {
-    const dismissedItem = makeItem("d1", { status: "dismissed", reviewed_at: new Date().toISOString() });
+    const dismissedItem = makeItem("d1", {
+      status: "dismissed",
+      reviewed_at: new Date().toISOString(),
+    });
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [dismissedItem],
       total: 1,
@@ -1496,7 +1559,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
   });
 
   it("skipped item shows 'skipped' badge and no action buttons", async () => {
-    const skippedItem = makeItem("s1", { status: "skipped", reviewed_at: new Date().toISOString() });
+    const skippedItem = makeItem("s1", {
+      status: "skipped",
+      reviewed_at: new Date().toISOString(),
+    });
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [skippedItem],
       total: 1,
@@ -1596,7 +1662,10 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
 describe("ReviewQueueView — WS-B AC-WS-B-3: tabs return disjoint item sets", () => {
   it("Pending tab and Resolved tab fetch different status values and display disjoint items", async () => {
     const pendingItem = makeItem("pending-1", { status: "pending" });
-    const resolvedItem = makeItem("resolved-1", { status: "auto_resolved", reviewed_at: new Date().toISOString() });
+    const resolvedItem = makeItem("resolved-1", {
+      status: "auto_resolved",
+      reviewed_at: new Date().toISOString(),
+    });
 
     // First call: pending tab (mount)
     vi.mocked(reviewClient.fetchReviewQueue)
@@ -1621,9 +1690,7 @@ describe("ReviewQueueView — WS-B AC-WS-B-3: tabs return disjoint item sets", (
     await waitFor(() => {
       // The second fetch must have been called with status=resolved
       const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
-      const resolvedCall = calls.find(
-        (c) => (c[0] as { status?: string }).status === "resolved",
-      );
+      const resolvedCall = calls.find((c) => (c[0] as { status?: string }).status === "resolved");
       expect(resolvedCall).toBeDefined();
     });
 
@@ -1635,7 +1702,10 @@ describe("ReviewQueueView — WS-B AC-WS-B-3: tabs return disjoint item sets", (
   });
 
   it("Dismissed tab fetches status=dismissed and shows dismissed badge", async () => {
-    const dismissedItem = makeItem("dismissed-1", { status: "dismissed", reviewed_at: new Date().toISOString() });
+    const dismissedItem = makeItem("dismissed-1", {
+      status: "dismissed",
+      reviewed_at: new Date().toISOString(),
+    });
 
     vi.mocked(reviewClient.fetchReviewQueue)
       .mockResolvedValueOnce({ items: [], total: 0, limit: 50, offset: 0 }) // pending tab
@@ -1651,9 +1721,7 @@ describe("ReviewQueueView — WS-B AC-WS-B-3: tabs return disjoint item sets", (
 
     await waitFor(() => {
       const calls = vi.mocked(reviewClient.fetchReviewQueue).mock.calls;
-      const dismissedCall = calls.find(
-        (c) => (c[0] as { status?: string }).status === "dismissed",
-      );
+      const dismissedCall = calls.find((c) => (c[0] as { status?: string }).status === "dismissed");
       expect(dismissedCall).toBeDefined();
     });
 

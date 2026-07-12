@@ -1,41 +1,13 @@
 /*
  * ── GEIST FONT (Brand v1.0) ────────────────────────────────────────────────
- * Self-hosted Geist (Regular 400 / Medium 500 / Semibold 600) for offline-first
- * operation (CSP forbids external CDN). Drop the woff2 files here to activate:
- *   frontend/src/assets/fonts/Geist-Regular.woff2
- *   frontend/src/assets/fonts/Geist-Medium.woff2
- *   frontend/src/assets/fonts/Geist-SemiBold.woff2
+ * Geist is now ACTIVE — the variable font ("Geist Variable") ships via the
+ * @fontsource-variable/geist package, imported in main.tsx (offline-first; CSP-safe,
+ * served from node_modules, no external CDN). This matches nashsu/llm_wiki's typography.
+ * The --syn font stacks below list "Geist Variable" first; system fonts are the fallback.
  *
- * Download from: https://github.com/vercel/geist-font/releases
- *
- * TODO(brand): drop Geist woff2 files into frontend/src/assets/fonts/ and
- *   uncomment the @font-face block below. The system-font fallback stack is
- *   intentionally identical so nothing breaks until the files are added.
+ * (Alternative self-host path, not used: drop Geist-*.woff2 into src/assets/fonts/ and add
+ *  @font-face rules for family "Geist". Kept as a note in case the package is ever dropped.)
  */
-
-/*
-@font-face {
-  font-family: "Geist";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("../assets/fonts/Geist-Regular.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Geist";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("../assets/fonts/Geist-Medium.woff2") format("woff2");
-}
-@font-face {
-  font-family: "Geist";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("../assets/fonts/Geist-SemiBold.woff2") format("woff2");
-}
-*/
 
 /*
  * Wordmark style (apply to any element rendering "Synapse" as a logotype):
@@ -158,17 +130,22 @@
    * --syn-brand-grad-dark  : icon/squircle bg gradient for dark variant
    * --syn-mark-dark-from/to: mark fill gradient colours in dark app icon
    * --syn-font-wordmark    : font stack to use for the "Synapse" logotype
-   *                          (Geist Semibold when woff2 files are present;
-   *                           system sans-serif fallback otherwise)
+   *                          (Geist Semibold via @fontsource-variable/geist;
+   *                           system sans-serif fallback)
    */
-  --syn-brand-grad: linear-gradient(to top right, #1D4ED8, #4338CA, #7C3AED);
-  --syn-brand-grad-horizontal: linear-gradient(90deg, #1D4ED8 0%, #7C3AED 100%);
-  --syn-brand-grad-dark: linear-gradient(to top right, #0B0E20, #211A4F);
-  --syn-mark-dark-from: #58A6FF;
-  --syn-mark-dark-to: #C084FC;
-  --syn-font-wordmark: "Geist", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --syn-brand-grad: linear-gradient(to top right, #1d4ed8, #4338ca, #7c3aed);
+  --syn-brand-grad-horizontal: linear-gradient(90deg, #1d4ed8 0%, #7c3aed 100%);
+  --syn-brand-grad-dark: linear-gradient(to top right, #0b0e20, #211a4f);
+  --syn-mark-dark-from: #58a6ff;
+  --syn-mark-dark-to: #c084fc;
+  --syn-font-wordmark:
+    "Geist Variable", "Geist", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Helvetica, Arial, sans-serif;
 
+  /* "Geist Variable" is loaded via @fontsource-variable/geist (imported in main.tsx) — the same
+     typography as nashsu/llm_wiki. It leads the stack; "Geist"/Inter/system remain fallbacks. */
   font-family:
+    "Geist Variable",
     "Geist",
     Inter,
     ui-sans-serif,

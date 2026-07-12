@@ -588,20 +588,48 @@ class TestSweepJudge:
 
 
 class TestCreatePageTypeHeuristic:
-    def test_heuristic_and_never_source(self) -> None:
-        """T-AI-011: §5.2 heuristic — cues, entity shape, default concept, never source."""
+    def test_llmwiki_detectpagetype_parity(self) -> None:
+        """
+        T-AI-011: type derivation is 1:1 with nashsu/llm_wiki detectPageType
+        (review-create-page.ts:57-67). Owner decision 2026-07-12: default → query.
+        """
         from app.ingest.schemas import PageType
-        from app.ops.review import _resolve_create_page_type
+        from app.ops.review import _resolve_create_page_type as r
 
-        # Explicit valid type honored.
-        assert _resolve_create_page_type("Anything", "comparison", None) == PageType.COMPARISON
-        # 'source' explicit → dropped to heuristic (never returns SOURCE).
-        assert _resolve_create_page_type("Some Document", "source", None) != PageType.SOURCE
-        # Comparison cue.
-        assert _resolve_create_page_type("Docker vs Podman", None, None) == PageType.COMPARISON
-        # Synthesis cue.
-        assert _resolve_create_page_type("Overview of Containers", None, None) == PageType.SYNTHESIS
-        # Proper-noun entity shape.
-        assert _resolve_create_page_type("Linus Torvalds", None, None) == PageType.ENTITY
-        # Default → concept.
-        assert _resolve_create_page_type("entropy", None, None) == PageType.CONCEPT
+        # Explicit valid type honored (Synapse superset D6).
+        assert r("Anything", "comparison", None) == PageType.COMPARISON
+        # 'source' explicit → dropped to text rules (never returns SOURCE); default → query.
+        assert r("Some Document", "source", None) == PageType.QUERY
+        # entity/concept keyword paths (D4).
+        assert r("Missing entity Foo", None, None) == PageType.ENTITY
+        assert r("Add a concept page for entropy", None, None) == PageType.CONCEPT
+        # Comparison cue (substring 'compare'/'comparison'/比较).
+        assert r("Comparison of Docker and Podman", None, None) == PageType.COMPARISON
+        assert r("Compare containers", None, None) == PageType.COMPARISON
+        # Synthesis cue (synthesis/综合).
+        assert r("Synthesis of container tech", None, None) == PageType.SYNTHESIS
+        # missing-page item_type → concept (rule 5).
+        assert r("Kubernetes", None, None, "missing-page") == PageType.CONCEPT
+        # suggestion / contradiction / plain fallback → query (llm_wiki default).
+        assert r("entropy", None, None) == PageType.QUERY
+        assert r("Some open question", None, None, "suggestion") == PageType.QUERY
+        assert r("Conflicting claims about X", None, None, "contradiction") == PageType.QUERY
+        # llm_wiki does NOT treat bare "vs" / "overview of" as cues → query (faithful parity).
+        assert r("Docker vs Podman", None, None) == PageType.QUERY
+
+
+class TestCleanCandidateTitle:
+    def test_llmwiki_clean_candidate_title_parity(self) -> None:
+        """D7: title cleaning mirrors nashsu/llm_wiki cleanCandidateTitle (review-create-page.ts)."""
+        from app.ops.review import _clean_candidate_title as c
+
+        assert c("Missing page: Kubernetes") == "Kubernetes"
+        assert c("Create: Cost Model") == "Cost Model"
+        assert c("Add - Ingress Controller") == "Ingress Controller"
+        assert c('"Docker"  ') == "Docker"
+        assert c("missing Kafka") == "Kafka"
+        assert c("Entropy concept page") == "Entropy"
+        assert c("Container entities") == "Container"
+        assert c("  [Payments] .") == "Payments"
+        # A clean title is returned unchanged.
+        assert c("Multi-Cloud Cost Extraction") == "Multi-Cloud Cost Extraction"

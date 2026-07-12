@@ -271,22 +271,63 @@ async def test_A_skipped_item_not_resurrected(env: dict[str, Any]) -> None:
     assert await _count(env, status="skipped") == 1
 
 
-async def test_A_confirm_always_inserts(env: dict[str, Any]) -> None:
-    """confirm items carry content_key=NULL and always INSERT (never deduped)."""
+async def test_A_titled_confirm_dedups(env: dict[str, Any]) -> None:
+    """A titled confirm now dedups on (type + normalizedTitle) — llm_wiki reviewIdFor parity."""
     from app.ops.review import _content_key, enqueue_review
 
-    assert (
-        _content_key(vault_id="test-vault", item_type="confirm", proposed_title="Please X") is None
-    )
+    key = _content_key(vault_id="test-vault", item_type="confirm", proposed_title="Please X")
+    assert key is not None
     for _ in range(3):
         await enqueue_review(
             vault_id="test-vault",
             item_type="confirm",
             proposed_title="Please X",
             rationale="confirm me",
+            content_key=key,
+        )
+    # Re-surfacing the same confirmation refreshes one pending row instead of bloating the queue.
+    assert await _count(env) == 1
+
+
+async def test_A_titleless_confirm_always_inserts(env: dict[str, Any]) -> None:
+    """A title-less confirm has no concept handle → content_key NULL → always INSERT (defensive)."""
+    from app.ops.review import _content_key, enqueue_review
+
+    assert _content_key(vault_id="test-vault", item_type="confirm", proposed_title=None) is None
+    for _ in range(3):
+        await enqueue_review(
+            vault_id="test-vault",
+            item_type="confirm",
+            proposed_title=None,
+            rationale="anonymous confirm",
             content_key=None,
         )
     assert await _count(env) == 3
+
+
+async def test_A_resolved_confirm_not_resurrected(env: dict[str, Any]) -> None:
+    """A handled (skipped) confirm is NOT re-opened by a re-ingest — llm_wiki 'resolved wins'."""
+    from app.ops.review import _content_key, enqueue_review, skip
+
+    key = _content_key(vault_id="test-vault", item_type="confirm", proposed_title="Verify Z")
+    item = await enqueue_review(
+        vault_id="test-vault",
+        item_type="confirm",
+        proposed_title="Verify Z",
+        rationale="orig",
+        content_key=key,
+    )
+    await skip(uuid.UUID(str(item.id)))
+    # Same confirmation re-surfaces on re-ingest — must be a NO-OP (respect the human's decision).
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="confirm",
+        proposed_title="Verify Z",
+        rationale="re-surfaced",
+        content_key=key,
+    )
+    assert await _count(env) == 1
+    assert await _count(env, status="pending") == 0
 
 
 # ══════════════════════════════════════════════════════════════════════════════

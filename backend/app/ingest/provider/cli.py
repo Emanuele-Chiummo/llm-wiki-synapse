@@ -214,6 +214,25 @@ class DelegatedIngestResult:
     converged: bool
 
 
+def _assert_claude_model(model_id: str) -> None:
+    """
+    The CLI backend spawns the `claude` agent CLI, which serves ONLY Anthropic Claude models. A
+    non-Claude model id here means a non-Claude CLI vendor was selected — notably the catalog's
+    ``codex-cli`` (provider_type='cli'), which has NO implemented transport. Running `claude` with,
+    say, a ``gpt-5.x`` id would silently bill/route the WRONG provider and 404. Fail loud instead,
+    BEFORE any session opens (Do-NOT #9), naming the fix. Every Claude id contains "claude"
+    (claude-opus-4-8 / claude-sonnet-4-6 / claude-haiku-4-5-…), so this guard never rejects a
+    legitimate Claude model.
+    """
+    if "claude" not in (model_id or "").lower():
+        raise ValueError(
+            f"CLI backend received a non-Claude model id ({model_id!r}). The CLI provider runs the "
+            "`claude` agent CLI and supports only Anthropic Claude models. A Codex/OpenAI CLI "
+            "transport is not implemented — pick a claude-* model, or use the API backend "
+            "(provider_type='api', with base_url) for OpenAI-compatible / Codex models."
+        )
+
+
 class CliAgentProvider(InferenceProvider):
     """
     claude-agent-sdk delegated provider. The orchestrator routes here when
@@ -278,6 +297,7 @@ class CliAgentProvider(InferenceProvider):
         raise surfaces as a normal provider error event, not a half-open stream. Dev default stays
         Ollama.
         """
+        _assert_claude_model(self._model)  # reject codex/non-Claude CLI before opening a session
         # ADR-0043 §2.3: a DB-set token (on ProviderSettings.subscription_token) outranks env.
         auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
 
@@ -416,6 +436,7 @@ class CliAgentProvider(InferenceProvider):
         $0.00 by the subscription/OAuth convention, ADR-0009). Raises a clean pre-loop ValueError
         if NEITHER ANTHROPIC_API_KEY nor CLAUDE_CODE_USE_SUBSCRIPTION is set (Do-NOT #9).
         """
+        _assert_claude_model(self._model)  # reject codex/non-Claude CLI before opening the loop
         # ADR-0043 §2.3: a DB-set token (on ProviderSettings.subscription_token) outranks env.
         auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
 
@@ -525,6 +546,7 @@ class CliAgentProvider(InferenceProvider):
         subscription convention, ADR-0009 / I7). Raises a clean pre-session ValueError on missing
         auth (Do-NOT #9).
         """
+        _assert_claude_model(self._model)  # reject codex/non-Claude CLI before opening a session
         auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
 
         try:

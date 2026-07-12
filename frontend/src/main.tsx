@@ -7,6 +7,9 @@
 
 import React from "react";
 import { createRoot } from "react-dom/client";
+// Geist variable font (Brand v1.0 — matches nashsu/llm_wiki's typography). Provides the
+// "Geist Variable" family; the --syn-* font stacks list it first. Bundled/offline-first.
+import "@fontsource-variable/geist";
 // Global light design tokens (--syn-* CSS variables) — must load before the tree renders.
 import "./styles/theme.css";
 // Component class layer (UXB-2): .syn-btn variants, .syn-meta-row, .syn-card-row, .syn-role-label.
@@ -43,11 +46,7 @@ createRoot(rootEl).render(
  *  - NetworkOnly for all API paths (I1 dataVersion invariant — no stale data).
  *  - NavigateFallback to index.html for offline shell support.
  */
-if (
-  !__DEV__ &&
-  import.meta.env.MODE !== "test" &&
-  "serviceWorker" in navigator
-) {
+if (!__DEV__ && import.meta.env.MODE !== "test" && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })

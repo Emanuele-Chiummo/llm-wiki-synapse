@@ -81,6 +81,9 @@ ANALYZE_SYSTEM = (
     "Restrict suggested_pages to entity, concept, or source types, and only when the source "
     "actually supports them; never invent synthesis, comparison, goals, habits, journal "
     "entries, or other pages that aren't in the source (nashsu/llm_wiki parity). "
+    "Attribute each claim to the named subject it describes: do NOT transfer claims, limits, "
+    "or evaluations from one entity/model/product/method to another just because they share "
+    "keywords (nashsu/llm_wiki parity — ingest.ts:1949). "
     "Detect the source language and report it in 'language'. Return no prose, only JSON."
 )
 
@@ -105,6 +108,13 @@ GENERATION_SCAFFOLD = (
     "Do NOT create synthesis or comparison pages during ingest — those are created only later "
     "via the review queue when a human requests them. Do NOT invent pages the source does not "
     "support.\n"
+    "## Subject boundaries (nashsu/llm_wiki parity — ingest.ts:2070-2072)\n"
+    "When a source discusses multiple entities/models/products/methods, keep every claim, "
+    "evaluation, limitation, benchmark result, and recommendation attached to the EXACT subject "
+    "it describes. Do NOT merge or generalize a claim about one subject into another subject's "
+    "page solely because they share terms (e.g. context window size, benchmark name, dataset, "
+    "architecture, or feature name). If a page must mention another subject for comparison, "
+    "write it explicitly as a comparison and cite which sources[] entry supports that statement.\n"
     "## Naming\n"
     "Name each entity at its canonical short name. If an entity already exists (see the "
     "existing-pages context), reuse its EXACT title. Never append parenthetical acronyms "

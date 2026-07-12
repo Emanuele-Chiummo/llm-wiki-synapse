@@ -36,8 +36,14 @@ def test_is_configured_true_with_valid_key(master_key: str) -> None:
     assert sc.is_configured() is True
 
 
-def test_is_configured_false_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+def _disable_file_storage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force the env-only degrade path by making the persisted key file unavailable."""
     monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+    monkeypatch.setattr(sc, "_key_file_path", lambda: None)
+
+
+def test_is_configured_false_when_unset_and_no_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    _disable_file_storage(monkeypatch)
     assert sc.is_configured() is False
 
 
@@ -47,18 +53,49 @@ def test_is_configured_false_when_invalid(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_encrypt_raises_when_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+    _disable_file_storage(monkeypatch)
     with pytest.raises(sc.SecretsNotConfiguredError):
         sc.encrypt("sk-should-not-store")
 
 
 def test_decrypt_raises_when_unconfigured(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Encrypt under a key, then remove the key → decrypt must not silently succeed.
+    # Encrypt under a key, then remove the key AND file storage → decrypt must not silently succeed.
     key = Fernet.generate_key()
     token = Fernet(key).encrypt(b"secret")
-    monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+    _disable_file_storage(monkeypatch)
     with pytest.raises(sc.SecretsNotConfiguredError):
         sc.decrypt(token)
+
+
+def test_autogen_key_file_when_env_unset(monkeypatch: pytest.MonkeyPatch, tmp_path: object) -> None:
+    """No env key → a persistent key file is auto-generated (0600) and key storage works."""
+    import os
+
+    monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+    key_file = tmp_path / ".synapse" / "secret.key"  # type: ignore[operator]
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY_FILE", str(key_file))
+
+    assert sc.is_configured() is True
+    assert key_file.exists()  # type: ignore[attr-defined]
+    assert (os.stat(key_file).st_mode & 0o777) == 0o600
+    # Round-trips, and a second call reuses the SAME persisted key (stable across calls).
+    token = sc.encrypt("sk-persist-me")
+    assert sc.decrypt(token) == "sk-persist-me"
+
+
+def test_env_key_takes_precedence_over_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: object
+) -> None:
+    """An explicit env key wins over the persisted file (operator control preserved)."""
+    env_key = Fernet.generate_key().decode()
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY", env_key)
+    key_file = tmp_path / "secret.key"  # type: ignore[operator]
+    key_file.write_text(Fernet.generate_key().decode(), encoding="utf-8")  # type: ignore[attr-defined]
+    monkeypatch.setenv("SYNAPSE_SECRET_KEY_FILE", str(key_file))
+
+    # Encrypt under env key → decryptable only with the env key, proving the env key was used.
+    token = sc.encrypt("sk-env-wins")
+    assert Fernet(env_key.encode()).decrypt(token) == b"sk-env-wins"
 
 
 def test_tampered_ciphertext_fails_closed(master_key: str) -> None:

@@ -224,7 +224,12 @@ async def test_chat_cli_no_longer_notimplemented_clean_config_error_without_key(
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)
-    cli = CliAgentProvider(ProviderSettings(provider_type="cli", model_id="dummy-model"))
+    # A claude-* model so the CLI reaches the auth check: the `_assert_claude_model` guard now
+    # rejects non-Claude model ids (codex/OpenAI CLI unsupported) BEFORE the auth check, so a
+    # placeholder like "dummy-model" would fail on the wrong error. We want the auth-missing path.
+    cli = CliAgentProvider(
+        ProviderSettings(provider_type="cli", model_id="claude-haiku-4-5-20251001")
+    )
     with pytest.raises(ValueError, match="CLAUDE_CODE_USE_SUBSCRIPTION"):
         await cli.chat([Message(role="user", content="hi")], "")  # type: ignore[attr-defined]
 

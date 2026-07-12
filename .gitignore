@@ -85,3 +85,4 @@ site/
 .agents/
 .claude/skills/
 skills-lock.json
+backups/

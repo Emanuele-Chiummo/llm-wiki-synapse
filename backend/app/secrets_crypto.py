@@ -4,8 +4,14 @@ Symmetric at-rest encryption for UI-supplied provider API keys (W1 / F17, §12 a
 Emanuele's decision: per-vendor API keys entered in the Settings UI are stored in Postgres
 (``provider_config.api_key_encrypted``) **encrypted at rest** with Fernet (AES-128-CBC +
 HMAC-SHA256, from the ``cryptography`` lib). The master key is a urlsafe-base64 32-byte Fernet
-key read from the ``SYNAPSE_SECRET_KEY`` environment variable — NEVER hardcoded, NEVER stored
-in the DB, NEVER logged.
+key resolved in this precedence — NEVER hardcoded, NEVER stored in the DB, NEVER logged:
+  1. the ``SYNAPSE_SECRET_KEY`` environment variable (operator-controlled — always wins), else
+  2. a persisted key file (``SYNAPSE_SECRET_KEY_FILE`` env, or ``<vault>/.synapse/secret.key`` by
+     default), which is **auto-generated on first use** (0600 perms) so UI key storage works out
+     of the box with zero manual setup. The default path lives at the vault ROOT — outside
+     ``wiki/`` — so Obsidian LiveSync never syncs it. Set ``SYNAPSE_SECRET_KEY`` explicitly for
+     production / multi-node deployments (an on-disk key is a convenience/security trade-off; a
+     DB dump alone still cannot decrypt keys, but disk read access can).
 
 Design rules (security-sensitive — do not weaken):
   * The plaintext key is encrypted on write and decrypted ONLY when a provider is built or a
@@ -27,6 +33,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -42,6 +49,7 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 _SECRET_KEY_ENV = "SYNAPSE_SECRET_KEY"  # noqa: S105 — env-var NAME, not a secret value
+_SECRET_KEY_FILE_ENV = "SYNAPSE_SECRET_KEY_FILE"  # noqa: S105 — env-var NAME, not a secret value
 
 
 class SecretsNotConfiguredError(RuntimeError):
@@ -54,14 +62,82 @@ class SecretsNotConfiguredError(RuntimeError):
     """
 
 
+def _key_file_path() -> Path | None:
+    """
+    Resolve the persisted master-key file path: ``SYNAPSE_SECRET_KEY_FILE`` env override, else
+    ``<vault_root>/.synapse/secret.key`` (vault ROOT — outside ``wiki/`` so Obsidian never syncs
+    it). Returns None if no path can be resolved (e.g. settings unavailable) → env-only mode.
+    """
+    explicit = os.environ.get(_SECRET_KEY_FILE_ENV)
+    if explicit:
+        return Path(explicit)
+    try:
+        # Lazy import keeps this module import-clean and decoupled from config at import time.
+        from app.config import settings
+
+        return Path(settings.vault_root) / ".synapse" / "secret.key"
+    except Exception:  # noqa: BLE001 — no vault/settings → fall back to env-only key storage
+        return None
+
+
+def _read_or_create_key_file() -> str | None:
+    """
+    Read the persisted Fernet master key, auto-generating + persisting one on first use so key
+    storage works with zero manual setup. Atomic exclusive-create (0600) avoids a startup race.
+    Returns the key string, or None if no path is resolvable or the FS is not writable. The key
+    value is NEVER logged.
+    """
+    path = _key_file_path()
+    if path is None:
+        return None
+    try:
+        if path.exists():
+            existing = path.read_text(encoding="utf-8").strip()
+            if existing:
+                return existing
+        path.parent.mkdir(parents=True, exist_ok=True)
+        key = Fernet.generate_key().decode("utf-8")
+        # O_EXCL: if another worker created it between exists() and here, this raises FileExists.
+        fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        try:
+            os.write(fd, (key + "\n").encode("utf-8"))
+        finally:
+            os.close(fd)
+        logger.warning(
+            "%s not set — auto-generated a persistent master key at %s (0600); UI key storage is "
+            "now enabled. Set %s explicitly for production / multi-node deployments.",
+            _SECRET_KEY_ENV,
+            path,
+            _SECRET_KEY_ENV,
+        )
+        return key
+    except FileExistsError:
+        try:
+            return path.read_text(encoding="utf-8").strip() or None
+        except OSError:
+            return None
+    except OSError as exc:
+        logger.warning(
+            "Could not read/create the master-key file at %s (%s); key storage falls back to the "
+            "%s env var only.",
+            path,
+            type(exc).__name__,
+            _SECRET_KEY_ENV,
+        )
+        return None
+
+
 def _load_fernet() -> Fernet | None:
     """
-    Build a Fernet from ``SYNAPSE_SECRET_KEY`` or return None when unset/invalid.
+    Build a Fernet from the resolved master key (``SYNAPSE_SECRET_KEY`` env → persisted/auto-
+    generated key file) or return None when none is available/valid.
 
     Never raises — callers decide whether a missing key is fatal (encrypt) or a degrade
     (is_configured / decrypt). The key value is never logged.
     """
     raw = os.environ.get(_SECRET_KEY_ENV)
+    if not raw:
+        raw = _read_or_create_key_file()
     if not raw:
         return None
     try:

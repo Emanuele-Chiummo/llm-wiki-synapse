@@ -79,6 +79,21 @@ def test_analyze_system_conservatism_clause() -> None:
     assert "entity|concept|source|synthesis|comparison" in ANALYZE_SYSTEM
 
 
+def test_analyze_system_has_subject_boundary_rule() -> None:
+    # nashsu/llm_wiki ingest.ts:1949 — claims must stay attached to their named subject.
+    lowered = ANALYZE_SYSTEM.lower()
+    assert "do not transfer claims" in lowered
+    assert "just because they share keywords" in lowered
+
+
+def test_generation_scaffold_has_subject_boundary_rule() -> None:
+    # nashsu/llm_wiki ingest.ts:2070-2072 — the three subject-boundary bullets, provider-neutral.
+    lowered = GENERATION_SCAFFOLD.lower()
+    assert "subject boundaries" in lowered
+    assert "do not merge or generalize a claim about one subject" in lowered
+    assert "write it explicitly as a comparison" in lowered
+
+
 def test_build_generate_prompt_restates_scaffold() -> None:
     prompt = build_generate_prompt(_analysis(), retrieval_context="")
     assert GENERATION_SCAFFOLD in prompt
@@ -161,7 +176,8 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     """
     The delegated (CLI) route appends GENERATION_SCAFFOLD to the agent's system_prompt so the
     synthesis/comparison prohibition + "exactly one source page" restriction reach the CLI backend
-    too (partial coverage — the deterministic source-page guarantee stays orchestrated-only, §7).
+    too. The deterministic source-page guarantee now ALSO runs on the delegated route
+    (_ensure_source_summary_for_delegated, nashsu/llm_wiki hasSourceSummary parity — here stubbed).
     """
     from app.ingest import orchestrator as orch
 
@@ -187,11 +203,14 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     provider.capabilities = MagicMock(return_value=caps)
     provider.bind_accumulator = MagicMock()
     monkeypatch.setattr(orch, "resolve_provider", lambda _cfg: provider)
+    # F3 language parity: a configured vault language must reach the delegated system_prompt.
+    monkeypatch.setattr(orch.settings, "overview_language", "it")
 
     # Persistence / finalize + fire-and-forget post-hooks stubbed so only routing runs.
     monkeypatch.setattr(orch, "_open_ingest_run", AsyncMock(return_value=uuid.uuid4()))
     monkeypatch.setattr(orch, "_finalize_ingest_run", AsyncMock())
     monkeypatch.setattr(orch, "_update_overview", AsyncMock())
+    monkeypatch.setattr(orch, "_ensure_source_summary_for_delegated", AsyncMock(return_value=None))
     monkeypatch.setattr(orch, "_propose_reviews_for_delegated", AsyncMock())
     monkeypatch.setattr(orch, "_purpose_suggestion_for_delegated", AsyncMock())
     monkeypatch.setattr(orch, "_schema_suggestion_for_delegated", AsyncMock())
@@ -223,3 +242,119 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     assert GENERATION_SCAFFOLD in captured["system_prompt"]
     # The base ingest context is still present (scaffold is appended, not replacing it).
     assert "schema.md" in captured["system_prompt"]
+    # F3 language parity: the mandatory-output-language directive (vault language) is present.
+    assert "Mandatory output language" in captured["system_prompt"]
+    assert "it" in captured["system_prompt"]
+
+
+# ── CLI/delegated route: deterministic source-summary guarantee (llm_wiki parity) ──
+
+
+class _FakeResult:
+    def __init__(self, rows: list[Any]) -> None:
+        self._rows = rows
+
+    def scalars(self) -> _FakeResult:
+        return self
+
+    def all(self) -> list[Any]:
+        return self._rows
+
+
+class _FakeSession:
+    def __init__(self, rows: list[Any]) -> None:
+        self._rows = rows
+
+    async def execute(self, *_a: Any, **_k: Any) -> _FakeResult:
+        return _FakeResult(self._rows)
+
+    def expunge(self, _r: Any) -> None:  # no-op (rows are plain fakes)
+        pass
+
+
+def _fake_get_session(rows: list[Any]) -> Any:
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _cm() -> Any:
+        yield _FakeSession(rows)
+
+    return _cm
+
+
+def _row(page_type: str, sources: list[str]) -> MagicMock:
+    r = MagicMock()
+    r.page_type = page_type
+    r.sources = sources
+    r.title = f"row-{page_type}"
+    return r
+
+
+@pytest.mark.asyncio
+async def test_delegated_source_summary_skips_when_agent_wrote_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent already wrote a source page for the origin → no fallback, no duplicate (dedupe guard)."""
+    from app.ingest import orchestrator as orch
+
+    existing = _row("source", [ORIGIN])
+    monkeypatch.setattr(orch, "get_session", _fake_get_session([existing]))
+    write_spy = AsyncMock()
+    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+
+    out = await orch._ensure_source_summary_for_delegated(
+        vault_id="v", written_page_ids=["id-1"], origin_source=ORIGIN
+    )
+    assert out is None
+    write_spy.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delegated_source_summary_writes_fallback_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent wrote only entity/concept pages → the fallback source page is synthesized + written."""
+    from app.ingest import orchestrator as orch
+
+    only_entity = _row("entity", [ORIGIN])
+    monkeypatch.setattr(orch, "get_session", _fake_get_session([only_entity]))
+
+    written = MagicMock()
+    written.id = uuid.uuid4()
+    written.title = "Source: example"
+    write_spy = AsyncMock(return_value=written)
+    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+
+    out = await orch._ensure_source_summary_for_delegated(
+        vault_id="v", written_page_ids=["id-1"], origin_source=ORIGIN
+    )
+    assert out is written
+    write_spy.assert_awaited_once()
+    # The synthesized page passed to write_wiki_page is a SOURCE page traceable to the origin.
+    written_page_arg = write_spy.await_args.args[1]
+    assert written_page_arg.type is PageType.SOURCE
+    assert ORIGIN in written_page_arg.frontmatter.sources
+
+
+@pytest.mark.asyncio
+async def test_delegated_source_summary_no_ids_writes_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No recorded write ids (agent wrote nothing tracked) → still guarantee a source page."""
+    from app.ingest import orchestrator as orch
+
+    # get_session must not even be needed when there are no ids; guard by making it raise if used.
+    def _boom() -> Any:
+        raise AssertionError("get_session should not be called when written_page_ids is empty")
+
+    monkeypatch.setattr(orch, "get_session", _boom)
+    written = MagicMock()
+    written.id = uuid.uuid4()
+    write_spy = AsyncMock(return_value=written)
+    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+
+    out = await orch._ensure_source_summary_for_delegated(
+        vault_id="v", written_page_ids=[], origin_source=ORIGIN
+    )
+    assert out is written
+    write_spy.assert_awaited_once()
