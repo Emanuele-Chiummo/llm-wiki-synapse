@@ -41,6 +41,11 @@ _MERGE_SYSTEM_PROMPT = (
     "Combine all substantive information from BOTH versions: keep every distinct fact, section, "
     "list item, and citation; remove only literal duplication. Preserve the original writing "
     "language — do NOT translate. Preserve existing [[wikilinks]] and Markdown structure. "
+    "Preserve subject boundaries (nashsu/llm_wiki parity — ingest.ts:2792-2793): if either "
+    "version mentions other entities/models/products/methods for comparison, keep those "
+    "comparisons attribution-exact and do NOT fold them into claims about the main page subject. "
+    "When claims conflict or apply to different subjects, keep them separated rather than "
+    "synthesizing a single generalized conclusion. "
     "Output ONLY the merged Markdown body — no frontmatter block, no code fences, no commentary."
 )
 

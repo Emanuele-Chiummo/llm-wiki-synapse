@@ -79,6 +79,21 @@ def test_analyze_system_conservatism_clause() -> None:
     assert "entity|concept|source|synthesis|comparison" in ANALYZE_SYSTEM
 
 
+def test_analyze_system_has_subject_boundary_rule() -> None:
+    # nashsu/llm_wiki ingest.ts:1949 — claims must stay attached to their named subject.
+    lowered = ANALYZE_SYSTEM.lower()
+    assert "do not transfer claims" in lowered
+    assert "just because they share keywords" in lowered
+
+
+def test_generation_scaffold_has_subject_boundary_rule() -> None:
+    # nashsu/llm_wiki ingest.ts:2070-2072 — the three subject-boundary bullets, provider-neutral.
+    lowered = GENERATION_SCAFFOLD.lower()
+    assert "subject boundaries" in lowered
+    assert "do not merge or generalize a claim about one subject" in lowered
+    assert "write it explicitly as a comparison" in lowered
+
+
 def test_build_generate_prompt_restates_scaffold() -> None:
     prompt = build_generate_prompt(_analysis(), retrieval_context="")
     assert GENERATION_SCAFFOLD in prompt

@@ -159,6 +159,17 @@ async def test_merge_rejects_truncated_body(monkeypatch: pytest.MonkeyPatch) -> 
     assert out == NEW
 
 
+def test_merge_system_prompt_preserves_subject_boundaries() -> None:
+    # nashsu/llm_wiki ingest.ts:2792-2793 — a merge must not fold comparison subjects into the
+    # main page subject, and must keep conflicting/different-subject claims separated.
+    from app.ingest.page_merge import _MERGE_SYSTEM_PROMPT
+
+    lowered = _MERGE_SYSTEM_PROMPT.lower()
+    assert "preserve subject boundaries" in lowered
+    assert "do not fold them into claims about the main page subject" in lowered
+    assert "keep them separated" in lowered
+
+
 # ── Integration through write_wiki_page ─────────────────────────────────────────────
 
 
