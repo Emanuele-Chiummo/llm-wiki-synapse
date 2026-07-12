@@ -1,0 +1,1244 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/AUDIT-1TO1-2026-07-12/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Audit 1:1 Synapse ⟷ nashsu/llm_wiki — codice, funzione per funzione - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#audit-11-synapse-nashsullm_wiki-codice-funzione-per-funzione" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Audit 1:1 Synapse ⟷ nashsu/llm_wiki — codice, funzione per funzione
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-premessa-architetturale-non-e-un-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Premessa architetturale (NON è un gap)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-top-findings-ranked-cross-subsystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Top findings ranked (cross-subsystem)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-dettaglio-per-sottosistema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Dettaglio per sottosistema
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Dettaglio per sottosistema">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ingest-loop-orchestrato-01-ingestmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Ingest &amp; loop orchestrato (01-ingest.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-provider-layer-f17-02-providersmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Provider layer / F17 (02-providers.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-embedding-chunking-rag-03-embedding-ragmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Embedding / chunking / RAG (03-embedding-rag.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-dedup-lifecycle-cascade-watcher-04-dedup-cascademd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Dedup / lifecycle / cascade / watcher (04-dedup-cascade.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-graph-engine-viewer-05-graphmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Graph engine + viewer (05-graph.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-lint-review-06-lint-reviewmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Lint + Review (06-lint-review.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-templates-pdf-chat-shell-07-templates-chat-shellmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Templates / PDF / Chat / shell (07-templates-chat-shell.md)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-backlog-gated-richiede-decisioneadr-non-fix-immediato" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Backlog gated (richiede decisione/ADR, non fix immediato)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-fix-applicati-e-verificati-in-questa-sessione-branch-analysisllmwiki-1to1-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Fix applicati e verificati in questa sessione (branch analysis/llmwiki-1to1-fixes)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4b-fase-2-dopo-le-decisioni-owner-stesso-branch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4b. Fase 2 — dopo le decisioni owner (stesso branch)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4c-audit-ui-live-chrome-stack-docker-completo-con-dati-reali-v1039-1006-pagine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4c. Audit UI live (Chrome, stack docker completo con dati reali — v1039, 1006 pagine)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4d-allineamento-estetico-tipografia-geist-verificato-live-in-chrome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4d. Allineamento estetico — tipografia Geist (verificato live in Chrome)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-non-corretti-in-questa-sessione-decisionearchitettura-riportati-con-fix-raccomandato" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. NON corretti in questa sessione (decisione/architettura — riportati con fix raccomandato)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="audit-11-synapse-nashsullm_wiki-codice-funzione-per-funzione">Audit 1:1 Synapse ⟷ nashsu/llm_wiki — codice, funzione per funzione<a class="headerlink" href="#audit-11-synapse-nashsullm_wiki-codice-funzione-per-funzione" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Data: 2026-07-12 · Metodo: confronto verificato del <strong>sorgente reale</strong> di entrambi i
+progetti (llm_wiki clonato da GitHub, non il vault-output). Ogni voce è marcata
+<code>[VERIFIED]</code> (codice letto, certezza) o <code>[UNCERTAIN]</code> (da approfondire). 7 sottosistemi
+confrontati in parallelo + spot-check indipendenti dell'orchestratore sui bug critici.</p>
+</blockquote>
+<h2 id="0-premessa-architetturale-non-e-un-gap">0. Premessa architetturale (NON è un gap)<a class="headerlink" href="#0-premessa-architetturale-non-e-un-gap" title="Permanent link">&para;</a></h2>
+<p><code>nashsu/llm_wiki</code> è un'app <strong>solo client</strong> (React + Vite + Tauri): tutta la logica di
+ingest, embedding, provider LLM, graph, lint, review, dedup, chunking vive in TypeScript
+sotto <code>src/lib/</code> e <code>src/components/</code>. Non ha backend.</p>
+<p>Synapse è una <strong>ri-architettura FastAPI (Python) + React</strong> con Postgres + Qdrant + watcher
+incrementale. Le differenze di <em>persistenza/runtime</em> (DB vs storage client, layout server-side,
+embedding server-side) sono <strong>by design</strong> (invarianti I1/I2) e non vanno considerate bug.
+Il confronto verte su <strong>parità di logica e comportamento</strong>, non sul meccanismo di storage.</p>
+<hr />
+<h2 id="1-top-findings-ranked-cross-subsystem">1. Top findings ranked (cross-subsystem)<a class="headerlink" href="#1-top-findings-ranked-cross-subsystem" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Sev</th>
+<th>Cat</th>
+<th>Sottosistema</th>
+<th>Titolo</th>
+<th>Stato</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>CRITICAL</strong></td>
+<td>BUG</td>
+<td>Cascade</td>
+<td>Cancellare una source elimina pagine-entità <strong>condivise</strong> da altre source (perdita dati)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>HIGH</strong></td>
+<td>BUG</td>
+<td>Ingest</td>
+<td>Collisione basename: <code>a/config.yaml</code> e <code>b/config.yaml</code> → stessa <code>wiki/sources/config.md</code></td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>HIGH</strong></td>
+<td>BUG</td>
+<td>Ingest</td>
+<td>Re-ingest correttivo di pagina owned-only <strong>fonde</strong> invece di <strong>sostituire</strong> → testo stale persiste</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>HIGH</strong></td>
+<td>BUG</td>
+<td>Provider</td>
+<td>Vendor <code>codex-cli</code> esegue in realtà <strong>Claude</strong> (routing non usa il vendor id)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>HIGH</strong></td>
+<td>BUG</td>
+<td>Provider</td>
+<td>Vendor <code>azure-openai</code> con <code>base_url=None</code> → path <strong>Anthropic-native</strong> (POST modello Azure a api.anthropic.com)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>HIGH</strong></td>
+<td>GAP+BUG</td>
+<td>Embedding</td>
+<td>Vettore <strong>singolo per pagina troncato a 8000 char</strong>, no chunking, frontmatter incluso → pagine lunghe non ricercabili</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>HIGH</strong></td>
+<td>GAP</td>
+<td>Templates</td>
+<td>Template di vault svuotati: Research/Business/Reading ≡ General (niente dir/tipi/icone extra)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>MED</strong></td>
+<td>GAP+BUG</td>
+<td>PDF</td>
+<td>MinerU opt-in non conforme all'API v4 reale (submit→poll) → non funzionerebbe se abilitato</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>MED</strong></td>
+<td>BUG</td>
+<td>Chat/FE</td>
+<td><code>latexToUnicode</code> converte simboli <strong>dentro i code-fence</strong> (viola il proprio contratto AC-F8-3)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>MED</strong></td>
+<td>BUG</td>
+<td>PDF</td>
+<td>Marker <strong>cancella il PDF sorgente</strong> dopo la conversione (viola immutabilità raw K1)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>MED</strong></td>
+<td>GAP</td>
+<td>Embedding/RAG</td>
+<td>Retrieval Phase-1 è vector <strong>XOR</strong> lexical (mutuamente esclusivi), no fusione RRF come llm_wiki</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>MED</strong></td>
+<td>GAP</td>
+<td>Ingest</td>
+<td>Nessun backoff su 429/usage-limit (llm_wiki mette in pausa la coda 15 min)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>13</td>
+<td><strong>MED</strong></td>
+<td>GAP/BUG</td>
+<td>Watcher</td>
+<td>Delete esterno di una raw-source è un no-op (le source non hanno Page row)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>14</td>
+<td><strong>MED</strong></td>
+<td>GAP</td>
+<td>Watcher</td>
+<td>Nessun rilevamento move/rename (delete+create ⇒ re-ingest da zero, perde provenienza)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>15</td>
+<td><strong>MED</strong></td>
+<td>LOGIC</td>
+<td>Graph</td>
+<td>Il viewer scarta il <code>size</code> calcolato dall'engine e ne ricalcola uno con formula diversa</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>16</td>
+<td><strong>MED</strong></td>
+<td>LOGIC</td>
+<td>Review</td>
+<td>Auto-resolve LLM (Pass-2) cap 8/1 call vs 200/5 call di llm_wiki → backlog semantico lento</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>17</td>
+<td>LOW-MED</td>
+<td>LOGIC</td>
+<td>Dedup</td>
+<td>Dedup solo su chiave canonica ESATTA, solo entità (no cross-lingua/sinonimi/embedding)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>18</td>
+<td>LOW-MED</td>
+<td>GAP</td>
+<td>Provider</td>
+<td>Nessun "reasoning OFF" per modelli reasoning OpenAI-compat → può emettere contenuto vuoto</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>19</td>
+<td>LOW-MED</td>
+<td>LOGIC</td>
+<td>Provider</td>
+<td>Forza <code>response_format:json_object</code> su tutti gli endpoint OpenAI-compat (gateway senza supporto → 400)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>20</td>
+<td>LOW-MED</td>
+<td>GAP</td>
+<td>Embedding</td>
+<td>Nessun arricchimento con titolo/heading-breadcrumb nel testo embeddato</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>21</td>
+<td>LOW</td>
+<td>BUG</td>
+<td>Cascade</td>
+<td><code>cascade_delete</code> non ripulisce mai il frontmatter <code>related:</code> (link dangling)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>22</td>
+<td>LOW</td>
+<td>LOGIC</td>
+<td>Dedup</td>
+<td>Apply-dedup <strong>concatena</strong> i body con <code>---</code> invece di merge LLM → contenuto ridondante</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>23</td>
+<td>LOW</td>
+<td>BUG</td>
+<td>Ingest</td>
+<td><code>validate_pages</code> fallisce se il modello omette origin da <code>sources[]</code>, pur essendo iniettato al write → spreca retry</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>24</td>
+<td>LOW</td>
+<td>BUG</td>
+<td>Lint</td>
+<td>Docstring stale in <code>send_finding_to_review</code> / <code>_apply_broken_wikilink</code> (garanzia "never collide" falsa)</td>
+<td>✅ VERIFIED</td>
+</tr>
+<tr>
+<td>25</td>
+<td>LOW</td>
+<td>UI</td>
+<td>Graph</td>
+<td>Palette community disgiunte (Tailwind-400 dark vs D3 light) + edge più sottili</td>
+<td>✅ VERIFIED (intenz.)</td>
+</tr>
+</tbody>
+</table>
+<p>Note globali positive (parità confermata o Synapse migliore): loop bounded I7 (max_iter+budget+cost),
+<code>&lt;think&gt;</code> streaming server-side (più I3-compliant del client-side di llm_wiki), save-to-wiki classificato
+synthesis/queries, matrice TYPE_AFFINITY graph byte-identica, 4-signal weighting quasi-esatto,
+lint rule set portato 1:1, fallback provider bounded, cost ledger + anomaly gate.</p>
+<hr />
+<h2 id="2-dettaglio-per-sottosistema">2. Dettaglio per sottosistema<a class="headerlink" href="#2-dettaglio-per-sottosistema" title="Permanent link">&para;</a></h2>
+<h3 id="21-ingest-loop-orchestrato-01-ingestmd">2.1 Ingest &amp; loop orchestrato (<code>01-ingest.md</code>)<a class="headerlink" href="#21-ingest-loop-orchestrato-01-ingestmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>H1 [VERIFIED BUG]</strong> collisione basename — <code>orchestrator.py:2096-2103</code> <code>_source_identity_stem</code> fa
+  <code>Path(identity).stem</code>, scartando il path. <code>a/config.yaml</code> e <code>b/config.yaml</code> → <code>wiki/sources/config.md</code>.
+  Riferimento: <code>source-identity.ts:39-48</code> + <code>ingest-source-path-collision.test.ts:227-257</code> (slug con hash stabile).</li>
+<li><strong>H2 [VERIFIED BUG]</strong> <code>page_merge.maybe_merge_page_body</code> (<code>page_merge.py:73-139</code>) fonde sempre; manca il
+  ramo <code>isOwnedOnlyBySource → replaceExistingBody</code> di llm_wiki (<code>ingest.ts</code>, collision-test:260-274).</li>
+<li><strong>M1 [VERIFIED]</strong> nessun backoff 429/usage-limit; <strong>M2 [VERIFIED]</strong> concorrenza 3 vs serializzazione per-progetto.</li>
+<li><strong>L1 [VERIFIED]</strong> <code>validate_pages</code> troppo severo su <code>sources[]</code>; <strong>L2</strong> nessun artifact ingest-warnings; <strong>L3 [UNCERTAIN]</strong> contesto long-source.</li>
+</ul>
+<h3 id="22-provider-layer-f17-02-providersmd">2.2 Provider layer / F17 (<code>02-providers.md</code>)<a class="headerlink" href="#22-provider-layer-f17-02-providersmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>#4 [VERIFIED BUG]</strong> codex-cli → CliAgentProvider (Claude). <code>provider_vendors.py:77</code> + <code>provider/__init__.py</code>.</li>
+<li><strong>#5 [VERIFIED BUG]</strong> azure-openai <code>default_base_url=None</code> (<code>provider_vendors.py:105</code>) + <code>ApiProvider</code> sceglie wire con <code>bool(base_url)</code> (<code>api.py:169</code>).</li>
+<li><strong>#18 [VERIFIED GAP]</strong> nessun reasoning-OFF; <strong>#19 [VERIFIED]</strong> forza <code>response_format:json_object</code> (<code>api.py:610</code>);
+  native tool-calling annunciato ma inutilizzato. EXTRA: fallback bounded, num_ctx Ollama, cost ledger, CLI token scrub.</li>
+</ul>
+<h3 id="23-embedding-chunking-rag-03-embedding-ragmd">2.3 Embedding / chunking / RAG (<code>03-embedding-rag.md</code>)<a class="headerlink" href="#23-embedding-chunking-rag-03-embedding-ragmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>#6 [VERIFIED]</strong> whole-page single-vector, truncation 8000 (<code>orchestrator.py:266</code>, <code>embeddings.py:151</code>, <code>config.py:87</code>); no chunk.</li>
+<li><strong>F2</strong> frontmatter embeddato (llm_wiki lo strippa <code>text-chunker.ts:107</code>); <strong>F3/#20</strong> no titolo/heading; <strong>#11</strong> vector XOR lexical vs RRF.</li>
+<li>Parità: numerazione citazioni contigua 1-based, single-authority assembler, query-embedding reuse.</li>
+</ul>
+<h3 id="24-dedup-lifecycle-cascade-watcher-04-dedup-cascademd">2.4 Dedup / lifecycle / cascade / watcher (<code>04-dedup-cascade.md</code>)<a class="headerlink" href="#24-dedup-lifecycle-cascade-watcher-04-dedup-cascademd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>#1 [VERIFIED CRITICAL]</strong> perdita dati su delete source condivisa — <code>sources.py:929</code> chiama <code>cascade_delete</code> con
+  target = pagina wiki, ma preserve-shared (<code>cascade_delete.py:601</code>) scatta solo per target <code>raw/sources/</code> →
+  <code>_partition_shared_wiki_pages</code> è codice morto sul path reale.</li>
+<li><strong>#13</strong> delete esterno watcher no-op; <strong>#14</strong> no move/rename; <strong>#21</strong> no prune <code>related:</code>; <strong>#17/#22</strong> dedup esatto+concat.</li>
+</ul>
+<h3 id="25-graph-engine-viewer-05-graphmd">2.5 Graph engine + viewer (<code>05-graph.md</code>)<a class="headerlink" href="#25-graph-engine-viewer-05-graphmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li>4-signal weighting <strong>quasi-esatto</strong>, TYPE_AFFINITY byte-identica, Louvain/AA/FA2 in parità.</li>
+<li><strong>#15 [VERIFIED]</strong> node-size: engine calcola+persiste (<code>engine.py:797-850</code>) ma viewer ricalcola (<code>graphTransform.ts:175-211</code>).</li>
+<li><strong>#25</strong> palette disgiunte (intenzionale light-theme); L3 [UNCERTAIN] molteplicità link-row.</li>
+</ul>
+<h3 id="26-lint-review-06-lint-reviewmd">2.6 Lint + Review (<code>06-lint-review.md</code>)<a class="headerlink" href="#26-lint-review-06-lint-reviewmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Alta parità</strong>, Synapse più rigoroso. <strong>#16</strong> auto-resolve LLM cap 8 vs 200; <strong>#24</strong> 2 docstring stale (low).</li>
+<li>EXTRA: purpose/schema-suggestion, contradiction-apply che crea query page.</li>
+</ul>
+<h3 id="27-templates-pdf-chat-shell-07-templates-chat-shellmd">2.7 Templates / PDF / Chat / shell (<code>07-templates-chat-shell.md</code>)<a class="headerlink" href="#27-templates-pdf-chat-shell-07-templates-chat-shellmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>#7 [VERIFIED]</strong> template svuotati (<code>scenarios_data.py</code> solo purpose+schema vs <code>templates.ts:69-646</code> extraDirs+tipi+icone).</li>
+<li><strong>#8</strong> MinerU non conforme; <strong>#9</strong> latex nei fence; <strong>#10</strong> Marker cancella PDF.</li>
+<li>EXTRA: chat think server-side, save-to-wiki classificato, multi-format superset, latex superset.</li>
+</ul>
+<hr />
+<h2 id="3-backlog-gated-richiede-decisioneadr-non-fix-immediato">3. Backlog gated (richiede decisione/ADR, non fix immediato)<a class="headerlink" href="#3-backlog-gated-richiede-decisioneadr-non-fix-immediato" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>#6 Embedding chunking</strong> — cambia l'assunzione ADR-0002 "point id == page id"; va da <code>solution-architect</code>.</li>
+<li><strong>#2 H1 slug scheme</strong> — cambiare lo slug rischia orfani su vault esistenti; serve strategia migrazione (hash-on-collision consigliato).</li>
+<li><strong>#5 Azure</strong> — richiede threading vendor-id → wire Azure (api-version + api-key header).</li>
+<li><strong>#11 RRF hybrid</strong>, <strong>#7 templates</strong>, <strong>#8 MinerU v4</strong>, <strong>#12 429 backoff</strong>, <strong>#13/#14 watcher delete/rename</strong>, <strong>#16 sweep volume</strong>, <strong>#17 dedup semantico</strong>.</li>
+</ul>
+<h2 id="4-fix-applicati-e-verificati-in-questa-sessione-branch-analysisllmwiki-1to1-fixes">4. Fix applicati e verificati in questa sessione (branch <code>analysis/llmwiki-1to1-fixes</code>)<a class="headerlink" href="#4-fix-applicati-e-verificati-in-questa-sessione-branch-analysisllmwiki-1to1-fixes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Fix</th>
+<th>File</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#1</td>
+<td><strong>Cascade preserve-shared</strong>: <code>_cascade_or_prune_derived</code> — pagina ancora supportata da un'altra source viene PRESERVATA (prune del solo source), non cancellata</td>
+<td><code>backend/app/sources.py</code></td>
+<td><code>tests/test_cascade_preserve_shared.py</code> (3) + regressione <code>test_sources</code>/<code>test_cascade_delete</code> (111) verdi</td>
+</tr>
+<tr>
+<td>#3</td>
+<td><strong>Ingest owned-only replace</strong>: helper <code>_is_owned_only_by_source</code> — re-ingest correttivo di pagina owned-only ⇒ REPLACE (no merge di fatti stale); multi-source ⇒ merge</td>
+<td><code>backend/app/ingest/orchestrator.py</code></td>
+<td><code>tests/test_ingest_owned_only_replace.py</code> (5)</td>
+</tr>
+<tr>
+<td>#6 (parziale, sicuro)</td>
+<td><strong>Embedding</strong>: embedda <code>titolo + body</code> (frontmatter strippato) invece dei raw bytes con blocco YAML</td>
+<td><code>backend/app/ingest/orchestrator.py</code></td>
+<td><code>test_embeddings</code>/<code>test_long_source_chunked</code> verdi</td>
+</tr>
+<tr>
+<td>#9</td>
+<td><strong>latex code-fence</strong>: <code>applyOutsideCode</code> — nessuna conversione simboli dentro i fence <code>math</code> o i code-block utente</td>
+<td><code>frontend/src/components/chat/latexToUnicode.ts</code></td>
+<td><code>latexToUnicode.test.ts</code> 39 (3 nuove di contratto) + rendering-path 96 verdi</td>
+</tr>
+<tr>
+<td>#24</td>
+<td><strong>Docstring lint</strong>: contratto dedup e broken-wikilink→stub allineati al codice reale</td>
+<td><code>backend/app/ops/lint.py</code></td>
+<td>n/a (solo commenti)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verifica eseguita:</strong> backend 2496 pass (78 fail pre-esistenti = deps opzionali <code>fa2_modified</code>/<code>pypdf</code> non installate nel venv locale, in moduli NON toccati); frontend 96 pass su percorso rendering + typecheck 0 errori; smoke UI: app avviata via Vite, render OK, console senza errori.</p>
+<h2 id="4b-fase-2-dopo-le-decisioni-owner-stesso-branch">4b. Fase 2 — dopo le decisioni owner (stesso branch)<a class="headerlink" href="#4b-fase-2-dopo-le-decisioni-owner-stesso-branch" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Fix</th>
+<th>File</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#4</td>
+<td><strong>Guardia Codex CLI</strong>: <code>CliAgentProvider</code> rifiuta un model non-Claude (gpt-<em>/o</em>/codex-*) con errore chiaro invece di lanciare Claude</td>
+<td><code>backend/app/ingest/provider/cli.py</code></td>
+<td><code>test_provider_azure_codex.py</code></td>
+</tr>
+<tr>
+<td>#5</td>
+<td><strong>Wire Azure OpenAI</strong>: rilevato da <code>.openai.azure.com</code> (parità llm_wiki) → header <code>api-key</code>, URL <code>/openai/deployments/&lt;dep&gt;/chat/completions?api-version=2024-10-21</code>, body senza <code>model</code> (3 metodi: complete/stream/caption)</td>
+<td><code>backend/app/ingest/provider/api.py</code></td>
+<td><code>test_provider_azure_codex.py</code> (9)</td>
+</tr>
+<tr>
+<td>Review-logica</td>
+<td><strong>Parità review→tipo-pagina</strong> con <code>detectPageType</code> di llm_wiki: keyword entity/concept, cue <code>comparison/compare/比较</code> + <code>synthesis/综合</code>, missing-page→concept, <strong>default→query</strong> (decisione owner 2026-07-12)</td>
+<td><code>backend/app/ops/review.py</code></td>
+<td><code>test_review_ai_adr0034.py</code> + 172 review verdi</td>
+</tr>
+</tbody>
+</table>
+<p>Marker (#10): confermato dall'owner come pulizia voluta → invariato.</p>
+<p><strong>Parità GRAFICA review</strong> (<code>frontend/src/components/review/ReviewQueueView.tsx</code>, verificata live in Chrome):
+- Icone 1:1 con llm_wiki: missing-page <code>HelpCircle</code>→<strong>FileQuestion</strong>, confirm <code>CheckCircle2</code>→<strong>MessageSquare</strong>.
+- Colori: contradiction rosso→<strong>amber</strong>, duplicate teal→<strong>blue</strong> (famiglia llm_wiki).
+- Pulsante <strong>Ricerca Profonda</strong> ora solo su <code>suggestion</code>+<code>missing-page</code> (gate llm_wiki review-view.tsx:471) — verificato: gli item <code>confirm</code>/<code>contradiction</code>/<code>duplicate</code> non lo mostrano più.
+- <strong>Eccezione dichiarata</strong>: il colore <code>confirm</code> resta accent <code>#2563eb</code> (non il foreground near-nero di llm_wiki) per rispettare la policy brand "never-black". Da confermare se vuoi la parità letterale.
+- Test: <code>ReviewQueueView.test.tsx</code> 69 verdi (nuovo test di gating) + <code>HomeDashboard.test.tsx</code> 148.
+- Bonus UI-fix: <code>HomeDashboard.tsx</code> AbortError non gestito (vedi §4c).</p>
+<h2 id="4c-audit-ui-live-chrome-stack-docker-completo-con-dati-reali-v1039-1006-pagine">4c. Audit UI live (Chrome, stack docker completo con dati reali — v1039, 1006 pagine)<a class="headerlink" href="#4c-audit-ui-live-chrome-stack-docker-completo-con-dati-reali-v1039-1006-pagine" title="Permanent link">&para;</a></h2>
+<p>Sezioni ispezionate: Home, Chat, Grafo, Revisione, Lint, Impostazioni. Nessun pulsante di
+navigazione morto; nessun handler no-op; rendering pulito ovunque.</p>
+<table>
+<thead>
+<tr>
+<th>Esito</th>
+<th>Dettaglio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BUG FIX + VERIFICATO</strong></td>
+<td><code>HomeDashboard.tsx</code> — l'IIFE async di <code>fetchHealth</code> non aveva try/catch: allo unmount/refetch <code>ac.abort()</code> faceva emergere in console un <code>AbortError: signal is aborted without reason</code> (unhandled rejection). Aggiunto try/catch (swallow abort, null su errore reale). Console ora <strong>pulita</strong> (verificato in Chrome). Test: <code>HomeDashboard.test.tsx</code> 148 verdi + typecheck 0.</td>
+</tr>
+<tr>
+<td>Non-bug (verificato)</td>
+<td>Pallini arancioni "Cache grafo"/"Scheduler" in Home = status <strong>accurati</strong>: <code>import_scheduler.enabled=false</code> (+ errore <code>/data/sources</code> = mount mancante nel docker locale, non prodotto) e <code>graph_cache.warm=true</code> con <code>last_recompute_at=null</code>. <code>/health/detailed</code> → status "ok".</td>
+</tr>
+<tr>
+<td>UX (opzionale)</td>
+<td>Impostazioni espone il vendor <strong>Codex CLI</strong> come attivabile; con la guardia #4 ora fallisce con errore chiaro invece di eseguire Claude — si potrebbe aggiungere in UI una nota "non ancora supportato". La riga <strong>Azure OpenAI</strong> già istruisce a impostare il base URL <code>...azure.com/openai...</code>, che il fix #5 usa per il wire corretto.</td>
+</tr>
+<tr>
+<td>Contenuto</td>
+<td>259 warning "link interrotto" nel Lint + 515 pagine senza dominio: qualità-dati del vault dev, si collega al gap #21 (cascade non pota <code>related:</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="4d-allineamento-estetico-tipografia-geist-verificato-live-in-chrome">4d. Allineamento estetico — tipografia Geist (verificato live in Chrome)<a class="headerlink" href="#4d-allineamento-estetico-tipografia-geist-verificato-live-in-chrome" title="Permanent link">&para;</a></h2>
+<p>L'estetica di llm_wiki è shadcn "new-york" monocromatica con font <strong>Geist Variable</strong>. La divergenza
+estetica principale e <em>non-conflittuale</em> era il font: Synapse puntava a Geist (Brand v1.0) ma era un
+TODO incompiuto (system-font fallback). Abilitato:
+- <code>frontend/package.json</code>: dipendenza <strong><code>@fontsource-variable/geist</code></strong> (come llm_wiki).
+- <code>frontend/src/main.tsx</code>: <code>import "@fontsource-variable/geist"</code>.
+- <code>frontend/src/styles/theme.css</code> + <code>frontend/index.html</code>: le stack font antepongono <strong>"Geist Variable"</strong>;
+  corretto anche un refuso nel reset anti-FOUC (<code>html,body,#root</code> terminava in <code>monospace</code>).
+- Commenti stale in theme.css aggiornati (Geist ora attivo via npm, non più TODO self-host).</p>
+<p><strong>Verifica:</strong> in Chrome sul vault reale — <code>document.fonts.check('16px "Geist Variable"')</code> → <strong>true</strong>,
+woff2 → <strong>200</strong>, tipografia Geist a video. typecheck 0, prettier ok, 171 test FE verdi, <strong>build di
+produzione OK</strong>. Divergenze brand (accent blu, palette light, never-black) lasciate <em>by design</em>.</p>
+<h2 id="5-non-corretti-in-questa-sessione-decisionearchitettura-riportati-con-fix-raccomandato">5. NON corretti in questa sessione (decisione/architettura — riportati con fix raccomandato)<a class="headerlink" href="#5-non-corretti-in-questa-sessione-decisionearchitettura-riportati-con-fix-raccomandato" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>#10 Marker cancella PDF</strong> — il codice documenta la cancellazione come "user request" deliberata (evita doppio-ingest). NON toccato: è una scelta di design, da CONFERMARE con l'owner, non un bug accidentale.</li>
+<li><strong>#4 codex-cli / #5 azure</strong> — richiedono di propagare il <code>vendor_id</code> nel routing provider (oggi si instrada solo su <code>provider_type</code>) e toccano il layer F17 (competenza <code>ai-agent-engineer</code>, invariante I6). Fix raccomandato: reietta con errore chiaro finché non esiste il transport reale (codex <code>exec --json</code> / Azure <code>api-version</code>+<code>api-key</code>).</li>
+<li><strong>#2 H1 slug basename</strong> — cambiare lo slug rischia orfani su vault esistenti: serve strategia (hash-on-collision).</li>
+<li><strong>#6 chunking</strong>, <strong>#11 RRF</strong>, <strong>#7 templates</strong>, <strong>#8 MinerU v4</strong>, <strong>#12 429 backoff</strong>, <strong>#13/#14 watcher</strong>, <strong>#16 sweep</strong>: backlog gated (§3).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
