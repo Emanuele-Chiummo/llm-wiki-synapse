@@ -69,11 +69,7 @@ import {
   Tag,
   Sparkles,
 } from "lucide-react";
-import {
-  fetchPageBySlug,
-  fetchPageContent,
-  fetchPages,
-} from "../../api/pagesClient";
+import { fetchPageBySlug, fetchPageContent, fetchPages } from "../../api/pagesClient";
 import {
   fetchReviewQueue,
   createReviewItem,
@@ -202,10 +198,7 @@ function TypeBar({ pagesByType, total }: TypeBarProps) {
     // HTML flex bar (not SVG) so segments carry a real 2px surface gap and their
     // own rounded ends — the dataviz "gap between fills" spec — and colour resolves
     // from CSS tokens directly.
-    <div
-      aria-hidden="true"
-      style={{ display: "flex", gap: 2, height: 6, width: "100%" }}
-    >
+    <div aria-hidden="true" style={{ display: "flex", gap: 2, height: 6, width: "100%" }}>
       {entries.map(([type, count]) => (
         <div
           key={type}
@@ -263,7 +256,9 @@ function Sparkline({ values, color = "var(--syn-accent)" }: { values: number[]; 
     const y = PAD + (H - PAD * 2) * (1 - (v - min) / range);
     return [x, y] as const;
   });
-  const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const line = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(" ");
   const last = pts[pts.length - 1] ?? [0, 0];
   const first = pts[0] ?? [0, 0];
   const area = `${line} L${last[0].toFixed(1)} ${H} L${first[0].toFixed(1)} ${H} Z`;
@@ -377,7 +372,9 @@ function OverallStatusIcon({ status }: { status: "ok" | "degraded" | "error" }) 
   if (status === "degraded") {
     return <AlertTriangle size={14} style={{ color: "#f59e0b" }} aria-hidden="true" />;
   }
-  return <AlertCircle size={14} style={{ color: "var(--syn-error, #ef4444)" }} aria-hidden="true" />;
+  return (
+    <AlertCircle size={14} style={{ color: "var(--syn-error, #ef4444)" }} aria-hidden="true" />
+  );
 }
 
 interface SystemStatusBlockProps {
@@ -406,9 +403,17 @@ function SystemStatusBlock({
     abortRef.current = ac;
     setHealth("loading");
     void (async () => {
-      const result = await getHealthDetailed(ac.signal);
-      if (!ac.signal.aborted) {
-        setHealth(result);
+      try {
+        const result = await getHealthDetailed(ac.signal);
+        if (!ac.signal.aborted) {
+          setHealth(result);
+        }
+      } catch {
+        // Aborted on unmount / refetch (AbortError) or a fetch failure. Swallow the abort — an
+        // unhandled rejection was surfacing in the console — and, for a real error, drop to null.
+        if (!ac.signal.aborted) {
+          setHealth(null);
+        }
       }
     })();
   }, []);
@@ -443,7 +448,9 @@ function SystemStatusBlock({
       }}
     >
       {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {overallStatus !== null && <OverallStatusIcon status={overallStatus} />}
           <span
@@ -459,7 +466,9 @@ function SystemStatusBlock({
           </span>
           {overallStatus !== null && (
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
-              {t(`home.systemStatus.overall${overallStatus.charAt(0).toUpperCase()}${overallStatus.slice(1)}`)}
+              {t(
+                `home.systemStatus.overall${overallStatus.charAt(0).toUpperCase()}${overallStatus.slice(1)}`,
+              )}
             </span>
           )}
           {health === "loading" && (
@@ -517,7 +526,9 @@ function SystemStatusBlock({
         )}
         {dataVersion !== null && (
           <span>
-            <span style={{ color: "var(--syn-text-dim)" }}>{t("home.systemStatus.dataVersion")}: </span>
+            <span style={{ color: "var(--syn-text-dim)" }}>
+              {t("home.systemStatus.dataVersion")}:{" "}
+            </span>
             <span data-testid="home-status-data-version">v{dataVersion}</span>
           </span>
         )}
@@ -536,7 +547,13 @@ function SystemStatusBlock({
               <span
                 key={key}
                 data-testid={`home-status-component-${key}`}
-                style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--syn-text-muted)" }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 11,
+                  color: "var(--syn-text-muted)",
+                }}
               >
                 <StatusDot status={status} />
                 {t(`home.systemStatus.components.${key}`)}
@@ -626,7 +643,9 @@ function JobRow({ icon, label, meta, onClick, testId }: JobRowProps) {
         (e.currentTarget as HTMLButtonElement).style.background = "transparent";
       }}
     >
-      <span style={{ flexShrink: 0, color: "var(--syn-accent)", display: "flex", alignItems: "center" }}>
+      <span
+        style={{ flexShrink: 0, color: "var(--syn-accent)", display: "flex", alignItems: "center" }}
+      >
         {icon}
       </span>
       <span
@@ -642,9 +661,7 @@ function JobRow({ icon, label, meta, onClick, testId }: JobRowProps) {
         {label}
       </span>
       {meta && (
-        <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
-          {meta}
-        </span>
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>{meta}</span>
       )}
       <span style={{ fontSize: 11, color: "var(--syn-accent)", flexShrink: 0 }}>→</span>
     </button>
@@ -743,11 +760,14 @@ function ActiveJobsBlock({
     // Single-file mode: average progress across processing tasks that report progress.
     const withProgress = ingestTasks.filter((tk) => tk.progress != null);
     if (withProgress.length > 0) {
-      const avg = withProgress.reduce((sum, tk) => sum + (tk.progress ?? 0), 0) / withProgress.length;
+      const avg =
+        withProgress.reduce((sum, tk) => sum + (tk.progress ?? 0), 0) / withProgress.length;
       ingestPct = clampPct(avg * 100);
     }
     // ETA: minimum non-null eta_seconds across processing tasks (best-case remaining).
-    const etas = ingestTasks.filter((tk) => tk.eta_seconds != null).map((tk) => tk.eta_seconds as number);
+    const etas = ingestTasks
+      .filter((tk) => tk.eta_seconds != null)
+      .map((tk) => tk.eta_seconds as number);
     ingestEtaSeconds = etas.length > 0 ? Math.min(...etas) : null;
   }
 
@@ -774,7 +794,15 @@ function ActiveJobsBlock({
       }}
     >
       {/* Header row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, justifyContent: "space-between" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 2,
+          justifyContent: "space-between",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Loader2 size={12} style={{ color: "var(--syn-accent)" }} aria-hidden="true" />
           <span
@@ -828,9 +856,7 @@ function ActiveJobsBlock({
           />
           {/* WS-C AC-WS-C-1: overall progress bar — pure CSS, no canvas (I3) */}
           {hasIngestProgress && (
-            <div
-              style={{ padding: "0 10px 4px" }}
-            >
+            <div style={{ padding: "0 10px 4px" }}>
               <div
                 data-testid="home-active-jobs-ingest-progress-bar"
                 style={{
@@ -859,7 +885,11 @@ function ActiveJobsBlock({
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 3 }}>
                 <span
                   data-testid="home-active-jobs-ingest-pct"
-                  style={{ fontSize: 10, color: "var(--syn-text-muted)", fontVariantNumeric: "tabular-nums" }}
+                  style={{
+                    fontSize: 10,
+                    color: "var(--syn-text-muted)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
                 >
                   {ingestPct}%
                 </span>
@@ -883,10 +913,7 @@ function ActiveJobsBlock({
             >
               {ingestTasks.slice(0, 3).map((tk, idx) =>
                 tk.phase ? (
-                  <span
-                    key={idx}
-                    style={{ fontSize: 10, color: "var(--syn-text-dim)" }}
-                  >
+                  <span key={idx} style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
                     {/* Reuse existing activity.phase.* i18n keys (AC-WS-C-3).
                         Falls back to raw phase string for unknown phases (e.g. "generating (2/3)"). */}
                     {t(`activity.phase.${tk.phase}`, { defaultValue: tk.phase })}
@@ -972,10 +999,20 @@ function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: Kpi
   const body = (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ color: accent ? "var(--syn-accent)" : "var(--syn-text-dim)", flexShrink: 0 }}>
+        <span
+          style={{ color: accent ? "var(--syn-accent)" : "var(--syn-text-dim)", flexShrink: 0 }}
+        >
           {icon}
         </span>
-        <span style={{ fontSize: 11, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--syn-text-muted)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {label}
         </span>
       </div>
@@ -1015,7 +1052,12 @@ function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: Kpi
       data-testid={testId ?? `kpi-${label}`}
       onClick={onClick}
       aria-label={`${label}: ${value}`}
-      style={{ ...baseStyle, cursor: "pointer", textAlign: "left", transition: "border-color 0.12s ease, background 0.12s ease" }}
+      style={{
+        ...baseStyle,
+        cursor: "pointer",
+        textAlign: "left",
+        transition: "border-color 0.12s ease, background 0.12s ease",
+      }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
       }}
@@ -1072,7 +1114,9 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
       }}
     >
       {/* Domain name + page count */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}>
+      <div
+        style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}
+      >
         <span
           style={{
             fontSize: 13,
@@ -1108,11 +1152,23 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
           {typeEntries.map(([type, count]) => (
             <span
               key={type}
-              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--syn-text-dim)" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 10,
+                color: "var(--syn-text-dim)",
+              }}
             >
               <span
                 aria-hidden="true"
-                style={{ width: 6, height: 6, borderRadius: 2, background: typeColor(type), flexShrink: 0 }}
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 2,
+                  background: typeColor(type),
+                  flexShrink: 0,
+                }}
               />
               {count} {type}
             </span>
@@ -1123,7 +1179,11 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
       {/* Last activity */}
       {section.last_activity && (
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Clock size={10} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+          <Clock
+            size={10}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
           <span style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
             {formatDate(section.last_activity)}
           </span>
@@ -1134,7 +1194,16 @@ function SectionCard({ section, onNavigate }: SectionCardProps) {
       {section.top_pages.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
           {section.top_pages.slice(0, 3).map((p) => (
-            <span key={p.id} style={{ fontSize: 10, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span
+              key={p.id}
+              style={{
+                fontSize: 10,
+                color: "var(--syn-text-muted)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {p.title}
             </span>
           ))}
@@ -1189,7 +1258,9 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
       }}
     >
       {/* Label + page count */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}>
+      <div
+        style={{ display: "flex", alignItems: "baseline", gap: 8, justifyContent: "space-between" }}
+      >
         <span
           style={{
             fontSize: 13,
@@ -1204,7 +1275,9 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
         </span>
         <span style={{ fontSize: 16, fontWeight: 700, color: "var(--syn-accent)", flexShrink: 0 }}>
           {group.pages_total}
-          <span style={{ fontSize: 10, fontWeight: 400, color: "var(--syn-text-dim)", marginLeft: 2 }}>
+          <span
+            style={{ fontSize: 10, fontWeight: 400, color: "var(--syn-text-dim)", marginLeft: 2 }}
+          >
             {t("home.groups.pages")}
           </span>
         </span>
@@ -1221,11 +1294,23 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
           {typeEntries.map(([type, count]) => (
             <span
               key={type}
-              style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--syn-text-dim)" }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 10,
+                color: "var(--syn-text-dim)",
+              }}
             >
               <span
                 aria-hidden="true"
-                style={{ width: 6, height: 6, borderRadius: 2, background: typeColor(type), flexShrink: 0 }}
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 2,
+                  background: typeColor(type),
+                  flexShrink: 0,
+                }}
               />
               {count} {type}
             </span>
@@ -1235,7 +1320,15 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
 
       {/* Top page (highest degree) — informational only; click browses ALL group members */}
       {topPage ? (
-        <div style={{ fontSize: 10, color: "var(--syn-text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div
+          style={{
+            fontSize: 10,
+            color: "var(--syn-text-muted)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           <span style={{ color: "var(--syn-text-dim)" }}>{t("home.groups.topPage")}: </span>
           {topPage.title}
         </div>
@@ -1253,7 +1346,11 @@ function GroupCard({ group, onOpen }: GroupCardProps) {
       {/* Last activity */}
       {group.last_activity && (
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-          <Clock size={10} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+          <Clock
+            size={10}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
           <span style={{ fontSize: 10, color: "var(--syn-text-dim)" }}>
             {formatDate(group.last_activity)}
           </span>
@@ -1353,8 +1450,7 @@ function WikiThesisBlock() {
       style={{
         padding: "16px 18px",
         borderRadius: "var(--syn-radius-md)",
-        border:
-          "1px solid color-mix(in srgb, var(--syn-accent) 20%, var(--syn-border) 80%)",
+        border: "1px solid color-mix(in srgb, var(--syn-accent) 20%, var(--syn-border) 80%)",
         background: "var(--syn-bg-soft)",
         display: "flex",
         flexDirection: "column",
@@ -1535,17 +1631,11 @@ interface ReviewPreviewBlockProps {
  * Renders null while loading with no items, or when the queue is empty.
  * [F18][F9][v1.5]
  */
-function ReviewPreviewBlock({
-  vaultId,
-  reviewTotal,
-  setActiveSection,
-}: ReviewPreviewBlockProps) {
+function ReviewPreviewBlock({ vaultId, reviewTotal, setActiveSection }: ReviewPreviewBlockProps) {
   const { t } = useTranslation();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionStates, setActionStates] = useState<
-    Record<string, "idle" | "loading" | "done">
-  >({});
+  const [actionStates, setActionStates] = useState<Record<string, "idle" | "loading" | "done">>({});
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -1556,10 +1646,7 @@ function ReviewPreviewBlock({
 
     void (async () => {
       try {
-        const result = await fetchReviewQueue(
-          { vaultId, limit: 5, status: "pending" },
-          ac.signal,
-        );
+        const result = await fetchReviewQueue({ vaultId, limit: 5, status: "pending" }, ac.signal);
         if (ac.signal.aborted) return;
         setItems(result?.items ?? []);
       } catch {
@@ -1574,24 +1661,21 @@ function ReviewPreviewBlock({
     };
   }, [vaultId]);
 
-  const handleAction = useCallback(
-    (itemId: string, action: "create" | "research" | "skip") => {
-      setActionStates((prev) => ({ ...prev, [itemId]: "loading" }));
-      void (async () => {
-        try {
-          if (action === "create") await createReviewItem(itemId);
-          else if (action === "research") await deepResearchReviewItem(itemId);
-          else await skipReviewItem(itemId);
-          setActionStates((prev) => ({ ...prev, [itemId]: "done" }));
-          // Optimistically remove acted-on item from preview
-          setItems((prev) => prev.filter((i) => i.id !== itemId));
-        } catch {
-          setActionStates((prev) => ({ ...prev, [itemId]: "idle" }));
-        }
-      })();
-    },
-    [],
-  );
+  const handleAction = useCallback((itemId: string, action: "create" | "research" | "skip") => {
+    setActionStates((prev) => ({ ...prev, [itemId]: "loading" }));
+    void (async () => {
+      try {
+        if (action === "create") await createReviewItem(itemId);
+        else if (action === "research") await deepResearchReviewItem(itemId);
+        else await skipReviewItem(itemId);
+        setActionStates((prev) => ({ ...prev, [itemId]: "done" }));
+        // Optimistically remove acted-on item from preview
+        setItems((prev) => prev.filter((i) => i.id !== itemId));
+      } catch {
+        setActionStates((prev) => ({ ...prev, [itemId]: "idle" }));
+      }
+    })();
+  }, []);
 
   // Avoid flash: hide while loading with nothing to show yet
   if (loading && items.length === 0) return null;
@@ -1803,9 +1887,7 @@ function OpenQuestionsBlock({ vaultId, onOpenPage }: OpenQuestionsBlockProps) {
       try {
         const result = await fetchPages(vaultId, { limit: 100 }, ac.signal);
         if (ac.signal.aborted) return;
-        const queries = (result?.items ?? [])
-          .filter((p) => p.type === "query")
-          .slice(0, 5);
+        const queries = (result?.items ?? []).filter((p) => p.type === "query").slice(0, 5);
         setQueryPages(queries);
       } catch {
         if (!ac.signal.aborted) setQueryPages([]);
@@ -1939,15 +2021,11 @@ function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
   const [done, setDone] = useState(false);
 
   // Untyped: pages_total minus all typed pages (type histogram may have missing types)
-  const typedCount = Object.values(overview.pages_by_type).reduce(
-    (sum, n) => sum + n,
-    0,
-  );
+  const typedCount = Object.values(overview.pages_by_type).reduce((sum, n) => sum + n, 0);
   const untypedCount = Math.max(0, overview.pages_total - typedCount);
 
   // Undomained: the "untagged" virtual bucket from sections
-  const undomainedCount =
-    sections?.sections.find((s) => s.domain === "untagged")?.pages_total ?? 0;
+  const undomainedCount = sections?.sections.find((s) => s.domain === "untagged")?.pages_total ?? 0;
 
   if (untypedCount === 0 && undomainedCount === 0) return null;
 
@@ -1983,11 +2061,7 @@ function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Tag
-          size={12}
-          aria-hidden="true"
-          style={{ color: "#f59e0b", flexShrink: 0 }}
-        />
+        <Tag size={12} aria-hidden="true" style={{ color: "#f59e0b", flexShrink: 0 }} />
         <span
           data-testid="home-data-quality-message"
           style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
@@ -2060,8 +2134,7 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
   const [triggering, setTriggering] = useState(false);
   const [done, setDone] = useState(false);
 
-  const memberPages =
-    (overview.pages_by_type.entity ?? 0) + (overview.pages_by_type.concept ?? 0);
+  const memberPages = (overview.pages_by_type.entity ?? 0) + (overview.pages_by_type.concept ?? 0);
 
   if (memberPages < SYNTHESIZE_MIN_MEMBER_PAGES) return null;
   if (synthesizeStatus?.running) return null;
@@ -2313,10 +2386,7 @@ export function HomeDashboard() {
     (group: StatsGroup) => {
       try {
         localStorage.setItem(GROUP_FILTER_KEY, String(group.community));
-        localStorage.setItem(
-          NAV_FILTER_LABEL_KEY,
-          group.label || `Group ${group.community}`,
-        );
+        localStorage.setItem(NAV_FILTER_LABEL_KEY, group.label || `Group ${group.community}`);
         // Always clear the competing domain filter when navigating by group
         localStorage.removeItem(DOMAIN_FILTER_KEY);
       } catch {
@@ -2360,13 +2430,25 @@ export function HomeDashboard() {
         {/* System status */}
         <Skeleton height={72} radius={8} />
         {/* KPI grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+            gap: 10,
+          }}
+        >
           {Array.from({ length: 7 }).map((_, i) => (
             <Skeleton key={i} height={78} radius={8} />
           ))}
         </div>
         {/* Section cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+            gap: 12,
+          }}
+        >
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} height={150} radius={8} />
           ))}
@@ -2392,7 +2474,11 @@ export function HomeDashboard() {
           margin: "0 auto",
         }}
       >
-        <Database size={32} aria-hidden="true" style={{ color: "var(--syn-text-dim)", opacity: 0.5 }} />
+        <Database
+          size={32}
+          aria-hidden="true"
+          style={{ color: "var(--syn-text-dim)", opacity: 0.5 }}
+        />
         <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: "var(--syn-text)" }}>
           {t("home.placeholder.title")}
         </p>
@@ -2437,9 +2523,7 @@ export function HomeDashboard() {
     >
       {/* ── Header ── */}
       <div>
-        <h1
-          style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--syn-text)" }}
-        >
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--syn-text)" }}>
           {t("home.title")}
         </h1>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--syn-text-muted)" }}>
@@ -2632,11 +2716,7 @@ export function HomeDashboard() {
               }}
             >
               {sectionList.map((sec) => (
-                <SectionCard
-                  key={sec.domain}
-                  section={sec}
-                  onNavigate={handleSectionNavigate}
-                />
+                <SectionCard key={sec.domain} section={sec} onNavigate={handleSectionNavigate} />
               ))}
             </div>
           )}
@@ -2646,12 +2726,17 @@ export function HomeDashboard() {
       {/* ── 5. "GRUPPI AUTOMATICI" grid (A3+A4) — hidden when groups is null (404) ── */}
       {/* A4: top 4 shown by default; Espandi/Comprimi toggle reveals the full capped list. */}
       {groups !== null && groups !== undefined && groupList.length > 0 && (
-        <section
-          aria-label={t("home.groups.ariaLabel")}
-          data-testid="home-groups-section"
-        >
+        <section aria-label={t("home.groups.ariaLabel")} data-testid="home-groups-section">
           {/* Section header row: title + expand/collapse toggle */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 12,
+              justifyContent: "space-between",
+            }}
+          >
             <h2
               style={{
                 margin: 0,
@@ -2716,11 +2801,7 @@ export function HomeDashboard() {
             }}
           >
             {(groupsExpanded ? groupList : groupList.slice(0, GROUPS_DEFAULT_CAP)).map((grp) => (
-              <GroupCard
-                key={grp.community}
-                group={grp}
-                onOpen={handleGroupOpen}
-              />
+              <GroupCard key={grp.community} group={grp} onOpen={handleGroupOpen} />
             ))}
           </div>
         </section>
@@ -2747,46 +2828,68 @@ export function HomeDashboard() {
         ) : (
           <ul
             data-testid="home-recent-activity"
-            style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}
+            style={{
+              listStyle: "none",
+              margin: 0,
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
           >
             {overview.recent_activity.map((item) => {
               // A page can be persisted before its title is generated; fall back to a
               // muted placeholder so the row never renders as a blank icon + date.
               const label = item.title.trim();
               return (
-              <li key={item.page_id}>
-                <button
-                  data-testid={`home-activity-item-${item.slug}`}
-                  onClick={() => handleActivityClick(item.slug)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 0.1s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                  }}
-                >
-                  <FileText size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 13, color: label ? "var(--syn-text)" : "var(--syn-text-dim)", fontStyle: label ? "normal" : "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {label || t("home.activity.untitled")}
-                  </span>
-                  <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
-                    {formatDate(item.updated_at)}
-                  </span>
-                </button>
-              </li>
+                <li key={item.page_id}>
+                  <button
+                    data-testid={`home-activity-item-${item.slug}`}
+                    onClick={() => handleActivityClick(item.slug)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "6px 10px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.1s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background =
+                        "var(--syn-surface-hover)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                    }}
+                  >
+                    <FileText
+                      size={12}
+                      aria-hidden="true"
+                      style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+                    />
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        color: label ? "var(--syn-text)" : "var(--syn-text-dim)",
+                        fontStyle: label ? "normal" : "italic",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {label || t("home.activity.untitled")}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                      {formatDate(item.updated_at)}
+                    </span>
+                  </button>
+                </li>
               );
             })}
           </ul>

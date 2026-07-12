@@ -209,6 +209,38 @@ describe("latexToUnicode — plain text passthrough", () => {
   });
 });
 
+// ─── Code regions protected (AC-F8-3 fence + user code) ──────────────────────
+
+describe("latexToUnicode — code regions left byte-for-byte intact (AC-F8-3)", () => {
+  it("does NOT convert symbols inside the generated ```math display fence", () => {
+    const r = latexToUnicode("See $$E = \\sum_i x_i$$ done.");
+    expect(r).toContain("```math");
+    // Inside the fence the LaTeX must stay literal — never ∑ / ᵢ
+    expect(r).toContain("\\sum_i x_i");
+    expect(r).not.toContain("∑");
+    expect(r).not.toContain("ᵢ");
+  });
+
+  it("does NOT convert symbols inside a user fenced code block", () => {
+    const src = "Prose \\alpha here\n\n```python\nx_2 = a \\times b  # \\sum\n```\n";
+    const r = latexToUnicode(src);
+    // Prose alpha IS converted
+    expect(r).toContain("α");
+    // Code block content is untouched
+    expect(r).toContain("x_2 = a \\times b  # \\sum");
+    expect(r).not.toContain("×");
+    expect(r).not.toContain("₂");
+  });
+
+  it("does NOT convert symbols inside an inline code span", () => {
+    const r = latexToUnicode("Use `H_2O` literally but H_2O in prose.");
+    // Inline code untouched
+    expect(r).toContain("`H_2O`");
+    // Prose subscript converted
+    expect(r).toContain("H₂O");
+  });
+});
+
 // ─── Unconvertible sequences left as-is (AC-F8-3) ────────────────────────────
 
 describe("latexToUnicode — unconvertible sequences (AC-F8-3)", () => {

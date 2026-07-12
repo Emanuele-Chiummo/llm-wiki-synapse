@@ -182,12 +182,15 @@ async def test_put_stores_encrypted_not_plaintext(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.asyncio
 async def test_put_without_key_returns_400(monkeypatch: pytest.MonkeyPatch) -> None:
     """
-    W7-TC-02: PUT /provider/cli-auth with no SYNAPSE_SECRET_KEY returns HTTP 400
-    (fail-closed on write — never stores plaintext after W7).
+    W7-TC-02: PUT /provider/cli-auth with no key storage available returns HTTP 400
+    (fail-closed on write — never stores plaintext after W7). Key storage is unavailable when
+    both the SYNAPSE_SECRET_KEY env AND the persisted key-file path are absent (the file path is
+    disabled here so the auto-generated-key feature does not configure storage).
     """
     import app.cli_auth as cli_auth_mod
 
     monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+    monkeypatch.setattr("app.secrets_crypto._key_file_path", lambda: None)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_USE_SUBSCRIPTION", raising=False)

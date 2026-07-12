@@ -938,13 +938,12 @@ class TestExtractMissingPageCandidates:
         result = _extract_missing_page_candidates("A,, B,  ,C")
         assert result == ["A", "B", "C"]
 
-    def test_single_candidate_after_strip_unchanged(self) -> None:
-        """If splitting yields exactly one non-empty part, return [proposed_title] unchanged."""
+    def test_single_candidate_is_cleaned(self) -> None:
+        """Single candidate → [cleaned title] (D7 parity: cleanCandidateTitle strips wrap/prefix)."""
         from app.ops.review import _extract_missing_page_candidates
 
         result = _extract_missing_page_candidates("  Single Title  ")
-        # The result is [proposed_title] — note: proposed_title NOT stripped; unchanged semantic
-        assert result == ["  Single Title  "]
+        assert result == ["Single Title"]
 
     def test_empty_string_returns_original(self) -> None:
         """Empty string or whitespace-only → returns [proposed_title] unchanged (guard)."""
@@ -1100,10 +1099,12 @@ class TestMissingPageFanOut:
 
         from app.ops.review import GenerationOutcome, create_page_from_review
 
+        # Plain title with no list delimiter and no type-noun suffix (so D7 cleaning is a no-op),
+        # keeping this test focused on the fan-out count (exactly one generation).
         item_id = await _insert_review_item(
             review_env,
             item_type="missing-page",
-            proposed_title="Single Concept",
+            proposed_title="Kubernetes Networking",
         )
         item_uuid = uuid.UUID(item_id)
 
@@ -1127,7 +1128,7 @@ class TestMissingPageFanOut:
             item = await create_page_from_review(item_uuid)
 
         assert len(call_log) == 1
-        assert call_log[0] == "Single Concept"
+        assert call_log[0] == "Kubernetes Networking"
         assert item.status == "created"
 
 

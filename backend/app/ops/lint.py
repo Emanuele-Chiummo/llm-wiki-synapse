@@ -81,7 +81,8 @@ _VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
 # stale-claim → apply is a no-op status change to 'applied' with a resolution_note (the human
 # still has to fix it by editing the wiki).
-# broken-wikilink WITHOUT a suggestion is also flag-only (no safe fix when target unknown).
+# broken-wikilink WITHOUT a suggestion CREATES A STUB page for the missing target
+# (_create_broken_link_stub, L4/ADR-0058 §L4) — no longer flag-only.
 # suggestion — always flag-only (semantic category; no deterministic fix).
 # no-outlinks and orphan-page are handled specially in apply_lint_fix:
 #   - if suggested_target/suggested_page_id present → apply a real fix
@@ -517,12 +518,13 @@ async def send_finding_to_review(finding_id: uuid.UUID) -> LintFinding:
     Maps category → item_type (see _CATEGORY_TO_ITEM_TYPE), enqueues the review item,
     then sets finding status → 'applied' with resolution_note = "sent to review (<id>)".
 
-    DEDUP CONTRACT (ADR-0044 / ADR-0037 B1 note from ADR review):
-      The content_key includes the category so broken-wikilink findings can never collide
-      with genuine missing-page review items even when they share the same proposed title.
-      Specifically: content_key = enqueue_review(..., proposed_title=...) anchored on the
-      finding's category-prefixed rationale. This is implemented by including the category
-      in the rationale text (which feeds the FNV-1a key inside enqueue_review).
+    DEDUP CONTRACT (ADR-0044 §3.2 / R7 parity fix):
+      The review content_key is FNV-1a over (vault_id, item_type, normalize(proposed_title))
+      ONLY — the finding category is NOT part of the key (see review._content_key). So a
+      broken-wikilink finding mapped to item_type 'missing-page' and a genuine missing-page
+      suggestion with the SAME title INTENTIONALLY collapse into one review row (this mirrors
+      llm_wiki's normalizeReviewTitle keying on type+title). 'confirm' items get content_key
+      = NULL and are never deduped.
 
     Raises:
       HTTPException(404) — finding not found.
@@ -1380,7 +1382,8 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
          in the BODY ONLY (split on leading --- frontmatter fence — I5).
       3. Write the file, re-run persist_links, bump data_version ONCE (I1).
 
-    When no suggestion exists → flag-only acknowledgement (same as orphan-page).
+    When no suggestion exists → create a stub page for the missing target via
+    _create_broken_link_stub (L4 / ADR-0058 §L4) — NOT a flag-only acknowledgement.
 
     Raises:
       HTTPException(404) — referencing page no longer exists.

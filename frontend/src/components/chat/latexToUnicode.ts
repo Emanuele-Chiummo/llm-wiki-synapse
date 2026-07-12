@@ -262,13 +262,33 @@ export function latexToUnicode(input: string): string {
     convertInline(inner),
   );
 
-  // 4. Convert bare LaTeX symbols outside math delimiters (common in prose)
-  result = applySymbols(result);
-
-  // 5. Apply super/subscript conversion globally (bare x^2, H_2O in prose — AC-F8-2)
-  result = applySupSub(result);
+  // 4+5. Convert bare LaTeX symbols and super/subscripts in PROSE only (AC-F8-2), while
+  // leaving every code region byte-for-byte intact (AC-F8-3): the ```math fences produced in
+  // step 1 AND any user-authored fenced/inline code spans. Running these globally used to
+  // rewrite `\sum_i`→`∑ᵢ` *inside* the display-math fence and inside code blocks, contradicting
+  // the "display math left as-is in fence" contract.
+  result = applyOutsideCode(result, (seg) => applySupSub(applySymbols(seg)));
 
   return result;
+}
+
+/**
+ * Apply `fn` to every region of `s` that is NOT inside a fenced code block (```…```) or an
+ * inline code span (`…`). Code regions are emitted unchanged. Fenced blocks are matched before
+ * inline spans so a ```math block is protected as a whole.
+ */
+function applyOutsideCode(s: string, fn: (t: string) => string): string {
+  const codeRegion = /```[\s\S]*?```|`[^`]*`/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = codeRegion.exec(s)) !== null) {
+    out += fn(s.slice(last, m.index));
+    out += m[0];
+    last = m.index + m[0].length;
+  }
+  out += fn(s.slice(last));
+  return out;
 }
 
 /** Convert the content of an inline math region. */

@@ -263,7 +263,17 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     )
 
     # ── Embed + upsert Qdrant ─────────────────────────────────────────────────
-    text_for_embedding = raw_bytes.decode("utf-8", errors="replace")
+    # Embed the BODY with a title breadcrumb — NOT the raw bytes. Embedding the YAML frontmatter
+    # block (type/sources/tags/lang) injects boilerplate tokens that pollute vector similarity;
+    # nashsu/llm_wiki strips frontmatter (text-chunker.ts) and prepends the title/heading path.
+    # We keep the single whole-page point (ADR-0002) but feed it clean "<title>\n\n<body>" text.
+    # (Per-page embed-time chunking — llm_wiki's N-points-per-page — remains an ADR-gated change.)
+    _decoded = raw_bytes.decode("utf-8", errors="replace")
+    try:
+        _embed_body = frontmatter.loads(_decoded).content
+    except Exception:  # noqa: BLE001 — malformed/binary: fall back to the raw decoded text
+        _embed_body = _decoded
+    text_for_embedding = f"{_title}\n\n{_embed_body}".strip() if _title else _embed_body.strip()
     await upsert_vector(
         page_id=page_id,
         text=text_for_embedding,
@@ -735,6 +745,9 @@ async def run_ingest_pipeline(
                     analysis=analysis,
                     written_pages=written_pages,
                     origin_source=origin_source,
+                    # llm_wiki parity: feed the RAW source text so the proposal step can quote
+                    # the document and spot in-scope/out-of-scope handoff gaps.
+                    source_text=source_text,
                 )
             except Exception as _f9_exc:  # noqa: BLE001
                 # Intentionally swallowed: pages are written; queue is advisory (Do-NOT #5).
@@ -1366,6 +1379,22 @@ async def _resolve_fallback_provider_config() -> object | None:
 # ── Wiki page writer (reused by the MCP write_page tool — ADR-0010 §2) ─────────
 
 
+def _is_owned_only_by_source(prior_sources: list[str] | None, origin_source: str) -> bool:
+    """
+    True when an existing page's ONLY prior source is *origin_source* (nashsu/llm_wiki
+    ``isOwnedOnlyBySource``). Such a page is "owned" by the source being re-ingested, so a
+    correction/retraction must REPLACE its body rather than LLM-merge stale facts back in.
+
+    Returns False when the page has NO recorded prior sources (unknown ownership — keep the
+    safe merge) or when ANOTHER source also contributed (genuine multi-source page — merge so
+    no source's content is lost).
+    """
+    if not origin_source:
+        return False
+    prior = {s for s in (prior_sources or []) if s}
+    return bool(prior) and prior <= {origin_source}
+
+
 def _strip_leading_frontmatter(body: str) -> str:
     """
     Defensively remove ONE stray leading YAML frontmatter block from a page *body*.
@@ -1679,7 +1708,14 @@ async def write_wiki_page(
     # Bounded to a single timed provider call; degrade-safe (keeps the new body on any failure).
     # Only the orchestrated write site passes `provider`; meta/catalogue + MCP/CLI callers pass
     # None → no merge (the delegated route runs its own agent loop — ADR-0063 §7 documented gap).
-    if provider is not None and abs_path.exists():
+    # llm_wiki parity (isOwnedOnlyBySource → replaceExistingBody): when the existing page's ONLY
+    # prior source is the one being re-ingested, a correction/retraction must REPLACE the body —
+    # merging would keep stale facts the new version dropped. We only merge when ANOTHER source
+    # also contributed (a genuine multi-source enrichment), so no source's content is lost.
+    _owned_only_by_origin = _is_owned_only_by_source(
+        existing_page.sources if existing_page is not None else None, origin_source
+    )
+    if provider is not None and abs_path.exists() and not _owned_only_by_origin:
         from app.ingest.page_merge import maybe_merge_page_body
         from app.ops.enrich_wikilinks import _split_frontmatter
 

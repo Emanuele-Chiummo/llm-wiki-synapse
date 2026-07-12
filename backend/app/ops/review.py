@@ -239,6 +239,7 @@ async def _llm_propose_reviews(
     analysis: Analysis,
     written_pages: list[Page],
     existing_titles: list[str],
+    source_text: str = "",
 ) -> list[ProposalDTO]:
     """
     Single bounded provider call (ADR-0034 §4.3, implemented).
@@ -292,6 +293,7 @@ async def _llm_propose_reviews(
         existing_titles=existing_titles,
         max_items=max_items,
         token_budget=token_budget,
+        source_text=source_text,
     )
 
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
@@ -513,6 +515,7 @@ async def _run_generation(
     rationale: str | None,
     origin_source: str,
     provider_config_row: object,
+    item_type: str | None = None,
 ) -> GenerationOutcome:
     """
     Bounded on-demand page generation for lazy Create (ADR-0034 §5, implemented).
@@ -566,7 +569,9 @@ async def _run_generation(
     from app.ingest.provider.base import UsageAccumulator
 
     # ── Resolve type / dir heuristic (§5.2) ──────────────────────────────────────
-    resolved_type = _resolve_create_page_type(proposed_title, proposed_page_type, rationale)
+    resolved_type = _resolve_create_page_type(
+        proposed_title, proposed_page_type, rationale, item_type
+    )
 
     # ── Build the provider + run-scoped ledger ───────────────────────────────────
     provider = resolve_provider(provider_config_row)
@@ -1705,6 +1710,7 @@ async def propose_reviews(
     analysis: Analysis,
     written_pages: list[Page],
     origin_source: str,
+    source_text: str = "",
 ) -> None:
     """
     Run the proposal emission stage once per orchestrated ingest run (ADR-0034 §4).
@@ -1882,6 +1888,7 @@ async def propose_reviews(
                 analysis=analysis,
                 written_pages=written_pages,
                 existing_titles=existing_titles,
+                source_text=source_text,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -2187,6 +2194,12 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
     sweep_llm_enabled = bool(getattr(settings, "review_sweep_llm_enabled", True))
     if sweep_llm_enabled:
         try:
+            # nashsu/llm_wiki parity (sweep-reviews.ts JUDGE_BATCH_SIZE=40, MAX_JUDGE_BATCHES=5):
+            # judge pending items in batches of `batch_size`, up to `max_batches` LLM calls per run
+            # (I7 — the fetch cap = batch_size × max_batches bounds the loop). Previously a SINGLE
+            # call over ≤8 items, so semantic backlog cleanup was far slower than the reference.
+            batch_size = max(1, int(getattr(settings, "review_sweep_llm_max_items", 40)))
+            max_batches = max(1, int(getattr(settings, "review_sweep_llm_max_batches", 5)))
             async with get_session() as session:
                 remaining_stmt = (
                     select(ReviewItem)
@@ -2199,7 +2212,7 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                         ),
                     )
                     .order_by(ReviewItem.created_at.asc())
-                    .limit(int(getattr(settings, "review_sweep_llm_max_items", 8)))
+                    .limit(batch_size * max_batches)
                 )
                 remaining = list((await session.execute(remaining_stmt)).scalars().all())
 
@@ -2219,31 +2232,33 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
                         ).scalars()
                     )
 
-                # Default-to-keep: _llm_sweep_judge returns set() on any failure (I7)
-                ids_to_resolve = await _llm_sweep_judge(
-                    vault_id=vault_id,
-                    candidate_items=remaining,
-                    existing_titles=existing_titles,
-                )
+                for start in range(0, len(remaining), batch_size):
+                    batch = remaining[start : start + batch_size]
+                    # Default-to-keep: _llm_sweep_judge returns set() on any failure (I7)
+                    ids_to_resolve = await _llm_sweep_judge(
+                        vault_id=vault_id,
+                        candidate_items=batch,
+                        existing_titles=existing_titles,
+                    )
 
-                for item in remaining:
-                    item_id_str = str(item.id)
-                    if item_id_str in ids_to_resolve:
-                        # Safety: never auto-resolve confirm (Do-NOT #7)
-                        if item.item_type == "confirm":
-                            logger.warning(
-                                "sweep_reviews: LLM sweep tried to resolve a 'confirm' item "
-                                "%s — blocked (Do-NOT #7)",
-                                item_id_str,
+                    for item in batch:
+                        item_id_str = str(item.id)
+                        if item_id_str in ids_to_resolve:
+                            # Safety: never auto-resolve confirm (Do-NOT #7)
+                            if item.item_type == "confirm":
+                                logger.warning(
+                                    "sweep_reviews: LLM sweep tried to resolve a 'confirm' item "
+                                    "%s — blocked (Do-NOT #7)",
+                                    item_id_str,
+                                )
+                                continue
+                            await _set_status(
+                                uuid.UUID(item_id_str),
+                                "auto_resolved",
+                                resolution="llm_resolved",
+                                reviewed_by="auto-sweep",
                             )
-                            continue
-                        await _set_status(
-                            uuid.UUID(item_id_str),
-                            "auto_resolved",
-                            resolution="llm_resolved",
-                            reviewed_by="auto-sweep",
-                        )
-                        llm_resolved += 1
+                            llm_resolved += 1
         except Exception as exc:  # noqa: BLE001
             logger.warning("sweep_reviews: Pass-2 failed (non-fatal): %s", exc)
 
@@ -2271,6 +2286,36 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
         kept_count,
     )
     return SweepResult(rule_resolved=rule_resolved, llm_resolved=llm_resolved, kept=kept_count)
+
+
+# nashsu/llm_wiki cleanCandidateTitle regexes (review-create-page.ts:11-23) — port for D7 parity.
+_ACTION_PREFIX_RE = re.compile(
+    r"^(Create|Save|Add|Missing page|Missing pages|缺失页面|缺少页面|创建|保存|新增)[:：\s-]*",
+    re.IGNORECASE,
+)
+_MISSING_PREFIX_RE = re.compile(r"^(missing|缺失|缺少)\s*", re.IGNORECASE)
+_PAGE_SUFFIX_RE = re.compile(r"\s*(page|pages|页面|页)\s*$", re.IGNORECASE)
+_TYPE_SUFFIX_RE = re.compile(
+    r"\s*(entity|entities|concept|concepts|实体|概念)\s*(page|pages|页面|页)?\s*$", re.IGNORECASE
+)
+# Wrap chars stripped from both ends (trailing set also strips colons/periods), mirroring the JS.
+_WRAP = "\\s\"'“”‘’`\\[\\]【】()（）"
+_WRAP_CHARS_RE = re.compile(f"^[{_WRAP}]+|[{_WRAP}:：.。]+$")
+
+
+def _clean_candidate_title(value: str) -> str:
+    """
+    Port of nashsu/llm_wiki ``cleanCandidateTitle`` (review-create-page.ts:15-23): strip action
+    prefixes ("Create:", "Missing page:"), a leading "missing", trailing page/entity/concept
+    nouns, and wrapping quotes/brackets/punctuation — so a review-created page title is as clean
+    as the reference's (was: Synapse kept prefixes like "Missing page: …" in the generated title).
+    """
+    s = _ACTION_PREFIX_RE.sub("", value)
+    s = _MISSING_PREFIX_RE.sub("", s)
+    s = _PAGE_SUFFIX_RE.sub("", s)
+    s = _TYPE_SUFFIX_RE.sub("", s)
+    s = _WRAP_CHARS_RE.sub("", s)
+    return s.strip()
 
 
 def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
@@ -2310,7 +2355,7 @@ def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
     seen_lower: set[str] = set()
     candidates: list[str] = []
     for part in parts:
-        cleaned = part.strip()
+        cleaned = _clean_candidate_title(part)
         if not cleaned:
             continue
         lower = cleaned.lower()
@@ -2322,9 +2367,9 @@ def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
     # Cap (I7 — bounded fan-out; avoids runaway provider calls for pathological titles)
     candidates = candidates[:_MISSING_PAGE_FANOUT_CAP]
 
-    # Preserve single-page behavior when no real split occurred
+    # Preserve single-page behavior when no real split occurred — but still clean the title (D7).
     if len(candidates) <= 1:
-        return [proposed_title]
+        return [_clean_candidate_title(proposed_title) or proposed_title]
 
     return candidates
 
@@ -2502,7 +2547,8 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     if item.item_type == "missing-page":
         candidates = _extract_missing_page_candidates(proposed_title)
     else:
-        candidates = [proposed_title]
+        # D7 parity: clean the title (strip "Create:"/quote noise) for the generated page too.
+        candidates = [_clean_candidate_title(proposed_title) or proposed_title]
 
     # ── 5. Generate each candidate page (I1 — one write per page; bounded fan-out) ──
     # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
@@ -2524,6 +2570,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
                 rationale=item.rationale,
                 origin_source=origin_source,
                 provider_config_row=provider_config_row,
+                item_type=item.item_type,
             )
         except NotImplementedError as nie:
             if _is_primary:
@@ -3169,6 +3216,23 @@ def _resolve_review_language(analysis: Analysis | None = None) -> str:
     return lang or (getattr(settings, "overview_language", "") or "").strip()
 
 
+def _trim_source_excerpt(text: str, cap: int) -> str:
+    """
+    Head+tail excerpt of a raw source, bounded to ``cap`` characters (llm_wiki trimLongText
+    parity). Keeps the opening (scope / intro / assumptions usually live there) AND the closing
+    (out-of-scope / exclusions / next-steps sections often land at the end), with an elision
+    marker in between. Returns the whole text when it already fits. ``cap<=0`` → empty (disabled).
+    """
+    text = (text or "").strip()
+    if cap <= 0 or not text:
+        return ""
+    if len(text) <= cap:
+        return text
+    head = cap * 2 // 3
+    tail = cap - head
+    return f"{text[:head].rstrip()}\n\n…[source trimmed]…\n\n{text[-tail:].lstrip()}"
+
+
 def _build_propose_instruction(
     *,
     analysis: Analysis,
@@ -3176,13 +3240,21 @@ def _build_propose_instruction(
     existing_titles: list[str],
     max_items: int,
     token_budget: int,
+    source_text: str = "",
 ) -> str:
     """
-    Build the single structured-proposal prompt (ADR-0034 §4.3).
+    Build the single structured-proposal prompt (ADR-0034 §4.3 + llm_wiki
+    buildReviewSuggestionPrompt parity).
 
     Asks for a JSON object {"proposals": [...]} of ≤ max_items items, each one of the five
     review types. The model is told to return ONLY JSON. token_budget is surfaced so the model
     keeps the output compact (the call is also wrapped in wait_for + capped on parse).
+
+    llm_wiki parity: the RAW source text is included (bounded head+tail excerpt) alongside the
+    analysis and written pages. Feeding the source content — not just the analysis — is what lets
+    the model quote the document ("the doc excludes X as out-of-scope") and identify concrete
+    in-scope/out-of-scope handoff gaps, yielding source-grounded suggestions with precise,
+    descriptive titles rather than generic "missing from vault" slugs.
     """
     analysis_json = "{}"
     if analysis is not None:
@@ -3196,31 +3268,60 @@ def _build_propose_instruction(
 
     ref_max = int(getattr(settings, "review_referenced_pages_max", 8))
     query_max = int(getattr(settings, "review_search_queries_max", 3))
+    source_cap = int(getattr(settings, "review_propose_source_chars", 6_000))
+    source_excerpt = _trim_source_excerpt(source_text, source_cap)
+    # Only emit the section (and its instruction) when we actually have source content.
+    source_block = (
+        f"# Source content (raw excerpt of the document just ingested)\n{source_excerpt}\n\n"
+        if source_excerpt
+        else ""
+    )
 
     return (
         _review_lang_directive(_resolve_review_language(analysis))
-        + "You are the review-proposal step of a self-organizing wiki ingest pipeline.\n"
-        "Given the ingest analysis, the pages just written, and the existing vault titles, "
-        "propose follow-up work the human should review. Propose ONLY genuinely useful items "
-        "(missing pages, research gaps, conflicts, possible duplicates, or things to confirm).\n\n"
+        + "You are identifying high-value follow-up work for a self-organizing personal wiki. "
+        "The wiki pages for this source have ALREADY been generated — your job is NOT to write "
+        "pages, but to surface unresolved knowledge gaps a human should review or send to Deep "
+        "Research.\n\n"
+        "Propose ONLY genuinely useful, high-signal items. Prefer quality over quantity: a few "
+        "sharp proposals beat many shallow ones, and proposing nothing is correct when the "
+        "source is fully covered. Each type means:\n"
+        "  - missing-page: an important entity/concept the source references but that still lacks "
+        "its own page.\n"
+        "  - suggestion: a research question, a source type to look for, a comparison, or an "
+        "in-scope/out-of-scope handoff that would MATERIALLY improve the wiki. Ground it in the "
+        "source: name the specific passage, exclusion, assumption, or boundary that motivates it "
+        "(e.g. the document marks something out-of-scope but doesn't say how it connects to the "
+        "in-scope work).\n"
+        "  - contradiction: a conflict or tension between this source and existing pages that "
+        "needs human judgment.\n"
+        "  - duplicate: a page/name that likely already exists under a different name.\n"
+        "  - confirm: a claim worth a human's explicit confirmation.\n\n"
+        f"{source_block}"
         f"# Ingest analysis\n{analysis_json}\n\n"
         f"# Pages written this run\n{pages_digest}\n\n"
         f"# Existing vault page titles\n{titles_block}\n\n"
         'Return ONLY a JSON object with a single key "proposals" whose value is a list of at '
         f"most {max_items} objects. Each object has keys:\n"
         "  type: one of missing-page | suggestion | contradiction | duplicate | confirm\n"
-        "  proposed_title: string (the page to create; required for missing-page)\n"
-        "  proposed_page_type: one of entity | concept | synthesis | comparison (optional; "
-        "NEVER 'source')\n"
-        "  rationale: short string explaining why this matters\n"
+        "  proposed_title: a PRECISE, DESCRIPTIVE page title in Title Case — a real title a "
+        "reader would recognize (e.g. 'ELP Analysis and Downstream Workflow'), NOT a slug or a "
+        "single keyword. Required for missing-page and suggestion.\n"
+        "  proposed_page_type: one of entity | concept | query | synthesis | comparison "
+        "(optional; NEVER 'source'). Use 'query' for a page that answers a research question or "
+        "documents how workstreams/scopes connect; 'comparison' for a head-to-head.\n"
+        "  rationale: 1-3 sentences that describe the gap AND why it matters. When it comes from "
+        "the source, reference the specific passage/exclusion/assumption that motivates it.\n"
         "  target_page_title: string (REQUIRED for contradiction/duplicate — the existing "
         "page in conflict; otherwise omit or null)\n"
         f"  referenced_page_titles: list of up to {ref_max} EXISTING vault page titles (taken "
         "VERBATIM from the 'Existing vault page titles' list above) that this proposal is "
         "contextually about. Use ONLY titles from that list — never invent a title. Omit or [] "
         "if none apply.\n"
-        f"  search_queries: list of up to {query_max} short web-search queries that would advance "
-        "this item (the first is used to seed Deep Research). Omit or [] if none apply.\n\n"
+        f"  search_queries: list of up to {query_max} keyword-rich web-search queries (specific, "
+        "suitable for a search engine — NOT titles or sentences) that would advance this item; "
+        "the first seeds Deep Research. Required for suggestion and missing-page; omit or [] "
+        "otherwise.\n\n"
         "Do NOT propose a page whose title already exists. Keep the output well under "
         f"{token_budget} tokens. Return no prose, only the JSON object."
     )
@@ -3399,22 +3500,34 @@ def _clean_str_list(value: Any, *, cap: int) -> list[str]:
     return out
 
 
-_COMPARISON_CUES = ("vs", "versus", "compared", "comparison")
-_SYNTHESIS_CUES = ("overview of", "summary of", "survey", "landscape")
+# nashsu/llm_wiki detectPageType cue vocabulary (review-create-page.ts:57-67). Substring match
+# over the lowercased title+rationale — "compare" also catches compared/compares/comparison.
+_COMPARISON_CUES = ("comparison", "compare", "比较")
+_SYNTHESIS_CUES = ("synthesis", "综合")
+_ENTITY_KEYWORD_RE = re.compile(r"\b(?:entity|entities)\b|实体", re.IGNORECASE)
+_CONCEPT_KEYWORD_RE = re.compile(r"\b(?:concept|concepts)\b|概念", re.IGNORECASE)
 
 
 def _resolve_create_page_type(
     proposed_title: str,
     proposed_page_type: str | None,
     rationale: str | None,
+    item_type: str | None = None,
 ) -> PageType:
     """
-    Resolve the final PageType for a Create (ADR-0034 §5.2).
+    Resolve the final PageType for a Create — 1:1 with nashsu/llm_wiki ``detectPageType``
+    (review-create-page.ts:57-67), so review-created pages land in the SAME folders/types.
 
-      1. Use proposed_page_type if it is a valid non-'source' PageType.
-      2. Otherwise heuristic over title + rationale:
-         comparison cues → comparison; synthesis cues → synthesis;
-         proper-noun / multi-word capitalized shape → entity; default → concept.
+      0. (Synapse superset, D6) Use proposed_page_type verbatim when it is a valid non-'source'
+         PageType — the LLM proposal already emitted a type; llm_wiki has no such field, so this
+         only refines the ambiguous cases and never contradicts the text rules below.
+      1. entity keyword (entity/entities/实体) → entity
+      2. concept keyword (concept/concepts/概念) → concept
+      3. comparison cue (comparison/compare/比较) → comparison
+      4. synthesis cue (synthesis/综合) → synthesis
+      5. item_type == 'missing-page' → concept
+      6. everything else (suggestion, contradiction, duplicate, unknown) → **query**  ← llm_wiki
+         default. (Per owner decision 2026-07-12: query pages are graph-excluded, accepted.)
     'source' is reserved for ingested raw documents — Create NEVER produces a source page.
     """
     if proposed_page_type:
@@ -3425,19 +3538,19 @@ def _resolve_create_page_type(
         except (ValueError, KeyError):
             pass
 
-    haystack = f"{proposed_title} {rationale or ''}".lower()
-    if any(re.search(rf"\b{re.escape(cue)}\b", haystack) for cue in _COMPARISON_CUES):
-        return PageType.COMPARISON
-    if any(cue in haystack for cue in _SYNTHESIS_CUES):
-        return PageType.SYNTHESIS
-
-    # Proper-noun / named-entity shape: ≥2 words AND ≥2 capitalized tokens in the title.
-    title_words = proposed_title.split()
-    capitalized = sum(1 for w in title_words if w[:1].isupper())
-    if len(title_words) >= 2 and capitalized >= 2:
+    haystack = f"{proposed_title} {rationale or ''}"
+    hay_lower = haystack.lower()
+    if _ENTITY_KEYWORD_RE.search(haystack):
         return PageType.ENTITY
-
-    return PageType.CONCEPT
+    if _CONCEPT_KEYWORD_RE.search(haystack):
+        return PageType.CONCEPT
+    if any(cue in hay_lower for cue in _COMPARISON_CUES):
+        return PageType.COMPARISON
+    if any(cue in hay_lower for cue in _SYNTHESIS_CUES):
+        return PageType.SYNTHESIS
+    if item_type == "missing-page":
+        return PageType.CONCEPT
+    return PageType.QUERY
 
 
 # ── Private helpers ────────────────────────────────────────────────────────────
