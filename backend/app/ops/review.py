@@ -166,12 +166,19 @@ def _content_key(
     different target pages) to appear as distinct and never dedup. Parameters are kept
     for backward call-site compatibility but are silently ignored.
 
-    `confirm` items get content_key = NULL (never deduped — every confirmation is a distinct
-    human ask; ADR-0044 §3.2, Do-NOT #10). normalize() reuses _normalize_title (I9).
+    `confirm` items ARE deduped on (type + normalizedTitle) like every other type — this is
+    llm_wiki parity (review-store.ts reviewIdFor keys ALL types, confirm included, on
+    `${type}::${normalizeReviewTitle(title)}`). This SUPERSEDES the earlier ADR-0044 Do-NOT #10
+    ("confirm never deduped"): re-ingesting the same source re-surfaced identical confirmations as
+    fresh pending rows and bloated the queue. The enqueue UPSERT still respects a human's terminal
+    decision (resolved/skipped confirm → NO-OP, "resolved wins"), so dedup never re-opens a handled
+    confirmation. A title-less confirm keeps content_key=NULL (always-insert) — with no concept
+    handle it must not collapse every anonymous confirmation into one row. normalize() reuses
+    _normalize_title (I9).
     """
-    if item_type == "confirm":
-        return None
     norm_title = _normalize_title(proposed_title) if proposed_title else ""
+    if item_type == "confirm" and not norm_title:
+        return None
     payload = _CONTENT_KEY_SEP.join([vault_id, item_type, norm_title])
     return _fnv1a_16hex(payload)
 
@@ -1534,8 +1541,9 @@ async def enqueue_review(
       A single bounded indexed read (the new partial-unique index) — the portable contract that
       the Postgres partial-unique index enforces at the DB level (SQLite emulates via this read).
 
-    When content_key is NULL (i.e. `confirm`, or legacy/rule with no key) → always INSERT
-    (no dedup — every confirmation is a distinct human ask; Do-NOT #10).
+    When content_key is NULL (a title-less confirm, or a legacy/rule row with no key) → always
+    INSERT (no dedup handle). Titled `confirm` items now carry a content_key and dedup like every
+    other type (llm_wiki reviewIdFor parity — supersedes the old Do-NOT #10).
 
     page_id / source_page_id / created_page_id are stored as string UUIDs for
     SQLite/Postgres compat (with_variant pattern).
@@ -1980,7 +1988,7 @@ async def propose_reviews(
                 )
         referenced_ids = referenced_ids[:ref_cap]
 
-        # ── ADR-0044 §3.2: stable content_key (confirm → NULL, never deduped) ────
+        # ── ADR-0044 §3.2: stable content_key (titled confirm now dedups too) ────
         query_cap = int(getattr(settings, "review_search_queries_max", 3))
         search_queries = (proposal.search_queries or [])[:query_cap]
         content_key = _content_key(
