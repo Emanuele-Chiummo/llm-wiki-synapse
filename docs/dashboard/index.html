@@ -224,23 +224,24 @@
 <script id="run-data" type="application/json">
 {
   "run": {
-    "run_id": "2026-07-11-run1",
+    "run_id": "2026-07-12-run2",
     "phase": "done",
-    "lane": "parity",
-    "block": "P3-b (1/3) — recognize & validate network-proxy settings (ADR-0053 config layer)",
+    "lane": "bug",
+    "block": "AUDIT — Query pages 100% lint placeholders: verify lint.py stub type never QUERY",
     "block_tag": "standard",
-    "orchestrator": { "model": "claude-opus-4-8", "effort": "medium" },
-    "agents": [
-      { "name": "backend-engineer", "model": "claude-sonnet-5", "effort": "medium",
-        "task": "Add network_proxy_{enabled,url,bypass_local} to ALLOWED_CONFIG_KEYS + validate_value + pytest (ORDERED_KEYS untouched)", "status": "done", "cost_usd": null }
-    ],
+    "orchestrator": { "model": "claude-sonnet-5", "effort": "medium" },
+    "agents": [],
     "graph": { "nodes": 16640, "edges": 30842, "communities": 761, "files": 768 },
-    "tests": { "lint": "pass", "typecheck": "pass", "pytest": "pass", "vitest": "n/a", "e2e": "n/a" },
+    "tests": { "lint": "n/a", "typecheck": "n/a", "pytest": "pass", "vitest": "n/a", "e2e": "n/a" },
     "pr_url": null,
     "total_cost_usd": null,
-    "updated_at": "2026-07-11T19:12:00Z"
+    "updated_at": "2026-07-12T07:18:00Z"
   },
   "history": [
+    { "date": "2026-07-12", "lane": "bug", "block": "AUDIT — lint query-stub placeholders: VERIFIED already fixed (ADR-0067 D1, no code change)",
+      "models": ["claude-sonnet-5"],
+      "tests": {"lint":"n/a","typecheck":"n/a","pytest":"pass","vitest":"n/a","e2e":"n/a"},
+      "pr_url": null, "total_cost_usd": null },
     { "date": "2026-07-11", "lane": "parity", "block": "P3-b (1/3) — network-proxy config keys [ADR-0053]",
       "models": ["claude-opus-4-8","claude-sonnet-5"],
       "tests": {"lint":"pass","typecheck":"pass","pytest":"pass","vitest":"n/a","e2e":"n/a"},
@@ -251,8 +252,8 @@
       "pr_url": null, "total_cost_usd": null }
   ],
   "queue": {
-    "next": { "when": "Sat 2026-07-12 · 07:03", "lane": "bug",
-      "block": "AUDIT — Query pages 100% lint placeholders (verify/fix lint.py stub type)" },
+    "next": { "when": "Mon 2026-07-13 · 07:03", "lane": "parity",
+      "block": "P-MATRIX — Exhaustive parity coverage matrix (audit EVERY llm_wiki feature)" },
     "release": "Fri · make bump + CHANGELOG + one PR to main (release-cut)",
     "parity": [
       { "block": "P-MATRIX — Exhaustive parity coverage matrix (audit EVERY llm_wiki feature)", "size": "M", "tag": "standard" },
@@ -266,7 +267,6 @@
       { "block": "P5 — Skills view (rail scan / enable / disable / rescan)", "size": "M/L", "tag": "standard" }
     ],
     "bug": [
-      { "block": "AUDIT — Query pages 100% lint placeholders", "size": "S", "tag": "standard" },
       { "block": "AUDIT — entity dedup only on exact title-slug → duplicate pages", "size": "M", "tag": "architecture" },
       { "block": "AUDIT — related: frontmatter population (backfill_related)", "size": "S", "tag": "standard" },
       { "block": "AUDIT — Save-to-Wiki hard-codes type=query (should be synthesis/)", "size": "S", "tag": "mechanical" },

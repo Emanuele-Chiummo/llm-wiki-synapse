@@ -154,8 +154,12 @@ A separate scheduled run consolidates the week into ONE release, following the r
 - [ ] **P5 — Skills view** (M/L). Rail entry: scan/enable/disable/rescan skill folders. Tag: standard.
 
 ### Lane B — bug / hardening (even days)
-- [ ] **AUDIT gap: Query pages 100% lint placeholders** — verify `lint.py` `_create_broken_link_stub`
-      no longer hard-codes `type=QUERY`; fix if still present. Tag: standard.
+- [x] **AUDIT gap: Query pages 100% lint placeholders** — VERIFIED FIXED 2026-07-12 (run2, no code
+      change needed). `_create_broken_link_stub` (`lint.py:1805`) calls `_infer_stub_page_type`
+      (`lint.py:1769`) which NEVER returns `PageType.QUERY` (entity/concept only) — already fixed by
+      commit `f9058ca` [F9][K2] under ADR-0067 D1, merged to `main`. `migrate_lint_query_stubs.py`
+      exists as the bounded, idempotent backfill for the 133 legacy prod pages. Evidence: `pytest
+      tests/test_lint.py -k stub` → 17/17 pass incl. `test_infer_stub_page_type_preserved_never_query`.
 - [ ] **AUDIT gap: entity dedup only on exact title-slug** (`orchestrator.py`) → duplicate pages.
       Retrofit review-queue path (see TODO `orchestrator.py:1459`). Tag: architecture (dedup logic).
 - [ ] **AUDIT gap: `related:` frontmatter** — confirm `ops/backfill_related.py` populates it; wire
@@ -255,3 +259,13 @@ Routine is the real autonomy mechanism.
 |------|------|-------|-------------|-------|----|----------|
 | _(bootstrap 2026-07-11 — setup only, no block shipped)_ | — | graphify memory + driver + dashboard scaffolding | opus (setup) | n/a | — | — |
 | 2026-07-11 (run1) | parity | P3-b (1/3) — network-proxy config keys [ADR-0053] | orchestrator opus/med · backend-engineer **sonnet**/med | lint✓ type✓ pytest✓ (30) | (branch) | — |
+| 2026-07-12 (run2) | bug | AUDIT gap: lint query-stub placeholders — VERIFIED already fixed (ADR-0067 D1, no code change) [F9][K2] | orchestrator sonnet/med (no subagent delegation — verify-only) | pytest✓ (17/17 `-k stub`) | none (weekly branch, no PR by design) | ~0 |
+
+> **⚠️ Owner flag (2026-07-12, run2):** `origin/main` does NOT yet contain this daily-driver
+> scaffolding (`DAILY-DRIVER.md`, `docs/dashboard/`, `docs/process/status/`, `scripts/launchd/`) —
+> it only exists on `claude/graphifyy-daily-plan-p4mv6y`, alongside the already-tested P3-b (1/3)
+> network-proxy slice. §4's "create weekly branch off `origin/main`" instruction can't be followed
+> literally yet, so run2 branched `claude/weekly-2026-07-11` off `claude/graphifyy-daily-plan-p4mv6y`
+> instead (documented deviation, not silent). **Action needed:** the owner should open/merge a PR
+> landing `claude/graphifyy-daily-plan-p4mv6y` → `main` so future cycles can branch off `origin/main`
+> as designed; until then each weekly branch should keep branching off the previous week's branch.
