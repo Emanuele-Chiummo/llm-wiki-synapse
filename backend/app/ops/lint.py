@@ -317,7 +317,9 @@ async def run_lint_scan(
                     token_budget=token_budget_local,
                     timeout_s=timeout_s,
                 )
-                round_findings = _parse_findings(raw)
+                # Pass existing titles so the missing-page false-positive guard can drop
+                # "create" findings for pages that already exist (llm_wiki parity).
+                round_findings = _parse_findings(raw, existing_titles=candidate_titles)
 
                 # De-dup against everything seen so far; stop when a round adds nothing new.
                 new_this_round = 0
@@ -2485,19 +2487,40 @@ def _build_semantic_instruction(
         "OR the title that SHOULD exist (for missing-page); omit or null if "
         "none applies\n\n"
         "Definitions: contradiction = conflicting claims across pages; stale-claim = superseded "
-        "information; missing-page = a concept mentioned with no page; "
+        "information; missing-page = a concept mentioned with NO page at all; "
         "suggestion = a question or source worth adding to the wiki. "
         "(Note: missing-xref is handled deterministically; do NOT emit it.) "
+        "IMPORTANT: only report missing-page when the concept has NO existing page. If a page "
+        "already exists in the 'Existing wiki page titles' list above but is linked with a "
+        "different slug or casing (e.g. page 'AWS Cost Explorer' referenced as "
+        "[[aws-cost-explorer]]), that is a broken LINK, NOT a missing page — do NOT report it as "
+        "missing-page (broken links are handled deterministically). "
         f"Keep the output well under {token_budget} tokens. Return no prose, only the JSON "
         "object."
     )
 
 
-def _parse_findings(raw: str) -> list[FindingDTO]:
+def _norm_title_for_match(value: str) -> str:
+    """
+    Collapse a title/slug to alphanumeric-casefold for existence matching, so the proper title
+    ("AWS Cost Explorer") and its wikilink slug ("aws-cost-explorer") normalise to the same key
+    ("awscostexplorer"). Used to detect a semantic `missing-page` whose target page ALREADY exists.
+    """
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+
+def _parse_findings(raw: str, existing_titles: list[str] | None = None) -> list[FindingDTO]:
     """
     Parse the semantic findings JSON into FindingDTO list. Tolerant of code fences / prose;
     silently drops malformed entries (degrade, never raise). Unknown categories are dropped;
     orphan-page is NEVER accepted from the model (it is deterministic-only — ADR-0037 §3.1).
+
+    llm_wiki parity guard: a `missing-page` whose `target_title` matches an EXISTING page is a
+    false positive — the page is not missing, the wikilink just uses a different slug/casing.
+    llm_wiki treats that as a broken-link fix (re-point the link), never "Create a wiki page …"
+    for a page that already exists. The real broken reference is already surfaced by the
+    deterministic broken-wikilink/missing-xref pass (with a suggested target), so we DROP the
+    redundant, wrongly-actioned semantic finding rather than tell the user to create a duplicate.
     """
     if not raw:
         return []
@@ -2512,6 +2535,9 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
         return []
     if not isinstance(items_raw, list):
         return []
+
+    # Normalised existence set for the missing-page false-positive guard (llm_wiki parity).
+    existing_norm = {_norm_title_for_match(t) for t in (existing_titles or []) if t}
 
     # Semantic categories accepted from the model.
     # Excluded (deterministic-only — must never come from the model):
@@ -2538,6 +2564,14 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
         target_title = _clean_str(entry.get("target_title"))
         proposed_action: str | None = None
         if category == "missing-page" and target_title:
+            # llm_wiki parity guard: drop "create" findings for pages that already exist.
+            if existing_norm and _norm_title_for_match(target_title) in existing_norm:
+                logger.debug(
+                    "lint: dropped semantic missing-page for existing page %r "
+                    "(link-format mismatch, not a missing page)",
+                    target_title,
+                )
+                continue
             proposed_action = f"Create a wiki page titled {target_title!r}."
         out.append(
             FindingDTO(
