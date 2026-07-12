@@ -22,6 +22,17 @@
  */
 
 import { useEffect, useRef, useCallback, useState, type CSSProperties } from "react";
+import {
+  Unlink,
+  Link2Off,
+  ArrowUpRight,
+  FileQuestion,
+  AlertTriangle,
+  Clock,
+  Lightbulb,
+  BrainCircuit,
+  type LucideIcon,
+} from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -140,72 +151,7 @@ function buildVirtualRows(
   return rows;
 }
 
-// ─── Category badge ───────────────────────────────────────────────────────────
-
-const CATEGORY_COLORS: Record<string, { color: string; bg: string }> = {
-  "orphan-page": { color: "var(--syn-text-muted)", bg: "var(--syn-surface-hover)" },
-  "missing-xref": {
-    color: "var(--syn-amber)",
-    bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
-  },
-  contradiction: {
-    color: "var(--syn-red)",
-    bg: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)",
-  },
-  "stale-claim": {
-    color: "var(--syn-type-concept)",
-    bg: "color-mix(in srgb, var(--syn-type-concept) 10%, var(--syn-mix-base) 90%)",
-  },
-  "missing-page": {
-    color: "var(--syn-green)",
-    bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)",
-  },
-  // B1-L1: broken-wikilink — orange (distinct from amber missing-xref)
-  "broken-wikilink": {
-    color: "var(--syn-red)",
-    bg: "color-mix(in srgb, var(--syn-red) 8%, color-mix(in srgb, var(--syn-amber) 20%, var(--syn-mix-base) 80%) 92%)",
-  },
-  // v1.3.13 parity: no-outlinks (structural, muted like orphan) + suggestion (blue hint)
-  "no-outlinks": { color: "var(--syn-text-muted)", bg: "var(--syn-surface-hover)" },
-  suggestion: {
-    color: "var(--syn-type-entity)",
-    bg: "color-mix(in srgb, var(--syn-type-entity) 10%, var(--syn-mix-base) 90%)",
-  },
-};
-
-interface CategoryBadgeProps {
-  category: string;
-  t: TranslateFn;
-}
-
-function CategoryBadge({ category, t }: CategoryBadgeProps) {
-  const { color, bg } = CATEGORY_COLORS[category] ?? {
-    color: "var(--syn-text-muted)",
-    bg: "var(--syn-surface-hover)",
-  };
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        fontSize: 10,
-        fontWeight: 600,
-        color,
-        background: bg,
-        border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
-        borderRadius: 8,
-        padding: "1px 6px",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-        flexShrink: 0,
-      }}
-    >
-      {t(`lint.category.${category}`)}
-    </span>
-  );
-}
-
-// ─── Severity chip ────────────────────────────────────────────────────────────
+// ─── Severity colors (shared: category icon + group header) ────────────────────
 
 const SEVERITY_COLORS: Record<string, string> = {
   info: "var(--syn-text-muted)",
@@ -213,34 +159,49 @@ const SEVERITY_COLORS: Record<string, string> = {
   error: "var(--syn-red)",
 };
 
-interface SeverityChipProps {
+// ─── Category icon (llm_wiki lint-view parity) ─────────────────────────────────
+// llm_wiki renders a per-type Lucide icon coloured by SEVERITY (amber=warning,
+// blue/red otherwise) before the title, with the rule name as a plain-grey subtitle —
+// NOT coloured chips. We mirror that: icon (by category) + severity colour + plain label.
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  "orphan-page": Unlink, // llm_wiki orphan
+  "no-outlinks": ArrowUpRight, // llm_wiki no-outlinks
+  "broken-wikilink": Link2Off, // llm_wiki broken-link
+  "missing-xref": Link2Off,
+  "missing-page": FileQuestion,
+  contradiction: AlertTriangle,
+  "stale-claim": Clock,
+  suggestion: Lightbulb,
+};
+
+interface CategoryIconProps {
+  category: string;
   severity: string;
 }
 
-function SeverityChip({ severity }: SeverityChipProps) {
+function CategoryIcon({ category, severity }: CategoryIconProps) {
   const color = SEVERITY_COLORS[severity] ?? "var(--syn-text-muted)";
+  // BrainCircuit is llm_wiki's fallback icon for semantic findings.
+  const Icon: LucideIcon = CATEGORY_ICONS[category] ?? BrainCircuit;
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        fontSize: 9,
-        fontWeight: 700,
-        color,
-        background: `color-mix(in srgb, ${color} 12%, var(--syn-mix-base) 88%)`,
-        border: `1px solid color-mix(in srgb, ${color} 30%, transparent 70%)`,
-        borderRadius: 4,
-        padding: "0 5px",
-        whiteSpace: "nowrap",
-        userSelect: "none",
-        flexShrink: 0,
-        textTransform: "uppercase",
-        letterSpacing: "0.04em",
-      }}
-    >
-      {severity}
+    <span style={{ flexShrink: 0, marginTop: 2, color, display: "inline-flex" }}>
+      <Icon size={16} aria-hidden="true" />
     </span>
   );
+}
+
+// ─── Finding title (llm_wiki parity) ──────────────────────────────────────────
+// llm_wiki's lint card title is the page the finding is about; for semantic findings
+// with no specific page it falls back to the finding text (detail.slice(0, 80)). We
+// mirror that so a card is NEVER titled "(unknown page)" when a description exists.
+
+function findingTitle(finding: LintFinding, t: TranslateFn): string {
+  const target = finding.target_title?.trim();
+  if (target) return target;
+  const desc = finding.description?.trim();
+  if (desc) return desc.length > 80 ? `${desc.slice(0, 80).trimEnd()}…` : desc;
+  return t("lint.noTarget");
 }
 
 // ─── Severity group header ─────────────────────────────────────────────────────
@@ -475,7 +436,9 @@ function FindingRowComponent({
           gap: 8,
         }}
       >
-        {/* Row 1: checkbox + target_title (bold) + timestamp */}
+        {/* Row 1: checkbox + category icon + title + category subtitle + timestamp
+            (llm_wiki lint-view LintCard: icon coloured by severity, page title, plain-grey
+            rule-name subtitle). */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
           <input
             type="checkbox"
@@ -490,7 +453,8 @@ function FindingRowComponent({
               marginTop: 3,
             }}
           />
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+          <CategoryIcon category={finding.category} severity={finding.severity} />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
             <span
               style={{
                 fontSize: 14,
@@ -499,15 +463,14 @@ function FindingRowComponent({
                 color: "var(--syn-text)",
                 overflowWrap: "anywhere",
               }}
-              title={finding.target_title ?? ""}
+              title={findingTitle(finding, t)}
             >
-              {finding.target_title ?? t("lint.noTarget")}
+              {findingTitle(finding, t)}
             </span>
-            {/* Category subtitle + severity (llm_wiki shows the rule name, e.g. "Broken Link") */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <SeverityChip severity={finding.severity} />
-              <CategoryBadge category={finding.category} t={t} />
-            </div>
+            {/* Plain-grey category label (llm_wiki subtitle, e.g. "Broken link") */}
+            <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+              {t(`lint.category.${finding.category}`)}
+            </span>
           </div>
           <span
             style={{

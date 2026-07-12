@@ -2471,8 +2471,24 @@ def _build_semantic_instruction(
     """
     titles_block = "\n".join(f"- {t}" for t in candidate_titles[:_CANDIDATE_TITLES_MAX]) or "(none)"
     already_block = "\n".join(f"- {d}" for d in already_found[:200]) or "(none)"
+    # Language directive (llm_wiki languageRule parity): the semantic prompt was never
+    # language-aware, so on an Italian vault descriptions came out in English. Localise the
+    # human-facing `description` to the vault language (settings.overview_language); JSON keys and
+    # the enum category/severity values stay English.
+    lang = (getattr(settings, "overview_language", "") or "").strip()
+    lang_directive = (
+        (
+            "# MANDATORY OUTPUT LANGUAGE\n"
+            f"Write every finding's `description` and `target_title` in {lang} (ISO-639-1) — the "
+            f"vault's language. Do NOT use English unless {lang!r} is 'en'. The JSON keys and the "
+            "category/severity enum values stay in English.\n\n"
+        )
+        if lang
+        else ""
+    )
     return (
-        "You are the LINT step of a self-organizing wiki (the third Karpathy operation: "
+        lang_directive
+        + "You are the LINT step of a self-organizing wiki (the third Karpathy operation: "
         "Ingest, Query, Lint). Health-check the wiki and report problems for a human to "
         "review. Do NOT fix anything — only report findings.\n\n"
         f"# Existing wiki page titles\n{titles_block}\n\n"
@@ -2483,9 +2499,11 @@ def _build_semantic_instruction(
         "  category: one of contradiction | stale-claim | missing-page | suggestion\n"
         "  severity: one of info | warning | error\n"
         "  description: a short string explaining the problem\n"
-        "  target_title: the existing page title the finding is about (for stale-claim), "
-        "OR the title that SHOULD exist (for missing-page); omit or null if "
-        "none applies\n\n"
+        "  target_title: REQUIRED for EVERY finding — the page (or subject) the finding is "
+        "about. For contradiction/stale-claim/suggestion use the EXISTING page title it concerns "
+        "(verbatim from the list above); for missing-page use the title that SHOULD exist. Never "
+        "leave it null — if a finding is not about one specific page, use the most relevant page "
+        "title from the list.\n\n"
         "Definitions: contradiction = conflicting claims across pages; stale-claim = superseded "
         "information; missing-page = a concept mentioned with NO page at all; "
         "suggestion = a question or source worth adding to the wiki. "
