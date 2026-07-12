@@ -47,6 +47,9 @@ services:
     environment:
       # Point at the local qdrant container instead of host.docker.internal:6333
       QDRANT_URL: http://qdrant:6333
+      # W1 (F17): Fernet master key so UI-supplied provider API keys can be stored encrypted
+      # at rest (secrets_crypto). Without it, saving a key in the UI returns 400. Dev-only value.
+      SYNAPSE_SECRET_KEY: ${SYNAPSE_SECRET_KEY:-}
       # ── F17 CLI provider auth: same three options as prod (ADR-0042) ────────────────────
       # Inherit from .env or set here. See docker-compose.yml for detailed auth docs.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

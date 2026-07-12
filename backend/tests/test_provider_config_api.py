@@ -233,12 +233,15 @@ class TestCreateProviderConfig:
 
     def test_api_key_without_master_key_is_400(self, monkeypatch: Any) -> None:
         """
-        W1: supplying api_key when SYNAPSE_SECRET_KEY is unset must 400 (refuse to store),
+        W1: supplying api_key when key storage is unavailable must 400 (refuse to store),
         never crash and never store plaintext.
-        """
-        import os
 
-        os.environ.pop("SYNAPSE_SECRET_KEY", None)
+        secrets_crypto now falls back to an auto-generated key FILE when SYNAPSE_SECRET_KEY is
+        unset (zero-setup UI key storage), so "no env var" alone no longer refuses. Force the
+        genuine unavailable-storage path by disabling the key-file fallback too.
+        """
+        monkeypatch.delenv("SYNAPSE_SECRET_KEY", raising=False)
+        monkeypatch.setattr("app.secrets_crypto._read_or_create_key_file", lambda: None)
         body = _valid_create_body()
         body["api_key"] = "sk-secret-should-not-store"
 

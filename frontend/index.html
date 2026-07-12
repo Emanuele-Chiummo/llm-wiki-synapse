@@ -40,7 +40,19 @@
         overflow: hidden;
         background: #0d1117;
         color: #e6edf3;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+        /* Matches the --syn-* stack in theme.css: Geist (loaded via @fontsource-variable/geist)
+           leads; system fonts are the pre-load fallback. Was erroneously ending in `monospace`. */
+        font-family:
+          "Geist Variable",
+          "Geist",
+          Inter,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
       }
 
       /* Chat: streaming cursor blink (F6 / ADR-0019) */

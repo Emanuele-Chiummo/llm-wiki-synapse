@@ -9,6 +9,50 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.4] — 2026-07-12 — "llm_wiki 1:1 parity — ingest boundaries, fuzzy lint, review dedup"
+
+Patch: closes five function-by-function divergences found auditing Synapse against
+nashsu/llm_wiki (ingest, review, lint). All prompt/logic changes are provider-neutral (I6)
+and covered by unit + integration tests.
+
+### Added
+- **Subject-boundary rules in the ingest prompts** — the analyze, generate, and re-ingest
+  merge prompts now instruct the model to keep every claim, limit, evaluation, benchmark, and
+  recommendation attached to the exact subject it describes, and never transfer them between
+  subjects that merely share keywords (context window size, benchmark name, dataset,
+  architecture). Direct port of nashsu/llm_wiki (ingest.ts:1949 / 2070-2072 / 2792-2793);
+  prevents claim-bleed between entities. Reaches all three backends — the shared
+  `GENERATION_SCAFFOLD` is injected into the delegated CLI agent's system prompt too [F3].
+- **Delegated (CLI) route source-summary guarantee** — the delegated ingest route now runs the
+  same deterministic "ensure exactly one source page" fallback the orchestrated route applies,
+  as an additive post-run step (writes the fallback source page only when the agent omitted one,
+  never mutates the agent's own writes). Mirrors llm_wiki's `hasSourceSummary` fallback
+  (ingest.ts:1209-1244) [F3].
+- **Mandatory output-language directive on the delegated route** — the CLI agent now receives an
+  explicit "write page bodies and frontmatter `lang` in the vault language" instruction (from
+  `overview_language`, the llm_wiki `targetLang` equivalent), so delegated pages no longer
+  silently drift to English [F3].
+
+### Fixed
+- **Broken-wikilink suggestions now re-point instead of spawning stub pages** — the lint
+  broken-link fix reused the exact→case→slug resolver that had already marked the link dangling,
+  so a typo'd `[[Transformerz]]` never produced a suggestion and the apply path created a stub.
+  Added a typo-tolerant fuzzy fallback (Levenshtein over the basename + same-basename/substring
+  shortcuts, threshold 0.74) — a verbatim port of llm_wiki `suggestBrokenTarget`. Suggestion-only:
+  it never creates a graph edge, so a wrong guess cannot pollute the graph [K2].
+- **Review queue no longer bloats on re-ingest** — `confirm` items carried no dedup key and
+  re-inserted on every re-ingest, piling up duplicate pending rows. They now dedup on
+  (type + normalized title) like every other review type (llm_wiki `reviewIdFor` parity); the
+  enqueue UPSERT still respects a human's terminal decision, so a resolved confirmation is never
+  re-opened. Title-less confirmations stay always-insert (no false collapse). Supersedes the
+  former "confirm never deduped" rule [F9].
+
+### Changed
+- **Review auto-resolve sweep exits early** — the Pass-2 LLM sweep issued all its batches even
+  when a batch resolved nothing; it now stops after the first empty batch (llm_wiki
+  sweep-reviews.ts:307-310 parity), cutting provider calls on a queue the conservative judge is
+  keeping anyway (I7) [F9].
+
 ## [1.5.3] — 2026-07-11 — "Synthesize/comparison UI trigger"
 
 Patch: exposes the corpus-level synthesis/comparison generator (`POST /ops/synthesize`,

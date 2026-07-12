@@ -46,9 +46,9 @@ import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from sqlalchemy import func, select, update
+from sqlalchemy import CursorResult, func, select, update
 
 from app.config import settings
 from app.db import get_session
@@ -76,12 +76,24 @@ _VALID_CATEGORIES = frozenset(
     }
 )
 _VALID_SEVERITIES = frozenset({"info", "warning", "error"})
-_VALID_STATUSES = frozenset({"open", "applied", "dismissed"})
+# `superseded` (v1.5.x): a terminal status set by a NEW scan on the prior run's still-OPEN
+# findings that it recomputed — llm_wiki recomputes lint fresh each run (clearLintItems), so a
+# fixed issue simply vanishes. Synapse persists findings, so we emulate the fresh recompute by
+# closing stale open findings instead of accumulating them. Distinct from human `dismissed`.
+_VALID_STATUSES = frozenset({"open", "applied", "dismissed", "superseded"})
+
+# Which categories each scan phase RECOMPUTES — drives the category-aware supersede so a
+# deterministic-only scan (semantic=False) never closes semantic findings it did not re-check.
+_DETERMINISTIC_CATEGORIES = frozenset(
+    {"orphan-page", "broken-wikilink", "no-outlinks", "missing-xref"}
+)
+_SEMANTIC_CATEGORIES = frozenset({"contradiction", "stale-claim", "missing-page", "suggestion"})
 
 # Categories whose apply step is FLAG-ONLY (no deterministic safe fix — ADR-0037 §5).
 # stale-claim → apply is a no-op status change to 'applied' with a resolution_note (the human
 # still has to fix it by editing the wiki).
-# broken-wikilink WITHOUT a suggestion is also flag-only (no safe fix when target unknown).
+# broken-wikilink WITHOUT a suggestion CREATES A STUB page for the missing target
+# (_create_broken_link_stub, L4/ADR-0058 §L4) — no longer flag-only.
 # suggestion — always flag-only (semantic category; no deterministic fix).
 # no-outlinks and orphan-page are handled specially in apply_lint_fix:
 #   - if suggested_target/suggested_page_id present → apply a real fix
@@ -316,7 +328,9 @@ async def run_lint_scan(
                     token_budget=token_budget_local,
                     timeout_s=timeout_s,
                 )
-                round_findings = _parse_findings(raw)
+                # Pass existing titles so the missing-page false-positive guard can drop
+                # "create" findings for pages that already exist (llm_wiki parity).
+                round_findings = _parse_findings(raw, existing_titles=candidate_titles)
 
                 # De-dup against everything seen so far; stop when a round adds nothing new.
                 new_this_round = 0
@@ -348,6 +362,33 @@ async def run_lint_scan(
         # + max_findings — still a hard ceiling (I7), just not one that hides free findings.
         findings = findings[: det_baseline + max_findings]
         await _persist_findings(run_id=run_id, vault_id=vault_id, findings=findings)
+
+        # ── 4. Supersede prior runs' stale OPEN findings (llm_wiki fresh-recompute parity) ──
+        # A new scan REPLACES the prior scan's open findings for the categories it recomputed,
+        # so the queue never accumulates duplicates (48→90→107) and a fixed issue vanishes on
+        # the next run. Category-aware: deterministic always runs; semantic only when enabled.
+        # Runs AFTER persist so this scan's fresh rows are never touched. Non-fatal.
+        supersede_categories = _DETERMINISTIC_CATEGORIES | (
+            _SEMANTIC_CATEGORIES if semantic else frozenset()
+        )
+        try:
+            n_superseded = await _supersede_prior_open_findings(
+                vault_id=vault_id,
+                current_run_id=run_id,
+                categories=supersede_categories,
+            )
+            if n_superseded:
+                logger.info(
+                    "run_lint_scan: superseded %d stale open finding(s) from prior runs "
+                    "(vault=%s, run_id=%s)",
+                    n_superseded,
+                    vault_id,
+                    run_id,
+                )
+        except Exception as sup_exc:  # noqa: BLE001 — never fail the scan on cleanup
+            logger.warning(
+                "run_lint_scan: supersede of prior findings failed (non-fatal): %s", sup_exc
+            )
 
     except Exception as exc:  # noqa: BLE001
         status = "error"
@@ -517,12 +558,13 @@ async def send_finding_to_review(finding_id: uuid.UUID) -> LintFinding:
     Maps category → item_type (see _CATEGORY_TO_ITEM_TYPE), enqueues the review item,
     then sets finding status → 'applied' with resolution_note = "sent to review (<id>)".
 
-    DEDUP CONTRACT (ADR-0044 / ADR-0037 B1 note from ADR review):
-      The content_key includes the category so broken-wikilink findings can never collide
-      with genuine missing-page review items even when they share the same proposed title.
-      Specifically: content_key = enqueue_review(..., proposed_title=...) anchored on the
-      finding's category-prefixed rationale. This is implemented by including the category
-      in the rationale text (which feeds the FNV-1a key inside enqueue_review).
+    DEDUP CONTRACT (ADR-0044 §3.2 / R7 parity fix):
+      The review content_key is FNV-1a over (vault_id, item_type, normalize(proposed_title))
+      ONLY — the finding category is NOT part of the key (see review._content_key). So a
+      broken-wikilink finding mapped to item_type 'missing-page' and a genuine missing-page
+      suggestion with the SAME title INTENTIONALLY collapse into one review row (this mirrors
+      llm_wiki's normalizeReviewTitle keying on type+title). 'confirm' items get content_key
+      = NULL and are never deduped.
 
     Raises:
       HTTPException(404) — finding not found.
@@ -921,22 +963,12 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
             # Build resolver maps ONCE for all suggestions (I1 — no N+1).
             from app.wiki.links import resolve_suggested_target
 
-            # Load existing OPEN broken-wikilink findings for dedup (b).
-            existing_open = {
-                (str(r[0]), str(r[1]))
-                for r in (
-                    await session.execute(
-                        select(LintFinding.target_page_id, LintFinding.target_title).where(
-                            LintFinding.vault_id == vault_id,
-                            LintFinding.category == "broken-wikilink",
-                            LintFinding.status == "open",
-                        )
-                    )
-                ).all()
-                if r[0] is not None and r[1] is not None
-            }
-
-            # within-scan dedup set: (source_page_id_str, target_text)
+            # within-scan dedup set: (source_page_id_str, target_text).
+            # NOTE: the previous cross-run dedup (skip if an OPEN broken-wikilink already exists)
+            # was a workaround for finding accumulation. The category-aware supersede (§4 in
+            # run_lint_scan) now closes prior runs' open findings each scan, so cross-run dedup is
+            # redundant AND harmful (it would skip re-emitting a finding that supersede then
+            # closes → the finding vanishes). Within-scan dedup is all that's needed now.
             seen_within_scan: set[tuple[str, str]] = set()
 
             for _link_id, source_page_id, target_text, referencing_title in dangling_rows:
@@ -949,10 +981,6 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
                 if dedup_key in seen_within_scan:
                     continue
                 seen_within_scan.add(dedup_key)
-
-                # (b) existing OPEN finding with same (referencing_page_id, target_title)
-                if dedup_key in existing_open:
-                    continue
 
                 ref_title = referencing_title or src_str
                 description = (
@@ -1380,7 +1408,8 @@ async def _apply_broken_wikilink(finding: LintFinding) -> str:
          in the BODY ONLY (split on leading --- frontmatter fence — I5).
       3. Write the file, re-run persist_links, bump data_version ONCE (I1).
 
-    When no suggestion exists → flag-only acknowledgement (same as orphan-page).
+    When no suggestion exists → create a stub page for the missing target via
+    _create_broken_link_stub (L4 / ADR-0058 §L4) — NOT a flag-only acknowledgement.
 
     Raises:
       HTTPException(404) — referencing page no longer exists.
@@ -2329,6 +2358,50 @@ async def _persist_findings(
             session.add(finding_row)
 
 
+async def _supersede_prior_open_findings(
+    *,
+    vault_id: str,
+    current_run_id: uuid.UUID,
+    categories: frozenset[str],
+) -> int:
+    """
+    Close (status='superseded') the prior runs' still-OPEN findings that THIS scan recomputed,
+    so the queue reflects the fresh scan instead of accumulating (llm_wiki clearLintItems parity).
+
+    Scope (safety):
+      - Only OPEN findings are touched — human-`applied`/`dismissed`/already-`superseded` are
+        preserved (their outcome is durable; a re-scan must not resurrect or re-close them).
+      - Only findings in ``categories`` are touched — a deterministic-only scan (semantic=False)
+        passes the deterministic set only, so it never closes semantic findings it did not
+        re-check.
+      - Only OTHER runs are touched (``lint_run_id != current_run_id``) — never this scan's own
+        just-persisted rows.
+
+    Returns the number of findings superseded. Never raises into the scan (caller wraps it).
+    """
+    if not categories:
+        return 0
+    async with get_session() as session:
+        result = await session.execute(
+            update(LintFinding)
+            .where(
+                LintFinding.vault_id == vault_id,
+                LintFinding.status == "open",
+                LintFinding.lint_run_id != str(current_run_id),
+                LintFinding.category.in_(tuple(categories)),
+            )
+            .values(
+                status="superseded",
+                reviewed_at=datetime.now(UTC),
+                resolution_note=f"superseded by lint run {current_run_id}",
+            )
+        )
+        await session.commit()
+        # session.execute(update(...)) returns a CursorResult (has rowcount); the base
+        # Result[Any] type mypy infers does not declare it. Cast to read the affected-row count.
+        return int(cast("CursorResult[Any]", result).rowcount or 0)
+
+
 async def _set_finding_status(
     finding_id: uuid.UUID,
     status: str,
@@ -2466,8 +2539,24 @@ def _build_semantic_instruction(
     """
     titles_block = "\n".join(f"- {t}" for t in candidate_titles[:_CANDIDATE_TITLES_MAX]) or "(none)"
     already_block = "\n".join(f"- {d}" for d in already_found[:200]) or "(none)"
+    # Language directive (llm_wiki languageRule parity): the semantic prompt was never
+    # language-aware, so on an Italian vault descriptions came out in English. Localise the
+    # human-facing `description` to the vault language (settings.overview_language); JSON keys and
+    # the enum category/severity values stay English.
+    lang = (getattr(settings, "overview_language", "") or "").strip()
+    lang_directive = (
+        (
+            "# MANDATORY OUTPUT LANGUAGE\n"
+            f"Write every finding's `description` and `target_title` in {lang} (ISO-639-1) — the "
+            f"vault's language. Do NOT use English unless {lang!r} is 'en'. The JSON keys and the "
+            "category/severity enum values stay in English.\n\n"
+        )
+        if lang
+        else ""
+    )
     return (
-        "You are the LINT step of a self-organizing wiki (the third Karpathy operation: "
+        lang_directive
+        + "You are the LINT step of a self-organizing wiki (the third Karpathy operation: "
         "Ingest, Query, Lint). Health-check the wiki and report problems for a human to "
         "review. Do NOT fix anything — only report findings.\n\n"
         f"# Existing wiki page titles\n{titles_block}\n\n"
@@ -2478,23 +2567,46 @@ def _build_semantic_instruction(
         "  category: one of contradiction | stale-claim | missing-page | suggestion\n"
         "  severity: one of info | warning | error\n"
         "  description: a short string explaining the problem\n"
-        "  target_title: the existing page title the finding is about (for stale-claim), "
-        "OR the title that SHOULD exist (for missing-page); omit or null if "
-        "none applies\n\n"
+        "  target_title: REQUIRED for EVERY finding — the page (or subject) the finding is "
+        "about. For contradiction/stale-claim/suggestion use the EXISTING page title it concerns "
+        "(verbatim from the list above); for missing-page use the title that SHOULD exist. Never "
+        "leave it null — if a finding is not about one specific page, use the most relevant page "
+        "title from the list.\n\n"
         "Definitions: contradiction = conflicting claims across pages; stale-claim = superseded "
-        "information; missing-page = a concept mentioned with no page; "
+        "information; missing-page = a concept mentioned with NO page at all; "
         "suggestion = a question or source worth adding to the wiki. "
         "(Note: missing-xref is handled deterministically; do NOT emit it.) "
+        "IMPORTANT: only report missing-page when the concept has NO existing page. If a page "
+        "already exists in the 'Existing wiki page titles' list above but is linked with a "
+        "different slug or casing (e.g. page 'AWS Cost Explorer' referenced as "
+        "[[aws-cost-explorer]]), that is a broken LINK, NOT a missing page — do NOT report it as "
+        "missing-page (broken links are handled deterministically). "
         f"Keep the output well under {token_budget} tokens. Return no prose, only the JSON "
         "object."
     )
 
 
-def _parse_findings(raw: str) -> list[FindingDTO]:
+def _norm_title_for_match(value: str) -> str:
+    """
+    Collapse a title/slug to alphanumeric-casefold for existence matching, so the proper title
+    ("AWS Cost Explorer") and its wikilink slug ("aws-cost-explorer") normalise to the same key
+    ("awscostexplorer"). Used to detect a semantic `missing-page` whose target page ALREADY exists.
+    """
+    return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+
+def _parse_findings(raw: str, existing_titles: list[str] | None = None) -> list[FindingDTO]:
     """
     Parse the semantic findings JSON into FindingDTO list. Tolerant of code fences / prose;
     silently drops malformed entries (degrade, never raise). Unknown categories are dropped;
     orphan-page is NEVER accepted from the model (it is deterministic-only — ADR-0037 §3.1).
+
+    llm_wiki parity guard: a `missing-page` whose `target_title` matches an EXISTING page is a
+    false positive — the page is not missing, the wikilink just uses a different slug/casing.
+    llm_wiki treats that as a broken-link fix (re-point the link), never "Create a wiki page …"
+    for a page that already exists. The real broken reference is already surfaced by the
+    deterministic broken-wikilink/missing-xref pass (with a suggested target), so we DROP the
+    redundant, wrongly-actioned semantic finding rather than tell the user to create a duplicate.
     """
     if not raw:
         return []
@@ -2509,6 +2621,9 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
         return []
     if not isinstance(items_raw, list):
         return []
+
+    # Normalised existence set for the missing-page false-positive guard (llm_wiki parity).
+    existing_norm = {_norm_title_for_match(t) for t in (existing_titles or []) if t}
 
     # Semantic categories accepted from the model.
     # Excluded (deterministic-only — must never come from the model):
@@ -2535,6 +2650,14 @@ def _parse_findings(raw: str) -> list[FindingDTO]:
         target_title = _clean_str(entry.get("target_title"))
         proposed_action: str | None = None
         if category == "missing-page" and target_title:
+            # llm_wiki parity guard: drop "create" findings for pages that already exist.
+            if existing_norm and _norm_title_for_match(target_title) in existing_norm:
+                logger.debug(
+                    "lint: dropped semantic missing-page for existing page %r "
+                    "(link-format mismatch, not a missing page)",
+                    target_title,
+                )
+                continue
             proposed_action = f"Create a wiki page titled {target_title!r}."
         out.append(
             FindingDTO(

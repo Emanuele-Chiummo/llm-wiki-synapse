@@ -35,18 +35,14 @@
  *               Create DOES run a bounded LLM loop server-side (ADR-0034 §5).
  */
 
-import {
-  useEffect,
-  useRef,
-  useCallback,
-  type CSSProperties,
-} from "react";
+import { useEffect, useRef, useCallback, type CSSProperties } from "react";
 import {
   HelpCircle,
+  FileQuestion,
   Lightbulb,
   AlertTriangle,
   Copy,
-  CheckCircle2,
+  MessageSquare,
   Target,
   FileCog,
   X,
@@ -111,8 +107,10 @@ import type { ReviewQueueStatus } from "../../api/reviewClient";
 /**
  * Base estimated row height; the virtualizer uses measureElement for actual
  * variable heights (ADR-0044 §7 — referenced_pages + search_queries grow cards).
+ * Raised for the llm_wiki card layout (rounded bordered card + multi-line wrapping
+ * description + inter-card gap) which is taller than the old dense flat row.
  */
-const ROW_ESTIMATE = 160;
+const ROW_ESTIMATE = 200;
 
 // ─── Proposal type badge ──────────────────────────────────────────────────────
 // Light-theme: use --syn-* semantic tokens.
@@ -123,27 +121,43 @@ const ROW_ESTIMATE = 160;
 // resolves against the dark surface rather than #ffffff. Token defined in ADR-0048 / theme.css.
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
   // v1.3.14 icon-colour parity with llm_wiki 0.6.0: missing-page=purple, suggestion=green.
-  "missing-page":       { color: "#8250df", bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)" }, // purple — llm_wiki missing-page
-  suggestion:           { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // green — llm_wiki suggestion
-  contradiction:        { color: "#cf222e", bg: "color-mix(in srgb, #cf222e 10%, var(--syn-mix-base) 90%)" }, // --syn-red
-  duplicate:            { color: "#0f766e", bg: "color-mix(in srgb, #0f766e 10%, var(--syn-mix-base) 90%)" }, // teal — moved off purple to avoid clash with missing-page
-  confirm:              { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent
+  "missing-page": {
+    color: "#8250df",
+    bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)",
+  }, // purple — llm_wiki missing-page
+  suggestion: { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // green — llm_wiki suggestion
+  // llm_wiki review-view.tsx:28-30 parity: contradiction=amber, duplicate=blue (was red/teal).
+  contradiction: {
+    color: "#d97706",
+    bg: "color-mix(in srgb, #d97706 10%, var(--syn-mix-base) 90%)",
+  }, // amber — llm_wiki contradiction
+  duplicate: { color: "#3b82f6", bg: "color-mix(in srgb, #3b82f6 10%, var(--syn-mix-base) 90%)" }, // blue — llm_wiki duplicate
+  // confirm: llm_wiki uses neutral foreground (near-black); Synapse keeps the brand accent per the
+  // never-black brand policy (substitute --syn-accent for llm_wiki black elements). Flagged for review.
+  confirm: { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent (brand never-black)
   // R5 — real bug fix: backend may emit these two types; previously fell to grey fallback.
-  "purpose-suggestion": { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" }, // --syn-amber (purpose-level suggestion)
-  "schema-suggestion":  { color: "#0969da", bg: "color-mix(in srgb, #0969da 10%, var(--syn-mix-base) 90%)" }, // --syn-blue (schema-level suggestion)
+  "purpose-suggestion": {
+    color: "#9a6700",
+    bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)",
+  }, // --syn-amber (purpose-level suggestion)
+  "schema-suggestion": {
+    color: "#0969da",
+    bg: "color-mix(in srgb, #0969da 10%, var(--syn-mix-base) 90%)",
+  }, // --syn-blue (schema-level suggestion)
 };
 
 // R1 — Per-type Lucide icon mapping (llm_wiki parity).
 // Icon + colour replace the plain-text pill; accessible label still delivered via
 // title= + sr-only span so screen-readers and test queries still work.
 const ITEM_TYPE_ICONS: Record<string, LucideIcon> = {
-  "missing-page":       HelpCircle,
-  suggestion:           Lightbulb,
-  contradiction:        AlertTriangle,
-  duplicate:            Copy,
-  confirm:              CheckCircle2,
+  // llm_wiki review-view.tsx:28-32 icon parity: missing-page=FileQuestion, confirm=MessageSquare.
+  "missing-page": FileQuestion,
+  suggestion: Lightbulb,
+  contradiction: AlertTriangle,
+  duplicate: Copy,
+  confirm: MessageSquare,
   "purpose-suggestion": Target,
-  "schema-suggestion":  FileCog,
+  "schema-suggestion": FileCog,
 };
 
 // ─── Item type icon (R1 — llm_wiki parity) ───────────────────────────────────
@@ -161,10 +175,11 @@ function ItemTypeIcon({ itemType, t }: ItemTypeIconProps) {
   // UXA-18: backend may send underscore form (e.g. "missing_page");
   // translation keys and icon keys use kebab-case. Normalise before lookup.
   const normalised = itemType.replace(/_/g, "-");
-  const { color, bg } = ITEM_TYPE_COLORS[normalised] ?? ITEM_TYPE_COLORS[itemType] ?? {
-    color: "var(--syn-text-dim)",
-    bg: "var(--syn-surface-hover)",
-  };
+  const { color, bg } = ITEM_TYPE_COLORS[normalised] ??
+    ITEM_TYPE_COLORS[itemType] ?? {
+      color: "var(--syn-text-dim)",
+      bg: "var(--syn-surface-hover)",
+    };
   const label = t(`review.itemType.${normalised}`);
   const Icon: LucideIcon = ITEM_TYPE_ICONS[normalised] ?? ITEM_TYPE_ICONS[itemType] ?? HelpCircle;
 
@@ -242,11 +257,17 @@ function PageTypeChip({ pageType, t }: PageTypeChipProps) {
  * "pending" is not terminal; all other statuses are.
  */
 const STATUS_BADGE_STYLE: Partial<Record<ReviewItemStatus, { color: string; bg: string }>> = {
-  auto_resolved: { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" },
-  created:       { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" },
-  deep_researched: { color: "#9a6700", bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)" },
-  skipped:       { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
-  dismissed:     { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
+  auto_resolved: {
+    color: "#2563eb",
+    bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)",
+  },
+  created: { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" },
+  deep_researched: {
+    color: "#9a6700",
+    bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)",
+  },
+  skipped: { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
+  dismissed: { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
 };
 
 interface ResolutionBadgeProps {
@@ -324,6 +345,13 @@ interface ActionButtonProps {
   disabled: boolean;
   loading?: boolean;
   variant: "create" | "approve" | "skip" | "dismiss" | "deep-research";
+  /**
+   * Visual weight. "primary" renders the filled accent CTA (llm_wiki review parity:
+   * the leading Deep-Research action is the dark/filled primary button — Synapse
+   * substitutes the brand accent per the never-black policy). Default "secondary"
+   * keeps the ghost/outline appearance for Create / Approve / Skip.
+   */
+  emphasis?: "primary" | "secondary";
 }
 
 /**
@@ -332,19 +360,36 @@ interface ActionButtonProps {
  * Variant-specific color overrides are applied via inline style only for the color/border
  * (appearance tokens only — layout stays in the class).
  */
-function ActionButton({ label, onClick, disabled, loading, variant }: ActionButtonProps) {
+function ActionButton({
+  label,
+  onClick,
+  disabled,
+  loading,
+  variant,
+  emphasis = "secondary",
+}: ActionButtonProps) {
   // Map variant → token-safe inline color overrides (only when enabled).
   // These narrow the secondary ghost base to the variant's semantic color.
   const VARIANT_STYLE: Record<string, { color: string; borderColor: string }> = {
-    create:          { color: "var(--syn-green)",  borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)" },
-    approve:         { color: "var(--syn-accent)", borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" },
-    skip:            { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" },
-    dismiss:         { color: "var(--syn-text-dim)",   borderColor: "var(--syn-border)" },
-    "deep-research": { color: "var(--syn-accent)", borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" },
+    create: {
+      color: "var(--syn-green)",
+      borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)",
+    },
+    approve: {
+      color: "var(--syn-accent)",
+      borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)",
+    },
+    skip: { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" },
+    dismiss: { color: "var(--syn-text-dim)", borderColor: "var(--syn-border)" },
+    "deep-research": {
+      color: "var(--syn-accent)",
+      borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)",
+    },
   };
   const fallbackStyle = { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" };
   const variantStyle = VARIANT_STYLE[variant] ?? fallbackStyle;
   const isDisabled = disabled || loading;
+  const isPrimary = emphasis === "primary";
   return (
     <button
       onClick={onClick}
@@ -352,8 +397,15 @@ function ActionButton({ label, onClick, disabled, loading, variant }: ActionButt
       aria-label={label}
       aria-busy={loading}
       data-testid={`review-action-${variant}`}
-      className="syn-btn syn-btn--secondary syn-btn--sm"
-      style={isDisabled ? undefined : { color: variantStyle.color, borderColor: variantStyle.borderColor }}
+      // Primary → filled accent CTA (never-black brand); secondary → ghost/outline.
+      className={`syn-btn ${isPrimary ? "syn-btn--primary" : "syn-btn--secondary"} syn-btn--sm`}
+      // The filled primary already carries its own accent bg + white text — no per-variant
+      // color override (that would fight the fill). Only ghost/secondary buttons get tinted.
+      style={
+        isDisabled || isPrimary
+          ? undefined
+          : { color: variantStyle.color, borderColor: variantStyle.borderColor }
+      }
     >
       {loading && (
         <span
@@ -474,9 +526,7 @@ function ReviewRow({
 
   // Search queries (ADR-0044 §6.1)
   const searchQueries =
-    item.search_queries != null && item.search_queries.length > 0
-      ? item.search_queries
-      : null;
+    item.search_queries != null && item.search_queries.length > 0 ? item.search_queries : null;
 
   // ── Resolved / dismissed read-only card (WS-B) ──────────────────────────────
   // Non-pending items get a distinct read-only presentation:
@@ -491,115 +541,132 @@ function ReviewRow({
         data-testid="review-item-row"
         data-item-id={item.id}
         data-status={item.status}
-        style={{
-          ...style,
-          padding: "8px 16px",
-          borderBottom: "1px solid var(--syn-border)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 3,
-          boxSizing: "border-box",
-          opacity: 0.82,
-          background: "var(--syn-bg-soft)",
-        }}
+        style={{ ...style, padding: "0 16px 10px", boxSizing: "border-box" }}
       >
-        {/* Row 1: type badge + resolution badge + title + resolved timestamp */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-          <ItemTypeBadge itemType={item.item_type} t={t} />
-          <ResolutionBadge status={item.status} t={t} />
-          {item.proposed_page_type && (
-            <PageTypeChip pageType={item.proposed_page_type} t={t} />
-          )}
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: "var(--syn-text-muted)",
-              flex: 1,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              minWidth: 0,
-            }}
-            title={item.proposed_title ?? item.page_title ?? ""}
-          >
-            {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
-          </span>
-          {resolvedAtLabel && (
-            <span
-              data-testid="review-resolved-at"
-              style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, whiteSpace: "nowrap" }}
-              title={item.reviewed_at ?? ""}
-            >
-              {resolvedAtLabel}
-            </span>
-          )}
-          {!resolvedAtLabel && (
-            <span
-              style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}
-              title={item.created_at}
-            >
-              {relativeTime}
-            </span>
-          )}
-        </div>
-
-        {/* Row 2: rationale */}
+        {/* Resolved cards reuse the llm_wiki card shell, dimmed + sunken to read as read-only. */}
         <div
           style={{
-            fontSize: 11,
-            color: "var(--syn-text-dim)",
-            fontStyle: item.rationale ? "normal" : "italic",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
+            border: "1px solid var(--syn-border)",
+            borderRadius: "var(--syn-radius-md)",
+            background: "var(--syn-surface-sunken)",
+            padding: "12px 14px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            opacity: 0.85,
           }}
-          title={item.rationale ?? ""}
         >
-          {item.rationale ?? t("review.noRationale")}
-        </div>
+          {/* Row 1: type badge + resolution badge + title + resolved timestamp */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
+            <span style={{ marginTop: 1, flexShrink: 0 }}>
+              <ItemTypeBadge itemType={item.item_type} t={t} />
+            </span>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  lineHeight: 1.35,
+                  color: "var(--syn-text-muted)",
+                  overflowWrap: "anywhere",
+                }}
+                title={item.proposed_title ?? item.page_title ?? ""}
+              >
+                {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
+              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <ResolutionBadge status={item.status} t={t} />
+                {item.proposed_page_type && (
+                  <PageTypeChip pageType={item.proposed_page_type} t={t} />
+                )}
+              </div>
+            </div>
+            {resolvedAtLabel && (
+              <span
+                data-testid="review-resolved-at"
+                style={{
+                  fontSize: 10,
+                  color: "var(--syn-text-dim)",
+                  flexShrink: 0,
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                }}
+                title={item.reviewed_at ?? ""}
+              >
+                {resolvedAtLabel}
+              </span>
+            )}
+            {!resolvedAtLabel && (
+              <span
+                style={{
+                  fontSize: 10,
+                  color: "var(--syn-text-dim)",
+                  flexShrink: 0,
+                  marginTop: 2,
+                }}
+                title={item.created_at}
+              >
+                {relativeTime}
+              </span>
+            )}
+          </div>
 
-        {/* Row 3: conflict page (contradiction / duplicate) */}
-        {showConflictPage && (
+          {/* Row 2: rationale (multi-line, llm_wiki parity) */}
           <div
             style={{
-              fontSize: 10,
+              fontSize: 12,
+              lineHeight: 1.5,
               color: "var(--syn-text-dim)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              fontStyle: item.rationale ? "normal" : "italic",
+              overflowWrap: "anywhere",
+              whiteSpace: "pre-wrap",
             }}
-            title={item.page_title ?? ""}
           >
-            {t("review.conflictsWith")}: <em>{item.page_title}</em>
+            {item.rationale ?? t("review.noRationale")}
           </div>
-        )}
 
-        {/* Row 4: link to created page (when status=created and created_page_id present) */}
-        {item.created_page_id != null && (
-          <div>
-            <button
-              data-testid="review-view-created-page"
-              onClick={() => { if (item.created_page_id != null) onOpenCreatedPage(item.created_page_id); }}
-              style={{
-                fontSize: 10,
-                color: "var(--syn-accent)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                textDecoration: "underline",
-              }}
+          {/* Row 3: conflict page (contradiction / duplicate) */}
+          {showConflictPage && (
+            <div
+              style={{ fontSize: 11, color: "var(--syn-text-dim)", overflowWrap: "anywhere" }}
+              title={item.page_title ?? ""}
             >
-              {t("review.viewCreatedPage")}
-            </button>
-          </div>
-        )}
+              {t("review.conflictsWith")}: <em>{item.page_title}</em>
+            </div>
+          )}
+
+          {/* Row 4: link to created page (when status=created and created_page_id present) */}
+          {item.created_page_id != null && (
+            <div>
+              <button
+                data-testid="review-view-created-page"
+                onClick={() => {
+                  if (item.created_page_id != null) onOpenCreatedPage(item.created_page_id);
+                }}
+                style={{
+                  fontSize: 11,
+                  color: "var(--syn-accent)",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  textDecoration: "underline",
+                }}
+              >
+                {t("review.viewCreatedPage")}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   // ── Pending card (full actionable card) ──────────────────────────────────────
+  // llm_wiki review-view.tsx card parity: discrete rounded/bordered card with a soft shadow,
+  // vertical spacing between cards (via the wrapper's bottom padding — measured by the
+  // virtualizer so heights stay correct), a larger bold title, and a MULTI-LINE description
+  // (no single-line ellipsis truncation). Replaces the previous dense flat-row layout.
   return (
     <div
       ref={measureRef}
@@ -608,237 +675,266 @@ function ReviewRow({
       data-status={item.status}
       style={{
         ...style,
-        padding: "8px 16px",
-        borderBottom: "1px solid var(--syn-border)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
+        // Horizontal gutter + bottom gap between cards (the airy llm_wiki list rhythm).
+        padding: "0 16px 10px",
         boxSizing: "border-box",
-        background: isSelected
-          ? "var(--syn-accent-soft)"
-          : generationError
-          ? "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)"
-          : undefined,
       }}
     >
-      {/* Row 1: checkbox + type icon + proposed_title + timestamp + ✕ dismiss (R1, R3) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => onToggleSelect(item.id)}
-          aria-label={`Select ${item.proposed_title ?? item.id}`}
-          data-testid={`review-select-${item.id}`}
-          style={{ flexShrink: 0, cursor: "pointer", accentColor: "var(--syn-accent)" }}
-        />
-        {/* R1: coloured Lucide icon instead of text pill; label in title + sr-only */}
-        <ItemTypeIcon itemType={item.item_type} t={t} />
-        {item.proposed_page_type && (
-          <PageTypeChip pageType={item.proposed_page_type} t={t} />
-        )}
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--syn-text)",
-            flex: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            minWidth: 0,
-          }}
-          title={item.proposed_title ?? item.page_title ?? ""}
-        >
-          {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
-        </span>
-        <span
-          style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0 }}
-          title={item.created_at}
-        >
-          {relativeTime}
-        </span>
-        {/* R3: ✕ dismiss at top-right of card header (llm_wiki parity) */}
-        <button
-          data-testid="review-action-dismiss"
-          onClick={() => onDismiss(item.id)}
-          disabled={isAnyInFlight}
-          aria-label={t("review.dismiss")}
-          title={t("review.dismiss")}
-          style={{
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 20,
-            height: 20,
-            padding: 0,
-            border: "none",
-            borderRadius: "var(--syn-radius-sm)",
-            background: "transparent",
-            color: "var(--syn-text-dim)",
-            cursor: isAnyInFlight ? "not-allowed" : "pointer",
-            opacity: isAnyInFlight ? 0.4 : 0.7,
-          }}
-          onMouseEnter={(e) => { if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-          onMouseLeave={(e) => { if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
-        >
-          <X size={12} aria-hidden="true" />
-        </button>
-      </div>
-
-      {/* Row 2: rationale (why this matters) */}
       <div
         style={{
-          fontSize: 11,
-          color: item.rationale ? "var(--syn-text-muted)" : "var(--syn-border)",
-          fontStyle: item.rationale ? "normal" : "italic",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          border: isSelected
+            ? "1px solid var(--syn-accent)"
+            : generationError
+              ? "1px solid color-mix(in srgb, var(--syn-red) 40%, var(--syn-border) 60%)"
+              : "1px solid var(--syn-border)",
+          borderRadius: "var(--syn-radius-md)",
+          background: isSelected
+            ? "var(--syn-accent-soft)"
+            : generationError
+              ? "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)"
+              : "var(--syn-surface)",
+          boxShadow: "var(--syn-shadow-soft)",
+          padding: "12px 14px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
         }}
-        title={item.rationale ?? ""}
       >
-        {item.rationale ?? t("review.noRationale")}
-      </div>
-
-      {/* Row 3: conflict page (contradiction / duplicate) */}
-      {showConflictPage && (
-        <div
-          style={{
-            fontSize: 10,
-            color: "var(--syn-type-concept)", // --syn-type-concept (purple) for conflict link
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-          title={item.page_title ?? ""}
-        >
-          {t("review.conflictsWith")}: <em>{item.page_title}</em>
-        </div>
-      )}
-
-      {/* Row 4: referenced pages chips (ADR-0044 §6.1) */}
-      {referencedPages && (
-        <div
-          data-testid="referenced-pages-row"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            flexWrap: "wrap",
-          }}
-        >
+        {/* Row 1: checkbox + type icon + proposed_title + timestamp + ✕ dismiss (R1, R3) */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(item.id)}
+            aria-label={`Select ${item.proposed_title ?? item.id}`}
+            data-testid={`review-select-${item.id}`}
+            style={{
+              flexShrink: 0,
+              cursor: "pointer",
+              accentColor: "var(--syn-accent)",
+              marginTop: 3,
+            }}
+          />
+          {/* R1: coloured Lucide icon instead of text pill; label in title + sr-only */}
+          <span style={{ marginTop: 1, flexShrink: 0 }}>
+            <ItemTypeIcon itemType={item.item_type} t={t} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 650,
+                lineHeight: 1.35,
+                color: "var(--syn-text)",
+                overflowWrap: "anywhere",
+              }}
+              title={item.proposed_title ?? item.page_title ?? ""}
+            >
+              {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
+            </span>
+            {item.proposed_page_type && (
+              <span>
+                <PageTypeChip pageType={item.proposed_page_type} t={t} />
+              </span>
+            )}
+          </div>
           <span
-            style={{ fontSize: 10, color: "var(--syn-text-dim)", flexShrink: 0, whiteSpace: "nowrap" }}
-          >
-            {t("review.referencedPages")}:
-          </span>
-          {referencedPages.map((rp) => (
-            <ReferencedPageChip key={rp.id} page={rp} onClick={onOpenPage} />
-          ))}
-        </div>
-      )}
-
-      {/* Row 5: search queries line (ADR-0044 §6.1) */}
-      {searchQueries && (
-        <div
-          data-testid="search-queries-row"
-          style={{
-            fontSize: 10,
-            color: "var(--syn-text-dim)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            fontStyle: "italic",
-          }}
-          title={searchQueries.join(" · ")}
-        >
-          {t("review.willSearch")}: {searchQueries.join(" · ")}
-        </div>
-      )}
-
-      {/* Row 6: 502 generation error — retry-or-skip hint */}
-      {generationError && (
-        <div
-          role="alert"
-          style={{
-            fontSize: 10,
-            color: "var(--syn-red)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-            {t("review.createFailed")}
-          </span>
-          <button
-            onClick={() => onDismissGenerationError(item.id)}
             style={{
               fontSize: 10,
               color: "var(--syn-text-dim)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
               flexShrink: 0,
+              marginTop: 2,
+              whiteSpace: "nowrap",
             }}
-            aria-label={t("common.close")}
+            title={item.created_at}
           >
-            {t("common.close")}
+            {relativeTime}
+          </span>
+          {/* R3: ✕ dismiss at top-right of card header (llm_wiki parity) */}
+          <button
+            data-testid="review-action-dismiss"
+            onClick={() => onDismiss(item.id)}
+            disabled={isAnyInFlight}
+            aria-label={t("review.dismiss")}
+            title={t("review.dismiss")}
+            style={{
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              padding: 0,
+              border: "none",
+              borderRadius: "var(--syn-radius-sm)",
+              background: "transparent",
+              color: "var(--syn-text-dim)",
+              cursor: isAnyInFlight ? "not-allowed" : "pointer",
+              opacity: isAnyInFlight ? 0.4 : 0.6,
+            }}
+            onMouseEnter={(e) => {
+              if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "1";
+            }}
+            onMouseLeave={(e) => {
+              if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "0.6";
+            }}
+          >
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
-      )}
 
-      {/* Row 7: action buttons + per-item non-502 error */}
-      {/* R2: confirm + contradiction get "Approve" (acknowledge/resolve); others get "Create". */}
-      {/* R3: Dismiss moved to ✕ icon at top-right of Row 1 — removed from here. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        {isApproveType ? (
-          <ActionButton
-            label={isApproving ? t("review.approving") : t("review.approve")}
-            onClick={() => onApprove(item.id)}
-            disabled={isAnyInFlight}
-            loading={isApproving}
-            variant="approve"
-          />
-        ) : (
-          <ActionButton
-            label={isCreating ? t("review.creating") : t("review.create")}
-            onClick={() => onCreate(item.id)}
-            disabled={isAnyInFlight}
-            loading={isCreating}
-            variant="create"
-          />
-        )}
-        <ActionButton
-          label={inFlight === "skip" ? t("common.loading") : t("review.skip")}
-          onClick={() => onSkip(item.id)}
-          disabled={isAnyInFlight}
-          variant="skip"
-        />
-        <ActionButton
-          label={
-            inFlight === "deep-research"
-              ? t("common.loading")
-              : t("review.deepResearch")
-          }
-          onClick={() => onDeepResearch(item.id)}
-          disabled={isAnyInFlight}
-          variant="deep-research"
-        />
+        {/* Row 2: rationale (why this matters) — MULTI-LINE (llm_wiki parity, no truncation) */}
+        <div
+          style={{
+            fontSize: 12.5,
+            lineHeight: 1.5,
+            color: item.rationale ? "var(--syn-text-muted)" : "var(--syn-border)",
+            fontStyle: item.rationale ? "normal" : "italic",
+            overflowWrap: "anywhere",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {item.rationale ?? t("review.noRationale")}
+        </div>
 
-        {actionError && !generationError && (
-          <span
-            role="alert"
-            style={{ fontSize: 10, color: "var(--syn-red)", marginLeft: 4 }}
+        {/* Row 3: conflict page (contradiction / duplicate) */}
+        {showConflictPage && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "var(--syn-type-concept)", // --syn-type-concept (purple) for conflict link
+              overflowWrap: "anywhere",
+            }}
+            title={item.page_title ?? ""}
           >
-            {actionError}
-          </span>
+            {t("review.conflictsWith")}: <em>{item.page_title}</em>
+          </div>
         )}
+
+        {/* Row 4: referenced pages chips (ADR-0044 §6.1) */}
+        {referencedPages && (
+          <div
+            data-testid="referenced-pages-row"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--syn-text-dim)",
+                flexShrink: 0,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("review.referencedPages")}:
+            </span>
+            {referencedPages.map((rp) => (
+              <ReferencedPageChip key={rp.id} page={rp} onClick={onOpenPage} />
+            ))}
+          </div>
+        )}
+
+        {/* Row 5: search queries line (ADR-0044 §6.1) */}
+        {searchQueries && (
+          <div
+            data-testid="search-queries-row"
+            style={{
+              fontSize: 11,
+              lineHeight: 1.45,
+              color: "var(--syn-text-dim)",
+              overflowWrap: "anywhere",
+              fontStyle: "italic",
+            }}
+            title={searchQueries.join(" · ")}
+          >
+            {t("review.willSearch")}: {searchQueries.join(" · ")}
+          </div>
+        )}
+
+        {/* Row 6: 502 generation error — retry-or-skip hint */}
+        {generationError && (
+          <div
+            role="alert"
+            style={{
+              fontSize: 11,
+              color: "var(--syn-red)",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span style={{ flex: 1, overflowWrap: "anywhere" }}>{t("review.createFailed")}</span>
+            <button
+              onClick={() => onDismissGenerationError(item.id)}
+              style={{
+                fontSize: 11,
+                color: "var(--syn-text-dim)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 0,
+                flexShrink: 0,
+              }}
+              aria-label={t("common.close")}
+            >
+              {t("common.close")}
+            </button>
+          </div>
+        )}
+
+        {/* Row 7: action buttons + per-item non-502 error */}
+        {/* R2: confirm + contradiction get "Approve" (acknowledge/resolve); others get "Create". */}
+        {/* R3: Dismiss moved to ✕ icon at top-right of Row 1 — removed from here. */}
+        {/* llm_wiki review-view.tsx button order + emphasis parity: the leading action is
+            Deep Research (filled primary), then Create/Approve, then Skip. Deep Research is
+            only offered on suggestion + missing-page; when absent, Create/Approve leads. */}
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}
+        >
+          {/* Deep Research — FIRST + filled primary (llm_wiki parity), suggestion/missing-page only */}
+          {(item.item_type === "suggestion" || item.item_type === "missing-page") && (
+            <ActionButton
+              label={inFlight === "deep-research" ? t("common.loading") : t("review.deepResearch")}
+              onClick={() => onDeepResearch(item.id)}
+              disabled={isAnyInFlight}
+              variant="deep-research"
+              emphasis="primary"
+            />
+          )}
+          {isApproveType ? (
+            <ActionButton
+              label={isApproving ? t("review.approving") : t("review.approve")}
+              onClick={() => onApprove(item.id)}
+              disabled={isAnyInFlight}
+              loading={isApproving}
+              variant="approve"
+            />
+          ) : (
+            <ActionButton
+              label={isCreating ? t("review.creating") : t("review.create")}
+              onClick={() => onCreate(item.id)}
+              disabled={isAnyInFlight}
+              loading={isCreating}
+              variant="create"
+            />
+          )}
+          <ActionButton
+            label={inFlight === "skip" ? t("common.loading") : t("review.skip")}
+            onClick={() => onSkip(item.id)}
+            disabled={isAnyInFlight}
+            variant="skip"
+          />
+
+          {actionError && !generationError && (
+            <span role="alert" style={{ fontSize: 11, color: "var(--syn-red)", marginLeft: 4 }}>
+              {actionError}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -853,7 +949,12 @@ interface ReviewItemListProps {
   onOpenCreatedPage: (pageId: string) => void;
 }
 
-function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage }: ReviewItemListProps) {
+function ReviewItemList({
+  vaultId,
+  onOpenSources,
+  onOpenPage,
+  onOpenCreatedPage,
+}: ReviewItemListProps) {
   const { t, i18n } = useTranslation();
   const items = useReviewStore(useShallow(selectReviewItems));
   const total = useReviewStore(selectReviewTotal);
@@ -883,31 +984,45 @@ function ReviewItemList({ vaultId, onOpenSources, onOpenPage, onOpenCreatedPage 
   });
 
   const handleCreate = useCallback(
-    (id: string) => { void create(id); },
+    (id: string) => {
+      void create(id);
+    },
     [create],
   );
   const handleApprove = useCallback(
-    (id: string) => { void approve(id, vaultId); },
+    (id: string) => {
+      void approve(id, vaultId);
+    },
     [approve, vaultId],
   );
   const handleSkip = useCallback(
-    (id: string) => { void skip(id); },
+    (id: string) => {
+      void skip(id);
+    },
     [skip],
   );
   const handleDismiss = useCallback(
-    (id: string) => { void dismiss(id); },
+    (id: string) => {
+      void dismiss(id);
+    },
     [dismiss],
   );
   const handleDeepResearch = useCallback(
-    (id: string) => { void deepResearch(id); },
+    (id: string) => {
+      void deepResearch(id);
+    },
     [deepResearch],
   );
   const handleDismissGenerationError = useCallback(
-    (id: string) => { clearGenerationError(id); },
+    (id: string) => {
+      clearGenerationError(id);
+    },
     [clearGenerationError],
   );
   const handleToggleSelect = useCallback(
-    (id: string) => { toggleSelected(id); },
+    (id: string) => {
+      toggleSelected(id);
+    },
     [toggleSelected],
   );
 
@@ -1398,7 +1513,10 @@ export function ReviewQueueView() {
               disabled={loading}
               data-testid="review-bulk-mark-resolved"
               className="syn-btn syn-btn--secondary syn-btn--sm"
-              style={{ color: "var(--syn-green)", borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)" }}
+              style={{
+                color: "var(--syn-green)",
+                borderColor: "color-mix(in srgb, var(--syn-green) 30%, var(--syn-border) 70%)",
+              }}
             >
               {t("review.markResolved")}
             </button>
@@ -1436,9 +1554,7 @@ export function ReviewQueueView() {
             flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: 12, flex: 1 }}>
-            {t("review.searxngUnavailable")}
-          </span>
+          <span style={{ fontSize: 12, flex: 1 }}>{t("review.searxngUnavailable")}</span>
           <button
             onClick={clearDeepResearchError}
             style={{
