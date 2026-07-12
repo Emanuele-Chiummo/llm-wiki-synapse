@@ -46,9 +46,9 @@ import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
-from sqlalchemy import func, select, update
+from sqlalchemy import CursorResult, func, select, update
 
 from app.config import settings
 from app.db import get_session
@@ -2397,7 +2397,9 @@ async def _supersede_prior_open_findings(
             )
         )
         await session.commit()
-        return int(result.rowcount or 0)
+        # session.execute(update(...)) returns a CursorResult (has rowcount); the base
+        # Result[Any] type mypy infers does not declare it. Cast to read the affected-row count.
+        return int(cast("CursorResult[Any]", result).rowcount or 0)
 
 
 async def _set_finding_status(

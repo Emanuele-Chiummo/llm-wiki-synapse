@@ -597,7 +597,7 @@ class ApiProvider(InferenceProvider):
     async def _caption_openai(self, b64: str, media_type: str, prompt: str) -> str:
         api_key = self._openai_key()
         data_uri = f"data:{media_type};base64,{b64}"
-        body = {
+        body: dict[str, object] = {
             "model": self._model,  # from provider_config (I6)
             "messages": [
                 {
