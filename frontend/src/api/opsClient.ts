@@ -23,6 +23,15 @@ export interface OpsTriggerResponse {
   status: string;
 }
 
+/** Additive response metadata returned by the v1.6 corpus synthesis trigger. */
+export interface SynthesizeTriggerResponse extends OpsTriggerResponse {
+  max_pages?: number;
+  mode?: string;
+  max_candidates?: number;
+  token_budget?: number;
+  force?: boolean;
+}
+
 async function postOp(path: string, signal?: AbortSignal): Promise<OpsTriggerResponse> {
   const url = `${apiBase()}${path}`;
   const res = await apiFetch(url, {
@@ -96,6 +105,17 @@ export async function triggerReclassifyTypes(signal?: AbortSignal): Promise<OpsT
  * body params as a body contract; send an explicit empty object so strict
  * deployments do not return 422.
  */
-export async function triggerSynthesize(signal?: AbortSignal): Promise<OpsTriggerResponse> {
-  return postJsonOp("/ops/synthesize", {}, signal);
+export interface SynthesizeTriggerOptions {
+  max_pages?: number;
+  max_candidates?: number;
+  token_budget?: number;
+  force?: boolean;
+  mode?: "auto" | "review-only";
+}
+
+export async function triggerSynthesize(
+  options: SynthesizeTriggerOptions = {},
+  signal?: AbortSignal,
+): Promise<SynthesizeTriggerResponse> {
+  return postJsonOp("/ops/synthesize", options, signal);
 }

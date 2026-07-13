@@ -35,7 +35,14 @@
  *               Create DOES run a bounded LLM loop server-side (ADR-0034 §5).
  */
 
-import { useEffect, useRef, useCallback, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from "react";
 import {
   HelpCircle,
   FileQuestion,
@@ -50,6 +57,7 @@ import {
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
   useReviewStore,
@@ -58,6 +66,7 @@ import {
   selectReviewLoading,
   selectReviewError,
   selectActiveTab,
+  selectReviewFilters,
   selectSelectedIds,
   selectIsSelected,
   selectReviewActionInFlight,
@@ -72,6 +81,8 @@ import {
   selectFetchFreshReview,
   selectFetchMoreReview,
   selectSetActiveTab,
+  selectSetReviewFilters,
+  selectClearReviewFilters,
   selectCreate,
   selectSkip,
   selectDismiss,
@@ -92,6 +103,8 @@ import {
   selectClearBulkError,
 } from "../../store/reviewStore";
 import { ReviewDeepResearchPanel } from "./ReviewDeepResearchPanel";
+import { PanelDrawer } from "../panels/PanelDrawer";
+import { useViewport } from "../../hooks/useViewport";
 import {
   useGraphStore,
   selectVaultId,
@@ -99,7 +112,14 @@ import {
   selectSelectPage,
 } from "../../store/graphStore";
 import { EmptyState } from "../common/EmptyState";
-import type { ReviewItem, ReviewItemStatus, ReviewReferencedPage } from "../../api/types";
+import type {
+  PageType,
+  ReviewItem,
+  ReviewItemStatus,
+  ReviewItemType,
+  ReviewProposalOrigin,
+  ReviewReferencedPage,
+} from "../../api/types";
 import type { ReviewQueueStatus } from "../../api/reviewClient";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -111,6 +131,39 @@ import type { ReviewQueueStatus } from "../../api/reviewClient";
  * description + inter-card gap) which is taller than the old dense flat row.
  */
 const ROW_ESTIMATE = 200;
+
+type Translate = TFunction;
+
+const REVIEW_ITEM_TYPES: ReviewItemType[] = [
+  "missing-page",
+  "suggestion",
+  "contradiction",
+  "duplicate",
+  "confirm",
+  "purpose-suggestion",
+  "schema-suggestion",
+];
+const REVIEW_ORIGINS: ReviewProposalOrigin[] = ["rule", "ai", "corpus", "system", "lint", "legacy"];
+const REVIEW_PAGE_TYPES: PageType[] = [
+  "concept",
+  "entity",
+  "source",
+  "synthesis",
+  "comparison",
+  "query",
+];
+
+function formatRelativeTime(value: string, lang: string): string {
+  const date = new Date(value);
+  const diffMs = date.getTime() - Date.now();
+  if (!Number.isFinite(diffMs)) return "";
+  const formatter = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+  const minutes = Math.round(diffMs / 60_000);
+  if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute");
+  const hours = Math.round(diffMs / 3_600_000);
+  if (Math.abs(hours) < 24) return formatter.format(hours, "hour");
+  return date.toLocaleDateString(lang);
+}
 
 // ─── Proposal type badge ──────────────────────────────────────────────────────
 // Light-theme: use --syn-* semantic tokens.
@@ -168,7 +221,7 @@ const ITEM_TYPE_ICONS: Record<string, LucideIcon> = {
 
 interface ItemTypeIconProps {
   itemType: string;
-  t: (key: string) => string;
+  t: Translate;
 }
 
 function ItemTypeIcon({ itemType, t }: ItemTypeIconProps) {
@@ -231,7 +284,7 @@ const ItemTypeBadge = ItemTypeIcon;
 
 interface PageTypeChipProps {
   pageType: string;
-  t: (key: string) => string;
+  t: Translate;
 }
 
 function PageTypeChip({ pageType, t }: PageTypeChipProps) {
@@ -247,6 +300,46 @@ function PageTypeChip({ pageType, t }: PageTypeChipProps) {
     >
       {label}
     </span>
+  );
+}
+
+type QueryQuality = "absent" | "titleOnly" | "contextual";
+
+function getQueryQuality(item: ReviewItem): QueryQuality {
+  const queries = item.search_queries?.map((query) => query.trim()).filter(Boolean) ?? [];
+  if (queries.length === 0) return "absent";
+  const title = item.proposed_title?.trim().toLocaleLowerCase() ?? "";
+  if (title && queries.every((query) => query.toLocaleLowerCase() === title)) return "titleOnly";
+  return "contextual";
+}
+
+interface ProposalMetadataProps {
+  item: ReviewItem;
+  t: Translate;
+}
+
+function ProposalMetadata({ item, t }: ProposalMetadataProps) {
+  const origin = item.proposal_origin ?? "legacy";
+  const quality = getQueryQuality(item);
+  return (
+    <div className="review-proposal-metadata">
+      <span data-testid="review-origin" className="syn-chip review-metadata-chip">
+        {t(`review.origin.${origin}`)}
+      </span>
+      {item.proposed_page_type && (
+        <span data-testid="review-proposed-type" className="review-type-trace">
+          {t("review.proposedType")}: <PageTypeChip pageType={item.proposed_page_type} t={t} />
+        </span>
+      )}
+      {item.created_page_type && (
+        <span data-testid="review-created-type" className="review-type-trace">
+          {t("review.createdType")}: <PageTypeChip pageType={item.created_page_type} t={t} />
+        </span>
+      )}
+      <span data-testid="review-query-quality" className="syn-chip review-metadata-chip">
+        {t(`review.queryQuality.${quality}`)}
+      </span>
+    </div>
   );
 }
 
@@ -272,7 +365,7 @@ const STATUS_BADGE_STYLE: Partial<Record<ReviewItemStatus, { color: string; bg: 
 
 interface ResolutionBadgeProps {
   status: ReviewItemStatus;
-  t: (key: string) => string;
+  t: Translate;
 }
 
 function ResolutionBadge({ status, t }: ResolutionBadgeProps) {
@@ -312,14 +405,16 @@ function isPending(status: ReviewItemStatus): boolean {
 interface ReferencedPageChipProps {
   page: ReviewReferencedPage;
   onClick: (pageId: string) => void;
+  t: Translate;
 }
 
-function ReferencedPageChip({ page, onClick }: ReferencedPageChipProps) {
+function ReferencedPageChip({ page, onClick, t }: ReferencedPageChipProps) {
   return (
     <button
       data-testid="referenced-page-chip"
       onClick={() => onClick(page.id)}
-      title={`Open ${page.title}`}
+      title={t("review.openPage", { title: page.title })}
+      aria-label={t("review.openPage", { title: page.title })}
       className="syn-chip"
       style={{
         fontSize: 10,
@@ -445,7 +540,7 @@ interface ReviewRowProps {
   onToggleSelect: (id: string) => void;
   onOpenPage: (pageId: string) => void;
   onOpenCreatedPage: (pageId: string) => void;
-  t: (key: string) => string;
+  t: Translate;
   lang: string;
 }
 
@@ -481,32 +576,12 @@ function ReviewRow({
   // `contradiction` keeps "Create" so the user can author a resolution page.
   const isApproveType = normalisedType === "confirm";
 
-  const relativeTime = (() => {
-    try {
-      const date = new Date(item.created_at);
-      const diff = Date.now() - date.getTime();
-      const mins = Math.floor(diff / 60_000);
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      return date.toLocaleDateString(lang);
-    } catch {
-      return "";
-    }
-  })();
+  const relativeTime = formatRelativeTime(item.created_at, lang);
 
   const resolvedAtLabel = (() => {
     if (item.reviewed_at == null) return null;
     try {
-      const date = new Date(item.reviewed_at);
-      const diff = Date.now() - date.getTime();
-      const mins = Math.floor(diff / 60_000);
-      let dateStr: string;
-      if (mins < 60) dateStr = `${mins}m ago`;
-      else {
-        const hrs = Math.floor(mins / 60);
-        dateStr = hrs < 24 ? `${hrs}h ago` : date.toLocaleDateString(lang);
-      }
+      const dateStr = formatRelativeTime(item.reviewed_at, lang);
       return t("review.resolvedAt").replace("{{date}}", dateStr);
     } catch {
       return null;
@@ -541,6 +616,7 @@ function ReviewRow({
         data-testid="review-item-row"
         data-item-id={item.id}
         data-status={item.status}
+        className="review-card-wrapper"
         style={{ ...style, padding: "0 16px 10px", boxSizing: "border-box" }}
       >
         {/* Resolved cards reuse the llm_wiki card shell, dimmed + sunken to read as read-only. */}
@@ -576,10 +652,8 @@ function ReviewRow({
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <ResolutionBadge status={item.status} t={t} />
-                {item.proposed_page_type && (
-                  <PageTypeChip pageType={item.proposed_page_type} t={t} />
-                )}
               </div>
+              <ProposalMetadata item={item} t={t} />
             </div>
             {resolvedAtLabel && (
               <span
@@ -673,6 +747,7 @@ function ReviewRow({
       data-testid="review-item-row"
       data-item-id={item.id}
       data-status={item.status}
+      className="review-card-wrapper"
       style={{
         ...style,
         // Horizontal gutter + bottom gap between cards (the airy llm_wiki list rhythm).
@@ -706,7 +781,7 @@ function ReviewRow({
             type="checkbox"
             checked={isSelected}
             onChange={() => onToggleSelect(item.id)}
-            aria-label={`Select ${item.proposed_title ?? item.id}`}
+            aria-label={t("review.selectItem", { title: item.proposed_title ?? item.id })}
             data-testid={`review-select-${item.id}`}
             style={{
               flexShrink: 0,
@@ -732,11 +807,7 @@ function ReviewRow({
             >
               {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
             </span>
-            {item.proposed_page_type && (
-              <span>
-                <PageTypeChip pageType={item.proposed_page_type} t={t} />
-              </span>
-            )}
+            <ProposalMetadata item={item} t={t} />
           </div>
           <span
             style={{
@@ -833,7 +904,7 @@ function ReviewRow({
               {t("review.referencedPages")}:
             </span>
             {referencedPages.map((rp) => (
-              <ReferencedPageChip key={rp.id} page={rp} onClick={onOpenPage} />
+              <ReferencedPageChip key={rp.id} page={rp} onClick={onOpenPage} t={t} />
             ))}
           </div>
         )}
@@ -893,6 +964,7 @@ function ReviewRow({
             Deep Research (filled primary), then Create/Approve, then Skip. Deep Research is
             only offered on suggestion + missing-page; when absent, Create/Approve leads. */}
         <div
+          className="review-card-actions"
           style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}
         >
           {/* Deep Research — FIRST + filled primary (llm_wiki parity), suggestion/missing-page only */}
@@ -1128,7 +1200,7 @@ interface RowWrapperProps {
   onToggleSelect: (id: string) => void;
   onOpenPage: (pageId: string) => void;
   onOpenCreatedPage: (pageId: string) => void;
-  t: (key: string) => string;
+  t: Translate;
   lang: string;
 }
 
@@ -1199,6 +1271,11 @@ function TabButton({ label, active, onClick, testId }: TabButtonProps) {
     <button
       onClick={onClick}
       data-testid={testId}
+      id={testId}
+      role="tab"
+      aria-selected={active}
+      aria-controls="review-tabpanel"
+      tabIndex={active ? 0 : -1}
       style={{
         padding: "4px 10px",
         fontSize: 11,
@@ -1229,6 +1306,7 @@ export function ReviewQueueView() {
   const loading = useReviewStore(selectReviewLoading);
   const error = useReviewStore(selectReviewError);
   const activeTab = useReviewStore(selectActiveTab);
+  const filters = useReviewStore(useShallow(selectReviewFilters));
   const selectedIds = useReviewStore(useShallow(selectSelectedIds));
   const deepResearchError = useReviewStore(selectDeepResearchError);
   const lastDeepResearch = useReviewStore(selectLastDeepResearch);
@@ -1244,15 +1322,20 @@ export function ReviewQueueView() {
   const clearBulkError = useReviewStore(selectClearBulkError);
   const sweep = useReviewStore(selectSweep);
   const setActiveTab = useReviewStore(selectSetActiveTab);
+  const setFilters = useReviewStore(selectSetReviewFilters);
+  const clearFilters = useReviewStore(selectClearReviewFilters);
   const bulkAction = useReviewStore(selectBulkAction);
   const clearResolvedRows = useReviewStore(selectClearResolvedRows);
   const selectAllPending = useReviewStore(selectSelectAllPending);
   const clearSelection = useReviewStore(selectClearSelection);
+  const viewport = useViewport();
+  const [researchDrawerOpen, setResearchDrawerOpen] = useState(false);
 
   const effectiveVaultId = vaultId ?? "default";
   const selectionCount = selectedIds.size;
   const hasSelection = selectionCount > 0;
   const showClearResolved = activeTab === "resolved" || activeTab === "dismissed";
+  const hasFilters = Object.values(filters).some((value) => value !== null);
 
   // Fetch on mount
   useEffect(() => {
@@ -1280,6 +1363,21 @@ export function ReviewQueueView() {
     },
     [setActiveTab, effectiveVaultId],
   );
+
+  const handleTabKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    if (tabs.length === 0) return;
+    const currentIndex = Math.max(0, tabs.indexOf(document.activeElement as HTMLButtonElement));
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    event.preventDefault();
+    tabs[nextIndex]?.focus();
+    tabs[nextIndex]?.click();
+  }, []);
 
   const handleSelectAllPending = useCallback(() => {
     if (hasSelection) {
@@ -1340,6 +1438,7 @@ export function ReviewQueueView() {
     >
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div
+        className="review-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1363,7 +1462,7 @@ export function ReviewQueueView() {
           {t("review.title")}
           {activeTab === "pending" && total > 0 && !loading && (
             <span
-              aria-label={`${total} pending`}
+              aria-label={t("review.pendingCount", { count: total })}
               style={{
                 marginLeft: 8,
                 display: "inline-flex",
@@ -1393,7 +1492,9 @@ export function ReviewQueueView() {
             flex: 1,
           }}
           role="tablist"
-          aria-label="Review queue status"
+          aria-orientation="horizontal"
+          aria-label={t("review.statusTabsAria")}
+          onKeyDown={handleTabKeyDown}
         >
           <TabButton
             label={t("review.tabPending")}
@@ -1463,10 +1564,97 @@ export function ReviewQueueView() {
         >
           {loading ? t("common.loading") : t("review.refresh")}
         </button>
+
+        {viewport !== "desktop" && (
+          <button
+            type="button"
+            data-testid="review-open-research"
+            className="syn-toolbar-button"
+            aria-label={t("review.deepResearchPanel.open")}
+            aria-expanded={researchDrawerOpen}
+            onClick={() => setResearchDrawerOpen(true)}
+          >
+            {t("review.deepResearchPanel.panelTitle")}
+          </button>
+        )}
+      </div>
+
+      {/* ── Server-side v1.6 proposal filters ─────────────────────────── */}
+      <div className="review-filter-bar" data-testid="review-filter-bar">
+        <label className="review-filter-field">
+          <span>{t("review.filters.itemType")}</span>
+          <select
+            data-testid="review-filter-item-type"
+            value={filters.itemType ?? ""}
+            onChange={(event) =>
+              void setFilters(
+                { itemType: (event.target.value || null) as ReviewItemType | null },
+                effectiveVaultId,
+              )
+            }
+          >
+            <option value="">{t("review.filters.all")}</option>
+            {REVIEW_ITEM_TYPES.map((itemType) => (
+              <option key={itemType} value={itemType}>
+                {t(`review.itemType.${itemType}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="review-filter-field">
+          <span>{t("review.filters.origin")}</span>
+          <select
+            data-testid="review-filter-origin"
+            value={filters.proposalOrigin ?? ""}
+            onChange={(event) =>
+              void setFilters(
+                { proposalOrigin: (event.target.value || null) as ReviewProposalOrigin | null },
+                effectiveVaultId,
+              )
+            }
+          >
+            <option value="">{t("review.filters.all")}</option>
+            {REVIEW_ORIGINS.map((origin) => (
+              <option key={origin} value={origin}>
+                {t(`review.origin.${origin}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="review-filter-field">
+          <span>{t("review.filters.pageType")}</span>
+          <select
+            data-testid="review-filter-page-type"
+            value={filters.proposedPageType ?? ""}
+            onChange={(event) =>
+              void setFilters(
+                { proposedPageType: (event.target.value || null) as PageType | null },
+                effectiveVaultId,
+              )
+            }
+          >
+            <option value="">{t("review.filters.all")}</option>
+            {REVIEW_PAGE_TYPES.map((pageType) => (
+              <option key={pageType} value={pageType}>
+                {t(`review.pageType.${pageType}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {hasFilters && (
+          <button
+            type="button"
+            className="syn-btn syn-btn--ghost syn-btn--sm"
+            onClick={() => void clearFilters(effectiveVaultId)}
+          >
+            {t("review.filters.clear")}
+          </button>
+        )}
       </div>
 
       {/* ── Selection bar + bulk action bar (ADR-0044 §7) ───────────────── */}
       <div
+        className="review-selection-bar"
         style={{
           display: "flex",
           alignItems: "center",
@@ -1820,7 +2008,13 @@ export function ReviewQueueView() {
       )}
 
       {/* ── Main content: virtualised item list + Deep Research panel (R4) ── */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex" }}>
+      <div
+        id="review-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`review-tab-${activeTab}`}
+        className="review-content"
+        style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex" }}
+      >
         {/* Item list occupies remaining horizontal space (I4 — always virtualised) */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
           <ReviewItemList
@@ -1835,11 +2029,28 @@ export function ReviewQueueView() {
             Receives lastResearchRunId so it auto-refreshes when a per-item
             "Ricerca Profonda" action completes. Same researchStore as the
             "Ricerca Profonda" rail section — superset, NOT a replacement. */}
-        <ReviewDeepResearchPanel
-          vaultId={effectiveVaultId}
-          lastResearchRunId={lastDeepResearch?.runId ?? null}
-        />
+        {viewport === "desktop" && (
+          <ReviewDeepResearchPanel
+            vaultId={effectiveVaultId}
+            lastResearchRunId={lastDeepResearch?.runId ?? null}
+          />
+        )}
       </div>
+
+      {viewport !== "desktop" && researchDrawerOpen && (
+        <PanelDrawer
+          open
+          side="right"
+          label={t("review.deepResearchPanel.panelTitle")}
+          onClose={() => setResearchDrawerOpen(false)}
+        >
+          <ReviewDeepResearchPanel
+            vaultId={effectiveVaultId}
+            lastResearchRunId={lastDeepResearch?.runId ?? null}
+            onClose={() => setResearchDrawerOpen(false)}
+          />
+        </PanelDrawer>
+      )}
     </div>
   );
 }

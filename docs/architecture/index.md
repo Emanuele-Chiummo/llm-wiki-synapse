@@ -46,6 +46,13 @@ The **Component** diagram details the internal structure of the FastAPI service:
 
 [View: component.mmd](component.mmd)
 
+## Generation Lifecycle (v1.6.0)
+
+The generation lifecycle diagram shows the shared six-type direct-ingest contract, the
+source-grounded Review hand-off, and the separate domain-safe/idempotent corpus pass.
+
+[View: corpus-generation-lifecycle.mmd](corpus-generation-lifecycle.mmd)
+
 ---
 
 ## Key Design Principles

@@ -216,6 +216,8 @@ export interface IngestRunItem {
   status: IngestStatus;
   provider_type: string; // "local" | "api" | "cli" — no hardcoded values (I6)
   pages_created: number;
+  /** Per generated page type; absent/null for legacy or unsuccessful runs. */
+  page_type_counts?: Partial<Record<PageType, number>> | null;
   iterations_used: number;
   total_cost_usd: number;
   started_at: string; // ISO-8601
@@ -401,7 +403,16 @@ export interface ResearchStartResponse {
  * Old values (new_page / update_page / deep_research_candidate) are gone.
  */
 export type ReviewItemType =
-  "missing-page" | "suggestion" | "contradiction" | "duplicate" | "confirm";
+  | "missing-page"
+  | "suggestion"
+  | "contradiction"
+  | "duplicate"
+  | "confirm"
+  | "purpose-suggestion"
+  | "schema-suggestion";
+
+/** Generator that produced a review proposal (v1.6 additive provenance contract). */
+export type ReviewProposalOrigin = "rule" | "ai" | "corpus" | "system" | "lint" | "legacy";
 
 /**
  * Item lifecycle (ADR-0034 §3.1 + ADR-0044 §3.1).
@@ -446,6 +457,9 @@ export interface ReviewItem {
   /** Proposal type (ADR-0034 §3.1): missing-page | suggestion | contradiction | duplicate | confirm */
   item_type: ReviewItemType;
 
+  /** Generator provenance. Absent/null only on rows returned by pre-v1.6 backends. */
+  proposal_origin?: ReviewProposalOrigin | null;
+
   /** Item lifecycle: pending | created | skipped | dismissed | deep_researched | auto_resolved */
   status: ReviewItemStatus;
 
@@ -454,6 +468,9 @@ export interface ReviewItem {
 
   /** Inferred PageType for the lazy skeleton: entity | concept | source | synthesis | comparison */
   proposed_page_type: string | null;
+
+  /** Actual type of the page produced by Create, when the proposal is resolved. */
+  created_page_type?: PageType | null;
 
   /** Target wiki/ subdir (display only — recomputed at Create from the final type). */
   proposed_dir: string | null;

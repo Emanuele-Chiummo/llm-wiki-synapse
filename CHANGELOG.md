@@ -9,6 +9,53 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-07-13 — "source-grounded generation lifecycle parity"
+
+Major generation-quality release aligning Synapse's direct ingest, human Review and corpus-level
+comparison/synthesis lifecycle with the useful behavior observed in `nashsu/llm_wiki`, while
+retaining Synapse's provider neutrality, hard bounds and operator control.
+
+### Added
+- **Six-type direct generation** — shared orchestrated and delegated prompts can emit `entity`,
+  `concept`, `source`, `query`, `comparison` and `synthesis` when the current source contains the
+  required evidence. Query, comparison and synthesis have explicit source-grounding gates [F3].
+- **Review provenance and type traceability** — migration 0031 adds `proposal_origin`; API and UI
+  expose origin, proposed type and effective created type. Server-side filters compose with the
+  existing status/pagination contract, and search-query quality is visible before acceptance [F9].
+- **Idempotent corpus identity** — comparison/synthesis clusters use a stable member-path signature,
+  indexed as `pages.generation_key` and persisted as `synapse_generation_key` in valid YAML.
+  Repeated runs skip before inference; forced runs update the same deterministic file [F18].
+- **Safe corpus controls and audit** — independent `max_candidates`, provider-free `review-only`
+  mode, active-run polling/diagnostics, and `GET /ops/synthesize/audit` for a non-destructive legacy
+  duplicate report [F18].
+- **Per-run generation diagnostics** — ingest history records an optional six-type page count so
+  provider/run discrepancies can be measured directly.
+
+### Changed
+- **Delegated Review is source-grounded** — the CLI route now passes bounded raw source text and
+  bounded excerpts from only the pages written in that run; it no longer fabricates an Analysis
+  object from titles. CLI turns and token usage honor configured boundaries at SDK messages [F3/F9].
+- **Review budgets are independent** — deterministic rules are capped at 8, AI proposals at 12,
+  and the merged queue at 20. A richer AI duplicate replaces its rule equivalent instead of being
+  starved by missing-link noise [F9].
+- **Corpus generation requires a real shared domain** — untagged or mixed-domain pages are counted
+  and skipped rather than grouped into a global synthetic bucket. Home offers both Generate and
+  Propose-only actions and reports duplicate/untagged diagnostics [F18].
+- **Review works down to 320 px** — filter tabs are keyboard-operable; Deep Research becomes a
+  responsive drawer instead of compressing the queue; EN/IT labels remain in parity.
+
+### Fixed
+- Force corpus runs can no longer create a duplicate when the model changes the generated title.
+- Bare missing-link search queries now include local referrer/source context when available.
+- Review filtering now happens on the server, so totals and pagination remain truthful.
+- Corpus status polling stops at terminal state and on unmount instead of leaving stale activity.
+
+### Upgrade notes
+- Run Alembic migration `0031`. It is additive and does not rewrite or delete existing pages.
+- Existing review rows are labeled `legacy`; existing corpus pages keep a null generation key.
+- Use the audit endpoint before any manual legacy cleanup. v1.6.0 never deletes or merges reported
+  duplicates automatically.
+
 ## [1.5.6] — 2026-07-13 — "write toggle, Marker auto-split, UI audit follow-ups"
 
 Bundles two features (runtime remote-MCP write toggle, Marker `--auto` chapter split) with

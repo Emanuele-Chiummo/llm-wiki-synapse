@@ -2110,11 +2110,12 @@ function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
  * would just be a guaranteed no-op.
  */
 const SYNTHESIZE_MIN_MEMBER_PAGES = 3;
+const SYNTHESIZE_STATUS_POLL_MS = 2_000;
 
 interface SynthesizeNudgeProps {
   overview: StatsOverview;
   synthesizeStatus: SynthesizeStatus | null;
-  /** Bump this after a trigger so the parent re-fetches the status once (I3-safe, no polling). */
+  /** Re-fetch status after a trigger; the parent then polls only while the run is active. */
   onTriggered: () => void;
 }
 
@@ -2123,15 +2124,15 @@ interface SynthesizeNudgeProps {
  * comparison generator (POST /ops/synthesize, ADR-0067 D3). Previously this
  * was API-only with no UI trigger — this closes that gap [v1.5.3].
  *
- * Uses already-fetched overview data + the once-on-mount synthesize status
- * (fetched by ActiveJobsBlock and passed down) — NO new poller (I3).
+ * Uses already-fetched overview data + the shared synthesize status. The parent
+ * polls only while the server reports an active run (I3).
  * Renders null when the corpus has too few entity/concept pages to seed a
  * cluster, or while a run is already in flight (surfaced instead in
  * "LAVORI ATTIVI").
  */
 function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: SynthesizeNudgeProps) {
   const { t } = useTranslation();
-  const [triggering, setTriggering] = useState(false);
+  const [triggeringMode, setTriggeringMode] = useState<"auto" | "review-only" | null>(null);
   const [done, setDone] = useState(false);
 
   const memberPages = (overview.pages_by_type.entity ?? 0) + (overview.pages_by_type.concept ?? 0);
@@ -2140,19 +2141,25 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
   if (synthesizeStatus?.running) return null;
 
   const lastSummary = synthesizeStatus?.last_summary ?? null;
+  const hasDiagnostics =
+    lastSummary != null &&
+    (lastSummary.duplicates_skipped !== undefined ||
+      lastSummary.untagged_skipped !== undefined ||
+      lastSummary.max_candidates !== undefined ||
+      lastSummary.mode !== undefined);
 
-  const handleTrigger = () => {
-    if (triggering || done) return;
-    setTriggering(true);
+  const handleTrigger = (mode: "auto" | "review-only") => {
+    if (triggeringMode || done) return;
+    setTriggeringMode(mode);
     void (async () => {
       try {
-        await triggerSynthesize();
+        await triggerSynthesize({ mode });
         setDone(true);
         onTriggered();
       } catch {
         /* non-fatal — nudge stays visible; user can retry */
       } finally {
-        setTriggering(false);
+        setTriggeringMode(null);
       }
     })();
   };
@@ -2172,50 +2179,77 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
         background: "var(--syn-bg-soft)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, minWidth: 0 }}>
         <Sparkles
           size={12}
           aria-hidden="true"
           style={{ color: "var(--syn-accent)", flexShrink: 0 }}
         />
-        <span
-          data-testid="home-synthesize-message"
-          style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
-        >
-          {lastSummary
-            ? t("home.synthesize.messageLastRun", {
-                synthesis: lastSummary.synthesis_written,
-                comparison: lastSummary.comparison_written,
-                proposed: lastSummary.proposed,
-              })
-            : t("home.synthesize.message")}
-        </span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+          <span
+            data-testid="home-synthesize-message"
+            style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
+          >
+            {lastSummary
+              ? t("home.synthesize.messageLastRun", {
+                  synthesis: lastSummary.synthesis_written,
+                  comparison: lastSummary.comparison_written,
+                  proposed: lastSummary.proposed,
+                })
+              : t("home.synthesize.message")}
+          </span>
+          {hasDiagnostics && lastSummary && (
+            <span
+              data-testid="home-synthesize-diagnostics"
+              style={{ fontSize: 10, color: "var(--syn-text-dim)", overflowWrap: "anywhere" }}
+            >
+              {t("home.synthesize.duplicatesSkipped")}: {lastSummary.duplicates_skipped ?? 0} · {" "}
+              {t("home.synthesize.untaggedSkipped")}: {lastSummary.untagged_skipped ?? 0} · {" "}
+              {t("home.synthesize.maxCandidates")}: {lastSummary.max_candidates ?? "–"} · {" "}
+              {t("home.synthesize.mode")}: {lastSummary.mode ?? "–"}
+            </span>
+          )}
+        </div>
       </div>
-      <button
-        type="button"
-        data-testid="home-synthesize-cta"
-        onClick={handleTrigger}
-        disabled={triggering || done}
-        style={{
-          fontSize: 11,
-          padding: "4px 10px",
-          borderRadius: "var(--syn-radius-md)",
-          border: "1px solid var(--syn-accent)",
-          background: "transparent",
-          color: "var(--syn-accent)",
-          cursor: triggering || done ? "default" : "pointer",
-          flexShrink: 0,
-          fontWeight: 500,
-          opacity: triggering || done ? 0.6 : 1,
-          transition: "opacity 0.1s ease",
-        }}
-      >
-        {done
-          ? t("home.synthesize.done")
-          : triggering
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <button
+          type="button"
+          data-testid="home-synthesize-review-cta"
+          onClick={() => handleTrigger("review-only")}
+          disabled={triggeringMode !== null || done}
+          className="syn-button syn-button--ghost"
+          style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+        >
+          {triggeringMode === "review-only"
             ? t("home.synthesize.running")
-            : t("home.synthesize.cta")}
-      </button>
+            : t("home.synthesize.reviewOnly")}
+        </button>
+        <button
+          type="button"
+          data-testid="home-synthesize-cta"
+          onClick={() => handleTrigger("auto")}
+          disabled={triggeringMode !== null || done}
+          style={{
+            fontSize: 11,
+            padding: "4px 10px",
+            borderRadius: "var(--syn-radius-md)",
+            border: "1px solid var(--syn-accent)",
+            background: "transparent",
+            color: "var(--syn-accent)",
+            cursor: triggeringMode || done ? "default" : "pointer",
+            flexShrink: 0,
+            fontWeight: 500,
+            opacity: triggeringMode || done ? 0.6 : 1,
+            transition: "opacity 0.1s ease",
+          }}
+        >
+          {done
+            ? t("home.synthesize.done")
+            : triggeringMode === "auto"
+              ? t("home.synthesize.running")
+              : t("home.synthesize.cta")}
+        </button>
+      </div>
     </section>
   );
 }
@@ -2249,27 +2283,31 @@ export function HomeDashboard() {
   // Filter to processing tasks only — these carry phase/progress/eta (AC-WS-C-3).
   const ingestTasks = allTasks.filter((tk) => tk.status === "processing");
 
-  // v1.5.3: synthesize (ADR-0067 D3) status — fetched ONCE on mount (+ once after the
-  // SynthesizeNudge CTA fires), shared by ActiveJobsBlock (running row) and
-  // SynthesizeNudge (message/last_summary). One fetch, two consumers — no duplicate
-  // polling (I3).
+  // v1.6: one shared synthesize status source. It polls only while the backend says
+  // a run is active, then stops immediately on the first terminal response (I3).
   const [synthesizeStatus, setSynthesizeStatus] = useState<SynthesizeStatus | null>(null);
   const synthesizeAbortRef = useRef<AbortController | null>(null);
-  const fetchSynthesizeStatus = useCallback(() => {
+  const fetchSynthesizeStatus = useCallback(async () => {
     if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
     const ac = new AbortController();
     synthesizeAbortRef.current = ac;
-    void (async () => {
-      const result = await getSynthesizeStatus(ac.signal).catch(() => null);
-      if (!ac.signal.aborted) setSynthesizeStatus(result);
-    })();
+    const result = await getSynthesizeStatus(ac.signal).catch(() => null);
+    if (!ac.signal.aborted) setSynthesizeStatus(result);
   }, []);
   useEffect(() => {
-    fetchSynthesizeStatus();
+    void fetchSynthesizeStatus();
     return () => {
       if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
     };
   }, [fetchSynthesizeStatus]);
+
+  useEffect(() => {
+    if (synthesizeStatus?.running !== true) return undefined;
+    const timer = window.setTimeout(() => {
+      void fetchSynthesizeStatus();
+    }, SYNTHESIZE_STATUS_POLL_MS);
+    return () => window.clearTimeout(timer);
+  }, [synthesizeStatus, fetchSynthesizeStatus]);
 
   // A4 — expand/collapse state for GRUPPI AUTOMATICI (component-local, default collapsed).
   const [groupsExpanded, setGroupsExpanded] = useState(false);

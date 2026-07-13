@@ -36,6 +36,8 @@ vault/
 # D5 (v0.4): committed Playwright PNG screenshots ARE tracked; transient capture junk is not.
 docs/screens/*
 !docs/screens/*.png
+!docs/screens/v1.6.0/
+!docs/screens/v1.6.0/*.png
 
 # Playwright test output (transient — never committed)
 /frontend/playwright-report/

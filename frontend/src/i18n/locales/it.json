@@ -60,6 +60,7 @@
     "cancelRun": "Annulla esecuzione",
     "toastCancelError": "Annullamento fallito: {{detail}}",
     "pagesCreated": "pagine create",
+    "typeDistribution": "Tipi di pagina generati",
     "cost": "Costo",
     "startedAt": "Avviato",
     "completedAt": "Completato",
@@ -750,6 +751,7 @@
     "noRationale": "Nessuna motivazione fornita",
     "conflictsWith": "In conflitto con",
     "referencedPages": "Pagine correlate",
+    "openPage": "Apri {{title}}",
     "willSearch": "cercherà",
     "create": "Crea",
     "creating": "Creazione…",
@@ -777,6 +779,31 @@
     "tabPending": "In attesa",
     "tabResolved": "Risolti",
     "tabDismissed": "Ignorati",
+    "statusTabsAria": "Stato della coda di revisione",
+    "pendingCount": "{{count}} in attesa",
+    "selectItem": "Seleziona {{title}}",
+    "filters": {
+      "itemType": "Tipo di proposta",
+      "origin": "Origine",
+      "pageType": "Tipo pagina proposto",
+      "all": "Tutti",
+      "clear": "Azzera filtri"
+    },
+    "origin": {
+      "rule": "Regola",
+      "ai": "AI",
+      "corpus": "Corpus",
+      "system": "Sistema",
+      "lint": "Controllo",
+      "legacy": "Precedente"
+    },
+    "proposedType": "Proposto",
+    "createdType": "Creato come",
+    "queryQuality": {
+      "absent": "Nessuna query",
+      "titleOnly": "Query basata sul titolo",
+      "contextual": "Query contestuali"
+    },
     "statusBadge": {
       "auto_resolved": "Auto-risolto",
       "created": "Creato",
@@ -788,6 +815,8 @@
     "viewCreatedPage": "Vedi pagina",
     "deepResearchPanel": {
       "panelTitle": "Ricerca Profonda",
+      "open": "Apri attività di ricerca",
+      "close": "Chiudi attività di ricerca",
       "topicPlaceholder": "Inserisci un argomento di ricerca…",
       "startBtn": "Avvia",
       "starting": "Avvio…",
@@ -807,7 +836,8 @@
       "concept": "concetto",
       "source": "sorgente",
       "synthesis": "sintesi",
-      "comparison": "confronto"
+      "comparison": "confronto",
+      "query": "query"
     }
   },
   "cascadeDelete": {
@@ -1605,7 +1635,12 @@
       "ariaLabel": "Avviso generazione sintesi/confronti",
       "message": "Genera pagine di sintesi e confronto trasversali dai cluster di entità/concetti",
       "messageLastRun": "Ultimo run: {{synthesis}} sintesi + {{comparison}} confronto/i scritti, {{proposed}} proposti alla Review",
+      "duplicatesSkipped": "duplicati saltati",
+      "untaggedSkipped": "senza tag saltati",
+      "maxCandidates": "limite candidati",
+      "mode": "modalità",
       "cta": "Genera ora",
+      "reviewOnly": "Solo proposte",
       "running": "Avvio…",
       "done": "Avviato"
     }

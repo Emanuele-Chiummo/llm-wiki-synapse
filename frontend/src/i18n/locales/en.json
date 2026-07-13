@@ -60,6 +60,7 @@
     "cancelRun": "Cancel run",
     "toastCancelError": "Cancel failed: {{detail}}",
     "pagesCreated": "pages created",
+    "typeDistribution": "Generated page types",
     "cost": "Cost",
     "startedAt": "Started",
     "completedAt": "Completed",
@@ -750,6 +751,7 @@
     "noRationale": "No rationale provided",
     "conflictsWith": "Conflicts with",
     "referencedPages": "Related pages",
+    "openPage": "Open {{title}}",
     "willSearch": "will search",
     "create": "Create",
     "creating": "Creating…",
@@ -777,6 +779,31 @@
     "tabPending": "Pending",
     "tabResolved": "Resolved",
     "tabDismissed": "Dismissed",
+    "statusTabsAria": "Review queue status",
+    "pendingCount": "{{count}} pending",
+    "selectItem": "Select {{title}}",
+    "filters": {
+      "itemType": "Proposal type",
+      "origin": "Origin",
+      "pageType": "Proposed page type",
+      "all": "All",
+      "clear": "Clear filters"
+    },
+    "origin": {
+      "rule": "Rule",
+      "ai": "AI",
+      "corpus": "Corpus",
+      "system": "System",
+      "lint": "Lint",
+      "legacy": "Legacy"
+    },
+    "proposedType": "Proposed",
+    "createdType": "Created as",
+    "queryQuality": {
+      "absent": "No queries",
+      "titleOnly": "Title-only query",
+      "contextual": "Contextual queries"
+    },
     "statusBadge": {
       "auto_resolved": "Auto-resolved",
       "created": "Created",
@@ -788,6 +815,8 @@
     "viewCreatedPage": "View page",
     "deepResearchPanel": {
       "panelTitle": "Deep Research",
+      "open": "Open research tasks",
+      "close": "Close research tasks",
       "topicPlaceholder": "Enter a research topic…",
       "startBtn": "Start",
       "starting": "Starting…",
@@ -807,7 +836,8 @@
       "concept": "concept",
       "source": "source",
       "synthesis": "synthesis",
-      "comparison": "comparison"
+      "comparison": "comparison",
+      "query": "query"
     }
   },
   "cascadeDelete": {
@@ -1605,7 +1635,12 @@
       "ariaLabel": "Synthesis/comparison generation nudge",
       "message": "Generate cross-cutting synthesis and comparison pages from clustered entities/concepts",
       "messageLastRun": "Last run: {{synthesis}} synthesis + {{comparison}} comparison page(s) written, {{proposed}} proposed to Review",
+      "duplicatesSkipped": "duplicates skipped",
+      "untaggedSkipped": "untagged skipped",
+      "maxCandidates": "candidate limit",
+      "mode": "mode",
       "cta": "Generate now",
+      "reviewOnly": "Propose only",
       "running": "Starting…",
       "done": "Started"
     }

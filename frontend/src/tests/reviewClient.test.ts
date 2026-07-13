@@ -130,6 +130,40 @@ describe("reviewClient — fetchReviewQueue", () => {
     expect(first.rationale).toBeTruthy();
     expect("pre_generated_query" in first).toBe(false);
   });
+
+  it("serializes v1.6 item type, origin, and proposed page type filters", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchReviewQueue({
+      vaultId: "default",
+      itemType: "suggestion",
+      proposalOrigin: "corpus",
+      proposedPageType: "comparison",
+    });
+
+    const url = new URL(fetchMock.mock.calls[0]?.[0] as string, "http://localhost");
+    expect(url.searchParams.get("item_type")).toBe("suggestion");
+    expect(url.searchParams.get("proposal_origin")).toBe("corpus");
+    expect(url.searchParams.get("proposed_page_type")).toBe("comparison");
+  });
+
+  it("omits empty v1.6 filters instead of sending blank query params", async () => {
+    const fetchMock = mockFetch({ items: [], total: 0, limit: 50, offset: 0 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchReviewQueue({
+      vaultId: "default",
+      itemType: null,
+      proposalOrigin: null,
+      proposedPageType: null,
+    });
+
+    const url = new URL(fetchMock.mock.calls[0]?.[0] as string, "http://localhost");
+    expect(url.searchParams.has("item_type")).toBe(false);
+    expect(url.searchParams.has("proposal_origin")).toBe(false);
+    expect(url.searchParams.has("proposed_page_type")).toBe(false);
+  });
 });
 
 // ─── createReviewItem ─────────────────────────────────────────────────────────

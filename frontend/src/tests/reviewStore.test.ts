@@ -82,6 +82,11 @@ beforeEach(() => {
     loading: false,
     error: null,
     activeTab: "pending",
+    filters: {
+      itemType: null,
+      proposalOrigin: null,
+      proposedPageType: null,
+    },
     selectedIds: new Set<string>(),
     actionInFlight: {},
     actionError: {},
@@ -94,6 +99,99 @@ beforeEach(() => {
     bulkError: null,
   });
   vi.clearAllMocks();
+});
+
+// ─── v1.6 server-side filters ────────────────────────────────────────────────
+
+describe("reviewStore — v1.6 server-side filters", () => {
+  it("refetches from offset zero with item type, origin, and proposed page type", async () => {
+    useReviewStore.setState({
+      items: [makeItem("old")],
+      total: 1,
+      offset: 50,
+      selectedIds: new Set(["old"]),
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(makeQueue([]));
+
+    await useReviewStore.getState().setFilters(
+      {
+        itemType: "suggestion",
+        proposalOrigin: "ai",
+        proposedPageType: "query",
+      },
+      "default",
+    );
+
+    expect(reviewClient.fetchReviewQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "pending",
+        itemType: "suggestion",
+        proposalOrigin: "ai",
+        proposedPageType: "query",
+        offset: 0,
+      }),
+    );
+    const state = useReviewStore.getState();
+    expect(state.filters).toEqual({
+      itemType: "suggestion",
+      proposalOrigin: "ai",
+      proposedPageType: "query",
+    });
+    expect(state.offset).toBe(0);
+    expect(state.selectedIds.size).toBe(0);
+  });
+
+  it("preserves active filters when loading the next page", async () => {
+    useReviewStore.setState({
+      items: [makeItem("1")],
+      total: 2,
+      offset: 0,
+      filters: {
+        itemType: null,
+        proposalOrigin: "corpus",
+        proposedPageType: "synthesis",
+      },
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(
+      makeQueue([makeItem("2")], 2),
+    );
+
+    await useReviewStore.getState().fetchMore("default");
+
+    expect(reviewClient.fetchReviewQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        proposalOrigin: "corpus",
+        proposedPageType: "synthesis",
+        offset: 50,
+      }),
+    );
+  });
+
+  it("clears every filter and refetches the queue", async () => {
+    useReviewStore.setState({
+      filters: {
+        itemType: "duplicate",
+        proposalOrigin: "rule",
+        proposedPageType: "entity",
+      },
+    });
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(makeQueue([]));
+
+    await useReviewStore.getState().clearFilters("default");
+
+    expect(useReviewStore.getState().filters).toEqual({
+      itemType: null,
+      proposalOrigin: null,
+      proposedPageType: null,
+    });
+    expect(reviewClient.fetchReviewQueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemType: null,
+        proposalOrigin: null,
+        proposedPageType: null,
+      }),
+    );
+  });
 });
 
 // ─── fetchFresh ───────────────────────────────────────────────────────────────

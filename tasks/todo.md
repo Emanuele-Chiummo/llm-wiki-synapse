@@ -1,0 +1,57 @@
+# Tasks — Synapse 1.6.0
+
+## Planning and architecture
+
+- [x] Record 1.6.0 functional scope and acceptance criteria.
+- [x] Create dependency-aware implementation plan.
+- [x] Accept ADR-0073/0074 and supersede incompatible ADR-0067 generation decisions.
+- [x] Freeze additive DB/API contracts.
+
+## F3 — direct generation
+
+- [x] Add red contract tests for all six page types and grounding rules.
+- [x] Update shared analyze/generate/delegated prompt policy.
+- [x] Prove orchestrated persistence of query/comparison/synthesis.
+- [x] Prove delegated persistence through the existing MCP writer.
+- [x] Enforce configured delegated `max_turns` and token-budget stop.
+
+## F9 — review integrity
+
+- [x] Add delegated raw-source + bounded-written-page context tests.
+- [x] Split rule and detailed proposal budgets; retain a global cap.
+- [x] Improve deterministic missing-link search queries.
+- [x] Add `proposal_origin` migration/model/schema/backfill.
+- [x] Add composable review list filters.
+- [x] Expose created effective page type.
+- [x] Harden proposed-to-effective page-type resolution.
+- [x] Add backend regression and API tests.
+
+## F18 — corpus synthesis
+
+- [x] Reject untagged and cross-domain automatic clusters.
+- [x] Create stable kind/member cluster signatures.
+- [x] Persist signatures through indexed page metadata + Obsidian-valid frontmatter.
+- [x] Skip existing signatures across repeated and forced runs.
+- [x] Cap candidate evaluation independently from pages written.
+- [x] Add non-destructive legacy duplicate audit/report.
+- [x] Expose diagnostic status counters.
+- [x] Add idempotency/domain/audit tests.
+
+## Interface
+
+- [x] Add review origin/proposed/effective type display and filters.
+- [x] Add query-quality states and `query` i18n/type parity.
+- [x] Make Deep Research panel responsive on mobile/tablet.
+- [x] Poll corpus runs to terminal state and show diagnostics.
+- [x] Add frontend tests and EN/IT parity coverage.
+- [x] Verify keyboard, focus, accessible names and narrow viewport behavior.
+
+## Release
+
+- [x] Bump every version surface to 1.6.0.
+- [x] Regenerate OpenAPI and any affected architecture docs.
+- [x] Update changelog and write 1.6.0 release notes/operator guidance.
+- [x] Run focused and full backend/frontend quality gates.
+- [x] Capture browser screenshots and console/network evidence.
+- [x] Run final multi-axis review and resolve all release-blocking findings.
+- [x] Prepare intentional commits on `codex/release-1.6.0-generation-parity`.

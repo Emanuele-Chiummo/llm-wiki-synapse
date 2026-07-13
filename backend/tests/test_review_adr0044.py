@@ -54,6 +54,7 @@ def _build_meta() -> MetaData:
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
         Column("tags", Text, nullable=True),
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -72,6 +73,7 @@ def _build_meta() -> MetaData:
         Column("id", String(36), primary_key=True),
         Column("vault_id", String, nullable=False),
         Column("item_type", Text, nullable=False),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
         Column("page_id", String(36), nullable=True),
         Column("source_page_id", String(36), nullable=True),
@@ -208,6 +210,50 @@ async def test_A_reingest_same_proposal_one_pending_row(env: dict[str, Any]) -> 
         content_key=key,
     )
     assert await _count(env) == 1
+
+
+async def test_A_proposal_origin_defaults_to_legacy_and_rejects_unknown(
+    env: dict[str, Any],
+) -> None:
+    """The public enqueue seam is backward-compatible but accepts only ADR-0073 origins."""
+    from app.ops.review import enqueue_review
+
+    legacy = await enqueue_review(
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Legacy caller",
+    )
+    assert legacy.proposal_origin == "legacy"
+
+    with pytest.raises(ValueError, match="proposal_origin"):
+        await enqueue_review(
+            vault_id="test-vault",
+            item_type="suggestion",
+            proposed_title="Bad origin",
+            proposal_origin="unknown",
+        )
+
+
+async def test_A_pending_upsert_refreshes_proposal_origin(env: dict[str, Any]) -> None:
+    """A repeated pending proposal reflects the current, explicit producer lane."""
+    from app.ops.review import _content_key, enqueue_review
+
+    key = _content_key(vault_id="test-vault", item_type="suggestion", proposed_title="Origin")
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Origin",
+        content_key=key,
+        proposal_origin="rule",
+    )
+    refreshed = await enqueue_review(
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Origin",
+        content_key=key,
+        proposal_origin="ai",
+    )
+    assert refreshed.proposal_origin == "ai"
 
 
 async def test_A_pending_rationale_refreshes_keeping_id(env: dict[str, Any]) -> None:
@@ -364,6 +410,55 @@ def test_B_parse_proposals_caps_and_drops(monkeypatch: pytest.MonkeyPatch) -> No
     assert proposals[0].search_queries == ["q1", "q2", "q3"]
 
 
+def test_B_parse_proposals_drops_invalid_and_source_page_types() -> None:
+    """Provider page-type hints are untrusted boundary input; invalid/source degrade to None."""
+    import json
+
+    from app.ops.review import _parse_proposals
+
+    raw = json.dumps(
+        {
+            "proposals": [
+                {
+                    "type": "suggestion",
+                    "proposed_title": "Invalid",
+                    "proposed_page_type": "made-up",
+                },
+                {
+                    "type": "suggestion",
+                    "proposed_title": "Source",
+                    "proposed_page_type": "source",
+                },
+                {
+                    "type": "suggestion",
+                    "proposed_title": "Valid",
+                    "proposed_page_type": "query",
+                },
+            ]
+        }
+    )
+
+    proposals = _parse_proposals(raw)
+    assert [p.proposed_page_type for p in proposals] == [None, None, "query"]
+
+
+def test_B_rule_missing_page_queries_include_referrer_and_source_context() -> None:
+    """A dangling-link proposal must be more actionable than a bare-title search."""
+    from app.ops.review import _rule_missing_page_search_queries
+
+    queries = _rule_missing_page_search_queries(
+        "Vector Stores",
+        referrer_title="RAG Architecture",
+        origin_source="raw/sources/platform_decisions.md",
+    )
+
+    assert queries[0] == "Vector Stores"
+    assert len(queries) <= 3
+    assert any("RAG Architecture" in query for query in queries[1:])
+    assert any("platform decisions" in query for query in queries[1:])
+    assert queries != ["Vector Stores"]
+
+
 async def test_B_referenced_titles_resolve_invented_dropped(
     env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -418,7 +513,8 @@ async def test_B_referenced_titles_resolve_invented_dropped(
         row = (
             await sess.execute(
                 sa_text(
-                    "SELECT referenced_page_ids, search_queries FROM review_items "
+                    "SELECT referenced_page_ids, search_queries, proposal_origin "
+                    "FROM review_items "
                     "WHERE proposed_title='Follow-up'"
                 )
             )
@@ -429,6 +525,15 @@ async def test_B_referenced_titles_resolve_invented_dropped(
     queries = _json.loads(row[1]) if row[1] else []
     assert ref_ids == [real_id]  # only the real page resolved; invented dropped
     assert queries == ["seed query"]
+    assert row[2] == "ai"
+
+    async with env["session_factory"]() as sess:
+        rule_origin = (
+            await sess.execute(
+                sa_text("SELECT proposal_origin FROM review_items WHERE proposed_title='x'")
+            )
+        ).scalar_one()
+    assert rule_origin == "rule"
 
 
 async def test_B_single_provider_call(env: dict[str, Any], monkeypatch: pytest.MonkeyPatch) -> None:
@@ -645,6 +750,43 @@ async def test_C_status_filter_partitions(client: AsyncClient, env: dict[str, An
     assert default["total"] == 2
 
 
+async def test_C_list_queue_accepts_composable_proposal_filters(env: dict[str, Any]) -> None:
+    """Ops callers can combine type, producer and proposed page-shape filters."""
+    from app.ops.review import enqueue_review, list_queue
+
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="AI comparison",
+        proposed_page_type="comparison",
+        proposal_origin="ai",
+    )
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="suggestion",
+        proposed_title="Rule concept",
+        proposed_page_type="concept",
+        proposal_origin="rule",
+    )
+    await enqueue_review(
+        vault_id="test-vault",
+        item_type="missing-page",
+        proposed_title="AI query",
+        proposed_page_type="query",
+        proposal_origin="ai",
+    )
+
+    page = await list_queue(
+        "test-vault",
+        status="all",
+        item_type="suggestion",
+        proposal_origin="ai",
+        proposed_page_type="comparison",
+    )
+    assert page.total == 1
+    assert [item.proposed_title for item in page.items] == ["AI comparison"]
+
+
 async def test_C_projection_carries_new_fields(client: AsyncClient, env: dict[str, Any]) -> None:
     """The GET projection carries content_key, referenced_page_ids, referenced_pages, queries."""
     import json
@@ -696,6 +838,7 @@ async def test_E_delegated_writes_emit_proposals(
         seen["called"] = True
         seen["written_pages"] = kwargs["written_pages"]
         seen["analysis"] = kwargs["analysis"]
+        seen["source_text"] = kwargs["source_text"]
 
     monkeypatch.setattr("app.ops.review.propose_reviews", _fake_propose)
 
@@ -703,12 +846,12 @@ async def test_E_delegated_writes_emit_proposals(
         vault_id="test-vault",
         written_page_ids=[written],
         origin_source="raw/s.md",
+        source_text="UNIQUE-DELEGATED-RAW-SOURCE",
     )
     assert seen.get("called") is True
     assert len(seen["written_pages"]) == 1
-    # synthesized Analysis is valid (≥1 topic + ≥1 suggested_page)
-    assert seen["analysis"].topics
-    assert seen["analysis"].suggested_pages
+    assert seen["analysis"] is None
+    assert seen["source_text"] == "UNIQUE-DELEGATED-RAW-SOURCE"
 
 
 async def test_E_delegated_no_writes_no_call(
@@ -725,7 +868,10 @@ async def test_E_delegated_no_writes_no_call(
     monkeypatch.setattr("app.ops.review.propose_reviews", _fake_propose)
 
     await orch._propose_reviews_for_delegated(
-        vault_id="test-vault", written_page_ids=[], origin_source="raw/s.md"
+        vault_id="test-vault",
+        written_page_ids=[],
+        origin_source="raw/s.md",
+        source_text="raw",
     )
     assert called["n"] == 0
 

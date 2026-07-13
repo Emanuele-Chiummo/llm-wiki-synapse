@@ -67,6 +67,7 @@ from app.ingest.schemas import (
     OVERVIEW_TYPE,
     Analysis,
     PageType,
+    WikiFrontmatter,
     WikiPage,
     type_subdir,
 )
@@ -250,6 +251,28 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     # absent → NULL). Kept tolerant/mechanical here, exactly like sources.
     _tags_raw = meta.get("tags")
     _tags: list[str] | None = [str(t) for t in _tags_raw] if isinstance(_tags_raw, list) else None
+    _generation_key_raw = meta.get("synapse_generation_key")
+    _generation_key = (
+        str(_generation_key_raw).strip().lower() if _generation_key_raw is not None else None
+    )
+    if _generation_key is not None:
+        try:
+            # Mechanical ingest remains tolerant of arbitrary user frontmatter, but the
+            # reserved corpus identity must cross the same strict I5 boundary as generated
+            # pages before it can participate in the live unique index.
+            if _type is None:
+                raise ValueError("generation key requires a page type")
+            _generation_key = WikiFrontmatter(
+                type=PageType(_type),
+                title=_title or path.stem,
+                synapse_generation_key=_generation_key,
+            ).synapse_generation_key
+        except (TypeError, ValueError):
+            logger.warning(
+                "Ignoring invalid synapse_generation_key during raw ingest: file=%s",
+                rel,
+            )
+            _generation_key = None
     await persist_metadata(
         page_id=page_id,
         vault_id=settings.vault_id,
@@ -258,6 +281,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
         page_type=_type,
         sources=_sources,
         tags=_tags,
+        generation_key=_generation_key,
         content_hash=current_hash,
         source_mtime_ns=current_mtime_ns,
     )
@@ -454,6 +478,8 @@ async def run_ingest_pipeline(
 
     started_at = datetime.now(UTC)
     pages: list[WikiPage] = []
+    written_pages: list[Page] = []
+    delegated_page_ids: list[str] = []
     analysis: Analysis | None = None
     iterations = 0
     delegated_pages_written = 0
@@ -512,10 +538,8 @@ async def run_ingest_pipeline(
             ingest_queue.set_route(run_id, route)
             # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
             ingest_queue.set_phase(run_id, "agent running")
-            # nashsu/llm_wiki page-type parity: append the SAME restricted generation scaffold the
-            # orchestrated backends get via GENERATE_SYSTEM to the CLI agent's system_prompt, so the
-            # delegated route also produces exactly one source page + entity/concept pages and
-            # avoids auto-generating synthesis/comparison pages (review-only). This is a PROMPT
+            # Append the SAME source-grounded six-type generation scaffold the orchestrated
+            # backends get via GENERATE_SYSTEM to the CLI agent's system_prompt. This is a PROMPT
             # instruction, not a deterministic post-write guarantee — see the CLI-route gap in
             # ADR-0063 §7 (_ensure_source_summary is NOT wired into the delegated write path; I6
             # forbids post-processing the agent's own MCP writes here).
@@ -637,6 +661,7 @@ async def run_ingest_pipeline(
                     vault_id=settings.vault_id,
                     written_page_ids=delegated_page_ids,
                     origin_source=origin_source,
+                    source_text=source_text,
                 )
             except Exception as _f9d_exc:  # noqa: BLE001
                 logger.warning(
@@ -713,7 +738,6 @@ async def run_ingest_pipeline(
             # language guard dropped everything).
             pages = _ensure_source_summary(pages, analysis, origin_source)
             ingest_queue.set_phase(run_id, "writing")
-            written_pages: list[Page] = []
             for page in pages:
                 # Feature 2 (ADR-0063 §4): pass the run's provider so write_wiki_page can LLM-merge
                 # old+new bodies when the target page already exists (bounded, degrade-safe, I6/I7).
@@ -941,6 +965,11 @@ async def run_ingest_pipeline(
     # Actual pages persisted this run (BUG A2): the orchestrated branch writes len(pages)
     # (post source-summary guarantee); the delegated branch reports its own count.
     pages_written = delegated_pages_written if caps.supports_agentic_loop else len(pages)
+    page_type_counts = (
+        await _page_type_counts_for_ids(delegated_page_ids)
+        if caps.supports_agentic_loop
+        else _page_type_counts(written_pages)
+    )
 
     # ── Finalize accumulator → ingest_runs row UPDATE (I7, ADR-0008 §4 / ADR-0046 §2) ──────
     total_tokens = accumulator.total_tokens
@@ -960,6 +989,7 @@ async def run_ingest_pipeline(
         cost_anomaly=cost_anomaly,
         finished_at=finished_at,
         pages_created=pages_written,
+        page_type_counts=page_type_counts,
     )
 
     # ── ADR-0046: notify queue manager of terminal success ────────────────────
@@ -1114,6 +1144,7 @@ async def _delegate_ingest(
     source_text: str,
     origin_source: str,
     system_prompt: str | None = None,
+    generation_key: str | None = None,
 ) -> tuple[bool, int, list[str]]:
     """
     Delegate the whole ingest to an agentic provider (CLI). The provider runs its own bounded
@@ -1155,7 +1186,13 @@ async def _delegate_ingest(
         # page written during this delegated run — server-side traceability (K6/F3/F13).
         # The bound value wins over whatever the CLI agent passes in the tool call, so the
         # raw file path is never lost regardless of agent behaviour (Option B, ADR-0010 §2).
-        _mcp_server = build_sdk_mcp_server(origin_source=origin_source)
+        if generation_key is None:
+            _mcp_server = build_sdk_mcp_server(origin_source=origin_source)
+        else:
+            _mcp_server = build_sdk_mcp_server(
+                origin_source=origin_source,
+                generation_key=generation_key,
+            )
     except Exception as _mcp_exc:  # noqa: BLE001
         logger.warning("MCP server unavailable; delegate_ingest will run without it: %s", _mcp_exc)
 
@@ -1308,14 +1345,16 @@ async def _propose_reviews_for_delegated(
     vault_id: str,
     written_page_ids: list[str],
     origin_source: str,
+    source_text: str,
 ) -> None:
     """
     Drive propose_reviews for the delegated (CLI) route (ADR-0044 §4.2, Phase E).
 
-    Loads the Page rows the CLI agent wrote through MCP write_page (recorded ids), synthesizes a
-    minimal Analysis from their titles, and calls the SAME `propose_reviews(...)` seam the
-    orchestrated route uses — so the rule-based dangling-link path + the single bounded LLM
-    proposal call both run on the written set. NO provider-type branch (I6).
+    Loads ONLY the Page rows the CLI agent wrote through MCP write_page (recorded ids) and calls
+    the SAME `propose_reviews(...)` seam the orchestrated route uses. The delegated agent owns its
+    private reasoning, so analysis=None is explicit — no title-only Analysis is fabricated. The raw
+    source is forwarded and bounded by the shared review prompt builder; written-page excerpts are
+    likewise loaded from these exact ids and bounded there. NO provider-type branch (I6).
 
     Empty recorded set → returns immediately (propose_reviews' own `if not written_pages` guard
     would early-return anyway; we short-circuit here to avoid even loading). Zero cost.
@@ -1332,52 +1371,40 @@ async def _propose_reviews_for_delegated(
     from sqlalchemy import String as _SAString
     from sqlalchemy import cast, select
 
-    from app.ingest.schemas import Analysis, PageType, SuggestedPage
     from app.models import Page
     from app.ops.review import propose_reviews as _propose_reviews
 
     async with get_session() as session:
-        rows = list(
+        raw_rows = list(
             (
                 await session.execute(
-                    select(Page).where(
+                    select(Page.id, Page.title, Page.page_type, Page.file_path).where(
                         cast(Page.id, _SAString).in_([str(i) for i in written_page_ids]),
                         Page.deleted_at.is_(None),
                     )
                 )
-            )
-            .scalars()
-            .all()
+            ).all()
         )
-        for r in rows:
-            session.expunge(r)
+
+    # Keep the delegated review hand-off deliberately narrow: review only needs these four
+    # fields. Selecting a whole ORM row couples this seam to every future pages-table column.
+    from types import SimpleNamespace
+
+    rows = [
+        SimpleNamespace(id=r.id, title=r.title, page_type=r.page_type, file_path=r.file_path)
+        for r in raw_rows
+    ]
 
     if not rows:
         logger.debug("delegated propose_reviews: recorded ids resolved to no live pages")
         return
 
-    # Synthesize a minimal Analysis from the written titles. No suggested_pages (the rule-based
-    # dangling-link path + the LLM path run on the written set; ADR-0044 §4.2). Analysis requires
-    # ≥1 topic and ≥1 suggested_page by schema, so we seed both from the written titles — these
-    # are already-written pages, so they never re-propose themselves (the not-written filter
-    # drops them). language = the vault language (settings.overview_language) so the CLI/delegated
-    # route's reviews come out localised too, not English (v1.5.2 — the propose prompt is now
-    # language-aware).
-    titles = [(r.title or "").strip() for r in rows if (r.title or "").strip()]
-    synthesized = Analysis(
-        topics=titles[:8] or ["ingest"],
-        entities=[],
-        language=(getattr(settings, "overview_language", "") or "en"),
-        suggested_pages=[SuggestedPage(title=t, type=PageType.CONCEPT) for t in titles[:1]]
-        or [SuggestedPage(title="(delegated ingest)", type=PageType.CONCEPT)],
-        summary=None,
-    )
-
     await _propose_reviews(
         vault_id=vault_id,
-        analysis=synthesized,
-        written_pages=rows,
+        analysis=None,
+        written_pages=rows,  # type: ignore[arg-type]  # exact bounded Page projection
         origin_source=origin_source,
+        source_text=source_text,
     )
 
 
@@ -1756,6 +1783,13 @@ async def write_wiki_page(
     page_type = page.type.value
     subdir = type_subdir(page.type)
     slug = _slugify(page.title)
+    generation_key = page.frontmatter.synapse_generation_key
+    # ADR-0074: corpus-derived pages are addressed by their stable member-signature, not by a
+    # provider-authored title. A force run may legitimately rename the page; the key therefore
+    # owns both the DB identity and a deterministic path that remains unchanged across reruns.
+    if generation_key is not None:
+        digest = generation_key.rsplit(":", 1)[1]
+        slug = f"{page_type}-{digest[:20]}"
     # D3 (ADR-0063 §9, nashsu/llm_wiki parity — source-identity.ts:39-48): a SOURCE page lands at
     # wiki/sources/<stem>.md, where <stem> is the origin source's identity stem (the raw filename),
     # NOT the title slug — so one raw file maps deterministically to one source page (`Source:
@@ -1793,15 +1827,30 @@ async def write_wiki_page(
     # existing.id. deleted_at IS NULL → only adopt a live row's id (a soft-deleted same-path row
     # does not collide with the partial _live index; it resurrects only on the file-ingest path).
     async with get_session() as _id_sess:
-        existing_page = (
-            await _id_sess.execute(
-                select(Page).where(
-                    Page.vault_id == settings.vault_id,
-                    Page.file_path == rel_path,
-                    Page.deleted_at.is_(None),
+        existing_page = None
+        if generation_key is not None:
+            existing_page = (
+                await _id_sess.execute(
+                    select(Page).where(
+                        Page.vault_id == settings.vault_id,
+                        Page.generation_key == generation_key,
+                        Page.deleted_at.is_(None),
+                    )
                 )
-            )
-        ).scalar_one_or_none()
+            ).scalar_one_or_none()
+            if existing_page is not None:
+                rel_path = existing_page.file_path
+                abs_path = settings.vault_root / rel_path
+        if existing_page is None:
+            existing_page = (
+                await _id_sess.execute(
+                    select(Page).where(
+                        Page.vault_id == settings.vault_id,
+                        Page.file_path == rel_path,
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            ).scalar_one_or_none()
     page_id = existing_page.id if existing_page is not None else uuid.uuid4()
 
     sources = list(page.frontmatter.sources)
@@ -1888,6 +1937,8 @@ async def write_wiki_page(
         "created": _created,
         "updated": _today,
     }
+    if generation_key is not None:
+        ordered["synapse_generation_key"] = generation_key
     if tags:
         ordered["tags"] = tags
     if related:
@@ -1915,6 +1966,7 @@ async def write_wiki_page(
         page_type=page_type,
         sources=sources,
         tags=tags or None,
+        generation_key=generation_key,
         content_hash=_sha256(file_text.encode("utf-8")),
         source_mtime_ns=0,
     )
@@ -3073,6 +3125,41 @@ def _derive_run_status(*, converged: bool, error_message: str | None) -> str:
     return "completed"
 
 
+def _page_type_counts(pages: list[Page]) -> dict[str, int]:
+    """Return an explicit six-type distribution for one successful generation run."""
+    counts = {page_type.value: 0 for page_type in PageType}
+    for page in pages:
+        page_type = getattr(page, "page_type", None)
+        if page_type in counts:
+            counts[page_type] += 1
+    return counts
+
+
+async def _page_type_counts_for_ids(page_ids: list[str]) -> dict[str, int]:
+    """Resolve delegated MCP write ids to the same six-type distribution, bounded to this run."""
+    if not page_ids:
+        return {page_type.value: 0 for page_type in PageType}
+
+    from sqlalchemy import String as SAString
+    from sqlalchemy import cast, select
+
+    async with get_session() as session:
+        rows = (
+            await session.execute(
+                select(Page.page_type).where(
+                    Page.vault_id == settings.vault_id,
+                    cast(Page.id, SAString).in_([str(page_id) for page_id in page_ids]),
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+    counts = {page_type.value: 0 for page_type in PageType}
+    for page_type in rows:
+        if page_type in counts:
+            counts[page_type] += 1
+    return counts
+
+
 async def _open_ingest_run(
     *,
     origin_source: str,
@@ -3136,6 +3223,7 @@ async def _finalize_ingest_run(
     cost_anomaly: bool,
     finished_at: datetime,
     pages_created: int,
+    page_type_counts: dict[str, int] | None = None,
     error_message: str | None = None,
     status_override: str | None = None,
 ) -> None:
@@ -3172,6 +3260,7 @@ async def _finalize_ingest_run(
                 cost_anomaly=cost_anomaly,
                 finished_at=finished_at,
                 pages_created=pages_created,
+                page_type_counts=page_type_counts,
                 status=status,
                 error_message=error_message,
             )
@@ -3194,6 +3283,7 @@ async def _write_ingest_run(
     started_at: datetime,
     finished_at: datetime,
     pages_created: int,
+    page_type_counts: dict[str, int] | None = None,
     error_message: str | None = None,
 ) -> None:
     """
@@ -3228,6 +3318,7 @@ async def _write_ingest_run(
                 started_at=started_at,
                 finished_at=finished_at,
                 pages_created=pages_created,
+                page_type_counts=page_type_counts,
                 status=status,
                 error_message=error_message,
             )
@@ -3479,6 +3570,7 @@ async def persist_metadata(
     content_hash: str,
     source_mtime_ns: int,
     tags: list[str] | None = None,
+    generation_key: str | None = None,
 ) -> None:
     """
     Upsert the `pages` row for *page_id* inside a single Postgres transaction.
@@ -3507,6 +3599,7 @@ async def persist_metadata(
                 page_type=page_type,
                 sources=sources,
                 tags=tags,
+                generation_key=generation_key,
                 content_hash=content_hash,
                 source_mtime_ns=source_mtime_ns,
                 qdrant_point_id=page_id,  # == pages.id (ADR-0002)
@@ -3520,6 +3613,11 @@ async def persist_metadata(
             page.page_type = page_type
             page.sources = sources
             page.tags = tags
+            # Preserve a corpus identity through metadata-only re-index operations. The shared
+            # writer and raw frontmatter ingest pass the key when present; ordinary callers omit
+            # it and must never erase an existing indexed identity accidentally.
+            if generation_key is not None:
+                page.generation_key = generation_key
             page.content_hash = content_hash
             page.source_mtime_ns = source_mtime_ns
             page.qdrant_point_id = page_id

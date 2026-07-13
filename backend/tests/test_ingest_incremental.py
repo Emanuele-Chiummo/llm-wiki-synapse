@@ -206,6 +206,7 @@ async def ingest_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),  # JSON stored as text in SQLite
         Column("tags", Text, nullable=True),  # K6 navigation tags (migration 0018)
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -432,6 +433,31 @@ class TestNewFileIngest:
             f"Embedding must be called exactly once per ingest; "
             f"got {calls_after - calls_before} calls"
         )
+
+    async def test_raw_ingest_ignores_noncanonical_reserved_generation_key(
+        self, ingest_env: dict[str, Any]
+    ) -> None:
+        """Untrusted frontmatter cannot enter the reserved corpus identity index."""
+        from app.ingest.orchestrator import ingest_file
+
+        src = ingest_env["sources_dir"] / "invalid_generation_key.md"
+        src.write_text(
+            "---\ntype: concept\ntitle: User page\n"
+            "synapse_generation_key: external:unsafe\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+        rel = str(src.relative_to(ingest_env["vault_root"]))
+
+        await ingest_file(src)
+
+        async with ingest_env["session_factory"]() as session:
+            generation_key = (
+                await session.execute(
+                    sa_text("SELECT generation_key FROM pages WHERE file_path = :file_path"),
+                    {"file_path": rel},
+                )
+            ).scalar_one()
+        assert generation_key is None
 
 
 # ── AC-WATCH-2: unchanged file re-drop → no duplicate ────────────────────────

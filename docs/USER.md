@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Generated: v1.3.11 sprint 14 | 2026-07-07 -->
+<!-- Updated: v1.6.0 generation lifecycle parity | 2026-07-13 -->
 
-> Version: v1.3.11
+> Version: v1.6.0
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -30,8 +30,10 @@ Synapse manages three layers inside a single `vault/` directory:
 | **Wiki pages** | `vault/wiki/` | Synapse generates; you can edit directly |
 | **Rules and purpose** | `vault/schema.md` + `vault/purpose.md` | You set the goal and rules; Synapse respects them |
 
-The `wiki/` folder is a valid **Obsidian vault**. Every page has YAML frontmatter
-(type, title, sources, tags, created, updated), `[[wikilinks]]`, and an
+The `wiki/` folder is a valid **Obsidian vault**. Generated pages use compact YAML frontmatter
+(`type`, `title`, `created`, `updated`, optional `tags`/`related`; corpus pages also carry the
+reserved `synapse_generation_key`). Source provenance remains indexed in Postgres. Pages use
+`[[wikilinks]]` and an
 auto-generated `.obsidian/` configuration. You can open `vault/wiki/` directly in
 the Obsidian app without any conversion or export step.
 
@@ -356,17 +358,19 @@ proposes follow-up work; you decide what to act on.
 
 #### How proposals are generated
 
-After each orchestrated ingest run (API and Local providers), Synapse runs a single
-bounded proposal call. An anti-spam gate suppresses the call on trivial runs: the
-call fires only when the run wrote at least 10 000 characters or at least 4 pages,
-or when concrete signals exist (dangling wikilinks, analysis-proposed pages not yet
-written). Rule-based proposals (missing pages, duplicates) are emitted without any
-LLM call.
+After each ingest run, Synapse runs one bounded proposal pass. This applies to API/Local and CLI
+providers. The delegated CLI path supplies the real source text plus bounded excerpts from only
+the pages written in that run; it does not scan the vault or invent a Stage-1 analysis. Rule-based
+proposals (missing pages, duplicates) are emitted without an LLM call.
 
-> **CLI provider note (ADR-0025 §7):** when the active provider is CLI
-> (`CliAgentProvider`), ingest is fully delegated to the claude-agent-sdk agent loop
-> and the post-ingest proposal stage does not run. If you rely on the review queue
-> for curation, use the API or Local provider for ingest.
+Rules and AI have separate capacity: by default up to 8 rule proposals and 12 AI proposals, with
+20 total after deduplication. A matching AI proposal wins when it carries the richer rationale or
+query context, so missing-link volume cannot starve detailed review suggestions.
+
+Use the filter bar to combine status, item type, proposal origin and proposed page type. Each card
+shows its origin (`rule`, `ai`, `corpus`, `system`, `lint` or migrated `legacy`), proposed type and,
+after Create, the effective type that was actually written. Query badges distinguish absent,
+title-only and contextual search queries before you accept a proposal.
 
 #### Proposal types
 
@@ -398,6 +402,34 @@ After each ingest run and after each Create action, a rule-based sweep closes
 existing page. An optional bounded LLM pass (capped at 8 items, default on) may
 close `suggestion` or `contradiction` items. `confirm` items are never
 auto-resolved.
+
+#### Corpus comparison and synthesis
+
+The Home dashboard offers two explicit corpus actions when at least three eligible pages exist:
+
+- **Generate now** evaluates bounded same-domain clusters and may automatically write
+  high-confidence comparison/synthesis pages.
+- **Propose only** performs the same bounded deterministic evaluation without requiring an
+  inference provider and sends eligible clusters to Review (`origin=corpus`). It never writes a
+  corpus page automatically.
+
+Corpus generation is intentionally conservative. Every member must share a real `domain/*` tag;
+untagged and mixed-domain candidates are skipped and counted. Run bounded domain backfill first if
+the Home diagnostics report many untagged skips. The UI polls only while the operation is active
+and then shows written, proposed, duplicate and untagged counts.
+
+Each new corpus page has a stable identity derived from its kind plus sorted canonical member
+paths. Re-running normally skips an existing identity before any model call. `force=true` may
+regenerate the content but updates the same deterministic file; it does not create a second page.
+
+Operators can inspect legacy duplicates without changing data:
+
+```text
+GET /ops/synthesize/audit?max_pages=500
+```
+
+The report is dry-run only. Synapse 1.6.0 never deletes, merges, renames or backfills legacy pages
+automatically.
 
 ---
 
@@ -461,7 +493,9 @@ Settings → AI behaviour → **Web search**.
 
 The Ingest section (nav label: **Ingest**) is the run-history and cost ledger. Every
 ingest run (triggered by the watcher, an upload, a manual trigger, or a Review Create
-action) appears here. Each row shows provider, pages created, cost, and timing.
+action) appears here. Each row shows provider, pages created, cost, and timing. v1.6.0 also exposes
+an optional per-type count (`entity`, `concept`, `source`, `query`, `synthesis`, `comparison`) in
+the API so generation differences between providers and runs can be diagnosed precisely.
 
 ---
 

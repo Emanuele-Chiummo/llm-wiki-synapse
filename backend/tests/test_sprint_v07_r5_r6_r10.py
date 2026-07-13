@@ -139,7 +139,9 @@ class TestR75SeedQueriesEndToEnd:
                 sa_text(
                     "CREATE TABLE review_items ("
                     "id TEXT PRIMARY KEY, vault_id TEXT NOT NULL, item_type TEXT NOT NULL, "
-                    "status TEXT NOT NULL DEFAULT 'pending', page_id TEXT, source_page_id TEXT, "
+                    "status TEXT NOT NULL DEFAULT 'pending', "
+                    "proposal_origin TEXT NOT NULL DEFAULT 'legacy', "
+                    "page_id TEXT, source_page_id TEXT, "
                     "proposed_title TEXT, proposed_page_type TEXT, proposed_dir TEXT, "
                     "rationale TEXT, content_key TEXT, referenced_page_ids TEXT, "
                     "search_queries TEXT, resolution TEXT, created_page_id TEXT, "

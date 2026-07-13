@@ -66,6 +66,7 @@ erDiagram
         string type "YAML frontmatter 'type', NULL if absent (K6)"
         jsonb sources "YAML frontmatter 'sources[]' as JSONB array, NULL if absent (K6)"
         jsonb tags "YAML frontmatter 'tags[]' as JSONB array, NULL if absent (K6 navigation, nashsu/llm_wiki parity). Mirrors 'sources' storage. Migration 0018."
+        string generation_key "Stable identity for corpus-derived comparison/synthesis pages, mirrored as synapse_generation_key in YAML. NULL for ordinary/legacy pages (ADR-0074, 0031)."
         string content_hash "sha256 hex of raw file bytes — authoritative change signal (ADR-0001)"
         int source_mtime_ns "st_mtime_ns at last confirmed index — cheap fast-path gate (ADR-0001)"
         uuid qdrant_point_id "Qdrant point id == pages.id, explicit to allow deliberate divergence later"
@@ -163,6 +164,7 @@ erDiagram
         string status "Run lifecycle state: running | completed | failed | converged_false. Backfilled from converged for historical rows (ADR-0018 §7)."
         int pages_created "Number of wiki pages persisted during this run. 0 for historical rows, set by orchestrator on new runs (ADR-0018 §7)."
         string error_message "Human-readable error description for failed runs, NULL for completed/running/converged_false rows (ADR-0018 §7)."
+        jsonb page_type_counts "Per-PageType pages created by this run for generation diagnostics, NULL for legacy rows (ADR-0073, migration 0031)."
         string source_path "Relative raw source path (raw/sources/…) the run is ingesting. NULL for historical rows written before migration 0021 (ADR-0046 §1)."
         int retry_count "Times this source has been retried. Enforces MAX_INGEST_RETRIES=3 (I7, ADR-0046 §5). Incremented by the queue manager on each re-dispatch, 0 for the initial attempt."
     }
@@ -225,6 +227,7 @@ erDiagram
         uuid id PK "Row identity"
         string vault_id "Logical vault identifier — existing String (no FK, no vaults table). AQ-v0.5-6, ADR-0034 §3.1"
         string item_type "Proposal type (ADR-0034 §3.1 enum-by-convention, no DB CHECK): missing-page | suggestion | contradiction | duplicate | confirm. Old values (new_page/update_page/deep_research_candidate) are obsolete after migration 0013 left-shifts them to skipped."
+        string proposal_origin "Structured proposal provenance: rule | ai | corpus | system | lint | legacy. Application-validated, legacy is the migration/backward-compatible default (ADR-0073, migration 0031)."
         string status "Lifecycle (ADR-0034 §3.1, ADR-0044 adds dismissed): pending | created | skipped | dismissed | deep_researched | auto_resolved. Defaults 'pending'. (approved is gone, Create produces created.)"
         uuid page_id FK "FK → pages.id, the review TARGET: existing page a contradiction/duplicate conflicts with, or source-context page for missing-page/suggestion. NULL when none applies. (ADR-0034 §3.1 — re-documented column)"
         uuid source_page_id FK "FK → pages.id, the page WHOSE INGEST produced this proposal (provenance). Distinct from page_id (the conflicting/target page). Lets the UI show 'proposed while ingesting X'. ADR-0034 §3.1 ADD."

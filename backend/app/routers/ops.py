@@ -13,9 +13,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys as _sys
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -255,19 +255,28 @@ _synthesize_tasks: set[asyncio.Task[Any]] = set()
 
 
 class SynthesizeRequest(BaseModel):
-    """Request body for POST /ops/synthesize (ADR-0067 D3)."""
+    """Request body for POST /ops/synthesize (ADR-0074)."""
 
     max_pages: int | None = Field(
         default=None,
         ge=1,
         description="Cap on pages auto-written this run (synthesis+comparison; clamped).",
     )
+    max_candidates: int | None = Field(
+        default=None,
+        ge=1,
+        description="Cap on all evaluated clusters, including Review/skip paths (I7).",
+    )
     token_budget: int | None = Field(
         default=None, ge=1, description="Token budget for the run (clamped server-side, I7)."
     )
     force: bool = Field(
         default=False,
-        description="Accepted for endpoint-shape parity; the seeder is already a full re-seed.",
+        description="Regenerate/update the same keyed corpus pages; never create duplicates.",
+    )
+    mode: Literal["auto", "review-only"] = Field(
+        default="auto",
+        description="auto writes high-confidence pages; review-only enqueues eligible clusters.",
     )
 
 
@@ -276,14 +285,19 @@ class SynthesizeStartResponse(BaseModel):
 
     status: str = Field(default="started", description="'started' — synthesize runs in background")
     max_pages: int = Field(description="Effective (clamped) page cap for this run")
+    max_candidates: int = Field(description="Effective total candidate-evaluation cap")
     token_budget: int = Field(description="Effective (clamped) token budget for this run")
     force: bool = Field(description="Echo of the force flag")
+    mode: Literal["auto", "review-only"] = Field(description="Effective run mode")
 
 
 class SynthesizeStatusResponse(BaseModel):
     """GET /ops/synthesize — single-flight state + last completed summary."""
 
     running: bool = Field(description="True while a synthesize run is in flight")
+    current: dict[str, Any] | None = Field(
+        default=None, description="Effective bounds/mode of the active run; null while idle"
+    )
     last_summary: dict[str, Any] | None = Field(
         default=None, description="Summary of the most recent completed run (null if never ran)"
     )
@@ -301,33 +315,45 @@ async def start_synthesize(body: SynthesizeRequest | None = None) -> SynthesizeS
 
     body = body or SynthesizeRequest()
 
-    if _sy.is_running():
+    if not _sy.reserve_run():
         raise HTTPException(
             status_code=409,
             detail="A synthesize run is already running. Poll GET /ops/synthesize.",
         )
 
     mp, tb = _sy.clamp_bounds(body.max_pages, body.token_budget)
+    mc = _sy.clamp_max_candidates(body.max_candidates)
 
     async def _run() -> None:
         try:
             await _sy.run_synthesize(
                 vault_id=settings.vault_id,
                 max_pages=body.max_pages,
+                max_candidates=body.max_candidates,
                 token_budget=body.token_budget,
                 force=body.force,
+                mode=body.mode,
             )
         except (
             Exception
         ) as exc:  # noqa: BLE001 — run_synthesize never raises by contract; belt+braces
             logger.error("synthesize: unhandled error in background run: %s", exc)
 
-    task = asyncio.create_task(_run())
+    try:
+        task = asyncio.create_task(_run())
+    except Exception:
+        _sy.release_reservation()
+        raise
     _synthesize_tasks.add(task)
     task.add_done_callback(_synthesize_tasks.discard)
 
     return SynthesizeStartResponse(
-        status="started", max_pages=mp, token_budget=tb, force=body.force
+        status="started",
+        max_pages=mp,
+        max_candidates=mc,
+        token_budget=tb,
+        force=body.force,
+        mode=body.mode,
     )
 
 
@@ -339,8 +365,23 @@ async def get_synthesize_status() -> SynthesizeStatusResponse:
     last = _sy.get_last_summary()
     return SynthesizeStatusResponse(
         running=_sy.is_running(),
+        current=_sy.get_current(),
         last_summary=last.as_dict() if last is not None else None,
     )
+
+
+@router.get(
+    "/ops/synthesize/audit",
+    response_model=dict[str, Any],
+    summary="Dry-run audit of possible legacy corpus-page duplicates",
+)
+async def audit_synthesize_duplicates(
+    max_pages: int = Query(default=500, ge=1, le=2_000),
+) -> dict[str, Any]:
+    """Read-only ADR-0074 audit; never tags, merges, deletes or rewrites legacy pages."""
+    from app.ops import synthesize as _sy
+
+    return await _sy.audit_legacy_duplicates(settings.vault_id, max_pages=max_pages)
 
 
 # ── POST/GET /ops/backfill-related — ADR-0067 D2 related: + slug-link conversion ──

@@ -28,7 +28,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 // ─── Fake localStorage (Node.js 26 / jsdom compat — same pattern as auth-base.test.ts) ──
 
@@ -346,6 +346,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     id: "rev-001",
     vault_id: "default",
     item_type: "suggestion",
+    proposal_origin: "ai",
     status: "pending",
     proposed_title: "New Entity: Prometheus",
     proposed_page_type: "entity",
@@ -355,6 +356,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     page_title: null,
     source_page_id: null,
     created_page_id: null,
+    created_page_type: null,
     resolution: null,
     deep_research_run_id: null,
     content_key: null,
@@ -368,6 +370,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     id: "rev-002",
     vault_id: "default",
     item_type: "suggestion",
+    proposal_origin: "ai",
     status: "pending",
     proposed_title: "Concept: Rate Limiting",
     proposed_page_type: "concept",
@@ -377,6 +380,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     page_title: null,
     source_page_id: null,
     created_page_id: null,
+    created_page_type: null,
     resolution: null,
     deep_research_run_id: null,
     content_key: null,
@@ -2033,10 +2037,82 @@ describe("HomeDashboard v1.5.3 — SynthesizeNudge (synthesize)", () => {
     await waitFor(() => {
       expect(mockTriggerSynthesize).toHaveBeenCalledTimes(1);
     });
+    expect(mockTriggerSynthesize).toHaveBeenCalledWith({ mode: "auto" });
     await waitFor(() => {
       expect(screen.getByTestId("home-synthesize-cta")).toHaveProperty("disabled", true);
     });
     // Re-fetches status once after triggering (I3-safe single re-check, no polling).
     expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers a provider-free review-only corpus pass", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-synthesize-review-cta")).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("home-synthesize-review-cta"));
+
+    await waitFor(() => {
+      expect(mockTriggerSynthesize).toHaveBeenCalledWith({ mode: "review-only" });
+    });
+  });
+
+  it("renders additive v1.6 corpus quality diagnostics from the last run", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue({
+      running: false,
+      last_summary: {
+        candidates: 12,
+        processed: 4,
+        synthesis_written: 1,
+        comparison_written: 2,
+        pages_written: 3,
+        proposed: 1,
+        skipped: 5,
+        failed: 0,
+        total_cost_usd: 0.08,
+        stopped_reason: "complete",
+        max_pages: 12,
+        token_budget: 16000,
+        force: false,
+        duplicates_skipped: 3,
+        untagged_skipped: 4,
+        max_candidates: 20,
+        mode: "auto-write",
+      },
+    });
+
+    await renderDashboard();
+
+    const diagnostics = screen.getByTestId("home-synthesize-diagnostics");
+    expect(diagnostics.textContent).toContain("3");
+    expect(diagnostics.textContent).toContain("4");
+    expect(diagnostics.textContent).toContain("20");
+    expect(diagnostics.textContent).toContain("auto-write");
+  });
+
+  it("polls corpus status only while a run is active and stops after completion", async () => {
+    vi.useFakeTimers();
+    mockGetSynthesizeStatus
+      .mockResolvedValueOnce({ running: true, last_summary: null })
+      .mockResolvedValueOnce({ running: false, last_summary: null });
+
+    render(<HomeDashboard />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });
