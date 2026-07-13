@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.5.5"
+    "version": "1.5.6"
   },
   "paths": {
     "/sources": {
@@ -2657,6 +2657,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/McpRemoteStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/mcp/remote-write": {
+      "put": {
+        "summary": "Toggle the remote MCP write tools at runtime",
+        "description": "Persists vault_state.remote_mcp_write_enabled for the active vault and refreshes the in-process _mcp_write_flag cache immediately (ADR-0072 \u00a72/\u00a74). Token-floor clamp: if neither a token is configured (DB hash or MCP_AUTH_TOKEN env) nor allow_without_token is set, and enabled=true, the flag is forced to false and clamped=true is returned (HTTP 200). enabled=false always succeeds. Write tools (write_page, resolve_review, trigger_source_rescan) are always listed on the HTTP surface but error at call time when the flag is off (ADR-0072 \u00a73). Same-origin / unauthenticated \u2014 consistent with the rest of the REST API (ADR-0028 / ADR-0072 \u00a74). F17 [ADR-0072].",
+        "operationId": "put_mcp_remote_write_mcp_remote_write_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpRemoteWriteToggleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpRemoteWriteStateResponse"
                 }
               }
             }
@@ -8507,7 +8551,7 @@
           "remote_write_enabled": {
             "type": "boolean",
             "title": "Remote Write Enabled",
-            "description": "Whether write_page is exposed on the HTTP surface (ADR-0029 \u00a72.3). Reflects MCP_REMOTE_WRITE_ENABLED env var (default false). Only meaningful when remote_enabled is true."
+            "description": "Whether write tools (write_page, resolve_review, trigger_source_rescan) are enabled on the HTTP surface (ADR-0029 \u00a72.3, ADR-0072). Reflects the effective runtime flag: vault_state.remote_mcp_write_enabled when non-NULL (DB-wins), else MCP_REMOTE_WRITE_ENABLED env (default false). Toggle via PUT /mcp/remote-write. Only meaningful when remote_enabled is true."
           },
           "token_configured": {
             "type": "boolean",
@@ -8600,6 +8644,48 @@
         ],
         "title": "McpRemoteToggleRequest",
         "description": "Request body for PUT /mcp/remote (ADR-0032 \u00a72.4)."
+      },
+      "McpRemoteWriteStateResponse": {
+        "properties": {
+          "remote_write_enabled": {
+            "type": "boolean",
+            "title": "Remote Write Enabled",
+            "description": "The resulting persisted runtime flag (post-clamp). False when clamped=true."
+          },
+          "token_configured": {
+            "type": "boolean",
+            "title": "Token Configured",
+            "description": "True iff a token is configured (DB hash or env bootstrap \u2014 ADR-0033 \u00a72.1). NEVER contains the token value."
+          },
+          "clamped": {
+            "type": "boolean",
+            "title": "Clamped",
+            "description": "True iff the request asked enabled=true but neither a token is configured nor allow_without_token is set \u2014 the flag was forced to false (token-floor clamp, ADR-0072 \u00a74)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "remote_write_enabled",
+          "token_configured",
+          "clamped"
+        ],
+        "title": "McpRemoteWriteStateResponse",
+        "description": "Response model for PUT /mcp/remote-write (ADR-0072 \u00a74).\n\nAlways returned with HTTP 200 (even when clamped \u2014 the posture is reported truthfully)."
+      },
+      "McpRemoteWriteToggleRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Desired runtime state for the write tools on the HTTP MCP surface."
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "McpRemoteWriteToggleRequest",
+        "description": "Request body for PUT /mcp/remote-write (ADR-0072 \u00a74)."
       },
       "McpToolInfo": {
         "properties": {
