@@ -578,8 +578,13 @@ _web_search_config_cache: _WebSearchConfigCache = _WebSearchConfigCache()
 # ADR-0032 §2.3 stands).
 _http_mcp_asgi_app: ASGIApp | None = None
 
+# path="/" makes the Streamable-HTTP endpoint answer at the MOUNT ROOT, so the
+# public URL is exactly MCP_MOUNT_PATH (/mcp/server) — matching the docs, the UI
+# connection snippet, and GET /mcp/info.mount_path. FastMCP's default (path="/mcp")
+# would have put the real endpoint at /mcp/server/mcp, so a client POSTing to
+# /mcp/server would 404 even with the sub-app mounted (ADR-0033 §2.4).
 _http_mcp_instance = build_http_mcp(write_enabled=settings.mcp_remote_write_enabled)
-_http_mcp_asgi_app = _http_mcp_instance.http_app()
+_http_mcp_asgi_app = _http_mcp_instance.http_app(path="/")
 logger.info(
     "MCP HTTP surface always-mounted (ADR-0033 §2.4): %s, write_enabled=%s",
     MCP_MOUNT_PATH,
@@ -1092,6 +1097,26 @@ def _patched_openapi() -> dict[str, Any]:
 
 
 app.openapi = _patched_openapi  # type: ignore[method-assign]
+
+# ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
+# Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
+# The _BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
+# this sub-app (scoped; REST API unaffected).
+# The gate carries _remote_mcp_flag, _mcp_auth_cache, and the env bootstrap token.
+# No remount on flag changes (ADR-0032 §2.3 — session manager stable).
+# NOTE: restored after the R13-1 router split (2bbe195) dropped this block, which
+# left /mcp/server unmounted → every remote MCP request 404'd while /mcp/info still
+# reported http_enabled=true. The OpenAPI drift gate could not catch it because a
+# Mount() sub-app is not an OpenAPI path.
+if _http_mcp_asgi_app is not None:
+    _guarded_mcp_app = _BearerAuthMiddleware(
+        _http_mcp_asgi_app,
+        settings.mcp_auth_token or "",
+        _remote_mcp_flag,
+        _mcp_auth_cache,
+    )
+    app.mount(MCP_MOUNT_PATH, _guarded_mcp_app)
+    logger.info("MCP HTTP surface mounted at %s (ADR-0033 §2.4 always-mount)", MCP_MOUNT_PATH)
 
 # ── Re-exports for backward-compatible test imports (R13-1) ───────────────────
 # Tests use `from app.main import X` — these ensure nothing breaks.
