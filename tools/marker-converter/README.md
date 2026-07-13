@@ -47,6 +47,39 @@ Then index with the **normal ingest**: the watcher picks up files under `raw/sou
 Performance: ~6 s/page on MPS (table recognition falls back to CPU). Convert per-feature/group,
 not the whole 2500-page book at once (full SAM ≈ 1181 pages).
 
+## Auto mode (large books, `--auto`)
+
+For a big multi-module export where you don't want to hand-write `--module-title` /
+`--feature` / domain-map entries, add `--auto`. It **derives** the module and feature codes
+from the PDF's own bookmark outline (curated map → acronym → slug — e.g. *IT Operations
+Management* → `ITOM`, *Now Assist for ITOM* → `NAFI`) and splits **every** module in the book.
+`--auto` defaults `--file-depth` to **2** → **one file per L2 chapter/group** (override with an
+explicit `--file-depth`). Zero pre-configuration; new books just work.
+
+```bash
+# One file per chapter (L2) for the entire book, auto-derived codes:
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py --auto \
+    --pdf ~/Downloads/servicenow-australia-it-operations-management-enus.pdf \
+    --out ./out-itom            # a staging dir to review before copying into the vault
+
+# Proof one chapter first (fast) with --sections, then run the whole book:
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py --auto \
+    --pdf ~/Downloads/…itom….pdf --sections "Exploring ITOM/OT SU Licensing" --out ./out-itom
+```
+
+> A 5000-page book at ~6 s/page is ~9 h of Marker compute — splitting doesn't reduce the total,
+> but it makes the run **resumable per chapter** and produces small, citable source files. The
+> hash-gate in `--watch-dir` mode means a re-drop never re-converts an already-done PDF.
+
+**Drop-and-forget (the "upload a big file" flow):** run the daemon with `--auto` and just drop
+PDFs into the watch dir — each new file is auto-split per chapter and converted, no per-book
+flags:
+
+```bash
+TORCH_DEVICE=mps ./.venv/bin/python servicenow_connector.py --auto \
+    --watch-dir ~/Downloads/sn-pdfs --out /path/to/vault/raw/sources --interval-minutes 60
+```
+
 ## Scheduler daemon mode (R7-7)
 
 The `--watch-dir` flag turns the connector into a bounded scheduler daemon: each tick it

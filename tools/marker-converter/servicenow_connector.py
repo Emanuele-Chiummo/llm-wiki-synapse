@@ -44,9 +44,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # ── Domain maps (extend as more modules/features are added) ──────────────────────
+# Known modules keep a curated short code; --auto derives one from the outline for any
+# module not listed here (so a brand-new book needs zero pre-configuration).
 MODULE_CODE: dict[str, str] = {
     "IT Asset Management": "ITAM",
     "IT Service Management": "ITSM",
+    "IT Operations Management": "ITOM",
     "Customer Service Management": "CSM",
 }
 FEATURE_CODE: dict[str, str] = {
@@ -57,6 +60,24 @@ FEATURE_CODE: dict[str, str] = {
 }
 
 VENDOR = "ServiceNow"
+
+
+def _derive_code(title: str, known: dict[str, str]) -> str:
+    """
+    Return a short UPPERCASE code for a module/feature title.
+
+    Precedence: curated map → acronym of the significant words (e.g.
+    "IT Operations Management" → "ITOM") → slug fallback. Used by --auto so any
+    ServiceNow book splits without hand-maintained domain maps.
+    """
+    if title in known:
+        return known[title]
+    words = [w for w in re.split(r"[^A-Za-z0-9]+", title) if w]
+    if 2 <= len(words) <= 8:
+        acronym = "".join(w[0] for w in words).upper()
+        if 2 <= len(acronym) <= 8:
+            return acronym
+    return _slug(title).upper()[:6] or "DOC"
 
 
 @dataclass
@@ -89,7 +110,13 @@ def read_bookmarks(pdf_path: Path) -> list[Bookmark]:
     for b in pdf.get_toc():
         if b.page_index is None:
             continue
-        out.append(Bookmark(level=b.level or 0, title=(b.title or "").strip(), page_index=b.page_index))
+        out.append(
+            Bookmark(
+                level=b.level or 0,
+                title=(b.title or "").strip(),
+                page_index=b.page_index,
+            )
+        )
     return out
 
 
@@ -103,14 +130,22 @@ def select_sections(
     bookmarks: list[Bookmark],
     n_pages: int,
     *,
-    module_title: str,
+    module_title: str | None,
     module_code: str,
     feature_filter: str | None,
     group_filter: str | None,
     file_depth: int,
     section_names: list[str] | None,
 ) -> list[Section]:
-    """Walk the outline, tracking ancestors, and materialize sections at file_depth."""
+    """
+    Walk the outline, tracking ancestors, and materialize sections at file_depth.
+
+    Auto mode: pass ``module_title=None`` to accept EVERY module in the book (no ITAM
+    preset). Each section's ``module_code`` is then derived from its own L0 title via
+    ``_derive_code`` (curated map → acronym → slug), so a brand-new module such as ITOM
+    splits with zero configuration. When ``module_title`` is a concrete string, only that
+    module is materialized and the supplied ``module_code`` is used verbatim (legacy path).
+    """
     # end page of each bookmark = next bookmark at level <= its level (exclusive)
     ends: list[int] = []
     for i, bm in enumerate(bookmarks):
@@ -136,7 +171,7 @@ def select_sections(
         group = next((a for a in ancestors if a.level == 2), None)
         if module is None or feature is None:
             continue
-        if module.title != module_title:
+        if module_title is not None and module.title != module_title:
             continue
         if feature_filter and feature.title != feature_filter:
             continue
@@ -145,12 +180,20 @@ def select_sections(
         if section_names and bm.title not in section_names:
             continue
 
-        f_code = FEATURE_CODE.get(feature.title, _slug(feature.title).upper()[:6])
+        # Auto mode (module_title is None): derive the code from each section's own
+        # module title so any book splits without a curated map. Legacy mode keeps the
+        # explicit --module-code the caller passed.
+        m_code = (
+            module_code
+            if module_title is not None
+            else _derive_code(module.title, MODULE_CODE)
+        )
+        f_code = _derive_code(feature.title, FEATURE_CODE)
         sections.append(
             Section(
                 title=bm.title,
                 module_title=module.title,
-                module_code=module_code,
+                module_code=m_code,
                 feature_title=feature.title,
                 feature_code=f_code,
                 group_title=group.title if group else "",
@@ -169,7 +212,10 @@ def make_converter_factory():  # noqa: ANN201 - marker types are dynamic
     models = create_model_dict()
 
     def convert(pdf_path: Path, start_page: int, end_page: int) -> str:
-        cfg = {"page_range": f"{start_page}-{end_page - 1}", "output_format": "markdown"}
+        cfg = {
+            "page_range": f"{start_page}-{end_page - 1}",
+            "output_format": "markdown",
+        }
         from marker.config.parser import ConfigParser
 
         parser = ConfigParser(cfg)
@@ -239,9 +285,9 @@ def clean_markdown(md: str) -> str:
 
         # table rows: strip intra-cell HTML (Marker emits <br/>, <ul><li> in cells)
         if line.lstrip().startswith("|"):
-            line = re.sub(r"<br\s*/?>", " ", line)          # <br>, <br/>, <br />
-            line = re.sub(r"</li>\s*<li>", "; ", line)       # list items → "; "
-            line = re.sub(r"</?(ul|ol|li)\s*>", " ", line)   # drop remaining list tags
+            line = re.sub(r"<br\s*/?>", " ", line)  # <br>, <br/>, <br />
+            line = re.sub(r"</li>\s*<li>", "; ", line)  # list items → "; "
+            line = re.sub(r"</?(ul|ol|li)\s*>", " ", line)  # drop remaining list tags
             line = re.sub(r"[ \t]{2,}", " ", line)
         out.append(line)
         i += 1
@@ -374,6 +420,7 @@ def run_watch_tick(
     module_code: str = "ITAM",
     source_url: str = "https://docs.servicenow.com",
     file_depth: int = 3,
+    auto: bool = False,
     max_per_tick: int = MAX_PDFS_PER_TICK,
     convert_fn: object = None,  # callable(pdf, start, end) -> str; injected in tests
 ) -> dict[str, int]:
@@ -427,7 +474,10 @@ def run_watch_tick(
                 bms = read_bookmarks(pdf_path)
                 n_pages = page_count(pdf_path)
             except Exception as exc:  # noqa: BLE001
-                print(f"[tick] WARNING: could not read bookmarks for {pdf_path.name}: {exc}", file=sys.stderr)
+                print(
+                    f"[tick] WARNING: could not read bookmarks for {pdf_path.name}: {exc}",
+                    file=sys.stderr,
+                )
                 # Mark as "seen" with a sentinel so we don't retry endlessly on a bad PDF.
                 state[sha] = f"error:{pdf_path.name}"
                 _save_state(state_path, state)
@@ -436,7 +486,7 @@ def run_watch_tick(
             sections = select_sections(
                 bms,
                 n_pages,
-                module_title=module_title,
+                module_title=None if auto else module_title,
                 module_code=module_code,
                 feature_filter=None,
                 group_filter=None,
@@ -444,7 +494,10 @@ def run_watch_tick(
                 section_names=None,
             )
             if not sections:
-                print(f"[tick] No sections matched in {pdf_path.name} — skipping body.", file=sys.stderr)
+                print(
+                    f"[tick] No sections matched in {pdf_path.name} — skipping body.",
+                    file=sys.stderr,
+                )
                 # Still mark as seen to avoid repeated futile re-processing.
                 state[sha] = f"no_sections:{pdf_path.name}"
                 _save_state(state_path, state)
@@ -455,11 +508,13 @@ def run_watch_tick(
                 print("[tick] Loading Marker models (once) …")
                 _convert = make_converter_factory()
 
-            source_label = f"{VENDOR} Docs — {module_title}"
             base = out_dir / "servicenow"
             written_paths: list[str] = []
 
             for sec in sections:
+                # Per-section label so --auto books that span multiple L0 modules cite the
+                # correct module; legacy single-module runs resolve to the same string.
+                source_label = f"{VENDOR} Docs — {sec.module_title}"
                 raw = _convert(pdf_path, sec.start_page, sec.end_page)  # type: ignore[operator]
                 sec.body = clean_markdown(raw)
                 page_text = render_page(sec, source_label, source_url)
@@ -498,6 +553,7 @@ def watch_daemon(
     module_code: str = "ITAM",
     source_url: str = "https://docs.servicenow.com",
     file_depth: int = 3,
+    auto: bool = False,
 ) -> None:
     """
     Run the watch-dir daemon: tick every interval_minutes, bounded at MAX_PDFS_PER_TICK
@@ -526,6 +582,7 @@ def watch_daemon(
                 module_code=module_code,
                 source_url=source_url,
                 file_depth=file_depth,
+                auto=auto,
             )
         except KeyboardInterrupt:
             print("[daemon] Interrupted — stopping.")
@@ -578,23 +635,60 @@ def main() -> int:
         ),
     )
     # ── Single-PDF mode arguments (original) ───────────────────────────────────
-    ap.add_argument("--pdf", type=Path, default=None, help="PDF to convert (single-PDF mode)")
+    ap.add_argument(
+        "--pdf", type=Path, default=None, help="PDF to convert (single-PDF mode)"
+    )
     ap.add_argument("--out", type=Path, default=Path(__file__).parent / "out")
     ap.add_argument("--module-title", default="IT Asset Management")
     ap.add_argument("--module-code", default="ITAM")
-    ap.add_argument("--feature", default=None, help="Only this L1 feature title (e.g. 'Software Asset Management')")
-    ap.add_argument("--group", default=None, help="Only this L2 group title (e.g. 'Exploring Software Asset Management')")
-    ap.add_argument("--file-depth", type=int, default=3)
-    ap.add_argument("--sections", default=None, help="Comma list of section titles to limit (demo)")
+    ap.add_argument(
+        "--feature",
+        default=None,
+        help="Only this L1 feature title (e.g. 'Software Asset Management')",
+    )
+    ap.add_argument(
+        "--group",
+        default=None,
+        help="Only this L2 group title (e.g. 'Exploring Software Asset Management')",
+    )
+    ap.add_argument(
+        "--auto",
+        action="store_true",
+        default=False,
+        help=(
+            "Auto mode: derive module/feature codes from the PDF outline instead of the "
+            "curated maps (no --module-title/--feature preset needed). Splits EVERY module in "
+            "the book. Pairs with --file-depth (defaults to 2 = one file per L2 chapter/group "
+            "in --auto). Ideal for large books dropped into --watch-dir."
+        ),
+    )
+    ap.add_argument(
+        "--file-depth",
+        type=int,
+        default=None,
+        help="Bookmark level to split at (L0=0…L3=3). Default: 2 with --auto, else 3.",
+    )
+    ap.add_argument(
+        "--sections", default=None, help="Comma list of section titles to limit (demo)"
+    )
     ap.add_argument("--source-url", default="https://docs.servicenow.com")
     args = ap.parse_args()
+
+    # Resolve split depth: --auto splits at L2 (one file per chapter/group) by default;
+    # legacy mode keeps L3 sections. An explicit --file-depth always wins.
+    file_depth = (
+        args.file_depth if args.file_depth is not None else (2 if args.auto else 3)
+    )
 
     # ── Daemon mode ────────────────────────────────────────────────────────────
     if args.watch_dir is not None:
         if not args.watch_dir.is_dir():
             print(f"Watch directory not found: {args.watch_dir}", file=sys.stderr)
             return 2
-        if args.auto_download and os.environ.get("SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL") == "1":
+        if (
+            args.auto_download
+            and os.environ.get("SERVICENOW_AUTODOWNLOAD_EXPERIMENTAL") == "1"
+        ):
             _auto_download_stub()
         watch_daemon(
             watch_dir=args.watch_dir,
@@ -603,40 +697,52 @@ def main() -> int:
             module_title=args.module_title,
             module_code=args.module_code,
             source_url=args.source_url,
-            file_depth=args.file_depth,
+            file_depth=file_depth,
+            auto=args.auto,
         )
         return 0
 
     # ── Single-PDF mode (original behaviour) ──────────────────────────────────
     if args.pdf is None:
-        print("Error: --pdf is required in single-PDF mode (or use --watch-dir for daemon mode).", file=sys.stderr)
+        print(
+            "Error: --pdf is required in single-PDF mode (or use --watch-dir for daemon mode).",
+            file=sys.stderr,
+        )
         return 2
     if not args.pdf.exists():
         print(f"PDF not found: {args.pdf}", file=sys.stderr)
         return 2
 
-    source_label = f"{VENDOR} Docs — {args.module_title} (Australia)"
-    section_names = [s.strip() for s in args.sections.split(",")] if args.sections else None
+    section_names = (
+        [s.strip() for s in args.sections.split(",")] if args.sections else None
+    )
 
     bookmarks = read_bookmarks(args.pdf)
     n_pages = page_count(args.pdf)
     sections = select_sections(
         bookmarks,
         n_pages,
-        module_title=args.module_title,
+        module_title=None if args.auto else args.module_title,
         module_code=args.module_code,
         feature_filter=args.feature,
         group_filter=args.group,
-        file_depth=args.file_depth,
+        file_depth=file_depth,
         section_names=section_names,
     )
     if not sections:
-        print("No sections matched — check --module-title/--feature/--file-depth.", file=sys.stderr)
+        hint = (
+            "No sections matched — the PDF outline may be flat or unreadable."
+            if args.auto
+            else "No sections matched — check --module-title/--feature/--file-depth (or try --auto)."
+        )
+        print(hint, file=sys.stderr)
         return 1
 
     print(f"Selected {len(sections)} section(s):")
     for s in sections:
-        print(f"  [{s.module_code}/{s.feature_code}] {s.title}  ({_page_label(s.start_page, s.end_page)})")
+        print(
+            f"  [{s.module_code}/{s.feature_code}] {s.title}  ({_page_label(s.start_page, s.end_page)})"
+        )
 
     print("Loading Marker models (once)…")
     convert = make_converter_factory()
@@ -644,9 +750,13 @@ def main() -> int:
     base = args.out / "servicenow"
 
     for s in sections:
-        print(f"→ converting {s.title} ({_page_label(s.start_page, s.end_page)}) …", flush=True)
+        print(
+            f"→ converting {s.title} ({_page_label(s.start_page, s.end_page)}) …",
+            flush=True,
+        )
         raw = convert(args.pdf, s.start_page, s.end_page)
         s.body = clean_markdown(raw)
+        source_label = f"{VENDOR} Docs — {s.module_title} (Australia)"
         page = render_page(s, source_label, args.source_url)
 
         out_dir = base / s.module_code.lower() / s.feature_code.lower()
