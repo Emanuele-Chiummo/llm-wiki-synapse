@@ -97,6 +97,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_seed_vault_state", seed_mock),
             # ADR-0032: _load_remote_mcp_flag also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_remote_mcp_flag", load_flag_mock),
+            # ADR-0072: _load_mcp_write_flag also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_mcp_write_flag", load_flag_mock),
             # ADR-0033: _load_mcp_auth_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_mcp_auth_cache", load_mcp_auth_mock),
             # ADR-0040: _load_clip_config_cache also runs in lifespan; patch to avoid DB hit.
@@ -176,6 +178,8 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_seed_vault_state", seed_mock),
             # ADR-0032: _load_remote_mcp_flag also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_remote_mcp_flag", load_flag_mock),
+            # ADR-0072: _load_mcp_write_flag also runs in lifespan; patch to avoid DB hit.
+            patch.object(main_mod, "_load_mcp_write_flag", load_flag_mock),
             # ADR-0033: _load_mcp_auth_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_mcp_auth_cache", load_mcp_auth_mock),
             # ADR-0040: _load_clip_config_cache also runs in lifespan; patch to avoid DB hit.

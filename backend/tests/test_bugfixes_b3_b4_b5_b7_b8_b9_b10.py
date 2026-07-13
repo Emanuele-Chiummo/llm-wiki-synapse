@@ -789,6 +789,7 @@ class TestB10OptimisticLockAtomic:
                         nullable=False,
                         server_default=sa_text("0"),
                     ),
+                    Column("remote_mcp_write_enabled", Integer, nullable=True),
                     Column("mcp_access_token_hash", Text, nullable=True),
                     Column(
                         "mcp_allow_without_token",
