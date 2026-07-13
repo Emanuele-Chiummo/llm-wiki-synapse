@@ -151,7 +151,9 @@ cp .env.example .env
 | `SCHEMA_SUGGESTION_MIN_SOURCES` | `5` | No | Minimum number of sources in the run before the schema-suggestion gate is considered. Higher than the purpose-suggestion threshold because schema proposals require a stronger pattern signal. (R9-4, I7 anti-spam gate) |
 | `SCHEMA_SUGGESTION_TIMEOUT_SECONDS` | `20.0` | No | Timeout (seconds) wrapping the schema-suggestion provider call. On timeout → no suggestion emitted. (R9-4, I7) |
 | `GRAPH_COHESION_WARN` | `0.15` | No | Cohesion score threshold below which a community is flagged with a warning indicator in the graph community panel (`GET /graph/communities/{id}`). Default `0.15` (mirrors the llm_wiki threshold). Communities with `cohesion < GRAPH_COHESION_WARN` are marked visually in the drill-down panel. (R9-5) |
-| `SYNAPSE_AUTH_TOKEN` | *(empty)* | No | Shared Bearer token for the REST API (ADR-0052). **Empty or absent = authentication DISABLED** (default; backward-compatible with all v0.9 and earlier deployments). When set to a non-empty string, every route except the exempt set (`GET /status`, `GET /health/detailed`, `GET /docs`, `GET /openapi.json`, `OPTIONS`, `/mcp/server/*`, `POST /clip`) requires `Authorization: Bearer <token>`. Compared constant-time; never stored, never hashed, never logged. Recommend at least 32 characters. Generate with `openssl rand -base64 32`. The MCP surface (`/mcp/server`) and the web-clipper ingress (`POST /clip`) keep their own independent tokens — `SYNAPSE_AUTH_TOKEN` does NOT gate them. |
+| `SYNAPSE_DEPLOYMENT_MODE` | `local` | No | Deployment trust boundary (ADR-0075): `local` preserves backward-compatible zero-config use; `server` declares a network-reachable process and fails startup unless `SYNAPSE_AUTH_TOKEN` passes validation. Use `server` for LAN, Tailscale, tunnel, reverse-proxy and hosted deployments. Accepted values are exactly `local` and `server`. |
+| `SYNAPSE_BIND_HOST` | `127.0.0.1` | No | Host address used by Docker Compose to publish port 8000. Keep loopback in `local` mode. Set `0.0.0.0` only together with `SYNAPSE_DEPLOYMENT_MODE=server` and a strong token. |
+| `SYNAPSE_AUTH_TOKEN` | *(empty)* | Required in `server` mode | Env-only shared Bearer token for the REST API (ADR-0052/0075). Empty or absent disables API auth only in `local` mode. `server` mode requires at least 32 characters, no whitespace and at least eight distinct characters; generate with `openssl rand -hex 32`. Protected routes require `Authorization: Bearer <token>` and use constant-time comparison. Public health is limited to `GET`/`HEAD /status` and `/health/live`; `/health/detailed` is protected. API docs, CORS preflight, `/mcp/server/*` and `POST /clip` retain their documented exemptions/independent credentials. Never store, hash, log or commit this token. |
 | `POSTGRES_USER` | `synapse` | No | PostgreSQL database user. Drives the postgres container's `POSTGRES_USER` environment variable and, when `DATABASE_URL` is left at its default, must match the credential encoded in `DATABASE_URL`. Override via `.env`; never commit the actual value for production deployments. Default `synapse` (matches the compose default). (R13-9) |
 | `POSTGRES_PASSWORD` | `synapse` | No | PostgreSQL user password. Same scoping as `POSTGRES_USER`. Override in `.env` with a strong random value for production: `openssl rand -base64 24`. If you change this, also update `DATABASE_URL` (or its components). Default `synapse` (acceptable only for local/dev; not for internet-facing deployments). (R13-9) |
 | `POSTGRES_DB` | `synapse` | No | PostgreSQL database name. Drives the postgres container's `POSTGRES_DB` environment variable. Default `synapse`. (R13-9) |
@@ -270,12 +272,24 @@ Expected response:
 }
 ```
 
-### 3.4 Detailed health check (v0.9)
+### 3.4 Liveness and detailed health checks
 
-For monitoring probes and dashboards, the backend exposes a richer liveness endpoint:
+Use the public, non-diagnostic endpoint for container and uptime liveness probes:
 
 ```bash
-curl -s http://localhost:8000/health/detailed | jq .
+curl -s http://localhost:8000/health/live
+# {"status":"ok"}
+```
+
+`GET /health/live` intentionally returns no component, vault, configuration, dependency or error
+details. `GET /status` also remains public for the desktop connection contract.
+
+For an operator dashboard, call the richer endpoint with the REST bearer token:
+
+```bash
+curl -s \
+  -H "Authorization: Bearer <your-token>" \
+  http://localhost:8000/health/detailed | jq .
 ```
 
 The response lists the status of each internal component:
@@ -298,8 +312,9 @@ The response lists the status of each internal component:
 `status` at the top level is `"healthy"` if all components are `"ok"` or `"idle"`.
 It is `"degraded"` if any non-critical component has a transient issue (e.g. Qdrant
 temporarily unreachable when embeddings are enabled), and `"unhealthy"` if Postgres is
-unreachable. Use this endpoint in a Docker health check or a monitoring probe (e.g.
-Uptime Kuma, Prometheus blackbox exporter) in preference to `GET /status`.
+unreachable. Use `/health/live` for unauthenticated Docker health checks and black-box uptime
+monitors. Use `/health/detailed` only when the monitoring client can send the bearer credential.
+When auth is enabled, a detailed request without that credential receives 401.
 
 The basic `GET /status` endpoint (vault_id, data_version, uptime) remains available for
 the desktop app's Connect-screen probe and is not affected by this change.
@@ -326,6 +341,9 @@ Synapse is designed for **LAN / Tailscale / Cloudflare-Tunnel** deployments. It 
 - The TrueNAS host is on a trusted home LAN (or accessible only via Tailscale mesh).
 - External access is proxied through Cloudflare Tunnel (which enforces TLS and,
   optionally, Cloudflare Access authentication) — never via a raw-WAN open port.
+- Every backend reachable beyond the same machine runs with
+  `SYNAPSE_DEPLOYMENT_MODE=server`; startup then requires application-level bearer auth even when
+  edge authentication is also present (ADR-0075, defence in depth).
 
 **Postgres network isolation.** In `docker-compose.yml` (production), the Postgres port
 **5432 is not published to the host interface**. Postgres is reachable only by the
@@ -1389,33 +1407,42 @@ full acceptance list explicitly. Files with unrecognized extensions are rejected
 
 ---
 
-## 15. Security — Shared Bearer token (R10-1 / ADR-0052) {#security}
+## 15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075) {#security}
 
 ### 15.1 Overview
 
-Synapse v1.0 adds an optional shared Bearer token that gates the entire REST API (ADR-0052).
-When `SYNAPSE_AUTH_TOKEN` is unset or empty, the API is fully open — identical behaviour to
-v0.9 and earlier. Setting it enables a single-middleware gate that adds zero overhead to the
-chat streaming path (one constant-time `secrets.compare_digest` per request, I3).
+The REST API uses one env-only shared Bearer token (ADR-0052). Release 1.6.0 adds an explicit
+deployment trust boundary (ADR-0075):
 
-**This is the recommended posture when exposing Synapse over a Cloudflare Tunnel or any
-non-Tailscale network.** For a Tailscale-only, private-network deployment behind no public
-entry point, leaving the token empty is reasonable.
+- `SYNAPSE_DEPLOYMENT_MODE=local` is the backward-compatible default. An empty token is accepted
+  for loopback development and trusted single-machine use.
+- `SYNAPSE_DEPLOYMENT_MODE=server` is required for every network-reachable backend. Startup fails
+  closed if the token is missing or obviously weak.
+
+When configured, the single middleware gate performs one constant-time
+`secrets.compare_digest` per request (I3). A Cloudflare Tunnel, Cloudflare Access, Tailscale or
+another reverse proxy is defence in depth; it does not replace the application token in `server`
+mode.
 
 ### 15.2 Enabling the token
 
-1. Generate a cryptographically secure token:
+1. Generate a cryptographically secure token. Do not use a password, placeholder or repeated
+   character sequence:
 
    ```bash
-   openssl rand -base64 32
-   # Example output: wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=
+   openssl rand -hex 32
+   # Example shape: 64 random hexadecimal characters
    ```
 
-2. Add it to your `.env` (never commit `.env`):
+2. Add the mode and token to `.env` before the same restart (never commit `.env`):
 
    ```env
-   SYNAPSE_AUTH_TOKEN=wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=
+   SYNAPSE_DEPLOYMENT_MODE=server
+   SYNAPSE_AUTH_TOKEN=<paste-the-generated-token>
    ```
+
+   Server validation requires at least 32 characters, no whitespace and at least eight distinct
+   characters. It rejects weak configuration but does not replace secure random generation.
 
 3. Restart the stack:
 
@@ -1441,12 +1468,15 @@ entry point, leaving the token empty is reasonable.
 
    | Endpoint | Why exempt |
    |----------|-----------|
-   | `GET /status` | Liveness probe; desktop auto-detect; monitoring |
-   | `GET /health/detailed` | Component health; monitoring probes |
-   | `GET /docs`, `GET /openapi.json`, `GET /redoc` | API schema is public; not sensitive data |
+   | `GET`/`HEAD /status` | Existing desktop connection probe; no page content or credentials |
+   | `GET`/`HEAD /health/live` | Minimal liveness response only (`{"status":"ok"}`) |
+   | `GET`/`HEAD /docs`, `/openapi.json`, `/redoc` | API schema is public; not vault data |
    | All `OPTIONS` requests | CORS preflight cannot carry an `Authorization` header |
    | `/mcp/server/*` | MCP HTTP surface has its own bearer token (ADR-0033) |
    | `POST /clip` | Web-clipper ingress has its own `CLIP_TOKEN` (ADR-0038) |
+
+   `GET`/`HEAD /health/detailed` is protected because it exposes component and operational
+   diagnostics. Call it with `Authorization: Bearer <token>`.
 
 ### 15.3 Token rotation
 
@@ -1474,6 +1504,37 @@ new token in Settings > Security is a client-side update only — it does not ca
   a show/hide toggle. A note explains the server-side rotation procedure (env + restart).
 - **MCP clients and web clipper are unaffected.** They use their own tokens (`MCP_AUTH_TOKEN` /
   `CLIP_TOKEN`) and are never gated by `SYNAPSE_AUTH_TOKEN`.
+
+### 15.5 Migrating from `local` to `server`
+
+No database migration is needed. Treat the change as an atomic client-and-probe rollout:
+
+1. Confirm every REST client can store and send `SYNAPSE_AUTH_TOKEN`.
+2. Generate the token with `openssl rand -hex 32` and store it in the deployment secret manager or
+   uncommitted `.env` file.
+3. Replace unauthenticated `/health/detailed` liveness probes with `/health/live`. For dashboards
+   that need component diagnostics, retain `/health/detailed` and configure its bearer header.
+4. Set `SYNAPSE_DEPLOYMENT_MODE=server` and `SYNAPSE_AUTH_TOKEN` together, then restart.
+5. Verify the boundary:
+
+   ```bash
+   curl -i http://localhost:8000/health/live
+   # Expected: 200 without a token
+
+   curl -i http://localhost:8000/health/detailed
+   # Expected: 401
+
+   curl -i -H "Authorization: Bearer <your-token>" \
+     http://localhost:8000/health/detailed
+   # Expected: 200
+
+   curl -i http://localhost:8000/pages
+   # Expected: 401
+   ```
+
+If startup fails, inspect the configuration error and replace the missing or weak token. Reverting
+to `local` disables the fail-closed guarantee and is an acceptable rollback only after restricting
+the backend to loopback or another equivalently trusted single-machine boundary.
 
 ---
 
@@ -2019,11 +2080,17 @@ a live Postgres connection.
 - `CLAUDE.md` — project context, invariants (I1–I9), and feature inventory
 - `docs/er/schema.mmd` — ER diagram (auto-generated by `make er`)
 - `docs/api/openapi.json` — API reference (auto-generated by `make openapi`)
-- `docs/adr/` — Architecture Decision Records (ADR-0001 through ADR-0052; index in `docs/adr/index.md`; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update, ADR-0051 Pluggable PDF extractor seam, ADR-0052 Shared Bearer token auth)
+- `docs/adr/` — Architecture Decision Records (index in `docs/adr/index.md`; ADR-0037 Lint,
+  ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop
+  auto-update, ADR-0051 Pluggable PDF extractor seam, ADR-0052 Shared Bearer token auth,
+  ADR-0075 Deployment trust mode and health boundary)
 - `docs/adr/0039-tauri-v2-desktop-shell.md` — Tauri v2 desktop shell scaffold and CI
 - `docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md` — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)
 - `docs/adr/0049-desktop-auto-update-github-releases.md` — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)
-- `docs/adr/0052-auth-token-model.md` — shared Bearer token (`SYNAPSE_AUTH_TOKEN`), middleware ordering, exempt set, client contract (§13 of this guide)
+- `docs/adr/0052-auth-token-model.md` — shared Bearer token (`SYNAPSE_AUTH_TOKEN`), middleware
+  ordering and client contract (§15 of this guide)
+- `docs/adr/ADR-0075-deployment-mode-auth-health-boundary.md` — `local`/`server` trust boundary,
+  fail-closed server validation and protected detailed diagnostics (§3.4 and §15 of this guide)
 - `tools/marker-converter/README.md` — Marker PDF microservice + ServiceNow doc connector full setup and scheduler daemon
 - `tools/whisper-service/README.md` — Whisper AV transcription microservice setup (required when `AV_TRANSCRIPTION_ENABLED=true`)
 - §17 (this guide) — Backup & restore: `GET /export` ZIP + `GET /export/data.json` metadata

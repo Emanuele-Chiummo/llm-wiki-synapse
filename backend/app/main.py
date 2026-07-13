@@ -1062,14 +1062,14 @@ app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (AD
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares
 # the security scheme and every route references it — except the exempt routes
-# (/status, /health/detailed) which carry ``security: []`` explicitly.
+# (/status, /health/live) which carry ``security: []`` explicitly.
 #
 # This is a documentation concern, independent of the enforcement middleware above.
 # Implementation: override ``app.openapi()`` once after all routes are registered.
 #
 # Exempt from ``BearerAuth`` in the schema (matches the middleware exempt set §2.3;
 # /docs, /redoc, /openapi.json are framework-served and not in OpenAPI paths):
-_OPENAPI_SECURITY_EXEMPT: frozenset[str] = frozenset({"/status", "/health/detailed"})
+_OPENAPI_SECURITY_EXEMPT: frozenset[str] = frozenset({"/status", "/health/live"})
 
 _original_openapi = app.openapi
 
@@ -1081,7 +1081,7 @@ def _patched_openapi() -> dict[str, Any]:
     Adds:
     - ``components.securitySchemes.BearerAuth``: HTTP bearer scheme.
     - ``security: [{"BearerAuth": []}]`` on every non-exempt path+method.
-    - ``security: []`` on exempt paths (/status, /health/detailed).
+    - ``security: []`` on exempt paths (/status, /health/live).
     """
     if app.openapi_schema:
         return app.openapi_schema

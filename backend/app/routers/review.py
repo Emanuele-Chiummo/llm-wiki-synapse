@@ -89,7 +89,11 @@ class ReviewItemResponse(BaseModel):
     )
     proposed_page_type: str | None = Field(
         default=None,
-        description="entity|concept|source|synthesis|comparison; NULL → heuristic at Create",
+        description="entity|concept|query|source|synthesis|comparison; NULL → heuristic at Create",
+    )
+    proposal_origin: str = Field(
+        default="legacy",
+        description="rule | ai | corpus | system | lint | legacy (ADR-0073)",
     )
     proposed_dir: str | None = Field(
         default=None,
@@ -114,6 +118,10 @@ class ReviewItemResponse(BaseModel):
     created_page_id: uuid.UUID | None = Field(
         default=None,
         description="Page produced by a successful Create action (ADR-0034 §5); null otherwise",
+    )
+    created_page_type: str | None = Field(
+        default=None,
+        description="Effective type joined from created_page_id; null until/no Create",
     )
     resolution: str | None = Field(
         default=None,
@@ -228,6 +236,7 @@ def _review_item_to_response(
     page_title: str | None = None,
     *,
     referenced_pages: list[ReferencedPage] | None = None,
+    created_page_type: str | None = None,
 ) -> ReviewItemResponse:
     """Convert ReviewItem ORM row to ReviewItemResponse (handles str/UUID for id fields).
 
@@ -249,6 +258,9 @@ def _review_item_to_response(
         out = [str(x) for x in val if isinstance(x, str) and x.strip()]
         return out or None
 
+    raw_origin = getattr(item, "proposal_origin", None)
+    proposal_origin = raw_origin if isinstance(raw_origin, str) and raw_origin else "legacy"
+
     return ReviewItemResponse(
         id=_to_uuid(item.id) or uuid.UUID(int=0),
         vault_id=item.vault_id,
@@ -256,12 +268,14 @@ def _review_item_to_response(
         status=item.status,
         proposed_title=item.proposed_title,
         proposed_page_type=item.proposed_page_type,
+        proposal_origin=proposal_origin,
         proposed_dir=item.proposed_dir,
         rationale=item.rationale,
         page_id=_to_uuid(item.page_id),
         page_title=page_title,
         source_page_id=_to_uuid(item.source_page_id),
         created_page_id=_to_uuid(item.created_page_id),
+        created_page_type=created_page_type,
         resolution=item.resolution,
         deep_research_run_id=_to_uuid(item.deep_research_run_id),
         content_key=getattr(item, "content_key", None),
@@ -298,6 +312,15 @@ async def list_review_queue(
         default="pending",
         description="Status filter (ADR-0044 §6): pending | resolved | dismissed | all",
     ),
+    item_type: str | None = Query(
+        default=None, description="Optional proposal-category filter (e.g. suggestion)"
+    ),
+    proposal_origin: str | None = Query(
+        default=None, description="Optional rule|ai|corpus|system|lint|legacy filter"
+    ),
+    proposed_page_type: str | None = Query(
+        default=None, description="Optional proposed PageType filter (e.g. query)"
+    ),
     limit: int = Query(
         default=50,
         ge=1,
@@ -315,7 +338,15 @@ async def list_review_queue(
     """
     from app.ops.review import list_queue
 
-    queue_page = await list_queue(vault_id, limit=limit, offset=offset, status=status)
+    queue_page = await list_queue(
+        vault_id,
+        limit=limit,
+        offset=offset,
+        status=status,
+        item_type=item_type,
+        proposal_origin=proposal_origin,
+        proposed_page_type=proposed_page_type,
+    )
 
     # Load page_title for page_id + referenced_pages for referenced_page_ids in ONE bounded
     # pages read across all items on the page (convenience joins — ADR-0044 §6.1).
@@ -328,6 +359,8 @@ async def list_review_queue(
     for it in queue_page.items:
         if it.page_id is not None:
             all_page_ids.add(str(it.page_id))
+        if it.created_page_id is not None:
+            all_page_ids.add(str(it.created_page_id))
         for rid in _ids_of(getattr(it, "referenced_page_ids", None)):
             all_page_ids.add(rid)
 
@@ -350,6 +383,9 @@ async def list_review_queue(
     items: list[ReviewItemResponse] = []
     for it in queue_page.items:
         page_title = page_info.get(str(it.page_id), (None, None))[0] if it.page_id else None
+        created_page_type = (
+            page_info.get(str(it.created_page_id), (None, None))[1] if it.created_page_id else None
+        )
         # referenced_pages: resolve + DROP stale ids (§9.2 render-time filter, I9).
         referenced_pages: list[ReferencedPage] = []
         for rid in _ids_of(getattr(it, "referenced_page_ids", None)):
@@ -367,6 +403,7 @@ async def list_review_queue(
                 it,
                 page_title=page_title,
                 referenced_pages=referenced_pages or None,
+                created_page_type=created_page_type,
             )
         )
 
@@ -392,7 +429,20 @@ async def _create_review_item_handler(item_id: uuid.UUID) -> ReviewItemResponse:
     from app.ops.review import create_page_from_review
 
     item = await create_page_from_review(item_id)
-    return _review_item_to_response(item)
+    created_page_type: str | None = None
+    if item.created_page_id is not None:
+        from sqlalchemy import String as _SAString
+        from sqlalchemy import cast as _sa_cast
+
+        async with _m.get_session() as session:
+            created_page_type = (
+                await session.execute(
+                    select(Page.page_type).where(
+                        _sa_cast(Page.id, _SAString) == str(item.created_page_id)
+                    )
+                )
+            ).scalar_one_or_none()
+    return _review_item_to_response(item, created_page_type=created_page_type)
 
 
 @router.post(

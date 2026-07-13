@@ -35,4 +35,14 @@ describe("triggerSynthesize", () => {
     expect(init.body).toBe("{}");
     expect(init.headers).toMatchObject({ "Content-Type": "application/json" });
   });
+
+  it("passes review-only corpus mode to the backend", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(makeMockResponse({ status: "started" }));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await triggerSynthesize({ mode: "review-only", max_candidates: 8 });
+
+    const init = mockFetch.mock.calls[0]?.[1] as { body?: unknown };
+    expect(JSON.parse(String(init.body))).toEqual({ mode: "review-only", max_candidates: 8 });
+  });
 });

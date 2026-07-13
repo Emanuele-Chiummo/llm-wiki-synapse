@@ -20,8 +20,14 @@ import { useTranslation } from "react-i18next";
 import { ProviderSelector } from "./provider/ProviderSelector";
 import { SynapseMark } from "./brand/SynapseMark";
 import { isTauri, getKnownServers } from "../api/base";
-import { useSettingsStore, selectServerUrl, selectClearServerUrl, selectSetServerUrl } from "../store/settingsStore";
+import {
+  useSettingsStore,
+  selectServerUrl,
+  selectClearServerUrl,
+  selectSetServerUrl,
+} from "../store/settingsStore";
 import { useDesktopZoom } from "../hooks/useDesktopZoom";
+import { PRODUCT_IDENTITY } from "../config/productIdentity";
 
 export function Header() {
   const { t } = useTranslation();
@@ -103,20 +109,19 @@ export function Header() {
       }}
     >
       {/* Branding */}
-      <div
-        className="app-header__brand"
-        style={{ display: "flex", alignItems: "center", gap: 8 }}
-      >
+      <div className="app-header__brand" style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <SynapseMark size={22} style={{ display: "block", flexShrink: 0 }} />
         <span
+          data-testid="app-wordmark"
           style={{
             fontSize: 15,
-            fontWeight: 700,
+            fontFamily: "var(--syn-font-wordmark)",
+            fontWeight: 600,
             letterSpacing: "-0.02em",
             color: "var(--syn-text)",
           }}
         >
-          Synapse
+          {PRODUCT_IDENTITY.displayName}
         </span>
         <span
           style={{
@@ -131,11 +136,7 @@ export function Header() {
 
       {/* Tauri-only: connected server chip with dropdown (ADR-0047 §2.3 + ADR-0048 §T4a) */}
       {inTauri && serverHost !== null && (
-        <div
-          ref={dropdownRef}
-          data-testid="server-chip"
-          style={{ position: "relative" }}
-        >
+        <div ref={dropdownRef} data-testid="server-chip" style={{ position: "relative" }}>
           {/* Chip button — toggles dropdown */}
           <button
             type="button"
@@ -201,7 +202,11 @@ export function Header() {
               {/* Known-server list */}
               {knownServers.map((url) => {
                 let host = url;
-                try { host = new URL(url).host; } catch { /* keep url */ }
+                try {
+                  host = new URL(url).host;
+                } catch {
+                  /* keep url */
+                }
                 const isCurrent = url === serverUrl;
                 return (
                   <button
@@ -265,7 +270,12 @@ export function Header() {
                 data-testid="change-server-btn"
                 onClick={handleChangeServer}
                 className="syn-btn syn-btn--ghost"
-                style={{ width: "100%", justifyContent: "flex-start", fontSize: 12, padding: "7px 12px" }}
+                style={{
+                  width: "100%",
+                  justifyContent: "flex-start",
+                  fontSize: 12,
+                  padding: "7px 12px",
+                }}
               >
                 {t("connect.changeServer")}
               </button>

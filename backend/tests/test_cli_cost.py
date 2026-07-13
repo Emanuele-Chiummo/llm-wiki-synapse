@@ -56,12 +56,17 @@ class _FakeResultMessage:
 # ── Fake SDK client / options installed into sys.modules ─────────────────────────
 
 
-def _install_fake_sdk(monkeypatch: pytest.MonkeyPatch, response_messages: list[Any]) -> None:
+def _install_fake_sdk(
+    monkeypatch: pytest.MonkeyPatch, response_messages: list[Any]
+) -> dict[str, Any]:
     """Install a fake `claude_agent_sdk` module exposing the two symbols cli.py imports."""
+
+    state: dict[str, Any] = {"options": None, "messages_yielded": 0, "interrupts": 0}
 
     class _FakeClient:
         def __init__(self, options: Any) -> None:
             self.options = options
+            state["options"] = options
 
         async def __aenter__(self) -> _FakeClient:
             return self
@@ -72,8 +77,16 @@ def _install_fake_sdk(monkeypatch: pytest.MonkeyPatch, response_messages: list[A
         async def query(self, prompt: str) -> None:
             return None
 
+        async def interrupt(self) -> None:
+            state["interrupts"] += 1
+
         async def receive_response(self):  # type: ignore[no-untyped-def]
             for msg in response_messages:
+                # After interrupt the real SDK suppresses further turns but still emits its
+                # terminal ResultMessage with cumulative total_cost_usd.
+                if state["interrupts"] and not hasattr(msg, "total_cost_usd"):
+                    continue
+                state["messages_yielded"] += 1
                 yield msg
 
     def _fake_options(**kwargs: Any) -> dict[str, Any]:
@@ -83,6 +96,7 @@ def _install_fake_sdk(monkeypatch: pytest.MonkeyPatch, response_messages: list[A
     fake.ClaudeSDKClient = _FakeClient  # type: ignore[attr-defined]
     fake.ClaudeAgentOptions = _fake_options  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "claude_agent_sdk", fake)
+    return state
 
 
 def _settings() -> ProviderSettings:
@@ -92,6 +106,44 @@ def _settings() -> ProviderSettings:
         base_url=None,
         token_budget=100_000,
     )
+
+
+@pytest.mark.asyncio
+async def test_delegate_ingest_sets_max_turns_and_stops_at_token_message_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """I7: delegated CLI uses provider max_iter and never consumes a message past token budget."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    state = _install_fake_sdk(
+        monkeypatch,
+        [
+            _FakeAssistantMessage(),
+            _FakeAssistantMessage(),
+            _FakeResultMessage(total_cost_usd=0.5),
+        ],
+    )
+    provider = CliAgentProvider(
+        ProviderSettings(
+            provider_type="cli",
+            model_id="claude-sonnet-4-6",
+            max_iter=5,
+            token_budget=150,
+        )
+    )
+
+    result = await provider.delegate_ingest(
+        source_text="hello",
+        system_prompt="schema+purpose",
+        vault_dir="/tmp/vault",
+        mcp_server=object(),
+    )
+
+    assert state["options"]["max_turns"] == 5
+    assert state["interrupts"] == 1
+    assert state["messages_yielded"] == 2  # first assistant + terminal result
+    assert result.pages_written == 1
+    assert result.usage.input_tokens + result.usage.output_tokens == 200
+    assert result.usage.total_cost_usd == pytest.approx(0.5)
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────────

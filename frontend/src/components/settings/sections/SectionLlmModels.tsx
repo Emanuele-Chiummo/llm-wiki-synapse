@@ -125,6 +125,7 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeyMsg, setApiKeyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
   const apiKeyDebounce = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Model chip selection
@@ -154,19 +155,25 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
       setShowCustomModel(true);
       return;
     }
-    await addProvider(
-      {
-        scope,
-        vault_id: scope === "vault" ? vaultId : null,
-        provider_type: vendor.provider_type,
-        model_id: model,
-        base_url: vendor.default_base_url,
-        operation: vendor.id,
-      },
-      vaultId ?? "",
-    );
-    setExpanded(true);
-  }, [active, scope, vaultId, vendor, currentModelId, addProvider]);
+    setMutationError(null);
+    try {
+      await addProvider(
+        {
+          scope,
+          vault_id: scope === "vault" ? vaultId : null,
+          provider_type: vendor.provider_type,
+          model_id: model,
+          base_url: vendor.default_base_url,
+          operation: vendor.id,
+        },
+        vaultId ?? "",
+      );
+      setExpanded(true);
+    } catch {
+      setMutationError(t("settings.llmModels.mutationError"));
+      setExpanded(true);
+    }
+  }, [active, scope, vaultId, vendor, currentModelId, addProvider, t]);
 
   // ─── API key ─────────────────────────────────────────────────────────────
 
@@ -246,26 +253,32 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
   const handleModelSelect = useCallback(
     async (modelId: string | null) => {
       if (!modelId) return;
-      if (!vendorConfig) {
-        // No row yet: create it with this model so choosing a model also activates the vendor.
-        // Covers 0-preset vendors (configured via a custom model) and chip clicks before activation.
-        await addProvider(
-          {
-            scope,
-            vault_id: scope === "vault" ? vaultId : null,
-            provider_type: vendor.provider_type,
-            model_id: modelId,
-            base_url: vendor.default_base_url,
-            operation: vendor.id,
-          },
-          vaultId ?? "",
-        );
+      setMutationError(null);
+      try {
+        if (!vendorConfig) {
+          // No row yet: create it with this model so choosing a model also activates the vendor.
+          // Covers 0-preset vendors (configured via a custom model) and chip clicks before activation.
+          await addProvider(
+            {
+              scope,
+              vault_id: scope === "vault" ? vaultId : null,
+              provider_type: vendor.provider_type,
+              model_id: modelId,
+              base_url: vendor.default_base_url,
+              operation: vendor.id,
+            },
+            vaultId ?? "",
+          );
+          setExpanded(true);
+          return;
+        }
+        await updateProvider(vendorConfig.id, { model_id: modelId }, vaultId ?? "");
+      } catch {
+        setMutationError(t("settings.llmModels.mutationError"));
         setExpanded(true);
-        return;
       }
-      await updateProvider(vendorConfig.id, { model_id: modelId }, vaultId ?? "");
     },
-    [vendorConfig, updateProvider, addProvider, scope, vaultId, vendor],
+    [vendorConfig, updateProvider, addProvider, scope, vaultId, vendor, t],
   );
 
   const handleChipClick = (preset: string) => {
@@ -289,9 +302,15 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
   const handleReasoningSelect = useCallback(
     async (effort: string) => {
       if (!vendorConfig) return;
-      await updateProvider(vendorConfig.id, { reasoning_effort: effort }, vaultId ?? "");
+      setMutationError(null);
+      try {
+        await updateProvider(vendorConfig.id, { reasoning_effort: effort }, vaultId ?? "");
+      } catch {
+        setMutationError(t("settings.llmModels.mutationError"));
+        setExpanded(true);
+      }
     },
-    [vendorConfig, updateProvider, vaultId],
+    [vendorConfig, updateProvider, vaultId, t],
   );
 
   // ─── Provider tests ──────────────────────────────────────────────────────
@@ -420,6 +439,25 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         gap: 14,
       }}
     >
+      {mutationError && (
+        <p
+          role="alert"
+          data-testid={`vendor-mutation-error-${vendor.id}`}
+          style={{
+            margin: 0,
+            padding: "8px 10px",
+            border: "1px solid color-mix(in srgb, var(--syn-red) 45%, var(--syn-border))",
+            borderRadius: 6,
+            background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-surface))",
+            color: "var(--syn-red)",
+            fontSize: 11,
+            lineHeight: 1.45,
+          }}
+        >
+          {mutationError}
+        </p>
+      )}
+
       {/* Claude Code CLI subscription auth (sk-ant-oat OAuth) — co-located inside its own
           vendor row (v1.4) instead of a standalone section; it's specific to this provider. */}
       {vendor.id === "claude-cli" && <SectionCliAuth embedded />}

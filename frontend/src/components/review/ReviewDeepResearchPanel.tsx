@@ -18,6 +18,7 @@
  */
 
 import { useState, useEffect, useCallback, type KeyboardEvent } from "react";
+import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -39,6 +40,8 @@ export interface ReviewDeepResearchPanelProps {
    * appears without the user having to navigate away.
    */
   lastResearchRunId: string | null;
+  /** Present when the panel is hosted inside the shared responsive drawer. */
+  onClose?: () => void;
 }
 
 // ─── Status colour map ────────────────────────────────────────────────────────
@@ -62,11 +65,15 @@ function RunRow({ run, lang }: RunRowProps) {
   const { t } = useTranslation();
   const relTime = (() => {
     try {
-      const diff = Date.now() - new Date(run.started_at).getTime();
-      const mins = Math.floor(diff / 60_000);
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.floor(mins / 60);
-      return hrs < 24 ? `${hrs}h ago` : new Date(run.started_at).toLocaleDateString(lang);
+      const date = new Date(run.started_at);
+      const diff = date.getTime() - Date.now();
+      const formatter = new Intl.RelativeTimeFormat(lang, { numeric: "auto" });
+      const mins = Math.round(diff / 60_000);
+      if (Math.abs(mins) < 60) return formatter.format(mins, "minute");
+      const hrs = Math.round(diff / 3_600_000);
+      return Math.abs(hrs) < 24
+        ? formatter.format(hrs, "hour")
+        : date.toLocaleDateString(lang);
     } catch {
       return "";
     }
@@ -113,6 +120,7 @@ function RunRow({ run, lang }: RunRowProps) {
 export function ReviewDeepResearchPanel({
   vaultId,
   lastResearchRunId,
+  onClose,
 }: ReviewDeepResearchPanelProps) {
   const { t, i18n } = useTranslation();
   const [topic, setTopic] = useState("");
@@ -158,9 +166,9 @@ export function ReviewDeepResearchPanel({
     <div
       data-testid="review-dr-panel"
       style={{
-        width: 264,
-        minWidth: 180,
-        borderLeft: "1px solid var(--syn-border)",
+        width: onClose ? "100%" : 264,
+        minWidth: onClose ? 0 : 180,
+        borderLeft: onClose ? 0 : "1px solid var(--syn-border)",
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
@@ -177,9 +185,22 @@ export function ReviewDeepResearchPanel({
           fontWeight: 600,
           color: "var(--syn-text)",
           flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        {t("review.deepResearchPanel.panelTitle")}
+        <span>{t("review.deepResearchPanel.panelTitle")}</span>
+        {onClose && (
+          <button
+            type="button"
+            className="syn-btn syn-btn--ghost syn-btn--sm"
+            aria-label={t("review.deepResearchPanel.close")}
+            onClick={onClose}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {/* ── Topic input + start button ───────────────────────────────────── */}

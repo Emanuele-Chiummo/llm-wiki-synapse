@@ -29,8 +29,9 @@ Invariants:
     inherited key), so options.env alone cannot remove an inherited ANTHROPIC_API_KEY; the scoped
     os.environ override is the only way to make the key absent at the child-spawn snapshot, and it
     restores the parent env exactly (including keys that were absent) on exit or exception.
-  - I7: the SDK is given a token_budget (ADR-0009: 100k default for CLI); the provider aborts
-    if the SDK reports the budget exceeded. The orchestrator records ONE ingest_runs row.
+  - I7: delegated ingest passes ProviderSettings.max_iter as the SDK max_turns bound and stops
+    consuming at a message boundary when reported tokens reach token_budget. The orchestrator
+    records ONE ingest_runs row.
   - ADR-0009 (as amended by NB-4): record the REAL cost the SDK reports. claude-agent-sdk
     surfaces a `total_cost_usd` on its terminal ResultMessage when the run was billed via an
     API key. We use that value when it is present and > 0; we fall back to the historical
@@ -475,6 +476,7 @@ class CliAgentProvider(InferenceProvider):
             # model must be granted the NAMESPACED names (bare names would never match). ADR-0010.
             allowed_tools=[f"mcp__synapse__{n}" for n in MCP_TOOL_NAMES],
             mcp_servers={"synapse": mcp_server},  # McpSdkServerConfig dict (create_sdk_mcp_server)
+            max_turns=max(1, int(self._config.max_iter)),  # delegated-loop turn bound (I7)
         )
 
         pages_written = 0
@@ -482,6 +484,7 @@ class CliAgentProvider(InferenceProvider):
         # Cost the SDK reports on its terminal ResultMessage (None until we see it).
         sdk_cost_usd: float | None = None
         converged = False
+        budget_interrupted = False
 
         # ADR-0043 §2.3: DB-token subscription → inject CLAUDE_CODE_OAUTH_TOKEN + scrub
         # ANTHROPIC_API_KEY from the child env for the duration of the SDK session, restored after
@@ -501,6 +504,31 @@ class CliAgentProvider(InferenceProvider):
                     msg_cost = _extract_sdk_cost(message)
                     if msg_cost is not None:
                         sdk_cost_usd = msg_cost
+                    # The SDK only exposes authoritative usage on received messages. Interrupt at
+                    # that boundary, then keep draining until the terminal ResultMessage so its
+                    # cumulative billable cost is not lost from the ledger (I7).
+                    if (
+                        self._token_budget > 0
+                        and (usage.input_tokens + usage.output_tokens >= self._token_budget)
+                        and not budget_interrupted
+                    ):
+                        budget_interrupted = True
+                        logger.warning(
+                            "CliAgentProvider: delegated ingest token budget reached "
+                            "(%d/%d) — interrupting at message boundary and draining result",
+                            usage.input_tokens + usage.output_tokens,
+                            self._token_budget,
+                        )
+                        interrupt = getattr(client, "interrupt", None)
+                        if callable(interrupt):
+                            await interrupt()
+                        else:
+                            # Defensive compatibility with an older SDK: max_turns remains the
+                            # hard fallback. Continue only to preserve authoritative cost data.
+                            logger.error(
+                                "CliAgentProvider: SDK exposes no interrupt(); relying on "
+                                "max_turns while draining terminal cost"
+                            )
         converged = pages_written > 0
 
         # Raw tokens recorded when the SDK exposes them.

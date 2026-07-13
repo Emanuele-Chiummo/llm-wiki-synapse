@@ -253,6 +253,64 @@ class TestProposeBounded:
 
 
 class TestCreateGeneration:
+    async def test_corpus_review_create_preserves_generation_identity(
+        self,
+        review_env_0034: dict[str, Any],
+    ) -> None:
+        """Accepted review-only corpus pages remain idempotent in later auto runs."""
+        from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+        from app.ops import review as review_mod
+
+        key = "corpus:comparison:" + "a" * 64
+        item_id_str = await _insert_proposal(
+            review_env_0034,
+            item_type="suggestion",
+            proposed_title="Comparison of Alpha and Beta",
+            proposed_page_type="comparison",
+            rationale="Compare these entities using shared evidence.",
+            proposal_origin="corpus",
+            content_key=key,
+        )
+        origin = f"review:{item_id_str}"
+        provider_page = WikiPage(
+            title="Alpha and Beta",
+            type=PageType.CONCEPT,  # provider drift must be corrected at the boundary
+            content="Comparison grounded in [[Alpha]] and [[Beta]].",
+            frontmatter=WikiFrontmatter(
+                type=PageType.CONCEPT,
+                title="Alpha and Beta",
+                sources=[origin],
+                lang="en",
+            ),
+        )
+        analysis = MagicMock(language="en", summary="s")
+        provider = MagicMock()
+        provider.bind_accumulator = MagicMock()
+        caps = MagicMock(mode="local", supports_agentic_loop=False)
+        caps.name = "prov"
+        provider.capabilities = MagicMock(return_value=caps)
+        provider.analyze = AsyncMock(return_value=analysis)
+        provider.generate = AsyncMock(return_value=[provider_page])
+        captured: dict[str, Any] = {}
+
+        async def fake_write(session: Any, page: Any, origin_source: str) -> Any:
+            captured["page"] = page
+            return MagicMock(id=uuid.uuid4())
+
+        with (
+            patch(
+                "app.provider_config_service.resolve_provider_config",
+                new=AsyncMock(return_value=_fake_config_row()),
+            ),
+            patch("app.ingest.provider.resolve_provider", return_value=provider),
+            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+        ):
+            await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+
+        assert captured["page"].type is PageType.COMPARISON
+        assert captured["page"].frontmatter.type is PageType.COMPARISON
+        assert captured["page"].frontmatter.synapse_generation_key == key
+
     async def test_create_runs_loop_and_writes_via_write_wiki_page(
         self,
         review_env_0034: dict[str, Any],
@@ -596,7 +654,7 @@ class TestCreatePageTypeHeuristic:
         from app.ingest.schemas import PageType
         from app.ops.review import _resolve_create_page_type as r
 
-        # Explicit valid type honored (Synapse superset D6).
+        # Explicit valid type is a hint when no stronger textual cue exists.
         assert r("Anything", "comparison", None) == PageType.COMPARISON
         # 'source' explicit → dropped to text rules (never returns SOURCE); default → query.
         assert r("Some Document", "source", None) == PageType.QUERY
@@ -608,6 +666,12 @@ class TestCreatePageTypeHeuristic:
         assert r("Compare containers", None, None) == PageType.COMPARISON
         # Synthesis cue (synthesis/综合).
         assert r("Synthesis of container tech", None, None) == PageType.SYNTHESIS
+        # Text cues are authoritative over a conflicting provider hint.
+        assert r("Comparison of Docker and Podman", "entity", None) == PageType.COMPARISON
+        assert r("Synthesis of container tech", "comparison", None) == PageType.SYNTHESIS
+        # Structural cues must also win when generic nouns appear in realistic rationales.
+        assert r("Container options", None, "Compare these entities") == PageType.COMPARISON
+        assert r("Container landscape", None, "Synthesis of related concepts") == PageType.SYNTHESIS
         # missing-page item_type → concept (rule 5).
         assert r("Kubernetes", None, None, "missing-page") == PageType.CONCEPT
         # suggestion / contradiction / plain fallback → query (llm_wiki default).
@@ -616,6 +680,77 @@ class TestCreatePageTypeHeuristic:
         assert r("Conflicting claims about X", None, None, "contradiction") == PageType.QUERY
         # llm_wiki does NOT treat bare "vs" / "overview of" as cues → query (faithful parity).
         assert r("Docker vs Podman", None, None) == PageType.QUERY
+
+
+class TestProposalMergeCaps:
+    @staticmethod
+    def _proposal(title: str, item_type: str = "suggestion", rationale: str = "r") -> Any:
+        from app.ops.review import ProposalDTO
+
+        return ProposalDTO(
+            item_type=item_type,
+            proposed_title=title,
+            proposed_page_type="query",
+            rationale=rationale,
+        )
+
+    def test_rule_and_ai_have_separate_caps_so_ai_cannot_be_starved(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from app.config import settings
+        from app.ops.review import _merge_proposals_bounded
+
+        monkeypatch.setattr(settings, "review_rule_propose_max_items", 8, raising=False)
+        monkeypatch.setattr(settings, "review_propose_max_items", 12)
+        rules = [self._proposal(f"Rule {i}", "missing-page") for i in range(20)]
+        ai = [self._proposal(f"AI {i}") for i in range(20)]
+
+        merged = _merge_proposals_bounded(rules, ai)
+
+        assert len(merged) == 20
+        assert sum(p.item_type == "missing-page" for p in merged) == 8
+        assert sum(p.item_type == "suggestion" for p in merged) == 12
+
+    def test_merge_deduplicates_stably_without_consuming_ai_quota(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from app.config import settings
+        from app.ops.review import _merge_proposals_bounded
+
+        monkeypatch.setattr(settings, "review_rule_propose_max_items", 1, raising=False)
+        monkeypatch.setattr(settings, "review_propose_max_items", 2)
+        rules = [self._proposal("Duplicate", "missing-page", "thin rule rationale")]
+        ai = [
+            self._proposal("Duplicate", "missing-page", "rich AI rationale and queries"),
+            self._proposal("AI One"),
+            self._proposal("AI One"),
+            self._proposal("AI Two"),
+        ]
+
+        merged = _merge_proposals_bounded(rules, ai)
+
+        assert [(p.item_type, p.proposed_title) for p in merged] == [
+            ("missing-page", "Duplicate"),
+            ("suggestion", "AI One"),
+            ("suggestion", "AI Two"),
+        ]
+        assert merged[0] is ai[0]
+        assert merged[0].rationale == "rich AI rationale and queries"
+
+    def test_config_cannot_raise_global_hard_caps(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from app.config import settings
+        from app.ops.review import _merge_proposals_bounded
+
+        monkeypatch.setattr(settings, "review_rule_propose_max_items", 999, raising=False)
+        monkeypatch.setattr(settings, "review_propose_max_items", 999)
+        rules = [self._proposal(f"Rule {i}", "missing-page") for i in range(30)]
+        ai = [self._proposal(f"AI {i}") for i in range(30)]
+
+        merged = _merge_proposals_bounded(rules, ai)
+
+        assert len(merged) == 20
+        assert sum(p.item_type == "missing-page" for p in merged) == 8
+        assert sum(p.item_type == "suggestion" for p in merged) == 12
 
 
 class TestCleanCandidateTitle:

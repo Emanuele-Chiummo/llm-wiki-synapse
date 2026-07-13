@@ -15,6 +15,8 @@ Pure functions — no DB, no provider. Fast unit coverage.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from app.ingest.schemas import Analysis, PageType, SuggestedPage
 from app.ops.review import _build_propose_instruction, _trim_source_excerpt
 
@@ -114,3 +116,40 @@ def test_prompt_source_excerpt_is_bounded(monkeypatch) -> None:
     # The full 10k blob is NOT present; the elision marker proves it was trimmed.
     assert "X" * 10_000 not in prompt
     assert "[source trimmed]" in prompt
+
+
+def test_prompt_with_no_analysis_includes_only_bounded_written_page_excerpts(
+    monkeypatch, tmp_path
+) -> None:
+    """Delegated review is grounded in the exact written page ids, never a vault-wide scan."""
+    from app import config as cfg
+
+    selected = tmp_path / "wiki" / "concepts" / "selected.md"
+    selected.parent.mkdir(parents=True)
+    selected.write_text("SELECTED-PAGE-EVIDENCE-" + "A" * 2_000, encoding="utf-8")
+    unrelated = tmp_path / "wiki" / "concepts" / "unrelated.md"
+    unrelated.write_text("UNRELATED-Vault-CONTENT", encoding="utf-8")
+
+    monkeypatch.setattr(cfg.settings, "vault_path", str(tmp_path))
+    monkeypatch.setattr(cfg.settings, "review_propose_written_pages_chars", 240, raising=False)
+    monkeypatch.setattr(cfg.settings, "review_propose_source_chars", 240, raising=False)
+    page = SimpleNamespace(
+        title="Selected Page",
+        page_type="concept",
+        file_path="wiki/concepts/selected.md",
+    )
+
+    prompt = _build_propose_instruction(
+        analysis=None,
+        written_pages=[page],
+        existing_titles=["Selected Page", "Unrelated"],
+        max_items=5,
+        token_budget=4_000,
+        source_text="RAW-SOURCE-EVIDENCE-" + "B" * 2_000,
+    )
+
+    assert "# Ingest analysis" not in prompt
+    assert "SELECTED-PAGE-EVIDENCE" in prompt
+    assert "UNRELATED-Vault-CONTENT" not in prompt
+    assert "A" * 2_000 not in prompt
+    assert "B" * 2_000 not in prompt

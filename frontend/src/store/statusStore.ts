@@ -23,6 +23,8 @@ import { create } from "zustand";
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface StatusState {
+  /** Shared shell-level connectivity derived from the existing /status poll. */
+  connectionState: "checking" | "online" | "offline";
   /**
    * Backend version string from /status.version (ADR-0054 §6).
    * Undefined until the first successful /status poll.
@@ -56,6 +58,8 @@ interface StatusState {
 }
 
 interface StatusActions {
+  /** Called by the single ActivityBar poll; consumers must not add another poller. */
+  setConnectionState: (state: StatusState["connectionState"]) => void;
   /** Called by ActivityBar when it receives a /status response. */
   setBackendVersion: (version: string | undefined) => void;
   /** Called by ActivityBar with /status.review_pending (may be absent → undefined). */
@@ -74,10 +78,12 @@ export type StatusStore = StatusState & StatusActions;
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useStatusStore = create<StatusStore>((set) => ({
+  connectionState: "checking",
   backendVersion: undefined,
   reviewPending: undefined,
   supportsVision: false,
   dataVersion: null,
+  setConnectionState: (connectionState) => set({ connectionState }),
   setBackendVersion: (backendVersion) => set({ backendVersion }),
   setReviewPending: (reviewPending) => set({ reviewPending }),
   setSupportsVision: (supportsVision) => set({ supportsVision }),
@@ -88,6 +94,16 @@ export const useStatusStore = create<StatusStore>((set) => ({
 
 export function selectBackendVersion(s: StatusStore): string | undefined {
   return s.backendVersion;
+}
+
+export function selectBackendConnectionState(s: StatusStore): StatusState["connectionState"] {
+  return s.connectionState;
+}
+
+export function selectSetBackendConnectionState(
+  s: StatusStore,
+): StatusActions["setConnectionState"] {
+  return s.setConnectionState;
 }
 
 export function selectSetBackendVersion(s: StatusStore): StatusActions["setBackendVersion"] {

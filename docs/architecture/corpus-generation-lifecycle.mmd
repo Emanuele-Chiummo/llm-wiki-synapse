@@ -1,0 +1,22 @@
+flowchart LR
+    source["Current raw source"] --> route{"Provider capability"}
+    route -->|"orchestrated"| loop["Analyze → generate → validate\n6 source-grounded PageTypes"]
+    route -->|"delegated"| agent["Bounded CLI agent\nshared six-type policy"]
+    loop --> writer["Shared write_wiki_page seam"]
+    agent --> writer
+    writer --> runpages["Exact page IDs written in this run"]
+    source --> review["Bounded Review proposal pass"]
+    runpages --> review
+    review --> queue["Review queue\norigin + proposed/effective type"]
+
+    manual["Explicit corpus action"] --> mode{"auto or review-only"}
+    mode --> cluster["Bounded indexed clustering\nshared real domain required"]
+    cluster --> key["Stable kind + canonical-member key"]
+    key --> exists{"Live generation key exists?"}
+    exists -->|"normal run"| skip["Count duplicate skip\nzero provider calls"]
+    exists -->|"force"| regenerate["Regenerate same keyed page"]
+    exists -->|"no"| confidence{"Confidence gate"}
+    confidence -->|"high + auto"| generate["Provider generation"]
+    confidence -->|"eligible review"| queue
+    generate --> writer
+    regenerate --> writer

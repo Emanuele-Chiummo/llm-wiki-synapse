@@ -255,6 +255,7 @@ class TestEmbeddingToggleSideEffectFree:
                     type TEXT,
                     sources TEXT,
                     tags TEXT,
+                    generation_key TEXT,
                     content_hash TEXT NOT NULL DEFAULT '',
                     source_mtime_ns INTEGER,
                     qdrant_point_id TEXT,

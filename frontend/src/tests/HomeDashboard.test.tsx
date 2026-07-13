@@ -28,7 +28,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 // ─── Fake localStorage (Node.js 26 / jsdom compat — same pattern as auth-base.test.ts) ──
 
@@ -124,26 +124,36 @@ vi.mock("../api/healthClient", () => ({
 // ─── statusStore mock ─────────────────────────────────────────────────────────
 
 const mockBackendVersion = vi.fn<() => string | undefined>(() => undefined);
+let mockConnectionState: "checking" | "online" | "offline" = "online";
 
 vi.mock("../store/statusStore", () => ({
   useStatusStore: (selector: (s: unknown) => unknown) =>
-    selector({ backendVersion: mockBackendVersion(), dataVersion: null }),
+    selector({
+      backendVersion: mockBackendVersion(),
+      connectionState: mockConnectionState,
+      dataVersion: null,
+    }),
   selectBackendVersion: (s: { backendVersion: string | undefined }) => s.backendVersion,
+  selectBackendConnectionState: (s: { connectionState: typeof mockConnectionState }) =>
+    s.connectionState,
   selectSetBackendVersion: (s: { setBackendVersion: () => void }) => s.setBackendVersion,
   selectStatusDataVersion: (s: { dataVersion: number | null }) => s.dataVersion,
 }));
 
 // ─── providerStore mock ───────────────────────────────────────────────────────
 
-const mockActiveProvider = vi.fn<() => { provider_type: string; model_id: string | null } | null>(
-  () => null,
-);
+const mockActiveProvider = vi.fn<
+  () => {
+    provider_type: string;
+    model_id: string | null;
+    is_fallback?: boolean;
+  } | null
+>(() => null);
 
 vi.mock("../store/providerStore", () => ({
   useProviderStore: (selector: (s: unknown) => unknown) =>
     selector({ activeItem: mockActiveProvider() }),
-  selectActiveProvider: (s: { activeItem: { provider_type: string; model_id: string | null } | null }) =>
-    s.activeItem,
+  selectActiveProvider: (s: { activeItem: ReturnType<typeof mockActiveProvider> }) => s.activeItem,
 }));
 
 // ─── pagesClient mock (v1.5 home additions) ──────────────────────────────────
@@ -346,6 +356,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     id: "rev-001",
     vault_id: "default",
     item_type: "suggestion",
+    proposal_origin: "ai",
     status: "pending",
     proposed_title: "New Entity: Prometheus",
     proposed_page_type: "entity",
@@ -355,6 +366,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     page_title: null,
     source_page_id: null,
     created_page_id: null,
+    created_page_type: null,
     resolution: null,
     deep_research_run_id: null,
     content_key: null,
@@ -368,6 +380,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     id: "rev-002",
     vault_id: "default",
     item_type: "suggestion",
+    proposal_origin: "ai",
     status: "pending",
     proposed_title: "Concept: Rate Limiting",
     proposed_page_type: "concept",
@@ -377,6 +390,7 @@ const MOCK_REVIEW_ITEMS: ReviewItem[] = [
     page_title: null,
     source_page_id: null,
     created_page_id: null,
+    created_page_type: null,
     resolution: null,
     deep_research_run_id: null,
     content_key: null,
@@ -449,6 +463,108 @@ async function renderDashboard() {
   });
   return result;
 }
+
+describe("HomeDashboard — recoverable backend failure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    mockConnectionState = "online";
+    mockActiveProvider.mockReturnValue(null);
+    setupDefaultMocks();
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+  });
+
+  it("replaces the loading skeleton with an actionable error when stats cannot load", async () => {
+    mockGetStatsOverview.mockRejectedValueOnce(new Error("500 Internal Server Error"));
+
+    render(<HomeDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-dashboard-error")).not.toBeNull();
+    });
+    expect(screen.queryByTestId("home-dashboard-loading")).toBeNull();
+    expect(screen.getByTestId("error-state-retry")).not.toBeNull();
+
+    fireEvent.click(screen.getByTestId("error-state-retry"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-dashboard")).not.toBeNull();
+    });
+  });
+});
+
+describe("HomeDashboard — first useful outcome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    mockGetStatsOverview.mockResolvedValue({
+      ...MOCK_OVERVIEW,
+      pages_total: 0,
+      links_total: 0,
+      communities_count: 0,
+      review_pending: 0,
+      lint_open: 0,
+      recent_activity: [],
+    });
+  });
+
+  it("replaces zero-value operations cards with a guided LLM Wiki start", async () => {
+    await renderDashboard();
+
+    expect(screen.getByTestId("home-getting-started")).not.toBeNull();
+    expect(screen.queryByTestId("kpi-pages-total")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("home-getting-started-import"));
+    expect(mockSetActiveSection).toHaveBeenCalledWith("ingest");
+  });
+
+  it("does not claim readiness from an unverified seeded provider or offline backend", async () => {
+    mockConnectionState = "offline";
+    mockActiveProvider.mockReturnValue({
+      provider_type: "api",
+      model_id: "seeded-model",
+      is_fallback: false,
+    });
+
+    await renderDashboard();
+
+    expect(screen.getByText("backendNeeded")).toBeTruthy();
+    expect(screen.getByText("providerNeeded")).toBeTruthy();
+    expect(screen.queryByText("providerReady")).toBeNull();
+  });
+
+  it("does not transfer a completed verification to a different active provider", async () => {
+    localStorage.setItem(
+      "synapse.setupState",
+      JSON.stringify({
+        version: 1,
+        status: "completed",
+        lastStep: 4,
+        connectionVerified: true,
+        providerVerified: true,
+        providerFingerprint: JSON.stringify([
+          "provider-a",
+          "api",
+          "model-a",
+          "",
+          "2026-07-13T00:00:00Z",
+        ]),
+        updatedAt: "2026-07-13T00:00:00Z",
+      }),
+    );
+    mockActiveProvider.mockReturnValue({
+      provider_type: "api",
+      model_id: "model-b",
+      is_fallback: false,
+    });
+
+    await renderDashboard();
+
+    expect(screen.getByText("providerNeeded")).toBeTruthy();
+    expect(screen.queryByText("providerReady")).toBeNull();
+  });
+});
 
 // ─── AC-R12-1-5a: KPI cards render from mocked overview ──────────────────────
 
@@ -2033,10 +2149,82 @@ describe("HomeDashboard v1.5.3 — SynthesizeNudge (synthesize)", () => {
     await waitFor(() => {
       expect(mockTriggerSynthesize).toHaveBeenCalledTimes(1);
     });
+    expect(mockTriggerSynthesize).toHaveBeenCalledWith({ mode: "auto" });
     await waitFor(() => {
       expect(screen.getByTestId("home-synthesize-cta")).toHaveProperty("disabled", true);
     });
     // Re-fetches status once after triggering (I3-safe single re-check, no polling).
     expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers a provider-free review-only corpus pass", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    await renderDashboard();
+    await waitFor(() => {
+      expect(screen.queryByTestId("home-synthesize-review-cta")).not.toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("home-synthesize-review-cta"));
+
+    await waitFor(() => {
+      expect(mockTriggerSynthesize).toHaveBeenCalledWith({ mode: "review-only" });
+    });
+  });
+
+  it("renders additive v1.6 corpus quality diagnostics from the last run", async () => {
+    mockGetSynthesizeStatus.mockResolvedValue({
+      running: false,
+      last_summary: {
+        candidates: 12,
+        processed: 4,
+        synthesis_written: 1,
+        comparison_written: 2,
+        pages_written: 3,
+        proposed: 1,
+        skipped: 5,
+        failed: 0,
+        total_cost_usd: 0.08,
+        stopped_reason: "complete",
+        max_pages: 12,
+        token_budget: 16000,
+        force: false,
+        duplicates_skipped: 3,
+        untagged_skipped: 4,
+        max_candidates: 20,
+        mode: "auto-write",
+      },
+    });
+
+    await renderDashboard();
+
+    const diagnostics = screen.getByTestId("home-synthesize-diagnostics");
+    expect(diagnostics.textContent).toContain("3");
+    expect(diagnostics.textContent).toContain("4");
+    expect(diagnostics.textContent).toContain("20");
+    expect(diagnostics.textContent).toContain("auto-write");
+  });
+
+  it("polls corpus status only while a run is active and stops after completion", async () => {
+    vi.useFakeTimers();
+    mockGetSynthesizeStatus
+      .mockResolvedValueOnce({ running: true, last_summary: null })
+      .mockResolvedValueOnce({ running: false, last_summary: null });
+
+    render(<HomeDashboard />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    expect(mockGetSynthesizeStatus).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 });

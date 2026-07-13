@@ -17,6 +17,7 @@
 
 import type { CSSProperties } from "react";
 import { useSettingsStore, selectTheme, resolveTheme } from "../../store/settingsStore";
+import { PRODUCT_IDENTITY } from "../../config/productIdentity";
 
 interface SynapseMarkProps {
   /** Rendered width AND height (square mark). Defaults to 64px. */
@@ -31,11 +32,20 @@ export function SynapseMark({ size = 64, variant = "auto", className, style }: S
   const storedTheme = useSettingsStore(selectTheme);
   const resolved = variant === "auto" ? resolveTheme(storedTheme) : variant;
   const isDark = resolved === "dark";
+  const isSimplified = size < 24;
 
   // exactOptionalPropertyTypes: only spread props that are actually defined
   const passThrough: { className?: string; style?: CSSProperties } = {};
   if (className !== undefined) passThrough.className = className;
   if (style !== undefined) passThrough.style = style;
+
+  if (isSimplified) {
+    return isDark ? (
+      <SynapseMarkSimplifiedDark size={size} {...passThrough} />
+    ) : (
+      <SynapseMarkSimplifiedLight size={size} {...passThrough} />
+    );
+  }
 
   if (isDark) {
     return <SynapseMarkDark size={size} {...passThrough} />;
@@ -61,32 +71,40 @@ function SynapseMarkDark({
       width={size}
       height={size}
       role="img"
-      aria-label="Synapse"
+      aria-label={PRODUCT_IDENTITY.displayName}
+      data-mark-detail="master"
       className={className}
       style={style}
     >
       {/* Satellite edges */}
-      <path
-        d="M186 62 L224 34"
-        stroke="#ffffff"
-        strokeOpacity={0.5}
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
-      <path
-        d="M70 194 L32 222"
-        stroke="#ffffff"
-        strokeOpacity={0.5}
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
-      <path
-        d="M128 128 L206 150"
-        stroke="#ffffff"
-        strokeOpacity={0.5}
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
+      <g data-mark-part="satellites">
+        <path
+          d="M186 62 L224 34"
+          stroke="#ffffff"
+          strokeOpacity={0.5}
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <path
+          d="M70 194 L32 222"
+          stroke="#ffffff"
+          strokeOpacity={0.5}
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <path
+          d="M128 128 L206 150"
+          stroke="#ffffff"
+          strokeOpacity={0.5}
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+
+        {/* Satellite nodes */}
+        <circle cx={224} cy={34} r={10} fill="#ffffff" fillOpacity={0.85} />
+        <circle cx={32} cy={222} r={10} fill="#ffffff" fillOpacity={0.85} />
+        <circle cx={206} cy={150} r={8} fill="#ffffff" fillOpacity={0.85} />
+      </g>
 
       {/* Main synaptic S-path */}
       <path
@@ -101,11 +119,6 @@ function SynapseMarkDark({
       <circle cx={186} cy={62} r={26} fill="#ffffff" />
       <circle cx={70} cy={194} r={26} fill="#ffffff" />
       <circle cx={128} cy={128} r={15} fill="#ffffff" />
-
-      {/* Satellite nodes */}
-      <circle cx={224} cy={34} r={10} fill="#ffffff" fillOpacity={0.85} />
-      <circle cx={32} cy={222} r={10} fill="#ffffff" fillOpacity={0.85} />
-      <circle cx={206} cy={150} r={8} fill="#ffffff" fillOpacity={0.85} />
     </svg>
   );
 }
@@ -128,7 +141,8 @@ function SynapseMarkLight({
       width={size}
       height={size}
       role="img"
-      aria-label="Synapse"
+      aria-label={PRODUCT_IDENTITY.displayName}
+      data-mark-detail="master"
       className={className}
       style={style}
     >
@@ -159,24 +173,31 @@ function SynapseMarkLight({
       </defs>
 
       {/* Satellite edges */}
-      <path
-        d="M186 62 L224 34"
-        stroke="url(#synMarkGradSoftL)"
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
-      <path
-        d="M70 194 L32 222"
-        stroke="url(#synMarkGradSoftL)"
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
-      <path
-        d="M128 128 L206 150"
-        stroke="url(#synMarkGradSoftL)"
-        strokeWidth={6}
-        strokeLinecap="round"
-      />
+      <g data-mark-part="satellites">
+        <path
+          d="M186 62 L224 34"
+          stroke="url(#synMarkGradSoftL)"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <path
+          d="M70 194 L32 222"
+          stroke="url(#synMarkGradSoftL)"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+        <path
+          d="M128 128 L206 150"
+          stroke="url(#synMarkGradSoftL)"
+          strokeWidth={6}
+          strokeLinecap="round"
+        />
+
+        {/* Satellite nodes */}
+        <circle cx={224} cy={34} r={10} fill="#7C3AED" />
+        <circle cx={32} cy={222} r={10} fill="#1D4ED8" />
+        <circle cx={206} cy={150} r={8} fill="#4338CA" />
+      </g>
 
       {/* Main synaptic S-path */}
       <path
@@ -192,14 +213,95 @@ function SynapseMarkLight({
       <circle cx={70} cy={194} r={26} fill="url(#synMarkGradL)" />
       <circle cx={128} cy={128} r={15} fill="url(#synMarkGradL)" />
 
-      {/* Satellite nodes */}
-      <circle cx={224} cy={34} r={10} fill="#7C3AED" />
-      <circle cx={32} cy={222} r={10} fill="#1D4ED8" />
-      <circle cx={206} cy={150} r={8} fill="#4338CA" />
-
       {/* Synaptic spark highlights */}
       <circle cx={186} cy={62} r={9} fill="#ffffff" fillOpacity={0.92} />
       <circle cx={70} cy={194} r={9} fill="#ffffff" fillOpacity={0.92} />
+    </svg>
+  );
+}
+
+/** Simplified favicon geometry for marks rendered below 24px. */
+function SynapseMarkSimplifiedDark({
+  size,
+  className,
+  style,
+}: {
+  size: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={PRODUCT_IDENTITY.displayName}
+      data-mark-detail="simplified"
+      className={className}
+      style={style}
+    >
+      <path
+        d="M43 19 C 29 17 22 27 32 32 C 42 37 35 47 21 45"
+        stroke="#ffffff"
+        strokeWidth={5.5}
+        strokeLinecap="round"
+      />
+      <circle cx={43} cy={19} r={5.5} fill="#ffffff" />
+      <circle cx={21} cy={45} r={5.5} fill="#ffffff" />
+      <circle cx={32} cy={32} r={3} fill="#ffffff" />
+    </svg>
+  );
+}
+
+/** Simplified gradient favicon geometry for light surfaces. */
+function SynapseMarkSimplifiedLight({
+  size,
+  className,
+  style,
+}: {
+  size: number;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={PRODUCT_IDENTITY.displayName}
+      data-mark-detail="simplified"
+      className={className}
+      style={style}
+    >
+      <defs>
+        <linearGradient
+          id="synMarkGradSimplifiedL"
+          x1="0"
+          y1="64"
+          x2="64"
+          y2="0"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stopColor="#1D4ED8" />
+          <stop offset="0.5" stopColor="#4338CA" />
+          <stop offset="1" stopColor="#7C3AED" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M43 19 C 29 17 22 27 32 32 C 42 37 35 47 21 45"
+        stroke="url(#synMarkGradSimplifiedL)"
+        strokeWidth={5.5}
+        strokeLinecap="round"
+      />
+      <circle cx={43} cy={19} r={5.5} fill="url(#synMarkGradSimplifiedL)" />
+      <circle cx={21} cy={45} r={5.5} fill="url(#synMarkGradSimplifiedL)" />
+      <circle cx={32} cy={32} r={3} fill="url(#synMarkGradSimplifiedL)" />
     </svg>
   );
 }

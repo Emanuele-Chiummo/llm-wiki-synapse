@@ -21,10 +21,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ReviewQueueView } from "../components/review/ReviewQueueView";
 import { useReviewStore } from "../store/reviewStore";
 import type { ReviewItem } from "../api/types";
+
+const viewportState = vi.hoisted(() => ({ tier: "desktop" as "mobile" | "tablet" | "desktop" }));
+
+vi.mock("../hooks/useViewport", () => ({
+  useViewport: () => viewportState.tier,
+}));
 
 // ─── Mock TanStack Virtual ────────────────────────────────────────────────────
 // In jsdom there is no layout engine; the virtualizer sees zero container height
@@ -114,6 +120,27 @@ vi.mock("react-i18next", () => ({
         "review.tabPending": "Pending",
         "review.tabResolved": "Resolved",
         "review.tabDismissed": "Dismissed",
+        "review.statusTabsAria": "Review queue status",
+        "review.pendingCount": `${String(params?.count ?? 0)} pending`,
+        "review.selectItem": `Select ${String(params?.title ?? "item")}`,
+        "review.filters.itemType": "Proposal type",
+        "review.filters.origin": "Origin",
+        "review.filters.pageType": "Page type",
+        "review.filters.all": "All",
+        "review.filters.clear": "Clear filters",
+        "review.origin.rule": "Rule",
+        "review.origin.ai": "AI",
+        "review.origin.corpus": "Corpus",
+        "review.origin.system": "System",
+        "review.origin.lint": "Lint",
+        "review.origin.legacy": "Legacy",
+        "review.proposedType": "Proposed",
+        "review.createdType": "Created as",
+        "review.queryQuality.absent": "No queries",
+        "review.queryQuality.titleOnly": "Title-only query",
+        "review.queryQuality.contextual": "Contextual queries",
+        "review.deepResearchPanel.open": "Open research tasks",
+        "review.deepResearchPanel.close": "Close research tasks",
         "review.statusBadge.auto_resolved": "Auto-resolved",
         "review.statusBadge.created": "Created",
         "review.statusBadge.deep_researched": "Researched",
@@ -132,6 +159,9 @@ vi.mock("react-i18next", () => ({
         "review.approving": "Approving…",
         "review.pageType.concept": "concept",
         "review.pageType.entity": "entity",
+        "review.pageType.query": "query",
+        "review.pageType.synthesis": "synthesis",
+        "review.pageType.comparison": "comparison",
         "review.deepResearchPanel.panelTitle": "Deep Research",
         "review.deepResearchPanel.topicPlaceholder": "Enter a research topic…",
         "review.deepResearchPanel.startBtn": "Start",
@@ -172,6 +202,7 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
     id,
     vault_id: "default",
     item_type: "missing-page",
+    proposal_origin: "legacy",
     status: "pending",
     proposed_title: `Proposed Page ${id}`,
     proposed_page_type: "concept",
@@ -181,6 +212,7 @@ function makeItem(id: string, overrides: Partial<ReviewItem> = {}): ReviewItem {
     page_title: null,
     source_page_id: null,
     created_page_id: null,
+    created_page_type: null,
     resolution: null,
     deep_research_run_id: null,
     content_key: null,
@@ -201,6 +233,7 @@ function resetStore(overrides: Partial<ReturnType<typeof useReviewStore.getState
     loading: false,
     error: null,
     activeTab: "pending",
+    filters: { itemType: null, proposalOrigin: null, proposedPageType: null },
     selectedIds: new Set<string>(),
     actionInFlight: {},
     actionError: {},
@@ -216,6 +249,7 @@ function resetStore(overrides: Partial<ReturnType<typeof useReviewStore.getState
 }
 
 beforeEach(() => {
+  viewportState.tier = "desktop";
   resetStore();
   vi.clearAllMocks();
   vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
@@ -230,6 +264,102 @@ beforeEach(() => {
     total: 0,
     limit: 20,
     offset: 0,
+  });
+});
+
+// ─── v1.6 provenance, type trace, query quality, and filtering ───────────────
+
+describe("ReviewQueueView — v1.6 generation diagnostics", () => {
+  it("shows proposal origin, proposed type, created type, and query label", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("typed", {
+          status: "created",
+          proposal_origin: "ai",
+          proposed_page_type: "query",
+          created_page_type: "comparison",
+          search_queries: ["DORA concentration risk Article 29 evidence"],
+        }),
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => expect(screen.getByTestId("review-item-row")).toBeTruthy());
+    expect(screen.getByTestId("review-origin").textContent).toContain("AI");
+    expect(screen.getByTestId("review-proposed-type").textContent).toContain("query");
+    expect(screen.getByTestId("review-created-type").textContent).toContain("comparison");
+  });
+
+  it("classifies absent, title-only, and contextual search query quality", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [
+        makeItem("absent", { proposed_title: "Alpha", search_queries: null }),
+        makeItem("title", { proposed_title: "Beta", search_queries: ["  beta  "] }),
+        makeItem("context", {
+          proposed_title: "Gamma",
+          search_queries: ["Gamma regulatory evidence 2026"],
+        }),
+      ],
+      total: 3,
+      limit: 50,
+      offset: 0,
+    });
+
+    render(<ReviewQueueView />);
+
+    await waitFor(() => expect(screen.getAllByTestId("review-query-quality")).toHaveLength(3));
+    const labels = screen.getAllByTestId("review-query-quality").map((node) => node.textContent);
+    expect(labels).toEqual(expect.arrayContaining(["No queries", "Title-only query", "Contextual queries"]));
+  });
+
+  it("sends proposal origin and page type filters through the store", async () => {
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+    });
+    render(<ReviewQueueView />);
+    await waitFor(() => expect(screen.getByTestId("review-filter-origin")).toBeTruthy());
+
+    fireEvent.change(screen.getByTestId("review-filter-origin"), { target: { value: "corpus" } });
+    fireEvent.change(screen.getByTestId("review-filter-page-type"), {
+      target: { value: "synthesis" },
+    });
+
+    await waitFor(() => {
+      expect(reviewClient.fetchReviewQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ proposalOrigin: "corpus", proposedPageType: "synthesis" }),
+      );
+    });
+  });
+
+  it("uses complete ARIA tab semantics", async () => {
+    render(<ReviewQueueView />);
+    const pending = screen.getByTestId("review-tab-pending");
+    expect(pending.getAttribute("role")).toBe("tab");
+    expect(pending.getAttribute("aria-selected")).toBe("true");
+    expect(pending.getAttribute("aria-controls")).toBe("review-tabpanel");
+
+    pending.focus();
+    fireEvent.keyDown(screen.getByRole("tablist"), { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(screen.getByTestId("review-tab-resolved").getAttribute("aria-selected")).toBe("true"),
+    );
+  });
+
+  it("moves Deep Research into the shared drawer on mobile", async () => {
+    viewportState.tier = "mobile";
+    render(<ReviewQueueView />);
+
+    expect(screen.queryByTestId("review-dr-panel")).toBeNull();
+    fireEvent.click(screen.getByTestId("review-open-research"));
+    await waitFor(() => expect(screen.getByTestId("panel-drawer")).toBeTruthy());
+    expect(screen.getByTestId("review-dr-panel")).toBeTruthy();
   });
 });
 
@@ -1238,7 +1368,7 @@ describe("ReviewQueueView — R5: purpose-suggestion and schema-suggestion types
     await waitFor(() => {
       expect(screen.getByTestId("review-item-row")).toBeTruthy();
     });
-    expect(screen.getByText("Purpose suggestion")).toBeTruthy();
+    expect(within(screen.getByTestId("review-item-row")).getByText("Purpose suggestion")).toBeTruthy();
   });
 
   it("schema-suggestion renders 'Schema suggestion' label (not grey fallback)", async () => {
@@ -1252,7 +1382,7 @@ describe("ReviewQueueView — R5: purpose-suggestion and schema-suggestion types
     await waitFor(() => {
       expect(screen.getByTestId("review-item-row")).toBeTruthy();
     });
-    expect(screen.getByText("Schema suggestion")).toBeTruthy();
+    expect(within(screen.getByTestId("review-item-row")).getByText("Schema suggestion")).toBeTruthy();
   });
 });
 

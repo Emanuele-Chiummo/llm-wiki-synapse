@@ -116,6 +116,11 @@ import {
   useGraphStore,
 } from "../store/graphStore";
 import { useStatusStore, selectStatusDataVersion } from "../store/statusStore";
+import {
+  GRAPH_PAGE_TYPE_ORDER,
+  PAGE_TYPE_VISUALS,
+  pageTypeGraphColor,
+} from "../utils/pageTypeVisuals";
 
 // ─── Reduced-motion detection ─────────────────────────────────────────────────
 
@@ -170,26 +175,14 @@ function readSigmaThemeColors(): SigmaThemeColors {
 //   entity #60a5fa · concept #c084fc · source #fb923c · synthesis #f87171
 //   comparison #2dd4bf (teal) · query #4ade80 · overview #facc15 · other #94a3b8 (slate-400)
 
-const TYPE_COLORS: Record<string, string> = {
-  concept: "#c084fc", // purple-400 (llm_wiki parity)
-  entity: "#60a5fa", // blue-400
-  source: "#fb923c", // orange-400
-  synthesis: "#f87171", // red-400
-  comparison: "#2dd4bf", // teal-400
-  query: "#4ade80", // green-400
-  overview: "#facc15", // yellow-400
-  // G4 (v1.3.14 parity): index and log get dedicated entries instead of falling into "other"
-  // index ≈ amber-400 (#fbbf24) — distinct from overview-yellow (#facc15) by hue shift toward orange
-  // log   ≈ violet-400 (#a78bfa) — distinct from concept-purple (#c084fc) by lighter/bluer hue
-  index: "#fbbf24", // amber-400 (llm_wiki: dedicated Index color)
-  log: "#a78bfa", // violet-400 (llm_wiki: dedicated Log color)
-};
+const TYPE_COLORS: Record<string, string> = Object.fromEntries(
+  GRAPH_PAGE_TYPE_ORDER.map((type) => [type, PAGE_TYPE_VISUALS[type].graphColor]),
+);
 
-const DEFAULT_NODE_COLOR = "#94a3b8"; // slate-400 (llm_wiki "other")
+const DEFAULT_NODE_COLOR = PAGE_TYPE_VISUALS.other.graphColor;
 
 function colorForType(type: string | null): string {
-  if (type === null) return DEFAULT_NODE_COLOR;
-  return TYPE_COLORS[type] ?? DEFAULT_NODE_COLOR;
+  return pageTypeGraphColor(type);
 }
 
 // ─── Re-export community/domain palette + centroid utilities for test isolation ─
@@ -801,18 +794,7 @@ const META_NODE_TYPES = new Set(["index", "log", "overview"]);
 
 // ─── Graph node type constants (shared with header filter) ───────────────────
 // Must stay in sync with TYPE_COLORS keys above.
-const ALL_NODE_TYPES = [
-  "concept",
-  "entity",
-  "source",
-  "synthesis",
-  "comparison",
-  "query",
-  "overview",
-  "index", // G4 (v1.3.14 parity): dedicated index node type
-  "log", // G4 (v1.3.14 parity): dedicated log node type
-  "other",
-] as const;
+const ALL_NODE_TYPES = [...GRAPH_PAGE_TYPE_ORDER, "other"] as const;
 
 // ─── GraphHeader (GR1–GR5, GR7) ─────────────────────────────────────────────
 // ONE top toolbar row matching nashsu/llm_wiki 0.6.0 chrome layout.

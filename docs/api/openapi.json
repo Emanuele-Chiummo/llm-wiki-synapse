@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.5.6"
+    "version": "1.6.0"
   },
   "paths": {
     "/sources": {
@@ -460,6 +460,33 @@
         ]
       }
     },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Minimal service liveness",
+        "description": "Public liveness probe used by connection and container checks. Returns no component, vault, configuration, error, or dependency details.",
+        "operationId": "get_health_live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Get Health Live Health Live Get"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/health/detailed": {
       "get": {
         "tags": [
@@ -478,7 +505,11 @@
             }
           }
         },
-        "security": []
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/stats/overview": {
@@ -754,6 +785,56 @@
           },
           "409": {
             "description": "A synthesize run is already in flight"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/synthesize/audit": {
+      "get": {
+        "summary": "Dry-run audit of possible legacy corpus-page duplicates",
+        "description": "Read-only ADR-0074 audit; never tags, merges, deletes or rewrites legacy pages.",
+        "operationId": "audit_synthesize_duplicates_ops_synthesize_audit_get",
+        "parameters": [
+          {
+            "name": "max_pages",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 500,
+              "title": "Max Pages"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Audit Synthesize Duplicates Ops Synthesize Audit Get"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -3952,6 +4033,60 @@
               "title": "Status"
             },
             "description": "Status filter (ADR-0044 \u00a76): pending | resolved | dismissed | all"
+          },
+          {
+            "name": "item_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional proposal-category filter (e.g. suggestion)",
+              "title": "Item Type"
+            },
+            "description": "Optional proposal-category filter (e.g. suggestion)"
+          },
+          {
+            "name": "proposal_origin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional rule|ai|corpus|system|lint|legacy filter",
+              "title": "Proposal Origin"
+            },
+            "description": "Optional rule|ai|corpus|system|lint|legacy filter"
+          },
+          {
+            "name": "proposed_page_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional proposed PageType filter (e.g. query)",
+              "title": "Proposed Page Type"
+            },
+            "description": "Optional proposed PageType filter (e.g. query)"
           },
           {
             "name": "limit",
@@ -7716,6 +7851,21 @@
             "title": "Pages Created",
             "description": "Wiki pages persisted during this run"
           },
+          "page_type_counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Type Counts",
+            "description": "Per-PageType created-page counts; null for legacy/unavailable runs"
+          },
           "iterations_used": {
             "type": "integer",
             "title": "Iterations Used",
@@ -11059,7 +11209,13 @@
               }
             ],
             "title": "Proposed Page Type",
-            "description": "entity|concept|source|synthesis|comparison; NULL \u2192 heuristic at Create"
+            "description": "entity|concept|query|source|synthesis|comparison; NULL \u2192 heuristic at Create"
+          },
+          "proposal_origin": {
+            "type": "string",
+            "title": "Proposal Origin",
+            "description": "rule | ai | corpus | system | lint | legacy (ADR-0073)",
+            "default": "legacy"
           },
           "proposed_dir": {
             "anyOf": [
@@ -11135,6 +11291,18 @@
             ],
             "title": "Created Page Id",
             "description": "Page produced by a successful Create action (ADR-0034 \u00a75); null otherwise"
+          },
+          "created_page_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created Page Type",
+            "description": "Effective type joined from created_page_id; null until/no Create"
           },
           "resolution": {
             "anyOf": [
@@ -11880,6 +12048,19 @@
             "title": "Max Pages",
             "description": "Cap on pages auto-written this run (synthesis+comparison; clamped)."
           },
+          "max_candidates": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Candidates",
+            "description": "Cap on all evaluated clusters, including Review/skip paths (I7)."
+          },
           "token_budget": {
             "anyOf": [
               {
@@ -11896,13 +12077,23 @@
           "force": {
             "type": "boolean",
             "title": "Force",
-            "description": "Accepted for endpoint-shape parity; the seeder is already a full re-seed.",
+            "description": "Regenerate/update the same keyed corpus pages; never create duplicates.",
             "default": false
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "review-only"
+            ],
+            "title": "Mode",
+            "description": "auto writes high-confidence pages; review-only enqueues eligible clusters.",
+            "default": "auto"
           }
         },
         "type": "object",
         "title": "SynthesizeRequest",
-        "description": "Request body for POST /ops/synthesize (ADR-0067 D3)."
+        "description": "Request body for POST /ops/synthesize (ADR-0074)."
       },
       "SynthesizeStartResponse": {
         "properties": {
@@ -11917,6 +12108,11 @@
             "title": "Max Pages",
             "description": "Effective (clamped) page cap for this run"
           },
+          "max_candidates": {
+            "type": "integer",
+            "title": "Max Candidates",
+            "description": "Effective total candidate-evaluation cap"
+          },
           "token_budget": {
             "type": "integer",
             "title": "Token Budget",
@@ -11926,13 +12122,24 @@
             "type": "boolean",
             "title": "Force",
             "description": "Echo of the force flag"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "review-only"
+            ],
+            "title": "Mode",
+            "description": "Effective run mode"
           }
         },
         "type": "object",
         "required": [
           "max_pages",
+          "max_candidates",
           "token_budget",
-          "force"
+          "force",
+          "mode"
         ],
         "title": "SynthesizeStartResponse",
         "description": "202 response for POST /ops/synthesize."
@@ -11943,6 +12150,19 @@
             "type": "boolean",
             "title": "Running",
             "description": "True while a synthesize run is in flight"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current",
+            "description": "Effective bounds/mode of the active run; null while idle"
           },
           "last_summary": {
             "anyOf": [

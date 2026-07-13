@@ -161,6 +161,7 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
         Column("tags", Text, nullable=True),  # K6 navigation tags (migration 0018)
+        Column("generation_key", String(96), nullable=True),  # ADR-0074 / migration 0031
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),

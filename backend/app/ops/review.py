@@ -41,6 +41,7 @@ import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from sqlalchemy import String as _SA_String
@@ -79,6 +80,7 @@ _VALID_STATUSES = frozenset(
 _VALID_RESOLUTIONS = frozenset(
     {"created", "skipped", "dismissed", "researched", "rule_resolved", "llm_resolved"}
 )
+_VALID_PROPOSAL_ORIGINS = frozenset({"rule", "ai", "corpus", "system", "lint", "legacy"})
 
 # Terminal statuses (ADR-0044): an item is closed and never re-mutated by re-ingest / bulk.
 _TERMINAL_STATUSES = frozenset(
@@ -89,7 +91,9 @@ _RESOLVED_STATUSES = frozenset({"created", "auto_resolved", "deep_researched"})
 
 # Caps (I7 — bounded reads/lists)
 _SWEEP_PASS1_MAX_ITEMS: int = 200  # max pending items processed per sweep Pass-1
-_PROPOSE_MAX_ITEMS: int = 8  # max proposals emitted per run (ADR-0034 §4.3)
+_RULE_PROPOSE_MAX_ITEMS: int = 8  # deterministic proposal quota per run
+_AI_PROPOSE_MAX_ITEMS: int = 12  # AI proposal quota per run (config-overridable)
+_REVIEW_PROPOSE_TOTAL_HARD_CAP: int = 20
 _MISSING_PAGE_FANOUT_CAP: int = 5  # max pages from one missing-page fan-out (I7, ADR-0064)
 
 # ── R9-3 (v0.9): purpose.md drift suggestion ─────────────────────────────────────
@@ -227,7 +231,7 @@ class ProposalDTO:
 
     item_type: Literal["missing-page", "suggestion", "contradiction", "duplicate", "confirm"]
     proposed_title: str | None
-    proposed_page_type: str | None  # entity|concept|source|synthesis|comparison|None
+    proposed_page_type: str | None  # entity|concept|query|synthesis|comparison|None
     rationale: str | None
     target_page_title: str | None = None  # resolved to page_id at enqueue time
     # ADR-0044 §4.1: contextual depth — both ride the SAME single proposal call (no extra call).
@@ -243,7 +247,7 @@ class ProposalDTO:
 async def _llm_propose_reviews(
     *,
     vault_id: str,
-    analysis: Analysis,
+    analysis: Analysis | None,
     written_pages: list[Page],
     existing_titles: list[str],
     source_text: str = "",
@@ -256,19 +260,19 @@ async def _llm_propose_reviews(
       - analysis (topics, entities, suggested_pages, summary)
       - a compact digest of the written pages (title + short excerpt)
       - the list of existing_titles in the vault (bounded, no full content)
-    returns a structured list of ProposalDTO proposals (≤ _PROPOSE_MAX_ITEMS).
+    returns a structured list of ProposalDTO proposals (≤ configured AI proposal cap).
 
     Bounds (I7):
       - Exactly ONE call; no loop; no retry.
       - asyncio.wait_for(REVIEW_PROPOSE_TIMEOUT_SECONDS).
-      - Output capped at _PROPOSE_MAX_ITEMS (truncate; never emit unbounded list).
+      - Output capped at review_propose_max_items (truncate; never emit unbounded list).
       - token_budget from the resolved row (or REVIEW_PROPOSE_TOKEN_BUDGET default).
       - Cost pushed through UsageAccumulator; logged (total_cost_usd).
       - On ConfigNotFoundError / timeout / any failure → return [] (log WARNING, never raise).
         The rule-based proposals (if any) will still be emitted by the caller.
 
     Returns:
-      List of ProposalDTO (0..N, capped at _PROPOSE_MAX_ITEMS).
+      List of ProposalDTO (0..N, capped at review_propose_max_items).
     """
     # ── Resolve provider (I6 — never hardcode; "no provider" → []) ───────────────
     resolved = await _resolve_review_provider(vault_id)
@@ -281,7 +285,10 @@ async def _llm_propose_reviews(
         return []
     provider, config_row = resolved
 
-    max_items = int(getattr(settings, "review_propose_max_items", _PROPOSE_MAX_ITEMS))
+    max_items = min(
+        _AI_PROPOSE_MAX_ITEMS,
+        max(0, int(getattr(settings, "review_propose_max_items", _AI_PROPOSE_MAX_ITEMS))),
+    )
     token_budget = _coerce_token_budget(
         getattr(config_row, "token_budget", None),
         int(getattr(settings, "review_propose_token_budget", 4_000)),
@@ -523,6 +530,7 @@ async def _run_generation(
     origin_source: str,
     provider_config_row: object,
     item_type: str | None = None,
+    generation_key: str | None = None,
 ) -> GenerationOutcome:
     """
     Bounded on-demand page generation for lazy Create (ADR-0034 §5, implemented).
@@ -574,6 +582,7 @@ async def _run_generation(
     )
     from app.ingest.provider import resolve_provider
     from app.ingest.provider.base import UsageAccumulator
+    from app.ingest.schemas import WikiFrontmatter, WikiPage
 
     # ── Resolve type / dir heuristic (§5.2) ──────────────────────────────────────
     resolved_type = _resolve_create_page_type(
@@ -603,6 +612,11 @@ async def _run_generation(
         "Ground the page in the vault context. Produce exactly one schema-valid page for "
         f"the title above; cite {origin_source!r} in its frontmatter sources[] (F3)."
     )
+    if generation_key is not None:
+        source_text += (
+            "\nThis is an accepted corpus proposal. The page type must match the reserved "
+            f"identity and frontmatter synapse_generation_key MUST equal {generation_key!r}."
+        )
 
     model_id = str(getattr(provider_config_row, "model_id", ""))
     started_at = datetime.now(UTC)
@@ -623,6 +637,7 @@ async def _run_generation(
                     source_text=source_text,
                     origin_source=origin_source,
                     system_prompt=vault_context,
+                    generation_key=generation_key,
                 ),
                 timeout=timeout_s,
             )
@@ -661,6 +676,11 @@ async def _run_generation(
                 started_at=started_at,
                 finished_at=finished_at,
                 pages_created=1 if created_page_id is not None else 0,
+                page_type_counts=(
+                    {page_type.value: int(page_type is resolved_type) for page_type in PageType}
+                    if created_page_id is not None
+                    else None
+                ),
                 error_message=(
                     (str(delegate_error) or delegate_error.__class__.__name__)
                     if delegate_error is not None
@@ -728,6 +748,18 @@ async def _run_generation(
         # _ensure_source_summary guarantees a valid WikiPage even on non-convergence (§5).
         pages = _ensure_source_summary(loop_result.pages, loop_result.analysis, origin_source)
         wiki_page = pages[0] if pages else None
+        if wiki_page is not None and generation_key is not None:
+            # Rebuild through Pydantic so the reserved key/type invariant is validated before
+            # the single writer sees the page. Provider-authored type drift cannot misfile it.
+            frontmatter_data = wiki_page.frontmatter.model_dump()
+            frontmatter_data["type"] = resolved_type
+            frontmatter_data["synapse_generation_key"] = generation_key
+            wiki_page = WikiPage(
+                title=wiki_page.title,
+                type=resolved_type,
+                content=wiki_page.content,
+                frontmatter=WikiFrontmatter(**frontmatter_data),
+            )
     except TimeoutError as exc:
         error = exc
     except Exception as exc:  # noqa: BLE001
@@ -754,6 +786,11 @@ async def _run_generation(
             started_at=started_at,
             finished_at=finished_at,
             pages_created=1 if (error is None and wiki_page is not None) else 0,
+            page_type_counts=(
+                {page_type.value: int(page_type is resolved_type) for page_type in PageType}
+                if error is None and wiki_page is not None
+                else None
+            ),
             error_message=(str(error) or error.__class__.__name__) if error is not None else None,
         )
     except Exception as run_exc:  # noqa: BLE001
@@ -983,6 +1020,7 @@ async def generate_purpose_suggestion(
         item = await enqueue_review(
             vault_id=vault_id,
             item_type=_PURPOSE_SUGGESTION_TYPE,
+            proposal_origin="system",
             proposed_title=theme,
             rationale=rationale,
             source_page_id=(uuid.UUID(str(source_page_id)) if source_page_id is not None else None),
@@ -1206,6 +1244,7 @@ async def generate_schema_suggestion(
         item = await enqueue_review(
             vault_id=vault_id,
             item_type=_SCHEMA_SUGGESTION_TYPE,
+            proposal_origin="lint",
             proposed_title=convention,
             rationale=rationale,
             source_page_id=(uuid.UUID(str(source_page_id)) if source_page_id is not None else None),
@@ -1523,6 +1562,7 @@ async def enqueue_review(
     content_key: str | None = None,
     referenced_page_ids: list[str] | None = None,
     search_queries: list[str] | None = None,
+    proposal_origin: str = "legacy",
 ) -> ReviewItem:
     """
     Idempotent upsert of one review_items proposal row (ADR-0044 §3.4, supersedes ADR-0034 §3.2).
@@ -1531,6 +1571,8 @@ async def enqueue_review(
     which is itself called fire-and-forget from the orchestrator).
 
     item_type must be one of: missing-page | suggestion | contradiction | duplicate | confirm.
+    proposal_origin defaults to ``legacy`` for backward-compatible callers and is validated as
+    one of rule | ai | corpus | system | lint | legacy before any database work.
 
     IDEMPOTENCY (ADR-0044 §3.4 / Do-NOT #2):
       When content_key is non-NULL, this is an UPSERT-on-(vault_id, content_key):
@@ -1548,6 +1590,11 @@ async def enqueue_review(
     page_id / source_page_id / created_page_id are stored as string UUIDs for
     SQLite/Postgres compat (with_variant pattern).
     """
+    if proposal_origin not in _VALID_PROPOSAL_ORIGINS:
+        raise ValueError(
+            "proposal_origin must be one of: " + " | ".join(sorted(_VALID_PROPOSAL_ORIGINS))
+        )
+
     page_id_str = str(page_id) if page_id is not None else None
     source_page_id_str = str(source_page_id) if source_page_id is not None else None
     ref_ids = list(referenced_page_ids) if referenced_page_ids else None
@@ -1571,6 +1618,7 @@ async def enqueue_review(
                 if existing.status == "pending":
                     # Refresh context in place, keep id + created_at + queue position.
                     existing.rationale = rationale
+                    existing.proposal_origin = proposal_origin
                     if ref_ids is not None:
                         existing.referenced_page_ids = ref_ids
                     if queries is not None:
@@ -1604,6 +1652,7 @@ async def enqueue_review(
             id=item_id_str,
             vault_id=vault_id,
             item_type=item_type,
+            proposal_origin=proposal_origin,
             status="pending",
             page_id=page_id_str,
             source_page_id=source_page_id_str,
@@ -1660,6 +1709,7 @@ async def propose_corpus_shape_review(
     proposed_title: str,
     cluster_page_ids: list[str],
     rationale: str,
+    generation_key: str,
 ) -> ReviewItem | None:
     """
     Propose ONE corpus-level synthesis/comparison shape to the F9 review queue (SC-D3).
@@ -1688,12 +1738,32 @@ async def propose_corpus_shape_review(
         proposed_dir = None
 
     ref_ids = [str(pid) for pid in (cluster_page_ids or []) if str(pid).strip()] or None
-    content_key = _content_key(vault_id=vault_id, item_type="suggestion", proposed_title=title)
+    normalized_generation_key = (generation_key or "").strip().lower()
+    expected_prefix = f"corpus:{kind}:"
+    if (
+        not normalized_generation_key.startswith(expected_prefix)
+        or len(normalized_generation_key) != len(expected_prefix) + 64
+        or any(
+            char not in "0123456789abcdef"
+            for char in normalized_generation_key[len(expected_prefix) :]
+        )
+    ):
+        logger.warning(
+            "propose_corpus_shape_review: invalid generation key for kind=%s vault=%s",
+            kind,
+            vault_id,
+        )
+        return None
+
+    # The opaque content_key doubles as the exact corpus identity. This survives the Review
+    # lifecycle without another migration column and lets Create stamp the same key onto the page.
+    content_key = normalized_generation_key
 
     try:
         return await enqueue_review(
             vault_id=vault_id,
             item_type="suggestion",
+            proposal_origin="corpus",
             proposed_title=title,
             proposed_page_type=kind,
             proposed_dir=proposed_dir,
@@ -1712,10 +1782,118 @@ async def propose_corpus_shape_review(
         return None
 
 
+def _rule_missing_page_search_queries(
+    target_title: str,
+    *,
+    referrer_title: str | None,
+    origin_source: str,
+) -> list[str]:
+    """Build up to three stable searches for a dangling-link proposal.
+
+    The bare target remains first for backward compatibility. When available, the written page
+    that contained the link and the ingested source basename add enough context to disambiguate a
+    generic target without asking a provider or reading any additional page.
+    """
+    target = (target_title or "").strip()
+    if not target:
+        return []
+
+    queries = [target]
+    contextual_terms: list[str] = []
+    referrer = (referrer_title or "").strip()
+    if referrer and _normalize_title(referrer) != _normalize_title(target):
+        contextual_terms.append(referrer)
+
+    source_name = (origin_source or "").replace("\\", "/").rsplit("/", 1)[-1]
+    if "." in source_name:
+        source_name = source_name.rsplit(".", 1)[0]
+    source_name = re.sub(r"[_\-]+", " ", source_name).strip()
+    if source_name and _normalize_title(source_name) not in {
+        _normalize_title(target),
+        _normalize_title(referrer),
+    }:
+        contextual_terms.append(source_name)
+
+    for context in contextual_terms:
+        query = f"{target} {context}".strip()
+        if query not in queries:
+            queries.append(query)
+        if len(queries) >= 3:
+            break
+    return queries
+
+
+def _merge_proposals_bounded(
+    rule_proposals: list[ProposalDTO], llm_proposals: list[ProposalDTO]
+) -> list[ProposalDTO]:
+    """Stable de-duplicating merge with independent rule and AI quotas (I7).
+
+    Rule noise can never consume the AI quota. Exact duplicate identities do not consume a quota
+    slot, so later unique proposals can still fill it. Input order is preserved within each lane;
+    the caller makes deterministic rule inputs stable before this seam.
+    """
+    rule_cap = min(
+        _RULE_PROPOSE_MAX_ITEMS,
+        max(
+            0,
+            int(getattr(settings, "review_rule_propose_max_items", _RULE_PROPOSE_MAX_ITEMS)),
+        ),
+    )
+    ai_cap = min(
+        _AI_PROPOSE_MAX_ITEMS,
+        max(0, int(getattr(settings, "review_propose_max_items", _AI_PROPOSE_MAX_ITEMS))),
+    )
+    merged: list[ProposalDTO] = []
+    positions: dict[tuple[str, str, str], int] = {}
+
+    def _identity(proposal: ProposalDTO) -> tuple[str, str, str]:
+        title_or_rationale = proposal.proposed_title or proposal.rationale or ""
+        return (
+            proposal.item_type,
+            _normalize_title(title_or_rationale),
+            _normalize_title(proposal.target_page_title or ""),
+        )
+
+    # Seed the deterministic lane first so it remains a complete fallback when AI is absent.
+    rule_added = 0
+    for proposal in rule_proposals:
+        if rule_added >= rule_cap:
+            break
+        identity = _identity(proposal)
+        if identity in positions:
+            continue
+        positions[identity] = len(merged)
+        merged.append(proposal)
+        rule_added += 1
+
+    # An AI duplicate replaces the rule DTO in place: richer rationale/queries win while stable
+    # ordering and deterministic referenced ids (merged later by title) are preserved. Replacing
+    # an occupied identity consumes no AI quota, so later unique AI proposals are not starved.
+    ai_seen: set[tuple[str, str, str]] = set()
+    ai_added = 0
+    for proposal in llm_proposals:
+        if ai_cap <= 0:
+            break
+        identity = _identity(proposal)
+        if identity in ai_seen:
+            continue
+        ai_seen.add(identity)
+        existing_position = positions.get(identity)
+        if existing_position is not None:
+            merged[existing_position] = proposal
+            continue
+        if ai_added >= ai_cap:
+            continue
+        positions[identity] = len(merged)
+        merged.append(proposal)
+        ai_added += 1
+    return merged[:_REVIEW_PROPOSE_TOTAL_HARD_CAP]
+
+
 async def propose_reviews(
     *,
     vault_id: str,
-    analysis: Analysis,
+    analysis: Analysis | None,
     written_pages: list[Page],
     origin_source: str,
     source_text: str = "",
@@ -1737,7 +1915,8 @@ async def propose_reviews(
       Calls _llm_propose_reviews (implemented, ADR-0034 §4.3).
       On gate failure or provider failure → zero LLM proposals (rule-based only).
 
-    Total proposals are capped at _PROPOSE_MAX_ITEMS across both passes.
+    Rule and AI proposals have independent bounded quotas (defaults 8 + 12 = 20). This prevents a
+    dangling-link burst from starving source-grounded AI proposals.
     """
     if not written_pages:
         logger.debug("propose_reviews: no written pages; skipping (vault=%s)", vault_id)
@@ -1754,6 +1933,9 @@ async def propose_reviews(
 
     # Find dangling wikilinks for the written pages (bounded indexed read — I1/I2)
     written_page_ids = [str(p.id) for p in written_pages]
+    written_title_by_id = {
+        str(p.id): (p.title or "").strip() for p in written_pages if (p.title or "").strip()
+    }
     dangling_targets: set[str] = set()
     # ADR-0044 §4.1: remember the referencing (written) page per dangling target so the
     # rule-based proposal can carry [referencing page id] as its referenced_page_ids seed.
@@ -1776,7 +1958,7 @@ async def propose_reviews(
                 # First referring written page wins (stable, bounded).
                 dangling_referrer.setdefault(r.target_title, str(r.source_page_id))
 
-        for target_title in dangling_targets:
+        for target_title in sorted(dangling_targets, key=str.casefold):
             # Check if a page with this title already exists (bounded indexed read)
             async with get_session() as session:
                 existing = (
@@ -1792,6 +1974,7 @@ async def propose_reviews(
                 ).scalar_one_or_none()
             if existing is None:
                 referrer = dangling_referrer.get(target_title)
+                referrer_title = written_title_by_id.get(referrer or "")
                 rule_proposals.append(
                     ProposalDTO(
                         item_type="missing-page",
@@ -1805,7 +1988,11 @@ async def propose_reviews(
                         target_page_title=None,
                         # ADR-0044 §4.1 rule-based seeds: [referencing page id] + [proposed_title].
                         referenced_page_titles=[],  # resolved via id below, not titles
-                        search_queries=[target_title],
+                        search_queries=_rule_missing_page_search_queries(
+                            target_title,
+                            referrer_title=referrer_title,
+                            origin_source=origin_source,
+                        ),
                     )
                 )
                 if referrer:
@@ -1906,8 +2093,12 @@ async def propose_reviews(
             )
             llm_proposals = []
 
-    # ── Merge and cap ─────────────────────────────────────────────────────────
-    all_proposals = (rule_proposals + llm_proposals)[:_PROPOSE_MAX_ITEMS]
+    # ── Stable de-duplicating merge with independent caps ─────────────────────
+    all_proposals = _merge_proposals_bounded(rule_proposals, llm_proposals)
+    # The merge returns the original DTO objects, so identity preserves the producer lane even
+    # when a rule and AI proposal have identical dataclass values. A duplicate that appears in
+    # both lanes is replaced by the AI DTO and is therefore tagged ai.
+    rule_proposal_ids = {id(proposal) for proposal in rule_proposals}
 
     if not all_proposals:
         logger.debug(
@@ -2003,6 +2194,7 @@ async def propose_reviews(
             await enqueue_review(
                 vault_id=vault_id,
                 item_type=proposal.item_type,
+                proposal_origin="rule" if id(proposal) in rule_proposal_ids else "ai",
                 proposed_title=proposal.proposed_title,
                 proposed_page_type=proposal.proposed_page_type,
                 proposed_dir=proposed_dir,
@@ -2539,6 +2731,13 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     # ── 3. Derive title / type / origin_source (§5.2) ────────────────────────
     proposed_title = item.proposed_title or f"Review: {item_id}"
     proposed_page_type = item.proposed_page_type  # may be None → heuristic in _run_generation
+    corpus_generation_key = (
+        item.content_key
+        if item.proposal_origin == "corpus"
+        and isinstance(item.content_key, str)
+        and item.content_key.startswith("corpus:")
+        else None
+    )
 
     # origin_source: provenance from source_page_id, else synthetic marker (§5.1)
     if item.source_page_id:
@@ -2587,6 +2786,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
                 origin_source=origin_source,
                 provider_config_row=provider_config_row,
                 item_type=item.item_type,
+                generation_key=corpus_generation_key,
             )
         except NotImplementedError as nie:
             if _is_primary:
@@ -2778,12 +2978,17 @@ async def list_queue(
     limit: int = 50,
     offset: int = 0,
     status: str | None = "pending",
+    item_type: str | None = None,
+    proposal_origin: str | None = None,
+    proposed_page_type: str | None = None,
 ) -> ReviewQueuePage:
     """
     Return a paginated ReviewQueuePage for GET /review/queue (ADR-0034 §7, ADR-0044 §6 filter).
 
     The ?status= filter (ADR-0044 §6) partitions the queue:
       pending (default) | resolved | dismissed | all.
+    Optional item_type, proposal_origin and proposed_page_type filters are exact-match and
+    composable; each is applied identically to the count and page-data queries.
     Ordered by created_at ASC. limit is capped at 200 by the REST endpoint (I7).
     """
     status_values = _status_filter_values(status)
@@ -2800,6 +3005,15 @@ async def list_queue(
         if status_values is not None:
             count_stmt = count_stmt.where(ReviewItem.status.in_(list(status_values)))
             data_stmt = data_stmt.where(ReviewItem.status.in_(list(status_values)))
+        optional_filters = (
+            (ReviewItem.item_type, item_type),
+            (ReviewItem.proposal_origin, proposal_origin),
+            (ReviewItem.proposed_page_type, proposed_page_type),
+        )
+        for column, value in optional_filters:
+            if value is not None:
+                count_stmt = count_stmt.where(column == value)
+                data_stmt = data_stmt.where(column == value)
 
         total: int = (await session.execute(count_stmt)).scalar_one()
         data_stmt = data_stmt.offset(offset).limit(limit)
@@ -3196,13 +3410,43 @@ async def _chat_collect(provider: Any, instruction: str, *, max_tokens: int | No
     return text
 
 
+def _read_bounded_page_excerpt(path: Path, cap: int) -> str:
+    """Read at most *cap* bytes from a page, preserving head+tail for large files."""
+    if cap <= 0:
+        return ""
+    try:
+        size = path.stat().st_size
+        with path.open("rb") as handle:
+            if size <= cap:
+                return handle.read(cap).decode("utf-8", errors="replace").strip()
+            head_bytes = cap * 2 // 3
+            tail_bytes = cap - head_bytes
+            head = handle.read(head_bytes).decode("utf-8", errors="replace").rstrip()
+            handle.seek(max(0, size - tail_bytes))
+            tail = handle.read(tail_bytes).decode("utf-8", errors="replace").lstrip()
+        return f"{head}\n…[page trimmed]…\n{tail}".strip()
+    except Exception:  # noqa: BLE001 — page excerpts are advisory review context
+        return ""
+
+
 def _digest_written_pages(written_pages: list[Page], *, max_pages: int = 20) -> str:
-    """Compact title-only digest of the written pages (bounded; no full content — I1)."""
+    """Bounded digest of only the pages written in the current ingest run (I1/I7)."""
+    selected = written_pages[:max_pages]
+    total_cap = max(
+        0,
+        int(getattr(settings, "review_propose_written_pages_chars", 6_000)),
+    )
+    per_page_cap = total_cap // len(selected) if selected and total_cap else 0
     lines: list[str] = []
-    for page in written_pages[:max_pages]:
+    for page in selected:
         title = (page.title or "").strip() or "(untitled)"
         ptype = (page.page_type or "").strip() or "?"
         lines.append(f"- {title} [{ptype}]")
+        file_path = (getattr(page, "file_path", "") or "").strip()
+        if per_page_cap and file_path:
+            excerpt = _read_bounded_page_excerpt(settings.vault_root / file_path, per_page_cap)
+            if excerpt:
+                lines.append(f"  Excerpt:\n{excerpt}")
     return "\n".join(lines) if lines else "(none)"
 
 
@@ -3251,7 +3495,7 @@ def _trim_source_excerpt(text: str, cap: int) -> str:
 
 def _build_propose_instruction(
     *,
-    analysis: Analysis,
+    analysis: Analysis | None,
     written_pages: list[Page],
     existing_titles: list[str],
     max_items: int,
@@ -3272,12 +3516,13 @@ def _build_propose_instruction(
     in-scope/out-of-scope handoff gaps, yielding source-grounded suggestions with precise,
     descriptive titles rather than generic "missing from vault" slugs.
     """
-    analysis_json = "{}"
+    analysis_block = ""
     if analysis is not None:
         try:
             analysis_json = analysis.model_dump_json(indent=2)
         except Exception:  # noqa: BLE001
             analysis_json = "{}"
+        analysis_block = f"# Ingest analysis\n{analysis_json}\n\n"
 
     pages_digest = _digest_written_pages(written_pages)
     titles_block = "\n".join(f"- {t}" for t in existing_titles[:200]) or "(none)"
@@ -3314,7 +3559,7 @@ def _build_propose_instruction(
         "  - duplicate: a page/name that likely already exists under a different name.\n"
         "  - confirm: a claim worth a human's explicit confirmation.\n\n"
         f"{source_block}"
-        f"# Ingest analysis\n{analysis_json}\n\n"
+        f"{analysis_block}"
         f"# Pages written this run\n{pages_digest}\n\n"
         f"# Existing vault page titles\n{titles_block}\n\n"
         'Return ONLY a JSON object with a single key "proposals" whose value is a list of at '
@@ -3370,10 +3615,15 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
         item_type = entry.get("type") or entry.get("item_type")
         if item_type not in _VALID_ITEM_TYPES:
             continue
-        proposed_type = entry.get("proposed_page_type")
-        # 'source' is never a valid Create target (§5.2) — drop it to the heuristic (None).
-        if proposed_type == "source":
-            proposed_type = None
+        proposed_type = _clean_str(entry.get("proposed_page_type"))
+        # Provider JSON is untrusted boundary input. Only valid non-source user-content types
+        # survive; invalid/source hints degrade to the deterministic cue heuristic.
+        if proposed_type is not None:
+            try:
+                parsed_type = PageType(proposed_type)
+                proposed_type = None if parsed_type is PageType.SOURCE else parsed_type.value
+            except (ValueError, KeyError):
+                proposed_type = None
         # ADR-0044 §4.1: tolerant extraction of the two new per-proposal lists (drop non-strings;
         # cap lengths). These ride the SAME single call — no extra provider round-trip.
         ref_max = int(getattr(settings, "review_referenced_pages_max", 8))
@@ -3387,7 +3637,7 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
             ProposalDTO(
                 item_type=item_type,
                 proposed_title=_clean_str(entry.get("proposed_title")),
-                proposed_page_type=_clean_str(proposed_type),
+                proposed_page_type=proposed_type,
                 rationale=_clean_str(entry.get("rationale")),
                 target_page_title=_clean_str(entry.get("target_page_title")),
                 referenced_page_titles=referenced,
@@ -3531,21 +3781,31 @@ def _resolve_create_page_type(
     item_type: str | None = None,
 ) -> PageType:
     """
-    Resolve the final PageType for a Create — 1:1 with nashsu/llm_wiki ``detectPageType``
-    (review-create-page.ts:57-67), so review-created pages land in the SAME folders/types.
+    Resolve the final PageType for a Create from llm_wiki's ``detectPageType`` cue vocabulary,
+    with structural-page cues deliberately taking precedence over generic entity/concept nouns.
 
-      0. (Synapse superset, D6) Use proposed_page_type verbatim when it is a valid non-'source'
-         PageType — the LLM proposal already emitted a type; llm_wiki has no such field, so this
-         only refines the ambiguous cases and never contradicts the text rules below.
-      1. entity keyword (entity/entities/实体) → entity
-      2. concept keyword (concept/concepts/概念) → concept
-      3. comparison cue (comparison/compare/比较) → comparison
-      4. synthesis cue (synthesis/综合) → synthesis
-      5. item_type == 'missing-page' → concept
-      6. everything else (suggestion, contradiction, duplicate, unknown) → **query**  ← llm_wiki
+      1. comparison cue (comparison/compare/比较) → comparison
+      2. synthesis cue (synthesis/综合) → synthesis
+      3. entity keyword (entity/entities/实体) → entity
+      4. concept keyword (concept/concepts/概念) → concept
+      5. use proposed_page_type only as a valid non-source hint when no text cue exists
+      6. item_type == 'missing-page' → concept
+      7. everything else (suggestion, contradiction, duplicate, unknown) → **query**  ← llm_wiki
          default. (Per owner decision 2026-07-12: query pages are graph-excluded, accepted.)
     'source' is reserved for ingested raw documents — Create NEVER produces a source page.
     """
+    haystack = f"{proposed_title} {rationale or ''}"
+    hay_lower = haystack.lower()
+    # Structural derived-page cues outrank generic nouns in the rationale. Otherwise realistic
+    # phrases such as "compare these entities" and "synthesis of concepts" are misfiled.
+    if any(cue in hay_lower for cue in _COMPARISON_CUES):
+        return PageType.COMPARISON
+    if any(cue in hay_lower for cue in _SYNTHESIS_CUES):
+        return PageType.SYNTHESIS
+    if _ENTITY_KEYWORD_RE.search(haystack):
+        return PageType.ENTITY
+    if _CONCEPT_KEYWORD_RE.search(haystack):
+        return PageType.CONCEPT
     if proposed_page_type:
         try:
             candidate = PageType(proposed_page_type)
@@ -3553,17 +3813,6 @@ def _resolve_create_page_type(
                 return candidate
         except (ValueError, KeyError):
             pass
-
-    haystack = f"{proposed_title} {rationale or ''}"
-    hay_lower = haystack.lower()
-    if _ENTITY_KEYWORD_RE.search(haystack):
-        return PageType.ENTITY
-    if _CONCEPT_KEYWORD_RE.search(haystack):
-        return PageType.CONCEPT
-    if any(cue in hay_lower for cue in _COMPARISON_CUES):
-        return PageType.COMPARISON
-    if any(cue in hay_lower for cue in _SYNTHESIS_CUES):
-        return PageType.SYNTHESIS
     if item_type == "missing-page":
         return PageType.CONCEPT
     return PageType.QUERY

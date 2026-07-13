@@ -38,6 +38,9 @@ import type {
   ReviewSweepResponse,
   ReviewBulkResponse,
   ReviewClearResolvedResponse,
+  PageType,
+  ReviewItemType,
+  ReviewProposalOrigin,
 } from "../api/types";
 import {
   fetchReviewQueue,
@@ -57,6 +60,35 @@ import { ApiError } from "../api/graphClient";
 
 const PAGE_LIMIT = 50;
 
+export interface ReviewFilters {
+  itemType: ReviewItemType | null;
+  proposalOrigin: ReviewProposalOrigin | null;
+  proposedPageType: PageType | null;
+}
+
+const EMPTY_REVIEW_FILTERS: ReviewFilters = {
+  itemType: null,
+  proposalOrigin: null,
+  proposedPageType: null,
+};
+
+function queueOptions(
+  vaultId: string,
+  status: ReviewQueueStatus,
+  filters: ReviewFilters,
+  offset: number,
+) {
+  return {
+    vaultId,
+    status,
+    limit: PAGE_LIMIT,
+    offset,
+    itemType: filters.itemType,
+    proposalOrigin: filters.proposalOrigin,
+    proposedPageType: filters.proposedPageType,
+  };
+}
+
 // ─── State / Actions ─────────────────────────────────────────────────────────
 
 interface ReviewState {
@@ -74,6 +106,9 @@ interface ReviewState {
    * "dismissed" = dismissed set.
    */
   activeTab: ReviewQueueStatus;
+
+  /** Server-side queue filters. Kept across pagination, tab changes, and refreshes. */
+  filters: ReviewFilters;
 
   /**
    * Selection Set — ids of currently selected items (ADR-0044 §7).
@@ -138,6 +173,12 @@ interface ReviewActions {
 
   /** Switch the active status tab and re-fetch from offset 0. */
   setActiveTab: (tab: ReviewQueueStatus, vaultId: string) => Promise<void>;
+
+  /** Merge queue filters and re-fetch from offset zero. */
+  setFilters: (filters: Partial<ReviewFilters>, vaultId: string) => Promise<void>;
+
+  /** Reset all queue filters and re-fetch from offset zero. */
+  clearFilters: (vaultId: string) => Promise<void>;
 
   /**
    * Create action: lazy on-demand page generation from a proposal (ADR-0034 §5).
@@ -233,6 +274,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
   loading: false,
   error: null,
   activeTab: "pending",
+  filters: { ...EMPTY_REVIEW_FILTERS },
   selectedIds: new Set<string>(),
   actionInFlight: {},
   actionError: {},
@@ -246,11 +288,11 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
 
   // ── fetchFresh ─────────────────────────────────────────────────────────────
   fetchFresh: async (vaultId, signal) => {
-    const { activeTab } = get();
+    const { activeTab, filters } = get();
     set({ loading: true, error: null });
     try {
       const res = await fetchReviewQueue(
-        { vaultId, status: activeTab, limit: PAGE_LIMIT, offset: 0 },
+        queueOptions(vaultId, activeTab, filters, 0),
         signal,
       );
       set({
@@ -268,17 +310,14 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
 
   // ── fetchMore ──────────────────────────────────────────────────────────────
   fetchMore: async (vaultId) => {
-    const { offset, total, items, loading, activeTab } = get();
+    const { offset, total, items, loading, activeTab, filters } = get();
     if (loading || items.length >= total) return;
     const nextOffset = offset + PAGE_LIMIT;
     set({ loading: true });
     try {
-      const res = await fetchReviewQueue({
-        vaultId,
-        status: activeTab,
-        limit: PAGE_LIMIT,
-        offset: nextOffset,
-      });
+      const res = await fetchReviewQueue(
+        queueOptions(vaultId, activeTab, filters, nextOffset),
+      );
       set({
         items: [...items, ...res.items],
         total: res.total,
@@ -294,11 +333,34 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
   setActiveTab: async (tab, vaultId) => {
     set({ activeTab: tab, loading: true, error: null, selectedIds: new Set<string>() });
     try {
-      const res = await fetchReviewQueue({ vaultId, status: tab, limit: PAGE_LIMIT, offset: 0 });
+      const res = await fetchReviewQueue(queueOptions(vaultId, tab, get().filters, 0));
       set({ items: res.items, total: res.total, offset: 0, loading: false });
     } catch (err: unknown) {
       set({ error: (err as Error).message, loading: false });
     }
+  },
+
+  // ── setFilters / clearFilters ─────────────────────────────────────────────
+  setFilters: async (patch, vaultId) => {
+    const nextFilters = { ...get().filters, ...patch };
+    set({
+      filters: nextFilters,
+      loading: true,
+      error: null,
+      selectedIds: new Set<string>(),
+    });
+    try {
+      const res = await fetchReviewQueue(
+        queueOptions(vaultId, get().activeTab, nextFilters, 0),
+      );
+      set({ items: res.items, total: res.total, offset: 0, loading: false });
+    } catch (err: unknown) {
+      set({ error: (err as Error).message, loading: false });
+    }
+  },
+
+  clearFilters: async (vaultId) => {
+    await get().setFilters({ ...EMPTY_REVIEW_FILTERS }, vaultId);
   },
 
   // ── create ─────────────────────────────────────────────────────────────────
@@ -465,12 +527,9 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     try {
       const result = await sweepReviewQueue(vaultId);
       // Refresh queue after sweep so resolved items disappear
-      const res = await fetchReviewQueue({
-        vaultId,
-        status: get().activeTab,
-        limit: PAGE_LIMIT,
-        offset: 0,
-      });
+      const res = await fetchReviewQueue(
+        queueOptions(vaultId, get().activeTab, get().filters, 0),
+      );
       set({
         items: res.items,
         total: res.total,
@@ -486,19 +545,14 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
 
   // ── bulkAction ─────────────────────────────────────────────────────────────
   bulkAction: async (vaultId, action) => {
-    const { selectedIds, activeTab } = get();
+    const { selectedIds, activeTab, filters } = get();
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     set({ loading: true, bulkError: null });
     try {
       const result = await bulkReview({ vault_id: vaultId, action, ids });
       // Refresh queue after bulk action
-      const res = await fetchReviewQueue({
-        vaultId,
-        status: activeTab,
-        limit: PAGE_LIMIT,
-        offset: 0,
-      });
+      const res = await fetchReviewQueue(queueOptions(vaultId, activeTab, filters, 0));
       set({
         items: res.items,
         total: res.total,
@@ -518,12 +572,9 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     try {
       const result = await clearResolved(vaultId);
       // Refresh queue
-      const res = await fetchReviewQueue({
-        vaultId,
-        status: get().activeTab,
-        limit: PAGE_LIMIT,
-        offset: 0,
-      });
+      const res = await fetchReviewQueue(
+        queueOptions(vaultId, get().activeTab, get().filters, 0),
+      );
       set({
         items: res.items,
         total: res.total,
@@ -592,6 +643,9 @@ export function selectReviewError(s: ReviewStore): string | null {
 export function selectActiveTab(s: ReviewStore): ReviewQueueStatus {
   return s.activeTab;
 }
+export function selectReviewFilters(s: ReviewStore): ReviewFilters {
+  return s.filters;
+}
 export function selectSelectedIds(s: ReviewStore): Set<string> {
   return s.selectedIds;
 }
@@ -653,6 +707,12 @@ export function selectFetchMoreReview(
 }
 export function selectSetActiveTab(s: ReviewStore): ReviewActions["setActiveTab"] {
   return s.setActiveTab;
+}
+export function selectSetReviewFilters(s: ReviewStore): ReviewActions["setFilters"] {
+  return s.setFilters;
+}
+export function selectClearReviewFilters(s: ReviewStore): ReviewActions["clearFilters"] {
+  return s.clearFilters;
 }
 export function selectCreate(s: ReviewStore): ReviewActions["create"] {
   return s.create;

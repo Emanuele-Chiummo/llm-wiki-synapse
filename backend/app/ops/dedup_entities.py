@@ -720,6 +720,7 @@ async def _propose_cluster(
     await enqueue_review(
         vault_id=vault_id,
         item_type="duplicate",
+        proposal_origin="system",
         proposed_title=canonical_title,
         proposed_page_type="entity",
         rationale=rationale,

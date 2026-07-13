@@ -237,22 +237,75 @@ async def test_write_wiki_page_distinct_entities_do_not_merge(api_env: dict[str,
     assert len(rows) == 2
 
 
-# ── Prohibition unchanged (regression guard) ───────────────────────────────────────
+# ── Six-type source-grounded direct ingest (v1.6.0) ────────────────────────────────
 
 
-def test_single_doc_ingest_prohibition_unchanged() -> None:
+def test_single_doc_ingest_allows_source_grounded_derived_types() -> None:
     """
-    ADR-0067 keeps the single-doc ingest prohibition on synthesis/comparison/query as FREE
-    provider output: GENERATE_SYSTEM still narrows the type union to entity|concept|source and
-    still forbids synthesis/comparison during ingest. The added canonical-naming rule must not
-    have removed the prohibition.
+    v1.6.0 permits direct query/comparison/synthesis generation when the current source supports
+    it. The shared scaffold keeps this provider-neutral and retains canonical naming.
     """
     from app.ingest.provider._common import GENERATE_SYSTEM, GENERATION_SCAFFOLD
 
-    assert "entity|concept|source" in GENERATE_SYSTEM
-    assert "entity|concept|source|synthesis|comparison" not in GENERATE_SYSTEM
+    assert "entity|concept|source|query|synthesis|comparison" in GENERATE_SYSTEM
     lowered = GENERATE_SYSTEM.lower()
-    assert "do not create synthesis or comparison pages during ingest" in lowered
-    assert "review queue" in lowered
+    assert "directly supported by this source" in lowered
+    assert "do not create synthesis or comparison pages during ingest" not in lowered
     # Canonical-naming rule present (D5) but additive.
     assert "canonical short name" in GENERATION_SCAFFOLD.lower()
+
+
+@pytest.mark.asyncio
+async def test_corpus_generation_key_reuses_identity_when_title_changes(
+    api_env: dict[str, Any],
+) -> None:
+    """Forced regeneration updates one keyed page/file even if the model changes its title."""
+    from app.config import settings
+    from app.db import get_session
+    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.models import Page
+
+    generation_key = "corpus:synthesis:" + "c" * 64
+
+    def synthesis(title: str, body: str) -> WikiPage:
+        return WikiPage(
+            title=title,
+            type=PageType.SYNTHESIS,
+            content=body,
+            frontmatter=WikiFrontmatter(
+                type=PageType.SYNTHESIS,
+                title=title,
+                sources=["wiki/concepts/a.md", "wiki/concepts/b.md"],
+                synapse_generation_key=generation_key,
+            ),
+        )
+
+    first = await write_wiki_page(None, synthesis("Initial synthesis", "First body."), "")
+    second = await write_wiki_page(None, synthesis("Renamed synthesis", "Replacement body."), "")
+
+    assert first.id == second.id
+    assert first.file_path == second.file_path
+    assert first.file_path == f"wiki/synthesis/synthesis-{'c' * 20}.md"
+
+    async with get_session() as sess:
+        rows = (
+            (
+                await sess.execute(
+                    select(Page).where(
+                        Page.vault_id == settings.vault_id,
+                        Page.generation_key == generation_key,
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+    assert len(rows) == 1
+    assert rows[0].title == "Renamed synthesis"
+
+    markdown = (settings.vault_root / first.file_path).read_text(encoding="utf-8")
+    parsed = fm_lib.loads(markdown)
+    assert parsed.metadata["synapse_generation_key"] == generation_key
+    assert parsed.content.strip() == "Replacement body."

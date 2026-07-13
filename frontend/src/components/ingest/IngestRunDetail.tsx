@@ -89,6 +89,30 @@ export function IngestRunDetail() {
         <DetailRow label={t("provider.label")} value={run.provider_type} />
         <DetailRow label={t("ingest.iterationsUsed")} value={String(run.iterations_used)} />
         <DetailRow label={t("ingest.pagesCreated")} value={String(run.pages_created)} />
+        {run.page_type_counts &&
+          Object.entries(run.page_type_counts).some(([, count]) => (count ?? 0) > 0) && (
+            <div data-testid="ingest-page-type-counts" style={{ margin: "0 0 10px" }}>
+              <dt style={dtStyle}>{t("ingest.typeDistribution")}</dt>
+              <dd style={{ display: "flex", flexWrap: "wrap", gap: 5, margin: "4px 0 0" }}>
+                {Object.entries(run.page_type_counts)
+                  .filter(([, count]) => (count ?? 0) > 0)
+                  .map(([pageType, count]) => (
+                    <span
+                      key={pageType}
+                      style={{
+                        border: "1px solid var(--syn-border)",
+                        borderRadius: 999,
+                        padding: "2px 7px",
+                        fontSize: 11,
+                        color: "var(--syn-text-muted)",
+                      }}
+                    >
+                      {t(`nav.newPage.type.${pageType}`, { defaultValue: pageType })}: {count}
+                    </span>
+                  ))}
+              </dd>
+            </div>
+          )}
         {/* UXA-06: contextual hint when a completed run produced no pages */}
         {run.pages_created === 0 && run.status === "completed" && (
           <div

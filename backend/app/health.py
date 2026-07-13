@@ -2,6 +2,7 @@
 Health details endpoint (R9-2, AC-R9-2-1..AC-R9-2-4).
 
 Endpoint:
+  GET /health/live      — minimal public liveness response.
   GET /health/detailed  — per-component health snapshot.
 
 Design decisions:
@@ -93,6 +94,20 @@ _ensure_error_handler()
 # ── Router ─────────────────────────────────────────────────────────────────────
 
 router = APIRouter(tags=["health"])
+
+
+@router.get(
+    "/health/live",
+    summary="Minimal service liveness",
+    description=(
+        "Public liveness probe used by connection and container checks. Returns no component, "
+        "vault, configuration, error, or dependency details."
+    ),
+)
+async def get_health_live() -> dict[str, str]:
+    """Return the smallest public signal that the ASGI process is serving requests."""
+    return {"status": "ok"}
+
 
 # Latency thresholds (ms) for the "degraded" status level.
 _DB_LATENCY_WARN_MS: float = 200.0

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -33,6 +34,89 @@ from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import Analysis, PageType, WikiPage
 
 logger = logging.getLogger(__name__)
+
+_QUERY_RESEARCH_HEADING_RE = re.compile(
+    r"(?im)^#{1,6}\s*(?:research|search|retrieval)\s+quer(?:y|ies)\s*$"
+)
+_QUERY_LIST_ITEM_RE = re.compile(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$")
+_QUERY_GENERIC_TOKENS = frozenset(
+    {
+        "a",
+        "altro",
+        "ancora",
+        "about",
+        "anything",
+        "can",
+        "cercare",
+        "conoscere",
+        "cosa",
+        "darmi",
+        "del",
+        "della",
+        "details",
+        "dettagli",
+        "di",
+        "dimmi",
+        "domanda",
+        "dovrei",
+        "else",
+        "explain",
+        "find",
+        "fornire",
+        "give",
+        "i",
+        "il",
+        "information",
+        "informazioni",
+        "know",
+        "la",
+        "learn",
+        "le",
+        "lo",
+        "me",
+        "mi",
+        "more",
+        "out",
+        "per",
+        "più",
+        "please",
+        "provide",
+        "puoi",
+        "qualcosa",
+        "question",
+        "questo",
+        "research",
+        "ricerca",
+        "sapere",
+        "search",
+        "should",
+        "scoprire",
+        "spiega",
+        "something",
+        "su",
+        "tell",
+        "the",
+        "this",
+        "topic",
+        "un",
+        "una",
+        "vorrei",
+        "what",
+        "you",
+    }
+)
+
+
+def _specific_query_terms(value: str) -> set[str]:
+    """Return concrete lexical terms usable as a source-grounding proxy (EN/IT UI locales)."""
+    normalized = re.sub(r"\W+", " ", value).casefold().strip()
+    return {
+        token
+        for token in normalized.split()
+        if len(token) >= 3
+        and token not in _QUERY_GENERIC_TOKENS
+        and (not token.isdigit() or len(token) >= 4)
+    }
 
 
 # ── Cooperative cancellation exception (ADR-0046 §3) ─────────────────────────
@@ -84,6 +168,44 @@ def validate_pages(pages: list[WikiPage], origin_source: str) -> list[str]:
             errors.append(f"{prefix}: title is empty")
         if not page.content.strip():
             errors.append(f"{prefix}: content is empty")
+        if page.type is PageType.QUERY:
+            heading = _QUERY_RESEARCH_HEADING_RE.search(page.content)
+            if heading is None:
+                errors.append(f"{prefix}: query page must include a '## Research queries' section")
+            else:
+                section = page.content[heading.end() :]
+                next_heading = re.search(r"(?m)^#{1,6}\s+", section)
+                if next_heading is not None:
+                    section = section[: next_heading.start()]
+                title_norm = re.sub(r"\W+", " ", page.title).casefold().strip()
+                # The prose before the query list is the page's source-backed question context.
+                # A retrieval query must be lexically anchored to that context and then add a
+                # constraint/evidence term. This rejects generic paraphrases without pretending
+                # that a finite placeholder dictionary can prove semantic grounding.
+                context_terms = _specific_query_terms(
+                    f"{page.title}\n{page.content[: heading.start()]}"
+                )
+                contextual_queries = []
+                for candidate in _QUERY_LIST_ITEM_RE.findall(section):
+                    candidate_norm = re.sub(r"\W+", " ", candidate).casefold().strip()
+                    tokens = candidate_norm.split()
+                    candidate_terms = _specific_query_terms(candidate)
+                    anchor_terms = candidate_terms & context_terms
+                    novel_terms = candidate_terms - context_terms
+                    if (
+                        candidate_norm == title_norm
+                        or len(tokens) < 3
+                        or len(candidate_terms) < 3
+                        or len(anchor_terms) < 2
+                        or not novel_terms
+                    ):
+                        continue
+                    contextual_queries.append(candidate)
+                if len(contextual_queries) < 2:
+                    errors.append(
+                        f"{prefix}: query page requires at least two contextual retrieval "
+                        "queries beyond the title"
+                    )
         fm = page.frontmatter
         if not fm.sources:
             errors.append(f"{prefix}: frontmatter.sources[] is empty (F3 traceability)")

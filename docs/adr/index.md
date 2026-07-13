@@ -124,6 +124,10 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](ADR-0069-mineru-cloud-pdf-extractor.md) | Accepted |
 | **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](ADR-0070-multi-provider-web-search.md) | Accepted |
 | **0071** | [UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env](ADR-0071-web-search-provider-keys-ui.md) | Accepted |
+| **0072** | [Runtime toggle for remote MCP write tools (Settings UI)](ADR-0072-mcp-remote-write-runtime-toggle.md) | Accepted |
+| **0073** | [Source-grounded generation and review lifecycle parity (v1.6.0)](ADR-0073-generation-and-review-lifecycle-parity.md) | Accepted |
+| **0074** | [Idempotent corpus generation and operator-visible diagnostics (v1.6.0)](ADR-0074-idempotent-corpus-generation-and-operator-ux.md) | Accepted |
+| **0075** | [Explicit deployment trust mode and authenticated health diagnostics (v1.6.0; amends ADR-0052)](ADR-0075-deployment-mode-auth-health-boundary.md) | Accepted |
 
 ---
 

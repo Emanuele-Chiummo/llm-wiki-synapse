@@ -25,6 +25,7 @@ vi.mock("react-i18next", () => ({
         "provider.label": "Provider",
         "ingest.iterationsUsed": "Iterations",
         "ingest.pagesCreated": "pages created",
+        "ingest.typeDistribution": "Generated page types",
         "ingest.cost": "Cost",
         "ingest.startedAt": "Started",
         "ingest.completedAt": "Completed at",
@@ -142,5 +143,22 @@ describe("IngestRunDetail — UXA-06: zero-pages hint", () => {
 
     render(<IngestRunDetail />);
     expect(screen.getByText(/Select a run/)).toBeTruthy();
+  });
+
+  it("shows the v1.6 generated PageType distribution when available", () => {
+    const run = makeRun({
+      pages_created: 4,
+      page_type_counts: { source: 1, query: 1, comparison: 2, entity: 0 },
+    });
+    mockState.runs = [run];
+    mockState.selectedRunId = run.id;
+
+    render(<IngestRunDetail />);
+
+    const distribution = screen.getByTestId("ingest-page-type-counts");
+    expect(distribution.textContent).toContain("source: 1");
+    expect(distribution.textContent).toContain("query: 1");
+    expect(distribution.textContent).toContain("comparison: 2");
+    expect(distribution.textContent).not.toContain("entity: 0");
   });
 });
