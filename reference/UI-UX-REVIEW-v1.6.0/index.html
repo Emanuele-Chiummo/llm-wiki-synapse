@@ -1,0 +1,1295 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UI-UX-REVIEW-v1.6.0/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Synapse 1.6.0 — full UI/UX, first-run and product review - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#synapse-160-full-uiux-first-run-and-product-review" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Synapse 1.6.0 — full UI/UX, first-run and product review
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#executive-assessment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executive assessment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#product-experience-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Product experience target
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-was-applied-in-this-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was applied in this review
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#screen-by-screen-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screen-by-screen review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Screen-by-screen review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#application-shell-and-navigation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application shell and navigation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#home" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Home
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wiki-and-page-reader" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiki and page reader
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lint" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deep-research" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deep Research
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#convert" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Convert
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#projects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Projects
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup-connection-and-token-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup, connection and token gate
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design-system-and-frontend-architecture-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design-system and frontend architecture review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design-system and frontend architecture review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#findings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Findings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#refactoring-sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refactoring sequence
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brand-and-logo-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brand and logo review
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#community-and-market-readiness-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Community and market readiness roadmap
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Community and market readiness roadmap">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#release-blocking-before-a-public-beta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release-blocking before a public beta
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#next-product-slice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next product slice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#later-differentiation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Later differentiation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#acceptance-position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Acceptance position
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="synapse-160-full-uiux-first-run-and-product-review">Synapse 1.6.0 — full UI/UX, first-run and product review<a class="headerlink" href="#synapse-160-full-uiux-first-run-and-product-review" title="Permanent link">&para;</a></h1>
+<p>Date: 2026-07-13
+Scope: complete frontend, running desktop web application, first-run journey,
+generation/review surfaces, supplied 12-page logo guide, and frontend architecture.</p>
+<h2 id="executive-assessment">Executive assessment<a class="headerlink" href="#executive-assessment" title="Permanent link">&para;</a></h2>
+<p>Synapse already has the right product concept: sources become linked pages, pages become a graph,
+and generated knowledge remains inspectable. It should evolve as an <strong>editorial knowledge
+workspace</strong>, not as a generic AI dashboard.</p>
+<p>The main weakness is not missing feature count. It is that the application currently exposes its
+implementation structure more clearly than the user's journey. Thirteen primary destinations,
+technical provider language, competing ingestion entry points and inconsistent failure states make
+a mature backend feel less reliable than it is. In Review, the proposal's origin, requested type,
+effective created type, evidence and query quality are present but do not yet form one clear
+decision trace.</p>
+<p>The 1.6.0 correction therefore has two layers:</p>
+<ol>
+<li><strong>Applied now:</strong> shared connectivity state, recoverable Home/provider errors, a first-value Home,
+   responsive Deep Research wiring, truthful provider mutations and one page-type visual registry.</li>
+<li><strong>Product roadmap:</strong> finish the guided journey through first generated page, simplify navigation,
+   make Review an editable evidence-led decision surface, and decompose the largest frontend
+   modules without changing the LLM Wiki model.</li>
+</ol>
+<h2 id="product-experience-target">Product experience target<a class="headerlink" href="#product-experience-target" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>flowchart LR
+  A["Connect installation"] --&gt; B["Verify backend and provider"]
+  B --&gt; C["Create or open workspace"]
+  C --&gt; D["Add first sources"]
+  D --&gt; E["Observe extraction and generation"]
+  E --&gt; F["Review evidence, query and proposed type"]
+  F --&gt; G["Open the first connected wiki page"]
+  G --&gt; H["Explore links, search and graph"]</code></pre>
+<p>The first session is successful only at <strong>G</strong>, not when infrastructure setup is dismissed or a
+provider row exists.</p>
+<h2 id="what-was-applied-in-this-review">What was applied in this review<a class="headerlink" href="#what-was-applied-in-this-review" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Change</th>
+<th>User outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Shell</td>
+<td>Existing status poll now owns a shared <code>checking / online / offline</code> state</td>
+<td>All screens describe the same backend condition without adding another poller</td>
+</tr>
+<tr>
+<td>Recovery</td>
+<td>Global offline banner opens the guided connection check</td>
+<td>Failure is visible and actionable instead of appearing as unrelated 500 errors</td>
+</tr>
+<tr>
+<td>Home</td>
+<td>Failed overview requests render a retryable error before the loading skeleton</td>
+<td>The landing page can no longer remain indefinitely in a false loading state</td>
+</tr>
+<tr>
+<td>First use</td>
+<td>Zero-page Home explains <code>Sources → Connections → Wiki</code> and exposes the next actions</td>
+<td>A clean install starts with a task sequence instead of an operations dashboard</td>
+</tr>
+<tr>
+<td>Providers</td>
+<td>Loading, unavailable and unconfigured states are distinct; mutations rethrow failures</td>
+<td>The selector cannot show a false success or mislabel an offline backend as “no providers”</td>
+</tr>
+<tr>
+<td>Type visuals</td>
+<td>One registry now drives Home, Preview, Review and Graph page-type identity</td>
+<td>Query, comparison and synthesis no longer change visual identity between these surfaces</td>
+</tr>
+<tr>
+<td>Theme</td>
+<td>Missing input and semantic tokens were defined for light/dark modes</td>
+<td>Connection fields and error/success states no longer depend on unsafe browser fallbacks</td>
+</tr>
+<tr>
+<td>Responsive</td>
+<td>Deep Research component now uses its existing mobile layout hooks</td>
+<td>The 360px detail pane stacks on narrow screens instead of forcing horizontal overflow</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td><code>html[lang]</code> follows the detected or selected application language</td>
+<td>Screen readers no longer receive a stale English document language in the Italian UI</td>
+</tr>
+</tbody>
+</table>
+<p>These changes improve trust and orientation. They do not claim that every P1/P2 redesign below is
+already implemented.</p>
+<h2 id="screen-by-screen-review">Screen-by-screen review<a class="headerlink" href="#screen-by-screen-review" title="Permanent link">&para;</a></h2>
+<p>Priority meanings: <strong>P0</strong> prevents trust or task completion; <strong>P1</strong> materially harms comprehension,
+usability or consistency; <strong>P2</strong> is product polish or structural follow-up.</p>
+<h3 id="application-shell-and-navigation">Application shell and navigation<a class="headerlink" href="#application-shell-and-navigation" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> The rail makes the full feature inventory visible, which is useful to expert
+users but produces thirteen competing destinations for a newcomer. On mobile the labels disappear,
+leaving recognition dependent on icon memory. Operational state existed in the footer while
+feature surfaces independently rendered loading/error states.</p>
+<p><strong>Applied.</strong> A single offline state and recovery banner now connects shell status with setup. The
+existing poll remains the only network heartbeat.</p>
+<p><strong>Next.</strong> P1: group the rail by the mental model <code>Create / Understand / Maintain</code>; expose only
+Home, Sources, Wiki, Search and Review as first-tier destinations during the empty-vault phase.
+Keep Graph, Research, Lint, Convert and administrative tools reachable in a labelled secondary
+group. Add URL/deep-link routing before public sharing so browser navigation, support links and
+documentation can open a stable product location.</p>
+<h3 id="home">Home<a class="headerlink" href="#home" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> A populated Home is operationally rich, but its provider health, costs, active
+jobs, type counts, domain sections and maintenance controls compete for attention. When the backend
+was unavailable, the error was masked by the loading condition and the skeleton could persist.</p>
+<p><strong>Applied.</strong> Backend errors are recoverable. A zero-page workspace gets an editorial first-use
+sequence with explicit source, connection and workspace actions.</p>
+<p><strong>Next.</strong> P1: after the first page, graduate Home from checklist to a concise “knowledge pulse”:
+recent pages, pending decisions and active generation. Move reclassification, backfill and corpus
+synthesis into Maintenance/Settings. Use one primary action per state.</p>
+<h3 id="chat">Chat<a class="headerlink" href="#chat" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Chat is capable but the composer exposes too many decisions at once. Provider,
+scope and retrieval controls make sense to advanced users but dilute the primary “ask the wiki”
+action. The provider gate is useful but its relationship with installation readiness is not always
+obvious.</p>
+<p><strong>Next.</strong> P1: keep one default grounded-chat mode and move model/retrieval overrides behind an
+“Advanced” disclosure. Show which wiki/project supplies the answer and keep citations visually
+adjacent to claims. Preserve the familiar LLM Wiki reading rhythm rather than styling Chat as a
+separate product.</p>
+<h3 id="wiki-and-page-reader">Wiki and page reader<a class="headerlink" href="#wiki-and-page-reader" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> The three-panel reader is the strongest expression of the product concept.
+However, several raw glyph controls, narrow metadata labels and panel-empty states feel like
+developer tooling. Some navigation relies on custom events and local storage rather than a stable
+route.</p>
+<p><strong>Next.</strong> P1: make the page title, type, source lineage and outbound/inbound links the primary
+hierarchy. Move technical identifiers and coordinates under an optional diagnostics disclosure.
+Replace raw glyph controls with the shared icon-button primitive and add stable page URLs.</p>
+<h3 id="sources">Sources<a class="headerlink" href="#sources" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> The desktop tree and preview are useful, but the fixed 280px structure has no
+complete narrow-screen strategy. Sources, Import and Convert can appear to be three competing ways
+to start.</p>
+<p><strong>Next.</strong> P0 for the first-user program: make <strong>Sources</strong> the canonical entry point. Present Upload,
+Folder Import and Convert as source acquisition methods inside it. P1 responsive: tree first,
+preview as a drawer, batch actions in an overflow menu, persistent ingest status and a direct
+handoff from a completed run to its generated pages.</p>
+<h3 id="search">Search<a class="headerlink" href="#search" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Search has the most coherent loading, error and empty-state language in the
+product and is a good reference implementation. It combines filters and result context without
+pretending that search is generation.</p>
+<p><strong>Next.</strong> P2: make saved/recent searches available, expose query scope clearly and reuse Search's
+state treatment in Lint, Review and Research. Do not add dashboard decoration.</p>
+<h3 id="graph">Graph<a class="headerlink" href="#graph" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> The graph is technically strong: virtual canvas rendering, server-computed
+layout, redundant legend encoding and useful filters. On narrow screens the filter toolbar, legend,
+zoom, insights and detail affordances compete for limited space. Canvas colours intentionally need
+concrete values, which had led to a second independent page-type map.</p>
+<p><strong>Applied.</strong> Canvas colours and CSS token identities now live in one page-type registry while
+preserving Sigma's concrete-colour requirement.</p>
+<p><strong>Next.</strong> P1 responsive: keep Search and Filters visible; move legend and Insights into drawers;
+ensure zoom/fit controls never overlap the rail or safe area. Use the graph as exploration after
+the first wiki success, not as a first-run destination.</p>
+<h3 id="lint">Lint<a class="headerlink" href="#lint" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Lint is valuable for maintainers but dense for general users. Rule terminology,
+bulk actions and raw issue volume compete with the document-level outcome.</p>
+<p><strong>Next.</strong> P1: group by affected page and severity, lead with “what changes if I accept this,” and
+reuse Review's decision card. Position Lint under Maintain, not alongside Sources/Wiki for a new
+workspace.</p>
+<h3 id="review">Review<a class="headerlink" href="#review" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Review exposes origin, item type, requested page type, created page type, query
+quality, rationale and referenced pages. The information is fragmented across small chips and text,
+so a discrepancy can look arbitrary even when the backend has a reason. Creation is still too close
+to a one-click irreversible action for a market-facing product.</p>
+<p><strong>Applied.</strong> Page-type chips now use the same identity as Home, Wiki preview and Graph. Provider
+mutation errors can no longer result in a success toast upstream.</p>
+<p><strong>Next — P0/P1.</strong> Turn each proposal into an editable decision trace:</p>
+<ol>
+<li>evidence and source excerpts;</li>
+<li>proposal origin and rule/model version;</li>
+<li>generated search query with quality warning and edit action;</li>
+<li>proposed type with explanation and editable override;</li>
+<li>output preview/diff;</li>
+<li>create, skip or dismiss with an auditable result;</li>
+<li>persistent “Open created page” handoff after success.</li>
+</ol>
+<p>This directly addresses perceived query/comparison/synthesis discrepancies: the UI must show
+whether the difference comes from proposal origin, evidence, search query, type resolution or the
+created output, rather than collapsing all of them into one badge.</p>
+<h3 id="deep-research">Deep Research<a class="headerlink" href="#deep-research" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> The run list/detail model is understandable on desktop. Its CSS already specified
+a stacked mobile layout, but the component did not carry the selectors, leaving the detail panel at
+360px on a narrow viewport.</p>
+<p><strong>Applied.</strong> The view and detail pane now bind to the mobile layout contract.</p>
+<p><strong>Next.</strong> P1: show budget, source acquisition and synthesis as a single observable timeline. Use a
+bottom sheet/detail drawer on small screens once run-level actions increase.</p>
+<h3 id="import">Import<a class="headerlink" href="#import" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Run status is informative, but a completed zero-page import and the location of
+generated output are not always self-explanatory. It currently reads as a standalone tool.</p>
+<p><strong>Next.</strong> P0 first-use: a successful run must end in “Review N proposals” or “Open N pages.” A
+zero-page completion must explain whether the cause was empty input, unsupported content,
+configuration, filtering or generation failure. Fold this journey under Sources.</p>
+<h3 id="convert">Convert<a class="headerlink" href="#convert" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Conversion exposes implementation/provider detail (including Marker) too early.
+This is useful for operators but adds a second technical configuration surface for newcomers.</p>
+<p><strong>Next.</strong> P1: default to “Convert to source-ready Markdown,” show the selected engine only in
+Advanced, and return the user to the source ingest flow with the converted artifact selected.</p>
+<h3 id="projects">Projects<a class="headerlink" href="#projects" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Project creation and activation are visually similar but operationally distinct.
+Creating a project does not make the runtime target obvious, and best-effort activation can leave a
+gap between the UI selection and backend state.</p>
+<p><strong>Next.</strong> P0: make active project an explicit verified readiness condition; auto-activate a newly
+created project unless the user chooses otherwise; show progress and failure inline. Rename vague
+actions to “Create and use project” and “Switch project.”</p>
+<h3 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Desktop grouping is readable, but roughly twenty destinations compress into a
+168px wrapped mobile area and lose group headings. Provider wording is implementation-centric.
+Keyboard arrow navigation also needs to respect filtered/hidden items.</p>
+<p><strong>Next.</strong> P1: use category landing pages on narrow screens; keep search; describe providers in
+vendor/task language first and protocol terms second. Separate everyday preferences from operator
+maintenance. Verify filtered keyboard navigation before marketplace distribution.</p>
+<h3 id="setup-connection-and-token-gate">Setup, connection and token gate<a class="headerlink" href="#setup-connection-and-token-gate" title="Permanent link">&para;</a></h3>
+<p><strong>Current state.</strong> Setup configures infrastructure but historically considered dismissal or a
+provider record closer to completion than a verified first result. The duplicated connection
+surface and undefined input token also created visual and trust inconsistencies.</p>
+<p><strong>Applied.</strong> Setup state is already versioned; connection can be reopened; provider probes are
+truthful; the dark input token is defined; the shared banner reuses this guided flow.</p>
+<p><strong>Next.</strong> P0: extend setup through project, first sources and first page. The final screen should
+summarise verified capabilities and give one action: “Open your first wiki page.”</p>
+<h2 id="design-system-and-frontend-architecture-review">Design-system and frontend architecture review<a class="headerlink" href="#design-system-and-frontend-architecture-review" title="Permanent link">&para;</a></h2>
+<h3 id="findings">Findings<a class="headerlink" href="#findings" title="Permanent link">&para;</a></h3>
+<ul>
+<li>The design language is coherent at token level, but implementation is fragmented: approximately
+  1,658 inline style declarations and several competing button families make global changes risky.</li>
+<li>Missing semantic aliases (<code>error</code>, <code>success</code>, <code>danger</code>, secondary accent, mono font and input
+  background) allowed individual screens to choose unrelated fallback colours.</li>
+<li>Home, Graph, Preview and Review encoded page types separately. This is now one shared registry.</li>
+<li>The largest components remain expensive to understand and change: GraphViewer (~3.5k lines),
+  Home (~2.9k), Review (~2k), Sources (~1.5k), followed by Lint, Convert and Note.</li>
+<li>Home eagerly coordinates many requests. The shared connectivity fix removes false loading but a
+  future slice should separate “knowledge summary,” “jobs” and “maintenance” data boundaries.</li>
+<li>Lazy-loaded primary sections, list virtualisation, reduced-motion support, local Geist assets,
+  the API service worker policy and light/dark tokens are strong foundations worth preserving.</li>
+</ul>
+<h3 id="refactoring-sequence">Refactoring sequence<a class="headerlink" href="#refactoring-sequence" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Create one shared <code>PageHeader</code>, <code>PageState</code>, <code>StatusChip</code>, <code>DecisionCard</code> and icon-button family.</li>
+<li>Move repeated inline visual rules into component CSS; do not introduce another styling runtime.</li>
+<li>Extract orchestration hooks from Home, Review, Sources and Graph before changing their layouts.</li>
+<li>Replace custom-event/local-storage navigation with route contracts and typed action boundaries.</li>
+<li>Add clean-install E2E coverage before further first-run work.</li>
+<li>Add a screenshot/axe matrix at 320, 375, 768, 1024 and 1440 pixels in light and dark themes,
+   covering empty, loading, error and success states.</li>
+</ol>
+<h2 id="brand-and-logo-review">Brand and logo review<a class="headerlink" href="#brand-and-logo-review" title="Permanent link">&para;</a></h2>
+<p>The supplied mark is strong. The connected-node “S” expresses documents becoming linked
+knowledge, scales into an app icon, and does not need a redesign for 1.6.0.</p>
+<p>Recommended usage:</p>
+<ul>
+<li>keep the current blue–indigo–violet mark and Geist wordmark;</li>
+<li>use the simplified three-node version below 24px;</li>
+<li>preserve the mark independently from the wordmark so a future name can reuse it;</li>
+<li>reserve gradients for connection, focus or progress moments—not decorative card backgrounds;</li>
+<li>use the full descriptor in public surfaces: <strong>“The self-hosted LLM wiki that turns your sources
+  into connected knowledge.”</strong></li>
+</ul>
+<p>The name is the weaker asset. “Synapse” is crowded in AI and knowledge-management categories (see
+the evidence-linked <a href="../PRODUCT-NAMING-REVIEW/">product naming review</a>), so
+the release should use <strong>Synapse LLM Wiki</strong> as a transitional qualified name. Do not migrate storage
+keys, bundle IDs, database names or package identifiers with a display-name experiment.</p>
+<p>Preferred naming candidates for formal clearance:</p>
+<table>
+<thead>
+<tr>
+<th>Candidate</th>
+<th>Positioning</th>
+<th>Mark compatibility</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Semaweave</strong></td>
+<td>semantic knowledge woven into a connected wiki</td>
+<td>Strong; retains the S</td>
+<td>Preferred research candidate</td>
+</tr>
+<tr>
+<td><strong>ScribeMesh</strong></td>
+<td>source documents connected into a navigable knowledge mesh</td>
+<td>Strong; retains the S</td>
+<td>Backup candidate</td>
+</tr>
+<tr>
+<td><strong>Synapse LLM Wiki</strong></td>
+<td>explicit current category descriptor</td>
+<td>Existing identity</td>
+<td>Transitional only</td>
+</tr>
+</tbody>
+</table>
+<p>This is a product screening, not trademark clearance. Before renaming, check EUIPO/WIPO and target
+markets, domains, GitHub, npm/PyPI/container registries, app stores and social handles, then obtain
+legal review.</p>
+<h2 id="community-and-market-readiness-roadmap">Community and market readiness roadmap<a class="headerlink" href="#community-and-market-readiness-roadmap" title="Permanent link">&para;</a></h2>
+<h3 id="release-blocking-before-a-public-beta">Release-blocking before a public beta<a class="headerlink" href="#release-blocking-before-a-public-beta" title="Permanent link">&para;</a></h3>
+<ul>
+<li>clean-room E2E: install → connect → provider → project → upload → generate → review → open page;</li>
+<li>verified project/provider readiness and no false-success mutations;</li>
+<li>clear privacy/data-boundary copy for local, server and external-provider modes;</li>
+<li>one supported installation path with upgrade, backup and rollback documentation;</li>
+<li>signed artifacts and security contact/disclosure policy;</li>
+<li>stable deep links for support and documentation.</li>
+</ul>
+<h3 id="next-product-slice">Next product slice<a class="headerlink" href="#next-product-slice" title="Permanent link">&para;</a></h3>
+<ul>
+<li>finish the first-value journey through first page;</li>
+<li>consolidate Sources/Import/Convert;</li>
+<li>implement editable Review preview and decision trace;</li>
+<li>simplify navigation by user phase;</li>
+<li>decompose large components behind tested interfaces;</li>
+<li>add release screenshot/accessibility/performance gates.</li>
+</ul>
+<h3 id="later-differentiation">Later differentiation<a class="headerlink" href="#later-differentiation" title="Permanent link">&para;</a></h3>
+<ul>
+<li>reusable project templates and domain vocabularies;</li>
+<li>shareable, read-only wiki output independent of the operator UI;</li>
+<li>extension/plugin boundary with compatibility contracts;</li>
+<li>opt-in telemetry limited to product health, with self-hosted/off controls.</li>
+</ul>
+<h2 id="acceptance-position">Acceptance position<a class="headerlink" href="#acceptance-position" title="Permanent link">&para;</a></h2>
+<p>The applied 1.6.0 work removes the most damaging trust and visual-consistency failures found in the
+runtime audit. The product is substantially clearer on an empty or disconnected installation.
+It is not yet appropriate to claim a complete market-ready redesign: the remaining P0 journey work,
+editable Review decision surface, navigation simplification and clean-install E2E gate should be
+completed before a broad public launch.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

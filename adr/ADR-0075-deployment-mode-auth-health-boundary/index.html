@@ -12,7 +12,7 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0067-llmwiki-1to1-generation-parity/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0075-deployment-mode-auth-health-boundary/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>ADR-0067 — LLM Wiki 1:1 generation-semantics parity - Synapse</title>
+        <title>ADR-0075 — Explicit deployment trust mode and authenticated health diagnostics (v1.6.0) - Synapse</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0067-llm-wiki-11-generation-semantics-parity" class="md-skip">
+        <a href="#adr-0075-explicit-deployment-trust-mode-and-authenticated-health-diagnostics-v160" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0067 — LLM Wiki 1:1 generation-semantics parity
+              ADR-0075 — Explicit deployment trust mode and authenticated health diagnostics (v1.6.0)
             
           </span>
         </div>
@@ -569,22 +569,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decisions" class="md-nav__link">
+  <a href="#decision" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decisions
+        Decision
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Decisions">
+    <nav class="md-nav" aria-label="Decision">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" class="md-nav__link">
+  <a href="#1-deployment-mode-is-explicit" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D1 — queries/ is reserved for genuine open questions (fixes QP-Q1/LN-D1)
+        1. Deployment mode is explicit
       
     </span>
   </a>
@@ -592,10 +592,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" class="md-nav__link">
+  <a href="#2-public-health-is-limited-to-connection-and-liveness-signals" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)
+        2. Public health is limited to connection and liveness signals
       
     </span>
   </a>
@@ -603,43 +603,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" class="md-nav__link">
+  <a href="#3-migration-is-configuration-only-and-atomic" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + ## Queries (not Querys) + drop ## Uncategorised; overview gains a deterministic ## Open Questions block (DB query of live query pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one - Ingest: &lt;doc&gt; — created N pages bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).
+        3. Migration is configuration-only and atomic
       
     </span>
   </a>
@@ -652,10 +619,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#invariant-impact-explicit" class="md-nav__link">
+  <a href="#consequences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Invariant impact (explicit)
+        Consequences
       
     </span>
   </a>
@@ -663,10 +630,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#validation" class="md-nav__link">
+  <a href="#alternatives-considered" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Validation
+        Alternatives considered
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
       
     </span>
   </a>
@@ -690,48 +668,104 @@
 
 
 
-<h1 id="adr-0067-llm-wiki-11-generation-semantics-parity">ADR-0067 — LLM Wiki 1:1 generation-semantics parity<a class="headerlink" href="#adr-0067-llm-wiki-11-generation-semantics-parity" title="Permanent link">&para;</a></h1>
+<h1 id="adr-0075-explicit-deployment-trust-mode-and-authenticated-health-diagnostics-v160">ADR-0075 — Explicit deployment trust mode and authenticated health diagnostics (v1.6.0)<a class="headerlink" href="#adr-0075-explicit-deployment-trust-mode-and-authenticated-health-diagnostics-v160" title="Permanent link">&para;</a></h1>
 <ul>
-<li><strong>Status:</strong> Partially superseded by ADR-0073 and ADR-0074 (2026-07-13). D2, D5 and D6 remain accepted; D1, D3 and D4 generation exclusivity are superseded as described below.</li>
-<li><strong>Supersedes/extends:</strong> ADR-0066 (llm_wiki 1:1 parity program), ADR-0058 (lint parity), ADR-0063 (ingest quality parity)</li>
-<li><strong>Driver:</strong> Live audit <code>docs/reference/AUDIT-SYNAPSE-VS-LLMWIKI-1TO1-2026-07-10.md</code> — with the same raw corpus (~87% overlap) and same model class (Haiku 4.5), the Synapse PROD vault (<code>/Volumes/synapse/vault</code>) diverges structurally from the LLM Wiki app vault (<code>~/Documents/00_Personal/01_Wiki/LLM Wiki</code>): queries 133-stubs vs 110-real, entities 149 vs 202, synthesis/comparison 0/0 vs 4/5, <code>related:</code> 0% vs 100%.</li>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-13</li>
+<li><strong>Amends:</strong> ADR-0052 §§2.1 and 2.3 (shared bearer token and exempt routes)</li>
+<li><strong>Related:</strong> ADR-0047 (desktop connection gate), ADR-0062 (edge authentication)</li>
+<li><strong>Invariants touched:</strong> I3, I6, I8</li>
 </ul>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>Synapse reproduces the Karpathy page-type model but three generation seams diverge from LLM Wiki. This ADR records the invariant-touching decisions the owner approved so implementation is not a silent workaround (per the CLAUDE.md invariant-change rule).</p>
-<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
-<h3 id="d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1">D1 — <code>queries/</code> is reserved for genuine open questions (fixes QP-Q1/LN-D1)<a class="headerlink" href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded in part by ADR-0073:</strong> lint still may not create query stubs, but source-grounded
-direct ingest may now generate a genuine research-query page.
-Wiki Lint MUST NOT materialise a missing wikilink target as <code>type: query</code>. <code>_create_broken_link_stub</code> is replaced with folder-aware routing: a target that resolves to a known type is stubbed in that type's folder; a bare proper-noun target → <code>entity</code> stub, otherwise <code>concept</code> stub; when uncertain the no-suggestion path routes to the <strong>Review queue (F9)</strong> instead of writing. <code>query</code> pages are written ONLY by (a) the contradiction handler (D4) and (b) chat save-to-wiki when the saved content is itself a question. This restores nashsu parity (LLM Wiki <code>queries/</code> = 0 lint stubs).</p>
-<h3 id="d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3">D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)<a class="headerlink" href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" title="Permanent link">&para;</a></h3>
-<p>On-disk generated-page frontmatter is emitted in LLM Wiki's shape and key order:
-<code>type, title, created, updated, tags, related</code> (+ <code>authors, year, url, venue</code> on sources). Serializer switches to <code>sort_keys=False</code>.
-- <strong><code>related: list[str]</code></strong> becomes a first-class field (slugs), populated from resolved outbound wikilinks + top graph neighbours (cap ~8). It is a <strong>second graph-edge seed</strong> alongside <code>[[wikilinks]]</code>, but only <em>resolvable</em> slugs are emitted (an unresolved <code>related</code> entry is dropped, never a new ghost).
-- <strong><code>sources</code> and <code>lang</code> are no longer emitted in the markdown</strong> and become <strong>optional</strong> on <code>WikiFrontmatter</code> (default <code>[]</code>/<code>"en"</code>). <strong>F3 traceability is preserved in Postgres</strong>: the ingest pipeline still populates <code>pages.sources</code>/links (the graph source-overlap ×4 signal F4 and cascade-delete F13 read the DB, not the file). This is the documented F3 amendment: traceability moves from an inline <code>sources:</code> path list to (a) the DB and (b) the <code>source</code> page + <code>related:</code> links, exactly as LLM Wiki expresses it.
-- Overview and lint-stub pages may carry <code>sources: []</code> (no synthetic <code>lint:&lt;uuid&gt;</code> sources).</p>
-<h3 id="d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3">D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)<a class="headerlink" href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded by ADR-0073/0074:</strong> direct ingest may generate source-local special pages; the global
-corpus pass remains separate but requires a real domain, indexed generation keys and independent
-candidate bounds.
-The ingest-time prohibition on synthesis/comparison (<code>_common.py</code>) STAYS. A new bounded op <code>ops/synthesize.py</code> runs after bulk import (and as an explicit action): it seeds candidate clusters from the 4-signal graph (source-overlap/type-affinity/Adamic-Adar), generates a synthesis (thesis+integration) per high-confidence cluster and a comparison table for ≥2 same-class entities, writing them via the single <code>write_wiki_page</code> seam with <code>related[]</code>=cluster + unioned <code>sources[]</code>. Borderline clusters → Review (F9). Bounded by <code>max_iter</code>+<code>token_budget</code>; logs <code>total_cost_usd</code> (I7). These are legitimate writers of synthesis/comparison, distinct from the still-prohibited single-doc ingest.</p>
-<h3 id="d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3">D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)<a class="headerlink" href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded in exclusivity by ADR-0073:</strong> the human-gated contradiction path remains valid but is
-no longer the only ingest-adjacent producer of query pages.
-<code>contradiction</code> leaves <code>_FLAG_ONLY_CATEGORIES</code>; an applied contradiction authors a <code>type: query</code> page via an internal pipeline writer (not free provider output): question title + <code>## Question / ## Hypothesis / ## Open Points / ## Impact / ## References</code>, <code>sources[]</code>=both raw docs, <code>related[]</code>=both pages. Human-gated (K8); confidence-gated; bounded (I7). <code>query</code> stays provider-forbidden as free output; only the internal writer may emit it.</p>
-<h3 id="d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5">D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)<a class="headerlink" href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" title="Permanent link">&para;</a></h3>
-<p><code>write_wiki_page</code> resolves a normalized identity key for <code>type=entity</code> <strong>before</strong> slugging (casefold; strip parenthetical acronyms <code>(AWS)</code>; strip legal suffixes <code>Inc./Ltd./S.p.A./PRIVATE LIMITED</code>; fold known acronym↔longform). Exact normalized-key match → reuse the existing page (union <code>sources[]</code>, merge body). Anything requiring fuzzy/embedding similarity → Review proposal, <strong>never a silent merge</strong> (<code>Deloitte</code> vs <code>Deloitte Italia</code> stays human-decided). A retrofit sweep <code>ops/dedup_entities.py</code> clusters the existing vault and proposes merges to Review. Ingest prompt + <code>schema.md</code> gain a canonical-naming rule.</p>
-<h3 id="d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4">D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + <code>## Queries</code> (not <code>Querys</code>) + drop <code>## Uncategorised</code>; overview gains a deterministic <code>## Open Questions</code> block (DB query of live <code>query</code> pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one <code>- Ingest: &lt;doc&gt; — created N pages</code> bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).<a class="headerlink" href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" title="Permanent link">&para;</a></h3>
-<h2 id="invariant-impact-explicit">Invariant impact (explicit)<a class="headerlink" href="#invariant-impact-explicit" title="Permanent link">&para;</a></h2>
+<p>ADR-0052 intentionally made <code>SYNAPSE_AUTH_TOKEN</code> optional so existing local installations could
+upgrade without configuring credentials. That compatibility rule did not distinguish a loopback
+development process from a network-reachable server. An operator could therefore deploy Synapse
+on a LAN, through a tunnel, or behind a reverse proxy while accidentally retaining the open local
+default.</p>
+<p>The original public probe set also included <code>GET /health/detailed</code>. Its component, dependency,
+queue and scheduler diagnostics are useful to an authenticated operator, but are not needed to
+prove that the process is alive or to establish the desktop connection. Publishing those details
+increases reconnaissance value without improving liveness detection.</p>
+<p>Synapse needs an explicit trust boundary that preserves zero-configuration local use while making
+a declared server deployment fail closed.</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-deployment-mode-is-explicit">1. Deployment mode is explicit<a class="headerlink" href="#1-deployment-mode-is-explicit" title="Permanent link">&para;</a></h3>
+<p><code>SYNAPSE_DEPLOYMENT_MODE</code> accepts exactly two values:</p>
 <ul>
-<li><strong>F3</strong> amended (D2): inline <code>sources:</code> no longer required in file frontmatter; traceability preserved in DB + source pages. Reversible (re-enable emission).</li>
-<li><strong>F4</strong> extended (D2): <code>related:</code> is a second edge seed (resolvable slugs only).</li>
-<li><strong>I1/I5/I7</strong> unchanged: every new op is incremental (single <code>data_version</code> bump/batch), Obsidian-valid, bounded + cost-logged.</li>
-<li><strong>K8/F9</strong> strengthened: entity merges and contradiction questions are human-gated.</li>
-<li>The former single-doc ingest prohibition was superseded by ADR-0073. Source-grounding and
-  bounded-generation tests replace the inverse prohibition tests.</li>
+<li><code>local</code> is the backward-compatible default. An empty <code>SYNAPSE_AUTH_TOKEN</code> remains valid for
+  loopback development and trusted single-machine use. Setting a token still enables the shared
+  bearer gate.</li>
+<li><code>server</code> declares a network-reachable deployment. Configuration validation runs at startup and
+  refuses to start unless <code>SYNAPSE_AUTH_TOKEN</code> is present and passes the minimum strength checks.</li>
 </ul>
-<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
-<p>Per audit §5: fixture/unit gates + live re-run of ingest/dedup/reclassify/contradiction/synthesize/overview/chat/graph against a <strong>reloaded dev KB</strong> (PROD untouched), scored against the acceptance table. <code>scripts/parity_report.py</code> greps both vaults and prints the scorecard.</p>
+<p>In <code>server</code> mode the token must contain at least 32 characters, contain no whitespace and contain
+at least eight distinct characters. These checks reject missing, short and obviously repeated
+credentials; they are not an entropy estimator. Operators must generate the token with a
+cryptographically secure generator, for example <code>openssl rand -hex 32</code>.</p>
+<p>The token remains env-only and is still compared with <code>secrets.compare_digest</code> by the single
+middleware defined by ADR-0052. There is no database copy, runtime token endpoint, per-route auth
+dependency or change to the independent MCP and clipper credentials.</p>
+<p><code>local</code> describes compatibility, not network safety. It must not be used as an authentication
+bypass for a process reachable by other machines.</p>
+<h3 id="2-public-health-is-limited-to-connection-and-liveness-signals">2. Public health is limited to connection and liveness signals<a class="headerlink" href="#2-public-health-is-limited-to-connection-and-liveness-signals" title="Permanent link">&para;</a></h3>
+<p>The unauthenticated health boundary is:</p>
+<ul>
+<li><code>GET</code>/<code>HEAD /health/live</code>: returns only <code>{"status":"ok"}</code> and no vault, dependency,
+  configuration, error or component details.</li>
+<li><code>GET</code>/<code>HEAD /status</code>: retained for the existing desktop/server connection contract. It exposes
+  process status and data-version metadata, but no page content or credentials.</li>
+</ul>
+<p><code>GET</code>/<code>HEAD /health/detailed</code> is removed from the auth exemption set. When the bearer gate is
+enabled it requires <code>Authorization: Bearer &lt;SYNAPSE_AUTH_TOKEN&gt;</code>. In <code>server</code> mode the bearer gate
+is necessarily enabled because startup cannot complete without a valid token.</p>
+<p>The non-health exemptions from ADR-0052 remain unchanged: CORS <code>OPTIONS</code>, public API schema/docs,
+the independently authenticated <code>/mcp/server</code> mount and <code>POST /clip</code>. Exemptions continue to be
+method-aware so a future mutating route cannot inherit a probe exemption accidentally.</p>
+<h3 id="3-migration-is-configuration-only-and-atomic">3. Migration is configuration-only and atomic<a class="headerlink" href="#3-migration-is-configuration-only-and-atomic" title="Permanent link">&para;</a></h3>
+<p>Existing installations remain in <code>local</code> mode until the operator opts into <code>server</code>; no database
+migration is required. Moving a network-reachable installation from <code>local</code> to <code>server</code> requires
+setting both environment variables before the same restart:</p>
+<div class="highlight"><pre><span></span><code>SYNAPSE_DEPLOYMENT_MODE=server
+SYNAPSE_AUTH_TOKEN=&lt;cryptographically-random-token&gt;
+</code></pre></div>
+<p>Container and unauthenticated uptime probes must move from <code>/health/detailed</code> to <code>/health/live</code>.
+Operational dashboards that need component diagnostics must keep <code>/health/detailed</code> and add the
+bearer header. A startup failure after selecting <code>server</code> is a configuration signal to fix, not a
+condition to bypass by reverting to <code>local</code> on a network-reachable host.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A declared server can no longer start in an accidentally unauthenticated state.</li>
+<li>Local development remains zero-configuration and backward-compatible.</li>
+<li>Public liveness monitoring has a stable, non-diagnostic endpoint.</li>
+<li>Detailed health consumers must manage the same REST API credential as other protected clients.</li>
+<li>Edge authentication remains defence in depth and does not replace the application token in
+  <code>server</code> mode.</li>
+<li>Renaming the environment variables or introducing per-user identity remains out of scope.</li>
+</ul>
+<h2 id="alternatives-considered">Alternatives considered<a class="headerlink" href="#alternatives-considered" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Require auth in every mode:</strong> safest default, but breaks the established local first-run and
+  test workflow without a migration path.</li>
+<li><strong>Infer server mode from bind address or proxy headers:</strong> fragile across Docker, Tauri, tunnels
+  and reverse proxies; implicit security posture is the problem this ADR removes.</li>
+<li><strong>Keep <code>/health/detailed</code> public:</strong> convenient for legacy probes, but exposes operational
+  topology that liveness checks do not require.</li>
+<li><strong>Make <code>/status</code> authenticated immediately:</strong> reduces public metadata further, but breaks the
+  current desktop connection handshake. A later protocol revision may collapse connection checks
+  onto <code>/health/live</code> and then reconsider this exemption.</li>
+<li><strong>Treat a long repeated token as strong:</strong> length alone accepts common placeholder values and
+  creates false confidence in server deployments.</li>
+</ul>
+<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Configuration tests cover <code>local</code> compatibility, the two accepted enum values, and fail-fast
+  rejection of missing, short, whitespace-containing and low-diversity server tokens.</li>
+<li>Auth-policy tests prove <code>GET</code>/<code>HEAD /health/live</code> and <code>/status</code> are public while
+  <code>/health/detailed</code> is protected.</li>
+<li>The live endpoint response contains only the top-level <code>status</code> field.</li>
+<li>Deploy documentation includes secure token generation, local-to-server migration, authenticated
+  detailed probes and rollback cautions.</li>
+</ul>
 
 
 

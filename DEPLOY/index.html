@@ -508,10 +508,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#34-detailed-health-check-v09" class="md-nav__link">
+  <a href="#34-liveness-and-detailed-health-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3.4 Detailed health check (v0.9)
+        3.4 Liveness and detailed health checks
       
     </span>
   </a>
@@ -1342,12 +1342,12 @@
   <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        15. Security — Shared Bearer token (R10-1 / ADR-0052)
+        15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="15. Security — Shared Bearer token (R10-1 / ADR-0052)">
+    <nav class="md-nav" aria-label="15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1388,6 +1388,17 @@
     <span class="md-ellipsis">
       
         15.4 Client UX when auth is enabled
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#155-migrating-from-local-to-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.5 Migrating from local to server
       
     </span>
   </a>
@@ -2140,10 +2151,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#34-detailed-health-check-v09" class="md-nav__link">
+  <a href="#34-liveness-and-detailed-health-checks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3.4 Detailed health check (v0.9)
+        3.4 Liveness and detailed health checks
       
     </span>
   </a>
@@ -2974,12 +2985,12 @@
   <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        15. Security — Shared Bearer token (R10-1 / ADR-0052)
+        15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="15. Security — Shared Bearer token (R10-1 / ADR-0052)">
+    <nav class="md-nav" aria-label="15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3020,6 +3031,17 @@
     <span class="md-ellipsis">
       
         15.4 Client UX when auth is enabled
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#155-migrating-from-local-to-server" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15.5 Migrating from local to server
       
     </span>
   </a>
@@ -3847,10 +3869,22 @@ chmod<span class="w"> </span><span class="m">755</span><span class="w"> </span>/
 <td>Cohesion score threshold below which a community is flagged with a warning indicator in the graph community panel (<code>GET /graph/communities/{id}</code>). Default <code>0.15</code> (mirrors the llm_wiki threshold). Communities with <code>cohesion &lt; GRAPH_COHESION_WARN</code> are marked visually in the drill-down panel. (R9-5)</td>
 </tr>
 <tr>
+<td><code>SYNAPSE_DEPLOYMENT_MODE</code></td>
+<td><code>local</code></td>
+<td>No</td>
+<td>Deployment trust boundary (ADR-0075): <code>local</code> preserves backward-compatible zero-config use; <code>server</code> declares a network-reachable process and fails startup unless <code>SYNAPSE_AUTH_TOKEN</code> passes validation. Use <code>server</code> for LAN, Tailscale, tunnel, reverse-proxy and hosted deployments. Accepted values are exactly <code>local</code> and <code>server</code>.</td>
+</tr>
+<tr>
+<td><code>SYNAPSE_BIND_HOST</code></td>
+<td><code>127.0.0.1</code></td>
+<td>No</td>
+<td>Host address used by Docker Compose to publish port 8000. Keep loopback in <code>local</code> mode. Set <code>0.0.0.0</code> only together with <code>SYNAPSE_DEPLOYMENT_MODE=server</code> and a strong token.</td>
+</tr>
+<tr>
 <td><code>SYNAPSE_AUTH_TOKEN</code></td>
 <td><em>(empty)</em></td>
-<td>No</td>
-<td>Shared Bearer token for the REST API (ADR-0052). <strong>Empty or absent = authentication DISABLED</strong> (default; backward-compatible with all v0.9 and earlier deployments). When set to a non-empty string, every route except the exempt set (<code>GET /status</code>, <code>GET /health/detailed</code>, <code>GET /docs</code>, <code>GET /openapi.json</code>, <code>OPTIONS</code>, <code>/mcp/server/*</code>, <code>POST /clip</code>) requires <code>Authorization: Bearer &lt;token&gt;</code>. Compared constant-time; never stored, never hashed, never logged. Recommend at least 32 characters. Generate with <code>openssl rand -base64 32</code>. The MCP surface (<code>/mcp/server</code>) and the web-clipper ingress (<code>POST /clip</code>) keep their own independent tokens — <code>SYNAPSE_AUTH_TOKEN</code> does NOT gate them.</td>
+<td>Required in <code>server</code> mode</td>
+<td>Env-only shared Bearer token for the REST API (ADR-0052/0075). Empty or absent disables API auth only in <code>local</code> mode. <code>server</code> mode requires at least 32 characters, no whitespace and at least eight distinct characters; generate with <code>openssl rand -hex 32</code>. Protected routes require <code>Authorization: Bearer &lt;token&gt;</code> and use constant-time comparison. Public health is limited to <code>GET</code>/<code>HEAD /status</code> and <code>/health/live</code>; <code>/health/detailed</code> is protected. API docs, CORS preflight, <code>/mcp/server/*</code> and <code>POST /clip</code> retain their documented exemptions/independent credentials. Never store, hash, log or commit this token.</td>
 </tr>
 <tr>
 <td><code>POSTGRES_USER</code></td>
@@ -3992,9 +4026,17 @@ All tables are empty on first run and are populated through normal use.</p>
 <span class="w">  </span><span class="nt">&quot;uptime_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span>
 <span class="p">}</span>
 </code></pre></div>
-<h3 id="34-detailed-health-check-v09">3.4 Detailed health check (v0.9)<a class="headerlink" href="#34-detailed-health-check-v09" title="Permanent link">&para;</a></h3>
-<p>For monitoring probes and dashboards, the backend exposes a richer liveness endpoint:</p>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8000/health/detailed<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+<h3 id="34-liveness-and-detailed-health-checks">3.4 Liveness and detailed health checks<a class="headerlink" href="#34-liveness-and-detailed-health-checks" title="Permanent link">&para;</a></h3>
+<p>Use the public, non-diagnostic endpoint for container and uptime liveness probes:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8000/health/live
+<span class="c1"># {&quot;status&quot;:&quot;ok&quot;}</span>
+</code></pre></div>
+<p><code>GET /health/live</code> intentionally returns no component, vault, configuration, dependency or error
+details. <code>GET /status</code> also remains public for the desktop connection contract.</p>
+<p>For an operator dashboard, call the richer endpoint with the REST bearer token:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your-token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>http://localhost:8000/health/detailed<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
 </code></pre></div>
 <p>The response lists the status of each internal component:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
@@ -4013,8 +4055,9 @@ All tables are empty on first run and are populated through normal use.</p>
 <p><code>status</code> at the top level is <code>"healthy"</code> if all components are <code>"ok"</code> or <code>"idle"</code>.
 It is <code>"degraded"</code> if any non-critical component has a transient issue (e.g. Qdrant
 temporarily unreachable when embeddings are enabled), and <code>"unhealthy"</code> if Postgres is
-unreachable. Use this endpoint in a Docker health check or a monitoring probe (e.g.
-Uptime Kuma, Prometheus blackbox exporter) in preference to <code>GET /status</code>.</p>
+unreachable. Use <code>/health/live</code> for unauthenticated Docker health checks and black-box uptime
+monitors. Use <code>/health/detailed</code> only when the monitoring client can send the bearer credential.
+When auth is enabled, a detailed request without that credential receives 401.</p>
 <p>The basic <code>GET /status</code> endpoint (vault_id, data_version, uptime) remains available for
 the desktop app's Connect-screen probe and is not affected by this change.</p>
 <h3 id="35-open-the-frontend">3.5 Open the frontend<a class="headerlink" href="#35-open-the-frontend" title="Permanent link">&para;</a></h3>
@@ -4033,6 +4076,9 @@ navigation rail on the left and the knowledge graph in the center.</p>
 <li>The TrueNAS host is on a trusted home LAN (or accessible only via Tailscale mesh).</li>
 <li>External access is proxied through Cloudflare Tunnel (which enforces TLS and,
   optionally, Cloudflare Access authentication) — never via a raw-WAN open port.</li>
+<li>Every backend reachable beyond the same machine runs with
+  <code>SYNAPSE_DEPLOYMENT_MODE=server</code>; startup then requires application-level bearer auth even when
+  edge authentication is also present (ADR-0075, defence in depth).</li>
 </ul>
 <p><strong>Postgres network isolation.</strong> In <code>docker-compose.yml</code> (production), the Postgres port
 <strong>5432 is not published to the host interface</strong>. Postgres is reachable only by the
@@ -4963,27 +5009,36 @@ paths.</p>
 <code>.mov</code>, <code>.webm</code> (F12, ADR-0025). The 415 response body names the extension and the
 full acceptance list explicitly. Files with unrecognized extensions are rejected.</p>
 <hr />
-<h2 id="security">15. Security — Shared Bearer token (R10-1 / ADR-0052)<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h2 id="security">15. Security — Deployment mode and shared Bearer token (ADR-0052 / ADR-0075)<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
 <h3 id="151-overview">15.1 Overview<a class="headerlink" href="#151-overview" title="Permanent link">&para;</a></h3>
-<p>Synapse v1.0 adds an optional shared Bearer token that gates the entire REST API (ADR-0052).
-When <code>SYNAPSE_AUTH_TOKEN</code> is unset or empty, the API is fully open — identical behaviour to
-v0.9 and earlier. Setting it enables a single-middleware gate that adds zero overhead to the
-chat streaming path (one constant-time <code>secrets.compare_digest</code> per request, I3).</p>
-<p><strong>This is the recommended posture when exposing Synapse over a Cloudflare Tunnel or any
-non-Tailscale network.</strong> For a Tailscale-only, private-network deployment behind no public
-entry point, leaving the token empty is reasonable.</p>
+<p>The REST API uses one env-only shared Bearer token (ADR-0052). Release 1.6.0 adds an explicit
+deployment trust boundary (ADR-0075):</p>
+<ul>
+<li><code>SYNAPSE_DEPLOYMENT_MODE=local</code> is the backward-compatible default. An empty token is accepted
+  for loopback development and trusted single-machine use.</li>
+<li><code>SYNAPSE_DEPLOYMENT_MODE=server</code> is required for every network-reachable backend. Startup fails
+  closed if the token is missing or obviously weak.</li>
+</ul>
+<p>When configured, the single middleware gate performs one constant-time
+<code>secrets.compare_digest</code> per request (I3). A Cloudflare Tunnel, Cloudflare Access, Tailscale or
+another reverse proxy is defence in depth; it does not replace the application token in <code>server</code>
+mode.</p>
 <h3 id="152-enabling-the-token">15.2 Enabling the token<a class="headerlink" href="#152-enabling-the-token" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Generate a cryptographically secure token:</li>
+<li>Generate a cryptographically secure token. Do not use a password, placeholder or repeated
+   character sequence:</li>
 </ol>
-<div class="highlight"><pre><span></span><code>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span>
-<span class="c1"># Example output: wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=</span>
+<div class="highlight"><pre><span></span><code>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span>
+<span class="c1"># Example shape: 64 random hexadecimal characters</span>
 </code></pre></div>
 <ol>
-<li>Add it to your <code>.env</code> (never commit <code>.env</code>):</li>
+<li>Add the mode and token to <code>.env</code> before the same restart (never commit <code>.env</code>):</li>
 </ol>
-<div class="highlight"><pre><span></span><code>SYNAPSE_AUTH_TOKEN=wXt7bQkpLm3Zv9nR4jGsYaFe2cH0uTqO8dIyNoPx6A=
+<div class="highlight"><pre><span></span><code>SYNAPSE_DEPLOYMENT_MODE=server
+SYNAPSE_AUTH_TOKEN=&lt;paste-the-generated-token&gt;
 </code></pre></div>
+<p>Server validation requires at least 32 characters, no whitespace and at least eight distinct
+   characters. It rejects weak configuration but does not replace secure random generation.</p>
 <ol>
 <li>Restart the stack:</li>
 </ol>
@@ -5011,16 +5066,16 @@ entry point, leaving the token empty is reasonable.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>GET /status</code></td>
-<td>Liveness probe; desktop auto-detect; monitoring</td>
+<td><code>GET</code>/<code>HEAD /status</code></td>
+<td>Existing desktop connection probe; no page content or credentials</td>
 </tr>
 <tr>
-<td><code>GET /health/detailed</code></td>
-<td>Component health; monitoring probes</td>
+<td><code>GET</code>/<code>HEAD /health/live</code></td>
+<td>Minimal liveness response only (<code>{"status":"ok"}</code>)</td>
 </tr>
 <tr>
-<td><code>GET /docs</code>, <code>GET /openapi.json</code>, <code>GET /redoc</code></td>
-<td>API schema is public; not sensitive data</td>
+<td><code>GET</code>/<code>HEAD /docs</code>, <code>/openapi.json</code>, <code>/redoc</code></td>
+<td>API schema is public; not vault data</td>
 </tr>
 <tr>
 <td>All <code>OPTIONS</code> requests</td>
@@ -5036,6 +5091,8 @@ entry point, leaving the token empty is reasonable.</p>
 </tr>
 </tbody>
 </table>
+<p><code>GET</code>/<code>HEAD /health/detailed</code> is protected because it exposes component and operational
+   diagnostics. Call it with <code>Authorization: Bearer &lt;token&gt;</code>.</p>
 <h3 id="153-token-rotation">15.3 Token rotation<a class="headerlink" href="#153-token-rotation" title="Permanent link">&para;</a></h3>
 <p>Server-side rotation requires an env change and a container restart — there is no
 rotation endpoint. There is deliberately no DB storage of this credential.</p>
@@ -5061,6 +5118,33 @@ new token in Settings &gt; Security is a client-side update only — it does not
 <li><strong>MCP clients and web clipper are unaffected.</strong> They use their own tokens (<code>MCP_AUTH_TOKEN</code> /
   <code>CLIP_TOKEN</code>) and are never gated by <code>SYNAPSE_AUTH_TOKEN</code>.</li>
 </ul>
+<h3 id="155-migrating-from-local-to-server">15.5 Migrating from <code>local</code> to <code>server</code><a class="headerlink" href="#155-migrating-from-local-to-server" title="Permanent link">&para;</a></h3>
+<p>No database migration is needed. Treat the change as an atomic client-and-probe rollout:</p>
+<ol>
+<li>Confirm every REST client can store and send <code>SYNAPSE_AUTH_TOKEN</code>.</li>
+<li>Generate the token with <code>openssl rand -hex 32</code> and store it in the deployment secret manager or
+   uncommitted <code>.env</code> file.</li>
+<li>Replace unauthenticated <code>/health/detailed</code> liveness probes with <code>/health/live</code>. For dashboards
+   that need component diagnostics, retain <code>/health/detailed</code> and configure its bearer header.</li>
+<li>Set <code>SYNAPSE_DEPLOYMENT_MODE=server</code> and <code>SYNAPSE_AUTH_TOKEN</code> together, then restart.</li>
+<li>Verify the boundary:</li>
+</ol>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/health/live
+<span class="c1"># Expected: 200 without a token</span>
+
+curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/health/detailed
+<span class="c1"># Expected: 401</span>
+
+curl<span class="w"> </span>-i<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your-token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>http://localhost:8000/health/detailed
+<span class="c1"># Expected: 200</span>
+
+curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/pages
+<span class="c1"># Expected: 401</span>
+</code></pre></div>
+<p>If startup fails, inspect the configuration error and replace the missing or weak token. Reverting
+to <code>local</code> disables the fail-closed guarantee and is an acceptable rollback only after restricting
+the backend to loopback or another equivalently trusted single-machine boundary.</p>
 <hr />
 <h2 id="code-signing">16. Code signing and notarization (R10-3)<a class="headerlink" href="#code-signing" title="Permanent link">&para;</a></h2>
 <h3 id="161-why-code-signing">16.1 Why code signing<a class="headerlink" href="#161-why-code-signing" title="Permanent link">&para;</a></h3>
@@ -5546,11 +5630,17 @@ a live Postgres connection.</p>
 <li><code>CLAUDE.md</code> — project context, invariants (I1–I9), and feature inventory</li>
 <li><code>docs/er/schema.mmd</code> — ER diagram (auto-generated by <code>make er</code>)</li>
 <li><code>docs/api/openapi.json</code> — API reference (auto-generated by <code>make openapi</code>)</li>
-<li><code>docs/adr/</code> — Architecture Decision Records (ADR-0001 through ADR-0052; index in <code>docs/adr/index.md</code>; ADR-0037 Lint, ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop auto-update, ADR-0051 Pluggable PDF extractor seam, ADR-0052 Shared Bearer token auth)</li>
+<li><code>docs/adr/</code> — Architecture Decision Records (index in <code>docs/adr/index.md</code>; ADR-0037 Lint,
+  ADR-0038 Web Clipper, ADR-0039 Tauri v2 shell, ADR-0047 Desktop Connect gate, ADR-0049 Desktop
+  auto-update, ADR-0051 Pluggable PDF extractor seam, ADR-0052 Shared Bearer token auth,
+  ADR-0075 Deployment trust mode and health boundary)</li>
 <li><code>docs/adr/0039-tauri-v2-desktop-shell.md</code> — Tauri v2 desktop shell scaffold and CI</li>
 <li><code>docs/adr/0047-desktop-runtime-server-url-and-connect-gate.md</code> — runtime server URL binding, Connect screen, CORS extension (§7 of this guide)</li>
 <li><code>docs/adr/0049-desktop-auto-update-github-releases.md</code> — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)</li>
-<li><code>docs/adr/0052-auth-token-model.md</code> — shared Bearer token (<code>SYNAPSE_AUTH_TOKEN</code>), middleware ordering, exempt set, client contract (§13 of this guide)</li>
+<li><code>docs/adr/0052-auth-token-model.md</code> — shared Bearer token (<code>SYNAPSE_AUTH_TOKEN</code>), middleware
+  ordering and client contract (§15 of this guide)</li>
+<li><code>docs/adr/ADR-0075-deployment-mode-auth-health-boundary.md</code> — <code>local</code>/<code>server</code> trust boundary,
+  fail-closed server validation and protected detailed diagnostics (§3.4 and §15 of this guide)</li>
 <li><code>tools/marker-converter/README.md</code> — Marker PDF microservice + ServiceNow doc connector full setup and scheduler daemon</li>
 <li><code>tools/whisper-service/README.md</code> — Whisper AV transcription microservice setup (required when <code>AV_TRANSCRIPTION_ENABLED=true</code>)</li>
 <li>§17 (this guide) — Backup &amp; restore: <code>GET /export</code> ZIP + <code>GET /export/data.json</code> metadata</li>

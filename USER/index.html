@@ -675,6 +675,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#corpus-comparison-and-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corpus comparison and synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1801,6 +1812,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#corpus-comparison-and-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corpus comparison and synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2310,10 +2332,10 @@
 
 
 <h1 id="synapse-user-guide">Synapse User Guide<a class="headerlink" href="#synapse-user-guide" title="Permanent link">&para;</a></h1>
-<!-- Generated: v1.3.11 sprint 14 | 2026-07-07 -->
+<!-- Updated: v1.6.0 generation lifecycle parity | 2026-07-13 -->
 
 <blockquote>
-<p>Version: v1.3.11
+<p>Version: v1.6.0
 Language toggle: English / Italian available in Settings.</p>
 </blockquote>
 <hr />
@@ -2355,8 +2377,10 @@ the triggering of an explicit ingest action you initiated.</p>
 </tr>
 </tbody>
 </table>
-<p>The <code>wiki/</code> folder is a valid <strong>Obsidian vault</strong>. Every page has YAML frontmatter
-(type, title, sources, tags, created, updated), <code>[[wikilinks]]</code>, and an
+<p>The <code>wiki/</code> folder is a valid <strong>Obsidian vault</strong>. Generated pages use compact YAML frontmatter
+(<code>type</code>, <code>title</code>, <code>created</code>, <code>updated</code>, optional <code>tags</code>/<code>related</code>; corpus pages also carry the
+reserved <code>synapse_generation_key</code>). Source provenance remains indexed in Postgres. Pages use
+<code>[[wikilinks]]</code> and an
 auto-generated <code>.obsidian/</code> configuration. You can open <code>vault/wiki/</code> directly in
 the Obsidian app without any conversion or export step.</p>
 <h3 id="what-synapse-does-not-do">What Synapse does not do<a class="headerlink" href="#what-synapse-does-not-do" title="Permanent link">&para;</a></h3>
@@ -2764,18 +2788,17 @@ tooltip when vision is not supported.</p>
 <p>The Review section (nav label: <strong>Review</strong>) shows the HITL proposal queue. The AI
 proposes follow-up work; you decide what to act on.</p>
 <h4 id="how-proposals-are-generated">How proposals are generated<a class="headerlink" href="#how-proposals-are-generated" title="Permanent link">&para;</a></h4>
-<p>After each orchestrated ingest run (API and Local providers), Synapse runs a single
-bounded proposal call. An anti-spam gate suppresses the call on trivial runs: the
-call fires only when the run wrote at least 10 000 characters or at least 4 pages,
-or when concrete signals exist (dangling wikilinks, analysis-proposed pages not yet
-written). Rule-based proposals (missing pages, duplicates) are emitted without any
-LLM call.</p>
-<blockquote>
-<p><strong>CLI provider note (ADR-0025 §7):</strong> when the active provider is CLI
-(<code>CliAgentProvider</code>), ingest is fully delegated to the claude-agent-sdk agent loop
-and the post-ingest proposal stage does not run. If you rely on the review queue
-for curation, use the API or Local provider for ingest.</p>
-</blockquote>
+<p>After each ingest run, Synapse runs one bounded proposal pass. This applies to API/Local and CLI
+providers. The delegated CLI path supplies the real source text plus bounded excerpts from only
+the pages written in that run; it does not scan the vault or invent a Stage-1 analysis. Rule-based
+proposals (missing pages, duplicates) are emitted without an LLM call.</p>
+<p>Rules and AI have separate capacity: by default up to 8 rule proposals and 12 AI proposals, with
+20 total after deduplication. A matching AI proposal wins when it carries the richer rationale or
+query context, so missing-link volume cannot starve detailed review suggestions.</p>
+<p>Use the filter bar to combine status, item type, proposal origin and proposed page type. Each card
+shows its origin (<code>rule</code>, <code>ai</code>, <code>corpus</code>, <code>system</code>, <code>lint</code> or migrated <code>legacy</code>), proposed type and,
+after Create, the effective type that was actually written. Query badges distinguish absent,
+title-only and contextual search queries before you accept a proposal.</p>
 <h4 id="proposal-types">Proposal types<a class="headerlink" href="#proposal-types" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -2832,6 +2855,27 @@ for curation, use the API or Local provider for ingest.</p>
 existing page. An optional bounded LLM pass (capped at 8 items, default on) may
 close <code>suggestion</code> or <code>contradiction</code> items. <code>confirm</code> items are never
 auto-resolved.</p>
+<h4 id="corpus-comparison-and-synthesis">Corpus comparison and synthesis<a class="headerlink" href="#corpus-comparison-and-synthesis" title="Permanent link">&para;</a></h4>
+<p>The Home dashboard offers two explicit corpus actions when at least three eligible pages exist:</p>
+<ul>
+<li><strong>Generate now</strong> evaluates bounded same-domain clusters and may automatically write
+  high-confidence comparison/synthesis pages.</li>
+<li><strong>Propose only</strong> performs the same bounded deterministic evaluation without requiring an
+  inference provider and sends eligible clusters to Review (<code>origin=corpus</code>). It never writes a
+  corpus page automatically.</li>
+</ul>
+<p>Corpus generation is intentionally conservative. Every member must share a real <code>domain/*</code> tag;
+untagged and mixed-domain candidates are skipped and counted. Run bounded domain backfill first if
+the Home diagnostics report many untagged skips. The UI polls only while the operation is active
+and then shows written, proposed, duplicate and untagged counts.</p>
+<p>Each new corpus page has a stable identity derived from its kind plus sorted canonical member
+paths. Re-running normally skips an existing identity before any model call. <code>force=true</code> may
+regenerate the content but updates the same deterministic file; it does not create a second page.</p>
+<p>Operators can inspect legacy duplicates without changing data:</p>
+<div class="highlight"><pre><span></span><code>GET /ops/synthesize/audit?max_pages=500
+</code></pre></div>
+<p>The report is dry-run only. Synapse 1.6.0 never deletes, merges, renames or backfills legacy pages
+automatically.</p>
 <hr />
 <h3 id="lint-section">Lint section<a class="headerlink" href="#lint-section" title="Permanent link">&para;</a></h3>
 <p>The Lint section (nav label: <strong>Lint</strong>) runs a bounded health check of the wiki.
@@ -2903,7 +2947,9 @@ Settings → AI behaviour → <strong>Web search</strong>.</p>
 <h3 id="ingest-section">Ingest section<a class="headerlink" href="#ingest-section" title="Permanent link">&para;</a></h3>
 <p>The Ingest section (nav label: <strong>Ingest</strong>) is the run-history and cost ledger. Every
 ingest run (triggered by the watcher, an upload, a manual trigger, or a Review Create
-action) appears here. Each row shows provider, pages created, cost, and timing.</p>
+action) appears here. Each row shows provider, pages created, cost, and timing. v1.6.0 also exposes
+an optional per-type count (<code>entity</code>, <code>concept</code>, <code>source</code>, <code>query</code>, <code>synthesis</code>, <code>comparison</code>) in
+the API so generation differences between providers and runs can be diagnosed precisely.</p>
 <hr />
 <h3 id="convert-section">Convert section<a class="headerlink" href="#convert-section" title="Permanent link">&para;</a></h3>
 <p>The Convert section (nav label: <strong>Convert</strong>) is the dedicated interface for the

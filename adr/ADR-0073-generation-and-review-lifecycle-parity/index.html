@@ -12,7 +12,7 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0067-llmwiki-1to1-generation-parity/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0073-generation-and-review-lifecycle-parity/">
       
       
       
@@ -25,7 +25,7 @@
     
     
       
-        <title>ADR-0067 — LLM Wiki 1:1 generation-semantics parity - Synapse</title>
+        <title>ADR-0073 — Source-grounded generation and review lifecycle parity (v1.6.0) - Synapse</title>
       
     
     
@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0067-llm-wiki-11-generation-semantics-parity" class="md-skip">
+        <a href="#adr-0073-source-grounded-generation-and-review-lifecycle-parity-v160" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +111,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0067 — LLM Wiki 1:1 generation-semantics parity
+              ADR-0073 — Source-grounded generation and review lifecycle parity (v1.6.0)
             
           </span>
         </div>
@@ -569,22 +569,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decisions" class="md-nav__link">
+  <a href="#decision" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decisions
+        Decision
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Decisions">
+    <nav class="md-nav" aria-label="Decision">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" class="md-nav__link">
+  <a href="#1-one-six-type-generation-contract" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D1 — queries/ is reserved for genuine open questions (fixes QP-Q1/LN-D1)
+        1. One six-type generation contract
       
     </span>
   </a>
@@ -592,10 +592,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" class="md-nav__link">
+  <a href="#2-delegated-review-uses-real-available-context-not-invented-analysis" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)
+        2. Delegated review uses real available context, not invented analysis
       
     </span>
   </a>
@@ -603,10 +603,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" class="md-nav__link">
+  <a href="#3-separate-review-budgets-with-one-global-ceiling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)
+        3. Separate review budgets with one global ceiling
       
     </span>
   </a>
@@ -614,10 +614,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" class="md-nav__link">
+  <a href="#4-persist-proposal-provenance-derive-the-created-type" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)
+        4. Persist proposal provenance; derive the created type
       
     </span>
   </a>
@@ -625,21 +625,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" class="md-nav__link">
+  <a href="#5-agentic-loop-limits-are-real-limits" class="md-nav__link">
     <span class="md-ellipsis">
       
-        D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + ## Queries (not Querys) + drop ## Uncategorised; overview gains a deterministic ## Open Questions block (DB query of live query pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one - Ingest: &lt;doc&gt; — created N pages bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).
+        5. Agentic loop limits are real limits
       
     </span>
   </a>
@@ -652,10 +641,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#invariant-impact-explicit" class="md-nav__link">
+  <a href="#consequences" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Invariant impact (explicit)
+        Consequences
       
     </span>
   </a>
@@ -663,10 +652,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#validation" class="md-nav__link">
+  <a href="#rejected-alternatives" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Validation
+        Rejected alternatives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification
       
     </span>
   </a>
@@ -690,48 +690,101 @@
 
 
 
-<h1 id="adr-0067-llm-wiki-11-generation-semantics-parity">ADR-0067 — LLM Wiki 1:1 generation-semantics parity<a class="headerlink" href="#adr-0067-llm-wiki-11-generation-semantics-parity" title="Permanent link">&para;</a></h1>
+<h1 id="adr-0073-source-grounded-generation-and-review-lifecycle-parity-v160">ADR-0073 — Source-grounded generation and review lifecycle parity (v1.6.0)<a class="headerlink" href="#adr-0073-source-grounded-generation-and-review-lifecycle-parity-v160" title="Permanent link">&para;</a></h1>
 <ul>
-<li><strong>Status:</strong> Partially superseded by ADR-0073 and ADR-0074 (2026-07-13). D2, D5 and D6 remain accepted; D1, D3 and D4 generation exclusivity are superseded as described below.</li>
-<li><strong>Supersedes/extends:</strong> ADR-0066 (llm_wiki 1:1 parity program), ADR-0058 (lint parity), ADR-0063 (ingest quality parity)</li>
-<li><strong>Driver:</strong> Live audit <code>docs/reference/AUDIT-SYNAPSE-VS-LLMWIKI-1TO1-2026-07-10.md</code> — with the same raw corpus (~87% overlap) and same model class (Haiku 4.5), the Synapse PROD vault (<code>/Volumes/synapse/vault</code>) diverges structurally from the LLM Wiki app vault (<code>~/Documents/00_Personal/01_Wiki/LLM Wiki</code>): queries 133-stubs vs 110-real, entities 149 vs 202, synthesis/comparison 0/0 vs 4/5, <code>related:</code> 0% vs 100%.</li>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-13</li>
+<li><strong>Supersedes:</strong> ADR-0067 D1/D3/D4 only where they prohibit direct generation of <code>query</code>,
+  <code>comparison</code> and <code>synthesis</code></li>
+<li><strong>Amends:</strong> ADR-0007, ADR-0011, ADR-0034, ADR-0044, ADR-0063</li>
+<li><strong>Invariants touched:</strong> I1, I5, I6, I7, I8, I9</li>
 </ul>
 <h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>Synapse reproduces the Karpathy page-type model but three generation seams diverge from LLM Wiki. This ADR records the invariant-touching decisions the owner approved so implementation is not a silent workaround (per the CLAUDE.md invariant-change rule).</p>
-<h2 id="decisions">Decisions<a class="headerlink" href="#decisions" title="Permanent link">&para;</a></h2>
-<h3 id="d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1">D1 — <code>queries/</code> is reserved for genuine open questions (fixes QP-Q1/LN-D1)<a class="headerlink" href="#d1-queries-is-reserved-for-genuine-open-questions-fixes-qp-q1ln-d1" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded in part by ADR-0073:</strong> lint still may not create query stubs, but source-grounded
-direct ingest may now generate a genuine research-query page.
-Wiki Lint MUST NOT materialise a missing wikilink target as <code>type: query</code>. <code>_create_broken_link_stub</code> is replaced with folder-aware routing: a target that resolves to a known type is stubbed in that type's folder; a bare proper-noun target → <code>entity</code> stub, otherwise <code>concept</code> stub; when uncertain the no-suggestion path routes to the <strong>Review queue (F9)</strong> instead of writing. <code>query</code> pages are written ONLY by (a) the contradiction handler (D4) and (b) chat save-to-wiki when the saved content is itself a question. This restores nashsu parity (LLM Wiki <code>queries/</code> = 0 lint stubs).</p>
-<h3 id="d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3">D2 — Frontmatter mirrors LLM Wiki; provenance kept in the DB (owner choice "mirror exactly", resolves Q1/FW-D1/FW-D5/FW-D4/QP-Q3)<a class="headerlink" href="#d2-frontmatter-mirrors-llm-wiki-provenance-kept-in-the-db-owner-choice-mirror-exactly-resolves-q1fw-d1fw-d5fw-d4qp-q3" title="Permanent link">&para;</a></h3>
-<p>On-disk generated-page frontmatter is emitted in LLM Wiki's shape and key order:
-<code>type, title, created, updated, tags, related</code> (+ <code>authors, year, url, venue</code> on sources). Serializer switches to <code>sort_keys=False</code>.
-- <strong><code>related: list[str]</code></strong> becomes a first-class field (slugs), populated from resolved outbound wikilinks + top graph neighbours (cap ~8). It is a <strong>second graph-edge seed</strong> alongside <code>[[wikilinks]]</code>, but only <em>resolvable</em> slugs are emitted (an unresolved <code>related</code> entry is dropped, never a new ghost).
-- <strong><code>sources</code> and <code>lang</code> are no longer emitted in the markdown</strong> and become <strong>optional</strong> on <code>WikiFrontmatter</code> (default <code>[]</code>/<code>"en"</code>). <strong>F3 traceability is preserved in Postgres</strong>: the ingest pipeline still populates <code>pages.sources</code>/links (the graph source-overlap ×4 signal F4 and cascade-delete F13 read the DB, not the file). This is the documented F3 amendment: traceability moves from an inline <code>sources:</code> path list to (a) the DB and (b) the <code>source</code> page + <code>related:</code> links, exactly as LLM Wiki expresses it.
-- Overview and lint-stub pages may carry <code>sources: []</code> (no synthetic <code>lint:&lt;uuid&gt;</code> sources).</p>
-<h3 id="d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3">D3 — Corpus-level synthesis/comparison generator (fixes SC-D1; resolves Q3)<a class="headerlink" href="#d3-corpus-level-synthesiscomparison-generator-fixes-sc-d1-resolves-q3" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded by ADR-0073/0074:</strong> direct ingest may generate source-local special pages; the global
-corpus pass remains separate but requires a real domain, indexed generation keys and independent
-candidate bounds.
-The ingest-time prohibition on synthesis/comparison (<code>_common.py</code>) STAYS. A new bounded op <code>ops/synthesize.py</code> runs after bulk import (and as an explicit action): it seeds candidate clusters from the 4-signal graph (source-overlap/type-affinity/Adamic-Adar), generates a synthesis (thesis+integration) per high-confidence cluster and a comparison table for ≥2 same-class entities, writing them via the single <code>write_wiki_page</code> seam with <code>related[]</code>=cluster + unioned <code>sources[]</code>. Borderline clusters → Review (F9). Bounded by <code>max_iter</code>+<code>token_budget</code>; logs <code>total_cost_usd</code> (I7). These are legitimate writers of synthesis/comparison, distinct from the still-prohibited single-doc ingest.</p>
-<h3 id="d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3">D4 — Contradiction → open-question query (fixes QP-Q2/IN-D2; resolves Q3)<a class="headerlink" href="#d4-contradiction-open-question-query-fixes-qp-q2in-d2-resolves-q3" title="Permanent link">&para;</a></h3>
-<p><strong>Superseded in exclusivity by ADR-0073:</strong> the human-gated contradiction path remains valid but is
-no longer the only ingest-adjacent producer of query pages.
-<code>contradiction</code> leaves <code>_FLAG_ONLY_CATEGORIES</code>; an applied contradiction authors a <code>type: query</code> page via an internal pipeline writer (not free provider output): question title + <code>## Question / ## Hypothesis / ## Open Points / ## Impact / ## References</code>, <code>sources[]</code>=both raw docs, <code>related[]</code>=both pages. Human-gated (K8); confidence-gated; bounded (I7). <code>query</code> stays provider-forbidden as free output; only the internal writer may emit it.</p>
-<h3 id="d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5">D5 — Entity canonicalisation (fixes CE-D1/IN-D3; resolves Q5)<a class="headerlink" href="#d5-entity-canonicalisation-fixes-ce-d1in-d3-resolves-q5" title="Permanent link">&para;</a></h3>
-<p><code>write_wiki_page</code> resolves a normalized identity key for <code>type=entity</code> <strong>before</strong> slugging (casefold; strip parenthetical acronyms <code>(AWS)</code>; strip legal suffixes <code>Inc./Ltd./S.p.A./PRIVATE LIMITED</code>; fold known acronym↔longform). Exact normalized-key match → reuse the existing page (union <code>sources[]</code>, merge body). Anything requiring fuzzy/embedding similarity → Review proposal, <strong>never a silent merge</strong> (<code>Deloitte</code> vs <code>Deloitte Italia</code> stays human-decided). A retrofit sweep <code>ops/dedup_entities.py</code> clusters the existing vault and proposes merges to Review. Ingest prompt + <code>schema.md</code> gain a canonical-naming rule.</p>
-<h3 id="d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4">D6 — Structure &amp; catalogue (fixes IL/OV): index dedup + em-dash gloss + <code>## Queries</code> (not <code>Querys</code>) + drop <code>## Uncategorised</code>; overview gains a deterministic <code>## Open Questions</code> block (DB query of live <code>query</code> pages) + a ≥100-keyword tag cloud + a bolded thesis; log becomes coarse per-document narrative (one <code>- Ingest: &lt;doc&gt; — created N pages</code> bullet) instead of per-page machine lines. All deterministic (no live LLM in index/log) to preserve idempotency (I1/K3/K4).<a class="headerlink" href="#d6-structure-catalogue-fixes-ilov-index-dedup-em-dash-gloss-queries-not-querys-drop-uncategorised-overview-gains-a-deterministic-open-questions-block-db-query-of-live-query-pages-a-100-keyword-tag-cloud-a-bolded-thesis-log-becomes-coarse-per-document-narrative-one-ingest-doc-created-n-pages-bullet-instead-of-per-page-machine-lines-all-deterministic-no-live-llm-in-indexlog-to-preserve-idempotency-i1k3k4" title="Permanent link">&para;</a></h3>
-<h2 id="invariant-impact-explicit">Invariant impact (explicit)<a class="headerlink" href="#invariant-impact-explicit" title="Permanent link">&para;</a></h2>
+<p>The v1.5 parity work reached the same model and nearly the same source corpus as LLM Wiki, but
+kept an architectural prohibition that LLM Wiki does not have: Synapse's shared direct-ingest
+prompt and structured schema allow only <code>entity</code>, <code>concept</code> and <code>source</code>. Query, comparison and
+synthesis therefore cannot be produced by ordinary ingest even when one source contains a valid
+research question, comparison axis or multi-claim synthesis.</p>
+<p>The review lifecycle compounds the discrepancy. Rule-based dangling-link proposals are prepended
+and the merged list is truncated to a small constant, so they can starve the model proposals. The
+delegated CLI route fabricates an <code>Analysis</code> from written titles and omits the source body even
+though the source is already in memory. Finally, proposal provenance and the effective created
+type are not visible to API/UI clients.</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-one-six-type-generation-contract">1. One six-type generation contract<a class="headerlink" href="#1-one-six-type-generation-contract" title="Permanent link">&para;</a></h3>
+<p>The shared analyze/generate policy permits all six generative page types:
+<code>entity</code>, <code>concept</code>, <code>source</code>, <code>query</code>, <code>comparison</code>, <code>synthesis</code>.</p>
+<p>Special types have stricter evidence gates:</p>
 <ul>
-<li><strong>F3</strong> amended (D2): inline <code>sources:</code> no longer required in file frontmatter; traceability preserved in DB + source pages. Reversible (re-enable emission).</li>
-<li><strong>F4</strong> extended (D2): <code>related:</code> is a second edge seed (resolvable slugs only).</li>
-<li><strong>I1/I5/I7</strong> unchanged: every new op is incremental (single <code>data_version</code> bump/batch), Obsidian-valid, bounded + cost-logged.</li>
-<li><strong>K8/F9</strong> strengthened: entity merges and contradiction questions are human-gated.</li>
-<li>The former single-doc ingest prohibition was superseded by ADR-0073. Source-grounding and
-  bounded-generation tests replace the inverse prohibition tests.</li>
+<li><code>query</code>: a source-grounded open research question plus useful contextual search queries;</li>
+<li><code>comparison</code>: two or more source-supported subjects plus a meaningful common axis;</li>
+<li><code>synthesis</code>: compatible evidence across several claims/sections and an integrated thesis.</li>
 </ul>
-<h2 id="validation">Validation<a class="headerlink" href="#validation" title="Permanent link">&para;</a></h2>
-<p>Per audit §5: fixture/unit gates + live re-run of ingest/dedup/reclassify/contradiction/synthesize/overview/chat/graph against a <strong>reloaded dev KB</strong> (PROD untouched), scored against the acceptance table. <code>scripts/parity_report.py</code> greps both vaults and prints the scorecard.</p>
+<p>The prompt explicitly says that emitting every special type is optional and that unsupported
+special pages must be omitted. Pydantic validation, the existing type-to-directory mapping and
+the single <code>write_wiki_page</code> seam remain authoritative. No provider-specific branch is added.</p>
+<h3 id="2-delegated-review-uses-real-available-context-not-invented-analysis">2. Delegated review uses real available context, not invented analysis<a class="headerlink" href="#2-delegated-review-uses-real-available-context-not-invented-analysis" title="Permanent link">&para;</a></h3>
+<p>No new MCP <code>record_analysis</code> tool is introduced. Such a tool would make parity depend on a model
+choosing to call an additional provider-specific tool and would expand the agent surface without
+adding evidence that is not already available.</p>
+<p>Instead, <code>propose_reviews</code> accepts <code>Analysis | None</code>. The orchestrated route passes its typed
+Stage-1 analysis. The delegated route passes:</p>
+<ul>
+<li>raw source text already held by the ingest pipeline, bounded before prompt assembly;</li>
+<li>excerpts from only the page IDs captured during that delegated run (maximum 20 pages, 800
+  characters per page and 6,000 characters total);</li>
+<li><code>analysis=None</code>, whose section is omitted from the prompt rather than synthesized from titles.</li>
+</ul>
+<p>This is an indexed, per-run read and never walks the vault (I1). It preserves one bounded review
+provider call (I7).</p>
+<h3 id="3-separate-review-budgets-with-one-global-ceiling">3. Separate review budgets with one global ceiling<a class="headerlink" href="#3-separate-review-budgets-with-one-global-ceiling" title="Permanent link">&para;</a></h3>
+<p>Rule and AI proposal budgets are computed independently. Deterministic missing-link proposals are
+capped first, but the AI budget is reserved and cannot be consumed by rules. A final global cap is
+still enforced after deduplication. The caps are configuration-driven, clamped and logged.</p>
+<p>Missing-link search queries include target plus local page/source context; a bare title may be one
+query but cannot be the only contextual signal when context exists.</p>
+<h3 id="4-persist-proposal-provenance-derive-the-created-type">4. Persist proposal provenance; derive the created type<a class="headerlink" href="#4-persist-proposal-provenance-derive-the-created-type" title="Permanent link">&para;</a></h3>
+<p>Migration 0031 adds <code>review_items.proposal_origin</code> with application values
+<code>rule | ai | corpus | system | lint | legacy</code>. It is non-null and defaults/backfills to <code>legacy</code>.
+New enqueue sites set an explicit origin. Terminal review decisions are not reopened.</p>
+<p><code>GET /review/queue</code> gains optional, composable filters for item type, origin and proposed page
+type. Responses expose <code>proposal_origin</code> and derive <code>created_page_type</code> by joining the existing
+<code>created_page_id</code> to <code>pages</code>; no redundant type column is added.</p>
+<p>The proposed type remains advisory. Creation resolves structural cues first, then a compatible
+explicit proposal, then the review-category fallback. The effective created type is returned and
+shown by the UI.</p>
+<h3 id="5-agentic-loop-limits-are-real-limits">5. Agentic loop limits are real limits<a class="headerlink" href="#5-agentic-loop-limits-are-real-limits" title="Permanent link">&para;</a></h3>
+<p>The delegated CLI session sets SDK <code>max_turns</code> from the resolved provider <code>max_iter</code>. It checks
+reported SDK usage at message boundaries and stops receiving/continuing once the configured token
+budget is reached. This is best-effort at an SDK message boundary, documented and tested; it does
+not claim token-perfect preemption.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Direct ingest can now create useful special pages, but output counts remain evidence-dependent.</li>
+<li>Existing inverse prohibition tests are replaced with grounding and six-type contract tests.</li>
+<li>Both provider routes use the same generation policy and review seam without a new MCP tool.</li>
+<li>Review filters are server-side so pagination totals remain truthful.</li>
+<li>The UI can explain where a proposal came from and what was actually created.</li>
+<li>One additive migration is required; legacy rows stay readable as <code>legacy</code>.</li>
+</ul>
+<h2 id="rejected-alternatives">Rejected alternatives<a class="headerlink" href="#rejected-alternatives" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Keep special pages corpus-only:</strong> preserves the measured discrepancy and upstream mismatch.</li>
+<li><strong>Add an SDK-only <code>record_analysis</code> MCP tool:</strong> agent-dependent, expands surface and is not
+  required to ground review when source plus written-page excerpts already exist.</li>
+<li><strong>Infer proposal origin from rationale text:</strong> unstable, non-filterable and not localisable.</li>
+<li><strong>Filter the loaded frontend page only:</strong> corrupts counts and pagination semantics.</li>
+</ul>
+<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Prompt/schema contract tests for all six types and their evidence gates.</li>
+<li>Orchestrated and delegated writer-path tests for every special type.</li>
+<li>Delegated context bounds and no-vault-walk tests.</li>
+<li>Starvation regression: eight or more rule candidates still permit an AI proposal.</li>
+<li>Migration, origin/filter/join and effective-type tests.</li>
+<li>SDK max-turn/token-bound tests.</li>
+<li>OpenAPI, EN/IT parity, responsive browser and accessibility evidence.</li>
+</ul>
 
 
 

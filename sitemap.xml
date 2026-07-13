@@ -305,6 +305,18 @@
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0073-generation-and-review-lifecycle-parity/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0074-idempotent-corpus-generation-and-operator-ux/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0075-deployment-mode-auth-health-boundary/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/api/</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
@@ -353,6 +365,10 @@
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/PRODUCT-NAMING-REVIEW/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/PROPOSAL-conversational-research/</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
@@ -370,6 +386,10 @@
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UI-ALIGNMENT-PLAN-2026-07/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/UI-UX-REVIEW-v1.6.0/</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
@@ -465,6 +485,10 @@
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.6.0/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sequences/</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
@@ -498,6 +522,10 @@
     </url>
     <url>
          <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.3.6-SCOPE/</loc>
+         <lastmod>2026-07-13</lastmod>
+    </url>
+    <url>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/SPRINT-v1.6.0-SCOPE/</loc>
          <lastmod>2026-07-13</lastmod>
     </url>
     <url>

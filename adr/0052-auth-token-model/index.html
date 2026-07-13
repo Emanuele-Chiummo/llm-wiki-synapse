@@ -738,6 +738,8 @@
 <ul>
 <li><strong>Status:</strong> Accepted</li>
 <li><strong>Date:</strong> 2026-07-03</li>
+<li><strong>Amended by:</strong> <a href="../ADR-0075-deployment-mode-auth-health-boundary/">ADR-0075</a> — server-mode
+  fail-closed validation and authenticated detailed health diagnostics</li>
 <li><strong>Sprint:</strong> v1.0 (M10 — Distribution &amp; multi-user; R10-1 rescoped from OIDC to a shared token)</li>
 <li><strong>Features:</strong> F16 (Settings / config surface) · F15 (cross-platform security hardening) ·
   R10-1 (auth middleware) · R10-2 (auth UX — client contract only; UI built by frontend-engineer)</li>
@@ -775,7 +777,7 @@ single-vault for 1.0.</p>
 specifies the credential model, the enforcement mechanism, the exact exempt set, the response +
 CORS interplay, the frontend injection point, and the desktop/updater implications. Where the PM
 brief and the live codebase disagree on a name (the brief says "<code>GET /health</code>"; the service
-actually exposes <code>GET /status</code> and <code>GET /health/detailed</code> — there is <strong>no</strong> plain <code>/health</code>
+actually exposes <code>GET /status</code>, <code>GET /health/live</code> and <code>GET /health/detailed</code> — there is <strong>no</strong> plain <code>/health</code>
 route, verified in <code>main.py</code> + <code>health.py</code> + <code>openapi.json</code>), <strong>this ADR binds to the real
 endpoints.</strong> The exempt set below uses the routes that actually exist.</p>
 <p>Two token mechanisms already exist and are <strong>out of scope for this ADR — they keep their own auth</strong>:
@@ -908,11 +910,11 @@ following, and <strong>only</strong> these:</p>
 <p><strong>A. Monitoring-safe endpoints (always reachable for liveness/readiness probes):</strong>
 - <code>GET /status</code> — the real service-health + <code>data_version</code> endpoint (the brief's "<code>GET /health</code>"
   maps here; there is no plain <code>/health</code>).
-- <code>GET /health/detailed</code> — the per-component health snapshot (R9-2).</p>
-<p><em>Justification:</em> container orchestration, the frontend health poll, and external uptime monitors
-must reach liveness without a credential. These endpoints expose only non-sensitive posture
-(version counter, component up/down) — no page content, no vault data, no config secrets. Exempting
-them is standard and safe. <strong><code>GET /status</code> staying exempt is also what lets the desktop
+- <code>GET /health/live</code> — the minimal, non-diagnostic liveness response added by ADR-0075.</p>
+<p><em>Justification:</em> container orchestration and external uptime monitors must reach liveness without
+a credential. These endpoints expose no page content, dependency diagnostics or config secrets.
+The per-component <code>GET /health/detailed</code> snapshot is protected under ADR-0075. <strong><code>GET /status</code>
+staying exempt is also what lets the desktop
 ConnectScreen auto-detect a reachable server before the user has entered a token</strong> (§2.4, §4).</p>
 <p><strong>B. API documentation (decided: EXEMPT):</strong>
 - <code>GET /docs</code> — Swagger UI.
@@ -954,7 +956,7 @@ covers ordering so this actually happens.)</p>
 <p><strong>Exempt predicate (authoritative summary):</strong>
 <div class="highlight"><pre><span></span><code>bypass_auth(request) := (
     request.method == &quot;OPTIONS&quot;
-    or request.url.path in {&quot;/status&quot;, &quot;/health/detailed&quot;, &quot;/docs&quot;, &quot;/redoc&quot;, &quot;/openapi.json&quot;}
+    or request.url.path in {&quot;/status&quot;, &quot;/health/live&quot;, &quot;/docs&quot;, &quot;/redoc&quot;, &quot;/openapi.json&quot;}
     or request.url.path == &quot;/mcp/server&quot; or request.url.path.startswith(&quot;/mcp/server/&quot;)
     or request.url.path == &quot;/clip&quot;
 )
@@ -1017,7 +1019,7 @@ or place the <code>@app.middleware("http")</code> decorator call so its registra
 - <code>components.securitySchemes.BearerAuth</code> is declared:
   <code>{"type": "http", "scheme": "bearer"}</code>.
 - Every route <strong>except</strong> the exempt set references it: <code>security: [{"BearerAuth": []}]</code>.
-- The exempt routes (<code>GET /status</code>, <code>GET /health/detailed</code>) declare <strong><code>security: []</code></strong> explicitly
+- The exempt routes (<code>GET /status</code>, <code>GET /health/live</code>) declare <strong><code>security: []</code></strong> explicitly
   (the FastAPI idiom for "no auth on this route") so the schema is truthful about what is gated.
 - <code>/docs</code>, <code>/openapi.json</code>, <code>/redoc</code> are framework-served and are documented as exempt in the ADR
   text (they do not appear as <code>paths</code> entries that need a <code>security</code> marker).
@@ -1084,10 +1086,9 @@ Add a new exported helper <code>authHeaders(): Record&lt;string, string&gt;</cod
 wrapper) in <code>base.ts</code> that returns <code>{ Authorization: "Bearer &lt;token&gt;" }</code> when a token is stored
 for the current server, and <code>{}</code> otherwise. Every client merges <code>authHeaders()</code> into its request
 headers. This covers <strong>all</strong> REST calls, the NDJSON <code>POST /chat/stream</code> fetch, the graph poll, and
-the 30-second <code>GET /health/detailed</code> health poll (AC-R10-2-8) — because they all go through the
-<code>base.ts</code>-derived request path. <strong><code>GET /status</code> and <code>GET /health/detailed</code> are exempt server-side</strong>
-(§2.3), so the header is harmless on them (an exempt route ignores the header) — the client may
-send it uniformly; it does no harm.</p>
+the detailed health poll (AC-R10-2-8) — because they all go through the <code>base.ts</code>-derived request
+path. <strong><code>GET /status</code> and <code>GET /health/live</code> are exempt server-side; <code>GET /health/detailed</code>
+requires the header</strong> under ADR-0075. The client may send the header uniformly.</p>
 <p><strong>4.3 401 handling — one interceptor, not per-component.</strong>
 When any API call returns <strong>401</strong>, the client layer (a single response check colocated with the
 <code>base.ts</code>/fetch path) MUST: clear the stored token for the current server, and trigger the Zustand
@@ -1171,8 +1172,9 @@ i18n EN/IT parity for all new keys.</p>
 <li><strong>Enabled — reject.</strong> With <code>SYNAPSE_AUTH_TOKEN="test-token"</code>, <code>GET /pages</code> with no header ⇒ 401
    with body <code>{"error":"unauthorized","hint":...}</code> and <code>WWW-Authenticate: Bearer</code> (AC-R10-1-1b).</li>
 <li><strong>Enabled — accept.</strong> Same, with correct Bearer ⇒ 200 (AC-R10-1-1c).</li>
-<li><strong>Exempt set.</strong> With the token set, <code>GET /status</code> and <code>GET /health/detailed</code> return 200 with no
-   header (AC-R10-1-2). <code>/docs</code> and <code>/openapi.json</code> load with no header.</li>
+<li><strong>Exempt set.</strong> With the token set, <code>GET /status</code> and <code>GET /health/live</code> return 200 with no
+   header; <code>GET /health/detailed</code> returns 401 without it (ADR-0075). <code>/docs</code> and
+   <code>/openapi.json</code> load with no header.</li>
 <li><strong>CORS-on-401 (the ordering test).</strong> A cross-origin request with a bad/absent token returns 401
    <strong>carrying</strong> <code>access-control-allow-origin</code> (proves CORS is outermost, §2.4).</li>
 <li><strong>OPTIONS exempt.</strong> An <code>OPTIONS</code> preflight to any gated route returns the CORS preflight
@@ -1183,7 +1185,7 @@ i18n EN/IT parity for all new keys.</p>
    <code>GET /clip/config</code> ARE 401'd without the API token.</li>
 <li><strong>No secret leak.</strong> <code>grep</code> of logs shows no token value/prefix; no response body ever echoes it.</li>
 <li><strong>OpenAPI (I8).</strong> <code>docs/api/openapi.json</code> declares <code>BearerAuth</code>; all routes reference it except
-   <code>/status</code> and <code>/health/detailed</code>, which carry <code>security: []</code>; <code>make openapi</code> is drift-clean
+   <code>/status</code> and <code>/health/live</code>, which carry <code>security: []</code>; <code>make openapi</code> is drift-clean
    (EC-M10-4).</li>
 <li><strong>mypy strict / lint.</strong> <code>app/auth.py</code> passes <code>ruff</code> + <code>black --check</code> + <code>mypy</code> (strict), no
     <code>Any</code>, <code>verify_token</code> fully typed (AC-R10-1-5).</li>
