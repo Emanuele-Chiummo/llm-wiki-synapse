@@ -11,7 +11,11 @@
  *   - Calls GET /search via searchWiki() from searchClient.ts.
  *   - Each result row shows: title, type badge (--syn-type-* chip), snippet excerpt,
  *     optional score. Clicking a result sets activeSection="pages" and selectPage(id).
- *   - Empty / loading / no-results / error states rendered inline.
+ *   - Loading: skeleton result rows while the request is in-flight (audit #6).
+ *   - Slow-load: after 4 s still loading, surface a reassuring message with
+ *     Cancel and Retry affordances (audit #6).
+ *   - Error: uses ErrorState component (audit #6 + audit #1b).
+ *   - No-results: helpful empty state suggesting query refinement (audit #6).
  *
  * R8-5 filter bar (AC-R8-5-3):
  *   - Type facet: multi-toggle chips for concept/entity/source/synthesis/comparison/query.
@@ -34,15 +38,20 @@
 
 import { useState, useEffect, useRef, useCallback, type ChangeEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Search, X } from "lucide-react";
+import { Search, X, RefreshCw, XCircle, FileSearch } from "lucide-react";
 import { searchWiki } from "../../api/searchClient";
 import type { SearchResultItem, PageTypeFilter, SearchSortOption } from "../../api/searchClient";
 import { useGraphStore, selectVaultId, selectSelectPage, selectSetActiveSection } from "../../store/graphStore";
+import { ErrorState } from "../common/ErrorState";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEBOUNCE_MS = 300;
 const MIN_QUERY_LENGTH = 2;
+/** Milliseconds before surfacing the "taking longer than expected" slow-load message. */
+const SLOW_LOAD_MS = 4000;
+/** Number of skeleton rows to render while loading. */
+const SKELETON_ROW_COUNT = 4;
 
 /** R8-5: ordered list of type facets shown in the filter bar (AC-R8-5-3). */
 const PAGE_TYPE_FILTERS: PageTypeFilter[] = [
@@ -181,6 +190,33 @@ function FilterBar({ activeTypes, sort, onTypeToggle, onSortChange }: FilterBarP
           ))}
         </select>
       </div>
+    </div>
+  );
+}
+
+// ─── Skeleton row ─────────────────────────────────────────────────────────────
+
+/** One placeholder row rendered while results are loading. */
+function SkeletonRow({ index }: { index: number }) {
+  // Stagger widths so the shimmer looks natural (not all rows identical).
+  const titleWidth = `${55 + (index % 3) * 12}%`;
+  const slugWidth = `${30 + (index % 4) * 8}%`;
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        padding: "10px 16px",
+        borderBottom: "1px solid var(--syn-border)",
+      }}
+    >
+      <div
+        className="syn-skeleton"
+        style={{ height: 14, width: titleWidth, marginBottom: 6, borderRadius: 4 }}
+      />
+      <div
+        className="syn-skeleton"
+        style={{ height: 11, width: slugWidth, borderRadius: 4 }}
+      />
     </div>
   );
 }
@@ -342,6 +378,10 @@ export function SearchView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  /** True after SLOW_LOAD_MS of continuous loading — surfaces a reassuring message. */
+  const [slowLoad, setSlowLoad] = useState(false);
+  /** Incrementing this re-fires the search effect with the same query (retry). */
+  const [retryKey, setRetryKey] = useState(0);
 
   // R8-5: filter state — local component state (filter only applies within SearchView).
   // Empty array = no type filter. "relevance" = no sort param sent (backend default).
@@ -350,9 +390,24 @@ export function SearchView() {
 
   const debounceRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const slowLoadTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Debounced search effect — re-runs on query, vaultId, activeTypes, or sort change (R8-5).
+  /** Increment retryKey to re-run the search effect with the current query. */
+  const handleRetry = useCallback(() => {
+    setRetryKey((k) => k + 1);
+  }, []);
+
+  /** Clear the slow-load timer and reset its state. */
+  const clearSlowLoadTimer = useCallback(() => {
+    if (slowLoadTimerRef.current !== null) {
+      globalThis.clearTimeout(slowLoadTimerRef.current);
+      slowLoadTimerRef.current = null;
+    }
+    setSlowLoad(false);
+  }, []);
+
+  // Debounced search effect — re-runs on query, vaultId, activeTypes, sort, or retryKey change.
   useEffect(() => {
     // Clear pending debounce
     if (debounceRef.current !== null) {
@@ -363,9 +418,10 @@ export function SearchView() {
     const q = query.trim();
 
     if (q.length < MIN_QUERY_LENGTH) {
-      // Abort any in-flight request
+      // Abort any in-flight request and reset slow-load state
       abortRef.current?.abort();
       abortRef.current = null;
+      clearSlowLoadTimer();
       if (q.length === 0) {
         // Reset when input is cleared
         setResults([]);
@@ -378,6 +434,13 @@ export function SearchView() {
 
     // Schedule the fetch
     debounceRef.current = globalThis.setTimeout(() => {
+      // Clear any slow-load timer from previous in-flight request
+      if (slowLoadTimerRef.current !== null) {
+        globalThis.clearTimeout(slowLoadTimerRef.current);
+        slowLoadTimerRef.current = null;
+      }
+      setSlowLoad(false);
+
       // Abort previous request
       abortRef.current?.abort();
       const ctrl = new AbortController();
@@ -385,6 +448,11 @@ export function SearchView() {
 
       setLoading(true);
       setError(null);
+
+      // Start slow-load timer — fires if the request takes longer than SLOW_LOAD_MS
+      slowLoadTimerRef.current = globalThis.setTimeout(() => {
+        setSlowLoad(true);
+      }, SLOW_LOAD_MS);
 
       void (async () => {
         try {
@@ -410,7 +478,13 @@ export function SearchView() {
             setHasSearched(true);
           }
         } finally {
+          // Always clear slow-load timer when the request settles (success or error)
+          if (slowLoadTimerRef.current !== null) {
+            globalThis.clearTimeout(slowLoadTimerRef.current);
+            slowLoadTimerRef.current = null;
+          }
           if (!ctrl.signal.aborted) {
+            setSlowLoad(false);
             setLoading(false);
           }
         }
@@ -423,12 +497,16 @@ export function SearchView() {
         debounceRef.current = null;
       }
     };
-  }, [query, vaultId, activeTypes, sort, t]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, vaultId, activeTypes, sort, t, retryKey]);
 
-  // Cleanup abort controller on unmount
+  // Cleanup abort controller and slow-load timer on unmount
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      if (slowLoadTimerRef.current !== null) {
+        globalThis.clearTimeout(slowLoadTimerRef.current);
+      }
     };
   }, []);
 
@@ -437,6 +515,12 @@ export function SearchView() {
   }, []);
 
   const handleClear = useCallback(() => {
+    // Cancel slow-load timer and reset state
+    if (slowLoadTimerRef.current !== null) {
+      globalThis.clearTimeout(slowLoadTimerRef.current);
+      slowLoadTimerRef.current = null;
+    }
+    setSlowLoad(false);
     setQuery("");
     setResults([]);
     setHasSearched(false);
@@ -599,35 +683,70 @@ export function SearchView() {
           minHeight: 0,
         }}
       >
-        {/* Loading */}
+        {/* Loading: skeleton rows + optional slow-load message (audit #6) */}
         {loading && (
           <div
             data-testid="search-loading"
-            style={{
-              padding: "24px 16px",
-              textAlign: "center",
-              color: "var(--syn-text-dim)",
-              fontSize: 12,
-            }}
+            role="status"
+            aria-label={t("common.loading")}
           >
-            {t("common.loading")}
+            {/* Skeleton result rows */}
+            {Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
+              <SkeletonRow key={i} index={i} />
+            ))}
+
+            {/* Slow-load reassurance message (shown after SLOW_LOAD_MS) */}
+            {slowLoad && (
+              <div
+                data-testid="search-slow-load"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "20px 16px",
+                  textAlign: "center",
+                  color: "var(--syn-text-muted)",
+                  fontSize: 12,
+                  borderTop: "1px solid var(--syn-border-subtle)",
+                }}
+              >
+                <span>{t("search.takingLonger")}</span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    data-testid="search-slow-cancel"
+                    onClick={handleClear}
+                    className="syn-btn syn-btn--secondary syn-btn--sm"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                  >
+                    <XCircle size={11} aria-hidden="true" />
+                    {t("search.cancel")}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="search-slow-retry"
+                    onClick={handleRetry}
+                    className="syn-btn syn-btn--secondary syn-btn--sm"
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                  >
+                    <RefreshCw size={11} aria-hidden="true" />
+                    {t("common.retry")}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Error */}
+        {/* Error: ErrorState component (audit #6 + #1b) */}
         {!loading && error && (
-          <div
-            role="alert"
-            data-testid="search-error"
-            style={{
-              padding: "12px 16px",
-              fontSize: 12,
-              color: "var(--syn-red)",
-              background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
-              borderBottom: "1px solid var(--syn-border)",
-            }}
-          >
-            {t("search.error")}: {error}
+          <div style={{ padding: "12px 16px" }}>
+            <ErrorState
+              title={t("search.error")}
+              onRetry={handleRetry}
+              error={error}
+            />
           </div>
         )}
 
@@ -642,10 +761,16 @@ export function SearchView() {
               fontSize: 13,
             }}
           >
-            <div style={{ marginBottom: 4, fontWeight: 500, color: "var(--syn-text-muted)" }}>
+            <FileSearch
+              size={28}
+              color="var(--syn-border)"
+              aria-hidden="true"
+              style={{ display: "block", margin: "0 auto 12px" }}
+            />
+            <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 14, color: "var(--syn-text-muted)" }}>
               {t("search.noResults")}
             </div>
-            <div style={{ fontSize: 12 }}>
+            <div style={{ fontSize: 12, color: "var(--syn-text-dim)", lineHeight: 1.45 }}>
               {t("search.noResultsHint")}
             </div>
           </div>

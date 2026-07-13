@@ -5,14 +5,18 @@
  *   A. searchClient.searchWiki — correct URL construction, response shape, error.
  *   B. SearchView — empty state on mount, results render, result click selects page.
  *   C. SearchResultItem TS shape verification (n/id/title/slug/score/phase).
+ *   D. SearchView — loading skeleton, slow-load message, ErrorState on error (audit #6).
  *
- * Note on debounce: SearchView uses a 300ms debounce internally. Tests that need
- * to trigger search bypass the debounce by mocking the module-level timer or by
- * advancing fake timers in a controlled way.
+ * Note on timers:
+ *   - The "query flow" tests (B) use real timers because @testing-library waitFor
+ *     polls on setInterval; fake timers deadlock with it.
+ *   - The "slow-load" tests (D) use vi.useFakeTimers() within their own describe
+ *     block and do NOT use waitFor — they advance timers and check state
+ *     synchronously within act() calls.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
@@ -35,13 +39,19 @@ vi.mock("react-i18next", () => {
     "search.emptyBody": "Start typing to find pages.",
     "search.noResults": "No results",
     "search.noResultsHint": "Try different keywords.",
+    "search.takingLonger": "Taking longer than expected…",
+    "search.cancel": "Cancel",
     "search.error": "Search error",
     "search.resultsLabel": "Search results",
     "search.score": "Score",
     "search.phaseVector": "vector",
     "search.phaseExpansion": "expansion",
     "common.loading": "Loading…",
+    "common.retry": "Retry",
     "common.unknown": "Unknown",
+    "errors.genericTitle": "Something went wrong",
+    "errors.technicalDetails": "Technical details",
+    "errors.copyDetails": "Copy details",
   };
   const t = (key: string): string => map[key] ?? key;
   const translation = { t };
@@ -186,11 +196,11 @@ describe("SearchView — initial state", () => {
   it("does NOT show loading or error initially", () => {
     render(<SearchView />);
     expect(screen.queryByTestId("search-loading")).toBeNull();
-    expect(screen.queryByTestId("search-error")).toBeNull();
+    expect(screen.queryByTestId("error-state")).toBeNull();
   });
 });
 
-// ─── B. SearchView — query flow (using fake timers) ──────────────────────────
+// ─── B. SearchView — query flow (using real timers) ──────────────────────────
 
 describe("SearchView — query flow", () => {
   // Real timers (NOT fake): fake timers deadlock with @testing-library's waitFor, which
@@ -262,7 +272,7 @@ describe("SearchView — query flow", () => {
     await waitFor(() => screen.getByTestId("search-no-results"), { timeout: 2000 });
   });
 
-  it("renders error state when search rejects", async () => {
+  it("renders ErrorState when search rejects", async () => {
     vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(
       new Error("Service unavailable"),
     );
@@ -271,7 +281,20 @@ describe("SearchView — query flow", () => {
     const input = screen.getByTestId("search-input");
     fireEvent.change(input, { target: { value: "query" } });
 
-    await waitFor(() => screen.getByTestId("search-error"), { timeout: 2000 });
+    // ErrorState renders with data-testid="error-state" (audit #6 — replaces inline div)
+    await waitFor(() => screen.getByTestId("error-state"), { timeout: 2000 });
+  });
+
+  it("ErrorState shows search.error title on failure", async () => {
+    vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(
+      new Error("timeout"),
+    );
+
+    render(<SearchView />);
+    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "query" } });
+
+    await waitFor(() => screen.getByTestId("error-state-title"), { timeout: 2000 });
+    expect(screen.getByTestId("error-state-title").textContent).toBe("Search error");
   });
 
   it("clicking a result calls selectPage and navigates to 'pages' section", async () => {
@@ -288,5 +311,95 @@ describe("SearchView — query flow", () => {
 
     expect(mockSelectPage).toHaveBeenCalledWith("page-uuid-1", "tree");
     expect(mockSetActiveSection).toHaveBeenCalledWith("pages");
+  });
+});
+
+// ─── D. SearchView — loading skeleton + slow-load (audit #6) ─────────────────
+
+describe("SearchView — skeleton and slow-load (fake timers)", () => {
+  // These tests use vi.useFakeTimers() to control DEBOUNCE_MS + SLOW_LOAD_MS.
+  // They do NOT use waitFor (which needs real timers) — all assertions are
+  // synchronous after act()/advanceTimersByTime().
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockSelectPage.mockClear();
+    mockSetActiveSection.mockClear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("shows skeleton rows (search-loading) while a request is in-flight", () => {
+    // Never-resolving mock — keeps loading=true indefinitely
+    vi.spyOn(searchClientModule, "searchWiki").mockImplementation(
+      () => new Promise<SearchResponse>(() => {}),
+    );
+
+    render(<SearchView />);
+    const input = screen.getByTestId("search-input");
+    fireEvent.change(input, { target: { value: "DORA" } });
+
+    // Advance past debounce (300ms)
+    act(() => { vi.advanceTimersByTime(301); });
+
+    const loadingEl = screen.getByTestId("search-loading");
+    expect(loadingEl).toBeTruthy();
+    // Should have role="status" for screen-reader accessibility
+    expect(loadingEl.getAttribute("role")).toBe("status");
+    // Skeleton rows are aria-hidden — verify at least one exists
+    const skeletonDivs = loadingEl.querySelectorAll('[aria-hidden="true"]');
+    expect(skeletonDivs.length).toBeGreaterThan(0);
+  });
+
+  it("shows slow-load message (search-slow-load) after 4 s still loading", () => {
+    vi.spyOn(searchClientModule, "searchWiki").mockImplementation(
+      () => new Promise<SearchResponse>(() => {}),
+    );
+
+    render(<SearchView />);
+    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "DORA" } });
+
+    // Advance debounce then slow-load threshold
+    act(() => { vi.advanceTimersByTime(301); });
+    act(() => { vi.advanceTimersByTime(4001); });
+
+    expect(screen.getByTestId("search-slow-load")).toBeTruthy();
+    // Cancel + Retry buttons present
+    expect(screen.getByTestId("search-slow-cancel")).toBeTruthy();
+    expect(screen.getByTestId("search-slow-retry")).toBeTruthy();
+  });
+
+  it("Cancel in slow-load message resets the view to empty state", () => {
+    vi.spyOn(searchClientModule, "searchWiki").mockImplementation(
+      () => new Promise<SearchResponse>(() => {}),
+    );
+
+    render(<SearchView />);
+    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "DORA" } });
+    act(() => { vi.advanceTimersByTime(301); });
+    act(() => { vi.advanceTimersByTime(4001); });
+
+    // Slow-load is visible; click Cancel
+    fireEvent.click(screen.getByTestId("search-slow-cancel"));
+
+    // Loading panel gone, empty state shown (no query after clear)
+    expect(screen.queryByTestId("search-loading")).toBeNull();
+    expect(screen.getByTestId("search-empty-state")).toBeTruthy();
+  });
+
+  it("slow-load message not shown if request settles before 4 s", () => {
+    // Resolves immediately (within debounce window after advance)
+    vi.spyOn(searchClientModule, "searchWiki").mockResolvedValue(MOCK_RESPONSE);
+
+    render(<SearchView />);
+    fireEvent.change(screen.getByTestId("search-input"), { target: { value: "fast" } });
+    // Advance debounce — the mock resolves synchronously within this act
+    act(() => { vi.advanceTimersByTime(301); });
+
+    // Do NOT advance past SLOW_LOAD_MS
+    expect(screen.queryByTestId("search-slow-load")).toBeNull();
   });
 });

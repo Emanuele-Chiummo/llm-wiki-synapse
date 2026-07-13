@@ -1217,8 +1217,11 @@ class McpInfoResponse(BaseModel):
     )
     remote_write_enabled: bool = Field(
         description=(
-            "Whether write_page is exposed on the HTTP surface (ADR-0029 §2.3). "
-            "Reflects MCP_REMOTE_WRITE_ENABLED env var (default false). "
+            "Whether write tools (write_page, resolve_review, trigger_source_rescan) are "
+            "enabled on the HTTP surface (ADR-0029 §2.3, ADR-0072). "
+            "Reflects the effective runtime flag: vault_state.remote_mcp_write_enabled "
+            "when non-NULL (DB-wins), else MCP_REMOTE_WRITE_ENABLED env (default false). "
+            "Toggle via PUT /mcp/remote-write. "
             "Only meaningful when remote_enabled is true."
         )
     )
@@ -1308,7 +1311,8 @@ async def get_mcp_info() -> McpInfoResponse:
         tools=tools,
         # ADR-0029 §2.5 — always-mount (ADR-0033 §2.4); token NEVER returned
         http_enabled=True,  # always-mount (ADR-0033 §2.4)
-        remote_write_enabled=settings.mcp_remote_write_enabled,
+        # ADR-0072 §5: report effective runtime flag (DB-wins-else-env), not the raw env var.
+        remote_write_enabled=_m._mcp_write_flag.is_enabled(),
         # ADR-0032 §2.5 — runtime toggle posture
         token_configured=tok_configured,
         remote_enabled=_m._remote_mcp_flag.is_enabled(),
@@ -1428,6 +1432,117 @@ async def put_mcp_remote(body: McpRemoteToggleRequest) -> McpRemoteStateResponse
         remote_enabled=desired,
         token_configured=tok_configured,
         mount_path=_m.MCP_MOUNT_PATH,
+        clamped=clamped,
+    )
+
+
+# ── PUT /mcp/remote-write — runtime toggle for remote MCP write tools (ADR-0072 §4) ─
+
+
+class McpRemoteWriteToggleRequest(BaseModel):
+    """Request body for PUT /mcp/remote-write (ADR-0072 §4)."""
+
+    enabled: bool = Field(
+        description="Desired runtime state for the write tools on the HTTP MCP surface."
+    )
+
+
+class McpRemoteWriteStateResponse(BaseModel):
+    """
+    Response model for PUT /mcp/remote-write (ADR-0072 §4).
+
+    Always returned with HTTP 200 (even when clamped — the posture is reported truthfully).
+    """
+
+    remote_write_enabled: bool = Field(
+        description=("The resulting persisted runtime flag (post-clamp). False when clamped=true.")
+    )
+    token_configured: bool = Field(
+        description=(
+            "True iff a token is configured (DB hash or env bootstrap — ADR-0033 §2.1). "
+            "NEVER contains the token value."
+        )
+    )
+    clamped: bool = Field(
+        description=(
+            "True iff the request asked enabled=true but neither a token is configured "
+            "nor allow_without_token is set — the flag was forced to false "
+            "(token-floor clamp, ADR-0072 §4)."
+        )
+    )
+
+
+@router.put(
+    "/mcp/remote-write",
+    response_model=McpRemoteWriteStateResponse,
+    summary="Toggle the remote MCP write tools at runtime",
+    description=(
+        "Persists vault_state.remote_mcp_write_enabled for the active vault and refreshes the "
+        "in-process _mcp_write_flag cache immediately (ADR-0072 §2/§4). "
+        "Token-floor clamp: if neither a token is configured (DB hash or MCP_AUTH_TOKEN env) "
+        "nor allow_without_token is set, and enabled=true, the flag is forced to false and "
+        "clamped=true is returned (HTTP 200). enabled=false always succeeds. "
+        "Write tools (write_page, resolve_review, trigger_source_rescan) are always listed "
+        "on the HTTP surface but error at call time when the flag is off (ADR-0072 §3). "
+        "Same-origin / unauthenticated — consistent with the rest of the REST API "
+        "(ADR-0028 / ADR-0072 §4). "
+        "F17 [ADR-0072]."
+    ),
+)
+async def put_mcp_remote_write(body: McpRemoteWriteToggleRequest) -> McpRemoteWriteStateResponse:
+    """
+    PUT /mcp/remote-write — persist the runtime write-tools toggle (ADR-0072 §4).
+
+    Allow-aware clamp (mirrors ADR-0033 §2.4 / ADR-0072 §4): enabling is permitted when EITHER
+    ``token_configured OR allow_without_token``. Without either, enabling write tools is
+    pointless (the MCP surface itself is token-gated or not reachable), so we clamp to OFF.
+    On success: write vault_state, refresh _mcp_write_flag cache.
+    No MCP tool is invoked; no second writer is introduced (I9). Single write path preserved (I6).
+    """
+    db_hash = _m._mcp_auth_cache.get_hash()
+    tok_configured: bool = _m._token_configured(db_hash)
+    allow: bool = _m._mcp_auth_cache.allow_without_token()
+    clamped: bool = False
+    desired: bool = body.enabled
+
+    # Allow-aware clamp (ADR-0072 §4): cannot enable without token OR allow.
+    if desired and not tok_configured and not allow:
+        desired = False
+        clamped = True
+
+    # Persist to vault_state (DB is source of truth — ADR-0072 §1).
+    async with _m.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is None:
+            # Should not happen (seeded at startup), but be defensive.
+            state = VaultState(
+                vault_id=settings.vault_id,
+                data_version=0,
+                remote_mcp_write_enabled=desired,
+                updated_at=datetime.now(UTC),
+            )
+            session.add(state)
+        else:
+            state.remote_mcp_write_enabled = desired
+            state.updated_at = datetime.now(UTC)
+
+    # Refresh the in-process cache immediately (ADR-0072 §2).
+    await _m._mcp_write_flag.set(desired)
+
+    logger.info(
+        "PUT /mcp/remote-write: enabled=%s clamped=%s tok_configured=%s allow=%s (ADR-0072)",
+        desired,
+        clamped,
+        tok_configured,
+        allow,
+    )
+
+    return McpRemoteWriteStateResponse(
+        remote_write_enabled=desired,
+        token_configured=tok_configured,
         clamped=clamped,
     )
 

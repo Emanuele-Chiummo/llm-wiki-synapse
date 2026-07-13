@@ -6,6 +6,7 @@
  * GET  /config/embedding             → EmbeddingConfig (read-only, from env vars)
  * GET  /mcp/info                     → McpInfoResponse (read-only, ADR-0027; extended ADR-0032/0033)
  * PUT  /mcp/remote                   → McpRemoteStateResponse (ADR-0032)
+ * PUT  /mcp/remote-write             → McpRemoteWriteStateResponse (ADR-0072)
  * PUT  /mcp/auth                     → McpAuthResponse (ADR-0033)
  *
  * No secrets in this file (CLAUDE.md §12).
@@ -255,7 +256,12 @@ export interface McpInfoResponse {
   tools: McpToolInfo[];
   /** True iff MCP_AUTH_TOKEN is set. Retained for backward compat (ADR-0029). */
   http_enabled: boolean;
-  /** True iff MCP_REMOTE_WRITE_ENABLED env var is set. Env-driven, not toggled in UI. */
+  /**
+   * Runtime flag for remote MCP write tools (ADR-0072).
+   * Reflects `_mcp_write_flag.is_enabled()` in the backend — a DB-persisted flag toggled
+   * via PUT /mcp/remote-write. Falls back to the MCP_REMOTE_WRITE_ENABLED env var when
+   * no DB override has been set yet (first toggle from the UI makes DB authoritative).
+   */
   remote_write_enabled: boolean;
   /** Named-for-UI alias of http_enabled: true iff a bearer token is configured (ADR-0032). */
   token_configured: boolean;
@@ -348,6 +354,23 @@ export interface McpRemoteStateResponse {
 }
 
 /**
+ * Response from PUT /mcp/remote-write (ADR-0072 §4).
+ * Returns the authoritative posture after the write (post-clamp).
+ */
+export interface McpRemoteWriteStateResponse {
+  /** The resulting runtime write flag (post-clamp). */
+  remote_write_enabled: boolean;
+  /** Whether any auth posture allows the remote surface to serve at all. */
+  token_configured: boolean;
+  /**
+   * True iff the request asked enabled=true but there was no auth posture
+   * (no token and allow_without_token=false) — forced to false. The UI must
+   * treat this as "still off" and show the no-token hint (ADR-0072 §4).
+   */
+  clamped: boolean;
+}
+
+/**
  * Fetch MCP server introspection (read-only, from the live FastMCP registry).
  * GET /mcp/info  — ADR-0027 §2.1 / ADR-0032 §2.5.
  * Display only — no tool invocation (I9). The toggle PUT is separate (setRemoteMcpEnabled).
@@ -382,6 +405,31 @@ export async function setRemoteMcpEnabled(
   });
   await checkResponse(res);
   return (await res.json()) as McpRemoteStateResponse;
+}
+
+/**
+ * Toggle remote MCP write tools on or off (ADR-0072 §4).
+ * PUT /mcp/remote-write  — body: { enabled: boolean }.
+ *
+ * Always returns 200 with the authoritative post-clamp posture. If clamped=true, the
+ * server refused to enable because no auth posture is configured; the UI must keep the
+ * write toggle off and show the no-token hint (mirrors PUT /mcp/remote clamp, ADR-0032).
+ *
+ * I3: single fetch/PUT called on toggle interaction — no store churn.
+ */
+export async function setMcpRemoteWrite(
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<McpRemoteWriteStateResponse> {
+  const url = `${apiBase()}/mcp/remote-write`;
+  const res = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as McpRemoteWriteStateResponse;
 }
 
 /**

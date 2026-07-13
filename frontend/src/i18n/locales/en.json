@@ -315,6 +315,8 @@
         "urlLabel": "Connection URL",
         "readOnlyBadge": "read-only",
         "readWriteBadge": "read + write",
+        "writeToggleLabel": "remote writes",
+        "writeToggleNote": "Allow MCP clients to create/update pages and resolve reviews over HTTP.",
         "snippetLabel": "claude.ai / HTTP client config",
         "copySnippet": "Copy remote config"
       }
@@ -922,7 +924,21 @@
     "batchSentToReview": "Sent {{count}} findings to review",
     "batchPartial": "{{ok}} succeeded, {{err}} failed"
   },
+  "status": {
+    "pending": "Pending",
+    "running": "Running",
+    "completed": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "cancelledByUser": "Cancelled by user"
+  },
+  "errors": {
+    "genericTitle": "Something went wrong",
+    "technicalDetails": "Technical details",
+    "copyDetails": "Copy details"
+  },
   "graph": {
+    "loading": "Loading graph...",
     "header": {
       "pages": "pages",
       "links": "links",
@@ -1025,6 +1041,8 @@
     "emptyBody": "Start typing to find pages by semantic similarity.",
     "noResults": "No results",
     "noResultsHint": "Try different keywords or a broader query.",
+    "takingLonger": "Taking longer than expected…",
+    "cancel": "Cancel",
     "error": "Search error",
     "resultsLabel": "Search results",
     "score": "Score",
@@ -1209,7 +1227,8 @@
     "expand": "Expand",
     "collapse": "Collapse",
     "openTree": "Open wiki tree",
-    "openPreview": "Open page details"
+    "openPreview": "Open page details",
+    "quickStart": "Quick Start"
   },
   "common": {
     "loading": "Loading…",
@@ -1240,6 +1259,9 @@
     "openFolder": "Open folder",
     "pathCopied": "Path copied"
   },
+  "projects": {
+    "loadError": "Couldn't load projects"
+  },
   "meta": {
     "vaultSection": "Vault",
     "readOnly": "Read-only",
@@ -1250,7 +1272,8 @@
     "connectedTo": "Connected to {{count}} other pages",
     "connectedTo_one": "Connected to 1 other page",
     "technicalDetails": "Technical details",
-    "bodyHint": "Open the page in the Wiki to read its full content."
+    "bodyHint": "Open the page in the Wiki to read its full content.",
+    "connections": "Connections"
   },
   "palette": {
     "placeholder": "Search sections and pages…",

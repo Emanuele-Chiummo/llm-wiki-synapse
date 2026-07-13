@@ -9,11 +9,13 @@
  */
 
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { useGraphStore } from "../../store/graphStore";
 import { selectNodes, selectSelectPage } from "../../store/graphStore";
 
 export function ScenarioTemplates() {
+  const { t } = useTranslation();
   const nodes = useGraphStore(useShallow(selectNodes));
   const selectPage = useGraphStore(selectSelectPage);
 
@@ -65,7 +67,7 @@ export function ScenarioTemplates() {
           padding: "0 4px",
         }}
       >
-        Quick Start
+        {t("panels.quickStart")}
       </span>
 
       <TemplateButton

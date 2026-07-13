@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { SectionHeader, INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
+import { ErrorState } from "../../common/ErrorState";
 import { SectionCliAuth } from "./SectionCliAuth";
 import {
   useProviderStore,
@@ -939,18 +940,12 @@ export function SectionLlmModels() {
 
       {/* Errors */}
       {(providerError ?? vendorsError) && (
-        <div
-          style={{
-            marginBottom: 12,
-            padding: "6px 12px",
-            background: "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
-            border: "1px solid color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)",
-            borderRadius: 6,
-            fontSize: 12,
-            color: "var(--syn-red)",
-          }}
-        >
-          {vendorsError ?? providerError}
+        <div style={{ marginBottom: 12 }}>
+          <ErrorState
+            title={t("settings.llmModels.vendorLoadError")}
+            onRetry={() => { void fetchVendorCatalog(); }}
+            error={vendorsError ?? providerError}
+          />
         </div>
       )}
 

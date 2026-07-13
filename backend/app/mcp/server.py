@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -1047,26 +1048,51 @@ def _validate_frontmatter_dict(fm: dict[str, Any]) -> str | None:
 # ── HTTP MCP factory (ADR-0029 §2.3) ──────────────────────────────────────────
 
 
-def build_http_mcp(*, write_enabled: bool) -> FastMCP:
+def build_http_mcp(
+    *,
+    write_enabled: bool = False,
+    write_enabled_getter: Callable[[], bool] | None = None,
+) -> FastMCP:
     """
     Build a FastMCP instance for the /mcp/server HTTP surface (ADR-0029 §2.3).
 
     Returns a *separate* FastMCP instance that registers the read-only tools
     (search_wiki, get_page, list_pages, get_graph_neighborhood, list_reviews,
     read_source_file) always, plus write_page / resolve_review / trigger_source_rescan
-    iff write_enabled. All tool bodies delegate to the SAME underlying ``_*_body``
-    functions used by the stdio ``mcp`` — DRY, single write path enforced
-    (ADR-0010 §2, I1/I5, B5/D2).
+    as controlled by the write policy below. All tool bodies delegate to the SAME
+    underlying ``_*_body`` functions used by the stdio ``mcp`` — DRY, single write path
+    enforced (ADR-0010 §2, I1/I5, B5/D2).
 
     The stdio ``mcp`` module-level object is NEVER modified by this function.
 
+    Write policy (ADR-0029 §2.3 / ADR-0072 §3):
+        write_enabled_getter is not None  →  ALWAYS register write tools; each body
+            checks ``write_enabled_getter()`` at call time and returns a structured
+            ``{"error": "remote writes are disabled; enable them in Settings → API & MCP"}``
+            when it returns False, else delegates to the shared ``_*_body``.
+            This is the "always-register-guard" model (ADR-0072 §3): tools are always
+            *listed* on the HTTP surface (discovery shows them) but mutate only when the
+            runtime flag is ON. ``mcp/server.py`` MUST NOT import ``app.main`` (circular);
+            the getter is injected as a closure from ``main.py``.
+        write_enabled_getter is None  →  static behaviour: register write tools iff
+            ``write_enabled`` is True (backward-compatible legacy path for tests and
+            direct callers).
+
     Args:
-        write_enabled: If True, write_page / resolve_review / trigger_source_rescan are
-                       also registered on the HTTP surface (ADR-0029 §2.3).
+        write_enabled: Static write gate — used only when ``write_enabled_getter`` is
+                       None (legacy/backward-compat path). Default False.
+        write_enabled_getter: Runtime getter injected by ``main.py`` (ADR-0072 §3).
+                              When not None, takes precedence; ``write_enabled`` is ignored.
 
     Returns:
         A configured FastMCP instance ready for ``http_app()`` mounting.
     """
+    # Decide instruction text and static-registration mode.
+    _use_getter: bool = write_enabled_getter is not None
+    # When getter is used: write tools are always listed; instructions always include them.
+    # When getter is None: honour write_enabled statically (legacy).
+    _include_write_instructions: bool = _use_getter or write_enabled
+
     http_mcp = FastMCP(
         name="synapse-http",
         instructions=(
@@ -1081,7 +1107,7 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
                 "(validation + frontmatter enforced). "
                 "Use resolve_review to skip/dismiss a review item. "
                 "Use trigger_source_rescan to re-index raw/sources/. "
-                if write_enabled
+                if _include_write_instructions
                 else ""
             )
         ),
@@ -1193,9 +1219,16 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
         """
         return await _read_source_file_body(path)
 
-    # ── Write tools — only when explicitly opted-in (ADR-0029 §2.3) ─────────────
-
-    if write_enabled:
+    # ── Write tools (ADR-0029 §2.3 / ADR-0072 §3) ───────────────────────────────
+    #
+    # Two registration models:
+    #   1. Getter model (_use_getter=True): always register; guard at call time.
+    #      write_enabled_getter() is checked inside each body — returns structured
+    #      {"error": "..."} when off (consistent with every other tool-body error contract).
+    #      mcp/server.py MUST NOT import main.py; getter is injected by main.py.
+    #   2. Static model (_use_getter=False): register iff write_enabled (legacy/tests).
+    #
+    if _use_getter or write_enabled:
 
         @http_mcp.tool()
         async def write_page(  # noqa: F811
@@ -1228,8 +1261,11 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
 
             Returns:
                 {"id", "title", "type", "relevance_score": 0.0} on success.
-                {"error": "<message>"} on validation failure.
+                {"error": "<message>"} on validation failure or when write flag is off.
             """
+            # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
+            if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
+                return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
             return await _write_page_body(title, content, frontmatter, origin_source)
 
         @http_mcp.tool()
@@ -1247,6 +1283,9 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
             Returns:
                 {"id", "status", "action", "proposed_title"} or {"error": "..."}.
             """
+            # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
+            if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
+                return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
             return await _resolve_review_body(review_id, action)
 
         @http_mcp.tool()
@@ -1259,6 +1298,9 @@ def build_http_mcp(*, write_enabled: bool) -> FastMCP:
             Returns:
                 {"started": bool, "candidate_files": N} or {"error": "..."}.
             """
+            # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
+            if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
+                return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
             return await _trigger_source_rescan_body()
 
     return http_mcp

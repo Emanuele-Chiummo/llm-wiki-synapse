@@ -59,6 +59,7 @@ interface RunRowProps {
 }
 
 function RunRow({ run, lang }: RunRowProps) {
+  const { t } = useTranslation();
   const relTime = (() => {
     try {
       const diff = Date.now() - new Date(run.started_at).getTime();
@@ -97,7 +98,7 @@ function RunRow({ run, lang }: RunRowProps) {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10 }}>
         <span style={{ color: STATUS_COLOR[run.status] ?? "var(--syn-text-dim)", fontWeight: 500 }}>
-          {run.status}
+          {t(`research.status.${run.status}`, { defaultValue: run.status })}
         </span>
         <span style={{ color: "var(--syn-text-dim)" }}>
           {relTime}

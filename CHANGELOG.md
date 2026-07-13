@@ -9,6 +9,52 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.6] — 2026-07-13 — "write toggle, Marker auto-split, UI audit follow-ups"
+
+Bundles two features (runtime remote-MCP write toggle, Marker `--auto` chapter split) with
+usability + accessibility fixes from a UI audit of the live instance.
+
+### Added
+- **Remote MCP write tools are now toggleable from Settings** (ADR-0072). *Settings → API & MCP*
+  gains a real switch that enables/disables the HTTP MCP write tools (`write_page`,
+  `resolve_review`, `trigger_source_rescan`) at runtime — no more env-var edit + backend
+  restart. Persisted in `vault_state.remote_mcp_write_enabled` (migration 0030, DB-wins-else-env
+  precedence); exposed via `PUT /mcp/remote-write`; reflected in `GET /mcp/info`. Write tools are
+  always registered but each guards on the runtime flag (always-register-guard). Token-floor
+  clamp: enabling requires a configured token (or allow-without-token). `MCP_REMOTE_WRITE_ENABLED`
+  remains the bootstrap default for fresh vaults [F17].
+- **`--auto` mode for the ServiceNow Marker connector** (`tools/marker-converter`): derives
+  module/feature codes from the PDF bookmark outline (no curated-map or `--module-title` presets),
+  splits **every** module in the book, and defaults to one file per L2 chapter/group. Makes large
+  multi-module exports (e.g. the 5000-page ITOM book) drop-and-forget in `--watch-dir` mode.
+
+### Fixed
+- **Projects page no longer 404s the API in production** — the nginx reverse-proxy regex
+  (`frontend/nginx.conf.template`) listed every API prefix except `projects`, so in prod
+  `GET /projects` fell through to `try_files … /index.html` and the SPA received `<!doctype…`
+  instead of JSON — surfacing the raw `Unexpected token '<', "<!doctype "… is not valid JSON`.
+  Added `projects` to the proxied prefixes; the list now matches `API_PREFIXES` in
+  `vite.config.ts` again.
+- **Raw technical errors are no longer shown to users** — a new reusable `ErrorState`
+  component (friendly title + Retry + collapsible "Technical details" with a copy button)
+  replaces bare exception text on the Projects page, the AI & Models settings section, and
+  Search. A raw `500 Internal Server Error` / JSON-parse error now renders as a civil,
+  retryable state with the raw detail tucked behind a disclosure.
+
+### Changed
+- **Localization gaps closed** — user-facing strings that bypassed i18n (`Loading graph…`,
+  `Connections`, `Quick Start`, `Loading`, and backend status values such as `pending` /
+  `cancelled by user`) are now routed through the i18n system with IT + EN translations, via
+  a new `status.*` namespace and existing namespaces. `en.json`/`it.json` stay in structural
+  parity (key-parity test green).
+- **Search has reassuring loading/empty states** — the bare "Loading…" is replaced by a
+  result skeleton; a "taking longer than expected" message with Cancel/Retry appears after
+  ~4s; failures use `ErrorState`; and empty results show a helpful no-results state instead of
+  a stuck view.
+- **Legibility quick-wins** — sub-12px shared text classes (`.syn-chip`,
+  `.syn-empty-state__eyebrow`, `.syn-meta-row`) raised to a 12px floor; muted-text tokens
+  re-checked against WCAG AA (already passing after a prior pass — ratios recorded).
+
 ## [1.5.5] — 2026-07-13 — "remote MCP endpoint reachable again"
 
 Patch: the remote MCP HTTP surface (`/mcp/server`) never actually served requests —

@@ -366,6 +366,11 @@ class _McpAuthCache:
 
 # Module-level singletons — initialised in lifespan.
 _remote_mcp_flag: RemoteMcpFlag = RemoteMcpFlag()
+# ADR-0072 §2: in-process cache for vault_state.remote_mcp_write_enabled.
+# Reuses RemoteMcpFlag (generic boolean holder). Loaded at startup; refreshed by
+# PUT /mcp/remote-write. write_enabled_getter injected into build_http_mcp so
+# mcp/server.py never imports main.py (would be circular).
+_mcp_write_flag: RemoteMcpFlag = RemoteMcpFlag()
 _mcp_auth_cache: _McpAuthCache = _McpAuthCache()
 
 
@@ -583,10 +588,15 @@ _http_mcp_asgi_app: ASGIApp | None = None
 # connection snippet, and GET /mcp/info.mount_path. FastMCP's default (path="/mcp")
 # would have put the real endpoint at /mcp/server/mcp, so a client POSTing to
 # /mcp/server would 404 even with the sub-app mounted (ADR-0033 §2.4).
-_http_mcp_instance = build_http_mcp(write_enabled=settings.mcp_remote_write_enabled)
+# ADR-0072 §3: inject a runtime getter so write tools are always registered but
+# each body checks the flag at call time.  _mcp_write_flag is the in-process cache
+# loaded from vault_state in lifespan (DB-wins-else-env).  The getter closure
+# captures the module-level singleton by name; mcp/server.py never imports main.py.
+_http_mcp_instance = build_http_mcp(write_enabled_getter=lambda: _mcp_write_flag.is_enabled())
 _http_mcp_asgi_app = _http_mcp_instance.http_app(path="/")
 logger.info(
-    "MCP HTTP surface always-mounted (ADR-0033 §2.4): %s, write_enabled=%s",
+    "MCP HTTP surface always-mounted (ADR-0033 §2.4 / ADR-0072 §3): %s, "
+    "write_enabled_getter=<runtime> bootstrap=%s",
     MCP_MOUNT_PATH,
     settings.mcp_remote_write_enabled,
 )
@@ -789,9 +799,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 1. Vault skeleton (K1, I5, AC-K7-1)
     bootstrap_vault()
 
-    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches (ADR-0032/0033/0040/0041)
+    # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches
+    #    (ADR-0032/0033/0040/0041/0072)
     await _seed_vault_state()
     await _load_remote_mcp_flag()
+    await _load_mcp_write_flag()  # ADR-0072 §2: DB-wins-else-env precedence
     await _load_mcp_auth_cache()
     await _load_clip_config_cache()
     await _load_web_search_config_cache()
@@ -1202,7 +1214,9 @@ async def _seed_vault_state() -> None:
     and clip_enabled_db=None + clip_access_token=None + clip_allowed_origins_db=None
     (ADR-0040 §3 — env-fallback by default; clip remains env-governed until PUT /clip/config)
     and cli_oauth_token=None + cli_oauth_token_encrypted=None
-    (ADR-0043 §2.2 / W7 — env-fallback by default).
+    (ADR-0043 §2.2 / W7 — env-fallback by default)
+    and remote_mcp_write_enabled=None
+    (ADR-0072 §1 — NULL = env-fallback; DB becomes authoritative on first PUT /mcp/remote-write).
     """
     async with get_session() as session:
         row = await session.execute(
@@ -1242,6 +1256,34 @@ async def _load_remote_mcp_flag() -> None:
         enabled: bool = state.remote_mcp_enabled if state is not None else False
     await _remote_mcp_flag.load(enabled)
     logger.info("RemoteMcpFlag loaded from DB: remote_mcp_enabled=%s (ADR-0032 §2.2)", enabled)
+
+
+async def _load_mcp_write_flag() -> None:
+    """
+    Load vault_state.remote_mcp_write_enabled into _mcp_write_flag at startup (ADR-0072 §2).
+
+    Called once in lifespan after _load_remote_mcp_flag().  Mirrors the RemoteMcpFlag
+    pattern (ADR-0032 §2.2): DB is source of truth; in-process cache is O(1) per request.
+
+    Precedence (DB-wins-else-env — ADR-0072 §1):
+      DB non-NULL → use DB value.
+      DB NULL     → fall back to settings.mcp_remote_write_enabled (env bootstrap).
+    """
+    async with get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+        if state is not None:
+            db_val: bool | None = getattr(state, "remote_mcp_write_enabled", None)
+            effective: bool = db_val if db_val is not None else settings.mcp_remote_write_enabled
+        else:
+            effective = settings.mcp_remote_write_enabled
+    await _mcp_write_flag.load(effective)
+    logger.info(
+        "McpWriteFlag loaded from DB: remote_mcp_write_enabled=%s (ADR-0072 §2)",
+        effective,
+    )
 
 
 async def _load_mcp_auth_cache() -> None:
