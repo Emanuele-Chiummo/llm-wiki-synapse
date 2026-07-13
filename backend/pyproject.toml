@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synapse-backend"
-version = "1.5.4"
+version = "1.5.5"
 description = "Synapse — self-organising wiki backend (FastAPI + walking skeleton)"
 requires-python = ">=3.11"
 dependencies = [

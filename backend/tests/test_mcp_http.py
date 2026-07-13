@@ -704,3 +704,103 @@ class TestMcpHttpConfig:
         )
         assert s.mcp_trusted_proxies == ""
         assert s.mcp_trusted_proxies_list == []
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. End-to-end mount regression (guards the 2bbe195 router-split regression)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestMcpServerMountedEndToEnd:
+    """
+    Regression guard: the R13-1 router split (commit 2bbe195) dropped the
+    ``app.mount(MCP_MOUNT_PATH, ...)`` block, leaving /mcp/server unrouted so every
+    remote MCP request 404'd — while GET /mcp/info still reported http_enabled=true.
+    No prior test exercised the mounted route over HTTP with the gate OPEN, so the
+    regression shipped green. These tests POST through the real ASGI stack with the
+    FastMCP session manager started, so they fail if the mount is missing OR if the
+    Streamable-HTTP endpoint is not served at the documented MCP_MOUNT_PATH root.
+    """
+
+    @pytest.mark.asyncio
+    async def test_mcp_server_handshake_reaches_app_when_gate_open(self) -> None:
+        import app.main as m
+        from app.main import _hash_token, _mcp_auth_cache, _remote_mcp_flag, app
+
+        body = {
+            "jsonrpc": "2.0",
+            "id": 0,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "regression-probe", "version": "1"},
+            },
+        }
+        headers = {
+            "Authorization": "Bearer regression-tok",
+            "Accept": "application/json, text/event-stream",
+            "Content-Type": "application/json",
+        }
+        sub = m._http_mcp_asgi_app
+        assert sub is not None, "MCP HTTP sub-app must be built"
+        await _remote_mcp_flag.load(True)
+        await _mcp_auth_cache.load(_hash_token("regression-tok"), False)
+        try:
+            async with sub.lifespan(sub):  # start only the FastMCP session manager
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    # (a) no trailing slash → Starlette Mount 307 → canonical /mcp/server/
+                    r_redirect = await ac.post("/mcp/server", headers=headers, json=body)
+                    assert r_redirect.status_code == 307
+                    assert r_redirect.headers["location"].endswith("/mcp/server/")
+
+                    # (b) canonical URL → the MCP handshake succeeds (proves mount +
+                    #     gate-open + endpoint served at MCP_MOUNT_PATH root)
+                    r_ok = await ac.post("/mcp/server/", headers=headers, json=body)
+                    assert r_ok.status_code != 404, (
+                        "MCP endpoint 404 — /mcp/server is not mounted (regression) "
+                        "or not served at the mount root"
+                    )
+                    assert r_ok.status_code == 200
+
+                    # (c) wrong bearer → 401 from the gate (NOT 404): a 404 here would
+                    #     mean the route is missing, masking auth entirely
+                    r_bad = await ac.post(
+                        "/mcp/server/",
+                        headers={**headers, "Authorization": "Bearer WRONG"},
+                        json=body,
+                    )
+                    assert r_bad.status_code == 401
+        finally:
+            # Restore the module-level singletons to their pristine default so this
+            # test does not leak a remote_enabled flag OR a token hash into later
+            # tests that assume "no token configured" (ADR-0032/0033).
+            await _remote_mcp_flag.load(False)
+            await _mcp_auth_cache.load(None, False)
+
+    @pytest.mark.asyncio
+    async def test_mcp_server_404_when_remote_disabled(self) -> None:
+        """Gate floor: remote_enabled OFF → 404 even with a valid bearer (ADR-0032)."""
+        import app.main as m
+        from app.main import _hash_token, _mcp_auth_cache, _remote_mcp_flag, app
+
+        sub = m._http_mcp_asgi_app
+        await _remote_mcp_flag.load(False)
+        await _mcp_auth_cache.load(_hash_token("regression-tok"), False)
+        try:
+            async with sub.lifespan(sub):
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    r = await ac.post(
+                        "/mcp/server/",
+                        headers={"Authorization": "Bearer regression-tok"},
+                        json={"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}},
+                    )
+            assert r.status_code == 404
+        finally:
+            # Same pristine-restore contract as the sibling test above.
+            await _remote_mcp_flag.load(False)
+            await _mcp_auth_cache.load(None, False)
