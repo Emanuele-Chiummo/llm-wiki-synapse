@@ -30,7 +30,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { AppShell } from "../components/AppShell";
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
@@ -309,8 +309,10 @@ vi.mock("../components/common/UpdateBanner", () => ({
 // The wizard is tested in isolation in FirstRunWizard.test.tsx.
 
 vi.mock("../components/setup/FirstRunWizard", () => ({
-  FirstRunWizard: () => null,
-  useFirstRunSetup: () => ({ shouldShow: false, markDone: vi.fn() }),
+  FirstRunWizard: ({ initialStep }: { initialStep?: number }) => (
+    <div data-testid="first-run-wizard" data-initial-step={initialStep ?? "resume"} />
+  ),
+  useFirstRunSetup: () => ({ shouldShow: false, markDone: vi.fn(), defer: vi.fn() }),
   getSetupCompleted: () => true,
   markSetupCompleted: vi.fn(),
 }));
@@ -326,6 +328,16 @@ describe("AppShell — structure", () => {
   it("renders the app-shell root element", () => {
     render(<AppShell />);
     expect(screen.getByTestId("app-shell")).toBeTruthy();
+  });
+
+  it("opens backend recovery at the connection step", () => {
+    render(<AppShell />);
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent("synapse:openWizard", { detail: { step: 1 } }));
+    });
+
+    expect(screen.getByTestId("first-run-wizard").getAttribute("data-initial-step")).toBe("1");
   });
 
   it("renders the Header", () => {

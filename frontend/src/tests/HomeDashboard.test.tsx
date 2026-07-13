@@ -124,26 +124,36 @@ vi.mock("../api/healthClient", () => ({
 // ─── statusStore mock ─────────────────────────────────────────────────────────
 
 const mockBackendVersion = vi.fn<() => string | undefined>(() => undefined);
+let mockConnectionState: "checking" | "online" | "offline" = "online";
 
 vi.mock("../store/statusStore", () => ({
   useStatusStore: (selector: (s: unknown) => unknown) =>
-    selector({ backendVersion: mockBackendVersion(), dataVersion: null }),
+    selector({
+      backendVersion: mockBackendVersion(),
+      connectionState: mockConnectionState,
+      dataVersion: null,
+    }),
   selectBackendVersion: (s: { backendVersion: string | undefined }) => s.backendVersion,
+  selectBackendConnectionState: (s: { connectionState: typeof mockConnectionState }) =>
+    s.connectionState,
   selectSetBackendVersion: (s: { setBackendVersion: () => void }) => s.setBackendVersion,
   selectStatusDataVersion: (s: { dataVersion: number | null }) => s.dataVersion,
 }));
 
 // ─── providerStore mock ───────────────────────────────────────────────────────
 
-const mockActiveProvider = vi.fn<() => { provider_type: string; model_id: string | null } | null>(
-  () => null,
-);
+const mockActiveProvider = vi.fn<
+  () => {
+    provider_type: string;
+    model_id: string | null;
+    is_fallback?: boolean;
+  } | null
+>(() => null);
 
 vi.mock("../store/providerStore", () => ({
   useProviderStore: (selector: (s: unknown) => unknown) =>
     selector({ activeItem: mockActiveProvider() }),
-  selectActiveProvider: (s: { activeItem: { provider_type: string; model_id: string | null } | null }) =>
-    s.activeItem,
+  selectActiveProvider: (s: { activeItem: ReturnType<typeof mockActiveProvider> }) => s.activeItem,
 }));
 
 // ─── pagesClient mock (v1.5 home additions) ──────────────────────────────────
@@ -453,6 +463,108 @@ async function renderDashboard() {
   });
   return result;
 }
+
+describe("HomeDashboard — recoverable backend failure", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    mockConnectionState = "online";
+    mockActiveProvider.mockReturnValue(null);
+    setupDefaultMocks();
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+  });
+
+  it("replaces the loading skeleton with an actionable error when stats cannot load", async () => {
+    mockGetStatsOverview.mockRejectedValueOnce(new Error("500 Internal Server Error"));
+
+    render(<HomeDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-dashboard-error")).not.toBeNull();
+    });
+    expect(screen.queryByTestId("home-dashboard-loading")).toBeNull();
+    expect(screen.getByTestId("error-state-retry")).not.toBeNull();
+
+    fireEvent.click(screen.getByTestId("error-state-retry"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("home-dashboard")).not.toBeNull();
+    });
+  });
+});
+
+describe("HomeDashboard — first useful outcome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupDefaultMocks();
+    mockGetSynthesizeStatus.mockResolvedValue(null);
+    mockGetStatsOverview.mockResolvedValue({
+      ...MOCK_OVERVIEW,
+      pages_total: 0,
+      links_total: 0,
+      communities_count: 0,
+      review_pending: 0,
+      lint_open: 0,
+      recent_activity: [],
+    });
+  });
+
+  it("replaces zero-value operations cards with a guided LLM Wiki start", async () => {
+    await renderDashboard();
+
+    expect(screen.getByTestId("home-getting-started")).not.toBeNull();
+    expect(screen.queryByTestId("kpi-pages-total")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("home-getting-started-import"));
+    expect(mockSetActiveSection).toHaveBeenCalledWith("ingest");
+  });
+
+  it("does not claim readiness from an unverified seeded provider or offline backend", async () => {
+    mockConnectionState = "offline";
+    mockActiveProvider.mockReturnValue({
+      provider_type: "api",
+      model_id: "seeded-model",
+      is_fallback: false,
+    });
+
+    await renderDashboard();
+
+    expect(screen.getByText("backendNeeded")).toBeTruthy();
+    expect(screen.getByText("providerNeeded")).toBeTruthy();
+    expect(screen.queryByText("providerReady")).toBeNull();
+  });
+
+  it("does not transfer a completed verification to a different active provider", async () => {
+    localStorage.setItem(
+      "synapse.setupState",
+      JSON.stringify({
+        version: 1,
+        status: "completed",
+        lastStep: 4,
+        connectionVerified: true,
+        providerVerified: true,
+        providerFingerprint: JSON.stringify([
+          "provider-a",
+          "api",
+          "model-a",
+          "",
+          "2026-07-13T00:00:00Z",
+        ]),
+        updatedAt: "2026-07-13T00:00:00Z",
+      }),
+    );
+    mockActiveProvider.mockReturnValue({
+      provider_type: "api",
+      model_id: "model-b",
+      is_fallback: false,
+    });
+
+    await renderDashboard();
+
+    expect(screen.getByText("providerNeeded")).toBeTruthy();
+    expect(screen.queryByText("providerReady")).toBeNull();
+  });
+});
 
 // ─── AC-R12-1-5a: KPI cards render from mocked overview ──────────────────────
 

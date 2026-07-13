@@ -105,6 +105,7 @@ import {
 import { ReviewDeepResearchPanel } from "./ReviewDeepResearchPanel";
 import { PanelDrawer } from "../panels/PanelDrawer";
 import { useViewport } from "../../hooks/useViewport";
+import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
 import {
   useGraphStore,
   selectVaultId,
@@ -289,6 +290,7 @@ interface PageTypeChipProps {
 
 function PageTypeChip({ pageType, t }: PageTypeChipProps) {
   const label = t(`review.pageType.${pageType}`) ?? pageType;
+  const color = pageTypeCssColor(pageType);
   return (
     <span
       className="syn-chip"
@@ -296,6 +298,9 @@ function PageTypeChip({ pageType, t }: PageTypeChipProps) {
         fontSize: 9,
         fontWeight: 500,
         padding: "0 5px",
+        color,
+        background: `color-mix(in srgb, ${color} 10%, var(--syn-mix-base) 90%)`,
+        borderColor: `color-mix(in srgb, ${color} 30%, transparent 70%)`,
       }}
     >
       {label}
@@ -1366,7 +1371,9 @@ export function ReviewQueueView() {
 
   const handleTabKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-    const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+    );
     if (tabs.length === 0) return;
     const currentIndex = Math.max(0, tabs.indexOf(document.activeElement as HTMLButtonElement));
     let nextIndex = currentIndex;

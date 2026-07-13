@@ -151,7 +151,9 @@ export function ProviderSelector() {
     ? providerLabel(active, t)
     : loading
       ? t("common.loading")
-      : t("provider.label");
+      : error
+        ? t("provider.unavailable")
+        : t("provider.label");
 
   return (
     <div style={{ position: "relative" }}>
@@ -265,7 +267,7 @@ export function ProviderSelector() {
                 {t("common.loading")}
               </div>
             )}
-            {!loading && dedupedList.length === 0 && (
+            {!loading && !error && dedupedList.length === 0 && (
               <div style={{ padding: "12px 14px", fontSize: 12, color: "var(--syn-text-dim)" }}>
                 {t("provider.noProviders")}
               </div>
@@ -367,7 +369,16 @@ export function ProviderSelector() {
                 color: "var(--syn-red)",
               }}
             >
-              {error}
+              <div>{t("provider.unavailableBody")}</div>
+              <button
+                type="button"
+                data-testid="provider-retry"
+                className="syn-btn syn-btn--secondary syn-btn--sm"
+                onClick={() => void fetchList()}
+                style={{ marginTop: 6 }}
+              >
+                {t("common.retry")}
+              </button>
             </div>
           )}
         </div>

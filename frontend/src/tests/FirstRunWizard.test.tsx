@@ -104,7 +104,23 @@ const mockTestProviderConnection = vi.fn().mockResolvedValue({
 });
 
 vi.mock("../api/providerClient", () => ({
-  fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [] }),
+  fetchProviderConfigs: vi.fn().mockResolvedValue({
+    items: [
+      {
+        id: "prov-new",
+        scope: "global",
+        vault_id: null,
+        provider_type: "api",
+        model_id: "claude-sonnet-4-6",
+        base_url: null,
+        max_iter: 3,
+        token_budget: 60000,
+        is_fallback: false,
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ],
+  }),
   createProviderConfig: (...args: unknown[]) => mockCreateProviderConfig(...args),
   testProviderConnection: (...args: unknown[]) => mockTestProviderConnection(...args),
   deleteProviderConfig: vi.fn().mockResolvedValue(undefined),
@@ -168,12 +184,14 @@ import {
   markSetupCompleted,
 } from "../components/setup/FirstRunWizard";
 import { deferSetup, readSetupState } from "../components/setup/setupState";
+import { useStatusStore } from "../store/statusStore";
+import { useProviderStore } from "../store/providerStore";
 import { renderHook } from "@testing-library/react";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
-function renderWizard(onClose = vi.fn()) {
-  return render(<FirstRunWizard onClose={onClose} />);
+function renderWizard(onClose = vi.fn(), initialStep?: 1 | 2 | 3 | 4) {
+  return render(<FirstRunWizard onClose={onClose} initialStep={initialStep} />);
 }
 
 // ─── 1. localStorage helpers ──────────────────────────────────────────────────
@@ -273,6 +291,15 @@ describe("FirstRunWizard — initial render", () => {
   it("does NOT render step 2 content on initial load", () => {
     renderWizard();
     expect(screen.queryByTestId("wizard-step2-type")).toBeNull();
+  });
+
+  it("lets a recovery request override the deferred resume step", () => {
+    deferSetup(3, { connectionVerified: true, providerVerified: false });
+
+    renderWizard(vi.fn(), 1);
+
+    expect(screen.getByTestId("wizard-step1-check")).toBeTruthy();
+    expect(screen.queryByTestId("wizard-step3-pdf")).toBeNull();
   });
 });
 
@@ -395,6 +422,17 @@ describe("FirstRunWizard — step navigation", () => {
     fireEvent.click(screen.getByTestId("wizard-done"));
 
     expect(onClose).toHaveBeenCalledWith("completed", 4);
+    expect(readSetupState()).toMatchObject({
+      status: "completed",
+      providerVerified: true,
+      providerFingerprint: JSON.stringify([
+        "prov-new",
+        "api",
+        "claude-sonnet-4-6",
+        "",
+        "2026-01-01T00:00:00Z",
+      ]),
+    });
   });
 
   it("retains verified checks when a deferred setup resumes", async () => {
@@ -423,6 +461,7 @@ describe("FirstRunWizard — step 1 health probe", () => {
     mockApiFetchOk = true;
     mockPlatformFetch.mockClear();
     mockClearAuthToken.mockClear();
+    useStatusStore.setState({ connectionState: "offline" });
     clearSetupFlag();
   });
   afterEach(() => {
@@ -435,6 +474,7 @@ describe("FirstRunWizard — step 1 health probe", () => {
     await waitFor(() => {
       expect(screen.getByTestId("wizard-step1-ok")).toBeTruthy();
     });
+    expect(useStatusStore.getState().connectionState).toBe("online");
   });
 
   it("shows Next button after successful check", async () => {
@@ -479,6 +519,7 @@ describe("FirstRunWizard — step 2 provider persistence (sanctioned path only)"
     mockTestProviderConnection.mockResolvedValue({ ok: true, latency_ms: 42, detail: "connected" });
     mockPutAppConfig.mockClear();
     vi.clearAllMocks(); // reset apiFetch spy too
+    useProviderStore.setState({ list: [], activeItem: null, error: null, loading: false });
   });
 
   it("Save provider calls createProviderConfig with correct body", async () => {
@@ -503,6 +544,7 @@ describe("FirstRunWizard — step 2 provider persistence (sanctioned path only)"
     expect(body.provider_type).toBe("api");
     expect(body.model_id).toBe("claude-sonnet-4-6");
     expect(body.scope).toBe("global");
+    await waitFor(() => expect(useProviderStore.getState().activeItem?.id).toBe("prov-new"));
   });
 
   it("includes an API key in the sanctioned provider payload when supplied", async () => {

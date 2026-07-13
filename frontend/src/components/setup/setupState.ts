@@ -11,10 +11,14 @@ export interface SetupState {
   lastStep: SetupStep;
   connectionVerified: boolean;
   providerVerified: boolean;
+  /** Exact provider row/revision that passed the connection probe. */
+  providerFingerprint: string | null;
   updatedAt: string;
 }
 
-export type SetupChecks = Pick<SetupState, "connectionVerified" | "providerVerified">;
+export type SetupChecks = Pick<SetupState, "connectionVerified" | "providerVerified"> & {
+  providerFingerprint?: string | null | undefined;
+};
 
 function defaultState(): SetupState {
   return {
@@ -23,6 +27,7 @@ function defaultState(): SetupState {
     lastStep: 1,
     connectionVerified: false,
     providerVerified: false,
+    providerFingerprint: null,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -68,6 +73,8 @@ export function readSetupState(): SetupState {
           ...saved,
           connectionVerified: completed || saved.connectionVerified === true,
           providerVerified: completed || saved.providerVerified === true,
+          providerFingerprint:
+            typeof saved.providerFingerprint === "string" ? saved.providerFingerprint : null,
         };
       }
     }
@@ -79,6 +86,7 @@ export function readSetupState(): SetupState {
         lastStep: 4,
         connectionVerified: true,
         providerVerified: true,
+        providerFingerprint: null,
         updatedAt: new Date().toISOString(),
       });
     }
@@ -88,13 +96,15 @@ export function readSetupState(): SetupState {
   return defaultState();
 }
 
-export function completeSetup(): SetupState {
+export function completeSetup(checks?: Partial<SetupChecks>): SetupState {
+  const current = readSetupState();
   return persistSetupState({
     version: SETUP_STATE_VERSION,
     status: "completed",
     lastStep: 4,
     connectionVerified: true,
     providerVerified: true,
+    providerFingerprint: checks?.providerFingerprint ?? current.providerFingerprint,
     updatedAt: new Date().toISOString(),
   });
 }
@@ -108,6 +118,7 @@ export function deferSetup(lastStep: SetupStep, checks?: SetupChecks): SetupStat
     lastStep,
     connectionVerified: checks?.connectionVerified ?? current.connectionVerified,
     providerVerified: checks?.providerVerified ?? current.providerVerified,
+    providerFingerprint: checks?.providerFingerprint ?? current.providerFingerprint,
     updatedAt: new Date().toISOString(),
   });
 }

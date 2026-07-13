@@ -1,4 +1,9 @@
 {
+  "connection": {
+    "offlineTitle": "Backend non raggiungibile",
+    "offlineBody": "La lettura può continuare dalla cache, ma generazione e importazione sono sospese.",
+    "checkSetup": "Verifica connessione"
+  },
   "nav": {
     "home": "Home",
     "chat": "Chat",
@@ -89,6 +94,8 @@
   },
   "provider": {
     "label": "Provider",
+    "unavailable": "Provider non disponibile",
+    "unavailableBody": "Impossibile caricare i provider. Verifica la connessione al backend e riprova.",
     "active": "Attivo",
     "scope": {
       "vault": "Vault",
@@ -249,6 +256,7 @@
       "testRunning": "Test in corso…",
       "loadingVendors": "Caricamento vendor…",
       "vendorLoadError": "Impossibile caricare il catalogo vendor.",
+      "mutationError": "Impossibile salvare le modifiche al provider. Verifica la connessione al backend e riprova.",
       "codexAuthTitle": "Autenticazione",
       "codexAuthNote": "Codex CLI si autentica da solo — esegui `codex login` sull'host (OAuth) o imposta OPENAI_API_KEY. Synapse non memorizza un token Codex (a differenza del token abbonamento Claude)."
     },
@@ -1526,6 +1534,29 @@
   "home": {
     "title": "Panoramica sistema",
     "subtitle": "Panoramica della tua base di conoscenza",
+    "error": {
+      "title": "Impossibile caricare la panoramica della conoscenza"
+    },
+    "gettingStarted": {
+      "eyebrow": "Il tuo primo LLM Wiki",
+      "title": "Trasforma i documenti in conoscenza connessa",
+      "body": "Aggiungi alcune fonti affidabili. Synapse estrarrà i concetti, creerà pagine collegate e proporrà domande, confronti e sintesi da revisionare.",
+      "flowLabel": "Dalle fonti a un wiki connesso",
+      "sourcesTitle": "Fonti",
+      "sourcesBody": "Carica documenti o osserva una cartella.",
+      "connectionsTitle": "Connessioni",
+      "connectionsBody": "Genera pagine, collegamenti e domande aperte.",
+      "wikiTitle": "Wiki",
+      "wikiBody": "Revisiona i risultati ed esplora il grafo della conoscenza.",
+      "backendReady": "Backend connesso",
+      "backendNeeded": "Connessione al backend da verificare",
+      "providerReady": "Provider AI pronto",
+      "providerNeeded": "Provider AI da configurare",
+      "workspace": "Spazio di lavoro: {{name}}",
+      "importCta": "Aggiungi le prime fonti",
+      "providerCta": "Configura il provider AI",
+      "projectsCta": "Scegli un altro progetto"
+    },
     "systemStatus": {
       "ariaLabel": "Stato del sistema",
       "title": "STATO DEL SISTEMA",

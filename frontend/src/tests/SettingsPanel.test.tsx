@@ -186,6 +186,7 @@ const mockProviderList = [
 const mockFetchProviders = vi.fn();
 const mockAddProvider = vi.fn();
 const mockDeleteProvider = vi.fn();
+const mockUpdateProvider = vi.fn();
 
 vi.mock("../store/providerStore", () => ({
   useProviderStore: (selector: (s: unknown) => unknown) =>
@@ -202,7 +203,7 @@ vi.mock("../store/providerStore", () => ({
       addProvider: mockAddProvider,
       deleteProvider: mockDeleteProvider,
       fetchVendorCatalog: vi.fn(),
-      updateProvider: vi.fn(),
+      updateProvider: mockUpdateProvider,
     }),
   useShallow: (fn: unknown) => fn,
   useProviderList: () => mockProviderList,
@@ -662,6 +663,17 @@ describe("SettingsPanel — LLM Models section renders provider list (AC-HARD-PR
     const expandTrigger = claudeCliRow!.querySelector("[aria-expanded]");
     fireEvent.click(expandTrigger!);
     expect(claudeCliRow!.querySelector('[data-testid="cli-auth-section"]')).not.toBeNull();
+  });
+
+  it("shows an inline recovery message when provider activation fails", async () => {
+    mockAddProvider.mockRejectedValueOnce(new Error("backend offline"));
+
+    fireEvent.click(screen.getByTestId("vendor-toggle-anthropic"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("vendor-mutation-error-anthropic")).toBeTruthy();
+    });
+    expect(screen.getByText("mutationError")).toBeTruthy();
   });
 });
 

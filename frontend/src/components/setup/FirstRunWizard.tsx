@@ -56,6 +56,10 @@ import { putAppConfig } from "../../api/appConfigClient";
 import { createProviderConfig, testProviderConnection } from "../../api/providerClient";
 import type { CreateProviderConfigBody } from "../../api/types";
 import { completeSetup, deferSetup, readSetupState, type SetupStep } from "./setupState";
+import { providerVerificationFingerprint } from "./providerVerification";
+import { useStatusStore } from "../../store/statusStore";
+import { useProviderStore } from "../../store/providerStore";
+import { useGraphStore, selectVaultId } from "../../store/graphStore";
 
 // ─── Backwards-compatible setup helpers ─────────────────────────────────────
 
@@ -117,6 +121,8 @@ export type WizardOutcome = "completed" | "deferred";
 interface WizardProps {
   /** Reports a truthful outcome rather than treating every dismissal as done. */
   onClose: (outcome: WizardOutcome, lastStep: WizardStep) => void;
+  /** Explicit recovery entry point; omitted to resume the persisted setup step. */
+  initialStep?: SetupStep | undefined;
 }
 
 // ─── Inline style constants (mirrors SettingsPanel tokens) ───────────────────
@@ -419,9 +425,10 @@ function Step2Provider({
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
-  onVerified: () => void;
+  onVerified: (fingerprint: string) => void;
 }) {
   const { t } = useTranslation();
+  const vaultId = useGraphStore(selectVaultId);
   const [providerType, setProviderType] = useState<"api" | "local" | "cli">("api");
   const [modelId, setModelId] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -451,9 +458,11 @@ function Step2Provider({
       if (!probe.ok) {
         throw new Error(probe.detail || t("wizard.step2.probeFailed"));
       }
-      await createProviderConfig(body);
+      const createdProvider = await createProviderConfig(body);
+      await useProviderStore.getState().fetchList();
+      useProviderStore.getState().deriveActive(vaultId);
       setSaved(true);
-      onVerified();
+      onVerified(providerVerificationFingerprint(createdProvider));
       // Advance after a brief moment to let user see success
       setTimeout(onNext, 400);
     } catch (e: unknown) {
@@ -840,14 +849,17 @@ function Step4Done({ onClose, ready }: { onClose: () => void; ready: boolean }) 
 const TOTAL_STEPS = 4;
 const DIALOG_TITLE_ID = "first-run-wizard-title";
 
-export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
+export function FirstRunWizard({ onClose, initialStep }: WizardProps): ReactNode {
   const { t } = useTranslation();
   const [initialSetup] = useState(readSetupState);
   const [step, setStep] = useState<WizardStep>(() =>
-    initialSetup.status === "deferred" ? initialSetup.lastStep : 1,
+    initialStep ?? (initialSetup.status === "deferred" ? initialSetup.lastStep : 1),
   );
   const [connectionVerified, setConnectionVerified] = useState(initialSetup.connectionVerified);
   const [providerVerified, setProviderVerified] = useState(initialSetup.providerVerified);
+  const [providerFingerprint, setProviderFingerprint] = useState(
+    initialSetup.providerFingerprint,
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const ready = connectionVerified && providerVerified;
@@ -855,9 +867,9 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
 
   const deferAndClose = useCallback(() => {
     const deferredStep = step === 4 && !ready ? resumeStep : step;
-    deferSetup(deferredStep, { connectionVerified, providerVerified });
+    deferSetup(deferredStep, { connectionVerified, providerVerified, providerFingerprint });
     onClose("deferred", deferredStep);
-  }, [connectionVerified, onClose, providerVerified, ready, resumeStep, step]);
+  }, [connectionVerified, onClose, providerFingerprint, providerVerified, ready, resumeStep, step]);
 
   // Focus management: move focus into the dialog on mount.
   useEffect(() => {
@@ -1014,7 +1026,10 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
             <Step1Connect
               onNext={goNext}
               onSkip={deferAndClose}
-              onVerified={() => setConnectionVerified(true)}
+              onVerified={() => {
+                setConnectionVerified(true);
+                useStatusStore.getState().setConnectionState("online");
+              }}
             />
           )}
           {step === 2 && (
@@ -1022,7 +1037,10 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
               onNext={goNext}
               onBack={goBack}
               onSkip={deferAndClose}
-              onVerified={() => setProviderVerified(true)}
+              onVerified={(fingerprint) => {
+                setProviderVerified(true);
+                setProviderFingerprint(fingerprint);
+              }}
             />
           )}
           {step === 3 && <Step3Pdf onNext={goNext} onBack={goBack} onSkip={deferAndClose} />}
@@ -1031,7 +1049,17 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
               ready={ready}
               onClose={() => {
                 if (!ready) {
-                  deferSetup(resumeStep, { connectionVerified, providerVerified });
+                  deferSetup(resumeStep, {
+                    connectionVerified,
+                    providerVerified,
+                    providerFingerprint,
+                  });
+                } else {
+                  completeSetup({
+                    connectionVerified,
+                    providerVerified,
+                    providerFingerprint,
+                  });
                 }
                 onClose(ready ? "completed" : "deferred", ready ? 4 : resumeStep);
               }}

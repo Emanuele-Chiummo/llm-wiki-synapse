@@ -56,6 +56,7 @@
   --syn-surface-raised: #ffffff;
   --syn-surface-hover: #f0f2f5; /* hover / subtle fill (chips) */
   --syn-surface-sunken: #f6f8fa; /* code blocks, table header */
+  --syn-input-bg: #f8fafc; /* editable fields on connection/auth surfaces */
 
   /* ── Borders ── */
   --syn-border: #e2e5ea;
@@ -75,6 +76,11 @@
   --syn-green: #1a7f37;
   --syn-amber: #9a6700;
   --syn-red: #cf222e;
+  --syn-success: var(--syn-green);
+  --syn-error: var(--syn-red);
+  --syn-danger: var(--syn-red);
+  --syn-accent2: #7c3aed;
+  --syn-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
   /* ── Per-type colors (tree icons, badges, graph legend) ── */
   --syn-type-concept: #8250df; /* purple */
@@ -84,6 +90,8 @@
   --syn-type-comparison: #1a7f37; /* green */
   --syn-type-query: #16a34a; /* green */
   --syn-type-overview: #b8860b; /* amber */
+  --syn-type-index: #9a6700; /* amber */
+  --syn-type-log: #6639ba; /* violet */
   --syn-type-other: #6e7781;
 
   /* ── Radii / shadow ── */
@@ -174,6 +182,7 @@
   --syn-surface-raised: #1c2128;
   --syn-surface-hover: #21262d;
   --syn-surface-sunken: #0d1117;
+  --syn-input-bg: #0d1117;
 
   /* ── Borders ── */
   --syn-border: #30363d;
@@ -193,6 +202,7 @@
   --syn-green: #3fb950;
   --syn-amber: #d29922;
   --syn-red: #f85149;
+  --syn-accent2: #c084fc;
 
   /* ── Per-type colors (lightened for dark backgrounds) ── */
   --syn-type-concept: #bc8cff; /* purple — lighter */
@@ -202,6 +212,8 @@
   --syn-type-comparison: #3fb950; /* green — lighter */
   --syn-type-query: #56d364; /* green — lighter */
   --syn-type-overview: #e3b341; /* amber — lighter */
+  --syn-type-index: #e3b341; /* amber — lighter */
+  --syn-type-log: #a78bfa; /* violet — lighter */
   --syn-type-other: #8b949e;
 
   /* ── Shadow (dark-adapted: less intense, more visible on dark) ── */

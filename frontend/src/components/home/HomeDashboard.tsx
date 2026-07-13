@@ -110,10 +110,16 @@ import {
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import {
   useStatusStore,
+  selectBackendConnectionState,
   selectBackendVersion,
   selectStatusDataVersion,
 } from "../../store/statusStore";
 import { useActivityCounts, useActivityBatch, useActivityTasks } from "../../store/activityStore";
+import { ErrorState } from "../common/ErrorState";
+import { HomeGettingStarted } from "./HomeGettingStarted";
+import { readSetupState } from "../setup/setupState";
+import { providerVerificationFingerprint } from "../setup/providerVerification";
+import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -179,16 +185,7 @@ interface TypeBarProps {
  * so one page type read as different colours across the app. Now they match.
  */
 export function typeColor(type: string): string {
-  const known = new Set([
-    "concept",
-    "entity",
-    "source",
-    "synthesis",
-    "comparison",
-    "query",
-    "overview",
-  ]);
-  return known.has(type) ? `var(--syn-type-${type})` : "var(--syn-type-other)";
+  return pageTypeCssColor(type);
 }
 
 function TypeBar({ pagesByType, total }: TypeBarProps) {
@@ -2266,6 +2263,7 @@ export function HomeDashboard() {
   const vaultId = useGraphStore(selectVaultId);
   const selectPageAction = useGraphStore(selectSelectPage);
   const activeProvider = useProviderStore(selectActiveProvider);
+  const connectionState = useStatusStore(selectBackendConnectionState);
   const backendVersion = useStatusStore(selectBackendVersion);
 
   // WS-A [F16/F4/F18]: subscribe to data_version from the ActivityBar's existing
@@ -2324,6 +2322,7 @@ export function HomeDashboard() {
   // Daily-cost series for the monthly-cost KPI sparkline (last 30 days). Fetched
   // separately and non-blocking: a costs error must never break the dashboard.
   const [costByDay, setCostByDay] = useState<number[] | null>(null);
+  const statsAbortRef = useRef<AbortController | null>(null);
 
   // Track the last data_version for which we successfully fetched stats.
   // WS-A: only re-fetch when the version advances — no spurious re-renders (I3).
@@ -2359,12 +2358,18 @@ export function HomeDashboard() {
     })();
   }, []); // Stable: reads state via refs, no reactive deps needed.
 
+  const reloadStats = useCallback(() => {
+    statsAbortRef.current?.abort();
+    const ac = new AbortController();
+    statsAbortRef.current = ac;
+    loadStats(ac.signal);
+  }, [loadStats]);
+
   // Initial fetch on mount.
   useEffect(() => {
-    const ac = new AbortController();
-    loadStats(ac.signal);
-    return () => ac.abort();
-  }, [loadStats]);
+    reloadStats();
+    return () => statsAbortRef.current?.abort();
+  }, [reloadStats]);
 
   // Daily cost series for the sparkline — fetch once on mount, best-effort.
   useEffect(() => {
@@ -2388,10 +2393,9 @@ export function HomeDashboard() {
     if (statusDataVersion === null) return;
     if (statusDataVersion === lastFetchedVersionRef.current) return;
     // Version has advanced — re-fetch stats without a full page reload (AC-WS-A-1).
-    const ac = new AbortController();
-    loadStats(ac.signal);
-    return () => ac.abort();
-  }, [statusDataVersion, loadStats]); // Only re-run when the polled version changes.
+    reloadStats();
+    return undefined;
+  }, [statusDataVersion, reloadStats]); // Only re-run when the polled version changes.
 
   // Section card click: write domain filter to localStorage, clear group filter,
   // dispatch event so a mounted NavTree re-reads immediately, then switch section.
@@ -2443,6 +2447,25 @@ export function HomeDashboard() {
     },
     [setActiveSection],
   );
+
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (loadError) {
+    return (
+      <div
+        data-testid="home-dashboard-error"
+        style={{ width: "min(560px, calc(100% - 32px))", margin: "auto" }}
+      >
+        <ErrorState
+          title={t("home.error.title")}
+          error={loadError}
+          onRetry={() => {
+            setOverview(undefined);
+            reloadStats();
+          }}
+        />
+      </div>
+    );
+  }
 
   // ── Loading state ──────────────────────────────────────────────────────────
   if (overview === undefined) {
@@ -2527,15 +2550,24 @@ export function HomeDashboard() {
     );
   }
 
-  // ── Error state ────────────────────────────────────────────────────────────
-  if (loadError) {
+  if (overview.pages_total === 0) {
+    const setupState = readSetupState();
+    const providerReady =
+      setupState.providerVerified &&
+      activeProvider !== null &&
+      activeProvider.is_fallback !== true &&
+      setupState.providerFingerprint !== null &&
+      setupState.providerFingerprint === providerVerificationFingerprint(activeProvider);
+
     return (
-      <div
-        data-testid="home-dashboard-error"
-        style={{ padding: 40, color: "var(--syn-error, #ef4444)", fontSize: 13 }}
-      >
-        {loadError}
-      </div>
+      <HomeGettingStarted
+        backendReady={connectionState === "online"}
+        providerReady={providerReady}
+        workspaceName={vaultId}
+        onImport={() => setActiveSection("ingest")}
+        onConfigureProvider={() => setActiveSection("settings")}
+        onOpenProjects={() => setActiveSection("projects")}
+      />
     );
   }
 

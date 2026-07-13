@@ -1,3 +1,35 @@
+# Tasks — Full UI/UX review and product polish
+
+## Evidence and architecture
+
+- [x] Audit every primary screen in the running application and source.
+- [x] Map the complete first-user journey and recovery paths.
+- [x] Review design tokens, shared components, large files and brand compliance.
+- [x] Publish the screen-by-screen review with P0/P1/P2 recommendations.
+
+## Reliability and orientation
+
+- [x] Add a shared backend connection state to the existing status poll.
+- [x] Add a concise global offline/recovery surface without another poller.
+- [x] Replace Home's infinite failure skeleton with a recoverable error state.
+- [x] Make the provider selector distinguish loading, offline and unconfigured states.
+
+## Visual system and onboarding
+
+- [x] Consolidate repeated page-state/status presentation into shared primitives.
+- [x] Improve first-use hierarchy without adding a competing dashboard metaphor.
+- [x] Verify focus, keyboard navigation, text contrast and narrow layouts.
+- [x] Record logo and naming recommendations without applying an unapproved rename.
+
+## Quality
+
+- [x] Run focused red-green tests for each behavioral slice.
+- [x] Run full frontend tests, lint and production build.
+- [x] Re-run desktop and narrow browser QA; only expected offline-backend requests fail.
+- [x] Resolve all introduced P0/P1 findings in final multi-axis review.
+
+---
+
 # Tasks — Product readiness hardening
 
 ## Audit and planning

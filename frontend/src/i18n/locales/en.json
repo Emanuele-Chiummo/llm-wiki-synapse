@@ -1,4 +1,9 @@
 {
+  "connection": {
+    "offlineTitle": "Backend unavailable",
+    "offlineBody": "Reading may still work from cached data, but generation and imports are paused.",
+    "checkSetup": "Check connection"
+  },
   "nav": {
     "home": "Home",
     "chat": "Chat",
@@ -89,6 +94,8 @@
   },
   "provider": {
     "label": "Provider",
+    "unavailable": "Provider unavailable",
+    "unavailableBody": "Providers could not be loaded. Check the backend connection and try again.",
     "active": "Active",
     "scope": {
       "vault": "Vault",
@@ -249,6 +256,7 @@
       "testRunning": "Testing…",
       "loadingVendors": "Loading vendors…",
       "vendorLoadError": "Failed to load vendor catalog.",
+      "mutationError": "Could not save provider changes. Check the backend connection and try again.",
       "codexAuthTitle": "Authentication",
       "codexAuthNote": "Codex CLI authenticates itself — run `codex login` on the host (OAuth) or set OPENAI_API_KEY. Synapse stores no Codex token (unlike the Claude subscription token)."
     },
@@ -1526,6 +1534,29 @@
   "home": {
     "title": "System Overview",
     "subtitle": "At-a-glance view of your knowledge base",
+    "error": {
+      "title": "The knowledge overview could not be loaded"
+    },
+    "gettingStarted": {
+      "eyebrow": "Your first LLM Wiki",
+      "title": "Turn your documents into connected knowledge",
+      "body": "Add a few trusted sources. Synapse will extract concepts, create linked pages and surface questions, comparisons and synthesis for review.",
+      "flowLabel": "From sources to a connected wiki",
+      "sourcesTitle": "Sources",
+      "sourcesBody": "Upload documents or watch a folder.",
+      "connectionsTitle": "Connections",
+      "connectionsBody": "Generate pages, links and open questions.",
+      "wikiTitle": "Wiki",
+      "wikiBody": "Review the output and explore the knowledge graph.",
+      "backendReady": "Backend connected",
+      "backendNeeded": "Backend connection needs verification",
+      "providerReady": "AI provider ready",
+      "providerNeeded": "AI provider needs configuration",
+      "workspace": "Workspace: {{name}}",
+      "importCta": "Add your first sources",
+      "providerCta": "Configure AI provider",
+      "projectsCta": "Choose another project"
+    },
     "systemStatus": {
       "ariaLabel": "System status",
       "title": "STATO DEL SISTEMA",

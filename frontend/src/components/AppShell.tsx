@@ -35,8 +35,10 @@ import { TokenGate } from "./connect/TokenGate";
 import { CommandPalette } from "./common/CommandPalette";
 import { UpdateBanner } from "./common/UpdateBanner";
 import { VersionMismatchBanner } from "./common/VersionMismatchBanner";
+import { BackendConnectionBanner } from "./common/BackendConnectionBanner";
 import { FirstRunWizard, useFirstRunSetup, type WizardOutcome } from "./setup/FirstRunWizard";
 import type { SetupStep } from "./setup/setupState";
+import { OPEN_SETUP_EVENT, requestedSetupStep } from "./setup/setupEvents";
 import { isTauri, register401Handler } from "../api/base";
 import {
   useSettingsStore,
@@ -103,6 +105,7 @@ export function AppShell() {
 
   // Re-openable from Settings "Getting started" button.
   const [wizardForceOpen, setWizardForceOpen] = useState(false);
+  const [wizardRequestedStep, setWizardRequestedStep] = useState<SetupStep | undefined>();
   const handleWizardClose = useCallback(
     (outcome: WizardOutcome, lastStep: SetupStep) => {
       if (outcome === "completed") {
@@ -111,6 +114,7 @@ export function AppShell() {
         defer(lastStep);
       }
       setWizardForceOpen(false);
+      setWizardRequestedStep(undefined);
     },
     [defer, markDone],
   );
@@ -119,11 +123,12 @@ export function AppShell() {
   useEffect(() => {
     // The SettingsPanel "Getting started" slot fires this to re-open the wizard.
     // We use a custom DOM event rather than prop-drilling through SectionRouter.
-    function onReopenWizard() {
+    function onReopenWizard(event: Event) {
+      setWizardRequestedStep(requestedSetupStep(event));
       setWizardForceOpen(true);
     }
-    window.addEventListener("synapse:openWizard", onReopenWizard);
-    return () => window.removeEventListener("synapse:openWizard", onReopenWizard);
+    window.addEventListener(OPEN_SETUP_EVENT, onReopenWizard);
+    return () => window.removeEventListener(OPEN_SETUP_EVENT, onReopenWizard);
   }, []);
 
   const showWizard = shouldShow || wizardForceOpen;
@@ -161,6 +166,9 @@ export function AppShell() {
       {/* ── Row 1c: Version mismatch banner (R12-3/ADR-0054 §6 — non-blocking) ── */}
       <VersionMismatchBanner />
 
+      {/* Shared recovery surface driven by the existing /status poll. */}
+      <BackendConnectionBanner />
+
       {/* ── Row 2: NavRail + SectionRouter ─────────────────────────────────── */}
       {/* minHeight:0 ensures height:100% inside children resolves in flex-column. */}
       <div
@@ -197,7 +205,13 @@ export function AppShell() {
       <CommandPalette open={paletteOpen} onClose={handleClosePalette} />
 
       {/* ── First-run wizard (A2.2) — overlays after server is connected ────── */}
-      {showWizard && <FirstRunWizard onClose={handleWizardClose} />}
+      {showWizard && (
+        <FirstRunWizard
+          key={`setup-${wizardRequestedStep ?? "resume"}`}
+          initialStep={wizardRequestedStep}
+          onClose={handleWizardClose}
+        />
+      )}
     </div>
   );
 }
