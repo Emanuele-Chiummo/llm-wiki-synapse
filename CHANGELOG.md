@@ -9,6 +9,30 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.5] — 2026-07-13 — "remote MCP endpoint reachable again"
+
+Patch: the remote MCP HTTP surface (`/mcp/server`) never actually served requests —
+Claude Desktop / claude.ai / `mcp-remote` all got a 404. Two overlapping defects, both fixed.
+
+### Fixed
+- **`/mcp/server` was never mounted** — the R13-1 router split (`2bbe195`) dropped the
+  `app.mount(MCP_MOUNT_PATH, _BearerAuthMiddleware(...))` block, so every remote MCP request
+  hit a FastAPI routing 404 while `GET /mcp/info` still reported `http_enabled: true` (a
+  misleading green light). The OpenAPI drift gate could not catch it because a `Mount()`
+  sub-app is not an OpenAPI path. Restored the mount [F17].
+- **Endpoint served at the wrong path** — `http_app()` defaults to `path="/mcp"`, so even once
+  mounted the Streamable-HTTP endpoint sat at `/mcp/server/mcp`; a client POSTing to the
+  documented `/mcp/server` would still 404. Now mounted with `http_app(path="/")` so the
+  endpoint answers at the mount root (`/mcp/server`), matching the docs, the Settings UI
+  snippet, and `/mcp/info.mount_path`. Clients may use `/mcp/server` (307 → canonical) or
+  `/mcp/server/` directly [F17].
+
+### Added
+- **End-to-end MCP mount regression test** (`TestMcpServerMountedEndToEnd`) — POSTs an MCP
+  `initialize` through the real ASGI stack with the FastMCP session manager started, asserting
+  the handshake reaches the app (200), no-slash → 307 → canonical, wrong bearer → 401, and
+  remote-disabled → 404. Closes the coverage gap that let the regression ship green [F17].
+
 ## [1.5.4] — 2026-07-12 — "llm_wiki 1:1 parity — ingest boundaries, fuzzy lint, review dedup"
 
 Patch: closes five function-by-function divergences found auditing Synapse against
