@@ -2256,6 +2256,17 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
 /** Number of groups to show by default before "Espandi" toggle (A4). */
 const GROUPS_DEFAULT_CAP = 4;
 
+function isStatsRequestAbort(err: unknown, signal: AbortSignal): boolean {
+  if (signal.aborted) return true;
+  if (!(err instanceof Error)) return false;
+  if (err.name === "AbortError") return true;
+
+  // Tauri's native HTTP stack can surface caller-initiated aborts as a plain
+  // Error("Request cancelled") instead of a DOMException named AbortError.
+  // Treat that as navigation/refetch cleanup, not as a user-visible failure.
+  return err.message.trim().toLowerCase() === "request cancelled";
+}
+
 export function HomeDashboard() {
   const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
@@ -2352,7 +2363,7 @@ export function HomeDashboard() {
         // first poll not yet received), store -1 as sentinel so we don't loop.
         lastFetchedVersionRef.current = statusDataVersionRef.current ?? -1;
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
+        if (isStatsRequestAbort(err, signal)) return;
         setLoadError(err instanceof Error ? err.message : String(err));
       }
     })();
