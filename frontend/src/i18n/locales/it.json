@@ -315,6 +315,8 @@
         "urlLabel": "URL di connessione",
         "readOnlyBadge": "sola lettura",
         "readWriteBadge": "lettura + scrittura",
+        "writeToggleLabel": "scrittura remota",
+        "writeToggleNote": "Consenti ai client MCP di creare/aggiornare pagine e risolvere review via HTTP.",
         "snippetLabel": "Config claude.ai / client HTTP",
         "copySnippet": "Copia config remota"
       }
@@ -922,7 +924,21 @@
     "batchSentToReview": "Inviate {{count}} rilevazioni a revisione",
     "batchPartial": "{{ok}} riusciti, {{err}} falliti"
   },
+  "status": {
+    "pending": "in attesa",
+    "running": "in corso",
+    "completed": "completato",
+    "failed": "non riuscito",
+    "cancelled": "annullato",
+    "cancelledByUser": "annullato dall'utente"
+  },
+  "errors": {
+    "genericTitle": "Qualcosa è andato storto",
+    "technicalDetails": "Dettagli tecnici",
+    "copyDetails": "Copia dettagli"
+  },
   "graph": {
+    "loading": "Caricamento del grafo…",
     "header": {
       "pages": "pagine",
       "links": "link",
@@ -1025,6 +1041,8 @@
     "emptyBody": "Inizia a digitare per trovare pagine per similarità semantica.",
     "noResults": "Nessun risultato",
     "noResultsHint": "Prova parole diverse o una query più ampia.",
+    "takingLonger": "Sta impiegando più del previsto…",
+    "cancel": "Annulla",
     "error": "Errore di ricerca",
     "resultsLabel": "Risultati ricerca",
     "score": "Punteggio",
@@ -1209,7 +1227,8 @@
     "expand": "Espandi",
     "collapse": "Comprimi",
     "openTree": "Apri albero wiki",
-    "openPreview": "Apri dettagli pagina"
+    "openPreview": "Apri dettagli pagina",
+    "quickStart": "Avvio rapido"
   },
   "common": {
     "loading": "Caricamento…",
@@ -1240,6 +1259,9 @@
     "openFolder": "Apri cartella",
     "pathCopied": "Percorso copiato"
   },
+  "projects": {
+    "loadError": "Impossibile caricare i progetti"
+  },
   "meta": {
     "vaultSection": "Vault",
     "readOnly": "Sola lettura",
@@ -1250,7 +1272,8 @@
     "connectedTo": "Collegata a {{count}} altre pagine",
     "connectedTo_one": "Collegata a 1 altra pagina",
     "technicalDetails": "Dettagli tecnici",
-    "bodyHint": "Apri la pagina nella Wiki per leggerne il contenuto completo."
+    "bodyHint": "Apri la pagina nella Wiki per leggerne il contenuto completo.",
+    "connections": "Connessioni"
   },
   "palette": {
     "placeholder": "Cerca sezioni e pagine…",

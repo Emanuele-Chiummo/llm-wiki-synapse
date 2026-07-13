@@ -309,6 +309,12 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       mount_path: "/mcp/server",
       clamped: false,
     }),
+    // ADR-0072 §4 — default: successful write-enable
+    setMcpRemoteWrite: vi.fn().mockResolvedValue({
+      remote_write_enabled: true,
+      token_configured: true,
+      clamped: false,
+    }),
     // ADR-0033 §2.5 — default: rotate_token response with generated_token ONCE
     setMcpAuth: vi.fn().mockResolvedValue({
       token_configured: true,
@@ -2311,6 +2317,191 @@ describe("SettingsPanel — Config field labels are plain language, not env-var 
       const text = label?.textContent?.trim() ?? "";
       expect(ENV_VAR_PATTERN.test(text), `Label "${text}" must not be an env-var name`).toBe(false);
     });
+  });
+});
+
+// ─── 14b. Remote MCP write toggle — ADR-0072 ─────────────────────────────────
+// Tests mirror the remote-toggle tests above (§12). Navigation helper reused.
+
+describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
+  async function navigateToApiMcpAndWaitForRemote() {
+    renderPanel();
+    const apiBtn = document.querySelector('[data-settings-section="apiMcp"]');
+    fireEvent.click(apiBtn!);
+    // Wait for the remote toggle to appear (implies fetchMcpInfo resolved)
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-toggle")).toBeTruthy();
+    });
+  }
+
+  // ── Write toggle hidden when remote is off ─────────────────────────────────
+
+  it("write toggle is NOT in the DOM when remoteEnabled=false (default fixture)", async () => {
+    // Default fixture: remote_enabled=false → write toggle section not rendered
+    await navigateToApiMcpAndWaitForRemote();
+    expect(screen.queryByTestId("mcp-remote-write-toggle")).toBeNull();
+  });
+
+  // ── Write toggle visible when remote is enabled ────────────────────────────
+  //
+  // NOTE: each test sets up its OWN mockResolvedValueOnce (no shared beforeEach) so that
+  // exactly one value is queued per fetchMcpInfo call. Double-queuing via beforeEach +
+  // test body causes queue leakage into subsequent tests — avoided here by design.
+
+  it("write toggle renders when remoteEnabled=true (token configured)", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
+  });
+
+  it("write toggle is unchecked when remote_write_enabled=false", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+  });
+
+  it("write toggle is checked when remote_write_enabled=true (via fetch)", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: true,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+  });
+
+  it("write toggle is NOT disabled when canEnableRemote=true (token configured)", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    expect(toggle.disabled).toBe(false);
+  });
+
+  it("clicking write toggle calls setMcpRemoteWrite(true) when currently off", async () => {
+    const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    (mockSetWrite as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle");
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockSetWrite).toHaveBeenCalledWith(true);
+    });
+  });
+
+  it("after successful toggle ON, write toggle becomes checked", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    // Default mock returns remote_write_enabled:true
+    await waitFor(() => {
+      expect(toggle.checked).toBe(true);
+    });
+  });
+
+  it("clamped response keeps write toggle off (checked=false)", async () => {
+    const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
+      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "db" as const, allow_without_token: false,
+    });
+    (mockSetWrite as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      remote_write_enabled: false,
+      token_configured: false,
+      clamped: true,
+    });
+
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(mockSetWrite).toHaveBeenCalled();
+    });
+    expect(toggle.checked).toBe(false);
+  });
+
+  // ── Write toggle disabled when !canEnableRemote ────────────────────────────
+
+  it("write toggle is disabled when !canEnableRemote (no token, no allow-without)", async () => {
+    const { fetchMcpInfo } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: false, remote_write_enabled: false,
+      token_configured: false, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "none" as const, allow_without_token: false,
+    });
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
+    expect(toggle.disabled).toBe(true);
+  });
+
+  it("clicking disabled write toggle does NOT call setMcpRemoteWrite", async () => {
+    const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
+    (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
+      tool_count: 4, tools: [], http_enabled: false, remote_write_enabled: false,
+      token_configured: false, remote_enabled: true, mount_path: "/mcp/server",
+      token_source: "none" as const, allow_without_token: false,
+    });
+    (mockSetWrite as ReturnType<typeof vi.fn>).mockClear();
+
+    await navigateToApiMcpAndWaitForRemote();
+    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    const toggle = screen.getByTestId("mcp-remote-write-toggle");
+    fireEvent.click(toggle);
+
+    // Disabled input does not fire onChange, so the handler is never called.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(mockSetWrite).not.toHaveBeenCalled();
   });
 });
 

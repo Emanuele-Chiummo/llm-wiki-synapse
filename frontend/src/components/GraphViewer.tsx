@@ -2192,6 +2192,7 @@ const CentroidOverlay: React.FC<CentroidOverlayProps> = ({
 // ─── Status bar ───────────────────────────────────────────────────────────────
 
 const StatusBar: React.FC = () => {
+  const { t } = useTranslation();
   const { loading, error } = useGraphStatus();
   const { dataVersion, cacheStatus } = useGraphMeta();
   const nodes = useGraphStore(selectNodes);
@@ -2236,7 +2237,7 @@ const StatusBar: React.FC = () => {
         aria-live="polite"
         aria-busy="true"
       >
-        Loading graph...
+        {t("graph.loading")}
       </div>
     );
   }

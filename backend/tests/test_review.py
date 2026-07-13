@@ -84,6 +84,7 @@ def _build_review_meta() -> MetaData:
         Column("vault_id", String, nullable=False, unique=True),
         Column("data_version", Integer, nullable=False, default=0),
         Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
+        Column("remote_mcp_write_enabled", Integer, nullable=True),
         Column("mcp_access_token_hash", Text, nullable=True),
         Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
         # ADR-0040 §3: clip ingress runtime config (NULL = not set in DB; env fallback applies)

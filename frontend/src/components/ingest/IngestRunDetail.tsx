@@ -75,7 +75,17 @@ export function IngestRunDetail() {
 
       {/* Body */}
       <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
-        <DetailRow label={t("ingest.status.completed")} value={<span style={{ color: getStatusColor(run.status) }}>{run.status}</span>} />
+        <DetailRow
+          label={t("ingest.status.completed")}
+          value={
+            <span style={{ color: getStatusColor(run.status) }}>
+              {t(
+                `ingest.status.${run.status === "converged_false" ? "convergedFalse" : run.status}`,
+                { defaultValue: run.status },
+              )}
+            </span>
+          }
+        />
         <DetailRow label={t("provider.label")} value={run.provider_type} />
         <DetailRow label={t("ingest.iterationsUsed")} value={String(run.iterations_used)} />
         <DetailRow label={t("ingest.pagesCreated")} value={String(run.pages_created)} />

@@ -10,9 +10,11 @@ import { SectionHeader, EmbedRow, BTN_PRIMARY } from "../ui";
 import {
   fetchMcpInfo,
   setRemoteMcpEnabled,
+  setMcpRemoteWrite,
   setMcpAuth,
   type McpInfoResponse,
   type McpRemoteStateResponse,
+  type McpRemoteWriteStateResponse,
   type McpAuthResponse,
 } from "../../../api/providerClient";
 
@@ -54,6 +56,7 @@ export function SectionApiMcp() {
   const [mountPath, setMountPath] = useState("/mcp/server");
   const [remoteWrite, setRemoteWrite] = useState(false);
   const [toggleBusy, setToggleBusy] = useState(false);
+  const [writeBusy, setWriteBusy] = useState(false);
   const [copiedRemote, setCopiedRemote] = useState(false);
   const [copiedRemoteSnippet, setCopiedRemoteSnippet] = useState(false);
 
@@ -110,6 +113,23 @@ export function SectionApiMcp() {
       if (e instanceof Error && e.name === "AbortError") return;
     } finally {
       setToggleBusy(false);
+    }
+  };
+
+  const handleWriteToggle = async () => {
+    if (writeBusy || !canEnableRemote) return;
+    const next = !remoteWrite;
+    setWriteBusy(true);
+    try {
+      const resp: McpRemoteWriteStateResponse = await setMcpRemoteWrite(next);
+      if (!resp.clamped) {
+        setRemoteWrite(resp.remote_write_enabled);
+      }
+      // If clamped, server refused to enable — leave toggle off (already false); no flip.
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name === "AbortError") return;
+    } finally {
+      setWriteBusy(false);
     }
   };
 
@@ -301,9 +321,32 @@ export function SectionApiMcp() {
               </label>
 
               {remoteEnabled && (
-                <span style={{ padding: "2px 8px", borderRadius: 4, background: remoteWrite ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "var(--syn-surface-hover)", color: remoteWrite ? "var(--syn-green)" : "var(--syn-text-muted)", fontSize: 10, fontWeight: 600, letterSpacing: "0.04em", flexShrink: 0 }}>
-                  {remoteWrite ? t("settings.apiMcp.remote.readWriteBadge") : t("settings.apiMcp.remote.readOnlyBadge")}
-                </span>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: canEnableRemote ? "pointer" : "not-allowed", userSelect: "none", flexShrink: 0 }} title={canEnableRemote ? undefined : t("settings.apiMcp.remote.noTokenNote")}>
+                  <span style={{ position: "relative", display: "inline-block", width: 36, height: 20 }}>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      aria-label={t("settings.apiMcp.remote.writeToggleLabel")}
+                      data-testid="mcp-remote-write-toggle"
+                      checked={remoteWrite}
+                      disabled={!canEnableRemote || writeBusy}
+                      onChange={() => { void handleWriteToggle(); }}
+                      style={{ position: "absolute", opacity: 0, width: 0, height: 0 }}
+                    />
+                    <span aria-hidden="true" style={{ display: "block", width: 36, height: 20, borderRadius: 10, background: remoteWrite ? "var(--syn-green)" : "var(--syn-border)", border: `1px solid ${remoteWrite ? "var(--syn-green)" : "var(--syn-border-subtle)"}`, transition: "background 0.15s, border-color 0.15s" }} />
+                    <span aria-hidden="true" style={{ position: "absolute", top: 3, left: remoteWrite ? 19 : 3, width: 14, height: 14, borderRadius: "50%", background: remoteWrite ? "#fff" : "var(--syn-text-dim)", transition: "left 0.15s, background 0.15s" }} />
+                  </span>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: remoteWrite ? "var(--syn-green)" : "var(--syn-text-muted)" }}>
+                      {remoteWrite ? t("settings.apiMcp.remote.readWriteBadge") : t("settings.apiMcp.remote.readOnlyBadge")}
+                    </span>
+                    {!remoteWrite && (
+                      <p style={{ margin: "2px 0 0", fontSize: 10, color: "var(--syn-text-dim)", lineHeight: 1.4 }}>
+                        {t("settings.apiMcp.remote.writeToggleNote")}
+                      </p>
+                    )}
+                  </div>
+                </label>
               )}
             </div>
 
