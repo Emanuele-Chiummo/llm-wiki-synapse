@@ -9,11 +9,24 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
-## [1.5.6] — 2026-07-13 — "UI audit follow-ups"
+## [1.5.6] — 2026-07-13 — "write toggle, Marker auto-split, UI audit follow-ups"
 
-Patch: usability + accessibility fixes from a UI audit of the live instance. Frontend +
-nginx only — no backend/API change (OpenAPI diff is the version bump alone). Feature work
-(remote MCP write toggle, Marker `--auto` split) is held for 1.6.0.
+Bundles two features (runtime remote-MCP write toggle, Marker `--auto` chapter split) with
+usability + accessibility fixes from a UI audit of the live instance.
+
+### Added
+- **Remote MCP write tools are now toggleable from Settings** (ADR-0072). *Settings → API & MCP*
+  gains a real switch that enables/disables the HTTP MCP write tools (`write_page`,
+  `resolve_review`, `trigger_source_rescan`) at runtime — no more env-var edit + backend
+  restart. Persisted in `vault_state.remote_mcp_write_enabled` (migration 0030, DB-wins-else-env
+  precedence); exposed via `PUT /mcp/remote-write`; reflected in `GET /mcp/info`. Write tools are
+  always registered but each guards on the runtime flag (always-register-guard). Token-floor
+  clamp: enabling requires a configured token (or allow-without-token). `MCP_REMOTE_WRITE_ENABLED`
+  remains the bootstrap default for fresh vaults [F17].
+- **`--auto` mode for the ServiceNow Marker connector** (`tools/marker-converter`): derives
+  module/feature codes from the PDF bookmark outline (no curated-map or `--module-title` presets),
+  splits **every** module in the book, and defaults to one file per L2 chapter/group. Makes large
+  multi-module exports (e.g. the 5000-page ITOM book) drop-and-forget in `--watch-dir` mode.
 
 ### Fixed
 - **Projects page no longer 404s the API in production** — the nginx reverse-proxy regex
@@ -24,7 +37,7 @@ nginx only — no backend/API change (OpenAPI diff is the version bump alone). F
   `vite.config.ts` again.
 - **Raw technical errors are no longer shown to users** — a new reusable `ErrorState`
   component (friendly title + Retry + collapsible "Technical details" with a copy button)
-  replaces bare exception text on the Projects page, the AI &amp; Models settings section, and
+  replaces bare exception text on the Projects page, the AI & Models settings section, and
   Search. A raw `500 Internal Server Error` / JSON-parse error now renders as a civil,
   retryable state with the raw detail tucked behind a disclosure.
 

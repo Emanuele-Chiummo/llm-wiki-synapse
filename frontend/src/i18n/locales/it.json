@@ -315,6 +315,8 @@
         "urlLabel": "URL di connessione",
         "readOnlyBadge": "sola lettura",
         "readWriteBadge": "lettura + scrittura",
+        "writeToggleLabel": "scrittura remota",
+        "writeToggleNote": "Consenti ai client MCP di creare/aggiornare pagine e risolvere review via HTTP.",
         "snippetLabel": "Config claude.ai / client HTTP",
         "copySnippet": "Copia config remota"
       }

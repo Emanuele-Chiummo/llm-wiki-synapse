@@ -301,6 +301,14 @@ class VaultState(Base):
     Incremented +1 only on a successful content-changing upsert ingest.
     Never decremented: startup, restart, deletion, duplicate-skip, and GET requests
     leave it unchanged (AC-F16dv-4).
+
+    Column notes (ADR cross-references):
+      remote_mcp_enabled         — ADR-0032, migration 0011. Runtime ON/OFF for HTTP MCP surface.
+      mcp_access_token_hash      — ADR-0033, migration 0012. PBKDF2 hash; never plaintext.
+      mcp_allow_without_token    — ADR-0033, migration 0012. Private-source token-less exemption.
+      remote_mcp_write_enabled   — ADR-0072, migration 0030. Nullable runtime toggle for write
+                                   tools on the HTTP surface. NULL = use MCP_REMOTE_WRITE_ENABLED
+                                   env; non-NULL DB value is authoritative (DB-wins-else-env).
     """
 
     __tablename__ = "vault_state"
@@ -365,6 +373,22 @@ class VaultState(Base):
             "PUBLIC sources (Cloudflare tunnel — CF-Connecting-IP/CF-Ray) are NEVER "
             "exempted regardless of this flag (fail-safe by construction). "
             "Default false — fail-closed. Migration 0012."
+        ),
+    )
+
+    # ── ADR-0072: Remote MCP write tools runtime toggle ───────────────────────────
+    remote_mcp_write_enabled: Mapped[bool | None] = mapped_column(
+        Boolean,
+        nullable=True,
+        default=None,
+        comment=(
+            "Runtime toggle for write tools (write_page, resolve_review, "
+            "trigger_source_rescan) on the HTTP MCP surface (ADR-0072 §1). "
+            "NULL = not set in DB; env MCP_REMOTE_WRITE_ENABLED is the fallback. "
+            "When NOT NULL, DB value is authoritative (DB-wins-else-env). "
+            "Always-register-guard model: write tools are always listed on the HTTP "
+            "surface but each body checks the effective flag at call time (ADR-0072 §3). "
+            "Migration 0030."
         ),
     )
 
