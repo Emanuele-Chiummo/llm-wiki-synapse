@@ -48,5 +48,5 @@ def test_public_metadata_uses_shared_positioning() -> None:
     assert backend_package["project"]["description"] == f"Synapse — {descriptor}"
 
     extension = json.loads((root / "extension" / "manifest.json").read_text())
-    assert extension["version"] == "1.6.0"
+    assert extension["version"] == backend_package["project"]["version"]
     assert extension["description"] == f"Clip web articles to Synapse. {descriptor}"

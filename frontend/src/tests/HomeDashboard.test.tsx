@@ -125,13 +125,14 @@ vi.mock("../api/healthClient", () => ({
 
 const mockBackendVersion = vi.fn<() => string | undefined>(() => undefined);
 let mockConnectionState: "checking" | "online" | "offline" = "online";
+let mockStatusDataVersion: number | null = null;
 
 vi.mock("../store/statusStore", () => ({
   useStatusStore: (selector: (s: unknown) => unknown) =>
     selector({
       backendVersion: mockBackendVersion(),
       connectionState: mockConnectionState,
-      dataVersion: null,
+      dataVersion: mockStatusDataVersion,
     }),
   selectBackendVersion: (s: { backendVersion: string | undefined }) => s.backendVersion,
   selectBackendConnectionState: (s: { connectionState: typeof mockConnectionState }) =>
@@ -469,6 +470,7 @@ describe("HomeDashboard — recoverable backend failure", () => {
     vi.clearAllMocks();
     localStorage.clear();
     mockConnectionState = "online";
+    mockStatusDataVersion = null;
     mockActiveProvider.mockReturnValue(null);
     setupDefaultMocks();
     mockGetSynthesizeStatus.mockResolvedValue(null);
@@ -490,6 +492,19 @@ describe("HomeDashboard — recoverable backend failure", () => {
     await waitFor(() => {
       expect(screen.getByTestId("home-dashboard")).not.toBeNull();
     });
+  });
+
+  it("does not show the error state when a stats request is cancelled during navigation", async () => {
+    mockGetStatsOverview.mockRejectedValueOnce(new Error("Request cancelled"));
+
+    render(<HomeDashboard />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByTestId("home-dashboard-error")).toBeNull();
+    expect(screen.getByTestId("home-dashboard-loading")).not.toBeNull();
   });
 });
 
