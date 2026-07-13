@@ -79,6 +79,24 @@ describe("R10-5 Mobile CSS hooks — NavRail", () => {
     const labels = document.querySelectorAll(".nav-rail__label");
     expect(labels.length, "there should be nav-rail__label spans").toBeGreaterThan(0);
   });
+
+  it("keeps primary navigation in a dedicated scroll region for short windows", () => {
+    const scrollRegion = document.querySelector(".nav-rail__scroll");
+    expect(scrollRegion).not.toBeNull();
+    expect(scrollRegion!.querySelector('[data-section="home"]')).not.toBeNull();
+    expect(scrollRegion!.querySelector('[data-section="convert"]')).not.toBeNull();
+  });
+
+  it("keeps Settings in the pinned bottom region outside the scrollable navigation", () => {
+    const scrollRegion = document.querySelector(".nav-rail__scroll");
+    const bottomRegion = document.querySelector(".nav-rail__bottom");
+    const settings = document.querySelector('[data-section="settings"]');
+
+    expect(bottomRegion).not.toBeNull();
+    expect(settings).not.toBeNull();
+    expect(bottomRegion!.contains(settings)).toBe(true);
+    expect(scrollRegion!.contains(settings)).toBe(false);
+  });
 });
 
 // ─── MessageInput: mobile CSS hooks ───────────────────────────────────────────
@@ -87,38 +105,20 @@ describe("R10-5 Mobile CSS hooks — MessageInput", () => {
   const noop = () => {};
 
   it("renders textarea with className 'chat-input-textarea' (AC-R10-5-2 touch target)", () => {
-    render(
-      <MessageInput
-        onSend={noop}
-        onStop={noop}
-        isStreaming={false}
-      />,
-    );
+    render(<MessageInput onSend={noop} onStop={noop} isStreaming={false} />);
     const textarea = document.querySelector(".chat-input-textarea");
     expect(textarea, ".chat-input-textarea must be present").not.toBeNull();
     expect(textarea!.tagName.toLowerCase()).toBe("textarea");
   });
 
   it("renders send button with className 'chat-send-btn' when not streaming (AC-R10-5-2)", () => {
-    render(
-      <MessageInput
-        onSend={noop}
-        onStop={noop}
-        isStreaming={false}
-      />,
-    );
+    render(<MessageInput onSend={noop} onStop={noop} isStreaming={false} />);
     const sendBtn = document.querySelector(".chat-send-btn");
     expect(sendBtn, ".chat-send-btn must be present when not streaming").not.toBeNull();
   });
 
   it("renders stop button with className 'chat-stop-btn' when streaming (AC-R10-5-2)", () => {
-    render(
-      <MessageInput
-        onSend={noop}
-        onStop={noop}
-        isStreaming={true}
-      />,
-    );
+    render(<MessageInput onSend={noop} onStop={noop} isStreaming={true} />);
     const stopBtn = document.querySelector(".chat-stop-btn");
     expect(stopBtn, ".chat-stop-btn must be present when streaming").not.toBeNull();
   });

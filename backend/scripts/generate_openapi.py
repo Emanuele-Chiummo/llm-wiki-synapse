@@ -175,7 +175,7 @@ def main() -> None:
     )
 
     # ADR-0052 §2.5: all non-exempt routes reference BearerAuth; exempt routes have security:[].
-    _OPENAPI_SECURITY_EXEMPT_PATHS = {"/status", "/health/detailed"}
+    _OPENAPI_SECURITY_EXEMPT_PATHS = {"/status", "/health/live"}
     paths_missing_security: list[str] = []
     exempt_paths_not_empty_security: list[str] = []
     for path, path_item in paths.items():
@@ -222,7 +222,7 @@ def main() -> None:
         "McpAuthStateResponse (ADR-0033); token_configured, token_source confirmed in "
         "ClipConfigResponse (ADR-0040); no token/hash/salt field exposed (no-leak check PASS); "
         "BearerAuth securityScheme declared + all non-exempt routes reference it + "
-        "/status and /health/detailed have security=[] (ADR-0052 §2.5, EC-M10-4); "
+        "/status and /health/live have security=[] (ADR-0052 §2.5, EC-M10-4); "
         "/ingest/convert-marker, /ingest/marker-health (R11-1 / ADR-0051); "
         "/config/app, /config/app/{key} (R11-2 / ADR-0053); "
         "/stats/overview, /stats/sections (R12-1 / ADR-0054 §5, F18); "

@@ -1,4 +1,56 @@
-# Plan — Synapse 1.6.0 generation lifecycle parity
+# Plan — Product readiness hardening after Synapse 1.6.0
+
+## Objective
+
+Turn the 1.6.0 feature-complete application into a trustworthy, understandable and
+redistributable self-hosted LLM Wiki. This cycle prioritizes secure defaults, a verified
+first-run path, maintainable interface boundaries and rename-ready product identity.
+
+The product remains a local/self-hosted LLM Wiki. A final rename is deliberately excluded
+until name, repository, package and trademark conflicts have been reviewed by the owner.
+
+## Work graph
+
+| ID | Slice | Depends on | Verification |
+|---|---|---|---|
+| R0 | Architecture, first-run, brand and distribution audit | — | evidence-backed P0/P1/P2 report |
+| R1 | Secure `local` / `server` deployment modes | R0 | config/auth focused tests |
+| R2 | Versioned setup state and truthful completion semantics | R0 | red/green Vitest contract tests |
+| R3 | First-run wizard and connection UI decomposition | R2 | Vitest, lint, responsive QA |
+| R4 | Central product identity and rename boundary | R0 | identity tests + grep audit |
+| R5 | Community install, desktop capability and durable jobs roadmap | R0–R4 | ADR/sprint backlog review |
+| R6 | Integrated quality and adversarial review | R1–R4 | backend/frontend gates |
+
+## Current delivery boundary
+
+- Implement R1–R4 as independently testable vertical slices.
+- Record but do not silently absorb the larger P0/P1 programs: Tauri command hardening,
+  one-command community deployment, atomic wiki writes, persistent job execution and release signing.
+- Preserve all user-owned untracked files and source branding material.
+- Keep the existing Synapse name and mark in shipped surfaces until the owner selects a new name.
+- Prefer explicit readiness states over inferring configuration from a non-empty provider list.
+
+## Acceptance criteria
+
+- [x] Server deployments cannot start with missing or weak authentication credentials.
+- [x] Public health endpoints expose only the minimum connection/liveness contract.
+- [x] Dismissing setup is distinct from completing setup and does not claim the product is ready.
+- [x] A returning user can reopen setup and continue from the first incomplete check.
+- [x] First-run UI uses the brand typography/tokens, has clear progress labels and remains keyboard usable.
+- [x] Product name/tagline references used by core UI are centralized for a future rename.
+- [x] Focused tests, full frontend gates and affected backend gates pass.
+- [x] Final code review has no unresolved P0/P1 regression introduced by this cycle.
+
+## Decision log
+
+- 2026-07-13: the owner authorized agentic product, usability and visual improvements.
+- 2026-07-13: security and first-run reliability take precedence over additional decorative work.
+- 2026-07-13: branding PDF v1.0 remains the visual source of truth; the logo is retained while
+  product naming is evaluated separately.
+
+---
+
+## Completed baseline — Synapse 1.6.0 generation lifecycle parity
 
 ## Objective
 

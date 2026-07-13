@@ -1,14 +1,13 @@
 /**
  * FirstRunWizard.tsx — guided first-run setup wizard (A2.2, AC-R11-2-13/14).
  *
- * Shows automatically when:
- *   (a) the provider-config list is empty (unconfigured state), AND
- *   (b) localStorage["synapse.setupCompleted"] is absent.
+ * Shows automatically until the versioned setup state is explicitly completed.
+ * Seeded provider rows are not treated as readiness evidence.
  *
  * Can be re-opened from Settings "Getting started" via the onOpen callback
  * that SettingsPanel calls into AppShell.
  *
- * Steps (bounded, each skippable):
+ * Steps (bounded and resumable):
  *   Step 1 — Connect & verify: confirm backend URL is reachable (reuses the
  *             /status health probe via apiFetch).
  *   Step 2 — Choose inference provider + model: reuses the SAME
@@ -16,12 +15,13 @@
  *             in SettingsPanel (endpoint: POST /provider/config).
  *   Step 3 — Choose PDF extractor (pypdf vs Marker + URL): reuses putAppConfig
  *             (PUT /config/app/{key}) — same as SectionRuntimeConfig.
- *   Step 4 — Done.
+ *   Step 4 — truthful readiness summary. Incomplete checks remain deferred.
  *
  * PERSISTENCE CONTRACT (ADR-0053 §5):
  *   - Provider step → POST /provider/config (createProviderConfig)
  *   - PDF step → PUT /config/app/pdf_extractor, PUT /config/app/marker_service_url
- *   - Dismiss flag → localStorage["synapse.setupCompleted"] = "1"
+ *   - Setup state → localStorage["synapse.setupState"] (versioned)
+ *   - Legacy completed flags are migrated without breaking existing users.
  *   NO other persistence path. A Vitest spy confirms this (AC-R11-2-13).
  *
  * UI CONTRACT:
@@ -46,33 +46,25 @@ import React, {
 import { useTranslation } from "react-i18next";
 import {
   apiBase,
-  apiFetch,
   setServerUrl,
   clearServerUrl,
+  clearAuthToken,
   getLastServerUrl,
+  platformFetch,
 } from "../../api/base";
 import { putAppConfig } from "../../api/appConfigClient";
-import { createProviderConfig } from "../../api/providerClient";
+import { createProviderConfig, testProviderConnection } from "../../api/providerClient";
 import type { CreateProviderConfigBody } from "../../api/types";
+import { completeSetup, deferSetup, readSetupState, type SetupStep } from "./setupState";
 
-// ─── localStorage flag ────────────────────────────────────────────────────────
-
-const LS_SETUP_COMPLETED = "synapse.setupCompleted";
+// ─── Backwards-compatible setup helpers ─────────────────────────────────────
 
 export function getSetupCompleted(): boolean {
-  try {
-    return localStorage.getItem(LS_SETUP_COMPLETED) === "1";
-  } catch {
-    return false;
-  }
+  return readSetupState().status === "completed";
 }
 
 export function markSetupCompleted(): void {
-  try {
-    localStorage.setItem(LS_SETUP_COMPLETED, "1");
-  } catch {
-    // ignore — storage unavailable
-  }
+  completeSetup();
 }
 
 // ─── Hook: first-run detection ────────────────────────────────────────────────
@@ -80,16 +72,17 @@ export function markSetupCompleted(): void {
 /**
  * useFirstRunSetup — determines whether the wizard should show automatically.
  *
- * "Unconfigured" = provider list is empty AND setupCompleted flag is absent.
- * Takes the provider list from the caller (already in providerStore) to avoid
- * a second fetch.
+ * Provider row count is retained in the signature for caller compatibility, but
+ * readiness is explicit: seeded rows may still lack credentials or connectivity.
  */
 export function useFirstRunSetup(providerListLength: number): {
   shouldShow: boolean;
   markDone: () => void;
+  defer: (lastStep: WizardStep) => void;
 } {
   const [flagChecked, setFlagChecked] = useState(false);
   const [flagSet, setFlagSet] = useState(false);
+  const [dismissedForSession, setDismissedForSession] = useState(false);
 
   useEffect(() => {
     const done = getSetupCompleted();
@@ -102,19 +95,28 @@ export function useFirstRunSetup(providerListLength: number): {
     setFlagSet(true);
   }, []);
 
-  // Show when: flag check complete, flag not set, provider list empty.
-  const shouldShow = flagChecked && !flagSet && providerListLength === 0;
+  const defer = useCallback((lastStep: WizardStep) => {
+    deferSetup(lastStep);
+    setDismissedForSession(true);
+  }, []);
 
-  return { shouldShow, markDone };
+  // Seed rows do not prove that the provider is reachable or credentialed.
+  // Keep the argument for backwards-compatible callers while completion moves
+  // to an explicit, versioned state.
+  void providerListLength;
+  const shouldShow = flagChecked && !flagSet && !dismissedForSession;
+
+  return { shouldShow, markDone, defer };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = SetupStep;
+export type WizardOutcome = "completed" | "deferred";
 
 interface WizardProps {
-  /** Called when the wizard is dismissed (skip or done). */
-  onClose: () => void;
+  /** Reports a truthful outcome rather than treating every dismissal as done. */
+  onClose: (outcome: WizardOutcome, lastStep: WizardStep) => void;
 }
 
 // ─── Inline style constants (mirrors SettingsPanel tokens) ───────────────────
@@ -153,28 +155,44 @@ const INPUT_STYLE: React.CSSProperties = {
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
 
-function StepDots({ current, total }: { current: WizardStep; total: number }) {
+function StepProgress({ current, total }: { current: WizardStep; total: number }) {
+  const { t } = useTranslation();
+  const labels = [
+    t("wizard.progress.connection"),
+    t("wizard.progress.provider"),
+    t("wizard.progress.pdf"),
+    t("wizard.progress.finish"),
+  ];
   return (
-    <div
-      aria-hidden="true"
-      style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8 }}
+    <ol
+      data-testid="wizard-progress"
+      aria-label={t("wizard.progress.label", { current, total })}
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${total}, minmax(0, 1fr))`,
+        gap: 8,
+        listStyle: "none",
+        margin: "24px 0 0",
+        padding: 0,
+      }}
     >
       {Array.from({ length: total }, (_, i) => (
-        <span
+        <li
           key={i}
+          aria-current={i + 1 === current ? "step" : undefined}
           style={{
-            width: 8,
-            height: 8,
-            borderRadius: "50%",
-            background:
-              i + 1 === current
-                ? "var(--syn-accent)"
-                : "var(--syn-border)",
-            transition: "background 0.15s",
+            borderTop: `3px solid ${i + 1 <= current ? "var(--syn-accent)" : "var(--syn-border)"}`,
+            paddingTop: 6,
+            color: i + 1 === current ? "var(--syn-text)" : "var(--syn-text-dim)",
+            fontSize: 10,
+            fontWeight: i + 1 === current ? 650 : 500,
+            lineHeight: 1.25,
           }}
-        />
+        >
+          {labels[i]}
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }
 
@@ -183,9 +201,11 @@ function StepDots({ current, total }: { current: WizardStep; total: number }) {
 function Step1Connect({
   onNext,
   onSkip,
+  onVerified,
 }: {
   onNext: () => void;
   onSkip: () => void;
+  onVerified: () => void;
 }) {
   const { t } = useTranslation();
   // Editable backend URL — prefilled with the currently-resolved base (or the
@@ -227,16 +247,22 @@ function Step1Connect({
 
     setStatus("checking");
     try {
-      const res = await apiFetch(`${probeBase}/status`);
+      // Never inherit the current server's bearer token when probing an
+      // editable candidate host.
+      const res = await platformFetch(`${probeBase}/status`);
       if (res.ok) {
         // Persist the entered URL so every later call (provider/config, app config,
         // and the rest of the app) targets this backend. Blank reverts to same-origin.
+        if (trimmed !== apiBase()) {
+          clearAuthToken();
+        }
         if (trimmed.length > 0) {
           setServerUrl(trimmed);
         } else {
           clearServerUrl();
         }
         setStatus("ok");
+        onVerified();
       } else {
         setStatus("error");
         setErrMsg(t("wizard.step1.errNotOk", { status: res.status }));
@@ -249,9 +275,7 @@ function Step1Connect({
 
   return (
     <div>
-      <h3
-        style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}
-      >
+      <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}>
         {t("wizard.step1.title")}
       </h3>
       <p
@@ -314,8 +338,7 @@ function Step1Connect({
             padding: "6px 12px",
             background:
               "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base, transparent) 92%)",
-            border:
-              "1px solid color-mix(in srgb, var(--syn-green) 30%, transparent 70%)",
+            border: "1px solid color-mix(in srgb, var(--syn-green) 30%, transparent 70%)",
             borderRadius: 6,
             fontSize: 12,
             color: "var(--syn-green)",
@@ -333,8 +356,7 @@ function Step1Connect({
             padding: "6px 12px",
             background:
               "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base, transparent) 92%)",
-            border:
-              "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+            border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
             borderRadius: 6,
             fontSize: 12,
             color: "var(--syn-red)",
@@ -347,7 +369,9 @@ function Step1Connect({
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
           data-testid="wizard-step1-check"
-          onClick={() => { void handleCheck(); }}
+          onClick={() => {
+            void handleCheck();
+          }}
           disabled={status === "checking"}
           style={{
             ...BTN_PRIMARY,
@@ -359,22 +383,14 @@ function Step1Connect({
         </button>
 
         {status === "ok" && (
-          <button
-            data-testid="wizard-step1-next"
-            onClick={onNext}
-            style={BTN_PRIMARY}
-          >
+          <button data-testid="wizard-step1-next" onClick={onNext} style={BTN_PRIMARY}>
             {t("wizard.next")}
           </button>
         )}
 
         {/* Allow advancing even if not checked — backend may be same-origin */}
         {status !== "ok" && status !== "checking" && (
-          <button
-            data-testid="wizard-step1-skip-check"
-            onClick={onNext}
-            style={BTN_SECONDARY}
-          >
+          <button data-testid="wizard-step1-skip-check" onClick={onNext} style={BTN_SECONDARY}>
             {t("wizard.skipStep")}
           </button>
         )}
@@ -398,15 +414,18 @@ function Step2Provider({
   onNext,
   onBack,
   onSkip,
+  onVerified,
 }: {
   onNext: () => void;
   onBack: () => void;
   onSkip: () => void;
+  onVerified: () => void;
 }) {
   const { t } = useTranslation();
   const [providerType, setProviderType] = useState<"api" | "local" | "cli">("api");
   const [modelId, setModelId] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [saved, setSaved] = useState(false);
@@ -420,10 +439,21 @@ function Step2Provider({
       provider_type: providerType,
       model_id: modelId.trim() || null,
       base_url: baseUrl.trim() || null,
+      ...(providerType === "api" && apiKey.trim() ? { api_key: apiKey.trim() } : {}),
     };
     try {
+      const probe = await testProviderConnection({
+        provider_type: providerType,
+        model: modelId.trim(),
+        base_url: baseUrl.trim() || null,
+        ...(providerType === "api" && apiKey.trim() ? { api_key: apiKey.trim() } : {}),
+      });
+      if (!probe.ok) {
+        throw new Error(probe.detail || t("wizard.step2.probeFailed"));
+      }
       await createProviderConfig(body);
       setSaved(true);
+      onVerified();
       // Advance after a brief moment to let user see success
       setTimeout(onNext, 400);
     } catch (e: unknown) {
@@ -436,8 +466,8 @@ function Step2Provider({
     providerType === "local"
       ? t("settings.llmModels.modelIdPlaceholderLocal")
       : providerType === "cli"
-      ? t("settings.llmModels.modelIdPlaceholderCli")
-      : t("settings.llmModels.modelIdPlaceholder");
+        ? t("settings.llmModels.modelIdPlaceholderCli")
+        : t("settings.llmModels.modelIdPlaceholder");
 
   const baseUrlPlaceholder =
     providerType === "local"
@@ -446,9 +476,7 @@ function Step2Provider({
 
   return (
     <div>
-      <h3
-        style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}
-      >
+      <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}>
         {t("wizard.step2.title")}
       </h3>
       <p
@@ -531,8 +559,36 @@ function Step2Provider({
         </>
       )}
 
+      {providerType === "api" && (
+        <>
+          <label
+            htmlFor="wizard-step2-api-key"
+            style={{
+              display: "block",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--syn-text-muted)",
+              marginBottom: 4,
+            }}
+          >
+            {t("settings.llmModels.apiKeyLabel")}
+          </label>
+          <input
+            id="wizard-step2-api-key"
+            type="password"
+            data-testid="wizard-step2-api-key"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={t("settings.llmModels.apiKeyPlaceholder")}
+            autoComplete="new-password"
+            style={{ ...INPUT_STYLE, marginBottom: 14 }}
+          />
+        </>
+      )}
+
       {err && (
         <p
+          role="alert"
           style={{
             fontSize: 12,
             color: "var(--syn-red)",
@@ -553,16 +609,14 @@ function Step2Provider({
       )}
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button
-          data-testid="wizard-back"
-          onClick={onBack}
-          style={BTN_SECONDARY}
-        >
+        <button data-testid="wizard-back" onClick={onBack} style={BTN_SECONDARY}>
           {t("wizard.back")}
         </button>
         <button
           data-testid="wizard-step2-save"
-          onClick={() => { void handleSave(); }}
+          onClick={() => {
+            void handleSave();
+          }}
           disabled={saving || modelId.trim() === ""}
           title={modelId.trim() === "" ? t("settings.llmModels.modelIdRequired") : undefined}
           style={{
@@ -573,11 +627,7 @@ function Step2Provider({
         >
           {saving ? t("wizard.saving") : t("wizard.step2.save")}
         </button>
-        <button
-          data-testid="wizard-step2-skip"
-          onClick={onNext}
-          style={BTN_SECONDARY}
-        >
+        <button data-testid="wizard-step2-skip" onClick={onNext} style={BTN_SECONDARY}>
           {t("wizard.skipStep")}
         </button>
         <button
@@ -629,9 +679,7 @@ function Step3Pdf({
 
   return (
     <div>
-      <h3
-        style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}
-      >
+      <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}>
         {t("wizard.step3.title")}
       </h3>
       <p
@@ -700,11 +748,7 @@ function Step3Pdf({
         </>
       )}
 
-      {err && (
-        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "0 0 12px" }}>
-          {err}
-        </p>
-      )}
+      {err && <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "0 0 12px" }}>{err}</p>}
       {saved && (
         <p
           data-testid="wizard-step3-saved"
@@ -720,7 +764,9 @@ function Step3Pdf({
         </button>
         <button
           data-testid="wizard-step3-save"
-          onClick={() => { void handleSave(); }}
+          onClick={() => {
+            void handleSave();
+          }}
           disabled={saving}
           style={{
             ...BTN_PRIMARY,
@@ -730,11 +776,7 @@ function Step3Pdf({
         >
           {saving ? t("wizard.saving") : t("wizard.step3.save")}
         </button>
-        <button
-          data-testid="wizard-step3-skip"
-          onClick={onNext}
-          style={BTN_SECONDARY}
-        >
+        <button data-testid="wizard-step3-skip" onClick={onNext} style={BTN_SECONDARY}>
           {t("wizard.skipStep")}
         </button>
         <button
@@ -751,7 +793,7 @@ function Step3Pdf({
 
 // ─── Step 4: Done ─────────────────────────────────────────────────────────────
 
-function Step4Done({ onClose }: { onClose: () => void }) {
+function Step4Done({ onClose, ready }: { onClose: () => void; ready: boolean }) {
   const { t } = useTranslation();
   return (
     <div style={{ textAlign: "center" }}>
@@ -763,8 +805,7 @@ function Step4Done({ onClose }: { onClose: () => void }) {
           borderRadius: "50%",
           background:
             "color-mix(in srgb, var(--syn-green) 12%, var(--syn-mix-base, transparent) 88%)",
-          border:
-            "2px solid color-mix(in srgb, var(--syn-green) 40%, transparent 60%)",
+          border: "2px solid color-mix(in srgb, var(--syn-green) 40%, transparent 60%)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -774,10 +815,8 @@ function Step4Done({ onClose }: { onClose: () => void }) {
       >
         ✓
       </div>
-      <h3
-        style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}
-      >
-        {t("wizard.step4.title")}
+      <h3 style={{ margin: "0 0 8px", fontSize: 15, fontWeight: 700, color: "var(--syn-text)" }}>
+        {ready ? t("wizard.step4.title") : t("wizard.step4.deferredTitle")}
       </h3>
       <p
         style={{
@@ -787,14 +826,10 @@ function Step4Done({ onClose }: { onClose: () => void }) {
           lineHeight: 1.5,
         }}
       >
-        {t("wizard.step4.desc")}
+        {ready ? t("wizard.step4.desc") : t("wizard.step4.deferredDesc")}
       </p>
-      <button
-        data-testid="wizard-done"
-        onClick={onClose}
-        style={BTN_PRIMARY}
-      >
-        {t("wizard.step4.cta")}
+      <button data-testid="wizard-done" onClick={onClose} style={BTN_PRIMARY}>
+        {ready ? t("wizard.step4.cta") : t("wizard.step4.deferredCta")}
       </button>
     </div>
   );
@@ -807,18 +842,26 @@ const DIALOG_TITLE_ID = "first-run-wizard-title";
 
 export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
   const { t } = useTranslation();
-  const [step, setStep] = useState<WizardStep>(1);
+  const [initialSetup] = useState(readSetupState);
+  const [step, setStep] = useState<WizardStep>(() =>
+    initialSetup.status === "deferred" ? initialSetup.lastStep : 1,
+  );
+  const [connectionVerified, setConnectionVerified] = useState(initialSetup.connectionVerified);
+  const [providerVerified, setProviderVerified] = useState(initialSetup.providerVerified);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const ready = connectionVerified && providerVerified;
+  const resumeStep: WizardStep = !connectionVerified ? 1 : !providerVerified ? 2 : 3;
+
+  const deferAndClose = useCallback(() => {
+    const deferredStep = step === 4 && !ready ? resumeStep : step;
+    deferSetup(deferredStep, { connectionVerified, providerVerified });
+    onClose("deferred", deferredStep);
+  }, [connectionVerified, onClose, providerVerified, ready, resumeStep, step]);
 
   // Focus management: move focus into the dialog on mount.
   useEffect(() => {
-    // Find first focusable element inside dialog.
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable && focusable.length > 0) {
-      focusable[0]?.focus();
-    }
+    titleRef.current?.focus();
   }, [step]); // re-run on each step change
 
   // Esc closes the wizard (skip/dismiss).
@@ -826,7 +869,7 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
     (e: ReactKeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        deferAndClose();
       }
       // Focus trap inside dialog.
       if (e.key === "Tab" && dialogRef.current) {
@@ -839,6 +882,11 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
         const first = focusable[0] as HTMLElement;
         const last = focusable[focusable.length - 1] as HTMLElement;
         const active = document.activeElement as HTMLElement;
+        if (active === titleRef.current) {
+          e.preventDefault();
+          (e.shiftKey ? last : first).focus();
+          return;
+        }
         if (e.shiftKey) {
           if (active === first) {
             e.preventDefault();
@@ -852,16 +900,16 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
         }
       }
     },
-    [onClose],
+    [deferAndClose],
   );
 
   const goNext = useCallback(() => {
     if (step < TOTAL_STEPS) {
       setStep((s) => (s + 1) as WizardStep);
     } else {
-      onClose();
+      onClose(ready ? "completed" : "deferred", step);
     }
-  }, [step, onClose]);
+  }, [step, onClose, ready]);
 
   const goBack = useCallback(() => {
     if (step > 1) {
@@ -874,7 +922,7 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
     <div
       data-testid="wizard-overlay"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) deferAndClose();
       }}
       style={{
         position: "fixed",
@@ -932,7 +980,9 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
               {t("wizard.label")}
             </p>
             <h2
+              ref={titleRef}
               id={DIALOG_TITLE_ID}
+              tabIndex={-1}
               style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "var(--syn-text)" }}
             >
               {t("wizard.title")}
@@ -941,7 +991,7 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
           <button
             data-testid="wizard-close-x"
             aria-label={t("wizard.skipAll")}
-            onClick={onClose}
+            onClick={deferAndClose}
             style={{
               background: "transparent",
               border: "1px solid var(--syn-border)",
@@ -961,23 +1011,35 @@ export function FirstRunWizard({ onClose }: WizardProps): ReactNode {
         {/* Step content */}
         <div style={{ flex: 1 }}>
           {step === 1 && (
-            <Step1Connect onNext={goNext} onSkip={onClose} />
+            <Step1Connect
+              onNext={goNext}
+              onSkip={deferAndClose}
+              onVerified={() => setConnectionVerified(true)}
+            />
           )}
           {step === 2 && (
-            <Step2Provider onNext={goNext} onBack={goBack} onSkip={onClose} />
+            <Step2Provider
+              onNext={goNext}
+              onBack={goBack}
+              onSkip={deferAndClose}
+              onVerified={() => setProviderVerified(true)}
+            />
           )}
-          {step === 3 && (
-            <Step3Pdf onNext={goNext} onBack={goBack} onSkip={onClose} />
-          )}
+          {step === 3 && <Step3Pdf onNext={goNext} onBack={goBack} onSkip={deferAndClose} />}
           {step === 4 && (
-            <Step4Done onClose={onClose} />
+            <Step4Done
+              ready={ready}
+              onClose={() => {
+                if (!ready) {
+                  deferSetup(resumeStep, { connectionVerified, providerVerified });
+                }
+                onClose(ready ? "completed" : "deferred", ready ? 4 : resumeStep);
+              }}
+            />
           )}
         </div>
 
-        {/* Step dots (not shown on Done step — the checkmark replaces them) */}
-        {step !== 4 && (
-          <StepDots current={step} total={TOTAL_STEPS} />
-        )}
+        <StepProgress current={step} total={TOTAL_STEPS} />
       </div>
     </div>
   );

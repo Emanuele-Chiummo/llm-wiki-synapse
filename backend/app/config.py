@@ -8,7 +8,9 @@ All required vars fail fast if missing (pydantic-settings raises on startup).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal, Self
 
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -960,7 +962,22 @@ class Settings(BaseSettings):
 
     # ── Authentication (ADR-0052) ─────────────────────────────────────────────────
 
-    auth_token: str = ""
+    deployment_mode: Literal["local", "server"] = Field(
+        default="local",
+        validation_alias=AliasChoices("SYNAPSE_DEPLOYMENT_MODE", "deployment_mode"),
+    )
+    """
+    Runtime trust boundary for the shared REST API.
+
+    ``local`` preserves the zero-config, loopback-oriented development experience and permits
+    an empty ``SYNAPSE_AUTH_TOKEN``. ``server`` is fail-closed: startup validation requires a
+    non-whitespace bearer token of at least 32 characters. Env var: SYNAPSE_DEPLOYMENT_MODE.
+    """
+
+    auth_token: str = Field(
+        default="",
+        validation_alias=AliasChoices("SYNAPSE_AUTH_TOKEN", "auth_token"),
+    )
     """
     Shared Bearer token for the REST API (ADR-0052, R10-1, F16).
 
@@ -977,6 +994,26 @@ class Settings(BaseSettings):
 
     Env var: SYNAPSE_AUTH_TOKEN.
     """
+
+    @model_validator(mode="after")
+    def validate_server_auth(self) -> Self:
+        """Fail closed when a network-facing deployment has no strong shared token."""
+        if self.deployment_mode != "server":
+            return self
+        if not self.auth_token:
+            raise ValueError("SYNAPSE_AUTH_TOKEN is required when SYNAPSE_DEPLOYMENT_MODE=server")
+        if len(self.auth_token) < 32:
+            raise ValueError(
+                "SYNAPSE_AUTH_TOKEN must contain at least 32 characters in server mode"
+            )
+        if any(char.isspace() for char in self.auth_token):
+            raise ValueError("SYNAPSE_AUTH_TOKEN must not contain whitespace in server mode")
+        if len(set(self.auth_token)) < 8:
+            raise ValueError(
+                "SYNAPSE_AUTH_TOKEN must be randomly generated and contain at least "
+                "8 distinct characters in server mode"
+            )
+        return self
 
     # ── MCP server introspection (F1-MCP-UI, ADR-0027 §2.3) ──────────────────────
 

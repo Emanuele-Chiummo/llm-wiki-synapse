@@ -382,6 +382,34 @@ select:focus-visible {
   color: var(--syn-text) !important;
 }
 
+/* Keep utility navigation reachable when the app window is shorter than the
+ * complete rail. Primary destinations scroll; Settings/Projects remain pinned. */
+.nav-rail__scroll {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.nav-rail__scroll > *,
+.nav-rail__scroll .nav-rail__item {
+  flex-shrink: 0;
+}
+
+.nav-rail__bottom {
+  display: flex;
+  flex: 0 0 auto;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
 .syn-quick-prompt:hover {
   /* audit: was color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) — token-safe */
   border-color: color-mix(in srgb, var(--syn-accent) 45%, var(--syn-border) 55%) !important;

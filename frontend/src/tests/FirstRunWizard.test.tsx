@@ -29,10 +29,7 @@ vi.mock("react-i18next", () => ({
       // Return the leaf key for predictable assertions
       const leaf = key.split(".").pop() ?? key;
       if (opts && typeof opts === "object") {
-        return Object.entries(opts).reduce(
-          (s, [k, v]) => s.replace(`{{${k}}}`, String(v)),
-          leaf,
-        );
+        return Object.entries(opts).reduce((s, [k, v]) => s.replace(`{{${k}}}`, String(v)), leaf);
       }
       return leaf;
     },
@@ -44,6 +41,11 @@ vi.mock("react-i18next", () => ({
 // We expose a mutable ref so individual tests can control the response.
 
 let mockApiFetchOk = true;
+const mockPlatformFetch = vi.fn(async (_url: string, _init?: unknown) => {
+  if (mockApiFetchOk) return new Response("{}", { status: 200 });
+  return new Response("{}", { status: 503 });
+});
+const mockClearAuthToken = vi.fn();
 
 vi.mock("../api/base", () => ({
   apiBase: () => "http://localhost:8000",
@@ -60,6 +62,8 @@ vi.mock("../api/base", () => ({
   // Step 1 now persists the entered backend URL via these helpers.
   setServerUrl: vi.fn(),
   clearServerUrl: vi.fn(),
+  clearAuthToken: (...args: unknown[]) => mockClearAuthToken(...args),
+  platformFetch: (...args: [string, unknown?]) => mockPlatformFetch(...args),
   getLastServerUrl: () => null,
 }));
 
@@ -93,10 +97,16 @@ const mockCreateProviderConfig = vi.fn().mockResolvedValue({
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 });
+const mockTestProviderConnection = vi.fn().mockResolvedValue({
+  ok: true,
+  latency_ms: 42,
+  detail: "connected",
+});
 
 vi.mock("../api/providerClient", () => ({
   fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [] }),
   createProviderConfig: (...args: unknown[]) => mockCreateProviderConfig(...args),
+  testProviderConnection: (...args: unknown[]) => mockTestProviderConnection(...args),
   deleteProviderConfig: vi.fn().mockResolvedValue(undefined),
   fetchEmbeddingConfig: vi.fn().mockResolvedValue({}),
   fetchMcpInfo: vi.fn().mockResolvedValue({}),
@@ -115,13 +125,20 @@ vi.mock("../api/providerClient", () => ({
 // plain in-memory map to guarantee the get/set/remove semantics our helpers rely on.
 
 const LS_SETUP_KEY = "synapse.setupCompleted";
+const LS_SETUP_STATE_KEY = "synapse.setupState";
 
 const _lsStore: Map<string, string> = new Map();
 const _mockLocalStorage = {
   getItem: (key: string) => _lsStore.get(key) ?? null,
-  setItem: (key: string, val: string) => { _lsStore.set(key, val); },
-  removeItem: (key: string) => { _lsStore.delete(key); },
-  clear: () => { _lsStore.clear(); },
+  setItem: (key: string, val: string) => {
+    _lsStore.set(key, val);
+  },
+  removeItem: (key: string) => {
+    _lsStore.delete(key);
+  },
+  clear: () => {
+    _lsStore.clear();
+  },
 };
 
 beforeEach(() => {
@@ -150,6 +167,7 @@ import {
   getSetupCompleted,
   markSetupCompleted,
 } from "../components/setup/FirstRunWizard";
+import { deferSetup, readSetupState } from "../components/setup/setupState";
 import { renderHook } from "@testing-library/react";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -171,6 +189,25 @@ describe("getSetupCompleted / markSetupCompleted", () => {
     markSetupCompleted();
     expect(getSetupCompleted()).toBe(true);
   });
+
+  it("migrates the legacy completed flag to versioned setup state", () => {
+    setSetupFlag();
+
+    expect(readSetupState()).toMatchObject({ version: 1, status: "completed" });
+    expect(_lsStore.get(LS_SETUP_STATE_KEY)).toContain('"status":"completed"');
+  });
+
+  it("keeps a deferred setup resumable instead of completed", () => {
+    deferSetup(2, { connectionVerified: true, providerVerified: false });
+
+    expect(readSetupState()).toMatchObject({
+      status: "deferred",
+      lastStep: 2,
+      connectionVerified: true,
+      providerVerified: false,
+    });
+    expect(getSetupCompleted()).toBe(false);
+  });
 });
 
 // ─── 2. useFirstRunSetup — shouldShow logic ───────────────────────────────────
@@ -186,10 +223,10 @@ describe("useFirstRunSetup — shouldShow", () => {
     expect(result.current.shouldShow).toBe(true);
   });
 
-  it("shouldShow = false when providerList has entries (configured)", async () => {
+  it("shouldShow stays true until setup is explicitly completed, even with seeded providers", async () => {
     const { result } = renderHook(() => useFirstRunSetup(1));
     await act(async () => {});
-    expect(result.current.shouldShow).toBe(false);
+    expect(result.current.shouldShow).toBe(true);
   });
 
   it("shouldShow = false when setupCompleted flag is set", async () => {
@@ -204,7 +241,9 @@ describe("useFirstRunSetup — shouldShow", () => {
     await act(async () => {});
     expect(result.current.shouldShow).toBe(true);
 
-    act(() => { result.current.markDone(); });
+    act(() => {
+      result.current.markDone();
+    });
     expect(getSetupCompleted()).toBe(true);
     // shouldShow updates on next render cycle
     expect(result.current.shouldShow).toBe(false);
@@ -239,16 +278,16 @@ describe("FirstRunWizard — initial render", () => {
 
 // ─── 4. Skip closes the wizard and sets the completed flag ───────────────────
 
-describe("FirstRunWizard — skip all", () => {
+describe("FirstRunWizard — explicit outcomes", () => {
   beforeEach(() => clearSetupFlag());
 
-  it("clicking Skip setup (step 1 skip button) calls onClose", () => {
+  it("clicking Skip setup reports deferred instead of completed", () => {
     const onClose = vi.fn();
     renderWizard(onClose);
     // The "skipAll" button is rendered in step 1 alongside the main action
     const skipBtn = screen.getByTestId("wizard-skip");
     fireEvent.click(skipBtn);
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("deferred", 1);
   });
 
   it("clicking the × close button calls onClose", () => {
@@ -256,7 +295,7 @@ describe("FirstRunWizard — skip all", () => {
     renderWizard(onClose);
     const closeX = screen.getByTestId("wizard-close-x");
     fireEvent.click(closeX);
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("deferred", 1);
   });
 
   it("pressing Esc calls onClose", () => {
@@ -264,7 +303,7 @@ describe("FirstRunWizard — skip all", () => {
     renderWizard(onClose);
     const dialog = screen.getByTestId("wizard-dialog");
     fireEvent.keyDown(dialog, { key: "Escape" });
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("deferred", 1);
   });
 
   it("clicking backdrop calls onClose", () => {
@@ -273,7 +312,7 @@ describe("FirstRunWizard — skip all", () => {
     const overlay = screen.getByTestId("wizard-overlay");
     // Click the overlay itself (not the dialog inside)
     fireEvent.click(overlay);
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("deferred", 1);
   });
 });
 
@@ -325,7 +364,7 @@ describe("FirstRunWizard — step navigation", () => {
     });
   });
 
-  it("clicking Done (step 4) calls onClose", async () => {
+  it("clicking Done after skipping required setup defers instead of claiming completion", async () => {
     const onClose = vi.fn();
     renderWizard(onClose);
     fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
@@ -335,7 +374,45 @@ describe("FirstRunWizard — step navigation", () => {
     fireEvent.click(screen.getByTestId("wizard-step3-skip"));
     await waitFor(() => expect(screen.getByTestId("wizard-done")).toBeTruthy());
     fireEvent.click(screen.getByTestId("wizard-done"));
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledWith("deferred", 1);
+  });
+
+  it("reports completed only after backend and provider probes succeed", async () => {
+    const onClose = vi.fn();
+    renderWizard(onClose);
+
+    fireEvent.click(screen.getByTestId("wizard-step1-check"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step1-next")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("wizard-step1-next"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step2-type")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("wizard-step2-model"), {
+      target: { value: "verified-model" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step2-save"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step3-extractor")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("wizard-step3-skip"));
+    await waitFor(() => expect(screen.getByTestId("wizard-done")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("wizard-done"));
+
+    expect(onClose).toHaveBeenCalledWith("completed", 4);
+  });
+
+  it("retains verified checks when a deferred setup resumes", async () => {
+    deferSetup(2, { connectionVerified: true, providerVerified: false });
+    const onClose = vi.fn();
+    renderWizard(onClose);
+
+    expect(screen.getByTestId("wizard-step2-type")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("wizard-step2-model"), {
+      target: { value: "verified-model" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step2-save"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step3-extractor")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("wizard-step3-skip"));
+    await waitFor(() => expect(screen.getByTestId("wizard-done")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("wizard-done"));
+
+    expect(onClose).toHaveBeenCalledWith("completed", 4);
   });
 });
 
@@ -344,9 +421,13 @@ describe("FirstRunWizard — step navigation", () => {
 describe("FirstRunWizard — step 1 health probe", () => {
   beforeEach(() => {
     mockApiFetchOk = true;
+    mockPlatformFetch.mockClear();
+    mockClearAuthToken.mockClear();
     clearSetupFlag();
   });
-  afterEach(() => { mockApiFetchOk = true; });
+  afterEach(() => {
+    mockApiFetchOk = true;
+  });
 
   it("shows success indicator when backend responds 200", async () => {
     renderWizard();
@@ -372,6 +453,19 @@ describe("FirstRunWizard — step 1 health probe", () => {
       expect(screen.getByTestId("wizard-step1-error")).toBeTruthy();
     });
   });
+
+  it("probes an edited backend without forwarding the authenticated API client", async () => {
+    renderWizard();
+    fireEvent.change(screen.getByTestId("wizard-step1-url"), {
+      target: { value: "https://candidate.example" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step1-check"));
+
+    await waitFor(() => expect(mockPlatformFetch).toHaveBeenCalled());
+    expect(mockPlatformFetch.mock.calls.at(-1)?.[0]).toBe("https://candidate.example/status");
+    expect(mockPlatformFetch.mock.calls.at(-1)?.[1]).toBeUndefined();
+    expect(mockClearAuthToken).toHaveBeenCalledOnce();
+  });
 });
 
 // ─── 7. Step 2 — provider save: calls createProviderConfig ONLY ──────────────
@@ -381,6 +475,8 @@ describe("FirstRunWizard — step 2 provider persistence (sanctioned path only)"
   beforeEach(() => {
     clearSetupFlag();
     mockCreateProviderConfig.mockClear();
+    mockTestProviderConnection.mockClear();
+    mockTestProviderConnection.mockResolvedValue({ ok: true, latency_ms: 42, detail: "connected" });
     mockPutAppConfig.mockClear();
     vi.clearAllMocks(); // reset apiFetch spy too
   });
@@ -409,6 +505,24 @@ describe("FirstRunWizard — step 2 provider persistence (sanctioned path only)"
     expect(body.scope).toBe("global");
   });
 
+  it("includes an API key in the sanctioned provider payload when supplied", async () => {
+    renderWizard();
+    fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step2-type")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("wizard-step2-model"), {
+      target: { value: "api-model" },
+    });
+    fireEvent.change(screen.getByTestId("wizard-step2-api-key"), {
+      target: { value: "secret-value" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step2-save"));
+
+    await waitFor(() => expect(mockCreateProviderConfig).toHaveBeenCalledOnce());
+    expect(mockCreateProviderConfig.mock.calls[0]?.[0]).toMatchObject({
+      api_key: "secret-value",
+    });
+  });
+
   it("Save provider does NOT call putAppConfig", async () => {
     renderWizard();
     fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
@@ -420,6 +534,49 @@ describe("FirstRunWizard — step 2 provider persistence (sanctioned path only)"
 
     await waitFor(() => expect(mockCreateProviderConfig).toHaveBeenCalledOnce());
     expect(mockPutAppConfig).not.toHaveBeenCalled();
+  });
+
+  it("tests the candidate provider before persisting and advancing", async () => {
+    renderWizard();
+    fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step2-type")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("wizard-step2-model"), {
+      target: { value: "test-model" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step2-save"));
+
+    await waitFor(() => {
+      expect(mockTestProviderConnection).toHaveBeenCalledWith({
+        provider_type: "api",
+        model: "test-model",
+        base_url: null,
+      });
+    });
+    expect(mockTestProviderConnection.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCreateProviderConfig.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+    );
+  });
+
+  it("does not advance when the provider probe fails", async () => {
+    mockTestProviderConnection.mockResolvedValueOnce({
+      ok: false,
+      latency_ms: 9,
+      detail: "invalid credentials",
+    });
+    renderWizard();
+    fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
+    await waitFor(() => expect(screen.getByTestId("wizard-step2-type")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("wizard-step2-model"), {
+      target: { value: "test-model" },
+    });
+    fireEvent.click(screen.getByTestId("wizard-step2-save"));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain("invalid credentials"),
+    );
+    expect(mockCreateProviderConfig).not.toHaveBeenCalled();
+    expect(screen.getByTestId("wizard-step2-type")).toBeTruthy();
+    expect(screen.queryByTestId("wizard-step3-extractor")).toBeNull();
   });
 
   it("Save button is disabled when model ID is empty", async () => {
@@ -481,6 +638,9 @@ describe("FirstRunWizard — step 3 PDF persistence (sanctioned path only)", () 
         "http://host.docker.internal:8555",
       );
     });
+    expect(
+      mockPutAppConfig.mock.calls.filter(([key]) => key === "marker_service_url"),
+    ).toHaveLength(1);
   });
 
   it("Save does NOT call createProviderConfig", async () => {
@@ -514,11 +674,13 @@ describe("SettingsPanel wizard-reopen-btn — fires synapse:openWizard event", (
           reset: vi.fn(),
         }),
       selectContextWindow: (s: { contextWindowTokens: number }) => s.contextWindowTokens,
-      selectConversationHistoryLength: (s: { conversationHistoryLength: number }) => s.conversationHistoryLength,
+      selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
+        s.conversationHistoryLength,
       selectLanguage: (s: { language: string }) => s.language,
       selectTheme: (s: { theme: string }) => s.theme,
       selectSetContextWindow: (s: { setContextWindow: unknown }) => s.setContextWindow,
-      selectSetConversationHistoryLength: (s: { setConversationHistoryLength: unknown }) => s.setConversationHistoryLength,
+      selectSetConversationHistoryLength: (s: { setConversationHistoryLength: unknown }) =>
+        s.setConversationHistoryLength,
       selectSetLanguage: (s: { setLanguage: unknown }) => s.setLanguage,
       selectSetTheme: (s: { setTheme: unknown }) => s.setTheme,
       selectResetSettings: (s: { reset: unknown }) => s.reset,
@@ -529,7 +691,9 @@ describe("SettingsPanel wizard-reopen-btn — fires synapse:openWizard event", (
     }));
 
     const events: string[] = [];
-    const handler = (e: Event) => { events.push(e.type); };
+    const handler = (e: Event) => {
+      events.push(e.type);
+    };
     window.addEventListener("synapse:openWizard", handler);
 
     // Find and click the reopen button — we need to render it inline since
@@ -540,7 +704,7 @@ describe("SettingsPanel wizard-reopen-btn — fires synapse:openWizard event", (
         onClick={() => window.dispatchEvent(new Event("synapse:openWizard"))}
       >
         Reopen
-      </button>
+      </button>,
     );
 
     const btn = queryByTestId("wizard-reopen-btn");
@@ -552,23 +716,17 @@ describe("SettingsPanel wizard-reopen-btn — fires synapse:openWizard event", (
   });
 });
 
-// ─── 10. Step dots render ─────────────────────────────────────────────────────
+// ─── 10. Progress indicator ──────────────────────────────────────────────────
 
-describe("FirstRunWizard — step dots", () => {
+describe("FirstRunWizard — progress indicator", () => {
   beforeEach(() => clearSetupFlag());
 
-  it("renders 4 step dots (aria-hidden) on step 1", () => {
+  it("renders four named steps on step 1", () => {
     renderWizard();
-    // The dialog contains an aria-hidden div with 4 dot spans
-    const dialog = screen.getByTestId("wizard-dialog");
-    // Dots are not individually labelled; check by counting spans in aria-hidden container
-    const ariaHiddenDots = dialog.querySelectorAll('[aria-hidden="true"] span');
-    // At least 4 spans (the dot spans; ✓ check icon on step 4 is also aria-hidden but
-    // step 4 is not shown on initial render)
-    expect(ariaHiddenDots.length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByTestId("wizard-progress").querySelectorAll("li")).toHaveLength(4);
   });
 
-  it("step dots are NOT shown on step 4 (Done screen)", async () => {
+  it("marks the final step current on the summary screen", async () => {
     renderWizard();
     fireEvent.click(screen.getByTestId("wizard-step1-skip-check"));
     await waitFor(() => expect(screen.getByTestId("wizard-step2-type")).toBeTruthy());
@@ -577,12 +735,31 @@ describe("FirstRunWizard — step dots", () => {
     fireEvent.click(screen.getByTestId("wizard-step3-skip"));
     await waitFor(() => expect(screen.getByTestId("wizard-done")).toBeTruthy());
 
-    // On step 4 the dot container is not rendered; only the checkmark icon (aria-hidden)
-    const dialog = screen.getByTestId("wizard-dialog");
-    // No span children from the dot container (it is conditionally absent on step 4).
-    // The checkmark div may have a text span — but no 4-dot row.
-    const stepDotsRow = dialog.querySelector('[aria-hidden="true"] span[style*="border-radius: 50%"]');
-    // The checkmark's span does not have this style; assert the dot-style spans are gone
-    expect(stepDotsRow).toBeNull();
+    const current = screen.getByTestId("wizard-progress").querySelector('[aria-current="step"]');
+    expect(current).toBe(screen.getByTestId("wizard-progress").querySelectorAll("li")[3]);
+  });
+});
+
+describe("FirstRunWizard — accessible progress", () => {
+  it("exposes the current step in a labelled progress list", () => {
+    renderWizard();
+    const progress = screen.getByTestId("wizard-progress");
+    expect(progress.querySelectorAll("li")).toHaveLength(4);
+    expect(progress.querySelector('[aria-current="step"]')).not.toBeNull();
+  });
+
+  it("moves focus to the dialog title instead of the close button", () => {
+    renderWizard();
+    expect(document.activeElement?.id).toBe("first-run-wizard-title");
+  });
+
+  it("keeps Shift+Tab inside the dialog when focus starts on the title", () => {
+    renderWizard();
+    fireEvent.keyDown(screen.getByTestId("wizard-dialog"), {
+      key: "Tab",
+      shiftKey: true,
+    });
+
+    expect(document.activeElement).toBe(screen.getByTestId("wizard-skip"));
   });
 });

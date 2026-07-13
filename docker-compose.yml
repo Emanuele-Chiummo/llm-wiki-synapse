@@ -130,6 +130,12 @@ services:
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
       CLAUDE_CODE_USE_SUBSCRIPTION: ${CLAUDE_CODE_USE_SUBSCRIPTION:-}
 
+      # ── REST API trust boundary (ADR-0052 / ADR-0075) ───────────────────────
+      # Use server mode for every LAN, tunnel, reverse-proxy or hosted deployment.
+      # Server mode fails startup unless SYNAPSE_AUTH_TOKEN is strong and non-empty.
+      SYNAPSE_DEPLOYMENT_MODE: ${SYNAPSE_DEPLOYMENT_MODE:-local}
+      SYNAPSE_AUTH_TOKEN: ${SYNAPSE_AUTH_TOKEN:-}
+
       # Vault identity and path
       VAULT_ID: default
       VAULT_PATH: /vault
@@ -169,7 +175,9 @@ services:
       - ./import:/import:ro
 
     ports:
-      - "8000:8000"
+      # Loopback-safe by default. Set SYNAPSE_BIND_HOST=0.0.0.0 only together
+      # with SYNAPSE_DEPLOYMENT_MODE=server and a strong auth token (ADR-0075).
+      - "${SYNAPSE_BIND_HOST:-127.0.0.1}:8000:8000"
 
     # Wait for Postgres to be ready
     depends_on:

@@ -99,10 +99,14 @@ vi.mock("../store/settingsStore", () => ({
   selectDiscardDraft: (s: { discardDraft: unknown }) => s.discardDraft,
   // isDirty: false in mock (draft === committed for all fields)
   selectIsDirty: (s: {
-    draftTheme: string; theme: string;
-    draftLanguage: string; language: string;
-    draftConversationHistoryLength: number; conversationHistoryLength: number;
-    draftContextWindowTokens: number; contextWindowTokens: number;
+    draftTheme: string;
+    theme: string;
+    draftLanguage: string;
+    language: string;
+    draftConversationHistoryLength: number;
+    conversationHistoryLength: number;
+    draftContextWindowTokens: number;
+    contextWindowTokens: number;
   }) =>
     s.draftTheme !== s.theme ||
     s.draftLanguage !== s.language ||
@@ -220,8 +224,7 @@ vi.mock("../store/providerStore", () => ({
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "vault-1" }),
+  useGraphStore: (selector: (s: unknown) => unknown) => selector({ vaultId: "vault-1" }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
 }));
 
@@ -274,12 +277,20 @@ vi.mock("../api/providerClient", async (importOriginal) => {
         {
           name: "search_wiki",
           description: "Search the wiki for pages matching a query. Returns ranked results.",
-          input_schema: { type: "object", properties: { query: {}, limit: {} }, required: ["query"] },
+          input_schema: {
+            type: "object",
+            properties: { query: {}, limit: {} },
+            required: ["query"],
+          },
         },
         {
           name: "write_page",
           description: "Write or overwrite a wiki page with the given content.",
-          input_schema: { type: "object", properties: { title: {}, content: {}, page_type: {} }, required: ["title", "content"] },
+          input_schema: {
+            type: "object",
+            properties: { title: {}, content: {}, page_type: {} },
+            required: ["title", "content"],
+          },
         },
         {
           name: "get_page",
@@ -427,14 +438,14 @@ vi.mock("../api/costsClient", () => ({
 vi.mock("../api/appConfigClient", () => ({
   getAppConfig: vi.fn().mockResolvedValue({
     settings: [
-      { key: "pdf_extractor",            value: "pypdf",  source: "env" },
-      { key: "marker_service_url",        value: "",       source: "env" },
-      { key: "marker_timeout_seconds",    value: "60",     source: "env" },
-      { key: "cost_alert_threshold_usd",  value: "5.0",    source: "env" },
-      { key: "embeddings_enabled",        value: "true",   source: "env" },
-      { key: "embedding_format",          value: "ollama", source: "env" },
-      { key: "overview_language",         value: "en",     source: "env" },
-      { key: "wikilink_enrich_enabled",   value: "true",   source: "env" },
+      { key: "pdf_extractor", value: "pypdf", source: "env" },
+      { key: "marker_service_url", value: "", source: "env" },
+      { key: "marker_timeout_seconds", value: "60", source: "env" },
+      { key: "cost_alert_threshold_usd", value: "5.0", source: "env" },
+      { key: "embeddings_enabled", value: "true", source: "env" },
+      { key: "embedding_format", value: "ollama", source: "env" },
+      { key: "overview_language", value: "en", source: "env" },
+      { key: "wikilink_enrich_enabled", value: "true", source: "env" },
     ],
   }),
   putAppConfig: vi.fn().mockResolvedValue(undefined),
@@ -516,6 +527,17 @@ describe("SettingsPanel — 19 page nav items (AC-HARD-SET-1/3 + AC-R11-2-11 / A
         expect(groupIds).not.toContain(section);
       }
     });
+  });
+});
+
+describe("SettingsPanel — responsive layout hooks", () => {
+  it("exposes the panel, navigation, and content hooks consumed by theme.css", () => {
+    renderPanel();
+
+    const panel = screen.getByTestId("settings-panel");
+    expect(panel.classList.contains("settings-panel")).toBe(true);
+    expect(panel.querySelector("aside")?.classList.contains("settings-panel__nav")).toBe(true);
+    expect(panel.querySelector(".settings-panel__content")).not.toBeNull();
   });
 });
 
@@ -719,12 +741,18 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     renderPanel();
     const aside = document.querySelector("aside")!;
     // Initial active = providers (new default)
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
 
     fireEvent.keyDown(aside, { key: "ArrowDown" });
     // After ArrowDown, appearance should be active
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBe("true");
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBeNull();
+    expect(
+      document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current"),
+    ).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBeNull();
   });
 
   it("ArrowDown cycles past 'about' (last, index 19) back to 'providers' (first, index 0)", () => {
@@ -734,18 +762,24 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     for (let i = 0; i < 19; i++) {
       fireEvent.keyDown(aside, { key: "ArrowDown" });
     }
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current"),
+    ).toBe("true");
 
     // One more ArrowDown should wrap to "providers"
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("ArrowUp from 'providers' (index 0) wraps to 'about' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowUp" });
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("Home key moves focus to 'providers' (index 0)", () => {
@@ -754,24 +788,32 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     // Move to setup first (ArrowDown twice from providers → appearance → setup)
     fireEvent.keyDown(aside, { key: "ArrowDown" });
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current"),
+    ).toBe("true");
 
     fireEvent.keyDown(aside, { key: "Home" });
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("End key moves focus to 'about' (last index)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "End" });
-    expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("non-arrow keys do not change the active section", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "Tab" });
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("ArrowDown twice from 'providers' reaches 'setup' (index 2)", () => {
@@ -779,7 +821,9 @@ describe("SettingsPanel — arrow-key navigation in left sub-nav (DEFECT-M4H-005
     const aside = document.querySelector("aside")!;
     fireEvent.keyDown(aside, { key: "ArrowDown" });
     fireEvent.keyDown(aside, { key: "ArrowDown" });
-    expect(document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="setup"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 });
 
@@ -789,43 +833,63 @@ describe("SettingsPanel — deep-link via synapse:settingsSection CustomEvent (A
   it("dispatching synapse:settingsSection with detail.section='providers' activates providers page", async () => {
     renderPanel();
     // Default is providers
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
 
-    window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "providers" } }));
+    window.dispatchEvent(
+      new CustomEvent("synapse:settingsSection", { detail: { section: "providers" } }),
+    );
 
     await waitFor(() => {
-      expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+      expect(
+        document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+      ).toBe("true");
     });
-    expect(document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current")).toBeNull();
+    expect(
+      document.querySelector('[data-settings-section="appearance"]')?.getAttribute("aria-current"),
+    ).toBeNull();
   });
 
   it("dispatching synapse:settingsSection with detail.section='about' activates about page", async () => {
     renderPanel();
 
-    window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "about" } }));
+    window.dispatchEvent(
+      new CustomEvent("synapse:settingsSection", { detail: { section: "about" } }),
+    );
 
     await waitFor(() => {
-      expect(document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current")).toBe("true");
+      expect(
+        document.querySelector('[data-settings-section="about"]')?.getAttribute("aria-current"),
+      ).toBe("true");
     });
   });
 
   it("dispatching synapse:settingsSection with an unknown section is ignored", async () => {
     renderPanel();
 
-    window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "nonExistentPage" } }));
+    window.dispatchEvent(
+      new CustomEvent("synapse:settingsSection", { detail: { section: "nonExistentPage" } }),
+    );
 
     // providers remains active (unknown section ignored)
     await new Promise((r) => setTimeout(r, 30));
-    expect(document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current")).toBe("true");
+    expect(
+      document.querySelector('[data-settings-section="providers"]')?.getAttribute("aria-current"),
+    ).toBe("true");
   });
 
   it("dispatching synapse:settingsSection with detail.section='security' activates security page", async () => {
     renderPanel();
 
-    window.dispatchEvent(new CustomEvent("synapse:settingsSection", { detail: { section: "security" } }));
+    window.dispatchEvent(
+      new CustomEvent("synapse:settingsSection", { detail: { section: "security" } }),
+    );
 
     await waitFor(() => {
-      expect(document.querySelector('[data-settings-section="security"]')?.getAttribute("aria-current")).toBe("true");
+      expect(
+        document.querySelector('[data-settings-section="security"]')?.getAttribute("aria-current"),
+      ).toBe("true");
     });
   });
 });
@@ -888,8 +952,10 @@ describe("SettingsPanel — Changelog section (ADR-0055)", () => {
     renderPanel();
     const aside = document.querySelector("aside")!;
     const buttons = Array.from(aside.querySelectorAll("button"));
-    const maintIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "maintenance");
-    const clIdx    = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "changelog");
+    const maintIdx = buttons.findIndex(
+      (b) => b.getAttribute("data-settings-section") === "maintenance",
+    );
+    const clIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "changelog");
     const aboutIdx = buttons.findIndex((b) => b.getAttribute("data-settings-section") === "about");
     expect(maintIdx).toBeGreaterThanOrEqual(0);
     expect(clIdx).toBeGreaterThan(maintIdx);
@@ -930,13 +996,21 @@ describe("SettingsPanel — API + MCP section renders real panel (ADR-0027)", ()
     });
     // Counts are on data-param-count (numeric, avoids i18n interpolation mock artefact)
     // search_wiki: {query, limit} = 2 params
-    expect(screen.getByTestId("mcp-tool-params-search_wiki").getAttribute("data-param-count")).toBe("2");
+    expect(screen.getByTestId("mcp-tool-params-search_wiki").getAttribute("data-param-count")).toBe(
+      "2",
+    );
     // write_page: {title, content, page_type} = 3 params
-    expect(screen.getByTestId("mcp-tool-params-write_page").getAttribute("data-param-count")).toBe("3");
+    expect(screen.getByTestId("mcp-tool-params-write_page").getAttribute("data-param-count")).toBe(
+      "3",
+    );
     // get_page: {title} = 1 param
-    expect(screen.getByTestId("mcp-tool-params-get_page").getAttribute("data-param-count")).toBe("1");
+    expect(screen.getByTestId("mcp-tool-params-get_page").getAttribute("data-param-count")).toBe(
+      "1",
+    );
     // list_pages: {page_type} = 1 param
-    expect(screen.getByTestId("mcp-tool-params-list_pages").getAttribute("data-param-count")).toBe("1");
+    expect(screen.getByTestId("mcp-tool-params-list_pages").getAttribute("data-param-count")).toBe(
+      "1",
+    );
   });
 
   it("renders the copy-to-clipboard button (AC-F1-MCP-UI-5)", async () => {
@@ -1258,7 +1332,9 @@ describe("SettingsPanel — MCP token / access sub-block (ADR-0033)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("mcp-generated-token")).toBeTruthy();
     });
-    expect(screen.getByTestId("mcp-generated-token").textContent).toBe("synapse-test-token-abc123xyz");
+    expect(screen.getByTestId("mcp-generated-token").textContent).toBe(
+      "synapse-test-token-abc123xyz",
+    );
   });
 
   it("generated token reveal includes a copy button", async () => {
@@ -1565,7 +1641,9 @@ describe("SettingsPanel — Web Clipper section (ADR-0040)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("clip-generated-token")).toBeTruthy();
     });
-    expect(screen.getByTestId("clip-generated-token").textContent).toBe("clip-test-token-xyz789abc");
+    expect(screen.getByTestId("clip-generated-token").textContent).toBe(
+      "clip-test-token-xyz789abc",
+    );
   });
 
   it("generated token reveal includes a copy button", async () => {
@@ -1714,7 +1792,9 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
     });
     await navigateToWebSearchAndWait();
     expect(screen.getByText("notConfiguredBadge")).toBeTruthy();
-    expect(screen.getByTestId("web-search-configured-badge").textContent).toBe("notConfiguredBadge");
+    expect(screen.getByTestId("web-search-configured-badge").textContent).toBe(
+      "notConfiguredBadge",
+    );
   });
 
   it("renders the source badge with the source value from fixture", async () => {
@@ -1801,7 +1881,9 @@ describe("SettingsPanel — Web Search section (ADR-0041)", () => {
 
   it("shows an error state when fetchWebSearchConfig rejects", async () => {
     const { fetchWebSearchConfig } = await import("../api/providerClient");
-    (fetchWebSearchConfig as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("network error"));
+    (fetchWebSearchConfig as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("network error"),
+    );
 
     renderPanel();
     const btn = document.querySelector('[data-settings-section="webSearch"]');
@@ -1917,7 +1999,9 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
       auth_mode: "unconfigured",
     });
     await navigateToCliAuthAndWait();
-    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(/notConfiguredBadge/i);
+    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(
+      /notConfiguredBadge/i,
+    );
   });
 
   it("renders the source badge with the token_source from the fixture", async () => {
@@ -2034,7 +2118,9 @@ describe("SettingsPanel — CLI Subscription Auth section (ADR-0043)", () => {
       expect(screen.queryByTestId("cli-auth-clear-btn")).toBeNull();
     });
     // Posture badge should reflect not-configured.
-    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(/notConfiguredBadge/i);
+    expect(screen.getByTestId("cli-auth-configured-badge").textContent).toMatch(
+      /notConfiguredBadge/i,
+    );
   });
 
   it("token value typed by user is NEVER rendered as visible text in the DOM", async () => {
@@ -2129,10 +2215,14 @@ describe("SettingsPanel — Runtime Config fields (AC-R11-2-6 / ADR-0053)", () =
 
     await navigateToPdfAndWait();
 
-    const select = document.querySelector('[data-testid="rc-control-pdf_extractor"]') as HTMLSelectElement;
+    const select = document.querySelector(
+      '[data-testid="rc-control-pdf_extractor"]',
+    ) as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "marker" } });
 
-    const saveBtn = document.querySelector('[data-testid="rc-save-pdf_extractor"]') as HTMLButtonElement;
+    const saveBtn = document.querySelector(
+      '[data-testid="rc-save-pdf_extractor"]',
+    ) as HTMLButtonElement;
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
@@ -2151,14 +2241,14 @@ describe("SettingsPanel — Runtime Config fields (AC-R11-2-6 / ADR-0053)", () =
     const { getAppConfig } = await import("../api/appConfigClient");
     (getAppConfig as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       settings: [
-        { key: "pdf_extractor",            value: "marker", source: "override" },
-        { key: "marker_service_url",        value: "http://marker:8080", source: "override" },
-        { key: "marker_timeout_seconds",    value: "60",    source: "env" },
-        { key: "cost_alert_threshold_usd",  value: "5.0",   source: "env" },
-        { key: "embeddings_enabled",        value: "true",  source: "env" },
-        { key: "embedding_format",          value: "ollama",source: "env" },
-        { key: "overview_language",         value: "en",    source: "env" },
-        { key: "wikilink_enrich_enabled",   value: "true",  source: "env" },
+        { key: "pdf_extractor", value: "marker", source: "override" },
+        { key: "marker_service_url", value: "http://marker:8080", source: "override" },
+        { key: "marker_timeout_seconds", value: "60", source: "env" },
+        { key: "cost_alert_threshold_usd", value: "5.0", source: "env" },
+        { key: "embeddings_enabled", value: "true", source: "env" },
+        { key: "embedding_format", value: "ollama", source: "env" },
+        { key: "overview_language", value: "en", source: "env" },
+        { key: "wikilink_enrich_enabled", value: "true", source: "env" },
       ],
     });
     renderPanel();
@@ -2184,7 +2274,9 @@ describe("SettingsPanel — Runtime Config fields (AC-R11-2-6 / ADR-0053)", () =
 
     await navigateToPdfWithOverride();
 
-    const resetBtn = document.querySelector('[data-testid="rc-reset-pdf_extractor"]') as HTMLButtonElement;
+    const resetBtn = document.querySelector(
+      '[data-testid="rc-reset-pdf_extractor"]',
+    ) as HTMLButtonElement;
     fireEvent.click(resetBtn);
 
     await waitFor(() => {
@@ -2217,7 +2309,10 @@ describe("SettingsPanel — Runtime Config i18n labels non-empty (AC-R11-2-7)", 
       expect(field, `rc-field-${key} should be in the DOM`).not.toBeNull();
       // The label is a <label> child. i18n mock returns last key segment (never empty).
       const label = field?.querySelector("label");
-      expect(label?.textContent?.trim().length ?? 0, `label for ${key} should not be empty`).toBeGreaterThan(0);
+      expect(
+        label?.textContent?.trim().length ?? 0,
+        `label for ${key} should not be empty`,
+      ).toBeGreaterThan(0);
     }
   });
 });
@@ -2351,10 +2446,18 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("write toggle renders when remoteEnabled=true (token configured)", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
     await waitFor(() => {
@@ -2365,13 +2468,23 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("write toggle is unchecked when remote_write_enabled=false", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     expect(toggle.checked).toBe(false);
   });
@@ -2379,13 +2492,23 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("write toggle is checked when remote_write_enabled=true (via fetch)", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: true,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: true,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     expect(toggle.checked).toBe(true);
   });
@@ -2393,13 +2516,23 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("write toggle is NOT disabled when canEnableRemote=true (token configured)", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     expect(toggle.disabled).toBe(false);
   });
@@ -2407,15 +2540,25 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("clicking write toggle calls setMcpRemoteWrite(true) when currently off", async () => {
     const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     (mockSetWrite as ReturnType<typeof vi.fn>).mockClear();
 
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle");
     fireEvent.click(toggle);
 
@@ -2427,13 +2570,23 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("after successful toggle ON, write toggle becomes checked", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     fireEvent.click(toggle);
 
@@ -2446,10 +2599,18 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("clamped response keeps write toggle off (checked=false)", async () => {
     const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: true, remote_write_enabled: false,
-      token_configured: true, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "db" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: true,
+      remote_write_enabled: false,
+      token_configured: true,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "db" as const,
+      allow_without_token: false,
     });
     (mockSetWrite as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       remote_write_enabled: false,
@@ -2458,7 +2619,9 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
     });
 
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     fireEvent.click(toggle);
 
@@ -2473,13 +2636,23 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("write toggle is disabled when !canEnableRemote (no token, no allow-without)", async () => {
     const { fetchMcpInfo } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: false, remote_write_enabled: false,
-      token_configured: false, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "none" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "none" as const,
+      allow_without_token: false,
     });
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle") as HTMLInputElement;
     expect(toggle.disabled).toBe(true);
   });
@@ -2487,15 +2660,25 @@ describe("SettingsPanel — Remote MCP write toggle (ADR-0072)", () => {
   it("clicking disabled write toggle does NOT call setMcpRemoteWrite", async () => {
     const { fetchMcpInfo, setMcpRemoteWrite: mockSetWrite } = await import("../api/providerClient");
     (fetchMcpInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      server_name: "synapse", transport: "stdio", entry_point_command: "python -m app.mcp.server",
-      tool_count: 4, tools: [], http_enabled: false, remote_write_enabled: false,
-      token_configured: false, remote_enabled: true, mount_path: "/mcp/server",
-      token_source: "none" as const, allow_without_token: false,
+      server_name: "synapse",
+      transport: "stdio",
+      entry_point_command: "python -m app.mcp.server",
+      tool_count: 4,
+      tools: [],
+      http_enabled: false,
+      remote_write_enabled: false,
+      token_configured: false,
+      remote_enabled: true,
+      mount_path: "/mcp/server",
+      token_source: "none" as const,
+      allow_without_token: false,
     });
     (mockSetWrite as ReturnType<typeof vi.fn>).mockClear();
 
     await navigateToApiMcpAndWaitForRemote();
-    await waitFor(() => { expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy(); });
+    await waitFor(() => {
+      expect(screen.getByTestId("mcp-remote-write-toggle")).toBeTruthy();
+    });
     const toggle = screen.getByTestId("mcp-remote-write-toggle");
     fireEvent.click(toggle);
 

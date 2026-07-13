@@ -35,7 +35,8 @@ import { TokenGate } from "./connect/TokenGate";
 import { CommandPalette } from "./common/CommandPalette";
 import { UpdateBanner } from "./common/UpdateBanner";
 import { VersionMismatchBanner } from "./common/VersionMismatchBanner";
-import { FirstRunWizard, useFirstRunSetup } from "./setup/FirstRunWizard";
+import { FirstRunWizard, useFirstRunSetup, type WizardOutcome } from "./setup/FirstRunWizard";
+import type { SetupStep } from "./setup/setupState";
 import { isTauri, register401Handler } from "../api/base";
 import {
   useSettingsStore,
@@ -88,9 +89,8 @@ export function AppShell() {
   const updaterState = useDesktopUpdater();
 
   // ── First-run wizard (A2.2) ────────────────────────────────────────────────
-  // Fetch the provider list once on mount so the wizard can detect "unconfigured".
-  // We reuse the same providerStore that SectionLlmModels uses — no second fetch
-  // if the store already has data (length > 0 check inside useFirstRunSetup).
+  // Prime the shared provider store for the shell. The wizard no longer treats
+  // a non-empty list as proof of readiness because migrations seed provider rows.
   const providerList = useProviderStore(useShallow(selectProviderList));
   const fetchProviders = useProviderStore(selectFetchProviderList);
 
@@ -99,14 +99,21 @@ export function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // run once on AppShell mount
 
-  const { shouldShow, markDone } = useFirstRunSetup(providerList.length);
+  const { shouldShow, markDone, defer } = useFirstRunSetup(providerList.length);
 
   // Re-openable from Settings "Getting started" button.
   const [wizardForceOpen, setWizardForceOpen] = useState(false);
-  const handleWizardClose = useCallback(() => {
-    markDone();
-    setWizardForceOpen(false);
-  }, [markDone]);
+  const handleWizardClose = useCallback(
+    (outcome: WizardOutcome, lastStep: SetupStep) => {
+      if (outcome === "completed") {
+        markDone();
+      } else {
+        defer(lastStep);
+      }
+      setWizardForceOpen(false);
+    },
+    [defer, markDone],
+  );
 
   /** Exposed via the window for SettingsPanel's "Reopen" button to call. */
   useEffect(() => {
@@ -143,7 +150,6 @@ export function AppShell() {
         overflow: "hidden",
         background: "var(--syn-bg)",
         color: "var(--syn-text)",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
       }}
     >
       {/* ── Row 1: Header ──────────────────────────────────────────────────── */}

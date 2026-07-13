@@ -127,6 +127,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0072** | [Runtime toggle for remote MCP write tools (Settings UI)](ADR-0072-mcp-remote-write-runtime-toggle.md) | Accepted |
 | **0073** | [Source-grounded generation and review lifecycle parity (v1.6.0)](ADR-0073-generation-and-review-lifecycle-parity.md) | Accepted |
 | **0074** | [Idempotent corpus generation and operator-visible diagnostics (v1.6.0)](ADR-0074-idempotent-corpus-generation-and-operator-ux.md) | Accepted |
+| **0075** | [Explicit deployment trust mode and authenticated health diagnostics (v1.6.0; amends ADR-0052)](ADR-0075-deployment-mode-auth-health-boundary.md) | Accepted |
 
 ---
 

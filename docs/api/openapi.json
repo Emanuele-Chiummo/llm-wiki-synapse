@@ -460,6 +460,33 @@
         ]
       }
     },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Minimal service liveness",
+        "description": "Public liveness probe used by connection and container checks. Returns no component, vault, configuration, error, or dependency details.",
+        "operationId": "get_health_live_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Get Health Live Health Live Get"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/health/detailed": {
       "get": {
         "tags": [
@@ -478,7 +505,11 @@
             }
           }
         },
-        "security": []
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
       }
     },
     "/stats/overview": {

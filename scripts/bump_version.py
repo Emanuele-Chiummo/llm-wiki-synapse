@@ -2,17 +2,19 @@
 """
 Version bump helper for Synapse project.
 
-Validates semver (X.Y.Z) and updates all 6 version surfaces:
+Validates semver (X.Y.Z) and updates all 7 version surfaces:
   1. backend/pyproject.toml — version = "X.Y.Z"
   2. frontend/package.json — "version": "X.Y.Z"
   3. src-tauri/Cargo.toml — version = "X.Y.Z"
   4. src-tauri/tauri.conf.json — "version": "X.Y.Z"
   5. frontend/package-lock.json — root package version
   6. src-tauri/Cargo.lock — root `synapse` package version
+  7. extension/manifest.json — browser extension version
 
 Usage:
-    python scripts/bump_version.py check [<version>]     # Check all 4 files agree (default: check current version)
-    python scripts/bump_version.py bump <version>         # Update all 4 files to <version>
+    python scripts/bump_version.py check [<version>]     # Check all 7 surfaces agree
+                                                          # (default: current version)
+    python scripts/bump_version.py bump <version>        # Update all 7 surfaces to <version>
 
 Exit codes:
     0 — success
@@ -108,8 +110,18 @@ def read_cargo_lock_version() -> str | None:
         return None
 
 
+def read_extension_version() -> str | None:
+    """Read the browser extension version from its MV3 manifest."""
+    try:
+        data = json.loads(Path("extension/manifest.json").read_text())
+        return data.get("version")
+    except Exception as e:
+        print(f"Error reading extension/manifest.json: {e}", file=sys.stderr)
+        return None
+
+
 def get_all_versions() -> dict[str, str | None]:
-    """Read all 4 version files."""
+    """Read every public release version surface."""
     return {
         "backend": read_backend_version(),
         "frontend": read_frontend_version(),
@@ -117,12 +129,13 @@ def get_all_versions() -> dict[str, str | None]:
         "tauri": read_tauri_conf_version(),
         "frontend_lock": read_frontend_lock_version(),
         "cargo_lock": read_cargo_lock_version(),
+        "extension": read_extension_version(),
     }
 
 
 def check_versions(expected: str | None = None) -> tuple[bool, str]:
     """
-    Check that all 4 files agree on the version.
+    Check that all release surfaces agree on the version.
 
     Args:
         expected: if provided, also check that all files match this version
@@ -157,7 +170,7 @@ def check_versions(expected: str | None = None) -> tuple[bool, str]:
 
 def bump_version(new_version: str) -> tuple[bool, str]:
     """
-    Update all 4 files to new_version.
+    Update all release surfaces to new_version.
 
     Args:
         new_version: X.Y.Z version string (must be validated by caller)
@@ -174,11 +187,12 @@ def bump_version(new_version: str) -> tuple[bool, str]:
         )
         backend_path.write_text(backend_content)
 
-        # frontend/package.json — preserve exact formatting (ensure_ascii=False to avoid em-dash escaping)
+        # frontend/package.json — preserve exact formatting.
+        # ensure_ascii=False avoids escaping the em dash in public copy.
         frontend_path = Path("frontend/package.json")
         frontend_data = json.loads(frontend_path.read_text())
         frontend_data["version"] = new_version
-        # Write with 2-space indent to match existing format; ensure_ascii=False preserves unicode chars
+        # Keep the existing 2-space format and preserve Unicode characters.
         frontend_path.write_text(json.dumps(frontend_data, indent=2, ensure_ascii=False) + "\n")
 
         # src-tauri/Cargo.toml
@@ -193,7 +207,7 @@ def bump_version(new_version: str) -> tuple[bool, str]:
         tauri_path = Path("src-tauri/tauri.conf.json")
         tauri_data = json.loads(tauri_path.read_text())
         tauri_data["version"] = new_version
-        # Write with 2-space indent to match existing format; ensure_ascii=False preserves unicode chars
+        # Keep the existing 2-space format and preserve Unicode characters.
         tauri_path.write_text(json.dumps(tauri_data, indent=2, ensure_ascii=False) + "\n")
 
         # frontend/package-lock.json — keep both root version fields aligned with package.json
@@ -218,6 +232,12 @@ def bump_version(new_version: str) -> tuple[bool, str]:
             raise ValueError("root synapse package not found in src-tauri/Cargo.lock")
         cargo_lock_path.write_text(cargo_lock_content)
 
+        # Browser extension MV3 manifest
+        extension_path = Path("extension/manifest.json")
+        extension_data = json.loads(extension_path.read_text())
+        extension_data["version"] = new_version
+        extension_path.write_text(json.dumps(extension_data, indent=2, ensure_ascii=False) + "\n")
+
         return True, f"Bumped version to {new_version}"
 
     except Exception as e:
@@ -234,13 +254,15 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # check subcommand
-    check_parser = subparsers.add_parser("check", help="Check that all 4 files agree on version")
+    check_parser = subparsers.add_parser("check", help="Check that all 7 surfaces agree on version")
     check_parser.add_argument(
-        "version", nargs="?", help="Expected version (optional; if provided, also validate against this)"
+        "version",
+        nargs="?",
+        help="Expected version (optional; if provided, also validate against this)",
     )
 
     # bump subcommand
-    bump_parser = subparsers.add_parser("bump", help="Bump version in all 4 files")
+    bump_parser = subparsers.add_parser("bump", help="Bump version in all 7 surfaces")
     bump_parser.add_argument("version", help="New version (X.Y.Z format)")
 
     args = parser.parse_args()

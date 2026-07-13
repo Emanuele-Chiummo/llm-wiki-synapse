@@ -1481,6 +1481,13 @@
     "skipStep": "Skip this step",
     "skipAll": "Skip setup",
     "saving": "Saving…",
+    "progress": {
+      "label": "Setup progress: step {{current}} of {{total}}",
+      "connection": "Connection",
+      "provider": "AI provider",
+      "pdf": "PDF (optional)",
+      "finish": "Ready check"
+    },
     "step1": {
       "title": "Connect to backend",
       "desc": "Verify that the Synapse backend is reachable. If you are running Synapse locally, it should already be connected.",
@@ -1497,7 +1504,8 @@
       "desc": "Select the AI provider and model Synapse will use for ingest and chat. You can add more providers later in Settings › AI & Models.",
       "save": "Save provider",
       "saved": "Provider saved.",
-      "err": "Could not save provider. Check the details and try again."
+      "err": "Could not save provider. Check the details and try again.",
+      "probeFailed": "The provider was saved but did not pass the connection test."
     },
     "step3": {
       "title": "Choose PDF extraction",
@@ -1509,7 +1517,10 @@
     "step4": {
       "title": "All set!",
       "desc": "Synapse is configured and ready. You can adjust these settings any time from Settings › Getting started.",
-      "cta": "Start using Synapse"
+      "cta": "Start using Synapse",
+      "deferredTitle": "Setup saved for later",
+      "deferredDesc": "Some required checks are still incomplete. You can explore Synapse now and resume this checklist from Settings › Getting started.",
+      "deferredCta": "Explore and finish later"
     }
   },
   "home": {

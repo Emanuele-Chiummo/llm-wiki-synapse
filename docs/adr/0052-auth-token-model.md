@@ -2,6 +2,8 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-03
+- **Amended by:** [ADR-0075](ADR-0075-deployment-mode-auth-health-boundary.md) — server-mode
+  fail-closed validation and authenticated detailed health diagnostics
 - **Sprint:** v1.0 (M10 — Distribution & multi-user; R10-1 rescoped from OIDC to a shared token)
 - **Features:** F16 (Settings / config surface) · F15 (cross-platform security hardening) ·
   R10-1 (auth middleware) · R10-2 (auth UX — client contract only; UI built by frontend-engineer)
@@ -42,7 +44,7 @@ This ADR is the **technical contract** the PM decision requires before any code 
 specifies the credential model, the enforcement mechanism, the exact exempt set, the response +
 CORS interplay, the frontend injection point, and the desktop/updater implications. Where the PM
 brief and the live codebase disagree on a name (the brief says "`GET /health`"; the service
-actually exposes `GET /status` and `GET /health/detailed` — there is **no** plain `/health`
+actually exposes `GET /status`, `GET /health/live` and `GET /health/detailed` — there is **no** plain `/health`
 route, verified in `main.py` + `health.py` + `openapi.json`), **this ADR binds to the real
 endpoints.** The exempt set below uses the routes that actually exist.
 
@@ -160,12 +162,12 @@ following, and **only** these:
 **A. Monitoring-safe endpoints (always reachable for liveness/readiness probes):**
 - `GET /status` — the real service-health + `data_version` endpoint (the brief's "`GET /health`"
   maps here; there is no plain `/health`).
-- `GET /health/detailed` — the per-component health snapshot (R9-2).
+- `GET /health/live` — the minimal, non-diagnostic liveness response added by ADR-0075.
 
-*Justification:* container orchestration, the frontend health poll, and external uptime monitors
-must reach liveness without a credential. These endpoints expose only non-sensitive posture
-(version counter, component up/down) — no page content, no vault data, no config secrets. Exempting
-them is standard and safe. **`GET /status` staying exempt is also what lets the desktop
+*Justification:* container orchestration and external uptime monitors must reach liveness without
+a credential. These endpoints expose no page content, dependency diagnostics or config secrets.
+The per-component `GET /health/detailed` snapshot is protected under ADR-0075. **`GET /status`
+staying exempt is also what lets the desktop
 ConnectScreen auto-detect a reachable server before the user has entered a token** (§2.4, §4).
 
 **B. API documentation (decided: EXEMPT):**
@@ -214,7 +216,7 @@ covers ordering so this actually happens.)
 ```
 bypass_auth(request) := (
     request.method == "OPTIONS"
-    or request.url.path in {"/status", "/health/detailed", "/docs", "/redoc", "/openapi.json"}
+    or request.url.path in {"/status", "/health/live", "/docs", "/redoc", "/openapi.json"}
     or request.url.path == "/mcp/server" or request.url.path.startswith("/mcp/server/")
     or request.url.path == "/clip"
 )
@@ -285,7 +287,7 @@ answered correctly regardless.
 - `components.securitySchemes.BearerAuth` is declared:
   `{"type": "http", "scheme": "bearer"}`.
 - Every route **except** the exempt set references it: `security: [{"BearerAuth": []}]`.
-- The exempt routes (`GET /status`, `GET /health/detailed`) declare **`security: []`** explicitly
+- The exempt routes (`GET /status`, `GET /health/live`) declare **`security: []`** explicitly
   (the FastAPI idiom for "no auth on this route") so the schema is truthful about what is gated.
 - `/docs`, `/openapi.json`, `/redoc` are framework-served and are documented as exempt in the ADR
   text (they do not appear as `paths` entries that need a `security` marker).
@@ -351,10 +353,9 @@ Add a new exported helper `authHeaders(): Record<string, string>` (or a thin `fe
 wrapper) in `base.ts` that returns `{ Authorization: "Bearer <token>" }` when a token is stored
 for the current server, and `{}` otherwise. Every client merges `authHeaders()` into its request
 headers. This covers **all** REST calls, the NDJSON `POST /chat/stream` fetch, the graph poll, and
-the 30-second `GET /health/detailed` health poll (AC-R10-2-8) — because they all go through the
-`base.ts`-derived request path. **`GET /status` and `GET /health/detailed` are exempt server-side**
-(§2.3), so the header is harmless on them (an exempt route ignores the header) — the client may
-send it uniformly; it does no harm.
+the detailed health poll (AC-R10-2-8) — because they all go through the `base.ts`-derived request
+path. **`GET /status` and `GET /health/live` are exempt server-side; `GET /health/detailed`
+requires the header** under ADR-0075. The client may send the header uniformly.
 
 **4.3 401 handling — one interceptor, not per-component.**
 When any API call returns **401**, the client layer (a single response check colocated with the
@@ -446,8 +447,9 @@ i18n EN/IT parity for all new keys.
 2. **Enabled — reject.** With `SYNAPSE_AUTH_TOKEN="test-token"`, `GET /pages` with no header ⇒ 401
    with body `{"error":"unauthorized","hint":...}` and `WWW-Authenticate: Bearer` (AC-R10-1-1b).
 3. **Enabled — accept.** Same, with correct Bearer ⇒ 200 (AC-R10-1-1c).
-4. **Exempt set.** With the token set, `GET /status` and `GET /health/detailed` return 200 with no
-   header (AC-R10-1-2). `/docs` and `/openapi.json` load with no header.
+4. **Exempt set.** With the token set, `GET /status` and `GET /health/live` return 200 with no
+   header; `GET /health/detailed` returns 401 without it (ADR-0075). `/docs` and
+   `/openapi.json` load with no header.
 5. **CORS-on-401 (the ordering test).** A cross-origin request with a bad/absent token returns 401
    **carrying** `access-control-allow-origin` (proves CORS is outermost, §2.4).
 6. **OPTIONS exempt.** An `OPTIONS` preflight to any gated route returns the CORS preflight
@@ -458,7 +460,7 @@ i18n EN/IT parity for all new keys.
    `GET /clip/config` ARE 401'd without the API token.
 8. **No secret leak.** `grep` of logs shows no token value/prefix; no response body ever echoes it.
 9. **OpenAPI (I8).** `docs/api/openapi.json` declares `BearerAuth`; all routes reference it except
-   `/status` and `/health/detailed`, which carry `security: []`; `make openapi` is drift-clean
+   `/status` and `/health/live`, which carry `security: []`; `make openapi` is drift-clean
    (EC-M10-4).
 10. **mypy strict / lint.** `app/auth.py` passes `ruff` + `black --check` + `mypy` (strict), no
     `Any`, `verify_token` fully typed (AC-R10-1-5).

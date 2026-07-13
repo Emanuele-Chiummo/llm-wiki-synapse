@@ -4,7 +4,9 @@
 
 # Synapse
 
-**Self-hosted AI wiki that organizes itself.**
+**The self-hosted LLM wiki that turns your sources into connected knowledge.**
+*Connect everything.*
+
 Drop in raw documents — Synapse reads them, writes interlinked wiki pages,
 builds a weighted knowledge graph, and lets you chat with your own knowledge base, with citations.
 

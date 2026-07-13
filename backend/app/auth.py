@@ -15,7 +15,7 @@ Exempt set (bypass_auth predicate — authoritative per ADR-0052 §2.3)
 ---------------------------------------------------------------------
 * ``OPTIONS`` (any path) — CORS preflights cannot carry a bearer header.
 * ``GET /status``          — liveness probe; no vault data exposed.
-* ``GET /health/detailed`` — component health snapshot; no vault data.
+* ``GET /health/live``     — minimal liveness response with no component details.
 * ``GET /docs``            — Swagger UI (schema is already public in git).
 * ``GET /redoc``           — ReDoc UI (same rationale).
 * ``GET /openapi.json``    — raw OpenAPI schema.
@@ -79,13 +79,13 @@ MCP_MOUNT_PATH: str = "/mcp/server"
 # for liveness probes; HEAD exposes the same (empty) response body as GET.
 #
 # Rationale for each entry:
-#   /status, /health/detailed — liveness/readiness probes (no vault data, safe public)
+#   /status, /health/live   — connection/liveness probes (no diagnostics, safe public)
 #   /docs, /redoc             — Swagger/ReDoc UIs (schema is public in git)
 #   /openapi.json             — raw OpenAPI schema (same rationale as docs)
 #   /clip                     — POST only; uses ADR-0038 CLIP_TOKEN (extension token)
 _EXEMPT_EXACT: tuple[tuple[str, frozenset[str]], ...] = (
     ("/status", frozenset({"GET", "HEAD"})),
-    ("/health/detailed", frozenset({"GET", "HEAD"})),
+    ("/health/live", frozenset({"GET", "HEAD"})),
     ("/docs", frozenset({"GET", "HEAD"})),
     ("/redoc", frozenset({"GET", "HEAD"})),
     ("/openapi.json", frozenset({"GET", "HEAD"})),

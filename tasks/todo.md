@@ -1,4 +1,50 @@
-# Tasks — Synapse 1.6.0
+# Tasks — Product readiness hardening
+
+## Audit and planning
+
+- [x] Inspect the supplied 12-page branding guide and existing asset integration.
+- [x] Run a staff-level architecture and distribution audit.
+- [x] Complete the first-run usability and product naming audits.
+- [x] Define a bounded implementation graph and acceptance criteria.
+
+## Secure defaults
+
+- [x] Add explicit local/server deployment mode validation.
+- [x] Fail fast for missing or weak server authentication.
+- [x] Reduce unauthenticated health detail exposure.
+- [x] Forward the documented trust-boundary variables through Docker Compose.
+- [x] Add focused backend regression tests, including real environment loading.
+
+## Trustworthy first run
+
+- [x] Replace the boolean-only setup flag with versioned setup state.
+- [x] Distinguish dismissed, deferred and completed setup outcomes.
+- [x] Stop inferring readiness from provider row count alone.
+- [x] Probe a provider candidate before persisting it or claiming readiness.
+- [x] Add progress labels, readiness summary and clear next actions.
+- [x] Remove duplicate side effects in the wizard.
+- [x] Decompose the setup implementation into testable modules.
+
+## Product identity and interface
+
+- [x] Centralize core product name, descriptor and tagline references.
+- [x] Apply Geist consistently to the shell/connection flow and brand tokens to setup UI.
+- [x] Keep current mark compliant, including the simplified variant below 24 px.
+- [x] Produce a rename shortlist with collision evidence; do not rename without approval.
+- [x] Align public metadata and extension version with 1.6.0.
+- [x] Make Settings responsive and keep navigation reachable on short viewports.
+
+## Quality and handoff
+
+- [x] Run focused setup/auth tests first.
+- [x] Run frontend test, lint and build gates.
+- [x] Run affected backend lint/type/test gates.
+- [x] Perform responsive/browser QA at desktop, 375×812 and 320×568.
+- [x] Run final multi-axis code review and resolve introduced P0/P1 findings.
+
+---
+
+## Completed baseline — Synapse 1.6.0
 
 ## Planning and architecture
 

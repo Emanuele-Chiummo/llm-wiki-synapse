@@ -6,9 +6,9 @@
  * Flow:
  *   1. User enters backend URL (e.g. http://truenas:8000).
  *   2. Validates scheme — rejects non-http(s) immediately (ADR-0047 §2.7.1).
- *   3. Probes GET {url}/status with ~6s AbortController timeout (ADR-0047 §2.7.2).
- *   4. On 2xx → calls store.setServerUrl(url) → gate disappears, app renders.
- *   5. On failure → shows i18n error, stays on gate (ADR-0047 §6 Do-NOT #4).
+ *   3. Probes GET {url}/status and a protected endpoint with a shared timeout.
+ *   4. On 2xx from both → persists credentials → gate disappears, app renders.
+ *   5. On failure → persists nothing, shows an i18n error, and stays on the gate.
  *
  * Uses only --syn-* CSS variables (light theme, accent #2563eb).
  * No Tauri IPC/commands called here — isTauri() check is in AppShell (ADR-0047 §6 Do-NOT #5).
@@ -18,8 +18,17 @@ import { useState, useCallback, useEffect, useRef, type FormEvent } from "react"
 import { useTranslation } from "react-i18next";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { SynapseMark } from "../brand/SynapseMark";
-import { getLastServerUrl, isTauri, setAuthToken, clearAuthToken, apiFetch, bearerHeadersFor, cfAccessHeaders, platformFetch } from "../../api/base";
+import {
+  getLastServerUrl,
+  isTauri,
+  setAuthToken,
+  clearAuthToken,
+  bearerHeadersFor,
+  cfAccessHeaders,
+  platformFetch,
+} from "../../api/base";
 import { useSettingsStore, selectSetServerUrl } from "../../store/settingsStore";
+import { PRODUCT_IDENTITY } from "../../config/productIdentity";
 
 const PROBE_TIMEOUT_MS = 6_000;
 
@@ -122,43 +131,42 @@ export function ConnectScreen() {
           signal: controller.signal,
           headers: statusHeaders,
         });
-        window.clearTimeout(timeoutId);
 
         if (!statusRes.ok) {
           setError(t("connect.errors.status", { status: String(statusRes.status) }));
           return;
         }
 
-        // --- Persist URL + token, then do a secondary protected probe ---
-        // Persist the server URL first so apiFetch resolves the right base.
-        storeSetServerUrl(trimmed);
-        // Persist the token (may be empty — that's fine, auth may be disabled).
+        // Secondary protected probe uses the candidate credentials directly.
+        // Nothing is persisted until both probes have succeeded.
+        const protectedRes = await platformFetch(`${trimmed}/provider/config`, {
+          signal: controller.signal,
+          headers: statusHeaders,
+        });
+        if (protectedRes.status === 401) {
+          setError(t("connect.errors.authRequired"));
+          return;
+        }
+        if (!protectedRes.ok) {
+          setError(t("connect.errors.status", { status: String(protectedRes.status) }));
+          return;
+        }
+
+        // Commit last: updating the URL dismisses this gate, so persist the token first.
         if (token.trim()) {
           setAuthToken(token);
         } else {
           clearAuthToken();
         }
-
-        // Secondary probe: GET /provider/config (protected endpoint).
-        // ADR-0052 §4.4: if this 401s, auth is enabled and the token is missing/wrong.
-        const protectedRes = await apiFetch(`${trimmed}/provider/config`);
-        if (protectedRes.status === 401) {
-          // Roll back persisted URL (server exists but not yet authenticated)
-          // Leave the URL persisted so the user can re-attempt with a token.
-          clearAuthToken();
-          setError(t("connect.errors.authRequired"));
-          return;
-        }
-
-        // All good — gate dismisses (storeSetServerUrl already updated Zustand).
+        storeSetServerUrl(trimmed);
       } catch (err: unknown) {
-        window.clearTimeout(timeoutId);
         if (err instanceof DOMException && err.name === "AbortError") {
           setError(t("connect.errors.unreachable"));
         } else {
           setError(t("connect.errors.unreachable"));
         }
       } finally {
+        window.clearTimeout(timeoutId);
         setConnecting(false);
       }
     },
@@ -175,7 +183,6 @@ export function ConnectScreen() {
         width: "100vw",
         height: "100vh",
         background: "var(--syn-bg, #f8fafc)",
-        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif",
       }}
     >
       <div
@@ -249,7 +256,9 @@ export function ConnectScreen() {
 
           {/* Form */}
           <form
-            onSubmit={(e) => { void handleSubmit(e); }}
+            onSubmit={(e) => {
+              void handleSubmit(e);
+            }}
             style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}
           >
             <label
@@ -390,7 +399,7 @@ export function ConnectScreen() {
             <button
               type="submit"
               disabled={connecting || url.trim().length === 0}
-              className={`syn-btn syn-btn--gradient${connecting ? "" : ""}`}
+              className="syn-btn syn-btn--gradient"
               style={{
                 marginTop: 4,
                 width: "100%",
@@ -418,7 +427,7 @@ export function ConnectScreen() {
             marginTop: 16,
           }}
         >
-          Synapse Desktop · v{__APP_VERSION__}
+          {PRODUCT_IDENTITY.displayName} Desktop · v{__APP_VERSION__}
         </p>
       </div>
     </div>

@@ -1481,6 +1481,13 @@
     "skipStep": "Salta questo passo",
     "skipAll": "Salta configurazione",
     "saving": "Salvataggio…",
+    "progress": {
+      "label": "Avanzamento configurazione: passo {{current}} di {{total}}",
+      "connection": "Connessione",
+      "provider": "Provider AI",
+      "pdf": "PDF (opzionale)",
+      "finish": "Verifica finale"
+    },
     "step1": {
       "title": "Connetti al backend",
       "desc": "Verifica che il backend di Synapse sia raggiungibile. Se stai eseguendo Synapse in locale, dovrebbe essere già connesso.",
@@ -1497,7 +1504,8 @@
       "desc": "Seleziona il provider AI e il modello che Synapse utilizzerà per l'importazione e la chat. Puoi aggiungere altri provider in Impostazioni › AI e Modelli.",
       "save": "Salva provider",
       "saved": "Provider salvato.",
-      "err": "Impossibile salvare il provider. Controlla i dettagli e riprova."
+      "err": "Impossibile salvare il provider. Controlla i dettagli e riprova.",
+      "probeFailed": "Il provider è stato salvato ma non ha superato il test di connessione."
     },
     "step3": {
       "title": "Scegli l'estrazione PDF",
@@ -1509,7 +1517,10 @@
     "step4": {
       "title": "Tutto pronto!",
       "desc": "Synapse è configurato e pronto. Puoi modificare queste impostazioni in qualsiasi momento da Impostazioni › Per iniziare.",
-      "cta": "Inizia a usare Synapse"
+      "cta": "Inizia a usare Synapse",
+      "deferredTitle": "Configurazione salvata per dopo",
+      "deferredDesc": "Alcune verifiche necessarie sono ancora incomplete. Puoi esplorare Synapse e riprendere la checklist da Impostazioni › Per iniziare.",
+      "deferredCta": "Esplora e completa più tardi"
     }
   },
   "home": {

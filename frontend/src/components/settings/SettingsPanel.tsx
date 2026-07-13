@@ -15,7 +15,14 @@
  * INVARIANT I6: no hardcoded model/provider IDs.
  */
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { OpsScheduleCard } from "./OpsScheduleCard";
 import { SettingsSaveFooter } from "./SettingsSaveFooter";
@@ -36,10 +43,29 @@ import { SectionCosts } from "./sections/SectionCosts";
 import { SectionSecurity } from "./sections/SectionSecurity";
 import { SectionRuntimeConfig } from "./sections/SectionRuntimeConfig";
 import {
-  SectionHeader, GroupDivider, BTN_PRIMARY,
-  IconSliders, IconCpu, IconFolder, IconWrench, IconBook, IconLink, IconShield,
-  IconPalette, IconWand, IconBolt, IconVectors, IconGlobe, IconClock,
-  IconScissors, IconFileText, IconImage, IconLock, IconDollar, IconInfo, IconHistory,
+  SectionHeader,
+  GroupDivider,
+  BTN_PRIMARY,
+  IconSliders,
+  IconCpu,
+  IconFolder,
+  IconWrench,
+  IconBook,
+  IconLink,
+  IconShield,
+  IconPalette,
+  IconWand,
+  IconBolt,
+  IconVectors,
+  IconGlobe,
+  IconClock,
+  IconScissors,
+  IconFileText,
+  IconImage,
+  IconLock,
+  IconDollar,
+  IconInfo,
+  IconHistory,
 } from "./ui";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
@@ -94,9 +120,9 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupEssentials",
     descKey: "settings.nav.groupEssentialsDesc",
     pages: [
-      { id: "providers",  labelKey: "settings.nav.providers",  icon: <IconCpu /> },
+      { id: "providers", labelKey: "settings.nav.providers", icon: <IconCpu /> },
       { id: "appearance", labelKey: "settings.nav.appearance", icon: <IconPalette /> },
-      { id: "setup",      labelKey: "settings.nav.setup",      icon: <IconWand /> },
+      { id: "setup", labelKey: "settings.nav.setup", icon: <IconWand /> },
     ],
   },
   {
@@ -105,11 +131,11 @@ const NAV_GROUPS: NavGroup[] = [
     descKey: "settings.nav.groupContentDesc",
     pages: [
       { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <IconFolder /> },
-      { id: "clipper",     labelKey: "settings.nav.clipper",      icon: <IconScissors /> },
-      { id: "pdf",         labelKey: "settings.nav.pdf",          icon: <IconFileText /> },
+      { id: "clipper", labelKey: "settings.nav.clipper", icon: <IconScissors /> },
+      { id: "pdf", labelKey: "settings.nav.pdf", icon: <IconFileText /> },
       { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <IconImage /> },
-      { id: "generation",  labelKey: "settings.nav.generation",   icon: <IconBook /> },
-      { id: "scenarios",   labelKey: "settings.nav.scenarios",    icon: <IconBolt /> },
+      { id: "generation", labelKey: "settings.nav.generation", icon: <IconBook /> },
+      { id: "scenarios", labelKey: "settings.nav.scenarios", icon: <IconBolt /> },
     ],
   },
   {
@@ -117,11 +143,21 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupAiBehavior",
     descKey: "settings.nav.groupAiBehaviorDesc",
     pages: [
-      { id: "context",    labelKey: "settings.nav.context",     icon: <IconSliders />, advanced: true },
-      { id: "embeddings", labelKey: "settings.nav.embeddings2", icon: <IconVectors />, advanced: true },
-      { id: "webSearch",  labelKey: "settings.nav.webSearch2",  icon: <IconGlobe />,   advanced: true },
-      { id: "automation", labelKey: "settings.nav.automation",  icon: <IconClock />,   advanced: true },
-      { id: "limits",     labelKey: "settings.nav.limits",      icon: <IconShield />,  advanced: true },
+      { id: "context", labelKey: "settings.nav.context", icon: <IconSliders />, advanced: true },
+      {
+        id: "embeddings",
+        labelKey: "settings.nav.embeddings2",
+        icon: <IconVectors />,
+        advanced: true,
+      },
+      { id: "webSearch", labelKey: "settings.nav.webSearch2", icon: <IconGlobe />, advanced: true },
+      {
+        id: "automation",
+        labelKey: "settings.nav.automation",
+        icon: <IconClock />,
+        advanced: true,
+      },
+      { id: "limits", labelKey: "settings.nav.limits", icon: <IconShield />, advanced: true },
     ],
   },
   {
@@ -130,7 +166,7 @@ const NAV_GROUPS: NavGroup[] = [
     descKey: "settings.nav.groupAccessDesc",
     pages: [
       { id: "security", labelKey: "settings.nav.security2", icon: <IconLock /> },
-      { id: "apiMcp",   labelKey: "settings.nav.apiMcp2",   icon: <IconLink /> },
+      { id: "apiMcp", labelKey: "settings.nav.apiMcp2", icon: <IconLink /> },
     ],
   },
   {
@@ -138,10 +174,10 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupSystem",
     descKey: "settings.nav.groupSystemDesc",
     pages: [
-      { id: "costs",       labelKey: "settings.nav.costs2",       icon: <IconDollar /> },
+      { id: "costs", labelKey: "settings.nav.costs2", icon: <IconDollar /> },
       { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <IconWrench /> },
-      { id: "changelog",   labelKey: "settings.nav.changelog2",   icon: <IconHistory /> },
-      { id: "about",       labelKey: "settings.nav.about2",       icon: <IconInfo /> },
+      { id: "changelog", labelKey: "settings.nav.changelog2", icon: <IconHistory /> },
+      { id: "about", labelKey: "settings.nav.about2", icon: <IconInfo /> },
     ],
   },
 ];
@@ -174,7 +210,9 @@ export function SettingsPanel() {
       }
     };
     window.addEventListener("synapse:settingsSection", handler);
-    return () => { window.removeEventListener("synapse:settingsSection", handler); };
+    return () => {
+      window.removeEventListener("synapse:settingsSection", handler);
+    };
   }, []);
 
   // Arrow-key navigation over the 18 page items only (skip group headers)
@@ -211,6 +249,7 @@ export function SettingsPanel() {
   return (
     <div
       data-testid="settings-panel"
+      className="settings-panel"
       style={{
         display: "flex",
         width: "100%",
@@ -222,6 +261,7 @@ export function SettingsPanel() {
     >
       {/* ── 2-level left nav ── */}
       <aside
+        className="settings-panel__nav"
         role="navigation"
         aria-label={t("settings.title")}
         onKeyDown={handleNavKeyDown}
@@ -236,7 +276,16 @@ export function SettingsPanel() {
           overflowY: "auto",
         }}
       >
-        <p style={{ margin: "0 12px 12px", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--syn-text-dim)" }}>
+        <p
+          style={{
+            margin: "0 12px 12px",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "var(--syn-text-dim)",
+          }}
+        >
           {t("settings.title")}
         </p>
 
@@ -295,7 +344,9 @@ export function SettingsPanel() {
                   return (
                     <button
                       key={page.id}
-                      ref={(el) => { pageRefs.current[globalIdx] = el; }}
+                      ref={(el) => {
+                        pageRefs.current[globalIdx] = el;
+                      }}
                       data-settings-section={page.id}
                       data-testid={`settings-nav-${page.id}`}
                       aria-current={isActive ? "true" : undefined}
@@ -318,18 +369,28 @@ export function SettingsPanel() {
                       }}
                       onMouseEnter={(e) => {
                         if (!isActive) {
-                          (e.currentTarget as HTMLButtonElement).style.background = "var(--syn-surface-hover)";
-                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-muted)";
+                          (e.currentTarget as HTMLButtonElement).style.background =
+                            "var(--syn-surface-hover)";
+                          (e.currentTarget as HTMLButtonElement).style.color =
+                            "var(--syn-text-muted)";
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isActive) {
                           (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-text-dim)";
+                          (e.currentTarget as HTMLButtonElement).style.color =
+                            "var(--syn-text-dim)";
                         }
                       }}
                     >
-                      <span style={{ display: "inline-flex", flexShrink: 0, opacity: isActive ? 1 : 0.6 }} aria-hidden="true">
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          flexShrink: 0,
+                          opacity: isActive ? 1 : 0.6,
+                        }}
+                        aria-hidden="true"
+                      >
                         {page.icon}
                       </span>
                       {t(page.labelKey)}
@@ -344,27 +405,30 @@ export function SettingsPanel() {
 
       {/* ── Content area (flex column: scroll region + sticky Save footer) ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}>
+        <div
+          className="settings-panel__content"
+          style={{ flex: 1, overflowY: "auto", padding: "32px 40px", maxWidth: 720 }}
+        >
           {activePage === "appearance" && <PageAppearance />}
-          {activePage === "setup"      && <PageSetup />}
-          {activePage === "providers"  && <SectionLlmModels />}
-          {activePage === "scenarios"  && <SectionScenarios />}
-          {activePage === "context"    && <SectionGeneral />}
+          {activePage === "setup" && <PageSetup />}
+          {activePage === "providers" && <SectionLlmModels />}
+          {activePage === "scenarios" && <SectionScenarios />}
+          {activePage === "context" && <SectionGeneral />}
           {activePage === "embeddings" && <PageEmbeddings />}
-          {activePage === "webSearch"  && <SectionWebSearch />}
+          {activePage === "webSearch" && <SectionWebSearch />}
           {activePage === "generation" && <PageGeneration />}
           {activePage === "automation" && <PageAutomation />}
-          {activePage === "limits"     && <PageLimits />}
+          {activePage === "limits" && <PageLimits />}
           {activePage === "sourceWatch" && <SectionSourceWatch />}
-          {activePage === "clipper"    && <SectionWebClipper />}
-          {activePage === "pdf"        && <PagePdf />}
+          {activePage === "clipper" && <SectionWebClipper />}
+          {activePage === "pdf" && <PagePdf />}
           {activePage === "imageCaptioning" && <PageImageCaptioning />}
-          {activePage === "apiMcp"     && <SectionApiMcp />}
-          {activePage === "security"   && <SectionSecurity />}
-          {activePage === "costs"      && <SectionCosts />}
+          {activePage === "apiMcp" && <SectionApiMcp />}
+          {activePage === "security" && <SectionSecurity />}
+          {activePage === "costs" && <SectionCosts />}
           {activePage === "maintenance" && <SectionMaintenance />}
-          {activePage === "changelog"  && <SectionChangelog />}
-          {activePage === "about"      && <SectionAbout />}
+          {activePage === "changelog" && <SectionChangelog />}
+          {activePage === "about" && <SectionAbout />}
         </div>
         {/* Sticky Save bar — visible only when client-preference drafts are dirty */}
         <SettingsSaveFooter />
@@ -398,11 +462,7 @@ function PageSetup() {
         title={t("config.gettingStarted.wizardSlot")}
         desc={t("config.gettingStarted.wizardSlotDesc")}
       />
-      <button
-        data-testid="wizard-reopen-btn"
-        onClick={handleOpenWizard}
-        style={BTN_PRIMARY}
-      >
+      <button data-testid="wizard-reopen-btn" onClick={handleOpenWizard} style={BTN_PRIMARY}>
         {t("config.gettingStarted.wizardReopen")}
       </button>
     </div>
@@ -434,7 +494,9 @@ function PageGeneration() {
         title={t("settings.nav.generation")}
         desc={t("config.runtimeOverridesSection.desc")}
       />
-      <SectionRuntimeConfig keys={["overview_language", "wikilink_enrich_enabled", "domain_vocabulary"]} />
+      <SectionRuntimeConfig
+        keys={["overview_language", "wikilink_enrich_enabled", "domain_vocabulary"]}
+      />
     </div>
   );
 }
@@ -462,13 +524,15 @@ function PageLimits() {
         title={t("config.limitsSection.title")}
         desc={t("config.limitsSection.desc")}
       />
-      <SectionRuntimeConfig keys={[
-        "deep_research_max_iter",
-        "deep_research_token_budget",
-        "deep_research_max_queries",
-        "lint_max_iter",
-        "lint_token_budget",
-      ]} />
+      <SectionRuntimeConfig
+        keys={[
+          "deep_research_max_iter",
+          "deep_research_token_budget",
+          "deep_research_max_queries",
+          "lint_max_iter",
+          "lint_token_budget",
+        ]}
+      />
     </div>
   );
 }
