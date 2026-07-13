@@ -85,6 +85,7 @@ async def client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClient:
                 vault_id TEXT NOT NULL UNIQUE,
                 data_version INTEGER NOT NULL DEFAULT 0,
                 remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
+                remote_mcp_write_enabled INTEGER,
                 mcp_access_token_hash TEXT,
                 mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
                 clip_enabled_db INTEGER,
