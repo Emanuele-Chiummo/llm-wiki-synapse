@@ -23,12 +23,12 @@ import {
 } from "../../store/graphStore";
 import type { GraphNode, GraphEdge, CascadeDeleteResult } from "../../api/types";
 import { CascadeDeleteModal } from "../wiki/CascadeDeleteModal";
+import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
 
 // ─── Type colour helper (uses --syn-type-* tokens) ───────────────────────────
 
 function typeColorVar(type: string | null): string {
-  const t = type ?? "other";
-  return `var(--syn-type-${t}, var(--syn-type-other))`;
+  return pageTypeCssColor(type);
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────

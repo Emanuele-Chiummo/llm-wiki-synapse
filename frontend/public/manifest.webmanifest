@@ -1,7 +1,7 @@
 {
-  "name": "Synapse — Knowledge Graph",
+  "name": "Synapse — Self-hosted LLM Wiki",
   "short_name": "Synapse",
-  "description": "Self-hosted knowledge graph: browse, chat, and explore your wiki with AI assistance.",
+  "description": "The self-hosted LLM wiki that turns your sources into connected knowledge.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

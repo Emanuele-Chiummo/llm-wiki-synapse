@@ -155,6 +155,7 @@ def _build_review_meta_0034() -> MetaData:
         Column("id", String(36), primary_key=True),
         Column("vault_id", String, nullable=False),
         Column("item_type", Text, nullable=False),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
         # FK columns stored as Text for SQLite compat
         Column("page_id", String(36), nullable=True),
@@ -371,6 +372,8 @@ async def _insert_proposal(
     source_page_id: str | None = None,
     resolution: str | None = None,
     deep_research_run_id: str | None = None,
+    proposal_origin: str = "legacy",
+    content_key: str | None = None,
 ) -> str:
     """Insert one proposal row into review_items and return its ID string."""
     item_id = str(uuid.uuid4())
@@ -380,10 +383,10 @@ async def _insert_proposal(
                 "INSERT INTO review_items "
                 "(id, vault_id, item_type, status, proposed_title, proposed_page_type, "
                 " rationale, page_id, source_page_id, resolution, deep_research_run_id, "
-                " created_at) "
+                " proposal_origin, content_key, created_at) "
                 "VALUES (:id, :vault_id, :item_type, :status, :proposed_title, "
                 ":proposed_page_type, :rationale, :page_id, :source_page_id, "
-                ":resolution, :dr_id, datetime('now'))"
+                ":resolution, :dr_id, :proposal_origin, :content_key, datetime('now'))"
             ),
             {
                 "id": item_id,
@@ -397,6 +400,8 @@ async def _insert_proposal(
                 "source_page_id": source_page_id,
                 "resolution": resolution,
                 "dr_id": deep_research_run_id,
+                "proposal_origin": proposal_origin,
+                "content_key": content_key,
             },
         )
         await sess.commit()

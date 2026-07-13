@@ -63,6 +63,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("title", Text, nullable=True),
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -125,6 +126,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("status", Text, nullable=False, server_default=sa_text("'completed'")),
         Column("pages_created", Integer, nullable=False, default=0),
         Column("error_message", Text, nullable=True),
+        Column("page_type_counts", Text, nullable=True),
         # migration 0021 fields (ADR-0046)
         Column("source_path", Text, nullable=True),
         Column("retry_count", Integer, nullable=False, server_default=sa_text("0")),

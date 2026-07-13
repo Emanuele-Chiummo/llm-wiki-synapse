@@ -1,12 +1,11 @@
 """
 ADR-0063 §2.4 — nashsu/llm_wiki page-type parity.
 
-Covers the three parity guarantees that bring Synapse's ingest page-type distribution 1:1 with
-llm_wiki 0.6.0 (which over-produced synthesis/comparison and dropped source pages before this):
+Covers the three parity guarantees that bring Synapse's ingest page-type distribution in line
+with llm_wiki while keeping every derived page grounded in the source:
 
-  (a) GENERATE_SYSTEM / ANALYZE_SYSTEM carry the restricted "what to generate" scaffold + the
-      synthesis/comparison "review-only" prohibition (ingest.ts:2017-2024 / 2229 / 1961), and
-      build_generate_prompt restates the scaffold at the point of generation.
+  (a) GENERATE_SYSTEM / ANALYZE_SYSTEM expose all six user-content page types and allow direct
+      query/comparison/synthesis generation only when the source supports the derived page.
   (b) _ensure_source_summary ALWAYS yields a source page traceable to the origin — even when the
       model produced entity/concept pages but omitted the source summary (ingest.ts:1209-1244).
   (c) no duplicate source page is synthesized when one already cites the origin (dedupe / churn).
@@ -21,6 +20,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from app.ingest.loop import validate_pages
 from app.ingest.orchestrator import _ensure_source_summary
 from app.ingest.provider._common import (
     ANALYZE_SYSTEM,
@@ -48,35 +48,97 @@ def _page(page_type: PageType, title: str, sources: list[str]) -> WikiPage:
     return WikiPage(title=title, type=page_type, content=f"# {title}\n\nbody", frontmatter=fm)
 
 
-# ── (a) prompt scaffold + prohibition ─────────────────────────────────────────────
+# ── (a) source-grounded six-type generation contract ──────────────────────────────
 
 
-def test_generate_system_has_restricted_scaffold() -> None:
+def test_generate_system_has_source_grounded_six_type_scaffold() -> None:
     lowered = GENERATE_SYSTEM.lower()
-    # Exactly-one source page + entity/concept scaffold present.
+    # Exactly-one source page + all six user-content types are available.
     assert "what to generate" in lowered
     assert "exactly one source-summary page" in lowered
     assert "type=entity" in lowered
     assert "type=concept" in lowered
-    # The narrowed JSON type union no longer offers synthesis/comparison as co-equal outputs.
-    assert "entity|concept|source" in GENERATE_SYSTEM
-    assert "entity|concept|source|synthesis|comparison" not in GENERATE_SYSTEM
+    assert "entity|concept|source|query|synthesis|comparison" in GENERATE_SYSTEM
 
 
-def test_generate_system_prohibits_synthesis_and_comparison() -> None:
+def test_generate_system_allows_only_source_supported_derived_pages() -> None:
     lowered = GENERATE_SYSTEM.lower()
-    assert "do not create synthesis or comparison pages during ingest" in lowered
-    assert "review queue" in lowered
+    assert "type=query" in lowered
+    assert "type=comparison" in lowered
+    assert "type=synthesis" in lowered
+    assert "directly supported by this source" in lowered
+    assert "do not create synthesis or comparison pages during ingest" not in lowered
+    assert "## research queries" in lowered
+    assert "title-only/generic stubs are invalid" in lowered
+
+
+def test_query_page_requires_contextual_retrieval_queries() -> None:
+    weak = _page(PageType.QUERY, "How does procurement change?", [ORIGIN])
+    assert any("Research queries" in error for error in validate_pages([weak], ORIGIN))
+
+    strong = _page(PageType.QUERY, "How does procurement change?", [ORIGIN])
+    strong.content = (
+        "# How does procurement change?\n\n"
+        "The source connects procurement operating models with category governance, adoption, "
+        "and outcomes.\n\n"
+        "## Research queries\n"
+        "- procurement operating model transformation evidence\n"
+        "- category governance adoption measurable outcomes\n"
+    )
+    assert validate_pages([strong], ORIGIN) == []
+
+
+def test_query_page_rejects_generic_placeholder_lists() -> None:
+    generic = _page(PageType.QUERY, "How does procurement change?", [ORIGIN])
+    generic.content = (
+        "# How does procurement change?\n\n"
+        "## Research queries\n"
+        "- tell me something else\n"
+        "- what should I know\n"
+    )
+
+    assert any("contextual retrieval" in error for error in validate_pages([generic], ORIGIN))
+
+    generic_it = _page(PageType.QUERY, "Come cambia l'approvvigionamento?", [ORIGIN])
+    generic_it.frontmatter.lang = "it"
+    generic_it.content = (
+        "# Come cambia l'approvvigionamento?\n\n"
+        "## Research queries\n"
+        "- dimmi qualcosa di più\n"
+        "- cosa dovrei sapere ancora\n"
+    )
+
+    assert any("contextual retrieval" in error for error in validate_pages([generic_it], ORIGIN))
+
+
+def test_query_page_rejects_generic_synonyms_without_context_anchors() -> None:
+    generic_en = _page(PageType.QUERY, "How does procurement change?", [ORIGIN])
+    generic_en.content = (
+        "# How does procurement change?\n\n"
+        "## Research queries\n"
+        "- summarize available relevant material\n"
+        "- identify useful related resources\n"
+    )
+    assert any("contextual retrieval" in error for error in validate_pages([generic_en], ORIGIN))
+
+    generic_it = _page(PageType.QUERY, "Come cambia l'approvvigionamento?", [ORIGIN])
+    generic_it.frontmatter.lang = "it"
+    generic_it.content = (
+        "# Come cambia l'approvvigionamento?\n\n"
+        "## Research queries\n"
+        "- raccontami altre cose utili\n"
+        "- riassumi materiale rilevante disponibile\n"
+    )
+    assert any("contextual retrieval" in error for error in validate_pages([generic_it], ORIGIN))
 
 
 def test_analyze_system_conservatism_clause() -> None:
     lowered = ANALYZE_SYSTEM.lower()
-    # suggested_pages restricted to entity/concept/source, never invent synthesis/comparison/etc.
-    assert "restrict suggested_pages to entity, concept, or source" in lowered
-    assert "never invent synthesis, comparison" in lowered
+    assert "entity|concept|source|query|synthesis|comparison" in ANALYZE_SYSTEM
     assert "only when the source actually supports" in lowered
-    # ANALYZE keeps the full type union in its JSON contract (schema-valid), instruction forbids use.
-    assert "entity|concept|source|synthesis|comparison" in ANALYZE_SYSTEM
+    assert "unresolved question" in lowered
+    assert "explicitly compares" in lowered
+    assert "integrates multiple claims" in lowered
 
 
 def test_analyze_system_has_subject_boundary_rule() -> None:
@@ -174,9 +236,9 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    The delegated (CLI) route appends GENERATION_SCAFFOLD to the agent's system_prompt so the
-    synthesis/comparison prohibition + "exactly one source page" restriction reach the CLI backend
-    too. The deterministic source-page guarantee now ALSO runs on the delegated route
+    The delegated (CLI) route appends GENERATION_SCAFFOLD to the agent's system_prompt so the same
+    source-grounded six-type contract and "exactly one source page" guarantee reach the CLI backend.
+    The deterministic source-page guarantee also runs on the delegated route
     (_ensure_source_summary_for_delegated, nashsu/llm_wiki hasSourceSummary parity — here stubbed).
     """
     from app.ingest import orchestrator as orch
@@ -240,6 +302,9 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
 
     assert captured.get("system_prompt") is not None
     assert GENERATION_SCAFFOLD in captured["system_prompt"]
+    assert "type=query" in captured["system_prompt"].lower()
+    assert "type=comparison" in captured["system_prompt"].lower()
+    assert "type=synthesis" in captured["system_prompt"].lower()
     # The base ingest context is still present (scaffold is appended, not replacing it).
     assert "schema.md" in captured["system_prompt"]
     # F3 language parity: the mandatory-output-language directive (vault language) is present.

@@ -22,6 +22,19 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
+const FRONTEND_URL = process.env["SYNAPSE_FRONTEND_URL"] ?? "http://localhost:5173";
+const FRONTEND_ORIGIN = new URL(FRONTEND_URL).origin;
+
+const SETUP_COMPLETED_STATE = {
+  version: 1,
+  status: "completed",
+  lastStep: 4,
+  connectionVerified: true,
+  providerVerified: true,
+  providerFingerprint: null,
+  updatedAt: "2026-01-01T00:00:00.000Z",
+};
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
@@ -44,7 +57,23 @@ export default defineConfig({
 
   use: {
     // Base URL = frontend dev server
-    baseURL: process.env["SYNAPSE_FRONTEND_URL"] ?? "http://localhost:5173",
+    baseURL: FRONTEND_URL,
+
+    // The E2E suite exercises the post-setup product shell. First-run behavior
+    // is covered by focused unit tests, so keep the wizard from overlaying every
+    // page in clean browser contexts.
+    storageState: {
+      cookies: [],
+      origins: [
+        {
+          origin: FRONTEND_ORIGIN,
+          localStorage: [
+            { name: "synapse.setupCompleted", value: "1" },
+            { name: "synapse.setupState", value: JSON.stringify(SETUP_COMPLETED_STATE) },
+          ],
+        },
+      ],
+    },
 
     // Always capture trace on failure for debugging
     trace: "on-first-retry",

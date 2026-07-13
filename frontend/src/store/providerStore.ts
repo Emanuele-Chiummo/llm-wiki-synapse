@@ -109,6 +109,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
   },
 
   setActive: async (providerType, modelId, baseUrl, scope, vaultId) => {
+    set({ error: null });
     const body: CreateProviderConfigBody = {
       scope,
       vault_id: scope === "vault" ? vaultId : null,
@@ -125,6 +126,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       set({ error: (err as Error).message });
+      throw err;
     }
   },
 
@@ -138,6 +140,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       set({ error: (err as Error).message });
+      throw err;
     }
   },
 
@@ -151,6 +154,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       set({ error: (err as Error).message });
+      throw err;
     }
   },
 
@@ -182,6 +186,7 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") return;
       set({ error: (err as Error).message });
+      throw err;
     }
   },
 }));

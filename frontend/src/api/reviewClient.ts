@@ -25,6 +25,9 @@ import type {
   ReviewBulkRequest,
   ReviewBulkResponse,
   ReviewClearResolvedResponse,
+  PageType,
+  ReviewItemType,
+  ReviewProposalOrigin,
 } from "./types";
 import { ApiError } from "./graphClient";
 import { apiBase, apiFetch } from "./base";
@@ -52,6 +55,13 @@ async function checkResponse(res: Response): Promise<void> {
  */
 export type ReviewQueueStatus = "pending" | "resolved" | "dismissed" | "all";
 
+/** Additive v1.6 server-side filters for the review queue. */
+export interface ReviewQueueFilters {
+  itemType?: ReviewItemType | null;
+  proposalOrigin?: ReviewProposalOrigin | null;
+  proposedPageType?: PageType | null;
+}
+
 /**
  * Fetch paginated HITL review queue proposals.
  * GET /review/queue?vault_id=<vaultId>&status=<status>&limit=<limit>&offset=<offset>
@@ -66,11 +76,28 @@ export async function fetchReviewQueue(
     status?: ReviewQueueStatus;
     limit?: number;
     offset?: number;
-  },
+  } & ReviewQueueFilters,
   signal?: AbortSignal,
 ): Promise<ReviewQueueResponse> {
-  const { vaultId, status = "pending", limit = 50, offset = 0 } = options;
-  const url = `${apiBase()}/review/queue?vault_id=${encodeURIComponent(vaultId)}&status=${encodeURIComponent(status)}&limit=${limit}&offset=${offset}`;
+  const {
+    vaultId,
+    status = "pending",
+    limit = 50,
+    offset = 0,
+    itemType,
+    proposalOrigin,
+    proposedPageType,
+  } = options;
+  const params = new URLSearchParams({
+    vault_id: vaultId,
+    status,
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (itemType) params.set("item_type", itemType);
+  if (proposalOrigin) params.set("proposal_origin", proposalOrigin);
+  if (proposedPageType) params.set("proposed_page_type", proposedPageType);
+  const url = `${apiBase()}/review/queue?${params.toString()}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as ReviewQueueResponse;

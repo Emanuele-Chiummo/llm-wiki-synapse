@@ -34,8 +34,8 @@ B11 — method-aware auth exempt list (auth.py):
   T-AUTH-007  GET  /mcp/server     → exempt (sub-app prefix)
   T-AUTH-008  POST /mcp/server/sse → exempt (sub-app prefix, arbitrary sub-path)
   T-AUTH-009  GET  /mcp/info       → NOT exempt (management route, not sub-app)
-  T-AUTH-010  GET  /health/detailed → exempt
-  T-AUTH-011  DELETE /health/detailed → NOT exempt
+  T-AUTH-010  GET  /health/live → exempt
+  T-AUTH-011  GET/DELETE /health/detailed → NOT exempt
   T-AUTH-012  GET  /docs           → exempt
   T-AUTH-013  GET  /openapi.json   → exempt
 
@@ -433,13 +433,15 @@ class TestBypassAuth:
         """T-AUTH-009: /mcp/info is a management route, NOT the sub-app prefix."""
         assert self._bypass("GET", "/mcp/info") is False
 
-    def test_health_detailed_exempt(self) -> None:
+    def test_health_live_exempt(self) -> None:
         """T-AUTH-010"""
-        assert self._bypass("GET", "/health/detailed") is True
-        assert self._bypass("HEAD", "/health/detailed") is True
+        assert self._bypass("GET", "/health/live") is True
+        assert self._bypass("HEAD", "/health/live") is True
 
-    def test_delete_health_not_exempt(self) -> None:
-        """T-AUTH-011: unusual verb on probe path must be gated."""
+    def test_detailed_health_not_exempt(self) -> None:
+        """T-AUTH-011: detailed diagnostics and unusual verbs must be gated."""
+        assert self._bypass("GET", "/health/detailed") is False
+        assert self._bypass("HEAD", "/health/detailed") is False
         assert self._bypass("DELETE", "/health/detailed") is False
 
     def test_docs_exempt(self) -> None:

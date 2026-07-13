@@ -614,6 +614,7 @@ async def send_finding_to_review(finding_id: uuid.UUID) -> LintFinding:
     review_item = await enqueue_review(
         vault_id=finding.vault_id,
         item_type=item_type,
+        proposal_origin="lint",
         proposed_title=proposed_title,
         rationale=rationale,
         source_page_id=(uuid.UUID(str(finding.target_page_id)) if finding.target_page_id else None),

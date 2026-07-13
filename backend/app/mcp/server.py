@@ -1309,7 +1309,7 @@ def build_http_mcp(
 # ── In-process SDK MCP server factory (claude-agent-sdk, ADR-0010 §2) ──────────
 
 
-def build_sdk_mcp_server(origin_source: str = "") -> Any:
+def build_sdk_mcp_server(origin_source: str = "", generation_key: str | None = None) -> Any:
     """
     Build an IN-PROCESS SDK MCP server for the CLI delegated ingest path (F17, ADR-0010 §2).
 
@@ -1338,6 +1338,9 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
                        agent from omitting or misdescribing the raw file path — it is stamped
                        server-side.  When empty (default, standalone/global MCP server), the
                        tool-arg behaviour is unchanged.
+        generation_key: Optional reserved corpus identity bound by an accepted Review proposal.
+                        When present, the server injects it into frontmatter before validation so
+                        delegated providers cannot omit or alter the idempotency key.
 
     Returns the McpSdkServerConfig dict from create_sdk_mcp_server (name="synapse").
     """
@@ -1382,11 +1385,14 @@ def build_sdk_mcp_server(origin_source: str = "") -> Any:
         # external-MCP / stdio path is unchanged.
         tool_arg = args.get("origin_source", "") or ""
         effective_origin = origin_source or tool_arg
+        effective_frontmatter = dict(args["frontmatter"])
+        if generation_key is not None:
+            effective_frontmatter["synapse_generation_key"] = generation_key
         return _wrap(
             await _write_page_body(
                 args["title"],
                 args["content"],
-                args["frontmatter"],
+                effective_frontmatter,
                 effective_origin,
             )
         )

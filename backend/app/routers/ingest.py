@@ -108,6 +108,10 @@ class IngestRunResponse(BaseModel):
     status: str = Field(description="running | completed | failed | converged_false (ADR-0018 §7)")
     provider_type: str = Field(description="local | api | cli")
     pages_created: int = Field(description="Wiki pages persisted during this run")
+    page_type_counts: dict[str, int] | None = Field(
+        default=None,
+        description="Per-PageType created-page counts; null for legacy/unavailable runs",
+    )
     iterations_used: int = Field(
         description="Iterations consumed (aliases max_iter_used; 0 for delegated)"
     )
@@ -1154,6 +1158,7 @@ def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
         status=run.status,
         provider_type=run.provider_type,
         pages_created=run.pages_created,
+        page_type_counts=getattr(run, "page_type_counts", None),
         iterations_used=run.max_iter_used,
         total_cost_usd=float(run.total_cost_usd),
         started_at=run.started_at,

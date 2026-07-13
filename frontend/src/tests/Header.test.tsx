@@ -20,14 +20,24 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
     getItem(k: string) {
       return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
     },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -100,6 +110,7 @@ vi.mock("../api/base", () => ({
 // ─── Import after mocks ───────────────────────────────────────────────────────
 
 import { Header } from "../components/Header";
+import { PRODUCT_IDENTITY } from "../config/productIdentity";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -157,7 +168,13 @@ describe("Header — non-Tauri mode", () => {
   it("R11-3: renders the 'Synapse' wordmark text in the Header", () => {
     render(<Header />);
     const brand = document.querySelector(".app-header__brand");
-    expect(brand?.textContent).toContain("Synapse");
+    expect(brand?.textContent).toContain(PRODUCT_IDENTITY.displayName);
+  });
+
+  it("renders the wordmark with the brand Semibold weight", () => {
+    render(<Header />);
+    const wordmark = screen.getByTestId("app-wordmark");
+    expect(wordmark.style.fontWeight).toBe("600");
   });
 });
 

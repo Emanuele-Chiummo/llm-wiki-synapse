@@ -7,8 +7,8 @@ ship in the next release. Only the latest release line receives fixes.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.3.x   | :white_check_mark: |
-| < 1.3   | :x:                |
+| 1.6.x   | :white_check_mark: |
+| < 1.6   | :x:                |
 
 ## Reporting a vulnerability
 
@@ -44,10 +44,20 @@ disclosure.
 Synapse is **self-hosted**. Operators are responsible for the security of their
 own deployment. When reporting, keep in mind the intended threat model:
 
-- The backend is designed to run on a **trusted network** (Tailscale mesh /
-  private LAN), not exposed directly to the public internet. Put a
-  reverse proxy with authentication (or a Cloudflare Tunnel with Access) in
-  front of any public endpoint.
+- `SYNAPSE_DEPLOYMENT_MODE=local` is the backward-compatible mode for loopback development and
+  trusted single-machine use. It permits an empty `SYNAPSE_AUTH_TOKEN` and must not be used for a
+  backend reachable by other machines.
+- Every LAN, Tailscale, tunnel, reverse-proxy or hosted backend must use
+  `SYNAPSE_DEPLOYMENT_MODE=server`. Server mode fails startup unless the env-only
+  `SYNAPSE_AUTH_TOKEN` is present, contains at least 32 characters, contains no whitespace and has
+  at least eight distinct characters. Generate it with `openssl rand -hex 32`; do not use a human
+  password or placeholder.
+- Do not expose the backend directly to the public internet. Put an authenticated reverse proxy
+  or Cloudflare Tunnel with Access in front of it. Edge authentication complements, rather than
+  replaces, the application token in server mode.
+- Public health is limited to `GET`/`HEAD /health/live` and the existing `/status` connection
+  probe. `/health/detailed` exposes operational diagnostics and requires the REST bearer token
+  whenever auth is enabled.
 - API keys and provider credentials belong in `.env` / environment variables —
   **never** commit them. `.env` is git-ignored; secret scanning
   (GitGuardian) runs on every push.
@@ -55,6 +65,9 @@ own deployment. When reporting, keep in mind the intended threat model:
   (Anthropic / OpenAI-compatible), or CLI (claude-agent-sdk) backends. CLI mode
   grants filesystem tools scoped to the vault — treat the vault path as trusted.
 
-Reports that amount to "the backend has no auth when exposed publicly" describe
-expected behavior for the documented threat model, not a vulnerability — but
-concrete hardening suggestions are always welcome.
+An unauthenticated API in explicitly selected `local` mode is expected only inside its documented
+single-machine trust boundary. Authentication bypasses in `server` mode, disclosure through
+protected diagnostics, or a way to start `server` mode with a missing/weak token are in scope for
+security reports. Deployment and migration instructions are in
+[`docs/DEPLOY.md`](docs/DEPLOY.md#security); the rationale is recorded in
+[`ADR-0075`](docs/adr/ADR-0075-deployment-mode-auth-health-boundary.md).

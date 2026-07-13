@@ -84,7 +84,7 @@ vi.mock("../store/providerStore", () => ({
       list: [],
       activeProvider: null,
       loading: false,
-      error: null,
+      error: "offline",
       writeScope: "vault",
       fetchProviderList: vi.fn(),
       setActiveProvider: vi.fn(),
@@ -106,6 +106,23 @@ vi.mock("../store/graphStore", () => ({
 }));
 
 describe("UXA-15 — ProviderSelector ARIA", () => {
+  it("labels the trigger as unavailable after a provider fetch error", async () => {
+    const { ProviderSelector } = await import("../components/provider/ProviderSelector");
+    render(<ProviderSelector />);
+    expect(screen.getByTestId("provider-selector-trigger").getAttribute("aria-label")).toContain(
+      "unavailable",
+    );
+  });
+
+  it("offers an explicit retry action when providers cannot be loaded", async () => {
+    const { ProviderSelector } = await import("../components/provider/ProviderSelector");
+    render(<ProviderSelector />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("provider-selector-trigger"));
+    });
+    expect(screen.getByTestId("provider-retry")).not.toBeNull();
+  });
+
   it('trigger button has aria-haspopup="dialog"', async () => {
     const { ProviderSelector } = await import("../components/provider/ProviderSelector");
     render(<ProviderSelector />);

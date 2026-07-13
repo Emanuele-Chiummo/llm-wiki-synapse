@@ -198,6 +198,15 @@ class Page(Base):
         ),
     )
 
+    generation_key: Mapped[str | None] = mapped_column(
+        String(96),
+        nullable=True,
+        comment=(
+            "Stable identity for corpus-derived comparison/synthesis pages; mirrored as "
+            "synapse_generation_key in YAML. NULL for ordinary/legacy pages (ADR-0074, 0031)."
+        ),
+    )
+
     # ── Change-detection ──────────────────────────────────────────────────────
     content_hash: Mapped[str] = mapped_column(
         String(64),
@@ -286,6 +295,14 @@ class Page(Base):
             "file_path",
             unique=True,
             postgresql_where=sa_text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uix_pages_vault_generation_key_live",
+            "vault_id",
+            "generation_key",
+            unique=True,
+            postgresql_where=sa_text("deleted_at IS NULL AND generation_key IS NOT NULL"),
+            sqlite_where=sa_text("deleted_at IS NULL AND generation_key IS NOT NULL"),
         ),
     )
 
@@ -807,6 +824,15 @@ class IngestRun(Base):
         comment=(
             "Human-readable error description for failed runs; "
             "NULL for completed/running/converged_false rows (ADR-0018 §7)."
+        ),
+    )
+
+    page_type_counts: Mapped[dict[str, int] | None] = mapped_column(
+        JSONB().with_variant(JSON, "sqlite"),
+        nullable=True,
+        comment=(
+            "Per-PageType pages created by this run for generation diagnostics; "
+            "NULL for legacy rows (ADR-0073, migration 0031)."
         ),
     )
 
@@ -1673,6 +1699,18 @@ class ReviewItem(Base):
             "missing-page | suggestion | contradiction | duplicate | confirm. "
             "Old values (new_page/update_page/deep_research_candidate) are obsolete after "
             "migration 0013 left-shifts them to skipped."
+        ),
+    )
+
+    proposal_origin: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="legacy",
+        server_default=sa_text("'legacy'"),
+        comment=(
+            "Structured proposal provenance: rule | ai | corpus | system | lint | legacy. "
+            "Application-validated; legacy is the migration/backward-compatible default "
+            "(ADR-0073, migration 0031)."
         ),
     )
 

@@ -145,6 +145,7 @@ export interface BackfillDomainStatus {
 /** Summary of one completed synthesize run — mirrors ops/synthesize.SynthesizeSummary. */
 export interface SynthesizeSummary {
   candidates: number;
+  candidates_evaluated?: number;
   processed: number;
   synthesis_written: number;
   comparison_written: number;
@@ -157,10 +158,23 @@ export interface SynthesizeSummary {
   max_pages: number;
   token_budget: number;
   force: boolean;
+  /** Additive v1.6 diagnostics; absent on pre-v1.6 completed runs. */
+  duplicates_skipped?: number;
+  untagged_skipped?: number;
+  max_candidates?: number;
+  mode?: string;
 }
 
 export interface SynthesizeStatus {
   running: boolean;
+  current?: {
+    max_pages: number;
+    max_candidates: number;
+    token_budget: number;
+    force: boolean;
+    mode: "auto" | "review-only";
+    phase?: string;
+  } | null;
   last_summary: SynthesizeSummary | null;
 }
 

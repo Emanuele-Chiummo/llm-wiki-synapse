@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ── PageType ────────────────────────────────────────────────────────────────────
 
@@ -151,6 +151,14 @@ class WikiFrontmatter(BaseModel):
             "preserved), each ≤ 40 chars, capped at 12 tags. Serializes as a YAML list (I5)."
         ),
     )
+    synapse_generation_key: str | None = Field(
+        default=None,
+        max_length=96,
+        description=(
+            "Reserved ADR-0074 identity for corpus-derived comparison/synthesis pages. "
+            "Obsidian-valid YAML; persisted as pages.generation_key for indexed idempotency."
+        ),
+    )
 
     @field_validator("sources")
     @classmethod
@@ -217,6 +225,34 @@ class WikiFrontmatter(BaseModel):
             if len(cleaned) >= max_tags:
                 break
         return cleaned
+
+    @field_validator("synapse_generation_key", mode="before")
+    @classmethod
+    def _normalize_generation_key(cls, v: object) -> str | None:
+        """Accept only canonical SHA-256 corpus keys; ordinary pages keep this field absent."""
+        if v is None:
+            return None
+        key = str(v).strip().lower()
+        if not key:
+            return None
+        parts = key.split(":")
+        if (
+            len(parts) != 3
+            or parts[0] != "corpus"
+            or parts[1] not in {"comparison", "synthesis"}
+            or len(parts[2]) != 64
+            or any(char not in "0123456789abcdef" for char in parts[2])
+        ):
+            raise ValueError("synapse_generation_key must be a corpus comparison/synthesis key")
+        return key
+
+    @model_validator(mode="after")
+    def _generation_key_matches_page_type(self) -> WikiFrontmatter:
+        """A reserved key may identify only a corpus page of the same kind."""
+        key = self.synapse_generation_key
+        if key is not None and key.split(":", 2)[1] != self.type.value:
+            raise ValueError("synapse_generation_key kind must match frontmatter type")
+        return self
 
 
 class WikiPage(BaseModel):

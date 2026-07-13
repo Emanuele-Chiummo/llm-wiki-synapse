@@ -16,6 +16,12 @@ import LanguageDetector from "i18next-browser-languagedetector";
 import en from "./locales/en.json";
 import it from "./locales/it.json";
 
+function applyDocumentLanguage(language: string): void {
+  document.documentElement.lang = language.split("-")[0] || "en";
+}
+
+i18n.on("languageChanged", applyDocumentLanguage);
+
 void i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -39,6 +45,7 @@ void i18n
     // Disable the default namespace prefix — we use flat keys
     defaultNS: "translation",
     ns: ["translation"],
-  });
+  })
+  .then(() => applyDocumentLanguage(i18n.resolvedLanguage ?? i18n.language));
 
 export default i18n;

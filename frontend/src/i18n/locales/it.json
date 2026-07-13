@@ -1,4 +1,9 @@
 {
+  "connection": {
+    "offlineTitle": "Backend non raggiungibile",
+    "offlineBody": "La lettura può continuare dalla cache, ma generazione e importazione sono sospese.",
+    "checkSetup": "Verifica connessione"
+  },
   "nav": {
     "home": "Home",
     "chat": "Chat",
@@ -60,6 +65,7 @@
     "cancelRun": "Annulla esecuzione",
     "toastCancelError": "Annullamento fallito: {{detail}}",
     "pagesCreated": "pagine create",
+    "typeDistribution": "Tipi di pagina generati",
     "cost": "Costo",
     "startedAt": "Avviato",
     "completedAt": "Completato",
@@ -88,6 +94,8 @@
   },
   "provider": {
     "label": "Provider",
+    "unavailable": "Provider non disponibile",
+    "unavailableBody": "Impossibile caricare i provider. Verifica la connessione al backend e riprova.",
     "active": "Attivo",
     "scope": {
       "vault": "Vault",
@@ -248,6 +256,7 @@
       "testRunning": "Test in corso…",
       "loadingVendors": "Caricamento vendor…",
       "vendorLoadError": "Impossibile caricare il catalogo vendor.",
+      "mutationError": "Impossibile salvare le modifiche al provider. Verifica la connessione al backend e riprova.",
       "codexAuthTitle": "Autenticazione",
       "codexAuthNote": "Codex CLI si autentica da solo — esegui `codex login` sull'host (OAuth) o imposta OPENAI_API_KEY. Synapse non memorizza un token Codex (a differenza del token abbonamento Claude)."
     },
@@ -750,6 +759,7 @@
     "noRationale": "Nessuna motivazione fornita",
     "conflictsWith": "In conflitto con",
     "referencedPages": "Pagine correlate",
+    "openPage": "Apri {{title}}",
     "willSearch": "cercherà",
     "create": "Crea",
     "creating": "Creazione…",
@@ -777,6 +787,31 @@
     "tabPending": "In attesa",
     "tabResolved": "Risolti",
     "tabDismissed": "Ignorati",
+    "statusTabsAria": "Stato della coda di revisione",
+    "pendingCount": "{{count}} in attesa",
+    "selectItem": "Seleziona {{title}}",
+    "filters": {
+      "itemType": "Tipo di proposta",
+      "origin": "Origine",
+      "pageType": "Tipo pagina proposto",
+      "all": "Tutti",
+      "clear": "Azzera filtri"
+    },
+    "origin": {
+      "rule": "Regola",
+      "ai": "AI",
+      "corpus": "Corpus",
+      "system": "Sistema",
+      "lint": "Controllo",
+      "legacy": "Precedente"
+    },
+    "proposedType": "Proposto",
+    "createdType": "Creato come",
+    "queryQuality": {
+      "absent": "Nessuna query",
+      "titleOnly": "Query basata sul titolo",
+      "contextual": "Query contestuali"
+    },
     "statusBadge": {
       "auto_resolved": "Auto-risolto",
       "created": "Creato",
@@ -788,6 +823,8 @@
     "viewCreatedPage": "Vedi pagina",
     "deepResearchPanel": {
       "panelTitle": "Ricerca Profonda",
+      "open": "Apri attività di ricerca",
+      "close": "Chiudi attività di ricerca",
       "topicPlaceholder": "Inserisci un argomento di ricerca…",
       "startBtn": "Avvia",
       "starting": "Avvio…",
@@ -807,7 +844,8 @@
       "concept": "concetto",
       "source": "sorgente",
       "synthesis": "sintesi",
-      "comparison": "confronto"
+      "comparison": "confronto",
+      "query": "query"
     }
   },
   "cascadeDelete": {
@@ -1451,6 +1489,13 @@
     "skipStep": "Salta questo passo",
     "skipAll": "Salta configurazione",
     "saving": "Salvataggio…",
+    "progress": {
+      "label": "Avanzamento configurazione: passo {{current}} di {{total}}",
+      "connection": "Connessione",
+      "provider": "Provider AI",
+      "pdf": "PDF (opzionale)",
+      "finish": "Verifica finale"
+    },
     "step1": {
       "title": "Connetti al backend",
       "desc": "Verifica che il backend di Synapse sia raggiungibile. Se stai eseguendo Synapse in locale, dovrebbe essere già connesso.",
@@ -1467,7 +1512,8 @@
       "desc": "Seleziona il provider AI e il modello che Synapse utilizzerà per l'importazione e la chat. Puoi aggiungere altri provider in Impostazioni › AI e Modelli.",
       "save": "Salva provider",
       "saved": "Provider salvato.",
-      "err": "Impossibile salvare il provider. Controlla i dettagli e riprova."
+      "err": "Impossibile salvare il provider. Controlla i dettagli e riprova.",
+      "probeFailed": "Il provider è stato salvato ma non ha superato il test di connessione."
     },
     "step3": {
       "title": "Scegli l'estrazione PDF",
@@ -1479,12 +1525,38 @@
     "step4": {
       "title": "Tutto pronto!",
       "desc": "Synapse è configurato e pronto. Puoi modificare queste impostazioni in qualsiasi momento da Impostazioni › Per iniziare.",
-      "cta": "Inizia a usare Synapse"
+      "cta": "Inizia a usare Synapse",
+      "deferredTitle": "Configurazione salvata per dopo",
+      "deferredDesc": "Alcune verifiche necessarie sono ancora incomplete. Puoi esplorare Synapse e riprendere la checklist da Impostazioni › Per iniziare.",
+      "deferredCta": "Esplora e completa più tardi"
     }
   },
   "home": {
     "title": "Panoramica sistema",
     "subtitle": "Panoramica della tua base di conoscenza",
+    "error": {
+      "title": "Impossibile caricare la panoramica della conoscenza"
+    },
+    "gettingStarted": {
+      "eyebrow": "Il tuo primo LLM Wiki",
+      "title": "Trasforma i documenti in conoscenza connessa",
+      "body": "Aggiungi alcune fonti affidabili. Synapse estrarrà i concetti, creerà pagine collegate e proporrà domande, confronti e sintesi da revisionare.",
+      "flowLabel": "Dalle fonti a un wiki connesso",
+      "sourcesTitle": "Fonti",
+      "sourcesBody": "Carica documenti o osserva una cartella.",
+      "connectionsTitle": "Connessioni",
+      "connectionsBody": "Genera pagine, collegamenti e domande aperte.",
+      "wikiTitle": "Wiki",
+      "wikiBody": "Revisiona i risultati ed esplora il grafo della conoscenza.",
+      "backendReady": "Backend connesso",
+      "backendNeeded": "Connessione al backend da verificare",
+      "providerReady": "Provider AI pronto",
+      "providerNeeded": "Provider AI da configurare",
+      "workspace": "Spazio di lavoro: {{name}}",
+      "importCta": "Aggiungi le prime fonti",
+      "providerCta": "Configura il provider AI",
+      "projectsCta": "Scegli un altro progetto"
+    },
     "systemStatus": {
       "ariaLabel": "Stato del sistema",
       "title": "STATO DEL SISTEMA",
@@ -1605,7 +1677,12 @@
       "ariaLabel": "Avviso generazione sintesi/confronti",
       "message": "Genera pagine di sintesi e confronto trasversali dai cluster di entità/concetti",
       "messageLastRun": "Ultimo run: {{synthesis}} sintesi + {{comparison}} confronto/i scritti, {{proposed}} proposti alla Review",
+      "duplicatesSkipped": "duplicati saltati",
+      "untaggedSkipped": "senza tag saltati",
+      "maxCandidates": "limite candidati",
+      "mode": "modalità",
       "cta": "Genera ora",
+      "reviewOnly": "Solo proposte",
       "running": "Avvio…",
       "done": "Avviato"
     }

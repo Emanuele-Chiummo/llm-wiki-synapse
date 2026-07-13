@@ -15,6 +15,7 @@ Coverage:
 from __future__ import annotations
 
 import uuid
+from types import ModuleType
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -457,6 +458,57 @@ class TestBuildSdkMcpServerBoundOrigin:
         agent_supplied = "raw/sources/provided-by-agent.md"
         effective = bound or agent_supplied
         assert effective == agent_supplied
+
+    @pytest.mark.asyncio
+    async def test_bound_generation_key_overrides_agent_frontmatter(self) -> None:
+        """The delegated MCP boundary, not the provider, owns the reserved corpus key."""
+        from app.mcp import server as server_mod
+
+        fake_sdk = ModuleType("claude_agent_sdk")
+
+        def fake_tool(name: str, description: str, schema: dict[str, Any]) -> Any:
+            del description, schema
+
+            def decorate(handler: Any) -> Any:
+                handler._tool_name = name
+                return handler
+
+            return decorate
+
+        def fake_create_sdk_mcp_server(**kwargs: Any) -> dict[str, Any]:
+            return kwargs
+
+        fake_sdk.tool = fake_tool  # type: ignore[attr-defined]
+        fake_sdk.create_sdk_mcp_server = fake_create_sdk_mcp_server  # type: ignore[attr-defined]
+        reserved_key = "corpus:comparison:" + "a" * 64
+        write_body = AsyncMock(return_value={"id": "page-id"})
+
+        with (
+            patch.dict("sys.modules", {"claude_agent_sdk": fake_sdk}),
+            patch("app.mcp.server._write_page_body", new=write_body),
+        ):
+            config = server_mod.build_sdk_mcp_server(
+                origin_source="review:item-id", generation_key=reserved_key
+            )
+            write_tool = next(tool for tool in config["tools"] if tool._tool_name == "write_page")
+            await write_tool(
+                {
+                    "title": "Alpha vs Beta",
+                    "content": "Grounded comparison.",
+                    "frontmatter": {
+                        "type": "comparison",
+                        "title": "Alpha vs Beta",
+                        "sources": ["review:item-id"],
+                        "lang": "en",
+                        "synapse_generation_key": "agent-controlled-value",
+                    },
+                    "origin_source": "agent-controlled-origin",
+                }
+            )
+
+        frontmatter = write_body.await_args.args[2]
+        assert frontmatter["synapse_generation_key"] == reserved_key
+        assert write_body.await_args.args[3] == "review:item-id"
 
     @pytest.mark.asyncio
     async def test_write_page_body_receives_bound_origin_via_mcp_body(self) -> None:

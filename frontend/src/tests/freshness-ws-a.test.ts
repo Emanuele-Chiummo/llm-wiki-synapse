@@ -16,7 +16,13 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { useStatusStore, selectStatusDataVersion, selectSetDataVersion } from "../store/statusStore";
+import {
+  useStatusStore,
+  selectBackendConnectionState,
+  selectSetBackendConnectionState,
+  selectStatusDataVersion,
+  selectSetDataVersion,
+} from "../store/statusStore";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -28,6 +34,7 @@ function resetStatusStore() {
     reviewPending: undefined,
     supportsVision: false,
     dataVersion: null,
+    connectionState: "checking",
   });
 }
 
@@ -69,6 +76,23 @@ describe("statusStore — dataVersion (WS-A foundation)", () => {
     setDataVersion(55);
     setDataVersion(55);
     expect(selectStatusDataVersion(useStatusStore.getState())).toBe(55);
+  });
+});
+
+describe("statusStore — shared backend connection state", () => {
+  beforeEach(() => {
+    resetStatusStore();
+  });
+
+  it("starts in checking and transitions through online and offline", () => {
+    expect(selectBackendConnectionState(useStatusStore.getState())).toBe("checking");
+
+    const setConnectionState = selectSetBackendConnectionState(useStatusStore.getState());
+    setConnectionState("online");
+    expect(selectBackendConnectionState(useStatusStore.getState())).toBe("online");
+
+    setConnectionState("offline");
+    expect(selectBackendConnectionState(useStatusStore.getState())).toBe("offline");
   });
 });
 
@@ -150,9 +174,9 @@ describe("WS-A freshness invariant — version guard logic (AC-WS-A-6)", () => {
       lastFetched = newVersion;
     }
 
-    simulateTick(null);   // pre-poll
-    simulateTick(null);   // pre-poll
-    simulateTick(500);    // first real version
+    simulateTick(null); // pre-poll
+    simulateTick(null); // pre-poll
+    simulateTick(500); // first real version
     expect(fetchCount).toBe(1);
     expect(lastFetched).toBe(500);
   });

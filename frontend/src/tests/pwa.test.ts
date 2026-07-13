@@ -25,6 +25,9 @@ const PUBLIC_DIR = join(_thisDir, "../../public");
 const MANIFEST_PATH = join(PUBLIC_DIR, "manifest.webmanifest");
 const VITE_CONFIG_PATH = join(_thisDir, "../../vite.config.ts");
 const MAIN_TSX_PATH = join(_thisDir, "../main.tsx");
+const INDEX_HTML_PATH = join(_thisDir, "../../index.html");
+const PRODUCT_DESCRIPTOR =
+  "The self-hosted LLM wiki that turns your sources into connected knowledge.";
 
 // ─── 1. Manifest ─────────────────────────────────────────────────────────────
 
@@ -38,10 +41,10 @@ describe("AC-F15-1 — web app manifest", () => {
     expect(() => JSON.parse(raw)).not.toThrow();
   });
 
-  it('manifest has required "name" field equal to "Synapse — Knowledge Graph"', () => {
+  it("manifest uses the public LLM Wiki product name and descriptor", () => {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, unknown>;
-    expect(typeof manifest["name"]).toBe("string");
-    expect((manifest["name"] as string).toLowerCase()).toContain("synapse");
+    expect(manifest["name"]).toBe("Synapse — Self-hosted LLM Wiki");
+    expect(manifest["description"]).toBe(PRODUCT_DESCRIPTOR);
   });
 
   it('manifest has "short_name" field', () => {
@@ -63,7 +66,7 @@ describe("AC-F15-1 — web app manifest", () => {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf-8")) as Record<string, unknown>;
     expect(typeof manifest["background_color"]).toBe("string");
     // Must be a CSS hex color starting with #
-    expect((manifest["background_color"] as string)).toMatch(/^#[0-9a-fA-F]{3,8}$/);
+    expect(manifest["background_color"] as string).toMatch(/^#[0-9a-fA-F]{3,8}$/);
   });
 
   it("manifest has at least one icon with sizes 192x192 or 512x512", () => {
@@ -94,8 +97,6 @@ describe("AC-F15-1 — web app manifest", () => {
 // ─── 2. index.html manifest link ─────────────────────────────────────────────
 
 describe("AC-F15-1 — index.html manifest link", () => {
-  const INDEX_HTML_PATH = join(_thisDir, "../../index.html");
-
   it("index.html exists", () => {
     expect(existsSync(INDEX_HTML_PATH)).toBe(true);
   });
@@ -109,6 +110,12 @@ describe("AC-F15-1 — index.html manifest link", () => {
   it("index.html contains theme-color meta tag", () => {
     const html = readFileSync(INDEX_HTML_PATH, "utf-8");
     expect(html).toContain('name="theme-color"');
+  });
+
+  it("index.html uses the public product title and descriptor", () => {
+    const html = readFileSync(INDEX_HTML_PATH, "utf-8");
+    expect(html).toContain("<title>Synapse — Self-hosted LLM Wiki</title>");
+    expect(html).toContain(`name="description" content="${PRODUCT_DESCRIPTOR}"`);
   });
 });
 

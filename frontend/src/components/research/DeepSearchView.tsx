@@ -674,6 +674,7 @@ export function DeepSearchView() {
 
   return (
     <div
+      className="deep-search-view"
       data-testid="deep-search-view"
       style={{
         display: "flex",
@@ -862,6 +863,7 @@ export function DeepSearchView() {
 
       {/* ── Right pane: run detail ─────────────────────────────────────────── */}
       <div
+        className="deep-search-view__detail"
         style={{
           width: 360,
           flexShrink: 0,

@@ -20,12 +20,24 @@ import { ConnectScreen } from "../components/connect/ConnectScreen";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -179,10 +191,7 @@ describe("ConnectScreen — invalid scheme shows error and does NOT persist", ()
 
 describe("ConnectScreen — failed /status probe shows error, does NOT persist", () => {
   it("shows error when fetch throws (network error / unreachable)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("Network error")),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://unreachable-host:8000");
     await submitForm();
@@ -193,10 +202,7 @@ describe("ConnectScreen — failed /status probe shows error, does NOT persist",
   });
 
   it("shows error when /status returns non-2xx (e.g. 500)", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(null, { status: 500 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 500 })));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://myserver:8000");
     await submitForm();
@@ -207,10 +213,7 @@ describe("ConnectScreen — failed /status probe shows error, does NOT persist",
   });
 
   it("shows error when /status returns 404", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://myserver:8000");
     await submitForm();
@@ -235,10 +238,7 @@ describe("ConnectScreen — failed /status probe shows error, does NOT persist",
   });
 
   it("does NOT persist the URL when probe fails", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockRejectedValue(new Error("Network error")),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://failing-server:8000");
     await submitForm();
@@ -257,9 +257,9 @@ describe("ConnectScreen — successful /status probe persists URL", () => {
   it("calls storeSetServerUrl with the validated URL on 2xx", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ vault_id: "default" }), { status: 200 }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ vault_id: "default" }), { status: 200 })),
     );
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://truenas:8000");
@@ -270,10 +270,7 @@ describe("ConnectScreen — successful /status probe persists URL", () => {
   });
 
   it("calls storeSetServerUrl with the trailing-slash stripped URL", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200 })));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://truenas:8000/");
     await submitForm();
@@ -297,10 +294,7 @@ describe("ConnectScreen — successful /status probe persists URL", () => {
   });
 
   it("does NOT show an error on success", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200 })));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://truenas:8000");
     await submitForm();
@@ -311,16 +305,82 @@ describe("ConnectScreen — successful /status probe persists URL", () => {
   });
 
   it("also accepts 201 as a success response", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("{}", { status: 201 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 201 })));
     renderConnectScreen();
     typeUrl(getUrlInput(), "http://truenas:8000");
     await submitForm();
     await waitFor(() => {
       expect(mockStoreSetServerUrl).toHaveBeenCalledWith("http://truenas:8000");
     });
+  });
+});
+
+// ─── Transactional bootstrap probes ──────────────────────────────────────────
+
+describe("ConnectScreen — persists credentials only after the protected probe", () => {
+  it("keeps the gate uncommitted when the protected probe returns 401", async () => {
+    fakeStorage.setItem("synapse.authToken", "previous-server-token");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderConnectScreen();
+    typeUrl(getUrlInput(), "http://secured-server:8000");
+    fireEvent.change(screen.getByLabelText(/tokenLabel/i), {
+      target: { value: "wrong-token" },
+    });
+    await submitForm();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connect-error")).toBeTruthy();
+    });
+    expect(mockStoreSetServerUrl).not.toHaveBeenCalled();
+    expect(fakeStorage.getItem("synapse.serverUrl")).toBeNull();
+    expect(fakeStorage.getItem("synapse.authToken")).toBe("previous-server-token");
+  });
+
+  it("does not persist URL or token when the protected probe returns a non-401 error", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderConnectScreen();
+    typeUrl(getUrlInput(), "http://starting-server:8000");
+    fireEvent.change(screen.getByLabelText(/tokenLabel/i), {
+      target: { value: "candidate-token" },
+    });
+    await submitForm();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("connect-error")).toBeTruthy();
+    });
+    expect(mockStoreSetServerUrl).not.toHaveBeenCalled();
+    expect(fakeStorage.getItem("synapse.serverUrl")).toBeNull();
+    expect(fakeStorage.getItem("synapse.authToken")).toBeNull();
+  });
+
+  it("commits URL and token only after both probes succeed", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderConnectScreen();
+    typeUrl(getUrlInput(), "http://secured-server:8000");
+    fireEvent.change(screen.getByLabelText(/tokenLabel/i), {
+      target: { value: "valid-token" },
+    });
+    await submitForm();
+
+    await waitFor(() => {
+      expect(mockStoreSetServerUrl).toHaveBeenCalledWith("http://secured-server:8000");
+    });
+    expect(fakeStorage.getItem("synapse.authToken")).toBe("valid-token");
   });
 });
 
@@ -350,9 +410,7 @@ describe("ConnectScreen — prefill and local auto-detect", () => {
 
   it("probes localhost:8000 on mount in Tauri and prefills on 2xx", async () => {
     (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response("{}", { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     renderConnectScreen();
     await waitFor(() => {
@@ -393,10 +451,7 @@ describe("ConnectScreen — prefill and local auto-detect", () => {
   // UXA-23: detected hint must contain a CheckCircle2 SVG icon
   it("UXA-23: detected hint contains an SVG icon alongside the text", async () => {
     (window as unknown as Record<string, unknown>)["__TAURI_INTERNALS__"] = {};
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200 })));
     renderConnectScreen();
     await waitFor(() => {
       expect(screen.getByTestId("connect-detected")).toBeTruthy();

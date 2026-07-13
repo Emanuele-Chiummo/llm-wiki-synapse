@@ -1,15 +1,11 @@
 """
-Corpus-level synthesis/comparison generator (ADR-0067 D3 · audit P0-3 / SC-D1).
+Corpus-level synthesis/comparison generator (ADR-0074; supersedes ADR-0067 D3 mechanics).
 
-Synapse copied llm_wiki's ingest-time PROHIBITION on emitting synthesis/comparison pages
-(``app/ingest/provider/_common.py::GENERATION_SCAFFOLD``) — the correct parity choice — but never
-built the compensating generator that llm_wiki runs *after* a bulk import. The result: prod has
-0 synthesis + 0 comparison pages vs llm_wiki's 4 + 5. This module is that missing generator.
-
-The ingest-time prohibition STAYS. This op is the sanctioned exception (ADR-0067 D3): the shared
-``orchestrator.write_wiki_page`` seam accepts ``PageType.SYNTHESIS`` / ``PageType.COMPARISON``
-directly (the ban lives only in the ingest generation prompt/loop). These are legitimate
-corpus-level writers, distinct from single-doc ingest.
+This is the explicit, bounded GLOBAL complement to source-local direct generation. It only forms
+clusters inside a real shared ``domain/*`` taxonomy, carries a stable indexed generation identity,
+and evaluates at most ``max_candidates`` per run. Repeating a normal run spends no model tokens for
+an existing cluster; ``force`` regenerates the same deterministic keyed page rather than creating a
+second title-derived file.
 
 Architecture MIRRORS ``ops/reclassify_types.py`` exactly (single-flight state, ``clamp_bounds``,
 ``max_iter``/``token_budget`` bounds, ``total_cost_usd`` logging, one incremental version bump per
@@ -48,6 +44,7 @@ It registers NO endpoint (the backend-owned ``POST /ops/synthesize`` lives in ro
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from typing import Any
@@ -67,6 +64,8 @@ _COST_ANOMALY_THRESHOLD_USD = 1.00
 # Synthesis/comparison pages are FEW by nature (llm_wiki: 4 + 5), so the hard cap is small.
 DEFAULT_MAX_PAGES = 12
 MAX_PAGES_HARD_CAP = 100
+DEFAULT_MAX_CANDIDATES = 40
+MAX_CANDIDATES_HARD_CAP = 200
 DEFAULT_TOKEN_BUDGET = 60_000
 
 # ── Cluster-seeding heuristic constants (deterministic; from the 4-signal graph) ──────────────
@@ -100,17 +99,22 @@ class SynthesizeSummary:
     """Outcome of one corpus synthesis/comparison run (completion log line)."""
 
     candidates: int = 0  # clusters seeded from the graph
+    candidates_evaluated: int = 0
     processed: int = 0  # clusters attempted via a provider call (auto-write band)
     synthesis_written: int = 0
     comparison_written: int = 0
     proposed: int = 0  # clusters routed to the Review queue (F9) instead of auto-written
     skipped: int = 0  # below the review floor, or a proposal that could not be enqueued
     failed: int = 0  # provider/parse/write failure on an auto-write cluster
+    duplicates_skipped: int = 0
+    untagged_skipped: int = 0  # candidate member pages lacking domain/*
     total_cost_usd: float = 0.0
     stopped_reason: str = "complete"  # complete | budget | maxpages | no_provider | error
     max_pages: int = 0
+    max_candidates: int = 0
     token_budget: int = 0
     force: bool = False
+    mode: str = "auto"
 
     @property
     def pages_written(self) -> int:
@@ -119,6 +123,7 @@ class SynthesizeSummary:
     def as_dict(self) -> dict[str, Any]:
         return {
             "candidates": self.candidates,
+            "candidates_evaluated": self.candidates_evaluated,
             "processed": self.processed,
             "synthesis_written": self.synthesis_written,
             "comparison_written": self.comparison_written,
@@ -126,11 +131,15 @@ class SynthesizeSummary:
             "proposed": self.proposed,
             "skipped": self.skipped,
             "failed": self.failed,
+            "duplicates_skipped": self.duplicates_skipped,
+            "untagged_skipped": self.untagged_skipped,
             "total_cost_usd": round(self.total_cost_usd, 4),
             "stopped_reason": self.stopped_reason,
             "max_pages": self.max_pages,
+            "max_candidates": self.max_candidates,
             "token_budget": self.token_budget,
             "force": self.force,
+            "mode": self.mode,
         }
 
 
@@ -151,9 +160,31 @@ def is_running() -> bool:
     return _state.is_running
 
 
+def reserve_run() -> bool:
+    """Atomically reserve the single-flight slot before scheduling a background task."""
+    if _state.is_running:
+        return False
+    # Synchronous check-and-set: no await can interleave a second ASGI request here.
+    _state.is_running = True
+    _state.current = {"phase": "queued"}
+    return True
+
+
+def release_reservation() -> None:
+    """Release a queued reservation if task creation fails before the run starts."""
+    if _state.current.get("phase") == "queued":
+        _state.is_running = False
+        _state.current = {}
+
+
 def get_last_summary() -> SynthesizeSummary | None:
     """Return the summary of the most recently COMPLETED synthesize run (None if never run)."""
     return _state.last_summary
+
+
+def get_current() -> dict[str, Any] | None:
+    """Snapshot of effective bounds while running; None at terminal/idle."""
+    return dict(_state.current) if _state.is_running and _state.current else None
 
 
 def clamp_bounds(max_pages: int | None, token_budget: int | None) -> tuple[int, int]:
@@ -170,6 +201,13 @@ def clamp_bounds(max_pages: int | None, token_budget: int | None) -> tuple[int, 
     return mp, tb
 
 
+def clamp_max_candidates(max_candidates: int | None) -> int:
+    """Freeze and clamp the total cluster-evaluation bound (ADR-0074 / I7)."""
+    default = int(getattr(settings, "synthesize_max_candidates", DEFAULT_MAX_CANDIDATES))
+    value = default if max_candidates is None else int(max_candidates)
+    return max(1, min(value, MAX_CANDIDATES_HARD_CAP))
+
+
 # ── Candidate cluster ─────────────────────────────────────────────────────────
 
 
@@ -179,11 +217,20 @@ class Cluster:
 
     kind: str  # "synthesis" | "comparison"
     page_ids: list[str]  # member page ids (str UUIDs), sorted by slug
+    member_keys: list[str]  # canonical file paths; stable across database rebuilds
     slugs: list[str]  # member page slugs → frontmatter.related seed
     titles: list[str]  # member page titles
     sources: list[str]  # UNION of member sources → DB pages.sources (F3)
     domain: str | None  # dominant in-vocab domain of the cluster (or None)
     confidence: float  # [0,1] — gate between auto-write / Review / skip
+
+
+@dataclass
+class SeedResult:
+    """Deterministic candidates plus diagnostics from the same bounded indexed read."""
+
+    clusters: list[Cluster]
+    untagged_pages: int = 0
 
 
 # ── Run ────────────────────────────────────────────────────────────────────────
@@ -193,11 +240,13 @@ async def run_synthesize(
     *,
     vault_id: str,
     max_pages: int | None = None,
+    max_candidates: int | None = None,
     token_budget: int | None = None,
     force: bool = False,
+    mode: str = "auto",
 ) -> SynthesizeSummary:
     """
-    Run ONE bounded corpus-level synthesis/comparison pass (ADR-0067 D3). Sets the single-flight
+    Run ONE bounded corpus-level synthesis/comparison pass (ADR-0074). Sets the single-flight
     flag for its whole duration; a concurrent call while :func:`is_running` should be rejected by
     the endpoint (409).
 
@@ -208,13 +257,28 @@ async def run_synthesize(
     from app.ingest.orchestrator import _load_vault_context  # noqa: PLC0415
 
     mp, tb = clamp_bounds(max_pages, token_budget)
-    summary = SynthesizeSummary(max_pages=mp, token_budget=tb, force=force)
+    mc = clamp_max_candidates(max_candidates)
+    safe_mode = mode if mode in {"auto", "review-only"} else "auto"
+    summary = SynthesizeSummary(
+        max_pages=mp,
+        max_candidates=mc,
+        token_budget=tb,
+        force=force,
+        mode=safe_mode,
+    )
 
     _state.is_running = True
-    _state.current = {"max_pages": mp, "token_budget": tb, "force": force}
+    _state.current = {
+        "max_pages": mp,
+        "max_candidates": mc,
+        "token_budget": tb,
+        "force": force,
+        "mode": safe_mode,
+        "phase": "seeding",
+    }
     try:
         resolved = await _resolve_provider(vault_id)
-        if resolved is None:
+        if resolved is None and safe_mode == "auto":
             # I6: no provider configured → clean no-op (never a silent default, never an error).
             summary.stopped_reason = "no_provider"
             logger.info(
@@ -222,20 +286,23 @@ async def run_synthesize(
             )
             _state.last_summary = summary
             return summary
-        provider, _config_row = resolved
+        provider = resolved[0] if resolved is not None else None
 
         vault_context = _load_vault_context()
 
         accumulator = UsageAccumulator()
-        provider.bind_accumulator(accumulator)
+        if provider is not None:
+            provider.bind_accumulator(accumulator)
 
         await _run_inner(
             vault_id=vault_id,
             provider=provider,
             vault_context=vault_context,
             max_pages=mp,
+            max_candidates=mc,
             token_budget=tb,
             force=force,
+            mode=safe_mode,
             accumulator=accumulator,
             summary=summary,
         )
@@ -249,13 +316,17 @@ async def run_synthesize(
         _state.current = {}
 
     logger.info(
-        "synthesize: candidates=%d processed=%d synthesis=%d comparison=%d proposed=%d "
-        "skipped=%d failed=%d cost_usd=%.4f stopped_reason=%s vault=%s",
+        "synthesize: candidates=%d evaluated=%d processed=%d synthesis=%d comparison=%d "
+        "proposed=%d duplicate_skips=%d untagged_skips=%d skipped=%d failed=%d "
+        "cost_usd=%.4f stopped_reason=%s vault=%s",
         summary.candidates,
+        summary.candidates_evaluated,
         summary.processed,
         summary.synthesis_written,
         summary.comparison_written,
         summary.proposed,
+        summary.duplicates_skipped,
+        summary.untagged_skipped,
         summary.skipped,
         summary.failed,
         summary.total_cost_usd,
@@ -276,11 +347,13 @@ async def run_synthesize(
 async def _run_inner(
     *,
     vault_id: str,
-    provider: InferenceProvider,
+    provider: InferenceProvider | None,
     vault_context: str,
     max_pages: int,
+    max_candidates: int,
     token_budget: int,
     force: bool,
+    mode: str,
     accumulator: UsageAccumulator,
     summary: SynthesizeSummary,
 ) -> None:
@@ -294,12 +367,30 @@ async def _run_inner(
     )
     review_floor = float(getattr(settings, "synthesize_review_floor", REVIEW_CONFIDENCE_FLOOR))
 
-    clusters = await _seed_candidates(vault_id, force)
+    seeded = await _seed_candidates(vault_id, force)
+    # Keep the private seam tolerant of older list-returning test/custom stubs.
+    if isinstance(seeded, SeedResult):
+        clusters = seeded.clusters
+        summary.untagged_skipped = seeded.untagged_pages
+    else:
+        clusters = seeded
     summary.candidates = len(clusters)
+    _refresh_current(summary, phase="scoring")
 
     for cluster in clusters:
+        if summary.candidates_evaluated >= max_candidates:
+            summary.stopped_reason = "max_candidates"
+            break
+        summary.candidates_evaluated += 1
+        _refresh_current(summary, phase="scoring")
+
+        generation_key = _generation_key(cluster)
+        if not force and await _generation_key_exists(vault_id, generation_key):
+            summary.duplicates_skipped += 1
+            continue
+
         # ── page cap (I7) — caps AUTO-WRITTEN pages, not free Review proposals ──────
-        if summary.pages_written >= max_pages:
+        if mode == "auto" and summary.pages_written >= max_pages:
             summary.stopped_reason = "maxpages"
             break
         # ── budget gate BEFORE spending on this cluster (I7) ────────────────────────
@@ -313,8 +404,9 @@ async def _run_inner(
             summary.skipped += 1
             continue
 
-        if conf < auto_threshold:
+        if conf < auto_threshold or mode == "review-only":
             # ── Borderline → PROPOSE to the F9 review queue (SC-D3) — no provider call ──
+            _refresh_current(summary, phase="reviewing")
             item = await _propose_cluster_review(vault_id, cluster)
             if item is not None:
                 summary.proposed += 1
@@ -323,7 +415,13 @@ async def _run_inner(
             continue
 
         # ── High-confidence → AUTO-WRITE — ONE bounded provider call (I6/I7) ─────────
+        if provider is None:
+            # Defensive guard: run_synthesize returns before this in auto mode. Keeping the
+            # boundary explicit prevents a future mode change from silently selecting a model.
+            summary.stopped_reason = "no_provider"
+            break
         summary.processed += 1
+        _refresh_current(summary, phase="generating")
         try:
             generated = await _generate_cluster_body(provider, cluster, vault_context)
         except Exception as exc:  # noqa: BLE001 — per-cluster non-fatal
@@ -336,7 +434,13 @@ async def _run_inner(
             continue
         title, body = generated
         try:
+            _refresh_current(summary, phase="writing")
             await _write_cluster_page(cluster, title, body)
+        except _GenerationKeyConflict:
+            # A concurrent writer won the partial-unique-index race after our preflight lookup.
+            # This is an idempotent duplicate skip, not a generation failure.
+            summary.duplicates_skipped += 1
+            continue
         except Exception as exc:  # noqa: BLE001 — per-cluster non-fatal
             summary.failed += 1
             logger.warning("synthesize: write failed for %s %r: %s", cluster.kind, title, exc)
@@ -350,10 +454,31 @@ async def _run_inner(
         )
 
 
+def _refresh_current(summary: SynthesizeSummary, *, phase: str) -> None:
+    """Publish a small in-process progress snapshot for bounded UI polling."""
+    if not _state.is_running:
+        return
+    _state.current.update(
+        {
+            "phase": phase,
+            "candidates": summary.candidates,
+            "candidates_evaluated": summary.candidates_evaluated,
+            "processed": summary.processed,
+            "synthesis_written": summary.synthesis_written,
+            "comparison_written": summary.comparison_written,
+            "proposed": summary.proposed,
+            "duplicates_skipped": summary.duplicates_skipped,
+            "untagged_skipped": summary.untagged_skipped,
+            "skipped": summary.skipped,
+            "failed": summary.failed,
+        }
+    )
+
+
 # ── Candidate seeding (deterministic — reuses the 4-signal graph) ──────────────
 
 
-async def _seed_candidates(vault_id: str, force: bool) -> list[Cluster]:
+async def _seed_candidates(vault_id: str, force: bool) -> SeedResult:
     """
     Seed candidate clusters DETERMINISTICALLY from the 4-signal graph (I1 — indexed reads only).
 
@@ -362,7 +487,12 @@ async def _seed_candidates(vault_id: str, force: bool) -> list[Cluster]:
     re-seed is already deterministic — the seeder holds no cross-run state).
     """
     pages, links = await _load_graph_data(vault_id)
-    return _build_clusters(pages, links)
+    return SeedResult(
+        clusters=_build_clusters(pages, links),
+        untagged_pages=sum(
+            1 for page in pages if _dominant_domain(_as_str_list(page.get("tags"))) is None
+        ),
+    )
 
 
 async def _load_graph_data(
@@ -469,6 +599,7 @@ def _build_clusters(
                 "title": (p.get("title") or "").strip(),
                 "page_type": ptype,
                 "slug": _page_slug(p),
+                "member_key": str(p.get("file_path") or _page_slug(p)),
                 "sources": frozenset(_as_str_list(p.get("sources"))),
                 "domain": _dominant_domain(_as_str_list(p.get("tags"))),
             }
@@ -492,7 +623,9 @@ def _seed_synthesis(
     min_shared: int,
 ) -> list[Cluster]:
     """Greedy same-domain source-overlap neighbourhoods → synthesis candidates."""
-    members_pool = [r for r in recs if r["page_type"] in _SYNTHESIS_MEMBER_TYPES]
+    members_pool = [
+        r for r in recs if r["page_type"] in _SYNTHESIS_MEMBER_TYPES and r["domain"] is not None
+    ]
 
     def src_degree(r: dict[str, Any]) -> int:
         return sum(1 for o in members_pool if o["id"] != r["id"] and shared(r, o) >= min_shared)
@@ -524,10 +657,12 @@ def _seed_comparison(
     min_shared: int,
 ) -> list[Cluster]:
     """Greedy co-cited same-domain entity groups → comparison candidates."""
-    entities = [r for r in recs if r["page_type"] in _COMPARISON_MEMBER_TYPES]
+    entities = [
+        r for r in recs if r["page_type"] in _COMPARISON_MEMBER_TYPES and r["domain"] is not None
+    ]
     buckets: dict[str, list[dict[str, Any]]] = {}
     for e in entities:
-        buckets.setdefault(e["domain"] or "__none__", []).append(e)
+        buckets.setdefault(e["domain"], []).append(e)
 
     out: list[Cluster] = []
     for _domain, group in sorted(buckets.items()):
@@ -583,6 +718,7 @@ def _make_cluster(
     return Cluster(
         kind=kind,
         page_ids=[m["id"] for m in members_sorted],
+        member_keys=[m["member_key"] for m in members_sorted],
         slugs=[m["slug"] for m in members_sorted],
         titles=[m["title"] for m in members_sorted],
         sources=sorted(union),
@@ -612,13 +748,192 @@ def _cluster_confidence(pairs_shared: list[int], size: int, affinities: list[flo
 
 def _same_domain(a: dict[str, Any], b: dict[str, Any]) -> bool:
     """
-    Same-domain gate for synthesis membership. Two tagged pages must share a dominant domain; an
-    untagged page (domain None) may join any cluster (source overlap already gates membership).
+    Same-domain gate for synthesis membership. Both pages need a real domain/* and it must match.
     """
     da, db = a["domain"], b["domain"]
-    if da is None or db is None:
-        return True
-    return bool(da == db)
+    return bool(da is not None and db is not None and da == db)
+
+
+def _generation_key(cluster: Cluster) -> str:
+    """Stable corpus identity from kind + canonical member paths (ADR-0074)."""
+    member_keys = cluster.member_keys or cluster.slugs
+    canonical = sorted(
+        str(key).strip().replace("\\", "/").casefold() for key in member_keys if str(key).strip()
+    )
+    payload = "\n".join([cluster.kind.casefold(), *canonical]).encode("utf-8")
+    return f"corpus:{cluster.kind.casefold()}:{hashlib.sha256(payload).hexdigest()}"
+
+
+async def _generation_key_exists(vault_id: str, generation_key: str) -> bool:
+    """Indexed live-row lookup used before any provider spend (I1/I7)."""
+    from sqlalchemy import select
+
+    from app.models import Page
+
+    async with get_session() as session:
+        row = await session.execute(
+            select(Page.id)
+            .where(
+                Page.vault_id == vault_id,
+                Page.generation_key == generation_key,
+                Page.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        return row.scalar_one_or_none() is not None
+
+
+class _GenerationKeyConflict(RuntimeError):
+    """A concurrent run inserted the same live generation key first."""
+
+
+def _find_legacy_duplicate_groups(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group possible duplicate corpus pages by kind + resolved canonical member set."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        kind = str(record.get("kind") or "").strip().lower()
+        members = sorted(
+            {
+                str(value).strip().replace("\\", "/").casefold()
+                for value in record.get("member_keys") or []
+                if str(value).strip()
+            }
+        )
+        if kind not in {"comparison", "synthesis"} or len(members) < 2:
+            continue
+        existing_key = str(record.get("generation_key") or "").strip()
+        if existing_key:
+            identity = existing_key
+        else:
+            payload = "\n".join([kind, *members]).encode("utf-8")
+            identity = f"legacy:{kind}:{hashlib.sha256(payload).hexdigest()}"
+        buckets.setdefault(identity, []).append(record)
+
+    groups: list[dict[str, Any]] = []
+    for identity, pages in sorted(buckets.items()):
+        if len(pages) < 2:
+            continue
+        groups.append(
+            {
+                "identity": identity,
+                "kind": str(pages[0].get("kind") or ""),
+                "member_keys": sorted(
+                    {
+                        str(key)
+                        for page in pages
+                        for key in page.get("member_keys") or []
+                        if str(key).strip()
+                    }
+                ),
+                "pages": [
+                    {
+                        "id": str(page.get("id") or ""),
+                        "title": page.get("title"),
+                        "generation_key": page.get("generation_key"),
+                    }
+                    for page in pages
+                ],
+            }
+        )
+    return groups
+
+
+async def audit_legacy_duplicates(vault_id: str, max_pages: int = 500) -> dict[str, Any]:
+    """Bounded, read-only report of possible legacy corpus duplicates (ADR-0074)."""
+    from sqlalchemy import String, cast, select
+
+    from app.models import Link, Page
+
+    cap = max(1, min(int(max_pages), 2_000))
+    corpus_types = (PageType.COMPARISON.value, PageType.SYNTHESIS.value)
+    member_types = tuple(sorted(_SYNTHESIS_MEMBER_TYPES))
+
+    async with get_session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    select(
+                        Page.id,
+                        Page.title,
+                        Page.page_type,
+                        Page.file_path,
+                        Page.generation_key,
+                    )
+                    .where(
+                        Page.vault_id == vault_id,
+                        Page.deleted_at.is_(None),
+                        Page.page_type.in_(corpus_types),
+                    )
+                    .order_by(Page.created_at.asc())
+                    .limit(cap)
+                )
+            ).all()
+        )
+        page_ids = [str(row.id) for row in rows]
+        link_rows: list[Any] = []
+        if page_ids:
+            link_rows = list(
+                (
+                    await session.execute(
+                        select(cast(Link.source_page_id, String), Page.file_path)
+                        .join(Page, Page.id == Link.target_page_id)
+                        .where(
+                            cast(Link.source_page_id, String).in_(page_ids),
+                            Link.dangling.is_(False),
+                            Page.vault_id == vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.page_type.in_(member_types),
+                        )
+                    )
+                ).all()
+            )
+
+    members_by_source: dict[str, list[str]] = {}
+    for source_id, file_path in link_rows:
+        members_by_source.setdefault(str(source_id), []).append(str(file_path))
+    records = [
+        {
+            "id": str(row.id),
+            "title": row.title,
+            "kind": row.page_type,
+            "file_path": row.file_path,
+            "generation_key": row.generation_key,
+            "member_keys": members_by_source.get(str(row.id), []),
+        }
+        for row in rows
+    ]
+    groups = _find_legacy_duplicate_groups(records)
+    return {
+        "pages_scanned": len(records),
+        "legacy_pages": sum(1 for record in records if not record["generation_key"]),
+        "duplicate_groups": len(groups),
+        "groups": groups,
+        "dry_run": True,
+    }
+
+
+def _cluster_evidence_block(cluster: Cluster) -> str:
+    """Read bounded excerpts from only this cluster's known member paths (I1/I7)."""
+    root = settings.vault_root.resolve()
+    per_page_cap = 800
+    total_cap = 4_000
+    used = 0
+    sections: list[str] = []
+    for title, rel_path in zip(cluster.titles, cluster.member_keys, strict=False):
+        if used >= total_cap:
+            break
+        try:
+            path = (root / rel_path).resolve()
+            path.relative_to(root)
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError, ValueError):
+            continue
+        excerpt = text[: min(per_page_cap, total_cap - used)].strip()
+        if not excerpt:
+            continue
+        used += len(excerpt)
+        sections.append(f"## {title}\n{excerpt}")
+    return "\n\n".join(sections) or "(member excerpts unavailable)"
 
 
 # ── Generation (ONE bounded provider call per accepted cluster) ────────────────
@@ -659,6 +974,7 @@ def _build_synthesis_instruction(cluster: Cluster, vault_context: str) -> str:
     """Deterministic synthesis prompt: thesis + integration prose with [[wikilinks]] to members."""
     members_block = "\n".join(f"- {t}" for t in cluster.titles) or "(none)"
     links_block = ", ".join(f"[[{t}]]" for t in cluster.titles)
+    evidence_block = _cluster_evidence_block(cluster)
     schema_block = (vault_context or "").strip() or "(no schema.md/purpose.md available)"
     return (
         "You are the corpus-level SYNTHESIS step of a self-organizing wiki. You are given a "
@@ -671,6 +987,7 @@ def _build_synthesis_instruction(cluster: Cluster, vault_context: str) -> str:
         f"  - Reference each related page with an Obsidian wikilink: {links_block}\n"
         "  - Do NOT invent facts the pages do not support. Follow the vault schema rules.\n\n"
         f"# Cluster pages to integrate\n{members_block}\n\n"
+        f"# Bounded member evidence\n{evidence_block}\n\n"
         f"# Vault schema / purpose\n{schema_block}\n\n"
         'Return ONLY a JSON object {"title": "<page title>", "body": "<markdown body WITHOUT a '
         'frontmatter block>"}. Return no prose outside the JSON object.'
@@ -681,6 +998,7 @@ def _build_comparison_instruction(cluster: Cluster, vault_context: str) -> str:
     """Deterministic comparison prompt: intro + a markdown table across the same-class entities."""
     members_block = "\n".join(f"- {t}" for t in cluster.titles) or "(none)"
     links_block = ", ".join(f"[[{t}]]" for t in cluster.titles)
+    evidence_block = _cluster_evidence_block(cluster)
     schema_block = (vault_context or "").strip() or "(no schema.md/purpose.md available)"
     return (
         "You are the corpus-level COMPARISON step of a self-organizing wiki. You are given a set "
@@ -694,6 +1012,7 @@ def _build_comparison_instruction(cluster: Cluster, vault_context: str) -> str:
         f"  - Reference each entity with an Obsidian wikilink at least once: {links_block}\n"
         "  - Do NOT invent facts. Follow the vault schema rules.\n\n"
         f"# Entities to compare\n{members_block}\n\n"
+        f"# Bounded member evidence\n{evidence_block}\n\n"
         f"# Vault schema / purpose\n{schema_block}\n\n"
         'Return ONLY a JSON object {"title": "<page title>", "body": "<markdown body WITH the '
         'table, WITHOUT a frontmatter block>"}. Return no prose outside the JSON object.'
@@ -762,9 +1081,17 @@ async def _write_cluster_page(cluster: Cluster, title: str, body: str) -> None:
         title=title,
         sources=list(cluster.sources),
         related=list(cluster.slugs),
+        synapse_generation_key=_generation_key(cluster),
     )
     page = WikiPage(title=title, type=page_type, content=body, frontmatter=frontmatter)
-    await write_wiki_page(None, page, "")
+    try:
+        await write_wiki_page(None, page, "")
+    except Exception as exc:  # translated only for the DB uniqueness race
+        from sqlalchemy.exc import IntegrityError
+
+        if isinstance(exc, IntegrityError):
+            raise _GenerationKeyConflict(_generation_key(cluster)) from exc
+        raise
 
 
 async def _propose_cluster_review(vault_id: str, cluster: Cluster) -> Any:
@@ -790,6 +1117,7 @@ async def _propose_cluster_review(vault_id: str, cluster: Cluster) -> Any:
             proposed_title=title,
             cluster_page_ids=list(cluster.page_ids),
             rationale=rationale,
+            generation_key=_generation_key(cluster),
         )
     except Exception as exc:  # noqa: BLE001 — proposal is best-effort (never breaks the run)
         logger.warning("synthesize: review proposal failed for %s cluster: %s", cluster.kind, exc)

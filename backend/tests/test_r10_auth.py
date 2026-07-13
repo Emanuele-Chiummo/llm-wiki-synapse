@@ -11,8 +11,8 @@ AC-R10-1-1b  Enabled + reject: set token → GET /pages no header → 401 with
 
 AC-R10-1-1c  Enabled + accept: correct Bearer → 200.
 
-AC-R10-1-2   Exempt set: with token set, /status and /health/detailed return 200
-             without an Authorization header.  Also /docs and /openapi.json.
+AC-R10-1-2   Exempt set: with token set, /status and the minimal /health/live return
+             200 without an Authorization header. /health/detailed is protected.
 
 AC-R10-1-3   WebSocket: N/A — the codebase uses NDJSON-over-POST for chat streaming
              (ADR-0019 "not SSE/WebSocket"); there is NO WebSocket route.  This test
@@ -85,6 +85,7 @@ def _make_mini_app(token: str, cors_origins: list[str] | None = None) -> Starlet
     routes = [
         Route("/pages", _echo_handler),
         Route("/status", _echo_handler),
+        Route("/health/live", _echo_handler),
         Route("/health/detailed", _echo_handler),
         Route("/docs", _echo_handler),
         Route("/openapi.json", _echo_handler),
@@ -203,9 +204,16 @@ class TestExemptPaths:
         """GET /status is always reachable (liveness probe)."""
         self._assert_open("/status")
 
-    def test_health_detailed_exempt(self) -> None:
-        """GET /health/detailed is always reachable (component health)."""
-        self._assert_open("/health/detailed")
+    def test_health_live_exempt(self) -> None:
+        """GET /health/live is always reachable and contains no diagnostics."""
+        self._assert_open("/health/live")
+
+    def test_health_detailed_gated(self) -> None:
+        """GET /health/detailed requires the shared token because it exposes diagnostics."""
+        app = _make_mini_app(token=self.TOKEN)
+        with TestClient(app, raise_server_exceptions=True) as client:
+            response = client.get("/health/detailed")
+        assert response.status_code == 401
 
     def test_docs_exempt(self) -> None:
         """GET /docs is exempt (schema is public, avoids confusing gated docs UX)."""
@@ -391,10 +399,15 @@ class TestBypassAuthPredicate:
 
         assert _bypass_auth("GET", "/status") is True
 
-    def test_health_detailed_bypassed(self) -> None:
+    def test_health_live_bypassed(self) -> None:
         from app.auth import _bypass_auth
 
-        assert _bypass_auth("GET", "/health/detailed") is True
+        assert _bypass_auth("GET", "/health/live") is True
+
+    def test_health_detailed_not_bypassed(self) -> None:
+        from app.auth import _bypass_auth
+
+        assert _bypass_auth("GET", "/health/detailed") is False
 
     def test_docs_bypassed(self) -> None:
         from app.auth import _bypass_auth

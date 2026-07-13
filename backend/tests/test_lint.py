@@ -63,6 +63,7 @@ def _build_lint_meta() -> MetaData:
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
         Column("tags", Text, nullable=True),  # K6 navigation tags (migration 0018)
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -146,6 +147,7 @@ def _build_lint_meta() -> MetaData:
         Column("started_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
         Column("completed_at", Text, nullable=True),
         Column("error_message", Text, nullable=True),
+        Column("page_type_counts", Text, nullable=True),
         Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
     )
 
@@ -201,6 +203,7 @@ def _build_lint_meta() -> MetaData:
         Column("page_id", String(36), nullable=True),
         Column("item_type", Text, nullable=False),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
         Column("source_page_id", Text, nullable=True),
         Column("proposed_title", Text, nullable=True),
         Column("proposed_page_type", Text, nullable=True),

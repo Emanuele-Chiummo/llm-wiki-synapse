@@ -70,12 +70,16 @@ interface RailItem {
  * "sources" now maps to SourcesView (file browser) — [F11 / v0.6].
  */
 const TOP_ITEMS: RailItem[] = [
-  { id: "home",    icon: <House         size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.home" },
-  { id: "chat",    icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
-  { id: "pages",   icon: <FileText      size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
-  { id: "sources", icon: <FolderOpen    size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.sources" },
-  { id: "search",  icon: <Search        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
-  { id: "graph",   icon: <Share2        size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
+  { id: "home", icon: <House size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.home" },
+  { id: "chat", icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
+  { id: "pages", icon: <FileText size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
+  {
+    id: "sources",
+    icon: <FolderOpen size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.sources",
+  },
+  { id: "search", icon: <Search size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
+  { id: "graph", icon: <Share2 size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
 ];
 
 /**
@@ -84,17 +88,41 @@ const TOP_ITEMS: RailItem[] = [
  * "ingest" kept here so the cost ledger is always reachable — [F11 / v0.6].
  */
 const M5_ITEMS: RailItem[] = [
-  { id: "lint",        icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.lint" },
-  { id: "review",      icon: <ListChecks     size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.review" },
-  { id: "deep-search", icon: <Globe          size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.deepSearch" },
-  { id: "ingest",      icon: <Activity       size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.ingest" },
-  { id: "convert",     icon: <FileDown       size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.convert" },
+  {
+    id: "lint",
+    icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.lint",
+  },
+  {
+    id: "review",
+    icon: <ListChecks size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.review",
+  },
+  {
+    id: "deep-search",
+    icon: <Globe size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.deepSearch",
+  },
+  { id: "ingest", icon: <Activity size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.ingest" },
+  {
+    id: "convert",
+    icon: <FileDown size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.convert",
+  },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [
-  { id: "settings", icon: <Settings size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.settings" },
+  {
+    id: "settings",
+    icon: <Settings size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.settings",
+  },
   // v1.5 P2: multi-vault Project Launcher (⇄), very bottom — llm_wiki parity.
-  { id: "projects", icon: <ArrowLeftRight size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.projects" },
+  {
+    id: "projects",
+    icon: <ArrowLeftRight size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.projects",
+  },
 ];
 
 // ─── Logo removed (R11-3) ────────────────────────────────────────────────────
@@ -156,79 +184,102 @@ export function NavRail() {
         paddingBottom: 8,
         gap: 2,
         overflow: "hidden",
+        minHeight: 0,
       }}
     >
       {/* R11-3: Logo removed — branding lives in Header.tsx only.
           The nav starts 8px below the top edge (paddingTop above) so the
           first nav button is not flush against the rail edge. */}
 
-      {/* Top items */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
-        {TOP_ITEMS.map((item) => (
-          <RailButton
-            key={item.id}
-            item={item}
-            isActive={item.id === activeSection}
-            badge={0}
-            label={t(item.labelKey)}
-            onClick={() => handleItemClick(item)}
-          />
-        ))}
+      <div className="nav-rail__scroll">
+        {/* Top items */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          {TOP_ITEMS.map((item) => (
+            <RailButton
+              key={item.id}
+              item={item}
+              isActive={item.id === activeSection}
+              badge={0}
+              label={t(item.labelKey)}
+              onClick={() => handleItemClick(item)}
+            />
+          ))}
+        </div>
+
+        {/* M5 items (Lint + Review + Deep Search + Ingest run-history) */}
+        {M5_ITEMS.length > 0 && (
+          <>
+            {/* Full-width divider + group label (UXA-01) */}
+            <div
+              style={{
+                width: "100%",
+                height: 1,
+                background: "var(--syn-border)",
+                margin: "4px 0 0",
+              }}
+            />
+            <span
+              aria-hidden="true"
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                // Tightened + width-constrained so "STRUMENTI" fits the ~64px rail
+                // instead of clipping to "TRUMENT" at the edges.
+                letterSpacing: "0.02em",
+                textTransform: "uppercase",
+                color: "var(--syn-text-dim)",
+                opacity: 0.7,
+                padding: "2px 2px",
+                maxWidth: "100%",
+                textAlign: "center",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                userSelect: "none",
+              }}
+            >
+              {t("nav.toolsGroup")}
+            </span>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                alignItems: "center",
+                width: "100%",
+              }}
+            >
+              {M5_ITEMS.map((item) => (
+                <RailButton
+                  key={item.id}
+                  item={item}
+                  isActive={item.id === activeSection}
+                  badge={
+                    item.id === "ingest"
+                      ? runningCount
+                      : item.id === "review"
+                        ? (reviewPending ?? 0)
+                        : 0
+                  }
+                  label={t(item.labelKey)}
+                  onClick={() => handleItemClick(item)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* M5 items (Lint + Review + Deep Search + Ingest run-history) */}
-      {M5_ITEMS.length > 0 && (
-        <>
-          {/* Full-width divider + group label (UXA-01) */}
-          <div style={{ width: "100%", height: 1, background: "var(--syn-border)", margin: "4px 0 0" }} />
-          <span
-            aria-hidden="true"
-            style={{
-              fontSize: 9,
-              fontWeight: 600,
-              // Tightened + width-constrained so "STRUMENTI" fits the ~64px rail
-              // instead of clipping to "TRUMENT" at the edges.
-              letterSpacing: "0.02em",
-              textTransform: "uppercase",
-              color: "var(--syn-text-dim)",
-              opacity: 0.7,
-              padding: "2px 2px",
-              maxWidth: "100%",
-              textAlign: "center",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              userSelect: "none",
-            }}
-          >
-            {t("nav.toolsGroup")}
-          </span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
-            {M5_ITEMS.map((item) => (
-              <RailButton
-                key={item.id}
-                item={item}
-                isActive={item.id === activeSection}
-                badge={
-                  item.id === "ingest"
-                    ? runningCount
-                    : item.id === "review"
-                      ? (reviewPending ?? 0)
-                      : 0
-                }
-                label={t(item.labelKey)}
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Spacer */}
-      <div style={{ flex: 1 }} />
-
       {/* Bottom items (pinned) */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "center", width: "100%" }}>
+      <div className="nav-rail__bottom">
         {BOTTOM_ITEMS.map((item) => (
           <RailButton
             key={item.id}
@@ -284,7 +335,9 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
         transition: "background 0.1s ease, color 0.1s ease",
         // Active: persistent accent ring as a visual state indicator (not focus ring).
         // Inactive: no override → :focus-visible from theme.css supplies the keyboard ring (UXA-05).
-        outline: isActive ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)` : undefined,
+        outline: isActive
+          ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)`
+          : undefined,
       }}
     >
       {item.icon}

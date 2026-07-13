@@ -423,10 +423,14 @@ export function ActivityBar(): ReactNode {
           // No new poller — this is the existing ActivityBar STATUS_POLL_MS tick.
           // INVARIANT I3: only triggers re-fetch in subscribers when value changes.
           useStatusStore.getState().setDataVersion(res.data_version ?? null);
+          useStatusStore.getState().setConnectionState("online");
           setPollError(false);
         }
       } catch {
-        if (!ctrl.signal.aborted) setPollError(true);
+        if (!ctrl.signal.aborted) {
+          useStatusStore.getState().setConnectionState("offline");
+          setPollError(true);
+        }
       }
       if (!ctrl.signal.aborted) {
         statusTimerRef.current = setTimeout(pollStatus, STATUS_POLL_MS);

@@ -94,6 +94,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
         Column("tags", Text, nullable=True),
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -169,6 +170,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("status", Text, nullable=False, server_default=sa_text("'completed'")),
         Column("pages_created", Integer, nullable=False, server_default=sa_text("0")),
         Column("error_message", Text, nullable=True),
+        Column("page_type_counts", Text, nullable=True),
         Column("source_path", Text, nullable=True),
         Column("retry_count", Integer, nullable=False, server_default=sa_text("0")),
     )
@@ -179,6 +181,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("vault_id", String, nullable=False),
         Column("item_type", Text, nullable=False),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
         Column("page_id", String(36), nullable=True),
         Column("source_page_id", String(36), nullable=True),
         Column("proposed_title", Text, nullable=True),

@@ -64,6 +64,7 @@ def _build_review_meta() -> MetaData:
         Column("title", Text, nullable=True),
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
+        Column("generation_key", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),
@@ -155,6 +156,7 @@ def _build_review_meta() -> MetaData:
         Column("page_id", String(36), nullable=True),
         Column("item_type", Text, nullable=False),
         Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
         # ADR-0034 §3.1 new columns
         Column("source_page_id", Text, nullable=True),
         Column("proposed_title", Text, nullable=True),
@@ -195,6 +197,7 @@ def _build_review_meta() -> MetaData:
         Column("status", Text, nullable=False, server_default=sa_text("'completed'")),
         Column("pages_created", Integer, nullable=False, default=0),
         Column("error_message", Text, nullable=True),
+        Column("page_type_counts", Text, nullable=True),
     )
 
     Table(
