@@ -774,7 +774,11 @@ class TestMcpServerMountedEndToEnd:
                     )
                     assert r_bad.status_code == 401
         finally:
+            # Restore the module-level singletons to their pristine default so this
+            # test does not leak a remote_enabled flag OR a token hash into later
+            # tests that assume "no token configured" (ADR-0032/0033).
             await _remote_mcp_flag.load(False)
+            await _mcp_auth_cache.load(None, False)
 
     @pytest.mark.asyncio
     async def test_mcp_server_404_when_remote_disabled(self) -> None:
@@ -785,11 +789,18 @@ class TestMcpServerMountedEndToEnd:
         sub = m._http_mcp_asgi_app
         await _remote_mcp_flag.load(False)
         await _mcp_auth_cache.load(_hash_token("regression-tok"), False)
-        async with sub.lifespan(sub):
-            async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-                r = await ac.post(
-                    "/mcp/server/",
-                    headers={"Authorization": "Bearer regression-tok"},
-                    json={"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}},
-                )
-        assert r.status_code == 404
+        try:
+            async with sub.lifespan(sub):
+                async with AsyncClient(
+                    transport=ASGITransport(app=app), base_url="http://test"
+                ) as ac:
+                    r = await ac.post(
+                        "/mcp/server/",
+                        headers={"Authorization": "Bearer regression-tok"},
+                        json={"jsonrpc": "2.0", "id": 0, "method": "initialize", "params": {}},
+                    )
+            assert r.status_code == 404
+        finally:
+            # Same pristine-restore contract as the sibling test above.
+            await _remote_mcp_flag.load(False)
+            await _mcp_auth_cache.load(None, False)
