@@ -421,9 +421,9 @@ export function NavTree({ vaultId }: NavTreeProps) {
 
   if (loading) {
     return (
-      <div className="nav-tree nav-tree--loading" role="status" aria-label="Loading pages">
+      <div className="nav-tree nav-tree--loading" role="status" aria-label={t("common.loading")}>
         <span className="nav-tree__spinner" aria-hidden="true" />
-        <span className="nav-tree__loading-text">Loading…</span>
+        <span className="nav-tree__loading-text">{t("common.loading")}</span>
       </div>
     );
   }

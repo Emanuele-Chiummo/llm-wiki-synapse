@@ -233,7 +233,7 @@ export function PreviewPanel() {
               fontSize: 12,
             }}
           >
-            <dt style={{ color: "var(--syn-text-muted)" }}>Connections</dt>
+            <dt style={{ color: "var(--syn-text-muted)" }}>{t("previewPanel.connections")}</dt>
             <dd style={{ margin: 0, color: "var(--syn-text)" }}>
               {t("previewPanel.connectedTo", { count: incidentEdges.length })}
             </dd>

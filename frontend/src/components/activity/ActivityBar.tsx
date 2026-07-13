@@ -316,9 +316,15 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
               whiteSpace: "nowrap",
               marginTop: 1,
             }}
-            title={task.error ?? task.source_path}
+            title={
+              task.error === "cancelled by user"
+                ? t("status.cancelledByUser")
+                : (task.error ?? task.source_path)
+            }
           >
-            {task.error ?? task.source_path}
+            {task.error === "cancelled by user"
+              ? t("status.cancelledByUser")
+              : (task.error ?? task.source_path)}
           </span>
         )}
         {retryError && (

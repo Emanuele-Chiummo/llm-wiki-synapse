@@ -9,6 +9,39 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 
 ## [Unreleased]
 
+## [1.5.6] — 2026-07-13 — "UI audit follow-ups"
+
+Patch: usability + accessibility fixes from a UI audit of the live instance. Frontend +
+nginx only — no backend/API change (OpenAPI diff is the version bump alone). Feature work
+(remote MCP write toggle, Marker `--auto` split) is held for 1.6.0.
+
+### Fixed
+- **Projects page no longer 404s the API in production** — the nginx reverse-proxy regex
+  (`frontend/nginx.conf.template`) listed every API prefix except `projects`, so in prod
+  `GET /projects` fell through to `try_files … /index.html` and the SPA received `<!doctype…`
+  instead of JSON — surfacing the raw `Unexpected token '<', "<!doctype "… is not valid JSON`.
+  Added `projects` to the proxied prefixes; the list now matches `API_PREFIXES` in
+  `vite.config.ts` again.
+- **Raw technical errors are no longer shown to users** — a new reusable `ErrorState`
+  component (friendly title + Retry + collapsible "Technical details" with a copy button)
+  replaces bare exception text on the Projects page, the AI &amp; Models settings section, and
+  Search. A raw `500 Internal Server Error` / JSON-parse error now renders as a civil,
+  retryable state with the raw detail tucked behind a disclosure.
+
+### Changed
+- **Localization gaps closed** — user-facing strings that bypassed i18n (`Loading graph…`,
+  `Connections`, `Quick Start`, `Loading`, and backend status values such as `pending` /
+  `cancelled by user`) are now routed through the i18n system with IT + EN translations, via
+  a new `status.*` namespace and existing namespaces. `en.json`/`it.json` stay in structural
+  parity (key-parity test green).
+- **Search has reassuring loading/empty states** — the bare "Loading…" is replaced by a
+  result skeleton; a "taking longer than expected" message with Cancel/Retry appears after
+  ~4s; failures use `ErrorState`; and empty results show a helpful no-results state instead of
+  a stuck view.
+- **Legibility quick-wins** — sub-12px shared text classes (`.syn-chip`,
+  `.syn-empty-state__eyebrow`, `.syn-meta-row`) raised to a 12px floor; muted-text tokens
+  re-checked against WCAG AA (already passing after a prior pass — ratios recorded).
+
 ## [1.5.5] — 2026-07-13 — "remote MCP endpoint reachable again"
 
 Patch: the remote MCP HTTP surface (`/mcp/server`) never actually served requests —

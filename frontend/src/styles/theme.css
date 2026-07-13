@@ -430,7 +430,7 @@ select:focus-visible {
   border: 1px solid var(--syn-border);
   background: var(--syn-surface-hover);
   color: var(--syn-text-muted);
-  font-size: 11px;
+  font-size: 12px; /* audit #3: raised from 11px — legibility floor */
   white-space: nowrap;
 }
 
@@ -456,7 +456,7 @@ select:focus-visible {
 .syn-empty-state__eyebrow {
   margin-bottom: 8px;
   color: var(--syn-accent);
-  font-size: 11px;
+  font-size: 12px; /* audit #3: raised from 11px — legibility floor */
   font-weight: 700;
   text-transform: uppercase;
 }

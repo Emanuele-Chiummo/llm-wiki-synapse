@@ -179,7 +179,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 12px; /* audit #3: raised from 11px — user-facing content meets 12px floor */
   color: var(--syn-text-dim);
 }
 

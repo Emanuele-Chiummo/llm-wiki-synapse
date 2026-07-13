@@ -19,6 +19,7 @@ import {
   activateProject,
   type Project,
 } from "../../api/projectsClient";
+import { ErrorState } from "../common/ErrorState";
 
 const WRAP: CSSProperties = {
   height: "100%",
@@ -86,7 +87,7 @@ export function ProjectLauncher() {
   const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [newPath, setNewPath] = useState("");
@@ -111,13 +112,14 @@ export function ProjectLauncher() {
   }, []);
 
   const refresh = useCallback(async () => {
+    setError(null);
     try {
       const data = await fetchProjects();
       if (!mounted.current) return;
       setProjects(data.projects);
       setActiveId(data.active_id);
     } catch (err) {
-      if (mounted.current) setError(err instanceof Error ? err.message : String(err));
+      if (mounted.current) setError(err);
     }
   }, []);
 
@@ -138,7 +140,7 @@ export function ProjectLauncher() {
       window.location.reload();
     } catch (err) {
       setBusyId(null);
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err);
     }
   }, []);
 
@@ -151,7 +153,7 @@ export function ProjectLauncher() {
       setNewPath("");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err);
     }
   }, [newName, newPath, refresh]);
 
@@ -163,7 +165,7 @@ export function ProjectLauncher() {
       setOpenPath("");
       await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(err);
     }
   }, [openPath, refresh]);
 
@@ -177,20 +179,13 @@ export function ProjectLauncher() {
           {t("launcher.subtitle")}
         </p>
 
-        {error && (
-          <div
-            data-testid="launcher-error"
-            style={{
-              padding: "8px 12px",
-              marginBottom: 16,
-              borderRadius: 6,
-              fontSize: 13,
-              color: "var(--syn-danger, #d1242f)",
-              background: "var(--syn-notice-danger-bg, #ffebe9)",
-              border: "1px solid var(--syn-border)",
-            }}
-          >
-            {error}
+        {error != null && (
+          <div data-testid="launcher-error" style={{ marginBottom: 16 }}>
+            <ErrorState
+              title={t("projects.loadError")}
+              onRetry={() => { void refresh(); }}
+              error={error}
+            />
           </div>
         )}
 
