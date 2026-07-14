@@ -1,0 +1,62 @@
+sequenceDiagram
+    %% Generated: v1.7.0 | 2026-07-14 | ADR-0076 block-based ingest pipeline
+    title Ingest — block-based pipeline (ADR-0076); orchestrated (flag) + delegated CLI
+    autonumber
+
+    participant PL as pipeline.py
+    participant CTX as ingest/context.py
+    participant PR as ingest/prompts.py
+    participant P as InferenceProvider
+    participant BL as ingest/block_loop.py
+    participant BK as ingest/blocks.py + sanitize.py
+    participant SC as wiki/schema.py
+    participant BW as ingest/block_writer.py
+    participant PG as Postgres
+
+    Note over PL: mtime-then-hash gate (I1) — real content change confirmed
+    PL->>CTX: load purpose.md + schema.md + existing-pages catalogue
+    CTX-->>PL: ingest_context + schema_md
+    Note over PL: route on caps.supports_agentic_loop (I6)
+
+    alt ORCHESTRATED (Ollama / API) AND ingest_pipeline_format == "blocks"
+        PL->>SC: parse_page_type_routing(schema_md)
+        SC-->>PL: {type: subdir} (base + custom)
+        PL->>BL: run_block_loop(source, purpose, schema, index, lang, max_iter, token_budget)
+        BL->>PR: build_analysis_prompt(...)
+        BL->>P: complete(analysis_system, analysis_user, max_tokens=4096)
+        P-->>BL: analysis (markdown, NOT JSON)
+        loop bounded: max_iter AND token_budget (I7)
+            BL->>PR: build_generation_prompt(schema authoritative, prominent [[wikilinks]])
+            BL->>P: complete(generation_system, generation_user, max_tokens by ctx tier)
+            P-->>BL: FILE/REVIEW block text (first char '-')
+            BL->>BK: parse_file_blocks + sanitize (4 rules, fence-aware)
+            BK-->>BL: FileBlocks
+            Note over BL: relaxed validate — title/body/routing; NO lang gate, NO query gate
+            alt valid (>=1 routed block)
+                Note over BL: converged
+            else invalid / empty output
+                Note over BL: augment prompt with errors, retry
+            end
+        end
+        opt generation >= 10000 chars OR >= 4 FILE blocks
+            BL->>P: complete(review_stage_prompt) -> 1-5 REVIEW blocks
+        end
+        BL-->>PL: BlockLoopResult(file_blocks, review_blocks, converged)
+        loop each FILE block
+            PL->>BW: write_block_page(rel_path, content, origin, routing)
+            BW->>SC: validate_page_routing (drop mis-routed / app-managed / unsafe)
+            BW->>PG: persist_metadata (page_type = raw string — custom types), links (K5), log (K4), bump (I2)
+            Note over BW: page-history backup on overwrite (capped)
+        end
+        PL->>PL: _ensure_source_summary fallback if none written
+        Note over PL: enqueue review_blocks (WS-C) · index Recently Updated (WS-B)
+    else DELEGATED (CLI agent) — the 1:1 E2E path
+        PL->>PR: build_delegated_generation_guidance(schema, lang) — shares _OTHER_RULES (prominent [[wikilinks]])
+        PR-->>PL: guidance (tool-writing; NO FILE-block contract)
+        Note over PL: system_prompt = ingest_context + guidance
+        PL->>P: delegate_ingest(system_prompt) — agent writes pages via MCP write_page
+        P-->>PL: pages written (converged, count)
+    else ORCHESTRATED AND ingest_pipeline_format == "json" (rollback, default)
+        Note over PL: legacy analyze()/generate() JSON loop (loop.py) — unchanged
+    end
+    Note over PL: finalize ingest_runs (I7 cost) · sweep reviews fires on QUEUE DRAIN (WS-C)
