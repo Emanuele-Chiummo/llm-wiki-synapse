@@ -711,11 +711,17 @@ class Settings(BaseSettings):
     # token_budget (I7). Substitution-apply (R1): the LLM returns {mention, target_title}
     # pairs; code validates + applies them single-mention into page BODIES only (I5).
 
-    wikilink_enrich_enabled: bool = True
+    wikilink_enrich_enabled: bool = False
     """
-    Master gate for the wikilink-enrichment post-pass (ADR-0036 §4). Default on (one bounded
-    call per orchestrated ingest run). Set false for zero-cost ingest: pages are still written
-    and indexed; no enrichment call is made. Env var: WIKILINK_ENRICH_ENABLED.
+    Master gate for the wikilink-enrichment post-pass (ADR-0036 §4).
+
+    DEFAULT OFF since v1.7.0 (ADR-0076). nashsu/llm_wiki produces wikilinks INLINE during
+    generation only — its enrich-wikilinks.ts is dead code — so link density is a function of the
+    prompts (ingest/prompts.py restores the prominent wikilink instructions the 1.6.0 JSON scaffold
+    buried). Keeping this post-pass ON on top of the parity prompts double-counts and makes the
+    link-density parity band unfalsifiable, and it overshoots the reference on the delegated/CLI
+    path (the 1:1 E2E). It remains one opt-in toggle away for zero-prompt-cost link recovery.
+    Set true to re-enable one bounded call per orchestrated run. Env: WIKILINK_ENRICH_ENABLED.
     """
 
     wikilink_enrich_min_chars: int = 200
