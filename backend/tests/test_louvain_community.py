@@ -286,6 +286,7 @@ async def graph_client(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
                 searxng_url_db TEXT,
                 searxng_categories_db TEXT,
                 searxng_max_queries_db INTEGER,
+                output_language TEXT,
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """))

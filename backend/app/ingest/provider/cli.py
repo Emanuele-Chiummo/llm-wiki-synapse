@@ -637,6 +637,53 @@ class CliAgentProvider(InferenceProvider):
             raise ValueError("CliAgentProvider vision returned an empty caption")
         return caption
 
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """
+        Raw-text completion for the BLOCK-based ingest path (ADR-0076) — the parity route.
+
+        nashsu/llm_wiki drives the `claude` CLI as a TEXT transport (a single generation that
+        returns FILE/REVIEW blocks), NOT an agentic tool-writing loop. To match it 1:1 this runs a
+        SINGLE-TURN, NO-TOOLS query (max_turns=1, allowed_tools=[]) so the model emits the complete
+        FILE-block generation as text; the block loop then parses it and the block writer creates
+        EVERY page and persists its links — unlike delegate_ingest(), where the agent writes only
+        the pages it chooses and its wikilinks dangle. Usage recorded out of band.
+        """
+        _assert_claude_model(self._model)  # reject codex/non-Claude CLI before opening a session
+        auth_mode = _resolve_cli_auth_mode(self._config.subscription_token)
+
+        try:
+            from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+        except ImportError as exc:  # pragma: no cover - exercised only without the SDK installed
+            raise RuntimeError(
+                "claude-agent-sdk is not installed; the CLI provider requires it (R3)."
+            ) from exc
+
+        options = ClaudeAgentOptions(
+            model=self._model,  # from provider_config (I6)
+            system_prompt=system,  # the block-pipeline system prompt (analysis / generation)
+            permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
+            allowed_tools=[],  # NO tools — pure text generation (FILE blocks), never an agent loop
+            max_turns=1,  # single-shot generation, like llm_wiki's text transport (I7)
+        )
+
+        parts: list[str] = []
+        usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
+        sdk_cost_usd: float | None = None
+        with _cli_subscription_env_scope(self._config.subscription_token):
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(prompt)
+                async for message in client.receive_response():
+                    parts.extend(_extract_text_deltas(message))
+                    usage = _merge_sdk_usage(usage, message)
+                    msg_cost = _extract_sdk_cost(message)
+                    if msg_cost is not None:
+                        sdk_cost_usd = msg_cost
+        self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
+        text = "".join(parts).strip()
+        if not text:
+            raise ValueError("CliAgentProvider.complete() returned empty text")
+        return text
+
 
 # ── Chat helpers ────────────────────────────────────────────────────────────────
 

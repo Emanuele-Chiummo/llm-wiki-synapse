@@ -218,6 +218,9 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
     const preview = page.locator("[data-testid='preview-panel']").first();
     await expect(preview).not.toContainText("Select a node", { timeout: 3_000 });
     // Connections field present (was "Degree" pre-v1.3; renamed to "Connections" in PreviewPanel).
+    // WS-F v1.7.0 redesign moved Connections/ID/Position into a "Technical details" <details>
+    // that is collapsed by default — expand it before asserting the Connections row is visible.
+    await preview.locator("summary").first().click();
     // The <dd> shows an i18n string like "Connected to N pages".
     await expect(preview.locator("dt", { hasText: "Connections" })).toBeVisible();
     // Retrieve the <dd> text via DOM traversal (CSS adjacent sibling not supported in Playwright locators).

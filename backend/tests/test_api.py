@@ -202,6 +202,7 @@ async def api_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, 
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),
         Column("searxng_max_queries_db", Integer, nullable=True),
+        Column("output_language", Text, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
     # Retrieval needs edges + links tables (ADR-0022 §2.2 phase 2 — BFS expansion).

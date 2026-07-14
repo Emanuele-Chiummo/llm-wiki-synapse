@@ -127,6 +127,25 @@ class InferenceProvider(abc.ABC):
         `supports_agentic_loop` from this for routing (I6). Pure descriptor read — no I/O.
         """
 
+    # ── Raw text completion (block-based pipeline, ADR-0076) ────────────────────
+
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """
+        One bounded, non-streaming call returning the model's RAW TEXT (no JSON mode). This is
+        the transport the block-based ingest loop uses (ADR-0076): the loop assembles the
+        provider-neutral markdown-analysis / FILE-block prompts (app.ingest.prompts) and parses
+        the returned text with app.ingest.blocks — providers stay transport-only (I6). Records
+        Usage out of band like analyze()/generate() so the run ledger stays truthful (I7).
+
+        The DEFAULT raises NotImplementedError: the orchestrated backends (Ollama, API) override
+        it; the CLI backend runs its own agent loop (delegated) and never needs it. A provider
+        without it must not be routed through the orchestrated block loop.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement complete() "
+            "(orchestrated block pipeline requires it)"
+        )
+
     # ── Vision (R8-2 / F12) ─────────────────────────────────────────────────────
 
     async def caption_image(self, path_or_bytes: str | Path | bytes, context: str) -> str:

@@ -39,7 +39,7 @@ export function SectionAbout() {
         }}
       >
         <span style={{ color: "var(--syn-text-dim)" }}>{t("settings.about.version")}</span>
-        <span style={{ color: "var(--syn-text)", fontFamily: "monospace" }}>
+        <span style={{ color: "var(--syn-text)", fontFamily: "var(--syn-font-mono)" }}>
           v{__APP_VERSION__}
         </span>
       </div>

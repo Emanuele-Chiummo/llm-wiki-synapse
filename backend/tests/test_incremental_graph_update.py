@@ -74,6 +74,7 @@ def _build_meta() -> MetaData:
         Column("clip_enabled_db", Integer, nullable=True),
         Column("clip_access_token", Text, nullable=True),
         Column("clip_allowed_origins_db", Text, nullable=True),
+        Column("output_language", Text, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
 

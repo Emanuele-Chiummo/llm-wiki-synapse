@@ -30,7 +30,6 @@ Reuses the ADR-0034 SQLite fixtures (review_env_0034) from test_review_adr0034.p
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -50,29 +49,25 @@ from tests.test_review_adr0034 import (  # noqa: F401  (fixtures imported for py
 
 def _make_chat_provider(response: str, *, sleep_forever: bool = False) -> Any:
     """
-    Build a mock InferenceProvider whose chat() yields *response* once.
+    Build a mock InferenceProvider whose complete() returns *response* once.
 
-    Matches the real call shape used by review.py::_chat_collect:
-        async for chunk in await provider.chat(messages=..., retrieval_context=...)
-    Tracks chat call count on provider._chat_calls[0].
-    If sleep_forever, chat() hangs so asyncio.wait_for trips a TimeoutError.
+    Matches the real call shape used by review.py::_chat_collect, which now uses the single-turn
+    complete() seam (not the agentic chat() loop) so the CLI provider does not hang — ADR-0076.
+    Tracks provider call count on provider._chat_calls[0].
+    If sleep_forever, complete() hangs so asyncio.wait_for trips a TimeoutError.
     """
     provider = MagicMock()
     provider._chat_calls = [0]
 
-    async def mock_chat(*, messages: list[Any], retrieval_context: str = "") -> AsyncIterator[str]:
+    async def mock_complete(system: str, prompt: str, *, max_tokens: int) -> str:
         provider._chat_calls[0] += 1
+        if sleep_forever:
+            import asyncio
 
-        async def _gen() -> AsyncIterator[str]:
-            if sleep_forever:
-                import asyncio
+            await asyncio.sleep(60)
+        return response
 
-                await asyncio.sleep(60)
-            yield response
-
-        return _gen()
-
-    provider.chat = mock_chat
+    provider.complete = mock_complete
 
     def bind_acc(acc: Any) -> None:
         provider._bound_acc = acc
@@ -305,7 +300,8 @@ class TestCreateGeneration:
             patch("app.ingest.provider.resolve_provider", return_value=provider),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the LLM generation path (ADR-0079 §2: stub is now default).
+            await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert captured["page"].type is PageType.COMPARISON
         assert captured["page"].frontmatter.type is PageType.COMPARISON
@@ -373,7 +369,10 @@ class TestCreateGeneration:
             patch("app.ingest.provider.resolve_provider", return_value=provider),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            result = await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the BOUNDED orchestrated loop (ADR-0079 §2).
+            result = await review_mod.create_page_from_review(
+                uuid.UUID(item_id_str), mode="generate"
+            )
 
         # The bounded loop ran (analyze once, generate at least once).
         provider.analyze.assert_awaited_once()
@@ -425,7 +424,8 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+                # mode="generate" — testing provider failure on LLM path (ADR-0079 §2).
+                await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert exc_info.value.status_code == 502
         assert write_called["n"] == 0, "no partial write on loop failure (§5.3)"
@@ -487,7 +487,10 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            result = await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the DELEGATED (agentic) path (ADR-0079 §2).
+            result = await review_mod.create_page_from_review(
+                uuid.UUID(item_id_str), mode="generate"
+            )
 
         # Delegated path was taken (analyze/generate never touched — they'd raise on a CLI provider).
         delegate_mock.assert_awaited_once()
@@ -541,7 +544,8 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+                # mode="generate" — testing empty delegated write on LLM path (ADR-0079 §2).
+                await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert exc_info.value.status_code == 502
         assert write_called["n"] == 0, "no write when the delegated agent produced nothing (§5.3)"

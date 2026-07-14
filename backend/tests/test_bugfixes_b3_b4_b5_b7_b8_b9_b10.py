@@ -289,7 +289,9 @@ class TestB5AtomicIndexWrite:
 
         def _make_session(tag: str) -> MagicMock:
             mock_result = MagicMock()
-            mock_result.all.return_value = [(f"Page {tag}", "concept", f"wiki/concepts/{tag}.md")]
+            mock_result.all.return_value = [
+                (f"Page {tag}", "concept", f"wiki/concepts/{tag}.md", None)
+            ]
             mock_session = MagicMock()
             mock_session.execute = AsyncMock(return_value=mock_result)
             return mock_session
@@ -807,6 +809,7 @@ class TestB10OptimisticLockAtomic:
                     Column("searxng_url_db", Text, nullable=True),
                     Column("searxng_categories_db", Text, nullable=True),
                     Column("searxng_max_queries_db", Integer, nullable=True),
+                    Column("output_language", Text, nullable=True),
                     Column(
                         "updated_at",
                         Text,

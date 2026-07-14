@@ -214,7 +214,7 @@ function RunCard({ run, selected, lang, style, onClick, onCancel, t }: RunCardPr
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)", marginLeft: "auto" }}>
           {t("ingest.cost")}:{" "}
-          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
+          <span style={{ fontFamily: "var(--syn-font-mono)", color: "var(--syn-text)" }}>
             {formatCost(run.total_cost_usd)}
           </span>
         </span>

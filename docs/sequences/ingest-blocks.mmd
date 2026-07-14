@@ -1,0 +1,75 @@
+sequenceDiagram
+    %% Generated: v1.7.0 | 2026-07-14 | ADR-0076 block-based ingest pipeline · ADR-0078 refinement · ADR-0084
+    title Ingest - block-based pipeline ADR-0076 - orchestrated and delegated CLI routes - on_drained overview and sweep ADR-0078 ADR-0084
+    autonumber
+
+    participant PL as pipeline.py
+    participant CTX as ingest/context.py
+    participant PR as ingest/prompts.py
+    participant P as InferenceProvider
+    participant BL as ingest/block_loop.py
+    participant BK as ingest/blocks.py and sanitize.py
+    participant SC as wiki/schema.py
+    participant BW as ingest/block_writer.py
+    participant PG as Postgres
+    participant OV as ops/overview.py
+    participant RS as ops/review.py (sweep)
+
+    Note over PL: mtime-then-hash gate (I1) - real content change confirmed
+    PL->>CTX: load purpose.md and schema.md and existing-pages catalogue
+    CTX-->>PL: ingest_context and schema_md
+    Note over PL: route on caps.supports_agentic_loop (I6)
+
+    alt ORCHESTRATED (Ollama / API) AND ingest_pipeline_format == "blocks"
+        PL->>SC: parse_page_type_routing(schema_md)
+        SC-->>PL: {type: subdir} (base and custom)
+        PL->>BL: run_block_loop(source, purpose, schema, index, lang, max_iter, token_budget)
+        BL->>PR: build_analysis_prompt(...)
+        BL->>P: complete(analysis_system, analysis_user, max_tokens=4096)
+        P-->>BL: analysis (markdown, NOT JSON)
+        loop bounded: max_iter AND token_budget (I7)
+            BL->>PR: build_generation_prompt(schema authoritative, prominent [[wikilinks]])
+            BL->>P: complete(generation_system, generation_user, max_tokens by ctx tier)
+            P-->>BL: FILE/REVIEW block text (first char '-')
+            BL->>BK: parse_file_blocks and sanitize (4 rules, fence-aware)
+            BK-->>BL: FileBlocks
+            Note over BL: relaxed validate - title/body/routing- NO lang gate, NO query gate
+            alt valid (>=1 routed block)
+                Note over BL: converged
+            else invalid / empty output
+                Note over BL: augment prompt with errors, retry
+            end
+        end
+        opt generation >= 10000 chars OR >= 4 FILE blocks
+            BL->>P: complete(review_stage_prompt) -> 1-5 REVIEW blocks
+        end
+        BL-->>PL: BlockLoopResult(file_blocks, review_blocks, converged)
+        loop each FILE block
+            PL->>BW: write_block_page(rel_path, content, origin, routing)
+            BW->>SC: validate_page_routing (drop mis-routed / app-managed / unsafe)
+            BW->>PG: persist_metadata (page_type = raw string - custom types), links (K5), log (K4), bump (I2)
+            Note over BW: page-history backup on overwrite (capped)
+        end
+        PL->>PL: _ensure_source_summary fallback if none written
+        Note over PL: enqueue review_blocks (WS-C) · index Recently Updated (WS-B)
+    else DELEGATED (CLI agent) - the 1:1 E2E path
+        PL->>PR: build_delegated_generation_guidance(schema, lang) - shares _OTHER_RULES (prominent [[wikilinks]])
+        PR-->>PL: guidance (tool-writing- NO FILE-block contract)
+        Note over PL: system_prompt = ingest_context and guidance
+        PL->>P: delegate_ingest(system_prompt) - agent writes pages via MCP write_page
+        P-->>PL: pages written (converged, count)
+    else ORCHESTRATED AND ingest_pipeline_format == "json" (rollback lever, removal v1.8)
+        Note over PL: legacy analyze()/generate() JSON loop (loop.py) - unchanged
+    end
+    PL->>PG: finalize ingest_runs (I7 cost · log total_cost_usd)
+    Note over PL,RS: on_drained hook in main.py fires once when ingest queue depth reaches 0 (once per batch, not per source)
+    PL->>OV: regenerate_overview(provider) - ADR-0078 queue-drain refinement (commit 446e66f)
+    OV->>P: complete(overview_system, overview_user, max_tokens=4096) - ADR-0084- 120 s timeout
+    P-->>OV: overview markdown (single-turn · no agent loop)
+    OV->>PG: write_wiki_page(overview.md) · bump dataVersion (I2)
+    PL->>RS: sweep_reviews(vault_id) - ADR-0079 WS-C
+    Note over RS: Pass-1 rule-based (no LLM): resolve missing-page / duplicate proposals where page now exists
+    opt REVIEW_SWEEP_LLM_ENABLED=true
+        RS->>P: complete(sweep_judge_prompt) - ADR-0084- 120 s timeout
+        P-->>RS: resolved / kept verdicts (default-to-keep- never resolves confirm)
+    end

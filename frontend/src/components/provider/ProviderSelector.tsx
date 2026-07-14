@@ -22,6 +22,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronDown } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import {
   useProviderStore,
@@ -199,16 +200,16 @@ export function ProviderSelector() {
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", flex: 1, textAlign: "left" }}>
           {triggerLabel}
         </span>
-        <span aria-hidden="true" style={{ fontSize: 10, opacity: 0.6, flexShrink: 0 }}>
-          ▾
-        </span>
+        {/* UXA-25: Lucide icon instead of Unicode triangle */}
+        <ChevronDown size={10} aria-hidden="true" style={{ opacity: 0.6, flexShrink: 0 }} />
       </button>
 
-      {/* Dropdown panel */}
+      {/* Dropdown panel — UXA-15: aria-modal="true" so screen readers treat this as a modal dialog */}
       {open && (
         <div
           ref={panelRef}
           role="dialog"
+          aria-modal="true"
           aria-label={t("provider.label")}
           data-testid="provider-selector-panel"
           style={{

@@ -1,6 +1,6 @@
 sequenceDiagram
-    %% Generated: v0.5 ADR-0034 | 2026-06-30
-    title Review Queue — Create action (lazy on-demand page generation) and auto-resolution sweep (ADR-0034 §5/§6)
+    %% Generated: v1.7.0 | 2026-07-14 | ADR-0034 · ADR-0079 · ADR-0084 sweep judge via complete()
+    title Review Queue - Create action and auto-resolution sweep - ADR-0034 §5 §6 - sweep LLM judge via complete ADR-0084
     autonumber
 
     participant U as Web UI
@@ -13,47 +13,47 @@ sequenceDiagram
 
     %% Create action
     Note over U,API: User clicks "Create" on a pending proposal (item_type may be any of the five types)
-    U->>API: POST /review/queue/{id}/create  (or /approve — same handler)
+    U->>API: POST /review/queue/{id}/create  (or /approve - same handler)
     API->>PG: SELECT review_items WHERE id=? (404 if absent)
     alt status != 'pending'
         API-->>U: 409 Conflict ("item is not pending")
     end
-    API->>PG: resolve_provider_config("ingest", vault_id)  %% I6 — never hardcode
+    API->>PG: resolve_provider_config("ingest", vault_id)  %% I6 - never hardcode
     alt no ingest provider configured
         API-->>U: 409 Conflict ("no ingest provider configured")
     end
 
-    Note over API: Derive skeleton — title from proposed_title, type from proposed_page_type (or heuristic §5.2), dir from type_subdir(final_type)
-    API->>L: run_orchestrated_loop(single-page-target prompt, provider, max_iter, token_budget)  %% I6/I7 — bounded
+    Note over API: Derive skeleton - title from proposed_title, type from proposed_page_type (or heuristic §5.2), dir from type_subdir(final_type)
+    API->>L: run_orchestrated_loop(single-page-target prompt, provider, max_iter, token_budget)  %% I6/I7 - bounded
     Note over L: Same bounded analyze→generate→validate→retry loop as the main ingest path (ADR-0009)
     loop iteration = 1..max_iter
-        L->>P: generate page titled title of type type grounded in vault context + rationale
+        L->>P: generate page titled title of type type grounded in vault context and rationale
         P-->>L: WikiPage (or loop exhausted)
     end
 
     alt WikiPage produced (or fallback via _ensure_source_summary)
-        L->>PG: INSERT ingest_runs{total_tokens, total_cost_usd, route=orchestrated} (I7 — 1 USD anomaly check)
+        L->>PG: INSERT ingest_runs{total_tokens, total_cost_usd, route=orchestrated} (I7 - 1 USD anomaly check)
         L-->>API: WikiPage
-        API->>FS: write_wiki_page(page, origin_source)  %% I1 — single incremental write seam
+        API->>FS: write_wiki_page(page, origin_source)  %% I1 - single incremental write seam
         Note over API: persist_metadata → upsert_vector → append_log → bump_version (ONCE) → wikilinks → update_index
-        API->>PG: bump data_version (+1)
+        API->>PG: bump data_version by 1
         API->>PG: UPDATE review_items SET status=created, resolution=created, created_page_id=new_id, reviewed_at=now(), reviewed_by=web-ui
         API-->>U: 201 ReviewItem (status=created, created_page_id set)
-        Note over API,R: Fire-and-forget — trigger sweep so sibling proposals this new page satisfies are closed
+        Note over API,R: Fire-and-forget - trigger sweep so sibling proposals this new page satisfies are closed
         API-)R: sweep_reviews(vault_id)
     else generation failed (loop converged=False or provider error)
-        Note over API: item status stays 'pending' — no partial write
-        API-->>U: 502 ("page generation failed — item left pending, retry or skip")
+        Note over API: item status stays 'pending' - no partial write
+        API-->>U: 502 ("page generation failed - item left pending, retry or skip")
     end
 
     %% Skip action (unchanged from ADR-0025 contract)
-    Note over U,API: User clicks Skip — no page generated, item closed immediately
+    Note over U,API: User clicks Skip - no page generated, item closed immediately
     U->>API: POST /review/queue/{id}/skip
     API->>PG: UPDATE review_items SET status=skipped, resolution=skipped, reviewed_at=now(), reviewed_by=web-ui
     API-->>U: 200 ReviewItem (status=skipped)
 
     %% Deep Research action (topic now from proposed_title / rationale, not pre_generated_query)
-    Note over U,API: User clicks Deep Research — delegates to F10 loop (ADR-0024)
+    Note over U,API: User clicks Deep Research - delegates to F10 loop (ADR-0024)
     U->>API: POST /review/queue/{id}/deep-research
     alt SEARXNG_URL not set
         API-->>U: 503 ("SEARXNG_URL not configured")
@@ -68,6 +68,6 @@ sequenceDiagram
     U->>API: POST /review/queue/sweep?vault_id=vault
     API->>R: sweep_reviews(vault_id)  %% same function as fire-and-forget path
     Note over R: Pass-1 rule-based (no LLM): resolve missing-page/duplicate where proposed_title now exists
-    Note over R: Pass-2 conservative LLM (if REVIEW_SWEEP_LLM_ENABLED=true): ONE batched bounded call — default-to-keep — never resolves confirm
+    Note over R: Pass-2 conservative LLM (if REVIEW_SWEEP_LLM_ENABLED=true): complete() single-turn - ADR-0084- 120 s timeout - default-to-keep - never resolves confirm
     R-->>API: {rule_resolved: N, llm_resolved: M, kept: K}
     API-->>U: 200 {rule_resolved, llm_resolved, kept}

@@ -538,6 +538,20 @@ class VaultState(Base):
         ),
     )
 
+    # ── ADR-0081: per-vault AI output language (llm_wiki onboarding parity) ────────
+    output_language: Mapped[str | None] = mapped_column(
+        String(16),
+        nullable=True,
+        default=None,
+        comment=(
+            "Mandatory AI output language chosen at vault creation (ADR-0081, "
+            "llm_wiki create-dialog parity). ISO-639-1 code (e.g. 'en', 'it'). "
+            "NULL = auto (detect from source content, pre-1.7.0 vaults). "
+            "Read by ingest prompts (MANDATORY OUTPUT LANGUAGE directive) and by "
+            "the writer language guard. Migration 0032."
+        ),
+    )
+
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,

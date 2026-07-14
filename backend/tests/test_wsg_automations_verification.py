@@ -592,22 +592,21 @@ def test_reclassify_single_flight_not_running_by_default() -> None:
     assert not rt.is_running()
 
 
-# ── T-WSG-009: log.md format — append_log writes the new v1.3.5 format ────────
+# ── T-WSG-009: log.md format — append_log writes the ADR-0078 llm_wiki §1.8 format ─────
 
 
 @pytest.mark.asyncio
-async def test_append_log_writes_v135_format(
+async def test_append_log_writes_llmwiki_format(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    T-WSG-009: append_log() produces the new v1.3.5 format:
-      ## YYYY-MM-DD
-      - HH:MM:SSZ · indexed · concept · [[Title]] — wiki/concepts/slug.md
+    T-WSG-009 (ADR-0078): append_log() now produces the llm_wiki §1.8 heading format:
+      ## [YYYY-MM-DD] ingest | Title
 
-    Verifies the format is parseable and has the correct bullet structure.
-    This is the format that ops must NOT regress on.
-    [AC-WS-G-6, K4]
+    One self-contained heading per entry. No date-grouping wrapper. No bullets.
+    "indexed" action verb is normalised to "ingest" (matches the reference).
+    [AC-WS-G-6, K4, ADR-0078]
     """
     wiki_dir = tmp_path / "wiki"
     wiki_dir.mkdir(parents=True)
@@ -644,16 +643,18 @@ async def test_append_log_writes_v135_format(
 
     content = log_path.read_text(encoding="utf-8")
 
-    # New format: date header
     import re
 
-    assert re.search(r"## \d{4}-\d{2}-\d{2}", content), "log.md must have date header"
-    # Bullet format: - HH:MM:SSZ · indexed · concept · [[Title]] — path
-    assert "- " in content, "log.md must have bullet entries"
-    assert "indexed" in content, "log.md must record 'indexed' action"
-    assert "concept" in content, "log.md must record page type"
-    assert "[[Chain-of-Thought Prompting]]" in content, "log.md must use wikilink for title"
-    assert "wiki/concepts/chain-of-thought.md" in content, "log.md must include file path"
+    # ADR-0078 format: ## [YYYY-MM-DD] ingest | Title
+    assert re.search(
+        r"## \[\d{4}-\d{2}-\d{2}\] ingest \| ", content
+    ), "log.md must use the ADR-0078 heading format: ## [YYYY-MM-DD] ingest | Title"
+    assert "Chain-of-Thought Prompting" in content, "log.md must include the page title"
+    # No bullet list — the old format is gone.
+    lines_with_title = [ln for ln in content.splitlines() if "Chain-of-Thought Prompting" in ln]
+    assert all(
+        not ln.strip().startswith("-") for ln in lines_with_title
+    ), "ADR-0078 format uses headings, not bullet list entries"
 
 
 # ── T-WSG-010: log.md format — ops don't READ/PARSE log.md content ─────────────

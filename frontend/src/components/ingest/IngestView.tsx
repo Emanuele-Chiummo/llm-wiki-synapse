@@ -115,7 +115,10 @@ export function IngestView() {
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") void handleSubmit();
-      if (e.key === "Escape") { setFormOpen(false); setFilePath(""); }
+      if (e.key === "Escape") {
+        setFormOpen(false);
+        setFilePath("");
+      }
     },
     [handleSubmit],
   );
@@ -251,7 +254,13 @@ export function IngestView() {
         >
           <label
             htmlFor="ingest-file-path"
-            style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+            style={{
+              display: "block",
+              fontSize: 12,
+              fontWeight: 500,
+              color: "var(--syn-text-muted)",
+              marginBottom: 4,
+            }}
           >
             {t("ingest.filePathLabel")}
           </label>
@@ -274,7 +283,7 @@ export function IngestView() {
                 borderRadius: 6,
                 color: "var(--syn-text)",
                 fontSize: 12,
-                fontFamily: "monospace",
+                fontFamily: "var(--syn-font-mono)",
                 outline: "none",
               }}
             />
@@ -286,7 +295,8 @@ export function IngestView() {
                 padding: "6px 16px",
                 border: "none",
                 borderRadius: 6,
-                background: !filePath.trim() || submitting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                background:
+                  !filePath.trim() || submitting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
                 color: !filePath.trim() || submitting ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,

@@ -16,49 +16,44 @@
  * INVARIANT I3: selectors + useShallow, no unrelated store subscriptions.
  */
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  type CSSProperties,
-} from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, Image, FileVideo, File, Download } from "lucide-react";
-import {
-  getSourceContent,
-  getSourceDerivedPages,
-  sourceRawUrl,
-} from "../../api/sourcesClient";
+import { getSourceContent, getSourceDerivedPages, sourceRawUrl } from "../../api/sourcesClient";
 import type {
   SourceContentResponse,
   SourceDerivedPage,
   SourceCategory,
   SourceRoot,
 } from "../../api/sourcesClient";
-import {
-  useGraphStore,
-  selectSelectPage,
-  selectSetActiveSection,
-} from "../../store/graphStore";
+import { useGraphStore, selectSelectPage, selectSetActiveSection } from "../../store/graphStore";
 import { renderMarkdown } from "../chat/renderMarkdown";
 
 // ─── Category icon + label helpers ───────────────────────────────────────────
 
 function categoryIcon(cat: SourceCategory, size = 14) {
   switch (cat) {
-    case "image":    return <Image size={size} aria-hidden="true" />;
-    case "pdf":      return <FileText size={size} aria-hidden="true" />;
-    case "av":       return <FileVideo size={size} aria-hidden="true" />;
-    case "markdown": return <FileText size={size} aria-hidden="true" />;
-    case "text":     return <FileText size={size} aria-hidden="true" />;
-    case "code":     return <FileText size={size} aria-hidden="true" />;
-    case "data":     return <FileText size={size} aria-hidden="true" />;
-    default:         return <File     size={size} aria-hidden="true" />;
+    case "image":
+      return <Image size={size} aria-hidden="true" />;
+    case "pdf":
+      return <FileText size={size} aria-hidden="true" />;
+    case "av":
+      return <FileVideo size={size} aria-hidden="true" />;
+    case "markdown":
+      return <FileText size={size} aria-hidden="true" />;
+    case "text":
+      return <FileText size={size} aria-hidden="true" />;
+    case "code":
+      return <FileText size={size} aria-hidden="true" />;
+    case "data":
+      return <FileText size={size} aria-hidden="true" />;
+    default:
+      return <File size={size} aria-hidden="true" />;
   }
 }
 
 function formatBytes(n: number): string {
-  if (n < 1024)        return `${n} B`;
+  if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -83,13 +78,13 @@ interface SourcePreviewProps {
 export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   const { t } = useTranslation();
 
-  const selectPage      = useGraphStore(selectSelectPage);
+  const selectPage = useGraphStore(selectSelectPage);
   const setActiveSection = useGraphStore(selectSetActiveSection);
 
-  const [content, setContent]             = useState<SourceContentResponse | null>(null);
-  const [derivedPages, setDerivedPages]   = useState<SourceDerivedPage[]>([]);
-  const [loading, setLoading]             = useState(false);
-  const [error, setError]                 = useState<string | null>(null);
+  const [content, setContent] = useState<SourceContentResponse | null>(null);
+  const [derivedPages, setDerivedPages] = useState<SourceDerivedPage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch content + derived-pages whenever path or root changes.
   // AbortController guards stale responses from in-flight requests.
@@ -112,10 +107,7 @@ export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
         ? Promise.resolve([] as SourceDerivedPage[])
         : getSourceDerivedPages(path, ctrl.signal);
 
-    Promise.all([
-      getSourceContent(path, ctrl.signal, root),
-      derivedPagesPromise,
-    ])
+    Promise.all([getSourceContent(path, ctrl.signal, root), derivedPagesPromise])
       .then(([c, dp]) => {
         setContent(c);
         setDerivedPages(dp);
@@ -142,14 +134,13 @@ export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   // Empty state
   if (!path) {
     return (
-      <div
-        data-testid="source-preview"
-        style={EMPTY_CONTAINER_STYLE}
-      >
-        <File size={32} aria-hidden="true" style={{ color: "var(--syn-text-dim)", marginBottom: 8 }} />
-        <span style={{ color: "var(--syn-text-dim)", fontSize: 13 }}>
-          {t("sources.empty")}
-        </span>
+      <div data-testid="source-preview" style={EMPTY_CONTAINER_STYLE}>
+        <File
+          size={32}
+          aria-hidden="true"
+          style={{ color: "var(--syn-text-dim)", marginBottom: 8 }}
+        />
+        <span style={{ color: "var(--syn-text-dim)", fontSize: 13 }}>{t("sources.empty")}</span>
       </div>
     );
   }
@@ -165,7 +156,7 @@ export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   if (error) {
     return (
       <div data-testid="source-preview" style={EMPTY_CONTAINER_STYLE}>
-        <span style={{ color: "var(--syn-danger, #e53e3e)", fontSize: 13 }}>{error}</span>
+        <span style={{ color: "var(--syn-red)", fontSize: 13 }}>{error}</span>
       </div>
     );
   }
@@ -175,10 +166,7 @@ export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   const rawUrl = sourceRawUrl(content.path, root);
 
   return (
-    <div
-      data-testid="source-preview"
-      style={CONTAINER_STYLE}
-    >
+    <div data-testid="source-preview" style={CONTAINER_STYLE}>
       {/* ── Header ── */}
       <PreviewHeader
         content={content}
@@ -235,17 +223,11 @@ function PreviewHeader({ content, derivedPages, onDerivedPageClick }: PreviewHea
 
       {/* Ingested badge */}
       {content.ingested ? (
-        <span
-          data-testid="source-ingested-badge"
-          style={INGESTED_BADGE_STYLE}
-        >
+        <span data-testid="source-ingested-badge" style={INGESTED_BADGE_STYLE}>
           {t("sources.ingested")} · {derivedPages.length} {t("sources.derivedPages")}
         </span>
       ) : (
-        <span
-          data-testid="source-ingested-badge"
-          style={NOT_INGESTED_BADGE_STYLE}
-        >
+        <span data-testid="source-ingested-badge" style={NOT_INGESTED_BADGE_STYLE}>
           {t("sources.notIngested")}
         </span>
       )}
@@ -310,11 +292,7 @@ function PreviewBody({ content, rawUrl }: PreviewBodyProps) {
       // Audio vs video — crude heuristic: audio/* extensions lack video track
       const isAudio = /\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(content.name);
       return isAudio ? (
-        <audio
-          controls
-          src={rawUrl}
-          style={{ width: "100%", marginTop: 8 }}
-        >
+        <audio controls src={rawUrl} style={{ width: "100%", marginTop: 8 }}>
           {content.name}
         </audio>
       ) : (
@@ -344,10 +322,7 @@ function PreviewBody({ content, rawUrl }: PreviewBodyProps) {
     case "code":
     case "data":
       return (
-        <pre
-          data-testid="source-preview-text"
-          style={PRE_STYLE}
-        >
+        <pre data-testid="source-preview-text" style={PRE_STYLE}>
           {content.text ?? ""}
         </pre>
       );
@@ -356,16 +331,15 @@ function PreviewBody({ content, rawUrl }: PreviewBodyProps) {
       // other / no text
       return (
         <div style={NO_PREVIEW_STYLE}>
-          <File size={32} aria-hidden="true" style={{ color: "var(--syn-text-dim)", marginBottom: 8 }} />
+          <File
+            size={32}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", marginBottom: 8 }}
+          />
           <span style={{ color: "var(--syn-text-dim)", fontSize: 13, marginBottom: 12 }}>
             {t("sources.noPreview")}
           </span>
-          <a
-            href={rawUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={OPEN_RAW_LINK_STYLE}
-          >
+          <a href={rawUrl} target="_blank" rel="noopener noreferrer" style={OPEN_RAW_LINK_STYLE}>
             <Download size={13} aria-hidden="true" />
             {t("sources.file")}
           </a>
@@ -427,10 +401,10 @@ const INGESTED_BADGE_STYLE: CSSProperties = {
   display: "inline-block",
   fontSize: 11,
   fontWeight: 600,
-  color: "var(--syn-success, #2f9e44)",
-  background: "color-mix(in srgb, var(--syn-success, #2f9e44) 12%, transparent 88%)",
-  border: "1px solid color-mix(in srgb, var(--syn-success, #2f9e44) 30%, transparent 70%)",
-  borderRadius: "var(--syn-radius-sm, 4px)",
+  color: "var(--syn-green)",
+  background: "color-mix(in srgb, var(--syn-green) 12%, var(--syn-mix-base) 88%)",
+  border: "1px solid color-mix(in srgb, var(--syn-green) 30%, transparent)",
+  borderRadius: "var(--syn-radius-sm)",
   padding: "2px 7px",
   width: "fit-content",
 };
@@ -462,7 +436,7 @@ const DERIVED_PAGE_LINK_STYLE: CSSProperties = {
 };
 
 const PRE_STYLE: CSSProperties = {
-  fontFamily: "var(--syn-font-mono, monospace)",
+  fontFamily: "var(--syn-font-mono)",
   fontSize: 12,
   lineHeight: 1.6,
   color: "var(--syn-text)",

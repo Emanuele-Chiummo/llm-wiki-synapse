@@ -7,7 +7,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [1.7.0] — 2026-07-14 — "llm_wiki 1:1 core parity, link-regression fix, editorial redesign"
+
+Aligns the three core operations (Ingest · Review · Lint) and the generated page types 1:1 with
+`nashsu/llm_wiki` v0.6.3, fixes the wikilink-density regression introduced in 1.6.0, brings the
+new-vault onboarding to parity, and refreshes the entire frontend with a new "editorial knowledge
+workspace" visual language. Behavior spec: `docs/reference/LLMWIKI-CORE-LOGIC-v0.6.3.md`;
+decisions: ADR-0076..0083.
+
+### Added
+- **Block-based ingest pipeline** (ADR-0076, `ingest_pipeline_format` — now the **default**
+  `"blocks"`, with `"json"` kept as a rollback lever) — a provider-neutral port of llm_wiki's
+  two-stage text pipeline: markdown analysis → `---FILE:` / `---REVIEW:` block generation →
+  schema-validated block writer. New modules
+  `ingest/{prompts,blocks,sanitize,block_loop,block_writer,context,writer,pipeline}.py`. Providers
+  gain a raw-text `complete()` transport (I6). In `"blocks"` mode **every** provider — Local, API,
+  and the agentic CLI — runs the block loop via `complete()`; llm_wiki drives its CLI as a text
+  transport, so the delegated agent loop (which dangled wikilinks) is used only in `"json"` mode.
+- **Schema-driven page routing + open page-type set** (ADR-0077) — `wiki/schema.py` parses the
+  `schema.md` "Page Types" table into an authoritative `type → dir` map; custom types (thesis,
+  methodology, finding, goal, habit, character, …) persist as a raw `page_type` string.
+- **New-vault onboarding wizard** (ADR-0081; migration 0032) — a 3-step modal (name + parent dir →
+  mandatory AI output language → scenario template) that **auto-activates** the new vault. The 5
+  scenario templates carry `extra_dirs` + custom Page Types; per-vault `vault_state.output_language`
+  drives the ingest language directive. `GET`/`PUT /vault/meta/output-language`.
+- **index.md "Recently Updated"** — a code-owned bounded catalogue section alongside the K3 per-type
+  catalogue (ADR-0078); manual `POST /ops/overview/regenerate`.
+- **Parity E2E harness** (ADR-0083) — deterministic 3-doc corpus + `scripts/parity_e2e/compare.py`
+  (tolerance bands + a *total-links ≥ 1.5.6 baseline* regression sentinel) + runbook.
+- **Editorial frontend redesign** — a new design-token language (ink `#0F1729`, cool neutrals, a
+  legible categorical page-type palette, softer elevation), a grouped nav rail (Create / Understand /
+  Maintain), an editorial Wiki reader with a Connections panel (server FA2 coords, I2), a Review
+  decision-trace card, and a shared button/badge/mono-metadata kit. Light + dark, EN/IT parity.
+- **Home dashboard, second pass** — a composition hero (total pages set large over a jewel-tone
+  per-type bar + legend) replaces the flat page/data-version tiles; semantic KPI states (lint `0` →
+  green "clean", pending review green when clear); the ingest quick-action is a primary button;
+  review-preview rows carry a color-coded type chip and a primary Create. The graph legend hides
+  zero-count node types.
+
+### Changed
+- **Wikilink density fixed at the prompt** — the regression was diagnosed as prompt-only (no link
+  code changed in 1.6.0): the 6-type JSON scaffold had buried the single `[[wikilink]]` instruction.
+  The ported prompts (`ingest/prompts.py`) restore prominent, repeated wikilink guidance and an
+  analysis "Connections to Existing Wiki" section; the delegated **CLI** prompt shares the same rules
+  (a contract test prevents drift) so the 1:1 E2E path links as densely as the reference.
+- **Wikilink enrich post-pass defaults OFF** (ADR-0076) — llm_wiki produces links inline only
+  (`enrich-wikilinks.ts` is dead code); the post-pass would double-count. One opt-in toggle away.
+- **Review** (ADR-0079) — the auto-resolve sweep fires on **queue drain** (not per run); **Create
+  Page** defaults to a deterministic stub (`mode="stub"`), with full-LLM generation as an explicit
+  `mode="generate"`; Dismiss now confirms first; block-loop REVIEW blocks are enqueued.
+- **log.md** entries use llm_wiki's `## [YYYY-MM-DD] ingest | Title` format. **overview.md** is
+  regenerated once per **queue-drain batch** (ADR-0078 refinement) — a single whole-wiki synthesis
+  that reads `purpose.md` + the existing-page digest — rather than per source (which would compete
+  with entity/concept extraction) or never (which left it a stub).
+- **Generation covers all derived page types** — the "what to generate" prompt now asks for query,
+  comparison and synthesis pages from the analysis's open questions / commensurable subjects /
+  cross-cutting conclusions, and for **one page per distinct** named entity or concept (specific
+  subject over a generic umbrella), matching the reference's granularity.
+- **Wikilinks are emitted as bare kebab-case slugs** (`[[cloud-cost-explorer-api]]`, with the
+  `[[slug|Display]]` escape hatch) — the form the reference writes, so links resolve reliably.
+- **Review LLM seams and the overview regen run through `complete()`** (single-turn), not the
+  agentic `chat()` loop that hangs the CLI; their single-call timeouts are raised to 120 s to fit a
+  CLI subprocess cold-start (degrade-safe — a slow/hung call keeps the previous state).
+- **Lint** (ADR-0080) — assessed at parity (0.74 broken-link threshold, deterministic fixes,
+  `proposal_origin="lint"` review routing); the bounded semantic loop and on-demand Send-to-Review
+  are deliberate supersets (`lint_max_iter=1` reproduces the reference exactly). No lint code change.
+- The orchestrator (3,851 → 1,493 lines) is decomposed behind a re-export façade.
+
+### Fixed
+- The 1.6.0 wikilink-density regression (see Changed).
+- Onboarding no longer strands a new vault un-activated (the wizard activates + reloads).
+- **Dangling wikilinks under the CLI provider** — the delegated agent linked to entities it never
+  materialised (169 links, 1 graph edge, 0 entities); routing the CLI through the block loop lifts
+  link resolution to ~90–100 % on the 1:1 E2E.
+- **Block-loop non-convergence** — the validator counted app-managed `index/log/overview` FILE
+  blocks (which the prompt asks the model to emit) as routing errors, forcing retries to `max_iter`;
+  those blocks are now skipped in validation and every source converges on the first attempt.
+- **overview.md stayed an empty stub** — regeneration used `chat()` (agentic CLI loop) and timed
+  out; the drain-time `complete()` path now produces a rich synthesis.
+- **Review auto-resolve did nothing under the CLI** — the sweep judge / proposal seams timed out at
+  30 s via `chat()`; with `complete()` + a 120 s ceiling the sweep resolves items again.
+- **Frontend showed the wrong vault** — the dashboard never synced `vault_id` from `/status`, so a
+  non-default active vault mismatched every data list (the "13-badge / 2-item list" symptom); the
+  status poll now propagates the active `vault_id`.
+
+### Upgrade notes
+- Run Alembic migration `0032` (additive, nullable `vault_state.output_language`; NULL = auto).
+- `wikilink_enrich_enabled` now defaults **false**; set it true to restore the post-pass.
+- **`ingest_pipeline_format` now defaults to `"blocks"`** (the E2E-verified parity path). Set it to
+  `"json"` to roll back to the 1.6.x loop (removal slated for 1.8).
+- Review/overview single-call timeouts default to **120 s** (`review_sweep_timeout_seconds`,
+  `review_propose_timeout_seconds`, `overview_timeout_seconds`) to fit the CLI provider; lower them
+  for API/Ollama-only deployments if desired.
 
 ## [1.6.0] — 2026-07-13 — "source-grounded generation lifecycle parity"
 
@@ -952,7 +1043,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
-[Unreleased]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.4.0...HEAD
+[1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0
 [1.4.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...v1.4.0
 [1.3.16]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.15...v1.3.16
 [1.3.15]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.14...v1.3.15

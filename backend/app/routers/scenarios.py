@@ -121,6 +121,18 @@ async def apply_scenario(scenario_id: str) -> ScenarioApplyResponse:
         logger.error("apply_scenario: failed to write preset files: %s", exc)
         raise HTTPException(status_code=500, detail=f"Failed to write preset files: {exc}") from exc
 
+    # Create scenario-specific extra wiki/ subdirectories (idempotent — WS-E, v1.7.0).
+    extra_dirs: list[str] = scenario["extra_dirs"]
+    for extra in extra_dirs:
+        try:
+            (vault / extra).mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            logger.warning("apply_scenario: could not create %r: %s", extra, exc)
+
     await bump_version()
-    logger.info("apply_scenario: applied preset %r → purpose.md + schema.md written", scenario_id)
+    logger.info(
+        "apply_scenario: applied preset %r → purpose.md + schema.md written; extra_dirs=%s",
+        scenario_id,
+        extra_dirs,
+    )
     return ScenarioApplyResponse(applied=True)
