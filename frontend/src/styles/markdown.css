@@ -16,9 +16,9 @@
 .note-view__body,
 .synapse-markdown__body {
   color: var(--syn-text);
-  font-size: 14px;
-  line-height: 1.7;
-  font-family: "Inter", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.68;
+  font-family: "Geist Variable", "Geist", Inter, ui-sans-serif, system-ui, sans-serif;
   background: var(--syn-bg);
 }
 
@@ -37,22 +37,22 @@
 
 .note-view__body h2,
 .synapse-markdown__body h2 {
-  font-size: 1.375em;
-  font-weight: 600;
-  margin: 1.1em 0 0.4em;
-  padding-bottom: 0.25em;
-  border-bottom: 1px solid var(--syn-border);
+  font-size: 1.25em;
+  font-weight: 660;
+  margin: 1.4em 0 0.5em;
   color: var(--syn-text);
   line-height: 1.3;
+  letter-spacing: -0.018em;
 }
 
 .note-view__body h3,
 .synapse-markdown__body h3 {
-  font-size: 1.125em;
-  font-weight: 600;
-  margin: 1em 0 0.35em;
+  font-size: 1.05em;
+  font-weight: 640;
+  margin: 1.2em 0 0.4em;
   color: var(--syn-text);
   line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .note-view__body h4,
@@ -81,7 +81,8 @@
 
 .note-view__body p,
 .synapse-markdown__body p {
-  margin: 0.6em 0;
+  margin: 0 0 0.85em;
+  color: var(--syn-text-muted);
 }
 
 .note-view__body p:first-child,
@@ -239,14 +240,16 @@
 .note-view__body a.wikilink,
 .synapse-markdown__body a.wikilink {
   color: var(--syn-accent);
-  text-decoration: underline;
-  text-decoration-style: dashed;
-  text-underline-offset: 3px;
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid color-mix(in srgb, var(--syn-accent) 30%, transparent);
   cursor: pointer;
+  border-radius: 2px;
 }
 
 .note-view__body a.wikilink:hover,
 .synapse-markdown__body a.wikilink:hover {
+  background: var(--syn-accent-soft);
   color: var(--syn-accent-strong);
-  text-decoration-style: solid;
+  border-bottom-color: color-mix(in srgb, var(--syn-accent) 60%, transparent);
 }

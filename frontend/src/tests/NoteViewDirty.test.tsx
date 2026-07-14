@@ -142,6 +142,7 @@ vi.mock("../store/graphStore", () => ({
     selector: (s: {
       selectedNodeId: string | null;
       nodes: [];
+      edges: [];
       selectPage: typeof _mockSelectPage;
       setActiveSection: typeof _mockSetActiveSection;
     }) => unknown,
@@ -149,11 +150,13 @@ vi.mock("../store/graphStore", () => ({
     selector({
       selectedNodeId: _selectedNodeId,
       nodes: [],
+      edges: [],
       selectPage: _mockSelectPage,
       setActiveSection: _mockSetActiveSection,
     }),
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
   selectNodes: (s: { nodes: [] }) => s.nodes,
+  selectEdges: (s: { edges: [] }) => s.edges,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
   selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
     s.setActiveSection,

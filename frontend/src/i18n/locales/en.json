@@ -1326,7 +1326,10 @@
     "connectedTo_one": "Connected to 1 other page",
     "technicalDetails": "Technical details",
     "bodyHint": "Open the page in the Wiki to read its full content.",
-    "connections": "Connections"
+    "connections": "Connections",
+    "linkedFrom": "Linked from",
+    "linksTo": "Links to",
+    "neighborhood": "Neighborhood"
   },
   "palette": {
     "placeholder": "Search sections and pages…",

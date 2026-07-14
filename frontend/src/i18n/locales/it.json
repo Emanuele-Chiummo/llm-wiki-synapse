@@ -1326,7 +1326,10 @@
     "connectedTo_one": "Collegata a 1 altra pagina",
     "technicalDetails": "Dettagli tecnici",
     "bodyHint": "Apri la pagina nella Wiki per leggerne il contenuto completo.",
-    "connections": "Connessioni"
+    "connections": "Connessioni",
+    "linkedFrom": "Collegato da",
+    "linksTo": "Collega a",
+    "neighborhood": "Vicinato"
   },
   "palette": {
     "placeholder": "Cerca sezioni e pagine…",
