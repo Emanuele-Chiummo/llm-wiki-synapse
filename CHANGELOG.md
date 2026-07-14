@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased] — v1.7.0 — "llm_wiki 1:1 core parity, link-regression fix, editorial redesign"
+## [1.7.0] — 2026-07-14 — "llm_wiki 1:1 core parity, link-regression fix, editorial redesign"
 
 Aligns the three core operations (Ingest · Review · Lint) and the generated page types 1:1 with
 `nashsu/llm_wiki` v0.6.3, fixes the wikilink-density regression introduced in 1.6.0, brings the
@@ -1043,7 +1043,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
-[Unreleased]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.4.0...HEAD
+[1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0
 [1.4.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...v1.4.0
 [1.3.16]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.15...v1.3.16
 [1.3.15]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.14...v1.3.15
