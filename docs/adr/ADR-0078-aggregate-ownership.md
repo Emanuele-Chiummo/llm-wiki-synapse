@@ -127,3 +127,41 @@ until the operator explicitly triggers regeneration.
   (5 cases); existing `tests/test_index_md.py` updated for 4-tuple query and catalogue-scoped
   dedup assertion; `tests/test_ingest_incremental.py` and `tests/test_wsg_automations_verification 2.py`
   updated for the new log.md heading format.
+
+---
+
+## Refinement (v1.7.0): queue-drain batch regeneration
+
+**Amended status of overview.md ownership:** refined from "manual-only" to "once per queue-drain batch".
+
+The original Decision §3 established overview.md as strictly manual-op, removing all pipeline call
+sites. In practice, the operator-facing `POST /ops/overview/regenerate` endpoint was rarely triggered
+and overview.md remained a stub across all real-world vaults after a fresh ingest. The reference
+implementation (nashsu/llm_wiki) regenerates the overview after every full queue-drain — the
+completion of the `autoIngest` event, analogous to Synapse's queue emptying.
+
+**Refinement decision (commit `446e66f`, v1.7.0):**
+
+`regenerate_overview()` is now called once via the `on_drained` callback wired in
+`backend/app/main.py`, invoked when the ingest queue drains to zero after a batch.
+
+Rules:
+- Called **once per drain event**, not per source. A 10-file batch produces one overview call.
+- Uses `provider.complete()` (not `provider.chat()`) — single-turn, no agent loop (ADR-0084).
+  The switch from `chat()` to `complete()` is required for correct operation with the CLI
+  provider (`CliAgentProvider.chat()` creates a full agent loop that hangs on seams without
+  MCP write tools).
+- Degrade-safe: if the provider call fails or times out (120 s wall-clock, I7), the existing
+  `overview.md` is retained unchanged. No 5xx is ever raised.
+- The `POST /ops/overview/regenerate` endpoint (added in original §3) remains and is the
+  sanctioned on-demand path; the queue-drain call supplements it — it does not replace it.
+
+**Rationale for the three options considered:**
+
+| Option | Assessment |
+|--------|-----------|
+| Per-source (pre-ADR-0078 behaviour) | Starved entity/concept extraction; largest performance bottleneck; up to N round-trips per batch. Removed in original ADR-0078. ✗ |
+| Manual-only (original Decision §3) | No provider overhead during ingest. In practice overview.md always absent — operators do not trigger the endpoint. ✗ |
+| Once per queue-drain (this refinement) | Overview reflects the state of the vault after each batch. Bounded at one call per drain event. Reference-parity. ✔ |
+
+**Sequence:** the queue-drain section of `docs/sequences/ingest-blocks.mmd` shows this flow.

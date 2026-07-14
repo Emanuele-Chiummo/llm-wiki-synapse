@@ -128,3 +128,17 @@ removal in 1.8.
 - I1 (incremental), I5 (Obsidian frontmatter), I6 (provider-pluggable), I7 (bounded loop) preserved.
 - I8: this ADR, refreshed ingest sequence diagrams (D3), and the parity harness satisfy the docs gate.
 - I9: reuses the reference's proven design rather than inventing a new one.
+
+---
+
+## Implementation history (v1.7.0)
+
+This ADR was authored on 2026-07-14 with `"blocks"` as the designed default (see §6 above).
+During the v1.7.0 development cycle, `ingest_pipeline_format` was initialized to `"json"` in
+`backend/app/config.py` as a safety measure while block-loop fixes and parity corrections landed
+across several commits (`b9ee942` generation prompt + validator relaxation, `446e66f` queue-drain
+overview, `209e971` review complete() transport). The `"blocks"` default was activated by commit
+`2c5762e` on the release branch, aligning the deployed code with this ADR's design intent.
+
+The sequence diagram `docs/sequences/ingest-blocks.mmd` reflects the post-`2c5762e` state: the
+`"blocks"` path is the default; `"json"` is the rollback lever annotated for removal in 1.8.
