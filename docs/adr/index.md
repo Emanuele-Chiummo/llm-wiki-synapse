@@ -131,6 +131,14 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
+## LLM Wiki behavioral parity (v1.7.0 — ADR-0076 onward)
+
+| # | Title | Status |
+|---|-------|--------|
+| **0076** | [Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF](ADR-0076-block-based-ingest-pipeline.md) | Accepted |
+
+---
+
 ## Navigation
 
 - **Home:** [docs/index.md](../index.md)
