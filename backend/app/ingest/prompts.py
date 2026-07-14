@@ -43,7 +43,15 @@ GENERATION_WIKI_TYPES: tuple[str, ...] = (
 # and the delegated-CLI guidance so the link-density fix cannot drift between the two paths (a
 # contract test asserts both carry these). Do not re-bury the wikilink lines (the 1.6.0 regression).
 _OTHER_RULES: tuple[str, ...] = (
-    "- Use [[wikilink]] syntax in the BODY for cross-references between pages",
+    "- Use [[wikilink]] syntax in the BODY for cross-references between pages. Write EVERY "
+    "wikilink target as the destination page's bare kebab-case slug (its filename without "
+    "`.md`): [[cloud-financial-operations]], NOT [[Cloud Financial Operations]]. When you want "
+    "readable prose, use the piped form [[slug|Display Text]] "
+    "(e.g. [[effective-licensing-position|Effective Licensing Position]]) — the left side MUST "
+    "stay the slug or the link will not resolve.",
+    "- Every subject you link SHOULD have a page: prefer linking to a page you are creating in "
+    "this same batch or one that already exists in the index. If a concept, entity, or method is "
+    "worth linking, it is worth creating.",
     "- If you include images, use wiki-root-relative paths such as "
     "`media/source-slug/image.png`; never output absolute filesystem paths.",
     "- Preserve subject boundaries: when a source discusses multiple "
@@ -308,7 +316,15 @@ def build_generation_prompt(
             "3. Concept or schema-defined typed pages for key ideas, methods, techniques, and "
             "abstractions. Prefer schema-defined directories when present; otherwise use "
             "wiki/concepts/.",
-            "4. A log entry for wiki/log.md (just the new entry to append, format: "
+            "4. Query pages (type=query, wiki/queries/) for the open questions, contradictions, "
+            "limitations, and assumptions the source and the analysis surface — phrase each title "
+            "as the question. Create one per genuinely open issue; never invent questions the "
+            "source does not raise.",
+            "5. Comparison pages (type=comparison, wiki/comparisons/) ONLY when the source "
+            "explicitly compares commensurable subjects or gives directly comparable evidence.",
+            "6. Synthesis pages (type=synthesis, wiki/synthesis/) ONLY when the source integrates "
+            "multiple claims or findings into a cross-cutting conclusion.",
+            "7. A log entry for wiki/log.md (just the new entry to append, format: "
             "## [YYYY-MM-DD] ingest | Title)",
             "Do not generate wiki/index.md or wiki/overview.md. The application maintains "
             "aggregate navigation separately so large wikis are never rewritten through model "

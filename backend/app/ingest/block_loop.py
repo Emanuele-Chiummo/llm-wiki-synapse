@@ -91,6 +91,13 @@ def _validate_block_batch(file_blocks: list[FileBlock], routing: dict[str, str])
 
     errors: list[str] = []
     for fb in file_blocks:
+        # App-managed aggregates (index/log/overview) are maintained by the pipeline, not the
+        # model: the writer deliberately DROPS any such block. The prompt still asks for a log
+        # entry, so the model emits one — that is EXPECTED, never a validation failure. Skipping
+        # them here prevents a never-converging retry loop (the model re-emits log.md each turn).
+        _base = fb.path.rsplit("/", 1)[-1].lower()
+        if _base in {"index.md", "log.md", "overview.md"}:
+            continue
         prefix = f'FILE "{fb.path}"'
         try:
             post = frontmatter.loads(fb.content)
