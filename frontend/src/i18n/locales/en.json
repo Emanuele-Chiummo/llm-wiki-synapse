@@ -1529,7 +1529,24 @@
       "deferredTitle": "Setup saved for later",
       "deferredDesc": "Some required checks are still incomplete. You can explore Synapse now and resume this checklist from Settings › Getting started.",
       "deferredCta": "Explore and finish later"
-    }
+    },
+    "cancel": "Cancel",
+    "newProjectTitle": "New Project",
+    "stepNameTitle": "Project details",
+    "nameLabel": "Name",
+    "namePlaceholder": "Project name",
+    "parentDirLabel": "Parent directory",
+    "parentDirPlaceholder": "Absolute path on server (e.g. /data/vaults)",
+    "nameRequired": "Project name is required.",
+    "parentDirRequired": "Parent directory is required.",
+    "stepLanguageTitle": "AI output language",
+    "languageLabel": "Choose the language Synapse will use when writing wiki pages.",
+    "languageRequired": "Please choose an output language.",
+    "stepTemplateTitle": "Project template",
+    "templateDesc": "Choose a scenario template to scaffold your vault's purpose, schema, and structure.",
+    "create": "Create project",
+    "creating": "Creating…",
+    "createError": "Could not create project."
   },
   "home": {
     "title": "System Overview",
