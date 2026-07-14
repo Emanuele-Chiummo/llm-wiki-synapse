@@ -273,17 +273,7 @@ export function ConversationList({
           flexShrink: 0,
         }}
       >
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--syn-text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {t("chat.conversations")}
-        </span>
+        <span className="syn-eyebrow">{t("chat.conversations")}</span>
         <button
           type="button"
           onClick={() => void handleNew()}
@@ -624,7 +614,17 @@ function ConvItem({
             {conv.preview}
           </div>
         ) : null}
-        <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 2 }}>{date}</div>
+        <div
+          style={{
+            fontSize: 11,
+            color: "var(--syn-text-dim)",
+            marginTop: 2,
+            fontFamily: "var(--syn-font-mono)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {date}
+        </div>
       </div>
 
       {/* Actions: rename + delete (visible on hover or active; always visible on
