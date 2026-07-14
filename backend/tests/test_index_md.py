@@ -26,8 +26,13 @@ def _make_row(
     title: str | None,
     page_type: str | None,
     file_path: str,
+    updated_at: Any = None,
 ) -> Any:
-    """Build a fake SQLAlchemy row-like object."""
+    """Build a fake SQLAlchemy row-like object.
+
+    updated_at is optional (defaults to None); it is used for the "## Recently Updated"
+    section query (ADR-0078) — callers that don't care about ordering can omit it.
+    """
 
     class _Row:
         pass
@@ -36,15 +41,21 @@ def _make_row(
     r.title = title  # type: ignore[attr-defined]
     r.page_type = page_type  # type: ignore[attr-defined]
     r.file_path = file_path  # type: ignore[attr-defined]
+    r.updated_at = updated_at  # type: ignore[attr-defined]
     return r
 
 
 async def _run_update_index(rows: list[Any], tmp_path: Path) -> str:
-    """Run update_index with a mocked session and return the written file content."""
+    """Run update_index with a mocked session and return the written file content.
+
+    The mock returns 4-tuples (title, page_type, file_path, updated_at) to match the
+    updated query in update_index (ADR-0078 — added updated_at for the Recently Updated
+    section).
+    """
     from app.wiki.index import update_index
 
     mock_result = MagicMock()
-    mock_result.all.return_value = [(r.title, r.page_type, r.file_path) for r in rows]
+    mock_result.all.return_value = [(r.title, r.page_type, r.file_path, r.updated_at) for r in rows]
 
     mock_session = MagicMock()
     mock_session.execute = AsyncMock(return_value=mock_result)
@@ -202,9 +213,13 @@ class TestIndexMdAdr0067D6:
         ]
         content = await _run_update_index(rows, tmp_path)
 
-        # Only one wikilink for the case-insensitive duplicate pair.
+        # The "## Recently Updated" section (ADR-0078) correctly shows BOTH slugs
+        # (aws and aws-alias are different filename stems), so we scope the dedup
+        # assertion to the Entities catalogue section only.
+        parts = content.split("## Entities\n\n")
+        entities_section = parts[1].split("##")[0] if len(parts) > 1 else ""
         assert (
-            content.count("[[AWS]]") + content.count("[[aws]]") == 1
+            entities_section.count("[[AWS]]") + entities_section.count("[[aws]]") == 1
         ), "duplicate case-insensitive titles must collapse to a single catalogue entry"
 
     @pytest.mark.asyncio
@@ -293,7 +308,9 @@ class TestIndexMdIdempotency:
 
         async def _run(rows: list[Any]) -> str:
             mock_result = MagicMock()
-            mock_result.all.return_value = [(r.title, r.page_type, r.file_path) for r in rows]
+            mock_result.all.return_value = [
+                (r.title, r.page_type, r.file_path, r.updated_at) for r in rows
+            ]
             mock_session = MagicMock()
             mock_session.execute = AsyncMock(return_value=mock_result)
             await update_index(mock_session, vault_path)

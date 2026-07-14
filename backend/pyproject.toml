@@ -98,6 +98,7 @@ ignore = [
 "tests/test_page_content_generated.py" = ["ANN", "S", "F811"]
 "tests/test_page_tags.py" = ["ANN", "S", "F811"]
 "tests/test_overview_regen.py" = ["ANN", "S", "F811"]
+"tests/test_overview_not_touched_by_ingest.py" = ["ANN", "S", "F811"]
 # Cross-module pytest fixture reuse: imported fixture name collides with the
 # function-parameter fixture name at call sites — the documented pytest pattern.
 "tests/test_related_pages.py" = ["ANN", "S", "F811"]

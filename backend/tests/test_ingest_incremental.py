@@ -380,16 +380,17 @@ async def _get_data_version(env: dict[str, Any]) -> int:
 
 
 def _log_lines(env: dict[str, Any]) -> list[str]:
-    """Return the ``- `` activity bullets from log.md (K4 narrative format).
+    """Return the log section headings from log.md (ADR-0078 llm_wiki §1.8 format).
 
-    Frontmatter, HTML comments, ``## YYYY-MM-DD`` date headers and blank lines are
-    excluded so the count reflects exactly one entry per ingest (AC-K4-1)."""
+    Frontmatter and blank lines are excluded so the count reflects exactly one entry per
+    ingest (AC-K4-1). Format (ADR-0078): ``## [YYYY-MM-DD] ingest | Title``."""
     text = env["log_md"].read_text(encoding="utf-8")
-    return [line for line in text.splitlines() if line.startswith("- ")]
+    return [line for line in text.splitlines() if line.startswith("## [")]
 
 
-# K4 narrative bullet: `- HH:MM:SSZ · <verb> · [<type> · ]<subject>` (append-only, parseable).
-LOG_LINE_PATTERN = re.compile(r"^- \d{2}:\d{2}:\d{2}Z · \w+ · .+$")
+# K4 section heading (ADR-0078 llm_wiki §1.8 format):
+# `## [YYYY-MM-DD] <verb> | <subject>` (append-only, parseable).
+LOG_LINE_PATTERN = re.compile(r"^## \[\d{4}-\d{2}-\d{2}\] \w+ \| .+$")
 
 
 # ── AC-WATCH-1: new file → DB row ─────────────────────────────────────────────
@@ -692,7 +693,7 @@ class TestLogMdAppend:
         )
         new_line = lines_after[-1]
         assert LOG_LINE_PATTERN.match(new_line), (
-            f"Log line format must match YYYY-MM-DDTHH:MM:SSZ | INDEXED | <path>; "
+            f"Log line format must match ## [YYYY-MM-DD] ingest | <title> (ADR-0078); "
             f"got: {new_line!r}"
         )
 
@@ -849,7 +850,9 @@ class TestEmbeddingsDisabledIngest:
         lines_after = _log_lines(ingest_env)
 
         assert len(lines_after) == lines_before + 1, "log.md must still grow by 1 when off"
-        assert LOG_LINE_PATTERN.match(lines_after[-1]), "log line format unchanged when off"
+        assert LOG_LINE_PATTERN.match(
+            lines_after[-1]
+        ), "log line format (ADR-0078) must be unchanged when embeddings off"
 
     async def test_ingest_with_embeddings_off_still_bumps_data_version(
         self, ingest_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch

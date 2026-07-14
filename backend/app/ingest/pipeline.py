@@ -544,21 +544,8 @@ async def run_ingest_pipeline(
                     _src_d_exc,
                 )
 
-            # ── F3 delegated-route overview regen (nashsu/llm_wiki parity) ──────────────
-            # The CLI agent writes pages via MCP write_page but does NOT maintain overview.md.
-            # Drive the SAME bounded, degrade-safe overview seam once after its run so the single
-            # auto-maintained Overview note is regenerated + indexed on BOTH routes (no
-            # provider_type branch — I6). Fire-and-forget: NEVER raises into ingest (I7). Analysis
-            # is None on the
-            # delegated route (the agent owns its own analysis); the seam degrades to titles-only.
-            try:
-                await orch._update_overview(None, origin_source)
-            except Exception as _ov_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: F3 delegated overview regen hook failed "
-                    "(non-fatal): %s",
-                    _ov_exc,
-                )
+            # ── overview.md: ingest no longer regenerates overview.md (ADR-0078) ──────────
+            # overview.md is now a manual-op, triggered via POST /ops/overview/regenerate.
             # ── D4 delegated-route index/log graph nodes (nashsu/llm_wiki parity) ────────
             # The CLI agent's MCP write_page calls maintain index.md/log.md on disk (via the shared
             # write_wiki_page seam); upsert their Page rows so they render as graph nodes on BOTH
@@ -673,16 +660,8 @@ async def run_ingest_pipeline(
                     run_id=run_id,
                     cancel_event=cancel_event,
                 )
-                # F3/D4 graph-node parity (degrade-safe), mirroring the delegated route: overview
-                # regen + index/log Page rows. Analysis is None on the block path (the loop returns
-                # markdown text, not an Analysis) so the overview seam degrades to titles-only.
-                try:
-                    await orch._update_overview(None, origin_source)
-                except Exception as _ov_b_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: block-path overview regen failed (non-fatal): %s",
-                        _ov_b_exc,
-                    )
+                # overview.md is not touched on the block path (ADR-0078 ownership change).
+                # D4 graph-node parity: upsert index/log Page rows.
                 try:
                     await orch._index_index_and_log_files()
                 except Exception as _il_b_exc:  # noqa: BLE001
@@ -726,7 +705,7 @@ async def run_ingest_pipeline(
                     written_pages.append(written_page)
                     # ADR-0046: record the page_id so cancel can cascade-delete it
                     orch.ingest_queue.record_written(run_id, written_page.id)
-                await orch._update_overview(analysis, origin_source)
+                # overview.md is not touched on the orchestrated path (ADR-0078 ownership change).
                 # ── D4 orchestrated-route index/log graph nodes (nashsu/llm_wiki parity) ─────
                 # write_wiki_page maintained index.md/log.md on disk (update_index / append_log);
                 # upsert their Page rows so they render as graph nodes (wiki-graph.ts:182-209).
