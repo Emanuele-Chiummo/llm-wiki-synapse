@@ -5268,6 +5268,78 @@
         ]
       }
     },
+    "/vault/meta/output-language": {
+      "get": {
+        "summary": "Read the AI output language for the active vault",
+        "description": "Returns the ISO-639-1 output language stored in vault_state for the active vault (WS-E, ADR-0081). `null` means the vault predates 1.7.0 (auto-detect from source). 404 if vault_state has no row yet (vault not yet fully seeded).",
+        "operationId": "get_output_language_vault_meta_output_language_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputLanguageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "vault_state row not found for the active vault."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update the AI output language for the active vault",
+        "description": "Persists the ISO-639-1 output language to vault_state for the active vault (WS-E, ADR-0081). Set to `null` to revert to auto-detect behaviour. Idempotent \u2014 safe to call multiple times. 404 if vault_state has no row yet (activate the vault first).",
+        "operationId": "put_output_language_vault_meta_output_language_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutputLanguageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Language updated; returns the new persisted value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputLanguageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "vault_state row not found for the active vault."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/vault/meta/{name}": {
       "put": {
         "summary": "Write a vault meta file (schema.md or purpose.md)",
@@ -6824,6 +6896,28 @@
           "path": {
             "type": "string",
             "title": "Path"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "output_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Language"
           }
         },
         "type": "object",
@@ -8958,6 +9052,48 @@
         ],
         "title": "OpsSchedulesResponse",
         "description": "Response body for GET /ops/schedules."
+      },
+      "OutputLanguageRequest": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "OutputLanguageRequest",
+        "description": "Request body for PUT /vault/meta/output-language."
+      },
+      "OutputLanguageResponse": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "OutputLanguageResponse",
+        "description": "Response for GET /vault/meta/output-language."
       },
       "PageContentPutRequest": {
         "properties": {
