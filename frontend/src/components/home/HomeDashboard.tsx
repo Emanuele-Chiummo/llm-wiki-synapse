@@ -450,17 +450,7 @@ function SystemStatusBlock({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {overallStatus !== null && <OverallStatusIcon status={overallStatus} />}
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--syn-text-muted)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            {t("home.systemStatus.title")}
-          </span>
+          <span className="syn-eyebrow">{t("home.systemStatus.title")}</span>
           {overallStatus !== null && (
             <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t(
@@ -802,17 +792,7 @@ function ActiveJobsBlock({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Loader2 size={12} style={{ color: "var(--syn-accent)" }} aria-hidden="true" />
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--syn-text-muted)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            {t("home.activeJobs.title")}
-          </span>
+          <span className="syn-eyebrow">{t("home.activeJobs.title")}</span>
         </div>
         <button
           data-testid="home-active-jobs-refresh"
@@ -980,50 +960,19 @@ interface KpiCardProps {
 }
 
 function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: KpiCardProps) {
-  const baseStyle: import("react").CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    padding: "12px 14px",
-    borderRadius: "var(--syn-radius-md)",
-    border: `1px solid ${accent ? "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)" : "var(--syn-border)"}`,
-    background: accent ? "var(--syn-accent-soft)" : "var(--syn-bg-soft)",
-    boxShadow: "var(--syn-shadow-soft)",
-    minWidth: 0,
-    flex: "1 1 110px",
-  };
+  const tileClass = `syn-stat-tile${accent ? " syn-stat-tile--accent" : ""}`;
 
   const body = (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="syn-stat-tile__label">
         <span
           style={{ color: accent ? "var(--syn-accent)" : "var(--syn-text-dim)", flexShrink: 0 }}
         >
           {icon}
         </span>
-        <span
-          style={{
-            fontSize: 11,
-            color: "var(--syn-text-muted)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {label}
-        </span>
+        <span>{label}</span>
       </div>
-      <span
-        style={{
-          fontSize: 22,
-          fontWeight: 700,
-          color: accent ? "var(--syn-accent)" : "var(--syn-text)",
-          lineHeight: 1,
-          letterSpacing: "-0.02em",
-        }}
-      >
-        {value}
-      </span>
+      <span className="syn-stat-tile__value">{value}</span>
       {sparkline && sparkline.length >= 2 && (
         <div style={{ marginTop: 4 }}>
           <Sparkline values={sparkline} />
@@ -1036,7 +985,7 @@ function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: Kpi
   // unless it actually navigates somewhere.
   if (!onClick) {
     return (
-      <div data-testid={testId ?? `kpi-${label}`} style={baseStyle}>
+      <div data-testid={testId ?? `kpi-${label}`} className={tileClass}>
         {body}
       </div>
     );
@@ -1049,12 +998,8 @@ function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: Kpi
       data-testid={testId ?? `kpi-${label}`}
       onClick={onClick}
       aria-label={`${label}: ${value}`}
-      style={{
-        ...baseStyle,
-        cursor: "pointer",
-        textAlign: "left",
-        transition: "border-color 0.12s ease, background 0.12s ease",
-      }}
+      className={tileClass}
+      style={{ cursor: "pointer", textAlign: "left", transition: "border-color 0.12s ease" }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
       }}
@@ -1707,17 +1652,7 @@ function ReviewPreviewBlock({ vaultId, reviewTotal, setActiveSection }: ReviewPr
             aria-hidden="true"
             style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
           />
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--syn-text-muted)",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-            }}
-          >
-            {t("home.reviewPreview.title")}
-          </span>
+          <span className="syn-eyebrow">{t("home.reviewPreview.title")}</span>
         </div>
         <button
           data-testid="home-review-preview-see-all"
@@ -1922,17 +1857,7 @@ function OpenQuestionsBlock({ vaultId, onOpenPage }: OpenQuestionsBlockProps) {
           aria-hidden="true"
           style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
         />
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "var(--syn-text-muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          {t("home.openQuestions.title")}
-        </span>
+        <span className="syn-eyebrow">{t("home.openQuestions.title")}</span>
       </div>
 
       {/* Page list */}
@@ -2733,16 +2658,7 @@ export function HomeDashboard() {
       {/* ── 4. Curated domain sections "SEZIONI" ── */}
       {sections !== null && (
         <section aria-label={t("home.sections.ariaLabel")}>
-          <h2
-            style={{
-              margin: "0 0 12px",
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--syn-text-muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
+          <h2 className="syn-eyebrow" style={{ margin: "0 0 12px" }}>
             {t("home.sections.title")}
           </h2>
 
@@ -2818,16 +2734,7 @@ export function HomeDashboard() {
               justifyContent: "space-between",
             }}
           >
-            <h2
-              style={{
-                margin: 0,
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--syn-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-              }}
-            >
+            <h2 className="syn-eyebrow" style={{ margin: 0 }}>
               {t("home.groups.title")}
             </h2>
 
@@ -2890,16 +2797,7 @@ export function HomeDashboard() {
 
       {/* ── 6. Recent activity (last) ── */}
       <section aria-label={t("home.activity.ariaLabel")}>
-        <h2
-          style={{
-            margin: "0 0 12px",
-            fontSize: 11,
-            fontWeight: 700,
-            color: "var(--syn-text-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-          }}
-        >
+        <h2 className="syn-eyebrow" style={{ margin: "0 0 12px" }}>
           {t("home.activity.title")}
         </h2>
         {overview.recent_activity.length === 0 ? (
@@ -2966,7 +2864,15 @@ export function HomeDashboard() {
                     >
                       {label || t("home.activity.untitled")}
                     </span>
-                    <span style={{ fontSize: 11, color: "var(--syn-text-dim)", flexShrink: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "var(--syn-text-dim)",
+                        flexShrink: 0,
+                        fontFamily: "var(--syn-font-mono)",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {formatDate(item.updated_at)}
                     </span>
                   </button>

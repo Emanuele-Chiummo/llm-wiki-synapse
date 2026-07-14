@@ -207,7 +207,10 @@ export function MessageInput({
         new Promise((resolve) => {
           if (file.size > CHAT_MAX_IMAGE_BYTES) {
             showToast(
-              t("chat.imageTooLarge", { name: file.name, maxMb: CHAT_MAX_IMAGE_BYTES / (1024 * 1024) }),
+              t("chat.imageTooLarge", {
+                name: file.name,
+                maxMb: CHAT_MAX_IMAGE_BYTES / (1024 * 1024),
+              }),
               "error",
             );
             resolve();
@@ -249,7 +252,10 @@ export function MessageInput({
   const handleSend = useCallback(() => {
     const text = value.trim();
     if (!text || isStreaming || disabled) return;
-    onSend(text, attachments.map((a) => a.attachment));
+    onSend(
+      text,
+      attachments.map((a) => a.attachment),
+    );
     setValue("");
     setAttachments([]);
     if (textareaRef.current) {
@@ -338,30 +344,9 @@ export function MessageInput({
           data-testid="attach-image-btn"
           onClick={handleAttachClick}
           disabled={!supportsVision || isInputDisabled}
-          title={
-            !supportsVision
-              ? t("chat.attachImageDisabled")
-              : t("chat.attachImage")
-          }
-          aria-label={
-            !supportsVision
-              ? t("chat.attachImageDisabled")
-              : t("chat.attachImage")
-          }
-          style={{
-            background: "none",
-            border: "1px solid var(--syn-border)",
-            borderRadius: 6,
-            padding: "4px 8px",
-            cursor: !supportsVision || isInputDisabled ? "not-allowed" : "pointer",
-            color: !supportsVision ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 12,
-            opacity: !supportsVision ? 0.45 : 1,
-            transition: "opacity 0.15s ease",
-          }}
+          title={!supportsVision ? t("chat.attachImageDisabled") : t("chat.attachImage")}
+          aria-label={!supportsVision ? t("chat.attachImageDisabled") : t("chat.attachImage")}
+          className="syn-composer-toggle"
         >
           {/* Image icon */}
           <svg
@@ -401,28 +386,15 @@ export function MessageInput({
           title={webSearchEnabled ? t("chat.webSearchOn") : t("chat.webSearchOff")}
           aria-label={webSearchEnabled ? t("chat.webSearchOn") : t("chat.webSearchOff")}
           aria-pressed={webSearchEnabled}
-          style={{
-            background: webSearchEnabled ? "var(--syn-accent-soft)" : "none",
-            border: "1px solid",
-            borderColor: webSearchEnabled ? "var(--syn-accent)" : "var(--syn-border)",
-            borderRadius: 6,
-            padding: "4px 8px",
-            cursor: isInputDisabled ? "not-allowed" : "pointer",
-            color: webSearchEnabled ? "var(--syn-accent)" : "var(--syn-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 12,
-            transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
-          }}
+          className="syn-composer-toggle"
         >
-          {/* Status dot: emerald when active */}
+          {/* Status dot: green (--syn-green token) when active, dim when off */}
           <span
             style={{
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: webSearchEnabled ? "#10b981" : "var(--syn-text-dim)",
+              background: webSearchEnabled ? "var(--syn-green)" : "var(--syn-text-dim)",
               display: "inline-block",
               flexShrink: 0,
               transition: "background 0.15s ease",
@@ -441,27 +413,14 @@ export function MessageInput({
           title={anytxtEnabled ? t("chat.anytxtOn") : t("chat.anytxtOff")}
           aria-label={anytxtEnabled ? t("chat.anytxtOn") : t("chat.anytxtOff")}
           aria-pressed={anytxtEnabled}
-          style={{
-            background: anytxtEnabled ? "var(--syn-accent-soft)" : "none",
-            border: "1px solid",
-            borderColor: anytxtEnabled ? "var(--syn-accent)" : "var(--syn-border)",
-            borderRadius: 6,
-            padding: "4px 8px",
-            cursor: isInputDisabled ? "not-allowed" : "pointer",
-            color: anytxtEnabled ? "var(--syn-accent)" : "var(--syn-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 12,
-            transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
-          }}
+          className="syn-composer-toggle"
         >
           <span
             style={{
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: anytxtEnabled ? "#10b981" : "var(--syn-text-dim)",
+              background: anytxtEnabled ? "var(--syn-green)" : "var(--syn-text-dim)",
               display: "inline-block",
               flexShrink: 0,
               transition: "background 0.15s ease",
@@ -480,27 +439,14 @@ export function MessageInput({
           title={skillsEnabled ? t("chat.skillsOn") : t("chat.skillsOff")}
           aria-label={skillsEnabled ? t("chat.skillsOn") : t("chat.skillsOff")}
           aria-pressed={skillsEnabled}
-          style={{
-            background: skillsEnabled ? "var(--syn-accent-soft)" : "none",
-            border: "1px solid",
-            borderColor: skillsEnabled ? "var(--syn-accent)" : "var(--syn-border)",
-            borderRadius: 6,
-            padding: "4px 8px",
-            cursor: isInputDisabled ? "not-allowed" : "pointer",
-            color: skillsEnabled ? "var(--syn-accent)" : "var(--syn-text-muted)",
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: 12,
-            transition: "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
-          }}
+          className="syn-composer-toggle"
         >
           <span
             style={{
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: skillsEnabled ? "#10b981" : "var(--syn-text-dim)",
+              background: skillsEnabled ? "var(--syn-green)" : "var(--syn-text-dim)",
               display: "inline-block",
               flexShrink: 0,
               transition: "background 0.15s ease",
@@ -514,7 +460,12 @@ export function MessageInput({
             single-select retrieval-mode control so the two don't read as one group. */}
         <span
           aria-hidden="true"
-          style={{ width: 1, alignSelf: "stretch", margin: "2px 2px", background: "var(--syn-border)" }}
+          style={{
+            width: 1,
+            alignSelf: "stretch",
+            margin: "2px 2px",
+            background: "var(--syn-border)",
+          }}
         />
 
         {/* Retrieval mode segmented control (B2) — single-select ⇒ radiogroup */}
@@ -548,9 +499,7 @@ export function MessageInput({
                   color: isActive ? "#fff" : "var(--syn-text-muted)",
                   border: "none",
                   borderRight:
-                    i < RETRIEVAL_MODES.length - 1
-                      ? "1px solid var(--syn-border)"
-                      : "none",
+                    i < RETRIEVAL_MODES.length - 1 ? "1px solid var(--syn-border)" : "none",
                   cursor: isInputDisabled ? "not-allowed" : "pointer",
                   transition: "background 0.12s ease, color 0.12s ease",
                   whiteSpace: "nowrap",
