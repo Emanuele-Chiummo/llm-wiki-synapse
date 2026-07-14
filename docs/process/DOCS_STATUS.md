@@ -4,6 +4,90 @@
 
 ---
 
+## v1.7.0 Docs Gate — VERDICT: ALL UP-TO-DATE
+
+> Gate run: 2026-07-14
+> Branch: `release/1.7.0`
+> Release: v1.7.0 — LLM Wiki behavioral parity + block-loop refinements
+> Scope:
+>   2c5762e — ingest_pipeline_format default flipped "json" → "blocks" in config.py
+>   b9ee942 — block-loop parity fixes: generation prompt (query/comparison/synthesis + one-per-entity); _validate_block_batch skips app-managed FILE blocks; _OTHER_RULES mandates bare kebab-case slug wikilinks
+>   446e66f — overview.md regenerated once per queue-drain (on_drained in main.py; complete() transport); _overview_chat_collect chat()→complete()
+>   209e971 — review.py _chat_collect chat()→complete() (sweep Pass-2 judge, propose-reviews, drift suggestions)
+>   1d29dfb — review_sweep_timeout 30→120 s; review_propose_timeout 30→120 s; overview_timeout 90→120 s
+>   f67c785 — Home dashboard second pass (composition hero, semantic KPI zero-states, review-type chips, graph legend zero-count filter)
+> ADRs: ADR-0076 verified + amended (implementation history note); ADR-0078 amended (queue-drain refinement); ADR-0084 created.
+
+| ID | Artifact | Status | Notes |
+|----|----------|--------|-------|
+| D1 | `docs/architecture/` (context/container/component) | UP-TO-DATE (no change) | v1.7.0 adds no new container, port, or C4 actor. All changes are internal to the existing FastAPI service boundary: block loop, overview regen, review sweep transport. The on_drained hook in main.py is an internal callback, not a new service. C4 topology unchanged. |
+| D2 | `docs/er/schema.mmd` | UP-TO-DATE (no regen needed) | No SQLAlchemy model change in v1.7.0. No Alembic migration this session. `make er` not run per task scope (no schema drift possible). ER matches the live schema from the last documented gate. |
+| D3 | `docs/sequences/ingest-blocks.mmd` | UPDATED (this gate) | Added OV (ops/overview.py) and RS (ops/review.py) participants. Added on_drained queue-drain block: overview regeneration once per batch via complete() (ADR-0078 refinement + ADR-0084) and review sweep Pass-2 via complete() in an opt block. Fixed "(rollback, default)" on json path to "(rollback lever, removal v1.8)". Updated header comment. |
+| D3 | `docs/sequences/review-create-sweep.mmd` | UPDATED (this gate) | Header updated from v0.5/2026-06-30 to v1.7.0/2026-07-14. Title and Pass-2 LLM note updated to reference complete() single-turn transport and 120 s timeout (ADR-0084; commits 209e971 + 1d29dfb). |
+| D4 | `docs/api/openapi.json` | UP-TO-DATE (no new public endpoints) | v1.7.0 changes are internal pipeline mechanics (transport method swap, timeout values, on_drained callback). No new routes added. POST /ops/overview/regenerate was already present from ADR-0078. OpenAPI is current from the last gate. |
+| D5 | `docs/screens/` | PENDING-LIVE (delegated to orchestrator) | f67c785 Home dashboard second pass changes UI affordances: composition hero, semantic KPI zero-states, review-type chips, graph legend zero-count filter. Screenshots not captured by tech-writer (no browser access per task scope). Orchestrator must confirm Playwright refresh. Non-blocking for code gate; blocking for human-checkpoint milestone. |
+| D6a | `docs/USER.md` | UP-TO-DATE (no change required this gate) | v1.7.0 changes are internal pipeline mechanics. Home dashboard improvements (f67c785) are incremental within the existing documented dashboard workflow. A focused USER.md update is recommended at the next major UI gate when screenshots are refreshed. Non-blocking. |
+| D6b | `docs/DEPLOY.md` | UP-TO-DATE (no new env vars) | v1.7.0 introduces no new operator-settable env vars. Timeout config keys are internal code defaults, not env-var overrides. ingest_pipeline_format is an existing key. No DEPLOY.md update required. |
+| D7 | `docs/adr/ADR-0076-block-based-ingest-pipeline.md` | AMENDED (this gate) | Implementation history section added: clarifies that ADR was authored with blocks-as-default; code ran "json" during development; commit 2c5762e on release branch activated blocks as designed. ADR §6 already stated default "blocks" — no design change, only timeline documentation. |
+| D7 | `docs/adr/ADR-0078-aggregate-ownership.md` | AMENDED (this gate) | "Refinement (v1.7.0)" section added after Implementation notes. Documents shift from manual-only to once-per-queue-drain: on_drained callback in main.py; complete() transport (ADR-0084); degrade-safe; POST /ops/overview/regenerate endpoint retained. Three-option rationale table. Commit 446e66f. |
+| D7 | `docs/adr/ADR-0084-single-shot-complete-transport.md` | CREATED (this gate) | New ADR: complete() transport for all one-shot LLM seams (overview regen, review sweep Pass-2 judge, propose-reviews, purpose/schema drift suggestions) + raise three single-call timeouts to 120 s. Problem: CliAgentProvider.chat() hangs on seams without MCP write tools; 30 s expires before cold-start. Decision: provider.complete() (I6-preserving) + 120 s bounds (I7). |
+| D7 | `docs/adr/index.md` | UPDATED (this gate) | ADR-0084 row added to "LLM Wiki behavioral parity" section (after ADR-0083). |
+
+### ADR verification (v1.7.0 gate)
+
+| ADR | File | Status | Notes |
+|-----|------|--------|-------|
+| ADR-0076 | `ADR-0076-block-based-ingest-pipeline.md` | Verified + amended | §6 already stated default `"blocks"`. Implementation history section added for timeline clarity. No design change. |
+| ADR-0078 | `ADR-0078-aggregate-ownership.md` | Amended | Queue-drain refinement section added. Original Decision §3 ("manual-only") refined to "once per queue-drain batch". |
+| ADR-0083 | `ADR-0083-parity-e2e-harness.md` | UP-TO-DATE (no change) | Parity harness ADR is current. Unaffected by 1.7.0 pipeline fixes. |
+| ADR-0084 | `ADR-0084-single-shot-complete-transport.md` | Created | Covers complete() transport + 120 s timeouts for all one-shot LLM seams. |
+
+### D3 — Sequence diagram changes (v1.7.0 gate)
+
+| File | Change | Reason |
+|------|--------|--------|
+| `docs/sequences/ingest-blocks.mmd` | Added OV/RS participants; added on_drained queue-drain block (overview via complete() + sweep opt block via complete()); fixed json-path annotation "(rollback, default)" → "(rollback lever, removal v1.8)"; updated header comment | Commits 2c5762e + 446e66f; ADR-0078 queue-drain refinement + ADR-0084 |
+| `docs/sequences/review-create-sweep.mmd` | Header updated to v1.7.0; title + Pass-2 LLM note reference complete() and 120 s timeout | Commits 209e971 + 1d29dfb; ADR-0084 |
+
+### D5 — Screenshots (v1.7.0 gate)
+
+| View | Status | Blocking? |
+|------|--------|-----------|
+| Home dashboard — composition hero + semantic KPI zero-states (f67c785) | PENDING-LIVE | Blocks EC-HCP only |
+| Home dashboard — review-type chips (f67c785) | PENDING-LIVE | Blocks EC-HCP only |
+| Graph view — legend zero-count filter (f67c785) | PENDING-LIVE | Blocks EC-HCP only |
+| All prior PENDING-LIVE items (carry-forward from v1.3/B1/B2/v1.3.6 gates) | PENDING-LIVE | Blocks EC-HCP only |
+
+D5 screenshots are managed by Playwright E2E (qa-test-engineer / orchestrator). Tech-writer
+has no browser access in this task scope. Per CLAUDE.md §D5, orchestrator confirms Playwright
+refresh post-gate. Non-blocking for code-correctness gate.
+
+### Invariant compliance check (v1.7.0 gate)
+
+| Invariant | Status |
+|-----------|--------|
+| **I1** (incremental index only) | HOLDS — overview regen is one write_wiki_page per drain (incremental write seam, not a rescan). Review sweep reads existing review_items; no new ingest triggered. |
+| **I6** (pluggable inference, no isinstance) | HOLDS — complete() is provider-neutral (OllamaProvider, ApiProvider, CliAgentProvider all implement it). No isinstance branch introduced in any seam. |
+| **I7** (bounded loops) | HOLDS — complete() is a single call; three timeouts are wall-clock bounds (120 s). Pass-2 sweep is one batched complete() call. No new unbounded loop. |
+| **I8** (docs-as-DoD) | HOLDS — this gate: ADR-0076 verified+amended, ADR-0078 amended, ADR-0084 created, ingest-blocks.mmd updated, review-create-sweep.mmd updated, ADR index updated. ER unchanged (no migration). OpenAPI unchanged (no new public endpoints). |
+
+### DOCS GATE VERDICT — v1.7.0
+
+**ALL UP-TO-DATE**
+
+ADR-0076 verified (blocks-default confirmed; implementation history note added).
+ADR-0078 amended (queue-drain refinement: once per drain via complete(), ADR-0084 reference).
+ADR-0084 created (complete() transport + 120 s timeouts for all one-shot LLM seams).
+D3 sequences updated: ingest-blocks.mmd (on_drained block + json-path annotation fix), review-create-sweep.mmd (complete() + 120 s note).
+D7 ADR index updated with ADR-0084.
+D2 (ER) confirmed unchanged — no schema migration in v1.7.0.
+D4 (OpenAPI) unchanged — no new public endpoints in v1.7.0.
+D5 screenshots PENDING-LIVE — orchestrator handles Playwright refresh; non-blocking for code gate.
+
+**Signed: tech-writer (claude-sonnet-4-6) | 2026-07-14 | v1.7.0 docs gate**
+
+---
+
 ## v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE
 
 > Gate run: 2026-07-06

@@ -142,6 +142,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0080** | [Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, `proposal_origin="lint"` review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change](ADR-0080-lint-parity-assessment.md) | Accepted |
 | **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](ADR-0081-onboarding-wizard-and-output-language.md) | Accepted |
 | **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](ADR-0083-parity-e2e-harness.md) | Accepted |
+| **0084** | [Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079](ADR-0084-single-shot-complete-transport.md) | Accepted |
 
 ---
 
