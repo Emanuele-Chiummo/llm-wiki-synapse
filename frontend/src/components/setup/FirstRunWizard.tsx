@@ -125,28 +125,11 @@ interface WizardProps {
   initialStep?: SetupStep | undefined;
 }
 
-// ─── Inline style constants (mirrors SettingsPanel tokens) ───────────────────
-
-const BTN_PRIMARY: React.CSSProperties = {
-  padding: "7px 18px",
-  border: "1px solid var(--syn-accent)",
-  borderRadius: 6,
-  background: "var(--syn-accent-soft)",
-  color: "var(--syn-accent)",
-  fontSize: 13,
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const BTN_SECONDARY: React.CSSProperties = {
-  padding: "7px 18px",
-  border: "1px solid var(--syn-border)",
-  borderRadius: 6,
-  background: "transparent",
-  color: "var(--syn-text-muted)",
-  fontSize: 13,
-  cursor: "pointer",
-};
+// ─── Inline style constants ───────────────────────────────────────────────────
+// Button definitions consolidated into CSS classes (F1 slice):
+//   BTN_PRIMARY  → .syn-btn.syn-btn--accent-ghost (accent-soft bg, accent border/text)
+//   BTN_SECONDARY → .syn-btn.syn-btn--ghost (borderless, dim text)
+// Both accept an optional style override for layout (marginLeft, opacity, etc.).
 
 const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
@@ -379,24 +362,31 @@ function Step1Connect({
             void handleCheck();
           }}
           disabled={status === "checking"}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: status === "checking" ? 0.5 : 1,
-            cursor: status === "checking" ? "not-allowed" : "pointer",
-          }}
+          className="syn-btn syn-btn--accent-ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
         >
           {status === "checking" ? t("wizard.step1.checking") : t("wizard.step1.check")}
         </button>
 
         {status === "ok" && (
-          <button data-testid="wizard-step1-next" onClick={onNext} style={BTN_PRIMARY}>
+          <button
+            data-testid="wizard-step1-next"
+            onClick={onNext}
+            className="syn-btn syn-btn--accent-ghost"
+            style={{ fontSize: 13, padding: "7px 18px" }}
+          >
             {t("wizard.next")}
           </button>
         )}
 
         {/* Allow advancing even if not checked — backend may be same-origin */}
         {status !== "ok" && status !== "checking" && (
-          <button data-testid="wizard-step1-skip-check" onClick={onNext} style={BTN_SECONDARY}>
+          <button
+            data-testid="wizard-step1-skip-check"
+            onClick={onNext}
+            className="syn-btn syn-btn--ghost"
+            style={{ fontSize: 13, padding: "7px 18px" }}
+          >
             {t("wizard.skipStep")}
           </button>
         )}
@@ -404,7 +394,8 @@ function Step1Connect({
         <button
           data-testid="wizard-skip"
           onClick={onSkip}
-          style={{ ...BTN_SECONDARY, marginLeft: "auto" }}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px", marginLeft: "auto" }}
         >
           {t("wizard.skipAll")}
         </button>
@@ -618,7 +609,12 @@ function Step2Provider({
       )}
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button data-testid="wizard-back" onClick={onBack} style={BTN_SECONDARY}>
+        <button
+          data-testid="wizard-back"
+          onClick={onBack}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+        >
           {t("wizard.back")}
         </button>
         <button
@@ -628,21 +624,24 @@ function Step2Provider({
           }}
           disabled={saving || modelId.trim() === ""}
           title={modelId.trim() === "" ? t("settings.llmModels.modelIdRequired") : undefined}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: saving || modelId.trim() === "" ? 0.45 : 1,
-            cursor: saving || modelId.trim() === "" ? "not-allowed" : "pointer",
-          }}
+          className="syn-btn syn-btn--accent-ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
         >
           {saving ? t("wizard.saving") : t("wizard.step2.save")}
         </button>
-        <button data-testid="wizard-step2-skip" onClick={onNext} style={BTN_SECONDARY}>
+        <button
+          data-testid="wizard-step2-skip"
+          onClick={onNext}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+        >
           {t("wizard.skipStep")}
         </button>
         <button
           data-testid="wizard-skip"
           onClick={onSkip}
-          style={{ ...BTN_SECONDARY, marginLeft: "auto" }}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px", marginLeft: "auto" }}
         >
           {t("wizard.skipAll")}
         </button>
@@ -768,7 +767,12 @@ function Step3Pdf({
       )}
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button data-testid="wizard-back" onClick={onBack} style={BTN_SECONDARY}>
+        <button
+          data-testid="wizard-back"
+          onClick={onBack}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+        >
           {t("wizard.back")}
         </button>
         <button
@@ -777,21 +781,24 @@ function Step3Pdf({
             void handleSave();
           }}
           disabled={saving}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: saving ? 0.45 : 1,
-            cursor: saving ? "not-allowed" : "pointer",
-          }}
+          className="syn-btn syn-btn--accent-ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
         >
           {saving ? t("wizard.saving") : t("wizard.step3.save")}
         </button>
-        <button data-testid="wizard-step3-skip" onClick={onNext} style={BTN_SECONDARY}>
+        <button
+          data-testid="wizard-step3-skip"
+          onClick={onNext}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+        >
           {t("wizard.skipStep")}
         </button>
         <button
           data-testid="wizard-skip"
           onClick={onSkip}
-          style={{ ...BTN_SECONDARY, marginLeft: "auto" }}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px", marginLeft: "auto" }}
         >
           {t("wizard.skipAll")}
         </button>
@@ -837,7 +844,12 @@ function Step4Done({ onClose, ready }: { onClose: () => void; ready: boolean }) 
       >
         {ready ? t("wizard.step4.desc") : t("wizard.step4.deferredDesc")}
       </p>
-      <button data-testid="wizard-done" onClick={onClose} style={BTN_PRIMARY}>
+      <button
+        data-testid="wizard-done"
+        onClick={onClose}
+        className="syn-btn syn-btn--accent-ghost"
+        style={{ fontSize: 13, padding: "7px 18px" }}
+      >
         {ready ? t("wizard.step4.cta") : t("wizard.step4.deferredCta")}
       </button>
     </div>
@@ -852,14 +864,12 @@ const DIALOG_TITLE_ID = "first-run-wizard-title";
 export function FirstRunWizard({ onClose, initialStep }: WizardProps): ReactNode {
   const { t } = useTranslation();
   const [initialSetup] = useState(readSetupState);
-  const [step, setStep] = useState<WizardStep>(() =>
-    initialStep ?? (initialSetup.status === "deferred" ? initialSetup.lastStep : 1),
+  const [step, setStep] = useState<WizardStep>(
+    () => initialStep ?? (initialSetup.status === "deferred" ? initialSetup.lastStep : 1),
   );
   const [connectionVerified, setConnectionVerified] = useState(initialSetup.connectionVerified);
   const [providerVerified, setProviderVerified] = useState(initialSetup.providerVerified);
-  const [providerFingerprint, setProviderFingerprint] = useState(
-    initialSetup.providerFingerprint,
-  );
+  const [providerFingerprint, setProviderFingerprint] = useState(initialSetup.providerFingerprint);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const ready = connectionVerified && providerVerified;

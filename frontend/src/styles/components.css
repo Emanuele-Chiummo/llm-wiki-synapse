@@ -140,6 +140,25 @@
 }
 
 /*
+ * .syn-btn--accent-ghost — accent-tinted ghost: soft accent background, accent border,
+ * accent text. Used where a call-to-action should be visually prominent without the
+ * full filled-primary weight (e.g. FirstRunWizard primary step actions).
+ * Hover: fills with solid accent (same as --primary).
+ * WCAG: --syn-accent (#2563eb) on --syn-accent-soft (#eaf1fe) ≈ 4.5:1 AA for bold 12px+.
+ */
+.syn-btn--accent-ghost {
+  background: var(--syn-accent-soft);
+  border: 1px solid var(--syn-accent);
+  color: var(--syn-accent);
+}
+
+.syn-btn--accent-ghost:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-accent);
+  border-color: var(--syn-accent-strong);
+  color: #ffffff;
+}
+
+/*
  * .syn-btn--gradient — branded gradient CTA (ConnectScreen Connetti button).
  * Overrides background with the brand accent gradient.
  * Keep border transparent (gradient replaces the border visual).

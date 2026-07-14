@@ -47,11 +47,7 @@ export interface ResearchTopicDialogProps {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ResearchTopicDialog({
-  seedTopic,
-  onConfirm,
-  onCancel,
-}: ResearchTopicDialogProps) {
+export function ResearchTopicDialog({ seedTopic, onConfirm, onCancel }: ResearchTopicDialogProps) {
   const { t } = useTranslation();
 
   // ── Editable state ────────────────────────────────────────────────────────
@@ -236,7 +232,7 @@ export function ResearchTopicDialog({
                 aria-hidden="true"
               />
               {t("research.topicDialog.optimizing")}
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+              {/* UXA-28: @keyframes spin is declared globally in theme.css — no inline <style> needed */}
             </div>
           )}
           {optimizeError && !optimizing && (
@@ -365,10 +361,7 @@ export function ResearchTopicDialog({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {queries.map((q, i) => (
-                  <div
-                    key={i}
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                  >
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span
                       style={{
                         fontSize: 11,
@@ -424,8 +417,7 @@ export function ResearchTopicDialog({
                       }}
                       onMouseEnter={(e) => {
                         if (!optimizing)
-                          (e.currentTarget as HTMLButtonElement).style.color =
-                            "var(--syn-red)";
+                          (e.currentTarget as HTMLButtonElement).style.color = "var(--syn-red)";
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLButtonElement).style.color =

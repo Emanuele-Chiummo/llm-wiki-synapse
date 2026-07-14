@@ -56,28 +56,10 @@ function slugify(name: string): string {
   );
 }
 
-// ─── Inline style constants (mirrors FirstRunWizard / SettingsPanel tokens) ──
-
-const BTN_PRIMARY: CSSProperties = {
-  padding: "7px 18px",
-  border: "1px solid var(--syn-accent)",
-  borderRadius: 6,
-  background: "var(--syn-accent)",
-  color: "#fff",
-  fontSize: 13,
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const BTN_SECONDARY: CSSProperties = {
-  padding: "7px 18px",
-  border: "1px solid var(--syn-border)",
-  borderRadius: 6,
-  background: "transparent",
-  color: "var(--syn-text-muted)",
-  fontSize: 13,
-  cursor: "pointer",
-};
+// ─── Inline style constants ───────────────────────────────────────────────────
+// Button definitions consolidated into CSS classes (F1 slice):
+//   BTN_PRIMARY  → .syn-btn.syn-btn--primary (filled accent, white text)
+//   BTN_SECONDARY → .syn-btn.syn-btn--ghost (borderless, dim text)
 
 const INPUT_STYLE: CSSProperties = {
   width: "100%",
@@ -225,18 +207,21 @@ function Step1Name({
       </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <button data-testid="np-cancel" onClick={onCancel} style={BTN_SECONDARY} type="button">
+        <button
+          data-testid="np-cancel"
+          onClick={onCancel}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+          type="button"
+        >
           {t("wizard.cancel")}
         </button>
         <button
           data-testid="np-next"
           onClick={onNext}
           disabled={!canAdvance}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: canAdvance ? 1 : 0.4,
-            cursor: canAdvance ? "pointer" : "not-allowed",
-          }}
+          className="syn-btn syn-btn--primary"
+          style={{ fontSize: 13, padding: "7px 18px" }}
           type="button"
         >
           {t("wizard.next")}
@@ -305,18 +290,21 @@ function Step2Language({
       </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <button data-testid="np-back" onClick={onBack} style={BTN_SECONDARY} type="button">
+        <button
+          data-testid="np-back"
+          onClick={onBack}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
+          type="button"
+        >
           {t("wizard.back")}
         </button>
         <button
           data-testid="np-next-lang"
           onClick={onNext}
           disabled={!canAdvance}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: canAdvance ? 1 : 0.4,
-            cursor: canAdvance ? "pointer" : "not-allowed",
-          }}
+          className="syn-btn syn-btn--primary"
+          style={{ fontSize: 13, padding: "7px 18px" }}
           type="button"
         >
           {t("wizard.next")}
@@ -480,11 +468,8 @@ function Step3Template({
           data-testid="np-back-template"
           onClick={onBack}
           disabled={creating}
-          style={{
-            ...BTN_SECONDARY,
-            opacity: creating ? 0.4 : 1,
-            cursor: creating ? "not-allowed" : "pointer",
-          }}
+          className="syn-btn syn-btn--ghost"
+          style={{ fontSize: 13, padding: "7px 18px" }}
           type="button"
         >
           {t("wizard.back")}
@@ -493,11 +478,8 @@ function Step3Template({
           data-testid="np-create"
           onClick={onCreate}
           disabled={creating}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: creating ? 0.5 : 1,
-            cursor: creating ? "not-allowed" : "pointer",
-          }}
+          className="syn-btn syn-btn--primary"
+          style={{ fontSize: 13, padding: "7px 18px" }}
           type="button"
         >
           {creating ? t("wizard.creating") : t("wizard.create")}
