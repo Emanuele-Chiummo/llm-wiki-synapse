@@ -558,6 +558,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v170-docs-gate-verdict-all-up-to-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v1.7.0 Docs Gate — VERDICT: ALL UP-TO-DATE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v1.7.0 Docs Gate — VERDICT: ALL UP-TO-DATE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#adr-verification-v170-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ADR verification (v1.7.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d3-sequence-diagram-changes-v170-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D3 — Sequence diagram changes (v1.7.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d5-screenshots-v170-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D5 — Screenshots (v1.7.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#invariant-compliance-check-v170-gate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Invariant compliance check (v1.7.0 gate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docs-gate-verdict-v170" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DOCS GATE VERDICT — v1.7.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v136-docs-gate-ec-m136-8-verdict-all-up-to-date" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2780,6 +2852,237 @@
 <blockquote>
 <p>Tech-writer sign-off. Phases appended chronologically; most recent phase at top.</p>
 </blockquote>
+<hr />
+<h2 id="v170-docs-gate-verdict-all-up-to-date">v1.7.0 Docs Gate — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v170-docs-gate-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Gate run: 2026-07-14
+Branch: <code>release/1.7.0</code>
+Release: v1.7.0 — LLM Wiki behavioral parity + block-loop refinements
+Scope:
+  2c5762e — ingest_pipeline_format default flipped "json" → "blocks" in config.py
+  b9ee942 — block-loop parity fixes: generation prompt (query/comparison/synthesis + one-per-entity); _validate_block_batch skips app-managed FILE blocks; _OTHER_RULES mandates bare kebab-case slug wikilinks
+  446e66f — overview.md regenerated once per queue-drain (on_drained in main.py; complete() transport); _overview_chat_collect chat()→complete()
+  209e971 — review.py _chat_collect chat()→complete() (sweep Pass-2 judge, propose-reviews, drift suggestions)
+  1d29dfb — review_sweep_timeout 30→120 s; review_propose_timeout 30→120 s; overview_timeout 90→120 s
+  f67c785 — Home dashboard second pass (composition hero, semantic KPI zero-states, review-type chips, graph legend zero-count filter)
+ADRs: ADR-0076 verified + amended (implementation history note); ADR-0078 amended (queue-drain refinement); ADR-0084 created.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Artifact</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/</code> (context/container/component)</td>
+<td>UP-TO-DATE (no change)</td>
+<td>v1.7.0 adds no new container, port, or C4 actor. All changes are internal to the existing FastAPI service boundary: block loop, overview regen, review sweep transport. The on_drained hook in main.py is an internal callback, not a new service. C4 topology unchanged.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>docs/er/schema.mmd</code></td>
+<td>UP-TO-DATE (no regen needed)</td>
+<td>No SQLAlchemy model change in v1.7.0. No Alembic migration this session. <code>make er</code> not run per task scope (no schema drift possible). ER matches the live schema from the last documented gate.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>docs/sequences/ingest-blocks.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Added OV (ops/overview.py) and RS (ops/review.py) participants. Added on_drained queue-drain block: overview regeneration once per batch via complete() (ADR-0078 refinement + ADR-0084) and review sweep Pass-2 via complete() in an opt block. Fixed "(rollback, default)" on json path to "(rollback lever, removal v1.8)". Updated header comment.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>docs/sequences/review-create-sweep.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Header updated from v0.5/2026-06-30 to v1.7.0/2026-07-14. Title and Pass-2 LLM note updated to reference complete() single-turn transport and 120 s timeout (ADR-0084; commits 209e971 + 1d29dfb).</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><code>docs/api/openapi.json</code></td>
+<td>UP-TO-DATE (no new public endpoints)</td>
+<td>v1.7.0 changes are internal pipeline mechanics (transport method swap, timeout values, on_drained callback). No new routes added. POST /ops/overview/regenerate was already present from ADR-0078. OpenAPI is current from the last gate.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><code>docs/screens/</code></td>
+<td>PENDING-LIVE (delegated to orchestrator)</td>
+<td>f67c785 Home dashboard second pass changes UI affordances: composition hero, semantic KPI zero-states, review-type chips, graph legend zero-count filter. Screenshots not captured by tech-writer (no browser access per task scope). Orchestrator must confirm Playwright refresh. Non-blocking for code gate; blocking for human-checkpoint milestone.</td>
+</tr>
+<tr>
+<td>D6a</td>
+<td><code>docs/USER.md</code></td>
+<td>UP-TO-DATE (no change required this gate)</td>
+<td>v1.7.0 changes are internal pipeline mechanics. Home dashboard improvements (f67c785) are incremental within the existing documented dashboard workflow. A focused USER.md update is recommended at the next major UI gate when screenshots are refreshed. Non-blocking.</td>
+</tr>
+<tr>
+<td>D6b</td>
+<td><code>docs/DEPLOY.md</code></td>
+<td>UP-TO-DATE (no new env vars)</td>
+<td>v1.7.0 introduces no new operator-settable env vars. Timeout config keys are internal code defaults, not env-var overrides. ingest_pipeline_format is an existing key. No DEPLOY.md update required.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/ADR-0076-block-based-ingest-pipeline.md</code></td>
+<td>AMENDED (this gate)</td>
+<td>Implementation history section added: clarifies that ADR was authored with blocks-as-default; code ran "json" during development; commit 2c5762e on release branch activated blocks as designed. ADR §6 already stated default "blocks" — no design change, only timeline documentation.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/ADR-0078-aggregate-ownership.md</code></td>
+<td>AMENDED (this gate)</td>
+<td>"Refinement (v1.7.0)" section added after Implementation notes. Documents shift from manual-only to once-per-queue-drain: on_drained callback in main.py; complete() transport (ADR-0084); degrade-safe; POST /ops/overview/regenerate endpoint retained. Three-option rationale table. Commit 446e66f.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/ADR-0084-single-shot-complete-transport.md</code></td>
+<td>CREATED (this gate)</td>
+<td>New ADR: complete() transport for all one-shot LLM seams (overview regen, review sweep Pass-2 judge, propose-reviews, purpose/schema drift suggestions) + raise three single-call timeouts to 120 s. Problem: CliAgentProvider.chat() hangs on seams without MCP write tools; 30 s expires before cold-start. Decision: provider.complete() (I6-preserving) + 120 s bounds (I7).</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/index.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>ADR-0084 row added to "LLM Wiki behavioral parity" section (after ADR-0083).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="adr-verification-v170-gate">ADR verification (v1.7.0 gate)<a class="headerlink" href="#adr-verification-v170-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ADR</th>
+<th>File</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ADR-0076</td>
+<td><code>ADR-0076-block-based-ingest-pipeline.md</code></td>
+<td>Verified + amended</td>
+<td>§6 already stated default <code>"blocks"</code>. Implementation history section added for timeline clarity. No design change.</td>
+</tr>
+<tr>
+<td>ADR-0078</td>
+<td><code>ADR-0078-aggregate-ownership.md</code></td>
+<td>Amended</td>
+<td>Queue-drain refinement section added. Original Decision §3 ("manual-only") refined to "once per queue-drain batch".</td>
+</tr>
+<tr>
+<td>ADR-0083</td>
+<td><code>ADR-0083-parity-e2e-harness.md</code></td>
+<td>UP-TO-DATE (no change)</td>
+<td>Parity harness ADR is current. Unaffected by 1.7.0 pipeline fixes.</td>
+</tr>
+<tr>
+<td>ADR-0084</td>
+<td><code>ADR-0084-single-shot-complete-transport.md</code></td>
+<td>Created</td>
+<td>Covers complete() transport + 120 s timeouts for all one-shot LLM seams.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d3-sequence-diagram-changes-v170-gate">D3 — Sequence diagram changes (v1.7.0 gate)<a class="headerlink" href="#d3-sequence-diagram-changes-v170-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Change</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/sequences/ingest-blocks.mmd</code></td>
+<td>Added OV/RS participants; added on_drained queue-drain block (overview via complete() + sweep opt block via complete()); fixed json-path annotation "(rollback, default)" → "(rollback lever, removal v1.8)"; updated header comment</td>
+<td>Commits 2c5762e + 446e66f; ADR-0078 queue-drain refinement + ADR-0084</td>
+</tr>
+<tr>
+<td><code>docs/sequences/review-create-sweep.mmd</code></td>
+<td>Header updated to v1.7.0; title + Pass-2 LLM note reference complete() and 120 s timeout</td>
+<td>Commits 209e971 + 1d29dfb; ADR-0084</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d5-screenshots-v170-gate">D5 — Screenshots (v1.7.0 gate)<a class="headerlink" href="#d5-screenshots-v170-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>View</th>
+<th>Status</th>
+<th>Blocking?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Home dashboard — composition hero + semantic KPI zero-states (f67c785)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-HCP only</td>
+</tr>
+<tr>
+<td>Home dashboard — review-type chips (f67c785)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-HCP only</td>
+</tr>
+<tr>
+<td>Graph view — legend zero-count filter (f67c785)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-HCP only</td>
+</tr>
+<tr>
+<td>All prior PENDING-LIVE items (carry-forward from v1.3/B1/B2/v1.3.6 gates)</td>
+<td>PENDING-LIVE</td>
+<td>Blocks EC-HCP only</td>
+</tr>
+</tbody>
+</table>
+<p>D5 screenshots are managed by Playwright E2E (qa-test-engineer / orchestrator). Tech-writer
+has no browser access in this task scope. Per CLAUDE.md §D5, orchestrator confirms Playwright
+refresh post-gate. Non-blocking for code-correctness gate.</p>
+<h3 id="invariant-compliance-check-v170-gate">Invariant compliance check (v1.7.0 gate)<a class="headerlink" href="#invariant-compliance-check-v170-gate" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I1</strong> (incremental index only)</td>
+<td>HOLDS — overview regen is one write_wiki_page per drain (incremental write seam, not a rescan). Review sweep reads existing review_items; no new ingest triggered.</td>
+</tr>
+<tr>
+<td><strong>I6</strong> (pluggable inference, no isinstance)</td>
+<td>HOLDS — complete() is provider-neutral (OllamaProvider, ApiProvider, CliAgentProvider all implement it). No isinstance branch introduced in any seam.</td>
+</tr>
+<tr>
+<td><strong>I7</strong> (bounded loops)</td>
+<td>HOLDS — complete() is a single call; three timeouts are wall-clock bounds (120 s). Pass-2 sweep is one batched complete() call. No new unbounded loop.</td>
+</tr>
+<tr>
+<td><strong>I8</strong> (docs-as-DoD)</td>
+<td>HOLDS — this gate: ADR-0076 verified+amended, ADR-0078 amended, ADR-0084 created, ingest-blocks.mmd updated, review-create-sweep.mmd updated, ADR index updated. ER unchanged (no migration). OpenAPI unchanged (no new public endpoints).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="docs-gate-verdict-v170">DOCS GATE VERDICT — v1.7.0<a class="headerlink" href="#docs-gate-verdict-v170" title="Permanent link">&para;</a></h3>
+<p><strong>ALL UP-TO-DATE</strong></p>
+<p>ADR-0076 verified (blocks-default confirmed; implementation history note added).
+ADR-0078 amended (queue-drain refinement: once per drain via complete(), ADR-0084 reference).
+ADR-0084 created (complete() transport + 120 s timeouts for all one-shot LLM seams).
+D3 sequences updated: ingest-blocks.mmd (on_drained block + json-path annotation fix), review-create-sweep.mmd (complete() + 120 s note).
+D7 ADR index updated with ADR-0084.
+D2 (ER) confirmed unchanged — no schema migration in v1.7.0.
+D4 (OpenAPI) unchanged — no new public endpoints in v1.7.0.
+D5 screenshots PENDING-LIVE — orchestrator handles Playwright refresh; non-blocking for code gate.</p>
+<p><strong>Signed: tech-writer (claude-sonnet-4-6) | 2026-07-14 | v1.7.0 docs gate</strong></p>
 <hr />
 <h2 id="v136-docs-gate-ec-m136-8-verdict-all-up-to-date">v1.3.6 Docs Gate (EC-M136-8) — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v136-docs-gate-ec-m136-8-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
 <blockquote>

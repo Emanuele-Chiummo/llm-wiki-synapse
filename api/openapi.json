@@ -1074,6 +1074,30 @@
         ]
       }
     },
+    "/ops/overview/regenerate": {
+      "post": {
+        "summary": "Regenerate overview.md (manual op, ADR-0078)",
+        "description": "Trigger a bounded, degrade-safe regeneration of vault/wiki/overview.md via the configured ingest provider. As of ADR-0078, overview.md is no longer auto-updated on every ingest; use this endpoint to refresh it on demand. Returns status='regenerated' on success or 'degraded' when the provider is unavailable (the previous overview.md is kept; this endpoint never fails the caller).",
+        "operationId": "regenerate_overview_endpoint_ops_overview_regenerate_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewRegenerateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -4155,6 +4179,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateReviewBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Page created; item status=created",
@@ -4210,6 +4251,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateReviewBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Page created; item status=created",
@@ -5249,6 +5307,78 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/vault/meta/output-language": {
+      "get": {
+        "summary": "Read the AI output language for the active vault",
+        "description": "Returns the ISO-639-1 output language stored in vault_state for the active vault (WS-E, ADR-0081). `null` means the vault predates 1.7.0 (auto-detect from source). 404 if vault_state has no row yet (vault not yet fully seeded).",
+        "operationId": "get_output_language_vault_meta_output_language_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputLanguageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "vault_state row not found for the active vault."
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Update the AI output language for the active vault",
+        "description": "Persists the ISO-639-1 output language to vault_state for the active vault (WS-E, ADR-0081). Set to `null` to revert to auto-detect behaviour. Idempotent \u2014 safe to call multiple times. 404 if vault_state has no row yet (activate the vault first).",
+        "operationId": "put_output_language_vault_meta_output_language_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutputLanguageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Language updated; returns the new persisted value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OutputLanguageResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "vault_state row not found for the active vault."
           },
           "422": {
             "description": "Validation Error",
@@ -6824,6 +6954,28 @@
           "path": {
             "type": "string",
             "title": "Path"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "output_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Language"
           }
         },
         "type": "object",
@@ -6833,6 +6985,23 @@
         ],
         "title": "CreateProjectRequest",
         "description": "Body for POST /projects \u2014 create + scaffold a new vault folder."
+      },
+      "CreateReviewBody": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "stub",
+              "generate"
+            ],
+            "title": "Mode",
+            "description": "stub (default) \u2014 deterministic draft, no provider call; generate \u2014 full LLM generation (existing behaviour, explicit opt-in).",
+            "default": "stub"
+          }
+        },
+        "type": "object",
+        "title": "CreateReviewBody",
+        "description": "Optional JSON body for POST /review/queue/{id}/create (and /approve alias).\n\n``mode=\"stub\"`` (default): write a deterministic ``# <title>\\n\\n<description>`` draft\nwithout calling the LLM (llm_wiki parity \u2014 review-create-page.ts Create Page button).\n``mode=\"generate\"``: the existing full-LLM generation path (explicit secondary action)."
       },
       "EmbeddingConfigResponse": {
         "properties": {
@@ -8958,6 +9127,62 @@
         ],
         "title": "OpsSchedulesResponse",
         "description": "Response body for GET /ops/schedules."
+      },
+      "OutputLanguageRequest": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "OutputLanguageRequest",
+        "description": "Request body for PUT /vault/meta/output-language."
+      },
+      "OutputLanguageResponse": {
+        "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "OutputLanguageResponse",
+        "description": "Response for GET /vault/meta/output-language."
+      },
+      "OverviewRegenerateResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "OverviewRegenerateResponse",
+        "description": "200 response for POST /ops/overview/regenerate."
       },
       "PageContentPutRequest": {
         "properties": {

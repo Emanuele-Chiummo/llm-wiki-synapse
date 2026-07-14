@@ -848,6 +848,10 @@
 <li><strong>Validation</strong> checks the output; on failure, refine and retry (bounded loop)</li>
 <li><strong>Indexing</strong> updates Postgres metadata and Qdrant embeddings</li>
 </ol>
+<p>Diagrams: <a href="ingest-loop.mmd"><code>ingest-loop.mmd</code></a> (legacy JSON loop, rollback path) ·
+<a href="ingest-routing.mmd"><code>ingest-routing.mmd</code></a> (capability routing) ·
+<a href="ingest-blocks.mmd"><code>ingest-blocks.mmd</code></a> (v1.7.0 block-based pipeline — markdown analysis +
+FILE/REVIEW blocks, ADR-0076; the delegated-CLI path is the 1:1 E2E path).</p>
 <h3 id="retrieval-4-phase">Retrieval (4-phase)<a class="headerlink" href="#retrieval-4-phase" title="Permanent link">&para;</a></h3>
 <p>The chat retrieval pipeline assembles a context window for the LLM:</p>
 <ol>

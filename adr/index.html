@@ -483,6 +483,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#llm-wiki-behavioral-parity-v170-adr-0076-onward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM Wiki behavioral parity (v1.7.0 — ADR-0076 onward)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#navigation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -767,6 +778,17 @@
     <span class="md-ellipsis">
       
         Distribution &amp; Security (ADR-0039, ADR-0047 through ADR-0057)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-wiki-behavioral-parity-v170-adr-0076-onward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM Wiki behavioral parity (v1.7.0 — ADR-0076 onward)
       
     </span>
   </a>
@@ -1264,6 +1286,59 @@
 <tr>
 <td><strong>0075</strong></td>
 <td><a href="ADR-0075-deployment-mode-auth-health-boundary/">Explicit deployment trust mode and authenticated health diagnostics (v1.6.0; amends ADR-0052)</a></td>
+<td>Accepted</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="llm-wiki-behavioral-parity-v170-adr-0076-onward">LLM Wiki behavioral parity (v1.7.0 — ADR-0076 onward)<a class="headerlink" href="#llm-wiki-behavioral-parity-v170-adr-0076-onward" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Title</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0076</strong></td>
+<td><a href="ADR-0076-block-based-ingest-pipeline/">Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0077</strong></td>
+<td><a href="ADR-0077-schema-driven-page-routing/">Schema-driven page-type routing and an open page-type set (v1.7.0) — schema.md Page Types table is authoritative; custom types persist as raw page_type on the block path; enum untouched</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0078</strong></td>
+<td><a href="ADR-0078-aggregate-ownership/">Aggregate file ownership: index.md "## Recently Updated" (hybrid K3+§1.8), log.md heading format, overview.md manual-op only — removes per-ingest _update_overview; adds POST /ops/overview/regenerate (v1.7.0)</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0079</strong></td>
+<td><a href="ADR-0079-review-parity/">WS-C Review parity: drain-sweep, stub-create, block-review enqueue (v1.7.0) — <code>onQueueDrained</code> drain callback replaces per-run sweep; <code>create_page_from_review(mode="stub")</code> default; REVIEW blocks → review_items; <code>_detect_page_type</code> port</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0080</strong></td>
+<td><a href="ADR-0080-lint-parity-assessment/">Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, <code>proposal_origin="lint"</code> review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0081</strong></td>
+<td><a href="ADR-0081-onboarding-wizard-and-output-language/">New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0083</strong></td>
+<td><a href="ADR-0083-parity-e2e-harness/">Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0084</strong></td>
+<td><a href="ADR-0084-single-shot-complete-transport/">Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079</a></td>
 <td>Accepted</td>
 </tr>
 </tbody>

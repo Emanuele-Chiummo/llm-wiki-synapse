@@ -1,0 +1,1329 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/LLMWIKI-CORE-LOGIC-v0.6.3/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>nashsu/llm_wiki v0.6.3 — Authoritative Core-Logic Reference - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#nashsullm_wiki-v063-authoritative-core-logic-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              nashsu/llm_wiki v0.6.3 — Authoritative Core-Logic Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-architectural-facts-to-internalize-first" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Architectural facts to internalize first
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-ingest-exact-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. INGEST — exact pipeline
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. INGEST — exact pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-queue-srclibingest-queuets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Queue (src/lib/ingest-queue.ts)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-autoingestimpl-steps-ingestts626-1326-under-a-per-project-mutex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 autoIngestImpl steps (ingest.ts:626-1326) — under a per-project mutex
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-page-types-srclibwiki-page-typests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Page types (src/lib/wiki-page-types.ts)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-prompts-verbatim-structure-port-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.4 Prompts (verbatim structure; port 1:1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#15-writefileblocks-ingestts1783-1956-write-rules-in-order-per-block" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5 writeFileBlocks (ingest.ts:1783-1956) — write rules, in order per block
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1.5 writeFileBlocks (ingest.ts:1783-1956) — write rules, in order per block">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#151-parsefileblocks-ingestts454-547" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5.1 parseFileBlocks (ingest.ts:454-547)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#152-sanitizeingestedfilecontent-srclibingest-sanitizets-exactly-4-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5.2 sanitizeIngestedFileContent (src/lib/ingest-sanitize.ts) — exactly 4 rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#153-canonicalizesourcesfield-ingestts1539-1567" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5.3 canonicalizeSourcesField (ingest.ts:1539-1567)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-long-source-chunking-analyzelongsourceinchunks-ingestts2719-2847" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.6 Long-source chunking (analyzeLongSourceInChunks, ingest.ts:2719-2847)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-cache-srclibingest-cachets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.7 Cache (src/lib/ingest-cache.ts)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#18-indexmd-logmd-overviewmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.8 index.md / log.md / overview.md
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#19-wikilinks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.9 Wikilinks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#110-page-merge-srclibpage-mergets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.10 Page merge (src/lib/page-merge.ts)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#111-model-calls-budgets-language" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.11 Model calls, budgets, language
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-review-exact-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. REVIEW — exact model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-lint-exact-checks-and-fixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. LINT — exact checks and fixes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-vault-creation-onboarding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. VAULT CREATION / ONBOARDING
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-cross-cutting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Cross-cutting
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-synapse-parity-notes-decided-in-the-170-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Synapse parity notes (decided in the 1.7.0 plan)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="nashsullm_wiki-v063-authoritative-core-logic-reference">nashsu/llm_wiki v0.6.3 — Authoritative Core-Logic Reference<a class="headerlink" href="#nashsullm_wiki-v063-authoritative-core-logic-reference" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>Extracted 2026-07-14 from a fresh clone of https://github.com/nashsu/llm_wiki at v0.6.3
+(<code>git clone --depth 50</code>; HEAD <code>9b71ade</code> "release: v0.6.3 fix ingest lifecycle issues").
+This is the behavioral spec for Synapse 1.7.0 parity (Ingest / Review / Lint / onboarding).
+Line numbers refer to the v0.6.3 tree. Do not "improve" behaviors here without an ADR.</p>
+</blockquote>
+<h2 id="0-architectural-facts-to-internalize-first">0. Architectural facts to internalize first<a class="headerlink" href="#0-architectural-facts-to-internalize-first" title="Permanent link">&para;</a></h2>
+<ul>
+<li>llm_wiki is a Tauri (Rust) + React/TS desktop app. All LLM calls go through
+  <code>src/lib/llm-client.ts::streamChat</code> — <strong>SSE text streaming only; there is no JSON /
+  response_format mode anywhere</strong>. JSON, when needed, is requested in-prompt and parsed with
+  tolerant balanced-brace extraction.</li>
+<li>Two ingest paths exist. <code>autoIngest()</code> (<code>src/lib/ingest.ts:569</code>) is the fully-automated 2-stage
+  pipeline used by the queue and by chat "Save to Wiki" — <strong>this is the authoritative behavior</strong>.
+  <code>startIngest()</code>/<code>executeIngestWrites()</code> (<code>ingest.ts:3076/3166</code>) is the interactive chat-driven
+  variant (looser parsing, known schema/purpose path bug) — not the parity target.</li>
+<li><strong><code>enrich-wikilinks.ts</code> is dead code in the shipping pipeline</strong> — its only importers are tests
+  and test-helpers (verified by grep). Wikilinks are produced ONLY inline by the LLM during
+  generation; link density comes from the prompts.</li>
+<li><code>schema.md</code> / <code>purpose.md</code> live at the <strong>project root</strong> (not under <code>wiki/</code>). <code>autoIngest</code>
+  reads them from root (<code>ingest.ts:692-698</code>).</li>
+<li>Ingest LLM options are always <code>temperature: 0.1</code>, <code>reasoning: { mode: "off" }</code>.</li>
+</ul>
+<h2 id="1-ingest-exact-pipeline">1. INGEST — exact pipeline<a class="headerlink" href="#1-ingest-exact-pipeline" title="Permanent link">&para;</a></h2>
+<h3 id="11-queue-srclibingest-queuets">1.1 Queue (<code>src/lib/ingest-queue.ts</code>)<a class="headerlink" href="#11-queue-srclibingest-queuets" title="Permanent link">&para;</a></h3>
+<p>Task shape: <code>{ id, projectId, sourcePath ("raw/sources/…"), folderContext, status:
+pending|processing|done|failed, addedAt, error, retryCount }</code>.</p>
+<ul>
+<li><strong>Concurrency = strictly 1 (sequential), FIFO</strong> — <code>processNext</code> returns if already processing
+  (<code>:659</code>); first pending task wins (<code>:675</code>).</li>
+<li>Persistence <code>.llm-wiki/ingest-queue.json</code> (only non-done tasks). Done tasks removed on success.</li>
+<li><strong>Dedup on enqueue</strong> (<code>upsertQueuedIngestTask</code> <code>:124</code>): pending/failed task for the same
+  normalized source path is reused (reset to pending, retryCount=0), never duplicated.</li>
+<li><strong>Retries: MAX_RETRIES = 3</strong> (<code>:610</code>). Empty output is a failure: after <code>autoIngest</code>,
+  <code>if (writtenFiles.length === 0) throw "Ingest produced no output files"</code> (<code>:764</code>).</li>
+<li><strong>Cancellation</strong> (<code>:303</code>): abort in-flight controller, then <code>cleanupWrittenFiles</code> →
+  cascade-delete each written file (file + vector chunks), skipping structural pages.</li>
+<li><strong>429/rate-limit handling</strong> (<code>:621</code>): <code>/\b429\b|rate[_\s-]*limit|usage\s+limit|quota|too many
+  requests/i</code> → auto-pause with <strong>15-minute auto-resume</strong>.</li>
+<li>Restore on startup: <code>processing</code> → <code>pending</code>, but restored tasks are NOT auto-run (no surprise
+  spend). Stale-context guard: every await re-checks the current project id and bails on switch.</li>
+<li><strong>On queue drain</strong> (<code>onQueueDrained</code> <code>:636</code>): if any task was processed since last drain, run
+  <code>sweepResolvedReviews</code>. This is the ONLY automatic trigger of the review sweep.</li>
+</ul>
+<h3 id="12-autoingestimpl-steps-ingestts626-1326-under-a-per-project-mutex">1.2 <code>autoIngestImpl</code> steps (<code>ingest.ts:626-1326</code>) — under a per-project mutex<a class="headerlink" href="#12-autoingestimpl-steps-ingestts626-1326-under-a-per-project-mutex" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Optional MinerU PDF preprocessing (opt-in, cached, falls back to built-in pdfium).</li>
+<li>Read context in parallel: source text, root <code>schema.md</code> + <code>purpose.md</code>, <code>wiki/index.md</code>,
+   <code>wiki/overview.md</code>.</li>
+<li><strong>Cache check</strong> (§1.7). Hit → skip generation, return cached list, status "Skipped (unchanged)".</li>
+<li>Image extraction to <code>wiki/media/&lt;source-slug&gt;/</code> + optional vision captioning (SHA-256-keyed
+   cache); if captioning disabled, image refs are stripped from the source content.</li>
+<li><strong>Long-source chunking</strong> if content &gt; source budget (§1.6).</li>
+<li><strong>Stage 1 — Analysis</strong>: <code>streamChat(buildAnalysisPrompt…, { temperature: 0.1, reasoning: off,
+   max_tokens: 4096 })</code>. Skipped if the long-source path precomputed it.</li>
+<li><strong>Stage 2 — Generation</strong>: <code>streamChat(buildGenerationPrompt…, { temperature: 0.1, reasoning:
+   off, max_tokens: computeIngestGenerationMaxTokens(...) })</code>. User message forces the response
+   to begin with <code>---FILE:</code>.</li>
+<li><strong>Conditional dedicated review stage</strong> (<code>shouldRunDedicatedReviewStage</code> <code>:2036</code>): runs only if
+   generation length ≥ <strong>10,000</strong> chars OR ≥ <strong>4</strong> FILE blocks OR a <code>---REVIEW:</code> block already
+   present. Uses <code>buildReviewSuggestionPrompt</code>.</li>
+<li><strong>Write files</strong> (<code>writeFileBlocks</code>, §1.5).</li>
+<li><strong>Deterministic index update</strong> (§1.8) — code, never LLM.</li>
+<li>Aggregate repair: ONLY <code>wiki/log.md</code> may be LLM-repaired (<code>:1427</code>); index/overview never.</li>
+<li><strong>Fallback source summary</strong> if no <code>wiki/sources/&lt;slug&gt;.md</code> was written and not aborted.</li>
+<li>Parse review items from BOTH generation and review-stage outputs → review store.</li>
+<li>Save cache only if <code>writtenPaths.length &gt; 0 &amp;&amp; hardFailures.length === 0</code>.</li>
+<li>Embeddings for each non-aggregate written page (if enabled).</li>
+</ol>
+<h3 id="13-page-types-srclibwiki-page-typests">1.3 Page types (<code>src/lib/wiki-page-types.ts</code>)<a class="headerlink" href="#13-page-types-srclibwiki-page-typests" title="Permanent link">&para;</a></h3>
+<p><code>GENERATION_WIKI_TYPES = source, entity, concept, comparison, query, synthesis, thesis,
+methodology, finding</code>. Dir map: <code>entities→entity, concepts→concept, sources→source,
+queries→query, comparisons→comparison, synthesis→synthesis, findings→finding, thesis→thesis,
+methodology→methodology</code> (+ <code>overview</code> for overview.md; custom dirs fall back to the dir name).
+Per-type creation is driven ENTIRELY by the generation prompt + the project schema routing —
+no hardcoded type logic.</p>
+<h3 id="14-prompts-verbatim-structure-port-11">1.4 Prompts (verbatim structure; port 1:1)<a class="headerlink" href="#14-prompts-verbatim-structure-port-11" title="Permanent link">&para;</a></h3>
+<p><strong>Analysis</strong> — <code>buildAnalysisPrompt(purpose, index, sourceContent, schema)</code> (<code>ingest.ts:2046-2102</code>),
+sections joined with <code>.filter(Boolean).join("\n")</code>:</p>
+<div class="highlight"><pre><span></span><code>You are an expert research analyst. Read the source document and produce a structured analysis.
+Do not output chain-of-thought, hidden reasoning, or a thinking transcript. Reason internally and write only the concise final analysis.
+
+&lt;languageRule(sourceContent)&gt;
+
+Your analysis should cover:
+
+## Key Entities
+List people, organizations, products, datasets, tools mentioned. For each:
+- Name and type
+- Role in the source (central vs. peripheral)
+- Whether it likely already exists in the wiki (check the index)
+
+## Key Concepts
+List theories, methods, techniques, phenomena. For each:
+- Name and brief definition
+- Why it matters in this source
+- Whether it likely already exists in the wiki
+
+## Main Arguments &amp; Findings
+- What are the core claims or results?
+- What evidence supports them?
+- How strong is the evidence?
+- Which named subject is each claim about? Do not transfer claims, limits, or evaluations from one entity/model/product/method to another just because they share keywords.
+
+## Connections to Existing Wiki
+- What existing pages does this source relate to?
+- Does it strengthen, challenge, or extend existing knowledge?
+
+## Contradictions &amp; Tensions
+- Does anything in this source conflict with existing wiki content?
+- Are there internal tensions or caveats?
+
+## Recommendations
+- What wiki pages should be created or updated?
+- If the project schema (below) defines page types beyond entity/concept (e.g. goal, habit, reflection, finding, decision, meeting), and the source genuinely contains matching content, recommend pages of those types — name the type explicitly. Only when the source actually supports it; never invent goals/habits/journal entries that aren&#39;t in the source.
+- What should be emphasized vs. de-emphasized?
+- Any open questions worth flagging for the user?
+
+Be thorough but concise. Focus on what&#39;s genuinely important.
+
+If a folder context is provided, use it as a hint for categorization — the folder structure often reflects the user&#39;s organizational intent (e.g., &#39;papers/energy&#39; suggests the file is an energy-related paper).
+
+## Project Schema (page types available — map source content to schema-defined types when it fits)
+&lt;schema&gt;
+## Wiki Purpose (for context)
+&lt;purpose&gt;
+## Current Wiki Index (for checking existing content)
+&lt;index&gt;
+</code></pre></div>
+<p>Analysis user message: <code>Analyze this source document:\n\n**File:** &lt;sourceIdentity&gt;[\n**Folder
+context:** &lt;folderContext&gt;]\n\n---\n\n&lt;sourceContext&gt;</code>.</p>
+<p><strong>Generation</strong> — <code>buildGenerationPrompt(schema, purpose, index, sourceFileName, overview,
+sourceContent, sourceSummaryPath)</code> (<code>ingest.ts:2107-2274</code>). <code>&lt;today&gt;</code> = local <code>YYYY-MM-DD</code>.
+Key normative sections, in order:</p>
+<div class="highlight"><pre><span></span><code>You are a wiki maintainer. Based on the analysis provided, generate wiki files.
+Do not output chain-of-thought, hidden reasoning, or explanatory preamble. Reason internally and output only the requested FILE/REVIEW blocks.
+
+&lt;languageRule(sourceContent)&gt;
+
+## IMPORTANT: Source File
+The original source file is: **&lt;sourceFileName&gt;**
+All wiki pages generated from this source MUST include this filename in their frontmatter `sources` field.
+Today&#39;s date is **&lt;today&gt;**. Use this exact date for all new `created`, `updated`, and wiki/log.md ingest dates.
+
+## Project Schema and Routing (AUTHORITATIVE)
+&lt;schema&gt;
+
+Use this schema as the primary routing rule for page types and directories.
+If it defines custom folders or distinctions (for example people, technologies, organizations, methods, or cases), write pages into those schema-defined folders instead of forcing them into wiki/entities/ or wiki/concepts/.
+Use wiki/entities/ and wiki/concepts/ only when the schema does not provide a more specific destination.
+Every generated page&#39;s frontmatter type must match the schema directory used in its FILE path.
+
+## What to generate
+
+1. A source summary page at **&lt;summaryPath&gt;** (MUST use this exact path)
+2. Entity or schema-defined typed pages for key named things identified in the analysis. Prefer schema-defined directories when present; otherwise use wiki/entities/.
+3. Concept or schema-defined typed pages for key ideas, methods, techniques, and abstractions. Prefer schema-defined directories when present; otherwise use wiki/concepts/.
+4. A log entry for wiki/log.md (just the new entry to append, format: ## [YYYY-MM-DD] ingest | Title)
+Do not generate wiki/index.md or wiki/overview.md. The application maintains aggregate navigation separately so large wikis are never rewritten through model output.
+
+## Frontmatter Rules (CRITICAL — parser is strict)
+[1. first line exactly `---`, no ```yaml fence, no `frontmatter:` prefix; 2. key: value per line;
+ 3. closing `---`; 4. body follows; 5. arrays inline `[a, b, c]`; wikilinks belong in the BODY
+ only — never `related: [[a]], [[b]]`; write `related: [a, b]` with bare slugs.]
+
+Required fields and types:
+  • type     — one of the known types (source | entity | concept | comparison | query | synthesis | thesis | methodology | finding), or a custom type explicitly defined by the project schema
+  • title    — string (quote it if it contains a colon)
+  • created  — &lt;today&gt; (YYYY-MM-DD, no quotes)
+  • updated  — &lt;today&gt; (same as created)
+  • tags     — array of bare strings: `tags: [microbiology, ai]`
+  • related  — array of bare wiki page slugs: `related: [foo, bar-baz]` (no wiki/, no .md, no [[…]])
+  • sources  — array of source filenames; MUST include &quot;&lt;sourceFileName&gt;&quot;.
+
+[Concrete parseable example page follows in the original — entity with tags/related/sources and a
+ body starting `# Example Entity` and prose with [[wikilink]] usage.]
+
+Other rules:
+- Use [[wikilink]] syntax in the BODY for cross-references between pages
+- If you include images, use wiki-root-relative paths such as `media/source-slug/image.png`; never output absolute filesystem paths.
+- Preserve subject boundaries: when a source discusses multiple entities/models/products/methods, keep claims, evaluations, limitations, benchmark results, and recommendations attached to the exact subject they describe.
+- Do not merge or generalize a claim about one subject into another subject&#39;s page solely because they share terms.
+- If a page needs to mention another subject for comparison, write it explicitly as a comparison and cite which source/frontmatter `sources` entry supports that statement.
+- Use kebab-case filenames
+- Derive filenames from the page title in the mandatory output language, but short proper nouns and technical identifiers take precedence (OpenAI, GPT-5, Transformer, CLIP, ImageNet, PyTorch, CUDA, GitHub, arXiv, React, …). No raw URLs/citations in paths. CJK prose titles keep readable CJK characters in the filename.
+- Follow the analysis recommendations on what to emphasize
+- If the analysis found connections to existing pages, add cross-references
+
+## Review block types
+[contradiction | duplicate | missing-page | suggestion — &quot;Only create reviews for things that
+ genuinely need human input. Don&#39;t create trivial reviews.&quot;]
+
+## OPTIONS allowed values (only these predefined labels):
+- contradiction/duplicate/missing-page/suggestion: OPTIONS: Create Page | Skip
+[Deep Research is auto-added by the system client-side. Do NOT invent custom option labels.]
+For suggestion and missing-page reviews, the SEARCH field must contain 2-3 web search queries
+(keyword-rich, specific — NOT titles or sentences), separated by ` | `.
+
+## Wiki Purpose
+&lt;purpose&gt;
+## Current Wiki Index (preserve all existing entries, add new ones)
+&lt;index&gt;
+## Current Overview (update this to reflect the new source)
+&lt;overview&gt;
+
+## Output Format (MUST FOLLOW EXACTLY — this is how the parser reads your response)
+---FILE: wiki/path/to/page.md---
+(complete file content with YAML frontmatter)
+---END FILE---
+[REVIEW template: ---REVIEW: type | Title--- description, OPTIONS:, PAGES:, SEARCH: ---END REVIEW---]
+
+## Output Requirements (STRICT — deviations will cause parse failure)
+1. The FIRST character of your response MUST be `-` (the opening of `---FILE:`).
+2-6. No preamble; do not echo the analysis; no tables/lists/headings outside blocks; no trailing
+commentary; only blank lines between blocks.
+7. FILE block prose must use the mandatory output language; preserve proper nouns/technical terms.
+If you start with anything other than `---FILE:`, the entire response will be discarded.
+
+---
+&lt;languageRule(sourceContent)&gt;
+</code></pre></div>
+<p><code>summaryPath</code> = <code>sourceSummaryPath ?? wiki/sources/&lt;sourceBaseName&gt;.md</code>. Schema/purpose/index/
+overview sections included only when non-empty. Generation user message: Stage-1 analysis under
+"## Stage 1 Analysis (context only — do not repeat)" + "## Source Context" + force <code>---FILE:</code> start.</p>
+<p><strong>Dedicated review stage</strong> — <code>buildReviewSuggestionPrompt</code> (<code>ingest.ts:2276-2333</code>): "Your job is
+NOT to generate wiki pages… Output only REVIEW blocks… Prefer 1-5 high-signal reviews. If there
+is nothing worth reviewing, output nothing." SEARCH line required for suggestion/missing-page.
+Budget caps: <code>sectionCap = max(4000, floor(maxCtx*0.15))</code>, <code>indexCap = max(3000, floor(sectionCap*0.8))</code>.
+Inputs: purpose, trimmed index, source identity, trimmed analysis, trimmed source, trimmed generation.</p>
+<h3 id="15-writefileblocks-ingestts1783-1956-write-rules-in-order-per-block">1.5 <code>writeFileBlocks</code> (<code>ingest.ts:1783-1956</code>) — write rules, in order per block<a class="headerlink" href="#15-writefileblocks-ingestts1783-1956-write-rules-in-order-per-block" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Path under <code>wiki/sources/</code> and a <code>sourceSummaryPath</code> is set → <strong>force</strong> that exact path.</li>
+<li><code>wiki/index.md</code> / <code>wiki/overview.md</code> (case-insensitive) → <strong>drop with warning</strong> (app-managed).</li>
+<li><code>sanitizeIngestedFileContent</code> (§1.5.2).</li>
+<li>Date stamping: log → <code>stampGeneratedLogDate</code>; non-listing → created/updated = today.</li>
+<li>Non-log/non-listing → <code>canonicalizeSourcesField</code> (§1.5.3).</li>
+<li>Source summary → rewrite <code>](media/…</code> → <code>](../media/…</code>.</li>
+<li>CJK output language → re-slug filename from title if the LLM slug isn't CJK.</li>
+<li><strong>Schema routing validation</strong> (<code>validateWikiPageRouting</code>) → drop if frontmatter <code>type</code> doesn't
+   match the schema table's dir for that path.</li>
+<li><strong>Language guard</strong>: concept-style pages (NOT log, NOT <code>/entities/</code> or <code>/sources/</code>), when
+   outputLanguage ≠ "auto" and content doesn't match → drop with warning.</li>
+<li>Write by kind: <strong>log</strong> → append <code>existing + "\n\n" + content.trim()</code>; <strong>listing</strong> → overwrite
+    (already dropped for the two app-managed); <strong>content page</strong> → merge via <code>mergePageContent</code>
+    (§1.10), <code>replaceExistingBody=true</code> iff existing page is owned solely by this source.</li>
+</ol>
+<p>Returns <code>{ writtenPaths, warnings, hardFailures }</code>; only FS errors are hard failures (block cache
+save); soft drops don't.</p>
+<h4 id="151-parsefileblocks-ingestts454-547">1.5.1 <code>parseFileBlocks</code> (<code>ingest.ts:454-547</code>)<a class="headerlink" href="#151-parsefileblocks-ingestts454-547" title="Permanent link">&para;</a></h4>
+<ul>
+<li>CRLF→LF; line-based state machine.</li>
+<li>Opener <code>/^---\s*FILE:\s*(.+?)\s*---\s*$/i</code>; closer <code>/^---\s*END\s+FILE\s*---\s*$/i</code>.</li>
+<li>CommonMark fence tracking <code>/^\s{0,3}(```+|~~~+)/</code> so an <code>---END FILE---</code> inside a fenced block
+  does not close.</li>
+<li>Unclosed at EOF → dropped ("likely truncation"); empty path → dropped; unsafe path → dropped
+  (<code>isSafeIngestPath</code>: must be under <code>wiki/</code>, no <code>..</code>, no absolute/drive, Windows-safe segments,
+  no control chars).</li>
+</ul>
+<h4 id="152-sanitizeingestedfilecontent-srclibingest-sanitizets-exactly-4-rules">1.5.2 <code>sanitizeIngestedFileContent</code> (<code>src/lib/ingest-sanitize.ts</code>) — exactly 4 rules<a class="headerlink" href="#152-sanitizeingestedfilecontent-srclibingest-sanitizets-exactly-4-rules" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Strip outer code fence (```yaml/md/markdown/bare, first + matching last line).</li>
+<li>Strip a leading <code>frontmatter:</code> line immediately followed by <code>---</code>.</li>
+<li>Add missing opening <code>---</code> when content starts with a frontmatter key
+   (<code>type|title|created|updated|tags|related|sources</code>) and a <code>---</code> appears within 30 lines
+   before any <code>#</code> heading.</li>
+<li>Inside the FM block only: <code>key: [[a]], [[b]]</code> → <code>key: ["[[a]]", "[[b]]"]</code>.</li>
+</ol>
+<h4 id="153-canonicalizesourcesfield-ingestts1539-1567">1.5.3 <code>canonicalizeSourcesField</code> (<code>ingest.ts:1539-1567</code>)<a class="headerlink" href="#153-canonicalizesourcesfield-ingestts1539-1567" title="Permanent link">&para;</a></h4>
+<p>Filter to valid refs (no absolute/<code>..</code>, not index/overview/log, not <code>.llm-wiki</code>); canonicalize to
+source identity (path relative to <code>raw/sources/</code>); <strong>guarantee the active identity is present</strong>;
+case-insensitive dedup; always write inline <code>["a","b"]</code>.</p>
+<h3 id="16-long-source-chunking-analyzelongsourceinchunks-ingestts2719-2847">1.6 Long-source chunking (<code>analyzeLongSourceInChunks</code>, <code>ingest.ts:2719-2847</code>)<a class="headerlink" href="#16-long-source-chunking-analyzelongsourceinchunks-ingestts2719-2847" title="Permanent link">&para;</a></h3>
+<p>Constants: <code>LONG_SOURCE_CHUNK_MIN=12000</code>, <code>MAX=60000</code>, <code>DIGEST_MAX=15000</code>,
+<code>CHUNK_ANALYSIS_MAX=40000</code>. <code>targetChars = clamp(floor(budget*0.55), 12000, 60000)</code>,
+<code>overlapChars = clamp(floor(target*0.08), 800, 3000)</code>. Semantic split on heading/paragraph
+boundaries with overlap; per-chunk <code>streamChat</code> (max_tokens 4096) emitting <code>## Chunk Analysis</code> +
+<code>## Updated Global Digest</code>; checkpointed and resumable; final consolidated analysis+context
+replace the raw source for Stages 1-2.</p>
+<h3 id="17-cache-srclibingest-cachets">1.7 Cache (<code>src/lib/ingest-cache.ts</code>)<a class="headerlink" href="#17-cache-srclibingest-cachets" title="Permanent link">&para;</a></h3>
+<p><code>.llm-wiki/ingest-cache.json</code>, keyed by source identity. Entry <code>{ hash: SHA-256(extracted text),
+timestamp, filesWritten[] }</code>. Valid hit = hash match AND every listed file still exists.</p>
+<h3 id="18-indexmd-logmd-overviewmd">1.8 index.md / log.md / overview.md<a class="headerlink" href="#18-indexmd-logmd-overviewmd" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>index.md by code only</strong> (<code>updateWikiIndexDeterministically</code>, <code>ingest.ts:1432-1464</code>): for each
+  new non-aggregate page whose slug isn't already a <code>[[…]]</code> target in index.md, append
+  <code>- [[&lt;slug&gt;]] — &lt;title&gt;</code> into a bounded <code>## Recently Updated</code> section; dedup; <strong>cap 200</strong>.</li>
+<li><strong>log.md</strong> appended via the generation's log entry (<code>## [YYYY-MM-DD] ingest | Title</code>);
+  LLM-repairable if missing.</li>
+<li><strong>overview.md is never regenerated by the pipeline</strong> (created at vault init only).</li>
+</ul>
+<h3 id="19-wikilinks">1.9 Wikilinks<a class="headerlink" href="#19-wikilinks" title="Permanent link">&para;</a></h3>
+<p>Produced ONLY inline by the LLM during generation. <code>enrich-wikilinks.ts</code> is unwired (tests only).
+For the record, its algorithm (a deterministic spec if ever needed): LLM returns strict JSON
+<code>{links: [{term, target}]}</code>; term must be a literal case-sensitive substring; one entry per
+target (first mention); v0.6.3 filters targets against actual on-disk <code>.md</code> slugs
+(NFKC+lowercase normalization; case-colliding slugs dropped entirely); apply = first unlinked
+literal occurrence, <code>[[term]]</code> if term==target else <code>[[target|term]]</code>.</p>
+<h3 id="110-page-merge-srclibpage-mergets">1.10 Page merge (<code>src/lib/page-merge.ts</code>)<a class="headerlink" href="#110-page-merge-srclibpage-mergets" title="Permanent link">&para;</a></h3>
+<p><code>UNION_FIELDS=[sources,tags,related]</code>, <code>LOCKED_FIELDS=[type,title,created]</code>,
+<code>BODY_SHRINK_THRESHOLD=0.7</code>.
+- No existing page → as-is. Byte-identical → existing.
+- Always union array fields first.
+- <code>replaceExistingBody</code> (owned-only): back up existing, keep array-merged content, restore LOCKED
+  fields, stamp updated=today — <strong>no LLM</strong>.
+- Old body == array-merged body → skip LLM.
+- Else LLM merge (temperature 0.1; system prompt: preserve every factual claim from both versions,
+  dedupe, keep subject/source attribution exact, first char <code>-</code>, output complete file).
+- <strong>Reject</strong> LLM output if no frontmatter OR body &lt; 0.7 × max(oldBodyLen,newBodyLen) → fall back
+  to array-merged. On accept: restore LOCKED fields, re-union arrays, stamp updated.
+- Backups: <code>.llm-wiki/page-history/&lt;sanitized-path&gt;-&lt;timestamp&gt;</code>.</p>
+<h3 id="111-model-calls-budgets-language">1.11 Model calls, budgets, language<a class="headerlink" href="#111-model-calls-budgets-language" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Providers: openai, anthropic, google, azure, ollama, minimax, custom (HTTP SSE) + claude-code,
+  codex-cli (subprocess). 30-min backstop timeout. Reasoning-only responses (no content ≥200
+  chars) are an explicit error.</li>
+<li><strong>Context budgets are in CHARACTERS</strong> (<code>context-budget.ts</code>, default maxContextSize 204800):
+  response reserve 15%, index 5%, pages 50%, per-page cap 30% (floor 5000).
+  <code>computeIngestSourceBudget</code> = clamp derived from these into <code>[8000, min(300000, floor(maxCtx*0.6))]</code>.</li>
+<li>Generation max_tokens tiers (<code>:2427</code>): 8192 (&lt;128K), 16384 (≥128K), 24576 (≥256K), 32768 (≥512K);
+  analysis 4096; review/aggregate <code>min(8192, max(4096, floor(genTokens/2)))</code>.</li>
+<li>Language: <code>buildLanguageDirective</code> emits a "⚠️ MANDATORY OUTPUT LANGUAGE" block; language =
+  configured outputLanguage unless "auto", then <code>detectLanguage</code> (Unicode script counting).</li>
+</ul>
+<h2 id="2-review-exact-model">2. REVIEW — exact model<a class="headerlink" href="#2-review-exact-model" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Item types: <code>contradiction | duplicate | missing-page | confirm | suggestion</code>.</li>
+<li><strong>Content-stable id</strong>: <code>review-&lt;FNV1a32hex(type + "::" + normalizeReviewTitle(title))&gt;</code>.
+  <code>normalizeReviewTitle</code> strips <code>missing page:</code> / <code>duplicate page:</code> (+ CJK variants) prefixes,
+  collapses whitespace, lowercases. Same (type, normalized title) ⇒ same id ⇒ dedup; <strong>resolved
+  state survives re-ingest</strong>; merge unions affectedPages/searchQueries, keeps earliest createdAt,
+  prefers non-empty description, resolved wins.</li>
+<li>Sources of items: (1) <code>---REVIEW:</code> blocks from generation + dedicated review stage
+  (<code>parseReviewBlocks</code>: regex <code>---REVIEW:\s*(\w[\w-]*)\s*\|\s*(.+?)\s*---</code> … <code>---END REVIEW---</code>;
+  unknown type → <code>confirm</code>; OPTIONS split on <code>|</code>, default <code>[Approve, Skip]</code>; PAGES on <code>,</code>;
+  SEARCH on <code>|</code>); (2) Lint "Send to Review".</li>
+<li><strong>Sweep</strong> (<code>sweep-reviews.ts</code>), runs ONLY on queue drain:</li>
+<li>Stage 1 rules: <code>missing-page</code> → resolve if any candidate (normalized title ≤100 chars, or
+    affectedPages basenames) matches an existing page (byId exact, byId spaces→<code>-</code>, byTitle exact,
+    lowercased). <code>duplicate</code> → resolve if affectedPages non-empty AND not all still exist.
+    <code>contradiction</code>/<code>suggestion</code>/<code>confirm</code> → never rule-resolved.</li>
+<li>Stage 2 LLM judge: batches of 40, max 5 batches, ≤300 pages listed in prompt, asks for
+    <code>{"resolved": [ids]}</code>, "Be conservative", <strong>early-break when a batch resolves nothing</strong>.</li>
+<li>UI actions: Deep Research auto-added for suggestion/missing-page (requires search config;
+  queues research with the item's searchQueries). <strong>Create Page = deterministic draft stub</strong>:
+  <code># &lt;title&gt;</code> + description body, <code>type</code> via keyword detection (entity/concept/comparison/
+  synthesis keywords EN+CN; missing-page→concept; contradiction/suggestion→query; default query),
+  filename <code>&lt;slug&gt;-&lt;YYYY-MM-DD&gt;-&lt;HHMMSS&gt;.md</code> (slug NFKC kebab, cap 50 chars), dirs
+  entities/concepts/comparisons/synthesis/queries; then index.md updated + log.md appended.
+  Skip/dismiss → plain resolve. Persistence <code>.llm-wiki/review.json</code>.</li>
+</ul>
+<h2 id="3-lint-exact-checks-and-fixes">3. LINT — exact checks and fixes<a class="headerlink" href="#3-lint-exact-checks-and-fixes" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>One pass, user-triggered, no loop, no auto-run.</strong> "Semantic" checkbox gates the LLM stage.</li>
+<li>Structural (<code>runStructuralLint</code>, deterministic, all <code>wiki/**/*.md</code> except index/log):</li>
+<li><code>orphan</code> (info): 0 inbound wikilinks (case-insensitive slug match) + <code>suggestedSource</code>
+    (best token-overlap page).</li>
+<li><code>no-outlinks</code> (info): zero <code>[[…]]</code> in page + <code>suggestedTarget</code>.</li>
+<li><code>broken-link</code> (warning): <code>[[target]]</code> not in slug map (full rel-slug OR basename, lowercased);
+    <code>suggestedTarget</code> attached if similarity ≥ <strong>0.74</strong>.</li>
+<li>Wikilink regex: <code>/\[\[([^\]|]+?)(?:\|[^\]]+?)?\]\]/g</code>. Scoring constants:
+    <code>SAME_BASENAME_SCORE=0.96</code>, <code>CONTAINS_TARGET_SCORE=0.82</code>, <code>RELATED_PAGE_SUGGESTION_MIN_SCORE=0.08</code>,
+    <code>SAME_FOLDER_SCORE_BONUS=0.08</code>, <code>SINGLE_CJK_TOKEN_WEIGHT=0.35</code>, token window 4000.</li>
+<li>Semantic (<code>runSemanticLint</code>, LLM, opt-in): per-page summaries (frontmatter + first 500 chars),
+  single prompt requesting <code>---LINT: type | severity | Short title---</code> blocks; types
+  <code>contradiction, stale, missing-page, suggestion</code>; severities <code>warning|info</code>; stored as
+  <code>type: "semantic"</code>; <strong>semantic findings are ALWAYS sent to Review</strong>, never auto-fixed.</li>
+<li>Deterministic fixes (<code>lint-fixes.ts</code>):</li>
+<li><code>appendWikilink</code>: add <code>- [[target]]</code> under existing <code>## Related</code> heading, else append the
+    section; idempotent.</li>
+<li><code>rewriteWikilinkTarget</code>: replace <code>[[broken]]</code>/<code>[[broken|alias]]</code> with suggested slug,
+    alias preserved.</li>
+<li><code>ensureBrokenLinkStub</code>: create <code>wiki/queries/&lt;slug&gt;.md</code>, <code>type: query</code>, <code>tags: [stub, lint]</code>,
+    body "Created by Wiki Lint as a placeholder…".</li>
+<li>Fix routing in the view: orphan → appendWikilink to suggestedSource (else send to Review);
+  broken-link → rewrite to suggestion (else create stub, then rewrite); no-outlinks →
+  appendWikilink to suggestedTarget; orphans also offer cascade Delete.</li>
+</ul>
+<h2 id="4-vault-creation-onboarding">4. VAULT CREATION / ONBOARDING<a class="headerlink" href="#4-vault-creation-onboarding" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Create dialog (<code>create-project-dialog.tsx</code>): <strong>Name</strong> + <strong>AI Output Language</strong> (dropdown,
+  <code>"auto"</code> filtered OUT at create — user must commit) + <strong>Parent Directory</strong> + <strong>Template</strong>
+  (default <code>general</code>). On create: Rust <code>create_project</code> scaffold → overwrite root <code>schema.md</code> /
+  <code>purpose.md</code> with the template's → create <code>template.extraDirs</code> → persist output language.</li>
+<li>Rust scaffold (<code>src-tauri/src/commands/project.rs:16</code>): fails if dir exists. Creates
+  <code>raw/sources, raw/assets, wiki/{entities,concepts,sources,queries,comparisons,synthesis}</code>;
+  writes <code>wiki/index.md</code> (<code># Wiki Index</code> + empty <code>## Entities/## Concepts/## Sources/## Queries/
+  ## Comparisons/## Synthesis</code> sections), <code>wiki/log.md</code> (<code># Research Log\n\n## &lt;today&gt;\n\n-
+  Project created</code>), <code>wiki/overview.md</code> (frontmatter type overview + <code># Overview</code>), and
+  <code>.obsidian/{app.json,appearance.json,core-plugins.json}</code> (attachments → <code>raw/assets</code>, ignore
+  <code>.cache</code>/<code>.llm-wiki</code>, graph+backlinks on).</li>
+<li><strong>Templates</strong> (<code>src/lib/templates.ts</code>, 654 lines — port verbatim): ids <code>research, reading,
+  personal, business, general</code>. Shared blocks: <code>BASE_SCHEMA_TYPES</code> table
+  (entity/concept/source/query/comparison/synthesis/overview rows), <code>BASE_NAMING</code>,
+  <code>BASE_FRONTMATTER</code> (source pages add authors/year/url/venue), <code>BASE_INDEX_FORMAT</code>,
+  <code>BASE_LOG_FORMAT</code>, <code>BASE_CROSSREF</code>, <code>BASE_CONTRADICTION</code>.</li>
+<li>research 🔬 "Deep-dive research with hypothesis tracking and methodology notes";
+    extraDirs <code>wiki/methodology, wiki/findings, wiki/thesis</code>; +types <code>thesis</code> (confidence,
+    status), <code>methodology</code>, <code>finding</code> (source, confidence, replicated); purpose headings:
+    Research Question / Hypothesis / Background / Sub-questions / Scope / Methodology /
+    Success Criteria / Current Status.</li>
+<li>reading 📚 "Track a book's characters, themes, plot threads, and chapter notes"; extraDirs
+    characters/themes/plot-threads/chapters; +types character (first_appearance, role), theme,
+    plot-thread, chapter (chapter, pages); purpose: Book Details / Why I'm Reading / Key Themes /
+    Questions Going In / Reading Pace / First Impressions / Final Takeaways.</li>
+<li>personal 🌱; extraDirs goals/habits/reflections/journal; +types goal (target_date, status,
+    progress), habit (frequency, streak, status), reflection (period), journal; purpose: Focus
+    Areas / Motivation / Current Goals / Active Habits / Review Cadence / Guiding Principles /
+    This Year's Theme.</li>
+<li>business 💼; extraDirs meetings/decisions/projects/stakeholders; +types meeting, decision
+    (ADR-style), project, stakeholder; purpose: Business Context / Objectives / Key Projects /
+    Key Stakeholders / Open Decisions / Metrics / Constraints &amp; Risks / Review Cadence.</li>
+<li>general 📄 "Minimal setup — a blank slate"; no extraDirs; base types only; purpose: Goal /
+    Key Questions / Scope / Thesis.</li>
+</ul>
+<h2 id="5-cross-cutting">5. Cross-cutting<a class="headerlink" href="#5-cross-cutting" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Schema routing</strong> (<code>wiki-schema.ts</code>): parse root schema.md's <code>## Page Types</code> markdown table →
+  <code>{type → dir}</code> (dir must be <code>wiki</code> or start with <code>wiki/</code>). <code>validateWikiPageRouting</code> errors if
+  the page's <code>type</code> maps to a different dir, or the dir maps to a different type.</li>
+<li><strong>Filenames</strong> (<code>wiki-filename.ts</code>): <code>makeQuerySlug</code> = NFKC, trim, whitespace→<code>-</code>, keep
+  <code>\p{L}\p{N}-</code>, collapse/trim <code>-</code>, lowercase, <strong>cap 50 chars</strong>, fallback "query".
+  <code>makeQueryFileName</code> = <code>&lt;slug&gt;-&lt;YYYY-MM-DD&gt;-&lt;HHMMSS&gt;.md</code> (UTC).</li>
+<li><strong>Source identity</strong> (<code>source-identity.ts</code>): path relative to <code>raw/sources/</code> (else basename).
+  Source summary slug: single-segment → name; multi-segment → <code>&lt;len&gt;-&lt;readable&gt;--…--&lt;FNV36&gt;</code>
+  capped 120 chars; page at <code>wiki/sources/&lt;slug&gt;.md</code>.</li>
+<li><strong>Frontmatter parsing</strong> (<code>frontmatter.ts</code>): strict <code>^---\n…\n---</code> first; fallback to the first
+  <code>---…---</code> whose opener is within the first 6 lines; js-yaml JSON_SCHEMA; one repair pass for
+  unbracketed wikilink lists; values normalized to <code>string | string[]</code>.</li>
+<li><strong>Persistence map</strong> (all under <code>&lt;project&gt;/.llm-wiki/</code>): ingest-queue.json, ingest-cache.json,
+  ingest-warnings.log, image-caption-cache.json, page-history/, review.json, lint.json,
+  conversations.json + chats/, chat-preferences.json.</li>
+<li>"Smart retrieval mode" (v0.6.3 commit 3f3cfa0) is a chat/query feature only — irrelevant to
+  ingest/review/lint parity.</li>
+</ul>
+<h2 id="6-synapse-parity-notes-decided-in-the-170-plan">6. Synapse parity notes (decided in the 1.7.0 plan)<a class="headerlink" href="#6-synapse-parity-notes-decided-in-the-170-plan" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Wikilink density must come from prompt parity; Synapse's <code>ops/enrich_wikilinks.py</code> post-pass
+  defaults OFF (kept as opt-in extra).</li>
+<li>index.md: Synapse keeps the K3 full catalogue (invariant) and ADDS the code-owned bounded
+  <code>## Recently Updated</code> section (hybrid; ADR-0078).</li>
+<li>Synapse keeps Postgres/Qdrant indexing, hash gate, watcher (I1) — invisible to output parity.</li>
+<li>Frontmatter <code>lang</code> becomes optional in Synapse (llm_wiki has no such field); DB <code>pages.lang</code>
+  filled by detection.</li>
+<li>Review "Create Page" defaults to the deterministic stub; Synapse's full-LLM generation remains
+  as an explicit secondary mode.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
