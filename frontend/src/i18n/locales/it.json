@@ -1624,6 +1624,7 @@
       "communities": "Comunità",
       "reviewPending": "Revisione",
       "lintOpen": "Lint",
+      "lintClean": "Pulito",
       "monthlyCost": "Spesa mensile",
       "dataVersion": "Versione dati"
     },
