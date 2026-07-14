@@ -136,6 +136,8 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | # | Title | Status |
 |---|-------|--------|
 | **0076** | [Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF](ADR-0076-block-based-ingest-pipeline.md) | Accepted |
+| **0077** | [Schema-driven page-type routing and an open page-type set (v1.7.0) — schema.md Page Types table is authoritative; custom types persist as raw page_type on the block path; enum untouched](ADR-0077-schema-driven-page-routing.md) | Accepted |
+| **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](ADR-0081-onboarding-wizard-and-output-language.md) | Accepted |
 
 ---
 
