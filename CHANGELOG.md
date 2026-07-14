@@ -7,7 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [Unreleased] — v1.7.0 — "llm_wiki 1:1 core parity, link-regression fix, editorial redesign"
+
+Aligns the three core operations (Ingest · Review · Lint) and the generated page types 1:1 with
+`nashsu/llm_wiki` v0.6.3, fixes the wikilink-density regression introduced in 1.6.0, brings the
+new-vault onboarding to parity, and refreshes the entire frontend with a new "editorial knowledge
+workspace" visual language. Behavior spec: `docs/reference/LLMWIKI-CORE-LOGIC-v0.6.3.md`;
+decisions: ADR-0076..0083.
+
+### Added
+- **Block-based ingest pipeline** (ADR-0076, behind `ingest_pipeline_format`, default `json` until a
+  measured flip) — a provider-neutral port of llm_wiki's two-stage text pipeline: markdown analysis
+  → `---FILE:` / `---REVIEW:` block generation → schema-validated block writer. New modules
+  `ingest/{prompts,blocks,sanitize,block_loop,block_writer,context,writer,pipeline}.py`. Providers
+  gain a raw-text `complete()` transport (I6).
+- **Schema-driven page routing + open page-type set** (ADR-0077) — `wiki/schema.py` parses the
+  `schema.md` "Page Types" table into an authoritative `type → dir` map; custom types (thesis,
+  methodology, finding, goal, habit, character, …) persist as a raw `page_type` string.
+- **New-vault onboarding wizard** (ADR-0081; migration 0032) — a 3-step modal (name + parent dir →
+  mandatory AI output language → scenario template) that **auto-activates** the new vault. The 5
+  scenario templates carry `extra_dirs` + custom Page Types; per-vault `vault_state.output_language`
+  drives the ingest language directive. `GET`/`PUT /vault/meta/output-language`.
+- **index.md "Recently Updated"** — a code-owned bounded catalogue section alongside the K3 per-type
+  catalogue (ADR-0078); manual `POST /ops/overview/regenerate`.
+- **Parity E2E harness** (ADR-0083) — deterministic 3-doc corpus + `scripts/parity_e2e/compare.py`
+  (tolerance bands + a *total-links ≥ 1.5.6 baseline* regression sentinel) + runbook.
+- **Editorial frontend redesign** — a new design-token language (ink `#0F1729`, cool neutrals, a
+  legible categorical page-type palette, softer elevation), a grouped nav rail (Create / Understand /
+  Maintain), an editorial Wiki reader with a Connections panel (server FA2 coords, I2), a Review
+  decision-trace card, and a shared button/badge/mono-metadata kit. Light + dark, EN/IT parity.
+
+### Changed
+- **Wikilink density fixed at the prompt** — the regression was diagnosed as prompt-only (no link
+  code changed in 1.6.0): the 6-type JSON scaffold had buried the single `[[wikilink]]` instruction.
+  The ported prompts (`ingest/prompts.py`) restore prominent, repeated wikilink guidance and an
+  analysis "Connections to Existing Wiki" section; the delegated **CLI** prompt shares the same rules
+  (a contract test prevents drift) so the 1:1 E2E path links as densely as the reference.
+- **Wikilink enrich post-pass defaults OFF** (ADR-0076) — llm_wiki produces links inline only
+  (`enrich-wikilinks.ts` is dead code); the post-pass would double-count. One opt-in toggle away.
+- **Review** (ADR-0079) — the auto-resolve sweep fires on **queue drain** (not per run); **Create
+  Page** defaults to a deterministic stub (`mode="stub"`), with full-LLM generation as an explicit
+  `mode="generate"`; Dismiss now confirms first; block-loop REVIEW blocks are enqueued.
+- **log.md** entries use llm_wiki's `## [YYYY-MM-DD] ingest | Title` format; ingest no longer
+  rewrites `overview.md`.
+- **Lint** (ADR-0080) — assessed at parity (0.74 broken-link threshold, deterministic fixes,
+  `proposal_origin="lint"` review routing); the bounded semantic loop and on-demand Send-to-Review
+  are deliberate supersets (`lint_max_iter=1` reproduces the reference exactly). No lint code change.
+- The orchestrator (3,851 → 1,493 lines) is decomposed behind a re-export façade.
+
+### Fixed
+- The 1.6.0 wikilink-density regression (see Changed).
+- Onboarding no longer strands a new vault un-activated (the wizard activates + reloads).
+
+### Upgrade notes
+- Run Alembic migration `0032` (additive, nullable `vault_state.output_language`; NULL = auto).
+- `wikilink_enrich_enabled` now defaults **false**; set it true to restore the post-pass.
+- The block pipeline ships behind `ingest_pipeline_format` (default `json`) — the delegated CLI route
+  already carries the link fix regardless of the flag.
 
 ## [1.6.0] — 2026-07-13 — "source-grounded generation lifecycle parity"
 
