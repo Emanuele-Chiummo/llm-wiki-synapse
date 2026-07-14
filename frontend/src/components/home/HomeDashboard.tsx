@@ -339,13 +339,14 @@ function getComponentStatus(
 }
 
 function StatusDot({ status }: { status: "ok" | "warn" | "down" | "skipped" }) {
+  // UXA-14: use --syn-* semantic tokens instead of hardcoded hex
   const color =
     status === "ok"
-      ? "#22c55e"
+      ? "var(--syn-green)"
       : status === "warn"
-        ? "#f59e0b"
+        ? "var(--syn-amber)"
         : status === "down"
-          ? "var(--syn-error, #ef4444)"
+          ? "var(--syn-error)"
           : "var(--syn-text-dim)";
   return (
     <span
@@ -363,15 +364,14 @@ function StatusDot({ status }: { status: "ok" | "warn" | "down" | "skipped" }) {
 }
 
 function OverallStatusIcon({ status }: { status: "ok" | "degraded" | "error" }) {
+  // UXA-14: use --syn-* semantic tokens instead of hardcoded hex
   if (status === "ok") {
-    return <CheckCircle2 size={14} style={{ color: "#22c55e" }} aria-hidden="true" />;
+    return <CheckCircle2 size={14} style={{ color: "var(--syn-green)" }} aria-hidden="true" />;
   }
   if (status === "degraded") {
-    return <AlertTriangle size={14} style={{ color: "#f59e0b" }} aria-hidden="true" />;
+    return <AlertTriangle size={14} style={{ color: "var(--syn-amber)" }} aria-hidden="true" />;
   }
-  return (
-    <AlertCircle size={14} style={{ color: "var(--syn-error, #ef4444)" }} aria-hidden="true" />
-  );
+  return <AlertCircle size={14} style={{ color: "var(--syn-error)" }} aria-hidden="true" />;
 }
 
 interface SystemStatusBlockProps {
@@ -433,9 +433,9 @@ function SystemStatusBlock({
         borderRadius: "var(--syn-radius-md)",
         border: `1px solid ${
           overallStatus === "error"
-            ? "color-mix(in srgb, var(--syn-error, #ef4444) 30%, var(--syn-border) 70%)"
+            ? "color-mix(in srgb, var(--syn-error) 30%, var(--syn-border) 70%)"
             : overallStatus === "degraded"
-              ? "color-mix(in srgb, #f59e0b 30%, var(--syn-border) 70%)"
+              ? "color-mix(in srgb, var(--syn-amber) 30%, var(--syn-border) 70%)"
               : "var(--syn-border)"
         }`,
         background: "var(--syn-bg-soft)",
@@ -2053,12 +2053,12 @@ function DataQualityNudge({ overview, sections }: DataQualityNudgeProps) {
         gap: 12,
         padding: "8px 14px",
         borderRadius: "var(--syn-radius-md)",
-        border: "1px solid color-mix(in srgb, #f59e0b 25%, var(--syn-border) 75%)",
-        background: "color-mix(in srgb, #f59e0b 5%, var(--syn-bg-soft) 95%)",
+        border: "1px solid color-mix(in srgb, var(--syn-amber) 25%, var(--syn-border) 75%)",
+        background: "color-mix(in srgb, var(--syn-amber) 5%, var(--syn-bg-soft) 95%)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Tag size={12} aria-hidden="true" style={{ color: "#f59e0b", flexShrink: 0 }} />
+        <Tag size={12} aria-hidden="true" style={{ color: "var(--syn-amber)", flexShrink: 0 }} />
         <span
           data-testid="home-data-quality-message"
           style={{ fontSize: 12, color: "var(--syn-text-muted)" }}
@@ -2200,9 +2200,9 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
               data-testid="home-synthesize-diagnostics"
               style={{ fontSize: 10, color: "var(--syn-text-dim)", overflowWrap: "anywhere" }}
             >
-              {t("home.synthesize.duplicatesSkipped")}: {lastSummary.duplicates_skipped ?? 0} · {" "}
-              {t("home.synthesize.untaggedSkipped")}: {lastSummary.untagged_skipped ?? 0} · {" "}
-              {t("home.synthesize.maxCandidates")}: {lastSummary.max_candidates ?? "–"} · {" "}
+              {t("home.synthesize.duplicatesSkipped")}: {lastSummary.duplicates_skipped ?? 0} ·{" "}
+              {t("home.synthesize.untaggedSkipped")}: {lastSummary.untagged_skipped ?? 0} ·{" "}
+              {t("home.synthesize.maxCandidates")}: {lastSummary.max_candidates ?? "–"} ·{" "}
               {t("home.synthesize.mode")}: {lastSummary.mode ?? "–"}
             </span>
           )}

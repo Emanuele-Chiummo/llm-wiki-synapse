@@ -3297,8 +3297,7 @@ export const GraphViewer: React.FC = () => {
         flexDirection: "column",
       }}
     >
-      {/* Keyframes for the spinning refresh icon in the toolbar */}
-      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
 
       {/* GR1–GR5, GR7, GI-2: Graph header with stats, search, filter, reset, fullscreen, color-mode, insights, refresh */}
       <GraphHeader

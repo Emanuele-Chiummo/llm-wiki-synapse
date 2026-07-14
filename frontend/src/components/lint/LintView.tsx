@@ -1024,8 +1024,7 @@ export function LintView() {
         background: "var(--syn-bg)",
       }}
     >
-      {/* Spinner keyframe — injected once */}
-      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <div

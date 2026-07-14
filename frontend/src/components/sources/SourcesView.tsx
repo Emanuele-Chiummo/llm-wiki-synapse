@@ -89,18 +89,15 @@ function fileIcon(ext: string | undefined, size = 15) {
   const e = (ext ?? "").toLowerCase();
   if (/^\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/.test(e))
     return <Image size={size} aria-hidden="true" />;
-  if (/^\.(mp4|mkv|mov|avi|webm)$/.test(e))
-    return <FileVideo size={size} aria-hidden="true" />;
-  if (/^\.(mp3|wav|ogg|flac|aac|m4a)$/.test(e))
-    return <FileAudio size={size} aria-hidden="true" />;
-  if (/^\.(md|markdown|txt)$/.test(e))
-    return <FileText size={size} aria-hidden="true" />;
+  if (/^\.(mp4|mkv|mov|avi|webm)$/.test(e)) return <FileVideo size={size} aria-hidden="true" />;
+  if (/^\.(mp3|wav|ogg|flac|aac|m4a)$/.test(e)) return <FileAudio size={size} aria-hidden="true" />;
+  if (/^\.(md|markdown|txt)$/.test(e)) return <FileText size={size} aria-hidden="true" />;
   return <File size={size} aria-hidden="true" />;
 }
 
 function formatBytes(n: number): string {
-  if (n < 1024)         return `${n} B`;
-  if (n < 1024 * 1024)  return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -140,16 +137,11 @@ type TreeRow = FolderRow | FileRow;
 
 // ─── Build flat virtualizer-ready rows from SourceEntry[] ─────────────────────
 
-function buildRows(
-  entries: SourceEntry[],
-  collapsedFolders: Set<string>,
-): TreeRow[] {
+function buildRows(entries: SourceEntry[], collapsedFolders: Set<string>): TreeRow[] {
   // Group entries by parent directory
   const byParent = new Map<string, SourceEntry[]>();
   for (const e of entries) {
-    const parent = e.path.includes("/")
-      ? e.path.slice(0, e.path.lastIndexOf("/"))
-      : "";
+    const parent = e.path.includes("/") ? e.path.slice(0, e.path.lastIndexOf("/")) : "";
     if (!byParent.has(parent)) byParent.set(parent, []);
     const bucket = byParent.get(parent);
     if (bucket) bucket.push(e);
@@ -200,7 +192,7 @@ function buildRows(
 // ─── Row heights ──────────────────────────────────────────────────────────────
 
 const FOLDER_ROW_H = 30;
-const FILE_ROW_H   = 30;
+const FILE_ROW_H = 30;
 const DISARM_DELAY = 5000; // ms
 const INGEST_ALL_POLL_MS = 1500; // I3: single setTimeout chain interval
 
@@ -216,8 +208,7 @@ function getExt(filename: string): string {
 // ─── Module-level reduced-motion detection (mirrors ActivityBar/GraphViewer) ──
 
 const reducedMotion: boolean =
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // ─── IngestAllProgress — local state type ────────────────────────────────────
 
@@ -255,18 +246,18 @@ export function SourcesView() {
   // v1.5 P1: "wiki" AND "vault" are read-only browse trees — only "sources" is writable.
   const isReadOnly = root !== "sources";
 
-  const [entries, setEntries]               = useState<SourceEntry[]>([]);
-  const [total, setTotal]                   = useState<number>(0);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
+  const [entries, setEntries] = useState<SourceEntry[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
-  const [selectedPath, setSelectedPath]     = useState<string | null>(null);
-  const [showImport, setShowImport]         = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
   // Two-stage delete (files and folders share the same armed/deleting state)
-  const [armedPath, setArmedPath]           = useState<string | null>(null);
-  const [deletingPath, setDeletingPath]     = useState<string | null>(null);
+  const [armedPath, setArmedPath] = useState<string | null>(null);
+  const [deletingPath, setDeletingPath] = useState<string | null>(null);
   // Per-file ingest in-flight
-  const [ingestingPath, setIngestingPath]   = useState<string | null>(null);
+  const [ingestingPath, setIngestingPath] = useState<string | null>(null);
   // Disarm timer ref
   const disarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ingest-all progress state (null = not running / idle)
@@ -276,29 +267,34 @@ export function SourcesView() {
 
   // S1: folder upload (hidden directory input + sequential progress)
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const [folderUploadProgress, setFolderUploadProgress] = useState<FolderUploadProgress | null>(null);
+  const [folderUploadProgress, setFolderUploadProgress] = useState<FolderUploadProgress | null>(
+    null,
+  );
 
   // R7-11: multi-select state
-  const [selectedPaths, setSelectedPaths]   = useState<Set<string>>(new Set());
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
-  const [bulkProgress, setBulkProgress]     = useState<BulkProgress | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<BulkProgress | null>(null);
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
-  const fetchSources = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await listSources(signal, root);
-      setEntries(res.entries);
-      setTotal(res.total);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [root]);
+  const fetchSources = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await listSources(signal, root);
+        setEntries(res.entries);
+        setTotal(res.total);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [root],
+  );
 
   // Re-fetch whenever root changes; also reset tree state (selection, collapse).
   useEffect(() => {
@@ -354,7 +350,9 @@ export function SourcesView() {
         // Backend unreachable — ignore, button will be in idle state
       }
     })();
-    return () => { stopIngestAllPoll(); };
+    return () => {
+      stopIngestAllPoll();
+    };
   }, [scheduleIngestAllPoll, stopIngestAllPoll]);
 
   const handleIngestAll = useCallback(async () => {
@@ -382,14 +380,11 @@ export function SourcesView() {
 
   // ── Two-stage delete helpers ─────────────────────────────────────────────────
 
-  const armDelete = useCallback(
-    (path: string) => {
-      if (disarmTimerRef.current) clearTimeout(disarmTimerRef.current);
-      setArmedPath(path);
-      disarmTimerRef.current = setTimeout(() => setArmedPath(null), DISARM_DELAY);
-    },
-    [],
-  );
+  const armDelete = useCallback((path: string) => {
+    if (disarmTimerRef.current) clearTimeout(disarmTimerRef.current);
+    setArmedPath(path);
+    disarmTimerRef.current = setTimeout(() => setArmedPath(null), DISARM_DELAY);
+  }, []);
 
   const handleDeleteClick = useCallback(
     async (path: string) => {
@@ -403,10 +398,7 @@ export function SourcesView() {
       setDeletingPath(path);
       try {
         const res = await deleteSource(path);
-        showToast(
-          t("sources.deletedToast", { pages: res.pages_deleted }),
-          "success",
-        );
+        showToast(t("sources.deletedToast", { pages: res.pages_deleted }), "success");
         if (selectedPath === path) setSelectedPath(null);
         // Also remove from selection if selected
         setSelectedPaths((prev) => {
@@ -524,7 +516,9 @@ export function SourcesView() {
         showToast(
           isTooBig
             ? t("sources.deletedFolderTooMany")
-            : err instanceof Error ? err.message : String(err),
+            : err instanceof Error
+              ? err.message
+              : String(err),
           "error",
         );
       } finally {
@@ -538,9 +532,7 @@ export function SourcesView() {
 
   // All file paths in current rows (for select-all)
   const rows = buildRows(entries, collapsedFolders);
-  const allFilePaths = rows
-    .filter((r): r is FileRow => r.kind === "file")
-    .map((r) => r.path);
+  const allFilePaths = rows.filter((r): r is FileRow => r.kind === "file").map((r) => r.path);
 
   const allSelected = allFilePaths.length > 0 && allFilePaths.every((p) => selectedPaths.has(p));
   const someSelected = selectedPaths.size > 0;
@@ -584,7 +576,11 @@ export function SourcesView() {
       showToast(t("sources.bulk.ingestDone", { count: total }), "success");
     } else {
       showToast(
-        t("sources.bulk.ingestPartial", { done: total - errors.length, total, failed: errors.length }),
+        t("sources.bulk.ingestPartial", {
+          done: total - errors.length,
+          total,
+          failed: errors.length,
+        }),
         "error",
       );
     }
@@ -615,7 +611,11 @@ export function SourcesView() {
       showToast(t("sources.bulk.deleteDone", { count: total }), "success");
     } else {
       showToast(
-        t("sources.bulk.deletePartial", { done: total - errors.length, total, failed: errors.length }),
+        t("sources.bulk.deletePartial", {
+          done: total - errors.length,
+          total,
+          failed: errors.length,
+        }),
         "error",
       );
     }
@@ -653,15 +653,9 @@ export function SourcesView() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      data-testid="sources-view"
-      style={OUTER_STYLE}
-    >
+    <div data-testid="sources-view" style={OUTER_STYLE}>
       {/* ── Tab toggle (Sources / Wiki) ── */}
-      <div
-        data-testid="sources-tab-bar"
-        style={TAB_BAR_STYLE}
-      >
+      <div data-testid="sources-tab-bar" style={TAB_BAR_STYLE}>
         <button
           data-testid="sources-tab-sources"
           style={tabBtnStyle(root === "sources")}
@@ -686,11 +680,7 @@ export function SourcesView() {
         >
           {t("sources.tabVault")}
         </button>
-        {isReadOnly && (
-          <span style={WIKI_BADGE_STYLE}>
-            {t("sources.wikiReadOnly")}
-          </span>
-        )}
+        {isReadOnly && <span style={WIKI_BADGE_STYLE}>{t("sources.wikiReadOnly")}</span>}
       </div>
 
       {/* ── Header ── */}
@@ -707,7 +697,9 @@ export function SourcesView() {
                 ...HEADER_BTN_STYLE,
                 opacity: ingestAllProgress?.running ? 0.7 : 1,
               }}
-              onClick={() => { void handleIngestAll(); }}
+              onClick={() => {
+                void handleIngestAll();
+              }}
               disabled={ingestAllProgress?.running === true}
               title={t("sources.ingestAll")}
             >
@@ -735,7 +727,9 @@ export function SourcesView() {
           <button
             data-testid="source-refresh"
             style={HEADER_BTN_STYLE}
-            onClick={() => { void fetchSources(); }}
+            onClick={() => {
+              void fetchSources();
+            }}
             title={t("sources.refresh")}
             disabled={loading}
           >
@@ -774,19 +768,25 @@ export function SourcesView() {
                 style={{ display: "none" }}
                 aria-hidden="true"
                 tabIndex={-1}
-                onChange={(e) => { void handleFolderInputChange(e); }}
+                onChange={(e) => {
+                  void handleFolderInputChange(e);
+                }}
               />
             </>
           )}
         </div>
-        {/* Keyframe for spinner — injected once, harmless if duplicated */}
-        <style>{`@keyframes synapse-spin { to { transform: rotate(360deg); } }`}</style>
+        {/* UXA-28: @keyframes synapse-spin is declared globally in theme.css — no inline <style> needed */}
       </div>
 
       {/* ── Import zone (collapsible) — sources tab only ── */}
       {!isReadOnly && showImport && (
         <div style={{ borderBottom: "1px solid var(--syn-border)", paddingBottom: 8 }}>
-          <UploadZone onSuccess={() => { setShowImport(false); void fetchSources(); }} />
+          <UploadZone
+            onSuccess={() => {
+              setShowImport(false);
+              void fetchSources();
+            }}
+          />
         </div>
       )}
 
@@ -810,13 +810,19 @@ export function SourcesView() {
           <button
             data-testid="sources-bulk-ingest"
             style={BULK_ACTION_BTN}
-            onClick={() => { void handleBulkIngest(); }}
+            onClick={() => {
+              void handleBulkIngest();
+            }}
           >
             {t("sources.bulk.ingest")}
           </button>
           <button
             data-testid="sources-bulk-delete"
-            style={{ ...BULK_ACTION_BTN, color: "var(--syn-red)", borderColor: "color-mix(in srgb, var(--syn-red) 30%, transparent 70%)" }}
+            style={{
+              ...BULK_ACTION_BTN,
+              color: "var(--syn-red)",
+              borderColor: "color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+            }}
             onClick={() => setShowBulkDeleteDialog(true)}
           >
             {t("sources.bulk.delete")}
@@ -844,7 +850,11 @@ export function SourcesView() {
             flexShrink: 0,
           }}
         >
-          <Loader2 size={13} style={{ animation: "synapse-spin 1s linear infinite" }} aria-hidden="true" />
+          <Loader2
+            size={13}
+            style={{ animation: "synapse-spin 1s linear infinite" }}
+            aria-hidden="true"
+          />
           <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
             {t("sources.bulk.progress", {
               current: bulkProgress.current,
@@ -869,7 +879,11 @@ export function SourcesView() {
             flexShrink: 0,
           }}
         >
-          <Loader2 size={13} style={{ animation: "synapse-spin 1s linear infinite" }} aria-hidden="true" />
+          <Loader2
+            size={13}
+            style={{ animation: "synapse-spin 1s linear infinite" }}
+            aria-hidden="true"
+          />
           <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
             {t("sources.bulk.progress", {
               current: folderUploadProgress.current,
@@ -886,7 +900,9 @@ export function SourcesView() {
         <div style={TREE_PANEL_STYLE}>
           {loading && (
             <div style={CENTER_STYLE}>
-              <span style={{ color: "var(--syn-text-dim)", fontSize: 12 }}>{t("common.loading")}</span>
+              <span style={{ color: "var(--syn-text-dim)", fontSize: 12 }}>
+                {t("common.loading")}
+              </span>
             </div>
           )}
           {error && (
@@ -896,14 +912,15 @@ export function SourcesView() {
           )}
           {isEmpty && (
             <div style={EMPTY_STYLE}>
-              <Folder size={28} aria-hidden="true" style={{ color: "var(--syn-text-dim)", marginBottom: 8 }} />
+              <Folder
+                size={28}
+                aria-hidden="true"
+                style={{ color: "var(--syn-text-dim)", marginBottom: 8 }}
+              />
               <span style={{ color: "var(--syn-text-dim)", fontSize: 13, textAlign: "center" }}>
                 {t("sources.emptyHint")}
               </span>
-              <button
-                style={IMPORT_BTN_STYLE}
-                onClick={() => setShowImport(true)}
-              >
+              <button style={IMPORT_BTN_STYLE} onClick={() => setShowImport(true)}>
                 <Upload size={13} aria-hidden="true" />
                 {t("sources.import")}
               </button>
@@ -913,7 +930,12 @@ export function SourcesView() {
             <nav
               data-testid="sources-tree"
               aria-label={t("sources.title")}
-              style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
+              style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
             >
               {/* R7-11: select-all header checkbox — sources tab only */}
               {!isReadOnly && (
@@ -944,10 +966,7 @@ export function SourcesView() {
                 </div>
               )}
 
-              <div
-                ref={scrollRef}
-                style={{ overflow: "auto", flex: 1, minHeight: 0 }}
-              >
+              <div ref={scrollRef} style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
                 <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
                   {virtualizer.getVirtualItems().map((vRow) => {
                     const row = rows[vRow.index] as TreeRow;
@@ -1029,7 +1048,9 @@ export function SourcesView() {
           confirmLabel={t("sources.bulk.deleteConfirm")}
           cancelLabel={t("sources.bulk.deleteCancel")}
           danger
-          onConfirm={() => { void handleBulkDeleteConfirm(); }}
+          onConfirm={() => {
+            void handleBulkDeleteConfirm();
+          }}
           onCancel={() => setShowBulkDeleteDialog(false)}
         />
       )}
@@ -1050,7 +1071,15 @@ interface FolderRowItemProps {
   onDelete: (path: string) => Promise<void>;
 }
 
-function FolderRowItem({ row, style, armed, deleting, readOnly = false, onToggle, onDelete }: FolderRowItemProps) {
+function FolderRowItem({
+  row,
+  style,
+  armed,
+  deleting,
+  readOnly = false,
+  onToggle,
+  onDelete,
+}: FolderRowItemProps) {
   const { t } = useTranslation();
   const indent = 8 + row.depth * 16;
   const expanded = !row.collapsed;
@@ -1090,24 +1119,48 @@ function FolderRowItem({ row, style, armed, deleting, readOnly = false, onToggle
         aria-label={`${row.name}, ${row.childCount} ${t("sources.folder")}`}
         onClick={() => onToggle(row.path)}
       >
-        {expanded
-          ? <ChevronDown size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
-          : <ChevronRight size={12} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
-        {expanded
-          ? <FolderOpen size={14} aria-hidden="true" style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
-          : <Folder size={14} aria-hidden="true" style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />}
-        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {expanded ? (
+          <ChevronDown
+            size={12}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
+        ) : (
+          <ChevronRight
+            size={12}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
+        )}
+        {expanded ? (
+          <FolderOpen
+            size={14}
+            aria-hidden="true"
+            style={{ color: "var(--syn-accent)", flexShrink: 0 }}
+          />
+        ) : (
+          <Folder
+            size={14}
+            aria-hidden="true"
+            style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
+          />
+        )}
+        <span
+          style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        >
           {row.name}
         </span>
-        <span style={{
-          fontSize: 10,
-          color: "var(--syn-text-dim)",
-          background: "var(--syn-surface-sunken)",
-          border: "1px solid var(--syn-border-subtle)",
-          borderRadius: 10,
-          padding: "1px 5px",
-          flexShrink: 0,
-        }}>
+        <span
+          style={{
+            fontSize: 10,
+            color: "var(--syn-text-dim)",
+            background: "var(--syn-surface-sunken)",
+            border: "1px solid var(--syn-border-subtle)",
+            borderRadius: 10,
+            padding: "1px 5px",
+            flexShrink: 0,
+          }}
+        >
           {row.childCount}
         </span>
       </button>
@@ -1130,11 +1183,16 @@ function FolderRowItem({ row, style, armed, deleting, readOnly = false, onToggle
             flexShrink: 0,
           }}
           disabled={deleting}
-          onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            void onDelete(row.path);
+          }}
           title={armed ? t("sources.confirmDeleteFolder") : t("sources.deleteFolder")}
-          aria-label={armed
-            ? `${t("sources.confirmDeleteFolder")} ${row.name}`
-            : `${t("sources.deleteFolder")} ${row.name}`}
+          aria-label={
+            armed
+              ? `${t("sources.confirmDeleteFolder")} ${row.name}`
+              : `${t("sources.deleteFolder")} ${row.name}`
+          }
         >
           {armed ? t("sources.confirmDeleteFolder") : <Trash2 size={12} aria-hidden="true" />}
         </button>
@@ -1186,7 +1244,9 @@ function FileName({ name, selected, title }: { name: string; selected: boolean; 
       }}
       title={title}
     >
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+      <span
+        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}
+      >
         {head}
       </span>
       {tail && <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{tail}</span>}
@@ -1236,7 +1296,10 @@ function FileRowItem({
           type="checkbox"
           data-testid="source-row-checkbox"
           checked={checked}
-          onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+          onChange={(e) => {
+            e.stopPropagation();
+            onToggleCheck();
+          }}
           onClick={(e) => e.stopPropagation()}
           aria-label={t("sources.bulk.selectFile", { name: row.name })}
           style={{ flexShrink: 0, cursor: "pointer" }}
@@ -1244,20 +1307,14 @@ function FileRowItem({
       )}
 
       {/* Icon */}
-      <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>
-        {fileIcon(row.ext)}
-      </span>
+      <span style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}>{fileIcon(row.ext)}</span>
       {/* Name — middle-truncated so prefix + extension stay legible. The date moved
           into the tooltip so it no longer starves the (narrow) name column; the size
           stays inline as the one metric worth scanning at a glance. */}
       <FileName
         name={row.name}
         selected={selected}
-        title={
-          row.mtime !== undefined
-            ? `${row.path}\n${formatMtime(row.mtime)}`
-            : row.path
-        }
+        title={row.mtime !== undefined ? `${row.path}\n${formatMtime(row.mtime)}` : row.path}
       />
       {/* Size */}
       {row.size_bytes !== undefined && (
@@ -1281,7 +1338,10 @@ function FileRowItem({
               opacity: ingesting ? 0.5 : 1,
             }}
             disabled={ingesting}
-            onClick={(e) => { e.stopPropagation(); onIngest(row.path); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onIngest(row.path);
+            }}
             title={t("sources.ingest")}
             aria-label={`${t("sources.ingest")} ${row.name}`}
           >
@@ -1293,9 +1353,7 @@ function FileRowItem({
             data-testid="source-delete"
             style={{
               ...ACTION_BTN_BASE,
-              color: armed
-                ? "var(--syn-danger, #e53e3e)"
-                : "var(--syn-text-dim)",
+              color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
               background: armed
                 ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
                 : "transparent",
@@ -1306,11 +1364,16 @@ function FileRowItem({
               transition: "color 0.15s, background 0.15s",
             }}
             disabled={deleting}
-            onClick={(e) => { e.stopPropagation(); void onDelete(row.path); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              void onDelete(row.path);
+            }}
             title={armed ? t("sources.confirmDelete") : t("sources.delete")}
-            aria-label={armed
-              ? `${t("sources.confirmDelete")} ${row.name}`
-              : `${t("sources.delete")} ${row.name}`}
+            aria-label={
+              armed
+                ? `${t("sources.confirmDelete")} ${row.name}`
+                : `${t("sources.delete")} ${row.name}`
+            }
           >
             {armed ? t("sources.confirmDelete") : <Trash2 size={12} aria-hidden="true" />}
           </button>

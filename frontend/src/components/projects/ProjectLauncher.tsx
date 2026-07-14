@@ -50,26 +50,9 @@ const INPUT: CSSProperties = {
   boxSizing: "border-box",
 };
 
-const BTN: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "8px 14px",
-  border: "1px solid var(--syn-accent)",
-  background: "var(--syn-accent)",
-  color: "#fff",
-  borderRadius: 6,
-  fontSize: 13,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const GHOST_BTN: CSSProperties = {
-  ...BTN,
-  background: "var(--syn-surface)",
-  color: "var(--syn-text)",
-  border: "1px solid var(--syn-border)",
-};
+// Button constants consolidated into CSS classes (F1 slice):
+//   BTN       → .syn-btn.syn-btn--primary (filled accent, white text)
+//   GHOST_BTN → .syn-btn.syn-btn--secondary (ghost with border, muted text)
 
 const ROW: CSSProperties = {
   display: "flex",
@@ -189,7 +172,8 @@ export function ProjectLauncher() {
             <button
               type="button"
               data-testid="launcher-new-project-btn"
-              style={BTN}
+              className="syn-btn syn-btn--primary"
+              style={{ fontSize: 13, padding: "8px 14px" }}
               onClick={() => setShowNewWizard(true)}
             >
               <FolderPlus size={14} aria-hidden="true" />
@@ -213,7 +197,8 @@ export function ProjectLauncher() {
               <button
                 type="button"
                 data-testid="launcher-open"
-                style={{ ...GHOST_BTN, flexShrink: 0 }}
+                className="syn-btn syn-btn--secondary"
+                style={{ fontSize: 13, padding: "8px 14px", flexShrink: 0 }}
                 onClick={() => void handleOpen()}
                 disabled={!openPath.trim()}
               >

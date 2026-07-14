@@ -87,8 +87,7 @@ function ResearchStatusBadge({ status }: ResearchStatusBadgeProps) {
   const bg = RESEARCH_STATUS_BG[status] ?? "var(--syn-surface-hover)";
 
   const reducedMotion =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   return (
     <span
@@ -124,12 +123,7 @@ function ResearchStatusBadge({ status }: ResearchStatusBadgeProps) {
         }}
       />
       {label}
-      <style>{`
-        @keyframes synapse-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
+      {/* UXA-28: @keyframes synapse-pulse is declared globally in theme.css — no inline <style> needed */}
     </span>
   );
 }
@@ -268,10 +262,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
 
   if (error) {
     return (
-      <div
-        role="alert"
-        style={{ padding: 16, color: "var(--syn-red)", fontSize: 12 }}
-      >
+      <div role="alert" style={{ padding: 16, color: "var(--syn-red)", fontSize: 12 }}>
         {error}
       </div>
     );
@@ -310,7 +301,9 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <ResearchStatusBadge status={detail.status} />
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
-          {t("research.iterations")}: <strong style={{ color: "var(--syn-text)" }}>{detail.iterations_used}</strong>/{detail.max_iter}
+          {t("research.iterations")}:{" "}
+          <strong style={{ color: "var(--syn-text)" }}>{detail.iterations_used}</strong>/
+          {detail.max_iter}
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("research.cost")}:{" "}
@@ -319,16 +312,14 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
           </span>
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
-          {t("research.sources")}: <strong style={{ color: "var(--syn-text)" }}>{detail.sources_fetched}</strong>
+          {t("research.sources")}:{" "}
+          <strong style={{ color: "var(--syn-text)" }}>{detail.sources_fetched}</strong>
         </span>
       </div>
 
       {/* Error message */}
       {detail.error_message && (
-        <div
-          role="alert"
-          className="syn-section-notice syn-section-notice--danger"
-        >
+        <div role="alert" className="syn-section-notice syn-section-notice--danger">
           {detail.error_message}
         </div>
       )}
@@ -793,7 +784,8 @@ export function DeepSearchView() {
                 padding: "6px 16px",
                 border: "none",
                 borderRadius: 6,
-                background: !topic.trim() || starting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
+                background:
+                  !topic.trim() || starting ? "var(--syn-surface-hover)" : "var(--syn-accent)",
                 color: !topic.trim() || starting ? "var(--syn-text-dim)" : "#ffffff",
                 fontSize: 12,
                 fontWeight: 600,

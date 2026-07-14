@@ -87,13 +87,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       />
       {label}
 
-      {/* Inject keyframes once — harmless if duplicated in the head */}
-      <style>{`
-        @keyframes synapse-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
+      {/* UXA-28: @keyframes synapse-pulse is declared globally in theme.css — no inline <style> needed */}
     </span>
   );
 }

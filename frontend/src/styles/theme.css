@@ -963,3 +963,30 @@ button {
     animation: none;
   }
 }
+
+/* ── UXA-28: Global shared keyframes (moved from inline <style> tags) ─────────
+ * Components that need these animations reference them by name; no inline
+ * <style> injection needed. prefers-reduced-motion is the caller's responsibility.
+ *
+ * @keyframes synapse-pulse  — opacity pulse for "running" status dots (StatusBadge,
+ *                             DeepSearchView). Respects prefers-reduced-motion at the
+ *                             call site via animation: none override.
+ * @keyframes synapse-spin   — 360° rotation used in SourcesView loading spinner.
+ *                             Identical to syn-spin; separate name kept for callers
+ *                             already referencing "synapse-spin".
+ */
+@keyframes synapse-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes synapse-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

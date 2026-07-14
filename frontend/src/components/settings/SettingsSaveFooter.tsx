@@ -51,32 +51,16 @@ export function SettingsSaveFooter() {
       <button
         data-testid="settings-discard-btn"
         onClick={discardDraft}
-        style={{
-          padding: "7px 18px",
-          border: "1px solid var(--syn-border)",
-          borderRadius: "var(--syn-radius-sm, 6px)",
-          background: "var(--syn-surface)",
-          color: "var(--syn-text-muted)",
-          fontSize: 13,
-          cursor: "pointer",
-          fontWeight: 400,
-        }}
+        className="syn-btn syn-btn--ghost"
+        style={{ fontSize: 13, padding: "7px 18px" }}
       >
         {t("settings.footer.discard")}
       </button>
       <button
         data-testid="settings-save-btn"
         onClick={handleSave}
-        style={{
-          padding: "7px 20px",
-          border: "none",
-          borderRadius: "var(--syn-radius-sm, 6px)",
-          background: "var(--syn-accent)",
-          color: "#fff",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-        }}
+        className="syn-btn syn-btn--primary"
+        style={{ fontSize: 13, padding: "7px 20px" }}
       >
         {t("settings.footer.save")}
       </button>

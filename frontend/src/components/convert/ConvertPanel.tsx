@@ -26,14 +26,7 @@
  * No per-token heavy work; no layout algorithm (I2, I3).
  */
 
-import {
-  useRef,
-  useState,
-  useCallback,
-  useEffect,
-  type DragEvent,
-  type ChangeEvent,
-} from "react";
+import { useRef, useState, useCallback, useEffect, type DragEvent, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText,
@@ -296,7 +289,9 @@ export function ConvertPanel() {
     void doPoll();
 
     // Recurring poll
-    const id = setInterval(() => { void doPoll(); }, POLL_INTERVAL_MS);
+    const id = setInterval(() => {
+      void doPoll();
+    }, POLL_INTERVAL_MS);
 
     return () => {
       mounted = false;
@@ -548,9 +543,7 @@ export function ConvertPanel() {
   const showStartBtn = isDesktop && isOffline && !healthLoading;
 
   const pct =
-    pollStatus && pollStatus.total > 0
-      ? Math.round((pollStatus.done / pollStatus.total) * 100)
-      : 0;
+    pollStatus && pollStatus.total > 0 ? Math.round((pollStatus.done / pollStatus.total) * 100) : 0;
 
   const batchDone = pollStatus !== null && !pollStatus.running;
   const anyOk = batchDone && pollStatus.files.some((f) => f.status === "ok");
@@ -848,9 +841,7 @@ export function ConvertPanel() {
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--syn-text-muted)" }}>
           {t("convert.dropLabel")}
         </span>
-        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
-          {t("convert.dropHint")}
-        </span>
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>{t("convert.dropHint")}</span>
       </div>
 
       {/* ── Validation message ── */}
@@ -1139,9 +1130,7 @@ export function ConvertPanel() {
                         {f.detail}
                       </span>
                     ) : (
-                      <span>
-                        {t(`convert.status.${f.status === "ok" ? "done" : f.status}`)}
-                      </span>
+                      <span>{t(`convert.status.${f.status === "ok" ? "done" : f.status}`)}</span>
                     )}
                   </div>
                 </div>
@@ -1194,7 +1183,7 @@ export function ConvertPanel() {
             transition: "background 0.1s ease",
           }}
         >
-          {(submitting || converting) ? (
+          {submitting || converting ? (
             <Loader2
               size={14}
               aria-hidden="true"
@@ -1238,7 +1227,10 @@ export function ConvertPanel() {
 
       {/* ── Conversion history ── */}
       {history.length > 0 && (
-        <div data-testid="convert-history" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          data-testid="convert-history"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
           <div
             style={{
               display: "flex",
@@ -1336,8 +1328,7 @@ export function ConvertPanel() {
         </div>
       )}
 
-      {/* Keyframe for spinner (inline, scoped) */}
-      <style>{`@keyframes syn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
     </div>
   );
 }

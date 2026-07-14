@@ -17,6 +17,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { ChevronUp, ChevronDown } from "lucide-react";
 import { ProviderSelector } from "./provider/ProviderSelector";
 import { SynapseMark } from "./brand/SynapseMark";
 import { isTauri, getKnownServers } from "../api/base";
@@ -174,10 +175,12 @@ export function Header() {
             <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
               {serverHost}
             </span>
-            {/* caret */}
-            <span aria-hidden="true" style={{ fontSize: 9, marginLeft: 2 }}>
-              {dropdownOpen ? "▲" : "▼"}
-            </span>
+            {/* caret — UXA-25: Lucide icon instead of Unicode triangle */}
+            {dropdownOpen ? (
+              <ChevronUp size={9} aria-hidden="true" style={{ marginLeft: 2, flexShrink: 0 }} />
+            ) : (
+              <ChevronDown size={9} aria-hidden="true" style={{ marginLeft: 2, flexShrink: 0 }} />
+            )}
           </button>
 
           {/* Dropdown menu */}
@@ -286,6 +289,23 @@ export function Header() {
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+
+      {/* UXA-26: ⌘K hint — makes the command palette discoverable without restructuring IA.
+          aria-hidden: purely decorative; keyboard users discover it by tab-focus on palette. */}
+      <span
+        aria-hidden="true"
+        style={{
+          fontSize: 10,
+          color: "var(--syn-text-dim)",
+          opacity: 0.65,
+          userSelect: "none",
+          letterSpacing: "0.03em",
+          whiteSpace: "nowrap",
+          fontFamily: "var(--syn-font-mono)",
+        }}
+      >
+        {t("palette.trigger")}
+      </span>
 
       {/* Provider Selector (F17) */}
       <div className="app-header__provider-slot">

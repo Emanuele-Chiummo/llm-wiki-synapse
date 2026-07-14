@@ -1318,7 +1318,8 @@
     "noResults": "Nessun risultato",
     "sections": "Sezioni",
     "pages": "Pagine",
-    "hint": "↑↓ naviga · Invio apri · Esc chiudi"
+    "hint": "↑↓ naviga · Invio apri · Esc chiudi",
+    "trigger": "⌘K"
   },
   "conversation": {
     "autoTitle": {

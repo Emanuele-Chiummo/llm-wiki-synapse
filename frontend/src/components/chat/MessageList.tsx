@@ -598,17 +598,18 @@ function MessageRoleLabel({
   t: ReturnType<typeof useTranslation>["t"];
 }): ReactNode {
   const isUser = role === "user";
+  // UXA-08: use the shared .syn-role-label class (9px, text-dim, uppercase) so role
+  // labels are visually subordinate to message content. Border-left stripe provides the
+  // primary visual differentiator between turns (CVD-safe: doesn't rely on color alone).
+  // marginBottom and paddingLeft kept inline (layout, not appearance).
   return (
     <div
+      className="syn-role-label"
       style={{
-        fontSize: 9,
-        fontWeight: 600,
-        color: "var(--syn-text-dim)",
         marginBottom: 4,
-        letterSpacing: "0.04em",
         borderLeft: isUser
           ? "3px solid var(--syn-accent-soft)"
-          : "3px solid var(--syn-notice-success-bg, #dcfce7)",
+          : "3px solid var(--syn-notice-success-bg)",
         paddingLeft: 4,
       }}
     >
