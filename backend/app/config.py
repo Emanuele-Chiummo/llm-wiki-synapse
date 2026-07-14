@@ -459,6 +459,66 @@ class Settings(BaseSettings):
     behaviour). Env var: INGEST_GENERATION_SOURCE_CHAR_BUDGET.
     """
 
+    # ── ADR-0076: block-based orchestrated ingest (nashsu/llm_wiki v0.6.3 parity) ─
+    # The 1.7.0 block pipeline is a faithful port of llm_wiki's markdown-analysis +
+    # FILE/REVIEW-block generation contract. It sits BEHIND ``ingest_pipeline_format`` and
+    # is exercised only when that flag is "blocks"; the JSON loop (loop.py) stays the default
+    # so the flag is a pure rollback lever with zero blast radius until a later flip.
+
+    ingest_pipeline_format: str = "json"
+    """
+    Orchestrated-ingest pipeline selector (ADR-0076) — the 1.7.0 rollback lever. One of:
+
+      • "json"   — the existing two-step JSON loop (``loop.run_orchestrated_loop``): analyze →
+                   generate (JSON WikiPage list) → validate → augment & retry. DEFAULT.
+      • "blocks" — the nashsu/llm_wiki v0.6.3 block path (``block_loop.run_block_loop``):
+                   free-markdown analysis → FILE/REVIEW-block generation → block-specific
+                   validation → augment & retry, written via ``block_writer.write_block_page``
+                   (custom page types persist as the raw ``pages.type`` string).
+
+    Applies ONLY to the orchestrated (Local / API) route — the delegated/CLI route runs the
+    agent's own loop and ignores this flag. DEFAULT stays "json" until a later PR flips it, so
+    every existing test and deployment keeps the JSON behaviour unless explicitly opted in.
+    Read via ``config_overrides.effective_str`` (override-else-env). Env var:
+    INGEST_PIPELINE_FORMAT.
+    """
+
+    ingest_context_char_budget: int = 204_800
+    """
+    Block pipeline (ADR-0076) — total context budget in CHARACTERS (llm_wiki
+    ``context-budget.ts`` default maxContextSize 204800). Governs the generation ``max_tokens``
+    tier (8192 <128K, 16384 ≥128K, 24576 ≥256K, 32768 ≥512K chars) and the review-stage prompt's
+    internal section/index caps. Larger windows earn a higher generation ceiling; smaller ones
+    stay bounded (I7). Only consulted when ``ingest_pipeline_format`` == "blocks".
+    Env var: INGEST_CONTEXT_CHAR_BUDGET.
+    """
+
+    ingest_review_stage_min_chars: int = 10_000
+    """
+    Block pipeline (ADR-0076, llm_wiki ``shouldRunDedicatedReviewStage`` ingest.ts:2036) — the
+    dedicated review stage runs when the generation text is at least this many characters (OR when
+    the FILE-block count reaches ``ingest_review_stage_min_file_blocks``). Below both thresholds no
+    extra review call is made (I7 — cost control); inline ``---REVIEW:`` blocks in the generation
+    are still collected. Env var: INGEST_REVIEW_STAGE_MIN_CHARS.
+    """
+
+    ingest_review_stage_min_file_blocks: int = 4
+    """
+    Block pipeline (ADR-0076, llm_wiki ``shouldRunDedicatedReviewStage`` ingest.ts:2036) — the
+    dedicated review stage runs when the generation produced at least this many FILE blocks (OR the
+    generation text clears ``ingest_review_stage_min_chars``). Env var:
+    INGEST_REVIEW_STAGE_MIN_FILE_BLOCKS.
+    """
+
+    ingest_page_history_max_per_page: int = 20
+    """
+    Block pipeline (ADR-0076, llm_wiki ``.llm-wiki/page-history`` parity) — max on-disk backups
+    kept per page under ``<vault>/.synapse/page-history/`` before an overwrite. When
+    ``block_writer.write_block_page`` is about to overwrite an existing wiki file it first copies
+    the prior bytes to a deterministically-indexed backup; older backups beyond this cap are pruned
+    (oldest first). Bounds disk growth (I7). Env var: INGEST_PAGE_HISTORY_MAX_PER_PAGE.
+    """
+
     review_sweep_max_items: int = 200
     """
     Max pending missing-page/duplicate items processed by the sweep Pass-1 rule pass per run
