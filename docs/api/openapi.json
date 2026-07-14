@@ -1074,6 +1074,30 @@
         ]
       }
     },
+    "/ops/overview/regenerate": {
+      "post": {
+        "summary": "Regenerate overview.md (manual op, ADR-0078)",
+        "description": "Trigger a bounded, degrade-safe regeneration of vault/wiki/overview.md via the configured ingest provider. As of ADR-0078, overview.md is no longer auto-updated on every ingest; use this endpoint to refresh it on demand. Returns status='regenerated' on success or 'degraded' when the provider is unavailable (the previous overview.md is kept; this endpoint never fails the caller).",
+        "operationId": "regenerate_overview_endpoint_ops_overview_regenerate_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewRegenerateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/status": {
       "get": {
         "summary": "Service health + data_version",
@@ -9094,6 +9118,20 @@
         ],
         "title": "OutputLanguageResponse",
         "description": "Response for GET /vault/meta/output-language."
+      },
+      "OverviewRegenerateResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "OverviewRegenerateResponse",
+        "description": "200 response for POST /ops/overview/regenerate."
       },
       "PageContentPutRequest": {
         "properties": {

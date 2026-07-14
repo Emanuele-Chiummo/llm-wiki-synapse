@@ -1035,6 +1035,7 @@ from app.routers.graph import router as graph_router  # noqa: E402
 from app.routers.ingest import router as ingest_router  # noqa: E402
 from app.routers.lint import router as lint_router  # noqa: E402
 from app.routers.ops import router as ops_router  # noqa: E402
+from app.routers.ops_overview import router as ops_overview_router  # noqa: E402
 from app.routers.pages import router as pages_router  # noqa: E402
 from app.routers.research import router as research_router  # noqa: E402
 from app.routers.review import router as review_router  # noqa: E402
@@ -1044,6 +1045,7 @@ from app.routers.status import router as status_router  # noqa: E402
 from app.routers.vault_meta import router as vault_meta_router  # noqa: E402
 
 app.include_router(ops_router)
+app.include_router(ops_overview_router)  # ADR-0078: POST /ops/overview/regenerate
 app.include_router(status_router)
 app.include_router(pages_router)
 app.include_router(ingest_router)

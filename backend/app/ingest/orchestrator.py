@@ -1193,20 +1193,19 @@ async def append_log(
     title: str | None = None,
 ) -> None:
     """
-    Append one narrative, date-grouped entry to vault/wiki/log.md (K4, AC-K4-1).
+    Append one entry to vault/wiki/log.md (K4, AC-K4-1).
 
-    Format (nashsu/llm_wiki-aligned — still append-only AND machine-parseable):
+    Format (nashsu/llm_wiki §1.8 parity, ADR-0078):
 
-        ## 2026-07-06
+        ## [YYYY-MM-DD] ingest | Title
+        ## [YYYY-MM-DD] deleted | wiki/path/to/file.md
 
-        - 19:52:54Z · indexed · concept · [[Cloud Licensing]] — wiki/concepts/cloud-licensing.md
-        - 19:53:10Z · deleted · wiki/concepts/stale-page.md
-
-    A ``## YYYY-MM-DD`` header is written once per day (on day change); every call still
-    appends EXACTLY ONE ``- `` bullet (AC-K4-1). ``action`` is a lowercase verb
-    (``indexed`` | ``deleted``); ``page_type``/``title`` enrich the entry when known
-    (title → an Obsidian ``[[wikilink]]``). The ISO time + verb prefix keeps the line
-    parseable for incremental refresh (K4).
+    Each call appends EXACTLY ONE ``## [date] verb | subject`` section heading (AC-K4-1).
+    ``action`` is a lowercase verb (``indexed`` → written as "ingest" per llm_wiki parity;
+    ``deleted`` → written as "deleted"). ``title`` is the page display title for indexed
+    entries; ``rel_path`` is the fallback for deletions or when no title is available.
+    ``page_type`` is accepted for backward compatibility but not included in the output
+    (the llm_wiki format does not carry per-entry type metadata).
 
     File is opened in 'a' (append) mode — never truncated (AC-K4-2).
     Never writes to vault/raw/ (AC-K1-5).
@@ -1217,41 +1216,17 @@ async def append_log(
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text("---\ntype: log\ntitle: Synapse Ingest Log\n---\n\n", encoding="utf-8")
 
-    now = datetime.now(UTC)
-    day = now.strftime("%Y-%m-%d")
-    time_z = now.strftime("%H:%M:%SZ")
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
 
-    # Decide whether today's date header is already the most recent one. Read only the tail
-    # (cheap, O(1) per append) — a same-day header sits within the last few KB unless a single
-    # day logged hundreds of entries, in which case a duplicate header is merely cosmetic.
-    tail = ""
-    size = 0
-    try:
-        with log_path.open("rb") as fr:
-            fr.seek(0, 2)
-            size = fr.tell()
-            fr.seek(max(0, size - 16384))
-            tail = fr.read().decode("utf-8", errors="replace")
-    except OSError:
-        pass
-    last_header = ""
-    for ln in tail.splitlines():
-        if ln.startswith("## "):
-            last_header = ln
-    need_header = last_header != f"## {day}"
-    ends_blank = size == 0 or tail.endswith("\n\n")
-
-    # Compose the readable bullet. Title → wikilink + path; no title → path only (e.g. deletes).
-    subject = f"[[{title}]] — {rel_path}" if title else rel_path
-    segments = [time_z, action]
-    if page_type:
-        segments.append(page_type)
-    bullet = f"- {' · '.join(segments)} · {subject}\n"
+    # Map Synapse action to llm_wiki log verb: "indexed" → "ingest" (§1.8 parity).
+    # All other actions (e.g. "deleted") are written as-is.
+    verb = "ingest" if action == "indexed" else action
+    subject = title if title else rel_path
+    # llm_wiki format: ## [YYYY-MM-DD] ingest | Title  (one self-contained heading per entry)
+    entry = f"## [{day}] {verb} | {subject}\n"
 
     with log_path.open("a", encoding="utf-8") as f:
-        if need_header:
-            f.write(("" if ends_blank else "\n") + f"## {day}\n\n")
-        f.write(bullet)
+        f.write("\n" + entry)
 
 
 async def bump_version() -> None:

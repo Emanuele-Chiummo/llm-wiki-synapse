@@ -289,7 +289,9 @@ class TestB5AtomicIndexWrite:
 
         def _make_session(tag: str) -> MagicMock:
             mock_result = MagicMock()
-            mock_result.all.return_value = [(f"Page {tag}", "concept", f"wiki/concepts/{tag}.md")]
+            mock_result.all.return_value = [
+                (f"Page {tag}", "concept", f"wiki/concepts/{tag}.md", None)
+            ]
             mock_session = MagicMock()
             mock_session.execute = AsyncMock(return_value=mock_result)
             return mock_session
