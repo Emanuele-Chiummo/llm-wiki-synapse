@@ -1804,29 +1804,59 @@ const GraphLegend: React.FC<GraphLegendProps> = ({
       {!collapsed &&
         (colorMode === "type" ? (
           <>
-            {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1) */}
-            {Object.entries(TYPE_COLORS).map(([type, color]) => (
-              <div
-                key={type}
-                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
-              >
+            {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1).
+                Zero-count types are hidden so the legend lists only what's actually on the
+                canvas (no "Query 0 · Synthesis 0 · Comparison 0" noise). */}
+            {Object.entries(TYPE_COLORS)
+              .filter(([type]) => (countsByType[type] ?? 0) > 0)
+              .map(([type, color]) => (
+                <div
+                  key={type}
+                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
+                >
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                    }}
+                    aria-hidden="true"
+                  />
+                  {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
+                  <span
+                    style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}
+                  >
+                    {type}
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      color: "var(--syn-text-dim)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {countsByType[type] ?? 0}
+                  </span>
+                </div>
+              ))}
+            {otherCount > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <span
                   style={{
                     width: 9,
                     height: 9,
                     borderRadius: "50%",
-                    background: color,
+                    background: DEFAULT_NODE_COLOR,
                     flexShrink: 0,
                     boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
                   }}
                   aria-hidden="true"
                 />
-                {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
-                <span
-                  style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}
-                >
-                  {type}
-                </span>
+                <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
                 <span
                   style={{
                     marginLeft: "auto",
@@ -1835,34 +1865,10 @@ const GraphLegend: React.FC<GraphLegendProps> = ({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {countsByType[type] ?? 0}
+                  {otherCount}
                 </span>
               </div>
-            ))}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-              <span
-                style={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: "50%",
-                  background: DEFAULT_NODE_COLOR,
-                  flexShrink: 0,
-                  boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-                }}
-                aria-hidden="true"
-              />
-              <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontSize: 11,
-                  color: "var(--syn-text-dim)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {otherCount}
-              </span>
-            </div>
+            )}
           </>
         ) : (
           <>

@@ -188,6 +188,28 @@ export function typeColor(type: string): string {
   return pageTypeCssColor(type);
 }
 
+/**
+ * Color for a REVIEW item type (#5) — distinct from page-type colors: review types encode an
+ * action/severity, not a content category. Used for the chip on the dashboard review preview.
+ */
+function reviewTypeColor(itemType: string): string {
+  switch (itemType) {
+    case "contradiction":
+      return "var(--syn-danger)";
+    case "duplicate":
+      return "var(--syn-warn)";
+    case "confirm":
+      return "var(--syn-success)";
+    case "missing-page":
+      return "var(--syn-type-concept)";
+    case "purpose-suggestion":
+    case "schema-suggestion":
+      return "var(--syn-accent2)";
+    default: // suggestion, lint, and any future type
+      return "var(--syn-accent)";
+  }
+}
+
 function TypeBar({ pagesByType, total }: TypeBarProps) {
   if (total === 0) return null;
   const entries = Object.entries(pagesByType).filter(([, count]) => count > 0);
@@ -957,22 +979,28 @@ interface KpiCardProps {
   onClick?: () => void;
   /** Optional trend series rendered as a sparkline under the value. */
   sparkline?: number[] | undefined;
+  /**
+   * Semantic status of the metric (#2): "good" paints the value green (e.g. 0 lint = clean),
+   * "warn" paints it amber (e.g. open lint findings). Omitted = neutral / accent-driven.
+   */
+  tone?: "good" | "warn" | undefined;
 }
 
-function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: KpiCardProps) {
+function KpiCard({ icon, label, value, accent, testId, onClick, sparkline, tone }: KpiCardProps) {
   const tileClass = `syn-stat-tile${accent ? " syn-stat-tile--accent" : ""}`;
+  const toneColor =
+    tone === "good" ? "var(--syn-success)" : tone === "warn" ? "var(--syn-warn)" : undefined;
+  const iconColor = toneColor ?? (accent ? "var(--syn-accent)" : "var(--syn-text-dim)");
 
   const body = (
     <>
       <div className="syn-stat-tile__label">
-        <span
-          style={{ color: accent ? "var(--syn-accent)" : "var(--syn-text-dim)", flexShrink: 0 }}
-        >
-          {icon}
-        </span>
+        <span style={{ color: iconColor, flexShrink: 0 }}>{icon}</span>
         <span>{label}</span>
       </div>
-      <span className="syn-stat-tile__value">{value}</span>
+      <span className="syn-stat-tile__value" style={toneColor ? { color: toneColor } : undefined}>
+        {value}
+      </span>
       {sparkline && sparkline.length >= 2 && (
         <div style={{ marginTop: 4 }}>
           <Sparkline values={sparkline} />
@@ -1010,6 +1038,124 @@ function KpiCard({ icon, label, value, accent, testId, onClick, sparkline }: Kpi
       }}
     >
       {body}
+    </button>
+  );
+}
+
+// ─── Knowledge-composition hero (#1 hierarchy · #4 type-color identity) ─────────
+
+interface CompositionHeroProps {
+  pagesTotal: number;
+  pagesByType: Record<string, number>;
+  onClick?: () => void;
+}
+
+/**
+ * The dashboard's visual anchor: the total page count set large, above a full-width
+ * per-type composition bar (jewel tones) and an inline legend. This is what makes the Home
+ * read as a *colored knowledge graph* rather than a monochrome admin panel — the page-type
+ * palette that lives on the tree/graph/pages now previews here too.
+ */
+function CompositionHero({ pagesTotal, pagesByType, onClick }: CompositionHeroProps) {
+  const { t } = useTranslation();
+  const entries = Object.entries(pagesByType)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  const inner = (
+    <>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+        <span
+          style={{
+            fontSize: 30,
+            fontWeight: 650,
+            lineHeight: 1,
+            color: "var(--syn-text)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {pagesTotal}
+        </span>
+        <span
+          className="syn-eyebrow"
+          style={{ color: "var(--syn-text-muted)", letterSpacing: "0.06em" }}
+        >
+          {t("home.kpi.pagesTotal")}
+        </span>
+      </div>
+      {pagesTotal > 0 && <TypeBar pagesByType={pagesByType} total={pagesTotal} />}
+      {entries.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10 }}>
+          {entries.map(([type, n]) => (
+            <span
+              key={type}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: typeColor(type),
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  color: "var(--syn-text)",
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: 550,
+                }}
+              >
+                {n}
+              </span>
+              <span style={{ color: "var(--syn-text-dim)", textTransform: "capitalize" }}>
+                {type}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+
+  const shared: import("react").CSSProperties = {
+    padding: "16px 18px",
+    borderRadius: "var(--syn-radius-md)",
+    border: "1px solid var(--syn-border)",
+    background: "var(--syn-bg-soft)",
+    boxShadow: "var(--syn-shadow-soft)",
+    width: "100%",
+  };
+
+  if (!onClick) {
+    return (
+      <div data-testid="home-composition-hero" style={shared}>
+        {inner}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-testid="home-composition-hero"
+      onClick={onClick}
+      aria-label={t("home.kpi.pagesTotal")}
+      style={{
+        ...shared,
+        textAlign: "left",
+        cursor: "pointer",
+        transition: "border-color 0.12s ease",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-accent)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--syn-border)";
+      }}
+    >
+      {inner}
     </button>
   );
 }
@@ -1512,45 +1658,60 @@ function QuickActionsBlock({ setActiveSection }: QuickActionsBlockProps) {
       data-testid="home-quick-actions"
       style={{ display: "flex", gap: 10 }}
     >
-      {ACTIONS.map((action) => (
-        <button
-          key={action.section}
-          type="button"
-          data-testid={action.testId}
-          onClick={() => setActiveSection(action.section)}
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "10px 12px",
-            borderRadius: "var(--syn-radius-md)",
-            border: "1px solid var(--syn-border)",
-            background: "var(--syn-bg-soft)",
-            color: "var(--syn-text-muted)",
-            fontSize: 12,
-            fontWeight: 500,
-            cursor: "pointer",
-            transition: "border-color 0.1s ease, color 0.1s ease, background 0.1s ease",
-          }}
-          onMouseEnter={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "var(--syn-accent)";
-            el.style.color = "var(--syn-accent)";
-            el.style.background = "var(--syn-surface-hover)";
-          }}
-          onMouseLeave={(e) => {
-            const el = e.currentTarget as HTMLButtonElement;
-            el.style.borderColor = "var(--syn-border)";
-            el.style.color = "var(--syn-text-muted)";
-            el.style.background = "var(--syn-bg-soft)";
-          }}
-        >
-          {action.icon}
-          {action.label}
-        </button>
-      ))}
+      {ACTIONS.map((action) => {
+        // #3: the ingest action is the core loop → render it filled/primary so the eye lands
+        // on it; the other two stay as secondary outlined buttons.
+        const primary = action.section === "ingest";
+        return (
+          <button
+            key={action.section}
+            type="button"
+            data-testid={action.testId}
+            onClick={() => setActiveSection(action.section)}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "10px 12px",
+              borderRadius: "var(--syn-radius-md)",
+              border: `1px solid ${primary ? "var(--syn-accent)" : "var(--syn-border)"}`,
+              background: primary ? "var(--syn-accent)" : "var(--syn-bg-soft)",
+              color: primary ? "#fff" : "var(--syn-text-muted)",
+              fontSize: 12,
+              fontWeight: primary ? 600 : 500,
+              cursor: "pointer",
+              transition: "border-color 0.1s ease, color 0.1s ease, background 0.1s ease",
+            }}
+            onMouseEnter={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              if (primary) {
+                el.style.background = "var(--syn-accent-strong)";
+                el.style.borderColor = "var(--syn-accent-strong)";
+              } else {
+                el.style.borderColor = "var(--syn-accent)";
+                el.style.color = "var(--syn-accent)";
+                el.style.background = "var(--syn-surface-hover)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              const el = e.currentTarget as HTMLButtonElement;
+              if (primary) {
+                el.style.background = "var(--syn-accent)";
+                el.style.borderColor = "var(--syn-accent)";
+              } else {
+                el.style.borderColor = "var(--syn-border)";
+                el.style.color = "var(--syn-text-muted)";
+                el.style.background = "var(--syn-bg-soft)";
+              }
+            }}
+          >
+            {action.icon}
+            {action.label}
+          </button>
+        );
+      })}
     </section>
   );
 }
@@ -1711,14 +1872,22 @@ function ReviewPreviewBlock({ vaultId, reviewTotal, setActiveSection }: ReviewPr
                   >
                     {title}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 10,
-                      color: "var(--syn-text-dim)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {item.item_type}
+                  <div style={{ marginTop: 3 }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        letterSpacing: "0.02em",
+                        padding: "1px 7px",
+                        borderRadius: 999,
+                        color: reviewTypeColor(item.item_type),
+                        background: `color-mix(in srgb, ${reviewTypeColor(item.item_type)} 12%, transparent)`,
+                      }}
+                    >
+                      {item.item_type}
+                    </span>
                   </div>
                 </div>
                 {/* Action buttons (hidden once acted-on) */}
@@ -1731,11 +1900,13 @@ function ReviewPreviewBlock({ vaultId, reviewTotal, setActiveSection }: ReviewPr
                       onClick={() => handleAction(item.id, "create")}
                       style={{
                         fontSize: 10,
-                        padding: "2px 7px",
+                        fontWeight: 600,
+                        padding: "2px 9px",
                         borderRadius: 4,
-                        border: "1px solid var(--syn-border)",
-                        background: "transparent",
-                        color: "var(--syn-text-muted)",
+                        border: "1px solid var(--syn-accent)",
+                        background:
+                          state === "loading" ? "var(--syn-accent-soft)" : "var(--syn-accent)",
+                        color: state === "loading" ? "var(--syn-accent)" : "#fff",
                         cursor: state === "loading" ? "default" : "pointer",
                       }}
                     >
@@ -2564,8 +2735,19 @@ export function HomeDashboard() {
         onNavigateSynthesize={() => setActiveSection("pages")}
       />
 
-      {/* ── 3. KPI row ── */}
-      <section aria-label={t("home.kpi.ariaLabel")}>
+      {/* ── 3. KPI row — composition hero (#1/#4) + secondary metric grid ── */}
+      <section
+        aria-label={t("home.kpi.ariaLabel")}
+        style={{ display: "flex", flexDirection: "column", gap: 10 }}
+      >
+        {/* Hero: total pages + jewel-tone type-composition bar (replaces the flat "Pagine" card
+            and the redundant "Versione dati" card — data_version already lives in the status
+            strip + footer). */}
+        <CompositionHero
+          pagesTotal={overview.pages_total}
+          pagesByType={overview.pages_by_type}
+          onClick={() => setActiveSection("pages")}
+        />
         <div
           style={{
             display: "grid",
@@ -2573,12 +2755,6 @@ export function HomeDashboard() {
             gap: 10,
           }}
         >
-          <KpiCard
-            testId="kpi-pages-total"
-            icon={<FileText size={14} aria-hidden="true" />}
-            label={t("home.kpi.pagesTotal")}
-            value={overview.pages_total}
-          />
           <KpiCard
             testId="kpi-links-total"
             icon={<Link2 size={14} aria-hidden="true" />}
@@ -2597,14 +2773,21 @@ export function HomeDashboard() {
             label={t("home.kpi.reviewPending")}
             value={overview.review_pending}
             accent={overview.review_pending > 0}
+            tone={overview.review_pending === 0 ? "good" : undefined}
             onClick={() => setActiveSection("review")}
           />
           <KpiCard
             testId="kpi-lint-open"
-            icon={<AlertTriangle size={14} aria-hidden="true" />}
+            icon={
+              overview.lint_open === 0 ? (
+                <CheckCircle2 size={14} aria-hidden="true" />
+              ) : (
+                <AlertTriangle size={14} aria-hidden="true" />
+              )
+            }
             label={t("home.kpi.lintOpen")}
-            value={overview.lint_open}
-            accent={overview.lint_open > 0}
+            value={overview.lint_open === 0 ? t("home.kpi.lintClean") : overview.lint_open}
+            tone={overview.lint_open === 0 ? "good" : "warn"}
             onClick={() => setActiveSection("lint")}
           />
           <KpiCard
@@ -2613,12 +2796,6 @@ export function HomeDashboard() {
             label={t("home.kpi.monthlyCost")}
             value={formatCost(overview.monthly_cost_usd)}
             sparkline={costByDay ?? undefined}
-          />
-          <KpiCard
-            testId="kpi-data-version"
-            icon={<Database size={14} aria-hidden="true" />}
-            label={t("home.kpi.dataVersion")}
-            value={`v${overview.data_version}`}
           />
         </div>
       </section>

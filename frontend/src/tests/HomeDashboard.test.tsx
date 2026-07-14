@@ -35,12 +35,24 @@ import { render, screen, fireEvent, waitFor, act } from "@testing-library/react"
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -105,9 +117,26 @@ vi.mock("../api/researchClient", () => ({
 
 // ─── activityStore mock ───────────────────────────────────────────────────────
 
-const mockActivityCounts = { paused: false, pending: 0, processing: 0, failed: 0, completed_since_idle: 0, total: 0 };
-let mockActivityBatch: { running: boolean; done: number; total: number; eta_seconds: number | null } | null = null;
-let mockActivityTasks: Array<{ status: string; phase?: string | null; progress?: number | null; eta_seconds?: number | null }> = [];
+const mockActivityCounts = {
+  paused: false,
+  pending: 0,
+  processing: 0,
+  failed: 0,
+  completed_since_idle: 0,
+  total: 0,
+};
+let mockActivityBatch: {
+  running: boolean;
+  done: number;
+  total: number;
+  eta_seconds: number | null;
+} | null = null;
+let mockActivityTasks: Array<{
+  status: string;
+  phase?: string | null;
+  progress?: number | null;
+  eta_seconds?: number | null;
+}> = [];
 
 vi.mock("../store/activityStore", () => ({
   useActivityCounts: () => mockActivityCounts,
@@ -190,12 +219,27 @@ vi.mock("../api/costsClient", () => ({
 
 // ─── Imports after mocks ──────────────────────────────────────────────────────
 
-import { getStatsOverview, getStatsSections, getStatsGroups, getBackfillDomainStatus, getSynthesizeStatus } from "../api/statsClient";
+import {
+  getStatsOverview,
+  getStatsSections,
+  getStatsGroups,
+  getBackfillDomainStatus,
+  getSynthesizeStatus,
+} from "../api/statsClient";
 import { fetchResearchRuns } from "../api/researchClient";
 import { getHealthDetailed } from "../api/healthClient";
 import { fetchPageBySlug, fetchPageContent, fetchPages } from "../api/pagesClient";
-import { fetchReviewQueue, createReviewItem, skipReviewItem, deepResearchReviewItem } from "../api/reviewClient";
-import { triggerBackfillDomains, triggerReclassifyTypes, triggerSynthesize } from "../api/opsClient";
+import {
+  fetchReviewQueue,
+  createReviewItem,
+  skipReviewItem,
+  deepResearchReviewItem,
+} from "../api/reviewClient";
+import {
+  triggerBackfillDomains,
+  triggerReclassifyTypes,
+  triggerSynthesize,
+} from "../api/opsClient";
 import type { StatsOverview, StatsSections, StatsGroups } from "../api/statsClient";
 import type { DetailedHealth } from "../api/healthClient";
 import type { ResearchRunListResponse, ReviewItem, PageListItem } from "../api/types";
@@ -335,7 +379,8 @@ const MOCK_OVERVIEW_PAGE_CONTENT = {
   id: "ov-001",
   title: "Overview",
   file_path: "wiki/overview.md",
-  content: "# Overview\n\n**Central thesis**: Knowledge is power when well organised.\n\nSome other paragraph.",
+  content:
+    "# Overview\n\n**Central thesis**: Knowledge is power when well organised.\n\nSome other paragraph.",
   content_hash: "abc123def456",
   updated_at: "2026-07-10T00:00:00Z",
 };
@@ -593,7 +638,11 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     mockGetBackfillDomainStatus.mockResolvedValue(null);
     mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders the main dashboard container after loading", async () => {
@@ -601,10 +650,11 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     expect(screen.getByTestId("home-dashboard")).not.toBeNull();
   });
 
-  it("renders pages-total KPI card with correct count", async () => {
+  it("renders the pages-total composition hero with correct count", async () => {
     await renderDashboard();
-    const card = screen.getByTestId("kpi-pages-total");
-    expect(card.textContent).toContain("128");
+    // Pages total now anchors the composition hero (was the kpi-pages-total card).
+    const hero = screen.getByTestId("home-composition-hero");
+    expect(hero.textContent).toContain("128");
   });
 
   it("renders links-total KPI card with correct count", async () => {
@@ -637,11 +687,8 @@ describe("HomeDashboard — KPI cards (AC-R12-1-5a)", () => {
     expect(card.textContent).toContain("$1.84");
   });
 
-  it("renders data-version KPI card", async () => {
-    await renderDashboard();
-    const card = screen.getByTestId("kpi-data-version");
-    expect(card.textContent).toContain("57");
-  });
+  // data-version is no longer a KPI card (removed as redundant — it lives in the system-status
+  // strip + footer). Its presence there is covered by the home-status-data-version test.
 
   it("renders recent activity list", async () => {
     await renderDashboard();
@@ -763,7 +810,11 @@ describe("HomeDashboard — groups grid (A3)", () => {
     mockGetBackfillDomainStatus.mockResolvedValue(null);
     mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
-    try { localStorage.clear(); } catch { /* ignore */ }
+    try {
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders the groups section when groups are available", async () => {
@@ -1052,7 +1103,11 @@ describe("HomeDashboard — section card click navigation (AC-R12-1-7)", () => {
     mockGetBackfillDomainStatus.mockResolvedValue(null);
     mockGetSynthesizeStatus.mockResolvedValue(null);
     mockFetchResearchRuns.mockResolvedValue(EMPTY_RESEARCH_RUNS);
-    try { localStorage.clear(); } catch { /* ignore */ }
+    try {
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("clicking a domain section card calls setActiveSection('pages')", async () => {
@@ -1111,7 +1166,11 @@ describe("HomeDashboard — 404 backend placeholder", () => {
 describe("VersionMismatchBanner — version mismatch (R12-3 AC-R12-3-5)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("shows banner when backendVersion differs from __APP_VERSION__", () => {
@@ -1754,9 +1813,7 @@ describe("HomeDashboard — WS-C: ingest progress bar (AC-WS-C-1/2/3/5/6)", () =
   it("progress bar NOT rendered when no batch and no tasks with progress", async () => {
     mockActivityCounts.processing = 1;
     mockActivityBatch = null;
-    mockActivityTasks = [
-      { status: "processing", phase: null, progress: null, eta_seconds: null },
-    ];
+    mockActivityTasks = [{ status: "processing", phase: null, progress: null, eta_seconds: null }];
     await renderDashboard();
     await waitFor(() => {
       // Ingest row is present
@@ -1782,7 +1839,11 @@ describe("HomeDashboard v1.5 — regression guard (pre-existing sections must re
     mockActivityCounts.processing = 0;
     mockActivityBatch = null;
     mockActivityTasks = [];
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("STATO DEL SISTEMA block still renders (home-system-status)", async () => {
@@ -1790,16 +1851,16 @@ describe("HomeDashboard v1.5 — regression guard (pre-existing sections must re
     expect(screen.getByTestId("home-system-status")).not.toBeNull();
   });
 
-  it("all 7 KPI cards still render", async () => {
+  it("the composition hero + 5 secondary KPI cards render", async () => {
     await renderDashboard();
+    // Pages total → composition hero; data-version dropped (redundant). The rest stay as cards.
+    expect(screen.getByTestId("home-composition-hero")).not.toBeNull();
     const kpiIds = [
-      "kpi-pages-total",
       "kpi-links-total",
       "kpi-communities",
       "kpi-review-pending",
       "kpi-lint-open",
       "kpi-monthly-cost",
-      "kpi-data-version",
     ];
     for (const id of kpiIds) {
       expect(screen.getByTestId(id), `KPI ${id} should still be present`).not.toBeNull();
@@ -1828,7 +1889,11 @@ describe("HomeDashboard v1.5 — WikiThesisBlock (wikiThesis)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders wiki thesis block when overview.md contains a Central thesis line", async () => {
@@ -1874,7 +1939,11 @@ describe("HomeDashboard v1.5 — QuickActionsBlock (quickActions)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders the three quick-action buttons", async () => {
@@ -1909,7 +1978,11 @@ describe("HomeDashboard v1.5 — ReviewPreviewBlock (reviewPreview)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders review items when queue returns items", async () => {
@@ -1958,7 +2031,9 @@ describe("HomeDashboard v1.5 — ReviewPreviewBlock (reviewPreview)", () => {
     });
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.queryByTestId(`home-review-action-create-${MOCK_REVIEW_ITEMS[0]!.id}`)).not.toBeNull();
+      expect(
+        screen.queryByTestId(`home-review-action-create-${MOCK_REVIEW_ITEMS[0]!.id}`),
+      ).not.toBeNull();
     });
     fireEvent.click(screen.getByTestId(`home-review-action-create-${MOCK_REVIEW_ITEMS[0]!.id}`));
     await waitFor(() => {
@@ -1975,7 +2050,9 @@ describe("HomeDashboard v1.5 — ReviewPreviewBlock (reviewPreview)", () => {
     });
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.queryByTestId(`home-review-action-skip-${MOCK_REVIEW_ITEMS[0]!.id}`)).not.toBeNull();
+      expect(
+        screen.queryByTestId(`home-review-action-skip-${MOCK_REVIEW_ITEMS[0]!.id}`),
+      ).not.toBeNull();
     });
     fireEvent.click(screen.getByTestId(`home-review-action-skip-${MOCK_REVIEW_ITEMS[0]!.id}`));
     await waitFor(() => {
@@ -1992,7 +2069,9 @@ describe("HomeDashboard v1.5 — ReviewPreviewBlock (reviewPreview)", () => {
     });
     await renderDashboard();
     await waitFor(() => {
-      expect(screen.queryByTestId(`home-review-action-research-${MOCK_REVIEW_ITEMS[0]!.id}`)).not.toBeNull();
+      expect(
+        screen.queryByTestId(`home-review-action-research-${MOCK_REVIEW_ITEMS[0]!.id}`),
+      ).not.toBeNull();
     });
     fireEvent.click(screen.getByTestId(`home-review-action-research-${MOCK_REVIEW_ITEMS[0]!.id}`));
     await waitFor(() => {
@@ -2007,7 +2086,11 @@ describe("HomeDashboard v1.5 — OpenQuestionsBlock (openQuestions)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders query pages when fetchPages returns items of type query", async () => {
@@ -2047,7 +2130,11 @@ describe("HomeDashboard v1.5 — DataQualityNudge (dataQuality)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders nudge banner when undomained pages exist (untagged section > 0)", async () => {
@@ -2120,7 +2207,11 @@ describe("HomeDashboard v1.5.3 — SynthesizeNudge (synthesize)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupDefaultMocks();
-    try { sessionStorage.clear(); } catch { /* ignore */ }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
   });
 
   it("renders the nudge when the corpus has >=3 entity/concept pages and no run is in flight", async () => {

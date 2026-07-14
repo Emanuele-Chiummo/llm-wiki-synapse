@@ -1624,6 +1624,7 @@
       "communities": "Communities",
       "reviewPending": "Review",
       "lintOpen": "Lint",
+      "lintClean": "Clean",
       "monthlyCost": "Monthly spend",
       "dataVersion": "Data version"
     },

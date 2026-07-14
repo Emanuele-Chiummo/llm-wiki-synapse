@@ -79,6 +79,7 @@
   --syn-success: var(--syn-green);
   --syn-error: var(--syn-red);
   --syn-danger: var(--syn-red);
+  --syn-warn: var(--syn-amber); /* semantic amber for "needs attention" states (theme-adaptive) */
   --syn-accent2: #7c3aed;
   --syn-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
