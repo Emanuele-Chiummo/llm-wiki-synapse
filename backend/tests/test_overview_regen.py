@@ -144,6 +144,33 @@ def _patch_provider(monkeypatch: pytest.MonkeyPatch, provider: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_overview_honors_vault_output_language(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-0081: the per-vault output_language drives the overview language, ahead of content
+    detection — an `it` vault built from English pages must still get an Italian overview
+    directive (regression for the gap where _update_overview ignored vault_state.output_language).
+    """
+    async with api_env["session_factory"]() as sess:
+        await sess.execute(
+            sa_text("UPDATE vault_state SET output_language='it' WHERE vault_id='test-vault'")
+        )
+        await sess.commit()
+
+    captured: dict[str, str] = {}
+
+    class _CapturingProvider(_FakeOverviewProvider):
+        async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+            captured["system"] = system
+            return await super().complete(system, prompt, max_tokens=max_tokens)
+
+    _patch_provider(monkeypatch, _CapturingProvider("Panoramica del dominio."))
+    await orch._update_overview(None, ORIGIN)
+
+    assert "MANDATORY OUTPUT LANGUAGE: Italian (it)" in captured.get("system", "")
+
+
+@pytest.mark.asyncio
 async def test_overview_regen_overwrites_not_appends(
     api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

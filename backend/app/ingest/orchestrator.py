@@ -431,10 +431,19 @@ async def _update_overview(analysis: Analysis | None, origin_source: str) -> Non
         # Italian user reading English source material wants an Italian overview regardless of
         # the content's detected language. Falls back to analysis/detected language otherwise.
         from app.config_overrides import effective_str  # noqa: PLC0415
+        from app.ingest.pipeline import _vault_output_language  # noqa: PLC0415
 
         _effective_overview_lang = effective_str("overview_language", settings.overview_language)
+        # F3/ADR-0081: the per-vault output_language (set at onboarding, drives ingest generation)
+        # must also drive the overview — otherwise a vault set to Italian but built from English
+        # sources gets an English overview (the *detected* language of its pages). Priority:
+        # explicit overview_language override → per-vault output_language → this run's analysis
+        # language → content detection.
+        _vault_output_lang = await _vault_output_language()
         if _effective_overview_lang:
             overview_lang: str | None = _effective_overview_lang
+        elif _vault_output_lang:
+            overview_lang = _vault_output_lang
         elif analysis is not None and getattr(analysis, "language", None):
             overview_lang = analysis.language
         else:
