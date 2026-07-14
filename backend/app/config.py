@@ -352,10 +352,13 @@ class Settings(BaseSettings):
     REVIEW_PROPOSE_WRITTEN_PAGES_CHARS.
     """
 
-    review_propose_timeout_seconds: float = 30.0
+    review_propose_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single proposal provider call (ADR-0034 §4.3, I7).
     On timeout → emit only the rule-based proposals (degrade, never fail ingest).
+    Sized for the CLI provider: a single ``complete()`` spawns a `claude` subprocess whose
+    cold-start + generation routinely exceeds 30s; fast API/Ollama providers return well under
+    this ceiling, so the larger default only affects a genuinely-slow/hung call (degrade-safe).
     Env var: REVIEW_PROPOSE_TIMEOUT_SECONDS.
     """
 
@@ -552,13 +555,14 @@ class Settings(BaseSettings):
     OVERVIEW_TOKEN_BUDGET.
     """
 
-    overview_timeout_seconds: float = 90.0
+    overview_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single overview regeneration provider call (F3, I7). On
     timeout the previous overview.md is kept (degrade, never fail ingest). The old 30 s default
     was too tight for the CLI (claude-agent-sdk) route on a large vault (agent startup + a
-    200-title structured prompt), so every regen timed out and the overview stayed stale. 90 s
-    gives the CLI room to finish. Env var: OVERVIEW_TIMEOUT_SECONDS.
+    200-title structured prompt), so every regen timed out and the overview stayed stale. 120 s
+    (aligned with the review sweep/propose ceilings) gives the CLI's single ``complete()``
+    subprocess room to finish. Env var: OVERVIEW_TIMEOUT_SECONDS.
     """
 
     review_sweep_llm_enabled: bool = True
@@ -589,10 +593,13 @@ class Settings(BaseSettings):
     provider row carries none. Env var: REVIEW_SWEEP_LLM_TOKEN_BUDGET.
     """
 
-    review_sweep_timeout_seconds: float = 30.0
+    review_sweep_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single sweep Pass-2 provider call (ADR-0034 §6.3, I7).
     On timeout / ambiguity → keep ALL pending (default-to-keep, Do-NOT #7).
+    Sized for the CLI provider: a single ``complete()`` spawns a `claude` subprocess whose
+    cold-start + generation routinely exceeds 30s; fast API/Ollama providers return well under
+    this ceiling, so the larger default only affects a genuinely-slow/hung call (degrade-safe).
     Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
     """
 
