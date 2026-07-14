@@ -141,6 +141,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0079** | [WS-C Review parity: drain-sweep, stub-create, block-review enqueue (v1.7.0) — `onQueueDrained` drain callback replaces per-run sweep; `create_page_from_review(mode="stub")` default; REVIEW blocks → review_items; `_detect_page_type` port](ADR-0079-review-parity.md) | Accepted |
 | **0080** | [Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, `proposal_origin="lint"` review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change](ADR-0080-lint-parity-assessment.md) | Accepted |
 | **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](ADR-0081-onboarding-wizard-and-output-language.md) | Accepted |
+| **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](ADR-0083-parity-e2e-harness.md) | Accepted |
 
 ---
 
