@@ -33,8 +33,7 @@ import { renderMarkdown } from "../../chat/renderMarkdown";
 export const VISIBLE_MAX = 10;
 
 /** GitHub Releases URL for the "full history" footer link. */
-const GITHUB_RELEASES_URL =
-  "https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases";
+const GITHUB_RELEASES_URL = "https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,10 +144,7 @@ export function SectionChangelog() {
 
   return (
     <div data-testid="section-changelog">
-      <SectionHeader
-        title={t("settings.changelog.title")}
-        desc={t("settings.changelog.desc")}
-      />
+      <SectionHeader title={t("settings.changelog.title")} desc={t("settings.changelog.desc")} />
 
       {/* ── Loading ── */}
       {fetchState.status === "loading" && (
@@ -163,11 +159,7 @@ export function SectionChangelog() {
           <p style={{ fontSize: 12, color: "var(--syn-text-dim)", marginBottom: 12 }}>
             {t("settings.changelog.unavailable")}
           </p>
-          <button
-            onClick={load}
-            style={BTN_SECONDARY}
-            data-testid="changelog-refresh-btn"
-          >
+          <button onClick={load} style={BTN_SECONDARY} data-testid="changelog-refresh-btn">
             {t("settings.changelog.refresh")}
           </button>
         </div>
@@ -231,23 +223,17 @@ export function SectionChangelog() {
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        fontFamily: "monospace",
+                        fontFamily: "var(--syn-font-mono)",
                         letterSpacing: "0.03em",
                         padding: "2px 7px",
                         borderRadius: 4,
                         flexShrink: 0,
-                        background: isUnreleased
-                          ? "var(--syn-accent-soft)"
-                          : "var(--syn-surface)",
-                        color: isUnreleased
-                          ? "var(--syn-accent)"
-                          : "var(--syn-text-muted)",
+                        background: isUnreleased ? "var(--syn-accent-soft)" : "var(--syn-surface)",
+                        color: isUnreleased ? "var(--syn-accent)" : "var(--syn-text-muted)",
                         border: `1px solid ${isUnreleased ? "var(--syn-accent)" : "var(--syn-border)"}`,
                       }}
                     >
-                      {isUnreleased
-                        ? t("settings.changelog.unreleased")
-                        : `v${entry.version}`}
+                      {isUnreleased ? t("settings.changelog.unreleased") : `v${entry.version}`}
                     </span>
 
                     {/* Date */}
@@ -330,11 +316,7 @@ export function SectionChangelog() {
           </p>
 
           {/* Refresh */}
-          <button
-            onClick={load}
-            style={BTN_SECONDARY}
-            data-testid="changelog-refresh-btn"
-          >
+          <button onClick={load} style={BTN_SECONDARY} data-testid="changelog-refresh-btn">
             {t("settings.changelog.refresh")}
           </button>
         </div>

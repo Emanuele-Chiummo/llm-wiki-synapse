@@ -186,7 +186,7 @@ function StatusIcon({ status }: { status: ConvertFileStatus | "pending" }) {
         <CheckCircle2
           size={ICON_SIZE}
           aria-hidden="true"
-          style={{ color: "var(--syn-success, #22c55e)", flexShrink: 0 }}
+          style={{ color: "var(--syn-green)", flexShrink: 0 }}
         />
       );
     case "failed":
@@ -194,7 +194,7 @@ function StatusIcon({ status }: { status: ConvertFileStatus | "pending" }) {
         <XCircle
           size={ICON_SIZE}
           aria-hidden="true"
-          style={{ color: "var(--syn-error, #ef4444)", flexShrink: 0 }}
+          style={{ color: "var(--syn-red)", flexShrink: 0 }}
         />
       );
   }
@@ -603,9 +603,9 @@ export function ConvertPanel() {
             }}
           />
         ) : isOffline ? (
-          <WifiOff size={14} aria-hidden="true" style={{ color: "var(--syn-error, #ef4444)" }} />
+          <WifiOff size={14} aria-hidden="true" style={{ color: "var(--syn-red)" }} />
         ) : (
-          <Wifi size={14} aria-hidden="true" style={{ color: "var(--syn-success, #22c55e)" }} />
+          <Wifi size={14} aria-hidden="true" style={{ color: "var(--syn-green)" }} />
         )}
         <span
           data-testid="marker-status-badge"
@@ -615,8 +615,8 @@ export function ConvertPanel() {
             color: healthLoading
               ? "var(--syn-text-dim)"
               : isOffline
-                ? "var(--syn-error, #ef4444)"
-                : "var(--syn-success, #22c55e)",
+                ? "var(--syn-red)"
+                : "var(--syn-green)",
           }}
         >
           {healthLoading
@@ -733,7 +733,7 @@ export function ConvertPanel() {
               background: "var(--syn-surface-sunken)",
               color: "var(--syn-text)",
               fontSize: 12,
-              fontFamily: "monospace",
+              fontFamily: "var(--syn-font-mono)",
             }}
           />
           <div style={{ display: "flex", gap: 8 }}>
@@ -783,7 +783,7 @@ export function ConvertPanel() {
         <p
           role="alert"
           data-testid="start-marker-error"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
         >
           {markerStartError}
         </p>
@@ -848,7 +848,7 @@ export function ConvertPanel() {
       {validationMsg && (
         <p
           role="alert"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
           data-testid="convert-validation-msg"
         >
           {validationMsg}
@@ -860,7 +860,7 @@ export function ConvertPanel() {
         <p
           role="alert"
           data-testid="convert-submit-error"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
         >
           {submitError}
         </p>
@@ -1059,7 +1059,7 @@ export function ConvertPanel() {
                     </div>
                     {f.status === "failed" && f.detail && (
                       <div
-                        style={{ fontSize: 11, color: "var(--syn-error, #ef4444)", marginTop: 1 }}
+                        style={{ fontSize: 11, color: "var(--syn-red)", marginTop: 1 }}
                         data-testid="convert-file-error"
                       >
                         {f.detail}
@@ -1123,10 +1123,7 @@ export function ConvertPanel() {
                   </div>
                   <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 1 }}>
                     {f.status === "failed" && f.detail ? (
-                      <span
-                        style={{ color: "var(--syn-error, #ef4444)" }}
-                        data-testid="convert-file-error"
-                      >
+                      <span style={{ color: "var(--syn-red)" }} data-testid="convert-file-error">
                         {f.detail}
                       </span>
                     ) : (
@@ -1219,7 +1216,7 @@ export function ConvertPanel() {
 
         {/* Offline note */}
         {isOffline && !healthLoading && hasPending && (
-          <span role="note" style={{ fontSize: 11, color: "var(--syn-error, #ef4444)" }}>
+          <span role="note" style={{ fontSize: 11, color: "var(--syn-red)" }}>
             {t("convert.markerOfflineTooltip")}
           </span>
         )}
@@ -1273,13 +1270,13 @@ export function ConvertPanel() {
                   <CheckCircle2
                     size={13}
                     aria-hidden="true"
-                    style={{ color: "var(--syn-success, #22c55e)", flexShrink: 0 }}
+                    style={{ color: "var(--syn-green)", flexShrink: 0 }}
                   />
                 ) : (
                   <XCircle
                     size={13}
                     aria-hidden="true"
-                    style={{ color: "var(--syn-error, #ef4444)", flexShrink: 0 }}
+                    style={{ color: "var(--syn-red)", flexShrink: 0 }}
                   />
                 )}
                 <span

@@ -369,13 +369,16 @@ function ProposalMetadata({ item, t }: ProposalMetadataProps) {
  */
 const STATUS_BADGE_STYLE: Partial<Record<ReviewItemStatus, { color: string; bg: string }>> = {
   auto_resolved: {
-    color: "#2563eb",
-    bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)",
+    color: "var(--syn-accent)",
+    bg: "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-mix-base) 90%)",
   },
-  created: { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" },
+  created: {
+    color: "var(--syn-green)",
+    bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)",
+  },
   deep_researched: {
-    color: "#9a6700",
-    bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)",
+    color: "var(--syn-amber)",
+    bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
   },
   skipped: { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
   dismissed: { color: "var(--syn-text-dim)", bg: "var(--syn-surface-hover)" },
@@ -1868,7 +1871,7 @@ export function ReviewQueueView() {
             <span
               style={{
                 marginLeft: 6,
-                fontFamily: "monospace",
+                fontFamily: "var(--syn-font-mono)",
                 fontSize: 11,
                 color: "var(--syn-text-muted)",
               }}

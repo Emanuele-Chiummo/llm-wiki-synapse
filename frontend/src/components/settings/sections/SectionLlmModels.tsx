@@ -506,7 +506,7 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
                 margin: "0 0 5px",
                 fontSize: 11,
                 color: "var(--syn-text-dim)",
-                fontFamily: "monospace",
+                fontFamily: "var(--syn-font-mono)",
               }}
             >
               {vendorConfig.api_key_masked}
@@ -592,7 +592,7 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
                   color: sel ? "var(--syn-accent)" : "var(--syn-text-muted)",
                   fontSize: 11,
                   cursor: "pointer",
-                  fontFamily: "monospace",
+                  fontFamily: "var(--syn-font-mono)",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -981,7 +981,9 @@ export function SectionLlmModels() {
         <div style={{ marginBottom: 12 }}>
           <ErrorState
             title={t("settings.llmModels.vendorLoadError")}
-            onRetry={() => { void fetchVendorCatalog(); }}
+            onRetry={() => {
+              void fetchVendorCatalog();
+            }}
             error={vendorsError ?? providerError}
           />
         </div>
