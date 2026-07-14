@@ -461,24 +461,26 @@ class Settings(BaseSettings):
 
     # ── ADR-0076: block-based orchestrated ingest (nashsu/llm_wiki v0.6.3 parity) ─
     # The 1.7.0 block pipeline is a faithful port of llm_wiki's markdown-analysis +
-    # FILE/REVIEW-block generation contract. It sits BEHIND ``ingest_pipeline_format`` and
-    # is exercised only when that flag is "blocks"; the JSON loop (loop.py) stays the default
-    # so the flag is a pure rollback lever with zero blast radius until a later flip.
+    # FILE/REVIEW-block generation contract. As of 1.7.0 it is the DEFAULT ("blocks"); the
+    # legacy JSON loop (loop.py) remains reachable via ``ingest_pipeline_format="json"`` as a
+    # pure rollback lever (slated for removal in 1.8). The 1:1 E2E vs llm_wiki confirmed the
+    # block path reaches 12/12 parity bands where the JSON/delegated path dangled wikilinks.
 
-    ingest_pipeline_format: str = "json"
+    ingest_pipeline_format: str = "blocks"
     """
     Orchestrated-ingest pipeline selector (ADR-0076) — the 1.7.0 rollback lever. One of:
 
-      • "json"   — the existing two-step JSON loop (``loop.run_orchestrated_loop``): analyze →
-                   generate (JSON WikiPage list) → validate → augment & retry. DEFAULT.
       • "blocks" — the nashsu/llm_wiki v0.6.3 block path (``block_loop.run_block_loop``):
                    free-markdown analysis → FILE/REVIEW-block generation → block-specific
                    validation → augment & retry, written via ``block_writer.write_block_page``
-                   (custom page types persist as the raw ``pages.type`` string).
+                   (custom page types persist as the raw ``pages.type`` string). DEFAULT.
+      • "json"   — the legacy two-step JSON loop (``loop.run_orchestrated_loop``): analyze →
+                   generate (JSON WikiPage list) → validate → augment & retry. Rollback only.
 
-    Applies ONLY to the orchestrated (Local / API) route — the delegated/CLI route runs the
-    agent's own loop and ignores this flag. DEFAULT stays "json" until a later PR flips it, so
-    every existing test and deployment keeps the JSON behaviour unless explicitly opted in.
+    In "blocks" mode ALL providers — Local, API, AND the agentic CLI — run the block loop via
+    ``provider.complete()`` (llm_wiki drives its CLI as a TEXT transport, not an agent loop). The
+    delegated/CLI agent loop is used ONLY in "json" mode, where its wikilinks can dangle because
+    the agent does not materialise every page it links (the exact gap the 1:1 E2E surfaced).
     Read via ``config_overrides.effective_str`` (override-else-env). Env var:
     INGEST_PIPELINE_FORMAT.
     """

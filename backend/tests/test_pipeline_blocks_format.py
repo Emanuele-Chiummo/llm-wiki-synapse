@@ -436,11 +436,36 @@ async def test_blocks_format_writes_custom_type_and_wikilinks(
     assert {r.target_title for r in rows} == {"Acme Corp"}
 
 
-async def test_default_json_format_still_writes_pages(
+async def test_default_format_is_blocks_without_override(
     pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # No ingest_pipeline_format override → the default "json" loop path runs unchanged.
+    # 1.7.0 flip (config.py): with NO ingest_pipeline_format override the DEFAULT is now "blocks".
+    # A provider with complete() runs the block loop, so the blocks-only custom "thesis" type lands.
+    # This guards the default flip itself (the JSON loop would never write a `thesis` page).
     assert "ingest_pipeline_format" not in config_overrides._cache
+
+    provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
+
+    result = await orch.run_ingest_pipeline(
+        provider_config_row=object(),
+        source_text="The Acme Corp report describes measurable market outcomes.",
+        origin_source=ORIGIN,
+        abs_source=ABS_SOURCE,
+    )
+
+    assert result.route == "orchestrated"
+    assert result.converged is True
+    thesis = await _load_page(pipeline_env, "wiki/thesis/core-thesis.md")
+    assert thesis is not None and thesis.page_type == "thesis"
+
+
+async def test_json_format_rollback_still_writes_pages(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # ingest_pipeline_format="json" (the 1.7.0 rollback lever; "blocks" is now the default) →
+    # the legacy JSON loop path runs unchanged.
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
 
     provider = _JsonProvider()
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)

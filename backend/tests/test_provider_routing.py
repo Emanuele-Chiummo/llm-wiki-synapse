@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
+import app.config_overrides as config_overrides
 import app.ingest.orchestrator as orch
 import pytest
 from app.ingest.provider.base import InferenceProvider
@@ -125,6 +126,18 @@ class _Row:
         self.max_iter = 3
         self.token_budget = 60_000
         self.is_fallback = False
+
+
+@pytest.fixture(autouse=True)
+def _pin_json_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the JSON rollback format for this module.
+
+    These tests verify the legacy JSON/delegated routing contract (analyze/generate calls,
+    agentic→delegated). The 1.7.0 default is "blocks", which routes EVERY provider through the
+    block loop via ``complete()`` and so would change the routes under test. The block-default
+    itself is guarded in test_pipeline_blocks_format.py.
+    """
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
 
 
 @pytest.fixture()
