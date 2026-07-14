@@ -27,6 +27,7 @@ import {
   selectClearServerUrl,
   selectSetServerUrl,
 } from "../store/settingsStore";
+import { useGraphStore, selectActiveSection } from "../store/graphStore";
 import { useDesktopZoom } from "../hooks/useDesktopZoom";
 import { PRODUCT_IDENTITY } from "../config/productIdentity";
 
@@ -35,6 +36,7 @@ export function Header() {
   const serverUrl = useSettingsStore(selectServerUrl);
   const clearServerUrl = useSettingsStore(selectClearServerUrl);
   const setServerUrl = useSettingsStore(selectSetServerUrl);
+  const activeSection = useGraphStore(selectActiveSection);
   const inTauri = isTauri();
 
   // Register Cmd/Ctrl +/-/0 zoom shortcuts (Tauri-only, no-op in browser)
@@ -132,6 +134,28 @@ export function Header() {
           }}
         >
           v{__APP_VERSION__}
+        </span>
+      </div>
+
+      {/* Section breadcrumb — shows the active section name as topbar context [F2 v1.7.0] */}
+      <div
+        aria-hidden="true"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          color: "var(--syn-text-dim)",
+          fontFamily: "var(--syn-font-mono)",
+          fontSize: 11,
+          userSelect: "none",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span style={{ opacity: 0.5 }}>/</span>
+        <span style={{ color: "var(--syn-text-muted)", fontWeight: 500 }}>
+          {t(
+            `nav.${activeSection === "pages" ? "wiki" : activeSection === "deep-search" ? "deepSearch" : activeSection}`,
+          )}
         </span>
       </div>
 
@@ -290,22 +314,44 @@ export function Header() {
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* UXA-26: ⌘K hint — makes the command palette discoverable without restructuring IA.
-          aria-hidden: purely decorative; keyboard users discover it by tab-focus on palette. */}
-      <span
+      {/* UXA-26: ⌘K search affordance — bordered pill that looks interactive [v1.7.0 refinement].
+          aria-hidden: purely decorative; keyboard users discover it via tab-focus on palette.
+          Matches mockup .cmdk style: border, rounded, mono ⌘K kbd hint on right. */}
+      <div
         aria-hidden="true"
         style={{
-          fontSize: 10,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          height: 28,
+          padding: "0 10px",
+          minWidth: 180,
+          border: "1px solid var(--syn-border)",
+          borderRadius: "var(--syn-radius-sm)",
+          background: "var(--syn-bg-soft)",
           color: "var(--syn-text-dim)",
-          opacity: 0.65,
+          fontSize: 12,
           userSelect: "none",
-          letterSpacing: "0.03em",
           whiteSpace: "nowrap",
-          fontFamily: "var(--syn-font-mono)",
+          cursor: "default",
         }}
       >
-        {t("palette.trigger")}
-      </span>
+        <span style={{ flex: 1, opacity: 0.7 }}>{t("palette.searchHint")}</span>
+        <kbd
+          style={{
+            marginLeft: "auto",
+            fontFamily: "var(--syn-font-mono)",
+            fontSize: 10,
+            color: "var(--syn-text-dim)",
+            background: "var(--syn-surface-hover)",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 4,
+            padding: "1px 5px",
+          }}
+        >
+          {t("palette.trigger")}
+        </kbd>
+      </div>
 
       {/* Provider Selector (F17) */}
       <div className="app-header__provider-slot">

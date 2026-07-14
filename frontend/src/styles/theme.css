@@ -395,6 +395,22 @@ select:focus-visible {
   color: var(--syn-text) !important;
 }
 
+/* Active item: 3px accent left bar (v1.7.0 redesign — matches mockup .ic.on::before).
+ * Rendered as a ::before pseudo-element so it doesn't affect button layout or padding.
+ * The button has position: relative (set inline), so this is anchored to the button edge.
+ * left: 0 puts the bar flush with the button's left edge, inside the rail (no clip). */
+.nav-rail__item--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--syn-accent);
+  pointer-events: none;
+}
+
 /* Keep utility navigation reachable when the app window is shorter than the
  * complete rail. Primary destinations scroll; Settings/Projects remain pinned. */
 .nav-rail__scroll {

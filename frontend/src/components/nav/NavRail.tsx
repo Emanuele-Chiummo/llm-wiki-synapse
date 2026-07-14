@@ -1,30 +1,22 @@
 /**
  * NavRail.tsx — persistent ~72px left icon rail with persistent text labels.
  *
- * Order (top → bottom):
- *   Logo (branding, non-nav)
- *   Chat · Wiki · Sources · Search · Graph  (TOP_ITEMS)
- *   [separator]
- *   Lint · Review · Deep Search · Ingest    (M5_ITEMS)
+ * v1.7.0 — Three labelled groups (WS-F slice F2):
+ *   MAKE  (nav.group.create)  : Home · Sources · Chat · Convert
+ *   SEE   (nav.group.understand): Wiki · Graph · Search · Deep Research
+ *   TEND  (nav.group.maintain): Review · Lint · Ingest
  *   [spacer]
- *   Settings  (pinned bottom)
+ *   Settings · Projects (pinned bottom)
+ *
+ * Active item visual: --syn-accent-soft background + --syn-accent icon color
+ *   + 3px accent left bar (::before in theme.css .nav-rail__item--active).
  *
  * Rail/section decision [F11 / v0.6]:
  *   - "sources" (FolderOpen icon, nav.sources label) → raw-source file browser (SourcesView).
  *   - "ingest"  (Activity icon, nav.ingest label) → ingest run-history / cost ledger (IngestView).
- *     IngestView is now in the secondary M5 group so the ingest cost ledger remains reachable.
- *   - This keeps the TOP_ITEMS group at 5 user-facing actions (unchanged item count).
- *
- * CHANGE v0.6-SEARCH: Search added to rail between Sources and Graph (F5/llm_wiki parity).
- * CHANGE v0.6-SOURCES [F11]: "Sources" rail item now maps to "sources" section (SourcesView);
- *   "Ingest" item moved to M5 group pointing to "ingest" section (IngestView run-history).
- *
- * CHANGE F1-HARD-NAV-LABELS: rail widened to 72px; each button renders the icon
- * SVG with a <span> caption below it (10px, centered, truncate with ellipsis).
- * Button height increased to 52px to accommodate icon + label.
  *
  * INVARIANT I3: reads activeSection (scalar) + setActiveSection only from graphStore.
- * i18n: all labels are translation keys.
+ * i18n: all labels are translation keys; group labels use nav.group.{create,understand,maintain}.
  *
  * Icons: lucide-react tree-shaken named imports [F1].
  * Icon size: 20px; inactive color var(--syn-text-dim); active var(--syn-accent).
@@ -65,50 +57,55 @@ interface RailItem {
 }
 
 /**
- * Active items. Home at the top slot freed by R11-3 logo removal [F18][R12-1].
- * Search between Sources and Graph (llm_wiki parity, F5/v0.6).
- * "sources" now maps to SourcesView (file browser) — [F11 / v0.6].
+ * MAKE group — creation-oriented destinations.
+ * Home · Sources · Chat · Convert [F2 / v1.7.0]
  */
-const TOP_ITEMS: RailItem[] = [
+const GROUP_CREATE: RailItem[] = [
   { id: "home", icon: <House size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.home" },
-  { id: "chat", icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
-  { id: "pages", icon: <FileText size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
   {
     id: "sources",
     icon: <FolderOpen size={ICON_SIZE} aria-hidden="true" />,
     labelKey: "nav.sources",
   },
-  { id: "search", icon: <Search size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
-  { id: "graph", icon: <Share2 size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
+  { id: "chat", icon: <MessageSquare size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.chat" },
+  {
+    id: "convert",
+    icon: <FileDown size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.convert",
+  },
 ];
 
 /**
- * M5_ITEMS — Lint (K2), Review (F9), Deep Search (F10), Ingest run-history (cost ledger),
- * and Convert (F12/R11-1) — dedicated Marker PDF conversion surface [R11-1 A1].
- * "ingest" kept here so the cost ledger is always reachable — [F11 / v0.6].
+ * SEE group — knowledge-exploration destinations.
+ * Wiki · Graph · Search · Deep Research [F2 / v1.7.0]
  */
-const M5_ITEMS: RailItem[] = [
+const GROUP_UNDERSTAND: RailItem[] = [
+  { id: "pages", icon: <FileText size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.wiki" },
+  { id: "graph", icon: <Share2 size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.graph" },
+  { id: "search", icon: <Search size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.search" },
   {
-    id: "lint",
-    icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />,
-    labelKey: "nav.lint",
+    id: "deep-search",
+    icon: <Globe size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.deepSearch",
   },
+];
+
+/**
+ * TEND group — maintenance + curation destinations.
+ * Review · Lint · Ingest [F2 / v1.7.0]
+ */
+const GROUP_MAINTAIN: RailItem[] = [
   {
     id: "review",
     icon: <ListChecks size={ICON_SIZE} aria-hidden="true" />,
     labelKey: "nav.review",
   },
   {
-    id: "deep-search",
-    icon: <Globe size={ICON_SIZE} aria-hidden="true" />,
-    labelKey: "nav.deepSearch",
+    id: "lint",
+    icon: <ClipboardCheck size={ICON_SIZE} aria-hidden="true" />,
+    labelKey: "nav.lint",
   },
   { id: "ingest", icon: <Activity size={ICON_SIZE} aria-hidden="true" />, labelKey: "nav.ingest" },
-  {
-    id: "convert",
-    icon: <FileDown size={ICON_SIZE} aria-hidden="true" />,
-    labelKey: "nav.convert",
-  },
 ];
 
 const BOTTOM_ITEMS: RailItem[] = [
@@ -150,8 +147,7 @@ export function NavRail() {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLElement>) => {
-      // Only iterate currently-rendered items (M5_ITEMS is empty in M4)
-      const allItems = [...TOP_ITEMS, ...M5_ITEMS, ...BOTTOM_ITEMS];
+      const allItems = [...GROUP_CREATE, ...GROUP_UNDERSTAND, ...GROUP_MAINTAIN, ...BOTTOM_ITEMS];
       const currentIdx = allItems.findIndex((i) => i.id === activeSection);
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
@@ -192,90 +188,37 @@ export function NavRail() {
           first nav button is not flush against the rail edge. */}
 
       <div className="nav-rail__scroll">
-        {/* Top items */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            alignItems: "center",
-            width: "100%",
-          }}
-        >
-          {TOP_ITEMS.map((item) => (
-            <RailButton
-              key={item.id}
-              item={item}
-              isActive={item.id === activeSection}
-              badge={0}
-              label={t(item.labelKey)}
-              onClick={() => handleItemClick(item)}
-            />
-          ))}
-        </div>
+        {/* MAKE group — Home · Sources · Chat · Convert */}
+        <RailGroup
+          labelKey="nav.group.create"
+          items={GROUP_CREATE}
+          activeSection={activeSection}
+          getBadge={() => 0}
+          t={t}
+          onItemClick={handleItemClick}
+        />
 
-        {/* M5 items (Lint + Review + Deep Search + Ingest run-history) */}
-        {M5_ITEMS.length > 0 && (
-          <>
-            {/* Full-width divider + group label (UXA-01) */}
-            <div
-              style={{
-                width: "100%",
-                height: 1,
-                background: "var(--syn-border)",
-                margin: "4px 0 0",
-              }}
-            />
-            <span
-              aria-hidden="true"
-              style={{
-                fontSize: 9,
-                fontWeight: 600,
-                // Tightened + width-constrained so "STRUMENTI" fits the ~64px rail
-                // instead of clipping to "TRUMENT" at the edges.
-                letterSpacing: "0.02em",
-                textTransform: "uppercase",
-                color: "var(--syn-text-dim)",
-                opacity: 0.7,
-                padding: "2px 2px",
-                maxWidth: "100%",
-                textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                userSelect: "none",
-              }}
-            >
-              {t("nav.toolsGroup")}
-            </span>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-                alignItems: "center",
-                width: "100%",
-              }}
-            >
-              {M5_ITEMS.map((item) => (
-                <RailButton
-                  key={item.id}
-                  item={item}
-                  isActive={item.id === activeSection}
-                  badge={
-                    item.id === "ingest"
-                      ? runningCount
-                      : item.id === "review"
-                        ? (reviewPending ?? 0)
-                        : 0
-                  }
-                  label={t(item.labelKey)}
-                  onClick={() => handleItemClick(item)}
-                />
-              ))}
-            </div>
-          </>
-        )}
+        {/* SEE group — Wiki · Graph · Search · Deep Research */}
+        <RailGroup
+          labelKey="nav.group.understand"
+          items={GROUP_UNDERSTAND}
+          activeSection={activeSection}
+          getBadge={() => 0}
+          t={t}
+          onItemClick={handleItemClick}
+        />
+
+        {/* TEND group — Review · Lint · Ingest */}
+        <RailGroup
+          labelKey="nav.group.maintain"
+          items={GROUP_MAINTAIN}
+          activeSection={activeSection}
+          getBadge={(id) =>
+            id === "ingest" ? runningCount : id === "review" ? (reviewPending ?? 0) : 0
+          }
+          t={t}
+          onItemClick={handleItemClick}
+        />
       </div>
 
       {/* Bottom items (pinned) */}
@@ -292,6 +235,82 @@ export function NavRail() {
         ))}
       </div>
     </nav>
+  );
+}
+
+// ─── Rail group ───────────────────────────────────────────────────────────────
+
+interface RailGroupProps {
+  labelKey: string;
+  items: RailItem[];
+  activeSection: Section;
+  getBadge: (id: string) => number;
+  t: (key: string) => string;
+  onItemClick: (item: RailItem) => void;
+}
+
+/**
+ * RailGroup — renders a labelled group of rail items.
+ * Group label: small uppercase mono text (aria-hidden, decorative).
+ * Separator: 1px --syn-border line before the label.
+ */
+function RailGroup({ labelKey, items, activeSection, getBadge, t, onItemClick }: RailGroupProps) {
+  return (
+    <>
+      {/* 1px separator above each group */}
+      <div
+        style={{
+          width: "calc(100% - 16px)",
+          height: 1,
+          background: "var(--syn-border)",
+          margin: "6px 8px 2px",
+        }}
+      />
+      {/* Group label: uppercase mono, muted, aria-hidden */}
+      <span
+        aria-hidden="true"
+        style={{
+          fontFamily: "var(--syn-font-mono)",
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "0.10em",
+          textTransform: "uppercase",
+          color: "var(--syn-text-dim)",
+          opacity: 0.75,
+          padding: "0 4px 2px",
+          maxWidth: "100%",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          userSelect: "none",
+          display: "block",
+        }}
+      >
+        {t(labelKey)}
+      </span>
+      {/* Items */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          alignItems: "center",
+          width: "100%",
+        }}
+      >
+        {items.map((item) => (
+          <RailButton
+            key={item.id}
+            item={item}
+            isActive={item.id === activeSection}
+            badge={getBadge(item.id)}
+            label={t(item.labelKey)}
+            onClick={() => onItemClick(item)}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -326,18 +345,16 @@ function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) 
         height: 52,
         border: "none",
         borderRadius: "var(--syn-radius-md)",
-        // Active: accent-soft bg + accent color; inactive: transparent + dim text
+        // Active: accent-soft bg + accent color; inactive: transparent + dim text.
+        // The 3px left accent bar is rendered via .nav-rail__item--active::before in theme.css.
         background: isActive ? "var(--syn-accent-soft)" : "transparent",
         color: isActive ? "var(--syn-accent)" : "var(--syn-text-dim)",
         cursor: "pointer",
         padding: "6px 4px 4px",
         gap: 3,
         transition: "background 0.1s ease, color 0.1s ease",
-        // Active: persistent accent ring as a visual state indicator (not focus ring).
-        // Inactive: no override → :focus-visible from theme.css supplies the keyboard ring (UXA-05).
-        outline: isActive
-          ? `1px solid color-mix(in srgb, var(--syn-accent) 20%, transparent 80%)`
-          : undefined,
+        // No inline outline override — :focus-visible from theme.css supplies the keyboard
+        // ring for ALL buttons (UXA-05). Never set outline: none here.
       }}
     >
       {item.icon}

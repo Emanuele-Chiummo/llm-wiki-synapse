@@ -52,7 +52,6 @@ import {
   MessageSquare,
   Target,
   FileCog,
-  X,
   type LucideIcon,
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -113,6 +112,7 @@ import {
   selectSelectPage,
 } from "../../store/graphStore";
 import { EmptyState } from "../common/EmptyState";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import type {
   PageType,
   ReviewItem,
@@ -171,33 +171,46 @@ function formatRelativeTime(value: string, lang: string): string {
 // color values are concrete hex so the bg alpha tint can be inline-computed.
 // These match --syn-green, --syn-amber, --syn-red + --syn-type-* tokens.
 
-// UXA-03: use var(--syn-mix-base) instead of literal white so dark-mode color-mix
-// resolves against the dark surface rather than #ffffff. Token defined in ADR-0048 / theme.css.
+// Token-based item-type colors (v1.7.0 — replaces hardcoded hex).
+// Each item type maps to the nearest --syn-type-* or semantic token.
+// color-mix() with var() tokens is valid in modern browsers (CSS Color 5).
+// --syn-mix-base resolves to white (light) or dark surface (dark) per ADR-0048.
 const ITEM_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  // v1.3.14 icon-colour parity with llm_wiki 0.6.0: missing-page=purple, suggestion=green.
+  // missing-page → concept violet (closest to llm_wiki's purple #8250df)
   "missing-page": {
-    color: "#8250df",
-    bg: "color-mix(in srgb, #8250df 10%, var(--syn-mix-base) 90%)",
-  }, // purple — llm_wiki missing-page
-  suggestion: { color: "#1a7f37", bg: "color-mix(in srgb, #1a7f37 10%, var(--syn-mix-base) 90%)" }, // green — llm_wiki suggestion
-  // llm_wiki review-view.tsx:28-30 parity: contradiction=amber, duplicate=blue (was red/teal).
+    color: "var(--syn-type-concept)",
+    bg: "color-mix(in srgb, var(--syn-type-concept) 10%, var(--syn-mix-base) 90%)",
+  },
+  // suggestion → success green (llm_wiki #1a7f37 ≈ --syn-green)
+  suggestion: {
+    color: "var(--syn-green)",
+    bg: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)",
+  },
+  // contradiction → query amber (llm_wiki #d97706 ≈ --syn-type-query)
   contradiction: {
-    color: "#d97706",
-    bg: "color-mix(in srgb, #d97706 10%, var(--syn-mix-base) 90%)",
-  }, // amber — llm_wiki contradiction
-  duplicate: { color: "#3b82f6", bg: "color-mix(in srgb, #3b82f6 10%, var(--syn-mix-base) 90%)" }, // blue — llm_wiki duplicate
-  // confirm: llm_wiki uses neutral foreground (near-black); Synapse keeps the brand accent per the
-  // never-black brand policy (substitute --syn-accent for llm_wiki black elements). Flagged for review.
-  confirm: { color: "#2563eb", bg: "color-mix(in srgb, #2563eb 10%, var(--syn-mix-base) 90%)" }, // --syn-accent (brand never-black)
-  // R5 — real bug fix: backend may emit these two types; previously fell to grey fallback.
+    color: "var(--syn-type-query)",
+    bg: "color-mix(in srgb, var(--syn-type-query) 10%, var(--syn-mix-base) 90%)",
+  },
+  // duplicate → entity blue (llm_wiki #3b82f6 = --syn-type-entity)
+  duplicate: {
+    color: "var(--syn-type-entity)",
+    bg: "color-mix(in srgb, var(--syn-type-entity) 10%, var(--syn-mix-base) 90%)",
+  },
+  // confirm → brand accent (never-black brand policy: substitute --syn-accent)
+  confirm: {
+    color: "var(--syn-accent)",
+    bg: "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-mix-base) 90%)",
+  },
+  // purpose-suggestion → amber (purpose-level semantic)
   "purpose-suggestion": {
-    color: "#9a6700",
-    bg: "color-mix(in srgb, #9a6700 10%, var(--syn-mix-base) 90%)",
-  }, // --syn-amber (purpose-level suggestion)
+    color: "var(--syn-amber)",
+    bg: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
+  },
+  // schema-suggestion → synthesis indigo (structural/schema semantic)
   "schema-suggestion": {
-    color: "#0969da",
-    bg: "color-mix(in srgb, #0969da 10%, var(--syn-mix-base) 90%)",
-  }, // --syn-blue (schema-level suggestion)
+    color: "var(--syn-type-synthesis)",
+    bg: "color-mix(in srgb, var(--syn-type-synthesis) 10%, var(--syn-mix-base) 90%)",
+  },
 };
 
 // R1 — Per-type Lucide icon mapping (llm_wiki parity).
@@ -480,7 +493,10 @@ function ActionButton({
       borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)",
     },
     skip: { color: "var(--syn-text-muted)", borderColor: "var(--syn-border)" },
-    dismiss: { color: "var(--syn-text-dim)", borderColor: "var(--syn-border)" },
+    dismiss: {
+      color: "var(--syn-red)",
+      borderColor: "color-mix(in srgb, var(--syn-red) 30%, var(--syn-border) 70%)",
+    },
     "deep-research": {
       color: "var(--syn-accent)",
       borderColor: "color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%)",
@@ -526,6 +542,21 @@ function ActionButton({
   );
 }
 
+/**
+ * Returns a short evidence string for the decision-trace row (v1.7.0).
+ * Priority: conflicting page_title → first referenced page → first search query → "—".
+ */
+function getTraceEvidence(item: ReviewItem): string {
+  if (item.page_title != null) return item.page_title;
+  if (item.referenced_pages != null && item.referenced_pages.length > 0) {
+    return item.referenced_pages.map((p) => p.title).join(", ");
+  }
+  if (item.search_queries != null && item.search_queries.length > 0) {
+    return item.search_queries[0] ?? "—";
+  }
+  return "—";
+}
+
 // ─── Review item row (virtualised, variable height) ────────────────────────
 
 interface ReviewRowProps {
@@ -569,6 +600,9 @@ function ReviewRow({
   t,
   lang,
 }: ReviewRowProps) {
+  // Dismiss confirm dialog state (UXA-10 — irreversible action guard)
+  const [showDismissConfirm, setShowDismissConfirm] = useState(false);
+
   const isAnyInFlight = inFlight !== null && inFlight !== undefined;
   const isCreating = inFlight === "create";
   const isApproving = inFlight === "approve";
@@ -741,11 +775,12 @@ function ReviewRow({
     );
   }
 
-  // ── Pending card (full actionable card) ──────────────────────────────────────
-  // llm_wiki review-view.tsx card parity: discrete rounded/bordered card with a soft shadow,
-  // vertical spacing between cards (via the wrapper's bottom padding — measured by the
-  // virtualizer so heights stay correct), a larger bold title, and a MULTI-LINE description
-  // (no single-line ellipsis truncation). Replaces the previous dense flat-row layout.
+  // ── Pending card (decision-trace card, v1.7.0) ─────────────────────────────
+  // Structure: .r-top (checkbox + page-type badge + title + rationale + metadata)
+  //           → .trace (4 labelled mono steps)
+  //           → data rows (conflict · referenced pages · search queries · error)
+  //           → .r-actions (Create/Approve primary · Deep Research · Skip · [spacer] · Dismiss danger)
+  //           → ConfirmDialog (conditional — UXA-10 irreversible-dismiss guard)
   return (
     <div
       ref={measureRef}
@@ -755,7 +790,6 @@ function ReviewRow({
       className="review-card-wrapper"
       style={{
         ...style,
-        // Horizontal gutter + bottom gap between cards (the airy llm_wiki list rhythm).
         padding: "0 16px 10px",
         boxSizing: "border-box",
       }}
@@ -780,7 +814,7 @@ function ReviewRow({
           gap: 8,
         }}
       >
-        {/* Row 1: checkbox + type icon + proposed_title + timestamp + ✕ dismiss (R1, R3) */}
+        {/* .r-top: checkbox + page-type badge + content (title + rationale + metadata) */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
           <input
             type="checkbox"
@@ -795,7 +829,8 @@ function ReviewRow({
               marginTop: 3,
             }}
           />
-          {/* R1: coloured Lucide icon instead of text pill; label in title + sr-only */}
+          {/* Item-type badge: coloured Lucide icon using --syn-type-* tokens (F3 v1.7.0).
+              proposed_page_type is shown in the .trace row below — not duplicated here. */}
           <span style={{ marginTop: 1, flexShrink: 0 }}>
             <ItemTypeIcon itemType={item.item_type} t={t} />
           </span>
@@ -812,6 +847,19 @@ function ReviewRow({
             >
               {item.proposed_title ?? item.page_title ?? t("review.noTitle")}
             </span>
+            {/* Rationale (why this matters) — multi-line, no truncation */}
+            <div
+              style={{
+                fontSize: 12.5,
+                lineHeight: 1.5,
+                color: item.rationale ? "var(--syn-text-muted)" : "var(--syn-border)",
+                fontStyle: item.rationale ? "normal" : "italic",
+                overflowWrap: "anywhere",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {item.rationale ?? t("review.noRationale")}
+            </div>
             <ProposalMetadata item={item} t={t} />
           </div>
           <span
@@ -826,59 +874,69 @@ function ReviewRow({
           >
             {relativeTime}
           </span>
-          {/* R3: ✕ dismiss at top-right of card header (llm_wiki parity) */}
-          <button
-            data-testid="review-action-dismiss"
-            onClick={() => onDismiss(item.id)}
-            disabled={isAnyInFlight}
-            aria-label={t("review.dismiss")}
-            title={t("review.dismiss")}
-            style={{
-              flexShrink: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 22,
-              height: 22,
-              padding: 0,
-              border: "none",
-              borderRadius: "var(--syn-radius-sm)",
-              background: "transparent",
-              color: "var(--syn-text-dim)",
-              cursor: isAnyInFlight ? "not-allowed" : "pointer",
-              opacity: isAnyInFlight ? 0.4 : 0.6,
-            }}
-            onMouseEnter={(e) => {
-              if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "1";
-            }}
-            onMouseLeave={(e) => {
-              if (!isAnyInFlight) (e.currentTarget as HTMLElement).style.opacity = "0.6";
-            }}
-          >
-            <X size={14} aria-hidden="true" />
-          </button>
         </div>
 
-        {/* Row 2: rationale (why this matters) — MULTI-LINE (llm_wiki parity, no truncation) */}
+        {/* .trace: 4 labelled mono steps — origin · evidence · proposed type · search */}
         <div
           style={{
-            fontSize: 12.5,
-            lineHeight: 1.5,
-            color: item.rationale ? "var(--syn-text-muted)" : "var(--syn-border)",
-            fontStyle: item.rationale ? "normal" : "italic",
-            overflowWrap: "anywhere",
-            whiteSpace: "pre-wrap",
+            display: "flex",
+            alignItems: "stretch",
+            flexWrap: "wrap",
+            background: "var(--syn-surface-sunken)",
+            border: "1px solid var(--syn-border)",
+            borderRadius: "var(--syn-radius-sm)",
+            overflow: "hidden",
+            fontSize: 11,
           }}
         >
-          {item.rationale ?? t("review.noRationale")}
+          {[
+            { key: "origin", value: item.proposal_origin ?? "legacy" },
+            { key: "evidence", value: getTraceEvidence(item) },
+            { key: "proposedType", value: item.proposed_page_type ?? "—" },
+            { key: "search", value: item.search_queries?.[0] ?? "—" },
+          ].map((step, idx) => (
+            <div
+              key={step.key}
+              style={{
+                flex: "1 1 80px",
+                padding: "5px 8px",
+                borderLeft: idx > 0 ? "1px solid var(--syn-border)" : "none",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: "var(--syn-font-mono)",
+                  fontSize: 9,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "var(--syn-text-dim)",
+                  marginBottom: 2,
+                }}
+              >
+                {t(`review.trace.${step.key}`)}
+              </div>
+              <div
+                style={{
+                  color: "var(--syn-text-muted)",
+                  overflowWrap: "anywhere",
+                  lineHeight: 1.35,
+                  maxHeight: "2.7em",
+                  overflow: "hidden",
+                }}
+              >
+                {step.value}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Row 3: conflict page (contradiction / duplicate) */}
+        {/* Conflict page (contradiction / duplicate) */}
         {showConflictPage && (
           <div
             style={{
               fontSize: 11,
-              color: "var(--syn-type-concept)", // --syn-type-concept (purple) for conflict link
+              color: "var(--syn-type-concept)",
               overflowWrap: "anywhere",
             }}
             title={item.page_title ?? ""}
@@ -887,7 +945,7 @@ function ReviewRow({
           </div>
         )}
 
-        {/* Row 4: referenced pages chips (ADR-0044 §6.1) */}
+        {/* Referenced pages chips (ADR-0044 §6.1) */}
         {referencedPages && (
           <div
             data-testid="referenced-pages-row"
@@ -914,7 +972,7 @@ function ReviewRow({
           </div>
         )}
 
-        {/* Row 5: search queries line (ADR-0044 §6.1) */}
+        {/* Search queries line (ADR-0044 §6.1) */}
         {searchQueries && (
           <div
             data-testid="search-queries-row"
@@ -931,7 +989,7 @@ function ReviewRow({
           </div>
         )}
 
-        {/* Row 6: 502 generation error — retry-or-skip hint */}
+        {/* 502 generation error — retry-or-skip hint */}
         {generationError && (
           <div
             role="alert"
@@ -962,26 +1020,12 @@ function ReviewRow({
           </div>
         )}
 
-        {/* Row 7: action buttons + per-item non-502 error */}
-        {/* R2: confirm + contradiction get "Approve" (acknowledge/resolve); others get "Create". */}
-        {/* R3: Dismiss moved to ✕ icon at top-right of Row 1 — removed from here. */}
-        {/* llm_wiki review-view.tsx button order + emphasis parity: the leading action is
-            Deep Research (filled primary), then Create/Approve, then Skip. Deep Research is
-            only offered on suggestion + missing-page; when absent, Create/Approve leads. */}
+        {/* .r-actions: Create/Approve (primary) · Deep Research · Skip · [spacer] · Dismiss (danger) */}
         <div
           className="review-card-actions"
           style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}
         >
-          {/* Deep Research — FIRST + filled primary (llm_wiki parity), suggestion/missing-page only */}
-          {(item.item_type === "suggestion" || item.item_type === "missing-page") && (
-            <ActionButton
-              label={inFlight === "deep-research" ? t("common.loading") : t("review.deepResearch")}
-              onClick={() => onDeepResearch(item.id)}
-              disabled={isAnyInFlight}
-              variant="deep-research"
-              emphasis="primary"
-            />
-          )}
+          {/* Create / Approve — primary accent CTA */}
           {isApproveType ? (
             <ActionButton
               label={isApproving ? t("review.approving") : t("review.approve")}
@@ -989,6 +1033,7 @@ function ReviewRow({
               disabled={isAnyInFlight}
               loading={isApproving}
               variant="approve"
+              emphasis="primary"
             />
           ) : (
             <ActionButton
@@ -997,8 +1042,19 @@ function ReviewRow({
               disabled={isAnyInFlight}
               loading={isCreating}
               variant="create"
+              emphasis="primary"
             />
           )}
+          {/* Deep Research — ghost (suggestion/missing-page only) */}
+          {(item.item_type === "suggestion" || item.item_type === "missing-page") && (
+            <ActionButton
+              label={inFlight === "deep-research" ? t("common.loading") : t("review.deepResearch")}
+              onClick={() => onDeepResearch(item.id)}
+              disabled={isAnyInFlight}
+              variant="deep-research"
+            />
+          )}
+          {/* Skip — ghost */}
           <ActionButton
             label={inFlight === "skip" ? t("common.loading") : t("review.skip")}
             onClick={() => onSkip(item.id)}
@@ -1011,8 +1067,35 @@ function ReviewRow({
               {actionError}
             </span>
           )}
+
+          {/* Spacer pushes Dismiss to the far right */}
+          <div style={{ flex: 1 }} />
+
+          {/* Dismiss — danger-outline, always last; opens ConfirmDialog gate (UXA-10) */}
+          <ActionButton
+            label={t("review.dismiss")}
+            onClick={() => setShowDismissConfirm(true)}
+            disabled={isAnyInFlight}
+            variant="dismiss"
+          />
         </div>
       </div>
+
+      {/* Dismiss confirm dialog — rendered outside the card so fixed overlay covers full viewport */}
+      {showDismissConfirm && (
+        <ConfirmDialog
+          title={t("review.dismissConfirm.title")}
+          body={t("review.dismissConfirm.body")}
+          confirmLabel={t("review.dismiss")}
+          cancelLabel={t("common.cancel")}
+          danger
+          onConfirm={() => {
+            setShowDismissConfirm(false);
+            onDismiss(item.id);
+          }}
+          onCancel={() => setShowDismissConfirm(false)}
+        />
+      )}
     </div>
   );
 }
