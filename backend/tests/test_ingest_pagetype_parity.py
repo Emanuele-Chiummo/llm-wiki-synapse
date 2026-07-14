@@ -236,10 +236,11 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
-    The delegated (CLI) route appends GENERATION_SCAFFOLD to the agent's system_prompt so the same
-    source-grounded six-type contract and "exactly one source page" guarantee reach the CLI backend.
-    The deterministic source-page guarantee also runs on the delegated route
-    (_ensure_source_summary_for_delegated, nashsu/llm_wiki hasSourceSummary parity — here stubbed).
+    The delegated (CLI) route appends the shared block-pipeline generation guidance
+    (prompts.build_delegated_generation_guidance, ADR-0076) to the agent's system_prompt so the
+    prominent [[wikilink]] cross-referencing + schema-routing reach the CLI backend (the link-fix on
+    the 1:1 E2E path). The base ingest context (schema.md + catalogue) is still prepended, and a
+    configured vault language reaches the prompt. Deterministic source-page guarantee stubbed.
     """
     from app.ingest import orchestrator as orch
 
@@ -300,16 +301,25 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     except Exception:  # noqa: BLE001 — downstream hooks may fail on stubs; we captured already.
         pass
 
-    assert captured.get("system_prompt") is not None
-    assert GENERATION_SCAFFOLD in captured["system_prompt"]
-    assert "type=query" in captured["system_prompt"].lower()
-    assert "type=comparison" in captured["system_prompt"].lower()
-    assert "type=synthesis" in captured["system_prompt"].lower()
-    # The base ingest context is still present (scaffold is appended, not replacing it).
-    assert "schema.md" in captured["system_prompt"]
-    # F3 language parity: the mandatory-output-language directive (vault language) is present.
-    assert "Mandatory output language" in captured["system_prompt"]
-    assert "it" in captured["system_prompt"]
+    sysprompt = captured.get("system_prompt")
+    assert sysprompt is not None
+    # The delegated guidance carries the prominent wikilink cross-referencing (the link fix) …
+    assert "Use [[wikilink]] syntax in the BODY for cross-references between pages" in sysprompt
+    assert "If the analysis found connections to existing pages, add cross-references" in sysprompt
+    # … the schema-routing authority and the source-filename traceability rule …
+    assert "Routing (AUTHORITATIVE)" in sysprompt
+    assert "MUST include this filename" in sysprompt
+    # … the six generation types are offered (via the base types line, not a JSON scaffold) …
+    for t in ("query", "comparison", "synthesis"):
+        assert t in sysprompt
+    # … it is tool-writing guidance, NOT the FILE-block output contract …
+    assert "---FILE:" not in sysprompt
+    assert "file-writing tools" in sysprompt
+    # … the base ingest context is still prepended (guidance appended, not replacing it) …
+    assert "schema.md" in sysprompt
+    # … and the configured vault language (overview_language='it') reached the prompt as the
+    # resolved display name in the MANDATORY OUTPUT LANGUAGE directive (repeated top and bottom).
+    assert sysprompt.count("MANDATORY OUTPUT LANGUAGE: Italian") == 2
 
 
 # ── CLI/delegated route: deterministic source-summary guarantee (llm_wiki parity) ──
