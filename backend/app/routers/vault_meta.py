@@ -1,22 +1,33 @@
 """
-WS-D8: Vault meta files endpoint (K1, I5).
+WS-D8: Vault meta files endpoint (K1, I5) + WS-E: output-language read/write (ADR-0081).
 
 GET /vault/meta?vault_id=<id>
+  Returns the two fixed vault-root meta files (schema.md, purpose.md) read directly
+  from disk. These files are written at bootstrap (vault.py) but are NEVER indexed as
+  Page records in Postgres — they are vault-meta, not wiki content (AC-WS-D8-3/I1).
 
-Returns the two fixed vault-root meta files (schema.md, purpose.md) read directly
-from disk. These files are written at bootstrap (vault.py) but are NEVER indexed as
-Page records in Postgres — they are vault-meta, not wiki content (AC-WS-D8-3/I1).
+  Contract (exact — frontend builds against this):
+    200 {"files": [
+          {"name": "schema.md",  "path": "schema.md",  "title": "Schema",  "content": "..."},
+          {"name": "purpose.md", "path": "purpose.md", "title": "Purpose", "content": "..."},
+        ]}
 
-Contract (exact — frontend builds against this):
-  200 {"files": [
-        {"name": "schema.md",  "path": "schema.md",  "title": "Schema",  "content": "..."},
-        {"name": "purpose.md", "path": "purpose.md", "title": "Purpose", "content": "..."},
-      ]}
+PUT /vault/meta/{name}
+  Overwrites schema.md or purpose.md; strict allow-list (no traversal).
+
+GET /vault/meta/output-language                                       (WS-E, ADR-0081)
+  Returns {"language": "<iso-639-1>" | null} — the AI output language stored in
+  vault_state for the active vault.  NULL means pre-1.7.0 vault (auto-detect).
+
+PUT /vault/meta/output-language                                       (WS-E, ADR-0081)
+  Body: {"language": "<iso-639-1>" | null}.  Updates vault_state.output_language for
+  the active vault.  Idempotent.  404 if no vault_state row exists yet.
 
 Rules:
-  - Reads only two fixed filenames from the vault root; no glob, no os.walk (I1).
+  - File endpoints read only two fixed filenames; no glob, no os.walk (I1).
   - Omits a file from the array if it does not exist on disk (AC-WS-D8-6).
-  - No Postgres write, no new table/column, no Qdrant (AC-WS-D8-3/I1).
+  - No Postgres write for file endpoints, no Qdrant (AC-WS-D8-3/I1).
+  - output-language endpoints read/write vault_state only (no disk file, no ingest side effect).
   - vault_id query param accepted for future multi-vault compatibility but currently
     ignored — path is resolved from settings.vault_root (single-vault model, §1 §5).
 """
@@ -116,6 +127,118 @@ async def get_vault_meta(
         )
 
     return VaultMetaResponse(files=result)
+
+
+# ── WS-E / ADR-0081: output-language read/write ───────────────────────────────
+# IMPORTANT: These endpoints MUST be registered BEFORE PUT /vault/meta/{name}.
+# FastAPI matches routes in registration order; a fixed path (/vault/meta/output-language)
+# must appear before a parameterized path (/vault/meta/{name}) to avoid the parameterized
+# route swallowing the literal "output-language" segment.
+
+
+class OutputLanguageResponse(BaseModel):
+    """Response for GET /vault/meta/output-language."""
+
+    language: str | None
+    """ISO-639-1 code (e.g. 'en', 'it') or null when not set (auto-detect, pre-1.7.0 vaults)."""
+
+
+class OutputLanguageRequest(BaseModel):
+    """Request body for PUT /vault/meta/output-language."""
+
+    language: str | None
+    """ISO-639-1 code to persist, or null to clear (revert to auto-detect)."""
+
+
+@router.get(
+    "/vault/meta/output-language",
+    response_model=OutputLanguageResponse,
+    summary="Read the AI output language for the active vault",
+    description=(
+        "Returns the ISO-639-1 output language stored in vault_state for the active vault "
+        "(WS-E, ADR-0081). `null` means the vault predates 1.7.0 (auto-detect from source). "
+        "404 if vault_state has no row yet (vault not yet fully seeded)."
+    ),
+    responses={404: {"description": "vault_state row not found for the active vault."}},
+)
+async def get_output_language() -> OutputLanguageResponse:
+    """GET /vault/meta/output-language — read vault_state.output_language (WS-E, ADR-0081)."""
+    # Deferred imports: DB access must not happen at module import time (test isolation,
+    # startup order). Pattern mirrors _seed_vault_state_output_language in projects.py.
+    from sqlalchemy import select  # noqa: PLC0415
+
+    import app.db as _db  # noqa: PLC0415
+    from app.models import VaultState  # noqa: PLC0415
+
+    async with _db.get_session() as session:
+        row = await session.execute(
+            select(VaultState).where(VaultState.vault_id == settings.vault_id)
+        )
+        state = row.scalar_one_or_none()
+
+    if state is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No vault_state row found for vault_id={settings.vault_id!r}.",
+        )
+    return OutputLanguageResponse(language=state.output_language)
+
+
+@router.put(
+    "/vault/meta/output-language",
+    response_model=OutputLanguageResponse,
+    summary="Update the AI output language for the active vault",
+    description=(
+        "Persists the ISO-639-1 output language to vault_state for the active vault "
+        "(WS-E, ADR-0081). Set to `null` to revert to auto-detect behaviour. "
+        "Idempotent — safe to call multiple times. "
+        "404 if vault_state has no row yet (activate the vault first)."
+    ),
+    responses={
+        200: {"description": "Language updated; returns the new persisted value."},
+        404: {"description": "vault_state row not found for the active vault."},
+    },
+)
+async def put_output_language(body: OutputLanguageRequest) -> OutputLanguageResponse:
+    """PUT /vault/meta/output-language — update vault_state.output_language (WS-E, ADR-0081)."""
+    from sqlalchemy import select, update  # noqa: PLC0415
+
+    import app.db as _db  # noqa: PLC0415
+    from app.models import VaultState  # noqa: PLC0415
+
+    async with _db.get_session() as session:
+        # Existence check first (for 404) — column-level select avoids loading the full
+        # ORM object; we only need to know whether a row exists.
+        exists_row = await session.execute(
+            select(VaultState.vault_id).where(VaultState.vault_id == settings.vault_id)
+        )
+        if exists_row.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No vault_state row found for vault_id={settings.vault_id!r}.",
+            )
+
+        # Core UPDATE (not ORM dirty-tracking) — avoids the ORM unit-of-work path that
+        # would try to UPDATE via the UUID PK and trigger onupdate=func.now() on
+        # updated_at (TIMESTAMP with timezone), both of which fail in SQLite tests.
+        # Production (Postgres) also benefits from a single targeted UPDATE rather than
+        # a full ORM flush of the whole row.
+        await session.execute(
+            update(VaultState)
+            .where(VaultState.vault_id == settings.vault_id)
+            .values(output_language=body.language)
+        )
+        # Commit is handled by get_session's context-manager on clean exit.
+
+    logger.info(
+        "vault/meta/output-language: set output_language=%r for vault_id=%r",
+        body.language,
+        settings.vault_id,
+    )
+    return OutputLanguageResponse(language=body.language)
+
+
+# ── PUT /vault/meta/{name} — parameterized (MUST come after fixed paths above) ──
 
 
 @router.put(
