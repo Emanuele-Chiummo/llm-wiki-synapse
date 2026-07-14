@@ -114,6 +114,7 @@ def _build_lint_meta() -> MetaData:
         Column("searxng_url_db", Text, nullable=True),
         Column("searxng_categories_db", Text, nullable=True),
         Column("searxng_max_queries_db", Integer, nullable=True),
+        Column("output_language", Text, nullable=True),
         Column("updated_at", Text, nullable=False),
     )
 
