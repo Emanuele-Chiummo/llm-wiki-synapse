@@ -24,6 +24,7 @@ import logging
 import os
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -150,11 +151,34 @@ class IngestQueueManager:
         # Back-reference to the watcher handler (set by set_watcher_handler())
         self._watcher_handler: Any | None = None  # _MarkdownHandler
 
+        # ── WS-C (ADR-0079): drain callback ──────────────────────────────────────
+        # Called ONCE when the queue transitions to idle AND at least one run completed
+        # since the last idle (llm_wiki parity: onQueueDrained, ingest-queue.ts:636).
+        # Debounced with _drain_in_flight to prevent double-fire on rapid successive drains.
+        self._on_drained: Callable[[], Awaitable[None]] | None = None
+        self._drain_in_flight: bool = False
+
     # ── Watcher back-reference ─────────────────────────────────────────────────
 
     def set_watcher_handler(self, handler: Any) -> None:
         """Called from watcher.py after the handler is constructed (lifespan, main.py)."""
         self._watcher_handler = handler
+
+    # ── Drain callback (WS-C, ADR-0079) ───────────────────────────────────────
+
+    def set_on_drained(self, callback: Callable[[], Awaitable[None]] | None) -> None:
+        """
+        Register (or clear) the async callback to invoke once when the queue drains.
+
+        The callback is called as a fire-and-forget asyncio.Task on the idle transition
+        (both _active and _pending empty AND _completed_since_idle > 0). A second rapid
+        drain while the task is still running is silently skipped (_drain_in_flight guard).
+        Exceptions inside the callback are caught and logged — they never propagate back.
+
+        Called from main.py lifespan (ADR-0079): registers sweep_reviews(vault_id) so the
+        review sweep runs once per queue drain rather than after every ingest run.
+        """
+        self._on_drained = callback
 
     # ── Run lifecycle ──────────────────────────────────────────────────────────
 
@@ -243,13 +267,41 @@ class IngestQueueManager:
                 error,
             )
 
-        # If the queue transitions to idle, reset completed_since_idle
+        # If the queue transitions to idle, reset completed_since_idle and (WS-C)
+        # fire the drain callback if work happened since last idle (ADR-0079).
         if not self._active and not self._pending:
+            count = self._completed_since_idle
             logger.debug(
                 "queue: idle — reset completed_since_idle from %d to 0",
-                self._completed_since_idle,
+                count,
             )
             self._completed_since_idle = 0
+
+            # ── WS-C (ADR-0079): on_drained callback — llm_wiki parity ─────────
+            # Schedule callback only when: work happened (count > 0), a callback is
+            # registered, and no prior drain task is still in flight (debounce).
+            if count > 0 and self._on_drained is not None and not self._drain_in_flight:
+                _cb = self._on_drained
+                _self_ref = self
+
+                async def _fire_drain(
+                    _cb: Callable[[], Awaitable[None]] = _cb,
+                    _ref: IngestQueueManager = _self_ref,
+                ) -> None:
+                    try:
+                        await _cb()
+                    except Exception as _exc:  # noqa: BLE001
+                        logger.warning("queue: on_drained callback failed (non-fatal): %s", _exc)
+                    finally:
+                        _ref._drain_in_flight = False
+
+                self._drain_in_flight = True
+                try:
+                    asyncio.create_task(_fire_drain())
+                except RuntimeError:
+                    # No running event loop (test env without asyncio.run) — skip silently.
+                    self._drain_in_flight = False
+                    logger.debug("queue: on_drained skipped — no running event loop")
 
     # ── Cancel ─────────────────────────────────────────────────────────────────
 

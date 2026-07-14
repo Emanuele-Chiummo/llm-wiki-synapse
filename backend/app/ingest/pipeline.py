@@ -594,17 +594,10 @@ async def run_ingest_pipeline(
                     "(non-fatal): %s",
                     _f9d_exc,
                 )
-            # Sweep after the delegated run too (same fire-and-forget contract as orchestrated).
-            try:
-                from app.ops.review import sweep_reviews as _sweep_reviews_deleg
-
-                await _sweep_reviews_deleg(settings.vault_id)
-            except Exception as _sweep_d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: F9 delegated sweep_reviews hook failed "
-                    "(non-fatal): %s",
-                    _sweep_d_exc,
-                )
+            # Sweep on queue drain (ADR-0079 WS-C): sweep_reviews is now triggered ONCE
+            # when the queue drains via IngestQueueManager.on_drained (main.py lifespan),
+            # not after every individual run. Per-run sweep calls removed for parity with
+            # nashsu/llm_wiki (ingest-queue.ts:636 onQueueDrained).
             # ── R9-3 delegated-route purpose drift check (F2, ADR §R9-3) ──────────────
             # Bounded single provider call (max_tokens 300, no retry). Analysis is None on the
             # delegated route → the seam degrades to titles-only. Fire-and-forget: any exception
@@ -784,17 +777,8 @@ async def run_ingest_pipeline(
                         _f9_exc,
                     )
 
-                # Sweep: auto-resolve stale missing-page/duplicate proposals now that the wiki grew.
-                # Also fire-and-forget; never fails ingest.
-                try:
-                    from app.ops.review import sweep_reviews as _sweep_reviews_post
-
-                    await _sweep_reviews_post(settings.vault_id)
-                except Exception as _sweep_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: F9 sweep_reviews hook failed (non-fatal): %s",
-                        _sweep_exc,
-                    )
+                # Sweep on queue drain (ADR-0079 WS-C): per-run sweep removed; see delegated
+                # route comment above — the drain callback handles it (main.py lifespan).
 
                 # ── R9-3 post-ingest purpose drift check (F2, ADR §R9-3) ──────────────────
                 # Bounded single provider call (max_tokens 300, no retry, cost logged). Compares
@@ -1244,6 +1228,51 @@ async def _run_orchestrated_blocks(
             written = await orch.write_wiki_page(None, fallback_page, origin_source)
             written_pages.append(written)
             orch.ingest_queue.record_written(run_id, written.id)
+
+    # ── WS-C (ADR-0079): enqueue REVIEW blocks from block loop (PR5c TODO closed) ──
+    # Each ReviewBlock from run_block_loop is persisted as a ReviewItem via the same
+    # enqueue_review seam propose_reviews uses. content_key dedup prevents duplicates on
+    # re-ingest. Soft-capped at _BLOCK_REVIEW_ENQUEUE_CAP/run (I7). proposal_origin="ai"
+    # (the LLM produced these blocks — no new origin value needed). Fire-and-forget: any
+    # failure logs a WARNING and NEVER fails the ingest run (blocks are advisory).
+    _BLOCK_REVIEW_ENQUEUE_CAP = 50
+    if result.review_blocks:
+        try:
+            from app.ops.review import _content_key as _rev_content_key  # noqa: PLC0415
+            from app.ops.review import enqueue_review as _blk_enqueue  # noqa: PLC0415
+
+            vault_id = settings.vault_id
+            _known_types = frozenset({"missing-page", "suggestion", "contradiction", "duplicate"})
+            blocks_to_enqueue = result.review_blocks[:_BLOCK_REVIEW_ENQUEUE_CAP]
+            _dropped = len(result.review_blocks) - len(blocks_to_enqueue)
+            if _dropped:
+                logger.info(
+                    "run_ingest_pipeline: block reviews capped at %d (dropped %d) origin=%s",
+                    _BLOCK_REVIEW_ENQUEUE_CAP,
+                    _dropped,
+                    origin_source,
+                )
+            for _rb in blocks_to_enqueue:
+                _rb_type = _rb.type if _rb.type in _known_types else "suggestion"
+                _ckey = _rev_content_key(
+                    vault_id=vault_id,
+                    item_type=_rb_type,
+                    proposed_title=_rb.title or None,
+                )
+                await _blk_enqueue(
+                    vault_id=vault_id,
+                    item_type=_rb_type,
+                    proposed_title=_rb.title or None,
+                    rationale=_rb.description or None,
+                    search_queries=_rb.search_queries or None,
+                    proposal_origin="ai",
+                    content_key=_ckey,
+                )
+        except Exception as _blk_rev_exc:  # noqa: BLE001
+            logger.warning(
+                "run_ingest_pipeline: block review enqueue failed (non-fatal): %s",
+                _blk_rev_exc,
+            )
 
     logger.info(
         "run_ingest_pipeline: block route converged=%s iters=%d pages=%d reviews=%d origin=%s",

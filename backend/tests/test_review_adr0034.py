@@ -703,7 +703,10 @@ class TestCreateAction0034:
             "app.provider_config_service.resolve_provider_config",
             new=AsyncMock(side_effect=ConfigNotFoundError("no provider")),
         ):
-            resp = await review_client_0034.post(f"/review/queue/{item_id}/approve")
+            # mode="generate" explicitly invokes the provider path (ADR-0079 §2: stub skips I6).
+            resp = await review_client_0034.post(
+                f"/review/queue/{item_id}/approve", json={"mode": "generate"}
+            )
 
         assert resp.status_code == 409
         assert "provider" in resp.json()["detail"].lower()

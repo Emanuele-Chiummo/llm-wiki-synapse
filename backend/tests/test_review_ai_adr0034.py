@@ -305,7 +305,8 @@ class TestCreateGeneration:
             patch("app.ingest.provider.resolve_provider", return_value=provider),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the LLM generation path (ADR-0079 §2: stub is now default).
+            await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert captured["page"].type is PageType.COMPARISON
         assert captured["page"].frontmatter.type is PageType.COMPARISON
@@ -373,7 +374,10 @@ class TestCreateGeneration:
             patch("app.ingest.provider.resolve_provider", return_value=provider),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            result = await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the BOUNDED orchestrated loop (ADR-0079 §2).
+            result = await review_mod.create_page_from_review(
+                uuid.UUID(item_id_str), mode="generate"
+            )
 
         # The bounded loop ran (analyze once, generate at least once).
         provider.analyze.assert_awaited_once()
@@ -425,7 +429,8 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+                # mode="generate" — testing provider failure on LLM path (ADR-0079 §2).
+                await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert exc_info.value.status_code == 502
         assert write_called["n"] == 0, "no partial write on loop failure (§5.3)"
@@ -487,7 +492,10 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            result = await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+            # mode="generate" — testing the DELEGATED (agentic) path (ADR-0079 §2).
+            result = await review_mod.create_page_from_review(
+                uuid.UUID(item_id_str), mode="generate"
+            )
 
         # Delegated path was taken (analyze/generate never touched — they'd raise on a CLI provider).
         delegate_mock.assert_awaited_once()
@@ -541,7 +549,8 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(HTTPException) as exc_info:
-                await review_mod.create_page_from_review(uuid.UUID(item_id_str))
+                # mode="generate" — testing empty delegated write on LLM path (ADR-0079 §2).
+                await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
         assert exc_info.value.status_code == 502
         assert write_called["n"] == 0, "no write when the delegated agent produced nothing (§5.3)"

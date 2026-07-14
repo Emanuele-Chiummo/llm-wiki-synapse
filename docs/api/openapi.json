@@ -4179,6 +4179,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateReviewBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Page created; item status=created",
@@ -4234,6 +4251,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateReviewBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Page created; item status=created",
@@ -6951,6 +6985,23 @@
         ],
         "title": "CreateProjectRequest",
         "description": "Body for POST /projects \u2014 create + scaffold a new vault folder."
+      },
+      "CreateReviewBody": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "stub",
+              "generate"
+            ],
+            "title": "Mode",
+            "description": "stub (default) \u2014 deterministic draft, no provider call; generate \u2014 full LLM generation (existing behaviour, explicit opt-in).",
+            "default": "stub"
+          }
+        },
+        "type": "object",
+        "title": "CreateReviewBody",
+        "description": "Optional JSON body for POST /review/queue/{id}/create (and /approve alias).\n\n``mode=\"stub\"`` (default): write a deterministic ``# <title>\\n\\n<description>`` draft\nwithout calling the LLM (llm_wiki parity \u2014 review-create-page.ts Create Page button).\n``mode=\"generate\"``: the existing full-LLM generation path (explicit secondary action)."
       },
       "EmbeddingConfigResponse": {
         "properties": {

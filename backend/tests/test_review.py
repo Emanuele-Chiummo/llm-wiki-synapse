@@ -1009,7 +1009,9 @@ class TestMissingPageFanOut:
             ),
             patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
         ):
-            item = await create_page_from_review(item_uuid)
+            # Explicitly test the generate path (WS-C: default is now stub; mode="generate"
+            # tests the full LLM fan-out path that these mocks are wiring — ADR-0079 §2).
+            item = await create_page_from_review(item_uuid, mode="generate")
 
         assert len(call_log) == 3, f"Expected 3 generation calls, got {len(call_log)}: {call_log}"
         assert call_log == ["Alpha", "Beta", "Gamma"]
@@ -1054,7 +1056,8 @@ class TestMissingPageFanOut:
             ),
             patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
         ):
-            item = await create_page_from_review(item_uuid)
+            # mode="generate" — testing the LLM fan-out path (ADR-0079 §2).
+            item = await create_page_from_review(item_uuid, mode="generate")
 
         assert call_count == 2  # both attempted
         assert str(item.created_page_id) == "page-primary"
@@ -1091,7 +1094,8 @@ class TestMissingPageFanOut:
             ),
             patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
         ):
-            item = await create_page_from_review(item_uuid)
+            # mode="generate" — testing LLM single-page path (ADR-0079 §2).
+            item = await create_page_from_review(item_uuid, mode="generate")
 
         # Only ONE generation call; the full comma-title is passed as-is
         assert len(call_log) == 1
@@ -1130,7 +1134,8 @@ class TestMissingPageFanOut:
             ),
             patch("app.ops.review.sweep_reviews", new_callable=AsyncMock),
         ):
-            item = await create_page_from_review(item_uuid)
+            # mode="generate" — testing the LLM single-page path (ADR-0079 §2).
+            item = await create_page_from_review(item_uuid, mode="generate")
 
         assert len(call_log) == 1
         assert call_log[0] == "Kubernetes Networking"
