@@ -93,12 +93,14 @@ def main() -> int:
 
     rows: list[tuple[str, str, bool]] = []
 
-    # 1. Source pages — exactly 3 (one per corpus doc), both apps.
+    # 1. Source pages — one per corpus doc; the candidate must match the gold's source count
+    #    (the corpus size is whatever was ingested, not a fixed number).
     rows.append(
-        ("source pages == 3 (gold)", f"{gold['sources']}", gold["sources"] == 3)
-    )
-    rows.append(
-        ("source pages == 3 (candidate)", f"{cand['sources']}", cand["sources"] == 3)
+        (
+            "source pages: candidate == gold",
+            f"gold {gold['sources']} → cand {cand['sources']}",
+            gold["sources"] == cand["sources"] and cand["sources"] > 0,
+        )
     )
 
     # 2. Pages per type — per-type band; total within ±30%.
