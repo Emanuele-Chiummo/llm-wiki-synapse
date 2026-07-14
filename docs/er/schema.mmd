@@ -113,6 +113,7 @@ erDiagram
         string searxng_url_db "Runtime SearXNG base URL (ADR-0041 §3). NULL = not set in DB, fall back to SEARXNG_URL env var. When set, DB value wins over env. NOT a secret — returned by GET /web-search/config (no masking). Migration 0016."
         string searxng_categories_db "Comma-separated SearXNG categories (ADR-0041 §3). NULL = not set in DB, fall back to env / code defaults. When set, DB value wins over env. Migration 0016."
         int searxng_max_queries_db "Max SearXNG queries per deep-research iteration (ADR-0041 §3). NULL = not set in DB, fall back to DEEP_RESEARCH_MAX_QUERIES env. When set, DB value wins over env. Migration 0016."
+        string output_language "Mandatory AI output language chosen at vault creation (ADR-0081, llm_wiki create-dialog parity). ISO-639-1 code (e.g. 'en', 'it'). NULL = auto (detect from source content, pre-1.7.0 vaults). Read by ingest prompts (MANDATORY OUTPUT LANGUAGE directive) and by the writer language guard. Migration 0032."
         timestamptz updated_at "Last bump time"
     }
 
