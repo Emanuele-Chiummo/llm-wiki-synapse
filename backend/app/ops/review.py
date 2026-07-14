@@ -3576,35 +3576,34 @@ def _coerce_token_budget(raw: Any, fallback: int) -> int:
     return value or fallback
 
 
+_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS = 2048
+
+
 async def _chat_collect(provider: Any, instruction: str, *, max_tokens: int | None = None) -> str:
     """
-    Run ONE capability-agnostic provider.chat() turn and collect the full text (I6).
+    Run ONE single-turn ``provider.complete()`` call and return the text (I6).
 
-    Rides the existing chat() seam (same surface ops/deep_research.py uses) so the call is
-    backend-neutral — no new ABC method, no isinstance/type branching. Usage is recorded out
-    of band onto the bound accumulator by the provider. Returns the concatenated text.
+    Uses ``complete()`` (single-turn, no tools) rather than ``chat()``: the agentic CLI provider's
+    ``chat()`` seam runs a full agent loop that HANGS and times out on a one-shot judging/proposing
+    call (the same reason the block ingest loop and overview regen use ``complete()`` — ADR-0076).
+    All providers implement ``complete()``; it is backend-neutral (no isinstance/type branch, I6).
+    Usage is recorded out of band onto the bound accumulator by the provider.
 
-    max_tokens (R9-3 / UXB-1 pattern): the chat() ABC intentionally has ONE neutral 2-arg
-    surface (I6 — no per-backend max_tokens plumbing). The output bound is therefore enforced
-    HERE at the collection site: streaming stops once ~max_tokens worth of text is collected
-    (~4 chars/token). Combined with the single call + no retry + wait_for timeout, this caps
-    the call cost regardless of backend.
+    ``max_tokens`` bounds the output (defaults to ``_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS`` when the
+    caller does not set one). Combined with the single call + no retry + the caller's ``wait_for``
+    timeout, this caps the call cost regardless of backend. A belt-and-suspenders ~4 chars/token
+    truncation preserves the historical hard char bound.
     """
-    from app.ingest.schemas import Message
-
-    char_cap: int | None = max_tokens * 4 if max_tokens else None
-    chunks: list[str] = []
-    collected = 0
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
-        collected += len(chunk)
-        if char_cap is not None and collected >= char_cap:
-            break
-    text = "".join(chunks).strip()
-    if char_cap is not None and len(text) > char_cap:
+    cap = max_tokens if max_tokens else _DEFAULT_REVIEW_COMPLETE_MAX_TOKENS
+    raw = await provider.complete(
+        instruction,
+        "Respond now, following the instructions above exactly. "
+        "Output only what was requested — no preamble, no chain-of-thought.",
+        max_tokens=cap,
+    )
+    text = str(raw).strip()
+    char_cap = cap * 4
+    if len(text) > char_cap:
         text = text[:char_cap]
     return text
 
