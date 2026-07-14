@@ -851,11 +851,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.ops.review import sweep_reviews as _sweep_on_drain  # noqa: PLC0415
 
     async def _queue_drain_sweep() -> None:
-        logger.info("queue: drain — running sweep_reviews (ADR-0079, vault=%s)", settings.vault_id)
+        logger.info(
+            "queue: drain — overview regen + sweep_reviews (ADR-0078/0079, vault=%s)",
+            settings.vault_id,
+        )
+        # ADR-0078 refinement: regenerate the whole-wiki overview.md ONCE per drained batch (not
+        # per-doc — that would compete with entity/concept extraction for the generation budget and
+        # rewrite the overview N times). _update_overview reads purpose + the full existing-page
+        # digest and is degrade-safe, so a None analysis at drain still yields a rich synthesis.
+        try:
+            from app.ops.overview import regenerate_overview as _regen_overview  # noqa: PLC0415
+
+            await _regen_overview(analysis=None, origin_source="queue-drain")
+        except Exception as exc:  # noqa: BLE001 — overview is best-effort; never break the drain.
+            logger.warning("queue: drain overview regen failed (non-fatal): %s", exc)
         await _sweep_on_drain(settings.vault_id)
 
     _iq_ref.set_on_drained(_queue_drain_sweep)
-    logger.info("queue: drain sweep callback registered (ADR-0079)")
+    logger.info("queue: drain sweep callback registered (ADR-0078/0079)")
 
     # 5. Initialise GraphCache + background debounce loop (I2, ADR-0014)
     _graph_cache = GraphCache(

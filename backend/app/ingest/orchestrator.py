@@ -718,21 +718,24 @@ async def _overview_chat_collect(
     provider: InferenceProvider, instruction: str, token_budget: int
 ) -> str:
     """
-    Run ONE capability-agnostic provider.chat() turn and collect the full text (I6/I7).
+    Run ONE single-turn ``provider.complete()`` call and return the text (I6/I7).
 
-    Rides the existing chat() seam (backend-neutral — no isinstance/type branch). Usage is
-    recorded out of band onto the bound accumulator by the provider. token_budget is surfaced in
-    the prompt only for provider hints; the hard bounds are the single call + wait_for timeout.
+    Uses ``complete()`` (single-turn, no tools) rather than ``chat()``: the agentic CLI provider's
+    ``chat()`` seam runs a full agent loop that hangs and times out on a simple one-shot generation
+    — the same reason the block ingest loop uses ``complete()`` (ADR-0076). All providers implement
+    ``complete()``; it is backend-neutral (no isinstance/type branch, I6). Usage is recorded out of
+    band onto the bound accumulator; the hard bounds are the single call + the caller's wait_for.
+    ``token_budget`` is unused here (kept for signature/caller compatibility) — the output is capped
+    by ``max_tokens`` and the overall run by the caller's timeout.
     """
-    from app.ingest.schemas import Message
-
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
-    return "".join(chunks).strip()
+    _ = token_budget  # bounds come from max_tokens + the caller's wait_for (I7)
+    narrative = await provider.complete(
+        instruction,
+        "Write the overview note now. Output only the note body (optionally a single leading "
+        "'# ' title line). No preamble, no chain-of-thought.",
+        max_tokens=4096,  # a whole-wiki overview is bounded prose (~gold 171 lines)
+    )
+    return narrative.strip()
 
 
 def _extract_overview_title(narrative: str) -> tuple[str, str]:

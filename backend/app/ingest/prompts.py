@@ -310,12 +310,16 @@ def build_generation_prompt(
             "## What to generate",
             "",
             f"1. A source summary page at **{summary_path}** (MUST use this exact path)",
-            "2. Entity or schema-defined typed pages for key named things identified in the "
-            "analysis. Prefer schema-defined directories when present; otherwise use "
-            "wiki/entities/.",
-            "3. Concept or schema-defined typed pages for key ideas, methods, techniques, and "
-            "abstractions. Prefer schema-defined directories when present; otherwise use "
-            "wiki/concepts/.",
+            "2. Entity or schema-defined typed pages — create ONE page per DISTINCT named thing "
+            "the analysis lists (each specific system, API, service, role, tool, script, template, "
+            "dataset, standard, organization, or person). Prefer the SPECIFIC subject over a "
+            "generic umbrella: make a page for `AWS Cost Explorer API` and a separate page for the "
+            "cross-account IAM role, NOT a single catch-all `AWS` page. Prefer schema-defined "
+            "directories when present; otherwise use wiki/entities/.",
+            "3. Concept or schema-defined typed pages — one page per DISTINCT idea, method, "
+            "technique, pattern, or abstraction the analysis identifies (do not merge separable "
+            "concepts into one page). Prefer schema-defined directories when present; otherwise "
+            "use wiki/concepts/.",
             "4. Query pages (type=query, wiki/queries/) for the open questions, contradictions, "
             "limitations, and assumptions the source and the analysis surface — phrase each title "
             "as the question. Create one per genuinely open issue; never invent questions the "
