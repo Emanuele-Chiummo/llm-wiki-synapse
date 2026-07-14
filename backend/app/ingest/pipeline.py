@@ -476,7 +476,18 @@ async def run_ingest_pipeline(
                 f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
             )
 
-        if caps.supports_agentic_loop:
+        # Resolve the pipeline format up front. In "blocks" mode ALL providers — including the
+        # agentic CLI — run the block loop via provider.complete() (nashsu/llm_wiki parity: its CLI
+        # is a TEXT transport, not an agent loop). The delegated agent loop is used only in "json"
+        # mode, where its wikilinks can dangle because the agent doesn't materialize every page it
+        # links (the exact gap the 1:1 E2E surfaced). ADR-0076.
+        from app.config_overrides import effective_str as _effective_str
+
+        _pipeline_format = (
+            _effective_str("ingest_pipeline_format", settings.ingest_pipeline_format) or "json"
+        )
+
+        if caps.supports_agentic_loop and _pipeline_format != "blocks":
             route = "delegated"
             orch.ingest_queue.set_route(run_id, route)
             # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
