@@ -11,11 +11,7 @@
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import type { CSSProperties, ReactNode } from "react";
-import {
-  useIngestStore,
-  selectRuns,
-  selectSelectedRunId,
-} from "../../store/ingestStore";
+import { useIngestStore, selectRuns, selectSelectedRunId } from "../../store/ingestStore";
 import { formatCost } from "./IngestRunList";
 
 export function IngestRunDetail() {
@@ -68,7 +64,14 @@ export function IngestRunDetail() {
         <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
           {t("ingest.manifest")}
         </h3>
-        <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--syn-text-muted)", fontFamily: "monospace" }}>
+        <p
+          style={{
+            margin: "2px 0 0",
+            fontSize: 11,
+            color: "var(--syn-text-muted)",
+            fontFamily: "var(--syn-font-mono)",
+          }}
+        >
           {run.id.slice(0, 8)}…
         </p>
       </header>
@@ -135,7 +138,12 @@ export function IngestRunDetail() {
         <DetailRow
           label={t("ingest.cost")}
           value={
-            <span style={{ fontFamily: "monospace", color: costAnomaly ? "var(--syn-red)" : "var(--syn-text)" }}>
+            <span
+              style={{
+                fontFamily: "var(--syn-font-mono)",
+                color: costAnomaly ? "var(--syn-red)" : "var(--syn-text)",
+              }}
+            >
               {formatCost(run.total_cost_usd)}
               {costAnomaly && (
                 <span
@@ -149,9 +157,15 @@ export function IngestRunDetail() {
             </span>
           }
         />
-        <DetailRow label={t("ingest.startedAt")} value={new Date(run.started_at).toLocaleString()} />
+        <DetailRow
+          label={t("ingest.startedAt")}
+          value={new Date(run.started_at).toLocaleString()}
+        />
         {run.completed_at && (
-          <DetailRow label={t("ingest.completedAt")} value={new Date(run.completed_at).toLocaleString()} />
+          <DetailRow
+            label={t("ingest.completedAt")}
+            value={new Date(run.completed_at).toLocaleString()}
+          />
         )}
         {run.error_message && (
           <div style={{ marginTop: 12 }}>
@@ -165,7 +179,7 @@ export function IngestRunDetail() {
                 borderRadius: 4,
                 fontSize: 11,
                 color: "var(--syn-red)",
-                fontFamily: "monospace",
+                fontFamily: "var(--syn-font-mono)",
                 wordBreak: "break-word",
               }}
             >
@@ -191,19 +205,33 @@ const dtStyle: CSSProperties = {
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 12px", margin: "0 0 8px" }}>
+    <dl
+      style={{
+        display: "grid",
+        gridTemplateColumns: "auto 1fr",
+        gap: "2px 12px",
+        margin: "0 0 8px",
+      }}
+    >
       <dt style={dtStyle}>{label}</dt>
-      <dd style={{ margin: 0, fontSize: 12, color: "var(--syn-text)", wordBreak: "break-word" }}>{value}</dd>
+      <dd style={{ margin: 0, fontSize: 12, color: "var(--syn-text)", wordBreak: "break-word" }}>
+        {value}
+      </dd>
     </dl>
   );
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
-    case "running": return "var(--syn-accent)";
-    case "completed": return "var(--syn-green)";
-    case "failed": return "var(--syn-red)";
-    case "converged_false": return "var(--syn-amber)";
-    default: return "var(--syn-text-muted)";
+    case "running":
+      return "var(--syn-accent)";
+    case "completed":
+      return "var(--syn-green)";
+    case "failed":
+      return "var(--syn-red)";
+    case "converged_false":
+      return "var(--syn-amber)";
+    default:
+      return "var(--syn-text-muted)";
   }
 }

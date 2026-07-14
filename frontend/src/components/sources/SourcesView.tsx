@@ -907,7 +907,7 @@ export function SourcesView() {
           )}
           {error && (
             <div style={CENTER_STYLE}>
-              <span style={{ color: "var(--syn-danger, #e53e3e)", fontSize: 12 }}>{error}</span>
+              <span style={{ color: "var(--syn-red)", fontSize: 12 }}>{error}</span>
             </div>
           )}
           {isEmpty && (
@@ -1171,9 +1171,9 @@ function FolderRowItem({
           data-testid="source-folder-delete"
           style={{
             ...ACTION_BTN_BASE,
-            color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
+            color: armed ? "var(--syn-red)" : "var(--syn-text-dim)",
             background: armed
-              ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+              ? "color-mix(in srgb, var(--syn-red) 10%, transparent 90%)"
               : "transparent",
             opacity: deleting ? 0.5 : 1,
             minWidth: armed ? 64 : undefined,
@@ -1353,9 +1353,9 @@ function FileRowItem({
             data-testid="source-delete"
             style={{
               ...ACTION_BTN_BASE,
-              color: armed ? "var(--syn-danger, #e53e3e)" : "var(--syn-text-dim)",
+              color: armed ? "var(--syn-red)" : "var(--syn-text-dim)",
               background: armed
-                ? "color-mix(in srgb, var(--syn-danger, #e53e3e) 10%, transparent 90%)"
+                ? "color-mix(in srgb, var(--syn-red) 10%, transparent 90%)"
                 : "transparent",
               opacity: deleting ? 0.5 : 1,
               minWidth: armed ? 64 : undefined,

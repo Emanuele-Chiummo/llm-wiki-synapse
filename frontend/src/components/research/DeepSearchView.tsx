@@ -173,7 +173,7 @@ function RunCard({ run, selected, lang, style, onClick, t }: RunCardProps) {
         <ResearchStatusBadge status={run.status} />
         <span style={{ fontSize: 12, color: "var(--syn-text-dim)", marginLeft: "auto" }}>
           {t("research.cost")}:{" "}
-          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
+          <span style={{ fontFamily: "var(--syn-font-mono)", color: "var(--syn-text)" }}>
             {formatCost(run.total_cost_usd)}
           </span>
         </span>
@@ -307,7 +307,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
         </span>
         <span style={{ fontSize: 12, color: "var(--syn-text-muted)" }}>
           {t("research.cost")}:{" "}
-          <span style={{ fontFamily: "monospace", color: "var(--syn-text)" }}>
+          <span style={{ fontFamily: "var(--syn-font-mono)", color: "var(--syn-text)" }}>
             {formatCost(detail.total_cost_usd)}
           </span>
         </span>
@@ -360,7 +360,7 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
               wordBreak: "break-word",
               maxHeight: 300,
               overflow: "auto",
-              fontFamily: "monospace",
+              fontFamily: "var(--syn-font-mono)",
             }}
           >
             {detail.synthesis_text}

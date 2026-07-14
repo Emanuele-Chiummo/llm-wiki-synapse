@@ -532,7 +532,7 @@ function FindingRowComponent({
               fontSize: 11,
               color: "var(--syn-accent)",
               overflowWrap: "anywhere",
-              fontFamily: "monospace",
+              fontFamily: "var(--syn-font-mono)",
             }}
             title={finding.proposed_action}
           >

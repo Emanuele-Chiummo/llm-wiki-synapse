@@ -181,22 +181,32 @@ export function ImportScheduleCard() {
 
   function statusLabel(status: string | null): string {
     switch (status) {
-      case "ok": return t("settings.import.statusOk");
-      case "error": return t("settings.import.statusError");
-      case "running": return t("settings.import.statusRunning");
-      case "dir_missing": return t("settings.import.statusDirMissing");
-      case "skipped_disabled": return t("settings.import.statusDisabled");
-      default: return t("settings.import.never");
+      case "ok":
+        return t("settings.import.statusOk");
+      case "error":
+        return t("settings.import.statusError");
+      case "running":
+        return t("settings.import.statusRunning");
+      case "dir_missing":
+        return t("settings.import.statusDirMissing");
+      case "skipped_disabled":
+        return t("settings.import.statusDisabled");
+      default:
+        return t("settings.import.never");
     }
   }
 
   function statusColor(status: string | null): string {
     switch (status) {
-      case "ok": return "var(--syn-green)";
-      case "running": return "var(--syn-accent)";
+      case "ok":
+        return "var(--syn-green)";
+      case "running":
+        return "var(--syn-accent)";
       case "error":
-      case "dir_missing": return "var(--syn-red)";
-      default: return "var(--syn-text-dim)";
+      case "dir_missing":
+        return "var(--syn-red)";
+      default:
+        return "var(--syn-text-dim)";
     }
   }
 
@@ -247,7 +257,13 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-source-dir"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--syn-text-muted)",
+                marginBottom: 4,
+              }}
             >
               {t("settings.import.sourceDir")}
             </label>
@@ -266,7 +282,7 @@ export function ImportScheduleCard() {
                 borderRadius: 6,
                 color: "var(--syn-text)",
                 fontSize: 12,
-                fontFamily: "monospace",
+                fontFamily: "var(--syn-font-mono)",
                 outline: "none",
                 boxSizing: "border-box",
               }}
@@ -277,10 +293,7 @@ export function ImportScheduleCard() {
 
             {/* dir_ok:false warning */}
             {dirOk === false && dirMessage && (
-              <p
-                role="alert"
-                style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}
-              >
+              <p role="alert" style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>
                 {t("settings.import.dirWarning", { dir: dirMessage })}
               </p>
             )}
@@ -290,7 +303,13 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-frequency"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--syn-text-muted)",
+                marginBottom: 4,
+              }}
             >
               {t("settings.import.frequency")}
             </label>
@@ -311,7 +330,9 @@ export function ImportScheduleCard() {
             >
               {FREQUENCY_OPTIONS.map((freq) => (
                 <option key={freq} value={freq}>
-                  {t(`settings.import.freq${freq === "15m" ? "15m" : freq === "1h" ? "1h" : freq === "6h" ? "6h" : "Daily"}`)}
+                  {t(
+                    `settings.import.freq${freq === "15m" ? "15m" : freq === "1h" ? "1h" : freq === "6h" ? "6h" : "Daily"}`,
+                  )}
                 </option>
               ))}
             </select>
@@ -319,16 +340,38 @@ export function ImportScheduleCard() {
 
           {/* P3-c: Allowed file types — grouped checkboxes */}
           <div data-testid="import-allowed-types">
-            <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 6 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--syn-text-muted)",
+                marginBottom: 6,
+              }}
+            >
               {t("settings.import.allowedTypes")}
             </label>
-            <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--syn-text-dim)", lineHeight: 1.5 }}>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 11,
+                color: "var(--syn-text-dim)",
+                lineHeight: 1.5,
+              }}
+            >
               {t("settings.import.allowedTypesHint")}
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {EXT_GROUPS.map((group) => (
                 <div key={group.labelKey}>
-                  <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 600, color: "var(--syn-text-dim)" }}>
+                  <p
+                    style={{
+                      margin: "0 0 4px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--syn-text-dim)",
+                    }}
+                  >
                     {t(group.labelKey)}
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -348,7 +391,7 @@ export function ImportScheduleCard() {
                             background: on ? "var(--syn-accent-soft)" : "var(--syn-surface)",
                             color: on ? "var(--syn-accent)" : "var(--syn-text-muted)",
                             fontSize: 11,
-                            fontFamily: "monospace",
+                            fontFamily: "var(--syn-font-mono)",
                             cursor: saving ? "not-allowed" : "pointer",
                             userSelect: "none",
                           }}
@@ -358,7 +401,12 @@ export function ImportScheduleCard() {
                             checked={on}
                             disabled={saving}
                             onChange={() => toggleExt(ext)}
-                            style={{ width: 12, height: 12, cursor: "pointer", accentColor: "var(--syn-accent)" }}
+                            style={{
+                              width: 12,
+                              height: 12,
+                              cursor: "pointer",
+                              accentColor: "var(--syn-accent)",
+                            }}
                           />
                           {ext}
                         </label>
@@ -374,7 +422,13 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-excluded-folders"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--syn-text-muted)",
+                marginBottom: 4,
+              }}
             >
               {t("settings.import.excludedFolders")}
             </label>
@@ -407,7 +461,13 @@ export function ImportScheduleCard() {
           <div>
             <label
               htmlFor="import-max-size"
-              style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--syn-text-muted)", marginBottom: 4 }}
+              style={{
+                display: "block",
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--syn-text-muted)",
+                marginBottom: 4,
+              }}
             >
               {t("settings.import.maxSize")}
             </label>
@@ -431,7 +491,9 @@ export function ImportScheduleCard() {
                   outline: "none",
                 }}
               />
-              <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.import.maxSizeUnit")}</span>
+              <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>
+                {t("settings.import.maxSizeUnit")}
+              </span>
             </div>
             <p style={{ margin: "3px 0 0", fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("settings.import.maxSizeHint")}
@@ -499,17 +561,16 @@ export function ImportScheduleCard() {
               disabled={running || saving || !schedule?.enabled}
               aria-label={t("settings.import.runNow")}
               data-testid="import-run-now"
-              title={
-                !schedule?.enabled
-                  ? t("settings.import.statusDisabled")
-                  : undefined
-              }
+              title={!schedule?.enabled ? t("settings.import.statusDisabled") : undefined}
               style={{
                 padding: "6px 16px",
                 border: "1px solid var(--syn-border)",
                 borderRadius: 6,
                 background: "transparent",
-                color: running || saving || !schedule?.enabled ? "var(--syn-text-dim)" : "var(--syn-accent)",
+                color:
+                  running || saving || !schedule?.enabled
+                    ? "var(--syn-text-dim)"
+                    : "var(--syn-accent)",
                 fontSize: 12,
                 fontWeight: 500,
                 cursor: running || saving || !schedule?.enabled ? "not-allowed" : "pointer",
