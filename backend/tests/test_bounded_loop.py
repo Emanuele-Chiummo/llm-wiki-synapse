@@ -171,6 +171,12 @@ class _Row:
 async def test_cost_anomaly_warning_and_flag(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    # This test exercises the JSON loop's cost-anomaly path via a JSON fake (no complete()); pin
+    # the rollback format so the 1.7.0 "blocks" default doesn't route it through the block loop.
+    import app.config_overrides as config_overrides
+
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
+
     provider = _ConvergingCostly()
     runs: list = []
 

@@ -352,10 +352,13 @@ class Settings(BaseSettings):
     REVIEW_PROPOSE_WRITTEN_PAGES_CHARS.
     """
 
-    review_propose_timeout_seconds: float = 30.0
+    review_propose_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single proposal provider call (ADR-0034 §4.3, I7).
     On timeout → emit only the rule-based proposals (degrade, never fail ingest).
+    Sized for the CLI provider: a single ``complete()`` spawns a `claude` subprocess whose
+    cold-start + generation routinely exceeds 30s; fast API/Ollama providers return well under
+    this ceiling, so the larger default only affects a genuinely-slow/hung call (degrade-safe).
     Env var: REVIEW_PROPOSE_TIMEOUT_SECONDS.
     """
 
@@ -459,6 +462,68 @@ class Settings(BaseSettings):
     behaviour). Env var: INGEST_GENERATION_SOURCE_CHAR_BUDGET.
     """
 
+    # ── ADR-0076: block-based orchestrated ingest (nashsu/llm_wiki v0.6.3 parity) ─
+    # The 1.7.0 block pipeline is a faithful port of llm_wiki's markdown-analysis +
+    # FILE/REVIEW-block generation contract. As of 1.7.0 it is the DEFAULT ("blocks"); the
+    # legacy JSON loop (loop.py) remains reachable via ``ingest_pipeline_format="json"`` as a
+    # pure rollback lever (slated for removal in 1.8). The 1:1 E2E vs llm_wiki confirmed the
+    # block path reaches 12/12 parity bands where the JSON/delegated path dangled wikilinks.
+
+    ingest_pipeline_format: str = "blocks"
+    """
+    Orchestrated-ingest pipeline selector (ADR-0076) — the 1.7.0 rollback lever. One of:
+
+      • "blocks" — the nashsu/llm_wiki v0.6.3 block path (``block_loop.run_block_loop``):
+                   free-markdown analysis → FILE/REVIEW-block generation → block-specific
+                   validation → augment & retry, written via ``block_writer.write_block_page``
+                   (custom page types persist as the raw ``pages.type`` string). DEFAULT.
+      • "json"   — the legacy two-step JSON loop (``loop.run_orchestrated_loop``): analyze →
+                   generate (JSON WikiPage list) → validate → augment & retry. Rollback only.
+
+    In "blocks" mode ALL providers — Local, API, AND the agentic CLI — run the block loop via
+    ``provider.complete()`` (llm_wiki drives its CLI as a TEXT transport, not an agent loop). The
+    delegated/CLI agent loop is used ONLY in "json" mode, where its wikilinks can dangle because
+    the agent does not materialise every page it links (the exact gap the 1:1 E2E surfaced).
+    Read via ``config_overrides.effective_str`` (override-else-env). Env var:
+    INGEST_PIPELINE_FORMAT.
+    """
+
+    ingest_context_char_budget: int = 204_800
+    """
+    Block pipeline (ADR-0076) — total context budget in CHARACTERS (llm_wiki
+    ``context-budget.ts`` default maxContextSize 204800). Governs the generation ``max_tokens``
+    tier (8192 <128K, 16384 ≥128K, 24576 ≥256K, 32768 ≥512K chars) and the review-stage prompt's
+    internal section/index caps. Larger windows earn a higher generation ceiling; smaller ones
+    stay bounded (I7). Only consulted when ``ingest_pipeline_format`` == "blocks".
+    Env var: INGEST_CONTEXT_CHAR_BUDGET.
+    """
+
+    ingest_review_stage_min_chars: int = 10_000
+    """
+    Block pipeline (ADR-0076, llm_wiki ``shouldRunDedicatedReviewStage`` ingest.ts:2036) — the
+    dedicated review stage runs when the generation text is at least this many characters (OR when
+    the FILE-block count reaches ``ingest_review_stage_min_file_blocks``). Below both thresholds no
+    extra review call is made (I7 — cost control); inline ``---REVIEW:`` blocks in the generation
+    are still collected. Env var: INGEST_REVIEW_STAGE_MIN_CHARS.
+    """
+
+    ingest_review_stage_min_file_blocks: int = 4
+    """
+    Block pipeline (ADR-0076, llm_wiki ``shouldRunDedicatedReviewStage`` ingest.ts:2036) — the
+    dedicated review stage runs when the generation produced at least this many FILE blocks (OR the
+    generation text clears ``ingest_review_stage_min_chars``). Env var:
+    INGEST_REVIEW_STAGE_MIN_FILE_BLOCKS.
+    """
+
+    ingest_page_history_max_per_page: int = 20
+    """
+    Block pipeline (ADR-0076, llm_wiki ``.llm-wiki/page-history`` parity) — max on-disk backups
+    kept per page under ``<vault>/.synapse/page-history/`` before an overwrite. When
+    ``block_writer.write_block_page`` is about to overwrite an existing wiki file it first copies
+    the prior bytes to a deterministically-indexed backup; older backups beyond this cap are pruned
+    (oldest first). Bounds disk growth (I7). Env var: INGEST_PAGE_HISTORY_MAX_PER_PAGE.
+    """
+
     review_sweep_max_items: int = 200
     """
     Max pending missing-page/duplicate items processed by the sweep Pass-1 rule pass per run
@@ -490,13 +555,14 @@ class Settings(BaseSettings):
     OVERVIEW_TOKEN_BUDGET.
     """
 
-    overview_timeout_seconds: float = 90.0
+    overview_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single overview regeneration provider call (F3, I7). On
     timeout the previous overview.md is kept (degrade, never fail ingest). The old 30 s default
     was too tight for the CLI (claude-agent-sdk) route on a large vault (agent startup + a
-    200-title structured prompt), so every regen timed out and the overview stayed stale. 90 s
-    gives the CLI room to finish. Env var: OVERVIEW_TIMEOUT_SECONDS.
+    200-title structured prompt), so every regen timed out and the overview stayed stale. 120 s
+    (aligned with the review sweep/propose ceilings) gives the CLI's single ``complete()``
+    subprocess room to finish. Env var: OVERVIEW_TIMEOUT_SECONDS.
     """
 
     review_sweep_llm_enabled: bool = True
@@ -527,10 +593,13 @@ class Settings(BaseSettings):
     provider row carries none. Env var: REVIEW_SWEEP_LLM_TOKEN_BUDGET.
     """
 
-    review_sweep_timeout_seconds: float = 30.0
+    review_sweep_timeout_seconds: float = 120.0
     """
     Timeout (seconds) wrapping the single sweep Pass-2 provider call (ADR-0034 §6.3, I7).
     On timeout / ambiguity → keep ALL pending (default-to-keep, Do-NOT #7).
+    Sized for the CLI provider: a single ``complete()`` spawns a `claude` subprocess whose
+    cold-start + generation routinely exceeds 30s; fast API/Ollama providers return well under
+    this ceiling, so the larger default only affects a genuinely-slow/hung call (degrade-safe).
     Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
     """
 
@@ -651,11 +720,17 @@ class Settings(BaseSettings):
     # token_budget (I7). Substitution-apply (R1): the LLM returns {mention, target_title}
     # pairs; code validates + applies them single-mention into page BODIES only (I5).
 
-    wikilink_enrich_enabled: bool = True
+    wikilink_enrich_enabled: bool = False
     """
-    Master gate for the wikilink-enrichment post-pass (ADR-0036 §4). Default on (one bounded
-    call per orchestrated ingest run). Set false for zero-cost ingest: pages are still written
-    and indexed; no enrichment call is made. Env var: WIKILINK_ENRICH_ENABLED.
+    Master gate for the wikilink-enrichment post-pass (ADR-0036 §4).
+
+    DEFAULT OFF since v1.7.0 (ADR-0076). nashsu/llm_wiki produces wikilinks INLINE during
+    generation only — its enrich-wikilinks.ts is dead code — so link density is a function of the
+    prompts (ingest/prompts.py restores the prominent wikilink instructions the 1.6.0 JSON scaffold
+    buried). Keeping this post-pass ON on top of the parity prompts double-counts and makes the
+    link-density parity band unfalsifiable, and it overshoots the reference on the delegated/CLI
+    path (the 1:1 E2E). It remains one opt-in toggle away for zero-prompt-cost link recovery.
+    Set true to re-enable one bounded call per orchestrated run. Env: WIKILINK_ENRICH_ENABLED.
     """
 
     wikilink_enrich_min_chars: int = 200

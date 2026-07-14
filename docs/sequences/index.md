@@ -16,6 +16,11 @@ The ingest loop is the core workflow that processes raw documents into wiki page
 4. **Validation** checks the output; on failure, refine and retry (bounded loop)
 5. **Indexing** updates Postgres metadata and Qdrant embeddings
 
+Diagrams: [`ingest-loop.mmd`](ingest-loop.mmd) (legacy JSON loop, rollback path) ·
+[`ingest-routing.mmd`](ingest-routing.mmd) (capability routing) ·
+[`ingest-blocks.mmd`](ingest-blocks.mmd) (v1.7.0 block-based pipeline — markdown analysis +
+FILE/REVIEW blocks, ADR-0076; the delegated-CLI path is the 1:1 E2E path).
+
 ### Retrieval (4-phase)
 
 The chat retrieval pipeline assembles a context window for the LLM:

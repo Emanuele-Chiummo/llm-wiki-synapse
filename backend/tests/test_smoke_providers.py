@@ -59,6 +59,20 @@ def _load_run_smoke_backend():  # type: ignore[return]
     return mod._run_smoke_backend
 
 
+@pytest.fixture(autouse=True)
+def _pin_json_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin the JSON rollback format for the provider-wiring smoke tests.
+
+    These smokes assert the legacy per-capability routes (Local/API → orchestrated JSON loop,
+    CLI → delegated). The 1.7.0 default is "blocks", under which the CLI is orchestrated too and
+    the JSON mock providers lack ``complete()``. The block-default is covered by
+    test_pipeline_blocks_format.py; here we verify the json rollback path stays wired (I6).
+    """
+    import app.config_overrides as config_overrides
+
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
+
+
 def _set_mock_env() -> None:
     """Set SYNAPSE_SMOKE_MOCK=1 and minimal env vars for the mock path."""
     os.environ["SYNAPSE_SMOKE_MOCK"] = "1"

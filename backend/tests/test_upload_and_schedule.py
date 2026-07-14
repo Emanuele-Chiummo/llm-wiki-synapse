@@ -238,6 +238,7 @@ async def upload_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         sa.Column("clip_enabled_db", sa.Integer, nullable=True),
         sa.Column("clip_access_token", sa.Text, nullable=True),
         sa.Column("clip_allowed_origins_db", sa.Text, nullable=True),
+        sa.Column("output_language", sa.Text, nullable=True),
         sa.Column("updated_at", sa.Text, nullable=False),
     )
     sa.Table(

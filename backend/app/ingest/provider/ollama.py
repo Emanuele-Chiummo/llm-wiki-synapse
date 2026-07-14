@@ -147,6 +147,38 @@ class OllamaProvider(InferenceProvider):
         )
         return parse_pages(raw)
 
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """
+        Raw-text completion for the block-based ingest loop (ADR-0076) — Ollama /api/chat with
+        NO `format:"json"` (the FILE/REVIEW-block contract is text, not JSON). num_ctx is kept
+        (BUG A1) and num_predict caps the output at *max_tokens* (I7). Usage recorded out of band.
+        """
+        body = {
+            "model": self._model,
+            "stream": False,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            "options": {"num_ctx": self._num_ctx, "num_predict": max_tokens},
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            resp = await client.post(f"{self._base_url}/api/chat", json=body)
+            resp.raise_for_status()
+            payload = resp.json()
+
+        self._record_usage(
+            Usage(
+                input_tokens=int(payload.get("prompt_eval_count", 0) or 0),
+                output_tokens=int(payload.get("eval_count", 0) or 0),
+                total_cost_usd=0.0,
+            )
+        )
+        content = payload.get("message", {}).get("content", "")
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("Ollama returned an empty message content")
+        return content
+
     async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
         """
         Stream a chat turn via Ollama /api/chat with stream=true (F6, ADR-0019 §2.4 transport).

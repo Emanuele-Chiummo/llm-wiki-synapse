@@ -19,7 +19,6 @@ Reuses the shared api_env / api_client SQLite harness from test_api.py.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 
 import app.ingest.orchestrator as orch
@@ -27,7 +26,6 @@ import frontmatter
 import pytest
 from app.ingest.schemas import (
     Analysis,
-    Message,
     PageType,
     ProviderCapabilities,
     SuggestedPage,
@@ -101,8 +99,10 @@ def test_overview_instruction_fallback_language_directive() -> None:
 
 class _FakeOverviewProvider:
     """
-    Minimal provider whose chat() streams a fixed narrative and records ONE usage row.
-    Not an InferenceProvider subclass — _update_overview only needs bind_accumulator + chat.
+    Minimal provider whose complete() returns a fixed narrative and records ONE usage row.
+    Not an InferenceProvider subclass — _update_overview only needs bind_accumulator + complete
+    (ADR-0076: overview regen uses the single-turn complete() seam, not the agentic chat() loop).
+    ``chat_calls`` counts provider calls regardless of seam (assertions read "called once").
     """
 
     def __init__(self, narrative: str) -> None:
@@ -116,23 +116,17 @@ class _FakeOverviewProvider:
     def capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities("local", False, False, 8192, "FakeOverview")
 
-    async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
         self.chat_calls += 1
         if self._acc is not None:
             self._acc.add(Usage(input_tokens=10, output_tokens=10, total_cost_usd=0.0))
-
-        narrative = self.narrative
-
-        async def _gen() -> AsyncIterator[str]:
-            yield narrative
-
-        return _gen()
+        return self.narrative
 
 
 class _RaisingProvider(_FakeOverviewProvider):
-    """chat() raises → exercises the degrade-safe path (previous overview kept)."""
+    """complete() raises → exercises the degrade-safe path (previous overview kept)."""
 
-    async def chat(self, messages: list[Message], retrieval_context: str) -> AsyncIterator[str]:
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
         self.chat_calls += 1
         raise RuntimeError("provider boom")
 

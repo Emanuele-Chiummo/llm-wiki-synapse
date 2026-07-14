@@ -1,13 +1,13 @@
 /**
  * StatusBadge.tsx — color-coded status badge for ingest run cards (ADR-0018 §3).
  *
- * Colors (dark GitHub palette):
- *   running        → #1f6feb (blue) with pulsing animation
- *   completed      → #3fb950 (green)
- *   failed         → #f85149 (red)
- *   converged_false → #d29922 (amber)
- *   cancelling     → #8b949e (muted gray — optimistic transient state, R13-3)
- *   cancelled      → #6e7681 (muted gray — terminal, R13-3)
+ * Colors mapped to --syn-* design tokens (light + dark compliant):
+ *   running        → --syn-accent (blue) with pulsing animation
+ *   completed      → --syn-green
+ *   failed         → --syn-red
+ *   converged_false → --syn-amber
+ *   cancelling     → --syn-text-dim (muted gray — optimistic transient state, R13-3)
+ *   cancelled      → --syn-text-dim (muted gray — terminal, R13-3)
  *
  * prefers-reduced-motion: pulse animation disabled (reuse pattern from GraphViewer).
  * i18n: label from ingest.status.* keys (ADR-0018 §6 / I6).
@@ -17,21 +17,30 @@ import { useTranslation } from "react-i18next";
 import type { IngestStatus } from "../../api/types";
 
 const STATUS_COLOR: Record<IngestStatus, string> = {
-  running: "#1f6feb",
-  completed: "#3fb950",
-  failed: "#f85149",
-  converged_false: "#d29922",
-  cancelling: "#8b949e",
-  cancelled: "#6e7681",
+  running: "var(--syn-accent)",
+  completed: "var(--syn-green)",
+  failed: "var(--syn-red)",
+  converged_false: "var(--syn-amber)",
+  cancelling: "var(--syn-text-dim)",
+  cancelled: "var(--syn-text-dim)",
 };
 
 const STATUS_BG: Record<IngestStatus, string> = {
-  running: "#1f6feb22",
-  completed: "#3fb95022",
-  failed: "#f8514922",
-  converged_false: "#d2992222",
-  cancelling: "#8b949e22",
-  cancelled: "#6e768122",
+  running: "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-mix-base) 90%)",
+  completed: "color-mix(in srgb, var(--syn-green) 10%, var(--syn-mix-base) 90%)",
+  failed: "color-mix(in srgb, var(--syn-red) 10%, var(--syn-mix-base) 90%)",
+  converged_false: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
+  cancelling: "color-mix(in srgb, var(--syn-text-dim) 10%, var(--syn-mix-base) 90%)",
+  cancelled: "color-mix(in srgb, var(--syn-text-dim) 10%, var(--syn-mix-base) 90%)",
+};
+
+const STATUS_BORDER: Record<IngestStatus, string> = {
+  running: "1px solid color-mix(in srgb, var(--syn-accent) 30%, transparent)",
+  completed: "1px solid color-mix(in srgb, var(--syn-green) 30%, transparent)",
+  failed: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent)",
+  converged_false: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent)",
+  cancelling: "1px solid color-mix(in srgb, var(--syn-text-dim) 30%, transparent)",
+  cancelled: "1px solid color-mix(in srgb, var(--syn-text-dim) 30%, transparent)",
 };
 
 interface StatusBadgeProps {
@@ -44,8 +53,11 @@ export function StatusBadge({ status }: StatusBadgeProps) {
   const labelKey =
     `ingest.status.${status === "converged_false" ? "convergedFalse" : status}` as string;
   const label = t(labelKey as string);
-  const color = STATUS_COLOR[status] ?? "#8b949e";
-  const bg = STATUS_BG[status] ?? "#8b949e22";
+  const color = STATUS_COLOR[status] ?? "var(--syn-text-dim)";
+  const bg =
+    STATUS_BG[status] ?? "color-mix(in srgb, var(--syn-text-dim) 10%, var(--syn-mix-base) 90%)";
+  const border =
+    STATUS_BORDER[status] ?? "1px solid color-mix(in srgb, var(--syn-text-dim) 30%, transparent)";
 
   const reducedMotion =
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -62,7 +74,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
         fontWeight: 600,
         color,
         background: bg,
-        border: `1px solid ${color}4d`,
+        border,
         borderRadius: 10,
         padding: "2px 7px",
         whiteSpace: "nowrap",
@@ -87,13 +99,7 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       />
       {label}
 
-      {/* Inject keyframes once — harmless if duplicated in the head */}
-      <style>{`
-        @keyframes synapse-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
+      {/* UXA-28: @keyframes synapse-pulse is declared globally in theme.css — no inline <style> needed */}
     </span>
   );
 }

@@ -49,27 +49,27 @@
 :root {
   color-scheme: light;
 
-  /* ── Surfaces (llm_wiki light: white content, very-light panels) ── */
-  --syn-bg: #ffffff; /* app / content background */
-  --syn-bg-soft: #f6f7f9; /* side panels / tree background */
+  /* ── Surfaces (editorial workspace: cool paper, blue-biased panels — v1.7.0 redesign) ── */
+  --syn-bg: #ffffff; /* content / paper */
+  --syn-bg-soft: #f4f6fb; /* side panels / tree / app ground (cool) */
   --syn-surface: #ffffff; /* cards */
   --syn-surface-raised: #ffffff;
-  --syn-surface-hover: #f0f2f5; /* hover / subtle fill (chips) */
-  --syn-surface-sunken: #f6f8fa; /* code blocks, table header */
-  --syn-input-bg: #f8fafc; /* editable fields on connection/auth surfaces */
+  --syn-surface-hover: #edf1f9; /* hover / subtle fill (chips) */
+  --syn-surface-sunken: #f4f6fb; /* code blocks, table header */
+  --syn-input-bg: #f7f9fd; /* editable fields on connection/auth surfaces */
 
-  /* ── Borders ── */
-  --syn-border: #e2e5ea;
-  --syn-border-subtle: #eceef1;
+  /* ── Borders (cool hairlines) ── */
+  --syn-border: #e3e8f1;
+  --syn-border-subtle: #edf1f8;
 
-  /* ── Text ── */
-  --syn-text: #1f2328; /* primary near-black */
-  --syn-text-muted: #59636e;
+  /* ── Text (ink — blue-biased near-black, never pure/GitHub black) ── */
+  --syn-text: #0f1729; /* primary ink */
+  --syn-text-muted: #566073;
   --syn-text-dim: #68717a; /* WCAG AA: 4.96:1 on #fff, 4.63:1 on bg-soft (was #8b949e = 3.08:1, failed) */
 
-  /* ── Accent (blue links / active) ── */
+  /* ── Accent (brand blue — reserved for live/interactive/selected) ── */
   --syn-accent: #2563eb;
-  --syn-accent-strong: #1d4ed8;
+  --syn-accent-strong: #1d4fd7;
   --syn-accent-soft: #eaf1fe; /* active/hover tint */
 
   /* ── Semantic ── */
@@ -79,28 +79,30 @@
   --syn-success: var(--syn-green);
   --syn-error: var(--syn-red);
   --syn-danger: var(--syn-red);
+  --syn-warn: var(--syn-amber); /* semantic amber for "needs attention" states (theme-adaptive) */
   --syn-accent2: #7c3aed;
   --syn-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
-  /* ── Per-type colors (tree icons, badges, graph legend) ── */
-  --syn-type-concept: #8250df; /* purple */
-  --syn-type-entity: #2563eb; /* blue */
-  --syn-type-source: #e16f24; /* orange */
-  --syn-type-synthesis: #cf222e; /* red */
-  --syn-type-comparison: #1a7f37; /* green */
-  --syn-type-query: #16a34a; /* green */
+  /* ── Per-type colors (tree icons, badges, graph legend) — a legible categorical
+     jewel-tone set, each distinct from the accent (fixes the old double-green: v1.7.0) ── */
+  --syn-type-concept: #8b5cf6; /* violet */
+  --syn-type-entity: #3b82f6; /* blue (distinct from the pure accent) */
+  --syn-type-source: #0e9a92; /* teal */
+  --syn-type-synthesis: #6366f1; /* indigo */
+  --syn-type-comparison: #cf6a44; /* copper */
+  --syn-type-query: #b9791a; /* amber */
   --syn-type-overview: #b8860b; /* amber */
   --syn-type-index: #9a6700; /* amber */
   --syn-type-log: #6639ba; /* violet */
   --syn-type-other: #6e7781;
 
-  /* ── Radii / shadow ── */
-  --syn-radius-sm: 6px;
-  --syn-radius-md: 8px;
+  /* ── Radii / shadow (softer, cooler elevation — v1.7.0) ── */
+  --syn-radius-sm: 7px;
+  --syn-radius-md: 9px;
   --syn-radius-lg: 12px;
   --syn-radius-pill: 999px;
-  --syn-shadow-soft: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 3px rgba(31, 35, 40, 0.08);
-  --syn-shadow-pop: 0 8px 24px rgba(31, 35, 40, 0.12);
+  --syn-shadow-soft: 0 1px 2px rgba(15, 23, 41, 0.05), 0 8px 24px -14px rgba(15, 23, 41, 0.12);
+  --syn-shadow-pop: 0 2px 8px rgba(15, 23, 41, 0.07), 0 20px 44px -22px rgba(15, 23, 41, 0.22);
 
   /* ── Scrollbar tokens (audit: was hardcoded #c7ccd4) ── */
   --syn-scrollbar-thumb: #c7ccd4;
@@ -175,22 +177,22 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* ── Surfaces ── */
-  --syn-bg: #0d1117;
-  --syn-bg-soft: #161b22;
-  --syn-surface: #161b22;
-  --syn-surface-raised: #1c2128;
-  --syn-surface-hover: #21262d;
-  --syn-surface-sunken: #0d1117;
-  --syn-input-bg: #0d1117;
+  /* ── Surfaces (deep navy ground, never pure/GitHub black — v1.7.0 redesign) ── */
+  --syn-bg: #0b1120;
+  --syn-bg-soft: #121a2b;
+  --syn-surface: #121a2b;
+  --syn-surface-raised: #18213a;
+  --syn-surface-hover: #1e2942;
+  --syn-surface-sunken: #0b1120;
+  --syn-input-bg: #0b1120;
 
   /* ── Borders ── */
-  --syn-border: #30363d;
-  --syn-border-subtle: #21262d;
+  --syn-border: #26324c;
+  --syn-border-subtle: #1c2740;
 
   /* ── Text ── */
-  --syn-text: #e6edf3;
-  --syn-text-muted: #8b949e;
+  --syn-text: #e7ecf7;
+  --syn-text-muted: #98a3ba;
   --syn-text-dim: #7d8590; /* WCAG AA: 5.07:1 on #0d1117, 4.64:1 on bg-soft (was #484f58 = 2.28:1, failed) */
 
   /* ── Accent ── */
@@ -204,21 +206,21 @@
   --syn-red: #f85149;
   --syn-accent2: #c084fc;
 
-  /* ── Per-type colors (lightened for dark backgrounds) ── */
-  --syn-type-concept: #bc8cff; /* purple — lighter */
-  --syn-type-entity: #58a6ff; /* blue — lighter */
-  --syn-type-source: #f0883e; /* orange — lighter */
-  --syn-type-synthesis: #ff7b72; /* red — lighter */
-  --syn-type-comparison: #3fb950; /* green — lighter */
-  --syn-type-query: #56d364; /* green — lighter */
-  --syn-type-overview: #e3b341; /* amber — lighter */
-  --syn-type-index: #e3b341; /* amber — lighter */
-  --syn-type-log: #a78bfa; /* violet — lighter */
+  /* ── Per-type colors (jewel tones lightened for the navy ground — v1.7.0) ── */
+  --syn-type-concept: #a78bfa; /* violet */
+  --syn-type-entity: #5c9aff; /* blue */
+  --syn-type-source: #2cc3b9; /* teal */
+  --syn-type-synthesis: #8b8df7; /* indigo */
+  --syn-type-comparison: #e58a63; /* copper */
+  --syn-type-query: #d3a24a; /* amber */
+  --syn-type-overview: #e3b341; /* amber */
+  --syn-type-index: #e3b341; /* amber */
+  --syn-type-log: #a78bfa; /* violet */
   --syn-type-other: #8b949e;
 
   /* ── Shadow (dark-adapted: less intense, more visible on dark) ── */
-  --syn-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
-  --syn-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --syn-shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.6);
+  --syn-shadow-pop: 0 2px 8px rgba(0, 0, 0, 0.4), 0 22px 48px -22px rgba(0, 0, 0, 0.7);
 
   /* ── Scrollbar token ── */
   --syn-scrollbar-thumb: #30363d;
@@ -392,6 +394,22 @@ select:focus-visible {
 .nav-rail__item:hover {
   background: var(--syn-surface-hover) !important;
   color: var(--syn-text) !important;
+}
+
+/* Active item: 3px accent left bar (v1.7.0 redesign — matches mockup .ic.on::before).
+ * Rendered as a ::before pseudo-element so it doesn't affect button layout or padding.
+ * The button has position: relative (set inline), so this is anchored to the button edge.
+ * left: 0 puts the bar flush with the button's left edge, inside the rail (no clip). */
+.nav-rail__item--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--syn-accent);
+  pointer-events: none;
 }
 
 /* Keep utility navigation reachable when the app window is shorter than the
@@ -961,5 +979,32 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .syn-skeleton {
     animation: none;
+  }
+}
+
+/* ── UXA-28: Global shared keyframes (moved from inline <style> tags) ─────────
+ * Components that need these animations reference them by name; no inline
+ * <style> injection needed. prefers-reduced-motion is the caller's responsibility.
+ *
+ * @keyframes synapse-pulse  — opacity pulse for "running" status dots (StatusBadge,
+ *                             DeepSearchView). Respects prefers-reduced-motion at the
+ *                             call site via animation: none override.
+ * @keyframes synapse-spin   — 360° rotation used in SourcesView loading spinner.
+ *                             Identical to syn-spin; separate name kept for callers
+ *                             already referencing "synapse-spin".
+ */
+@keyframes synapse-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes synapse-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

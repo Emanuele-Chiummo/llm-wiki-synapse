@@ -131,6 +131,21 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
+## LLM Wiki behavioral parity (v1.7.0 — ADR-0076 onward)
+
+| # | Title | Status |
+|---|-------|--------|
+| **0076** | [Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF](ADR-0076-block-based-ingest-pipeline.md) | Accepted |
+| **0077** | [Schema-driven page-type routing and an open page-type set (v1.7.0) — schema.md Page Types table is authoritative; custom types persist as raw page_type on the block path; enum untouched](ADR-0077-schema-driven-page-routing.md) | Accepted |
+| **0078** | [Aggregate file ownership: index.md "## Recently Updated" (hybrid K3+§1.8), log.md heading format, overview.md manual-op only — removes per-ingest _update_overview; adds POST /ops/overview/regenerate (v1.7.0)](ADR-0078-aggregate-ownership.md) | Accepted |
+| **0079** | [WS-C Review parity: drain-sweep, stub-create, block-review enqueue (v1.7.0) — `onQueueDrained` drain callback replaces per-run sweep; `create_page_from_review(mode="stub")` default; REVIEW blocks → review_items; `_detect_page_type` port](ADR-0079-review-parity.md) | Accepted |
+| **0080** | [Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, `proposal_origin="lint"` review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change](ADR-0080-lint-parity-assessment.md) | Accepted |
+| **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](ADR-0081-onboarding-wizard-and-output-language.md) | Accepted |
+| **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](ADR-0083-parity-e2e-harness.md) | Accepted |
+| **0084** | [Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079](ADR-0084-single-shot-complete-transport.md) | Accepted |
+
+---
+
 ## Navigation
 
 - **Home:** [docs/index.md](../index.md)

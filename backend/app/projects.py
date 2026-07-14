@@ -65,6 +65,10 @@ class CreateProjectRequest(BaseModel):
 
     name: str
     path: str
+    scenario: str | None = None
+    """Optional llm_wiki scenario template id (WS-E, v1.7.0). Applied at scaffold time."""
+    output_language: str | None = None
+    """ISO-639-1 output language (e.g. 'en', 'it'). Persisted to vault_state (not disk)."""
 
 
 class ActivateResponse(BaseModel):
@@ -298,17 +302,34 @@ async def create_project(body: CreateProjectRequest) -> Project:
     if not p.is_absolute():
         raise HTTPException(status_code=400, detail="Path must be absolute.")
 
+    # Validate scenario id if given (400 on unknown — WS-E, v1.7.0).
+    if body.scenario is not None:
+        from app.scenarios_data import SCENARIO_INDEX as _sidx  # noqa: PLC0415
+
+        if body.scenario not in _sidx:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown scenario {body.scenario!r}. " f"Valid ids: {sorted(_sidx)}",
+            )
+
     resolved = _resolved(body.path)
     reg = read_registry()
     if any(_resolved(x.path) == resolved for x in reg.projects):
         raise HTTPException(status_code=409, detail="A project already exists at this path.")
 
     # Scaffold the vault skeleton at the target path (idempotent, shared with boot bootstrap).
+    # scenario_id and output_language are passed through; vault.py applies the scenario
+    # to schema.md/purpose.md/extra_dirs; output_language is accepted but NOT written to
+    # disk by vault.py — we persist it to vault_state below.
     from app.vault import bootstrap_vault_at  # noqa: PLC0415 - avoid import cycle at module load
 
     try:
         p.mkdir(parents=True, exist_ok=True)
-        bootstrap_vault_at(p)
+        bootstrap_vault_at(
+            p,
+            scenario_id=body.scenario,
+            output_language=body.output_language,
+        )
     except OSError as exc:
         logger.error("projects: could not scaffold vault at %s: %s", resolved, exc)
         raise HTTPException(status_code=500, detail=f"Could not create vault: {exc}") from exc
@@ -323,8 +344,70 @@ async def create_project(body: CreateProjectRequest) -> Project:
     )
     reg.projects.append(proj)
     write_registry(reg)
-    logger.info("projects: created %s (id=%s) at %s", proj.name, pid, resolved)
+    logger.info(
+        "projects: created %s (id=%s) at %s (scenario=%r, output_language=%r)",
+        proj.name,
+        pid,
+        resolved,
+        body.scenario,
+        body.output_language,
+    )
+
+    # Persist output_language to vault_state for the new vault (WS-E, ADR-0081).
+    # Best-effort: if the DB is not available (e.g. in filesystem-only tests) we log
+    # a warning and continue — the vault and registry are already committed.
+    if body.output_language is not None:
+        await _seed_vault_state_output_language(pid, body.output_language)
+
     return proj
+
+
+async def _seed_vault_state_output_language(vault_id: str, output_language: str) -> None:
+    """
+    Best-effort: upsert a vault_state row for *vault_id* with *output_language* set.
+
+    Called from create_project immediately after registry commit. Uses a deferred import
+    so that filesystem-only tests that don't set up a DB never fail here — any exception
+    is caught and logged as a warning (the vault scaffold is already complete).
+
+    Mirrors the _seed_vault_state pattern in main.py (ADR-0005) but targets a different
+    vault_id (the newly-created project, not settings.vault_id).
+    """
+    try:
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        from sqlalchemy import select as _sa_select  # noqa: PLC0415
+
+        import app.db as _db  # noqa: PLC0415
+        from app.models import VaultState  # noqa: PLC0415
+
+        async with _db.get_session() as session:
+            row = await session.execute(
+                _sa_select(VaultState).where(VaultState.vault_id == vault_id)
+            )
+            vs = row.scalar_one_or_none()
+            if vs is None:
+                session.add(
+                    VaultState(
+                        vault_id=vault_id,
+                        data_version=0,
+                        output_language=output_language,
+                        updated_at=datetime.now(UTC),
+                    )
+                )
+            else:
+                vs.output_language = output_language
+        logger.info(
+            "projects: seeded vault_state.output_language=%r for vault_id=%r",
+            output_language,
+            vault_id,
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "projects: could not persist output_language to vault_state for %r "
+            "(DB may not be available — not fatal)",
+            vault_id,
+        )
 
 
 @router.post(

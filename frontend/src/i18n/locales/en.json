@@ -18,6 +18,11 @@
     "deepSearch": "Deep Research",
     "deepSearchShort": "Deep Search",
     "toolsGroup": "Tools",
+    "group": {
+      "create": "Make",
+      "understand": "See",
+      "maintain": "Tend"
+    },
     "convert": "Convert",
     "settings": "Settings",
     "projects": "Projects",
@@ -846,6 +851,16 @@
       "synthesis": "synthesis",
       "comparison": "comparison",
       "query": "query"
+    },
+    "trace": {
+      "origin": "origin",
+      "evidence": "evidence",
+      "proposedType": "proposed type",
+      "search": "search"
+    },
+    "dismissConfirm": {
+      "title": "Dismiss this item?",
+      "body": "The item will be permanently dismissed and removed from the queue. This cannot be undone."
     }
   },
   "cascadeDelete": {
@@ -1311,14 +1326,19 @@
     "connectedTo_one": "Connected to 1 other page",
     "technicalDetails": "Technical details",
     "bodyHint": "Open the page in the Wiki to read its full content.",
-    "connections": "Connections"
+    "connections": "Connections",
+    "linkedFrom": "Linked from",
+    "linksTo": "Links to",
+    "neighborhood": "Neighborhood"
   },
   "palette": {
     "placeholder": "Search sections and pages…",
     "noResults": "No results",
     "sections": "Sections",
     "pages": "Pages",
-    "hint": "↑↓ navigate · Enter open · Esc close"
+    "hint": "↑↓ navigate · Enter open · Esc close",
+    "trigger": "⌘K",
+    "searchHint": "Search or jump…"
   },
   "conversation": {
     "autoTitle": {
@@ -1529,7 +1549,24 @@
       "deferredTitle": "Setup saved for later",
       "deferredDesc": "Some required checks are still incomplete. You can explore Synapse now and resume this checklist from Settings › Getting started.",
       "deferredCta": "Explore and finish later"
-    }
+    },
+    "cancel": "Cancel",
+    "newProjectTitle": "New Project",
+    "stepNameTitle": "Project details",
+    "nameLabel": "Name",
+    "namePlaceholder": "Project name",
+    "parentDirLabel": "Parent directory",
+    "parentDirPlaceholder": "Absolute path on server (e.g. /data/vaults)",
+    "nameRequired": "Project name is required.",
+    "parentDirRequired": "Parent directory is required.",
+    "stepLanguageTitle": "AI output language",
+    "languageLabel": "Choose the language Synapse will use when writing wiki pages.",
+    "languageRequired": "Please choose an output language.",
+    "stepTemplateTitle": "Project template",
+    "templateDesc": "Choose a scenario template to scaffold your vault's purpose, schema, and structure.",
+    "create": "Create project",
+    "creating": "Creating…",
+    "createError": "Could not create project."
   },
   "home": {
     "title": "System Overview",
@@ -1587,6 +1624,7 @@
       "communities": "Communities",
       "reviewPending": "Review",
       "lintOpen": "Lint",
+      "lintClean": "Clean",
       "monthlyCost": "Monthly spend",
       "dataVersion": "Data version"
     },

@@ -36,8 +36,7 @@ import {
 // ─── Module-level reduced-motion detection (mirrors GraphViewer pattern) ───────
 
 const reducedMotion: boolean =
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { useGraphStore, selectVaultId } from "../../store/graphStore";
@@ -111,11 +110,7 @@ export function formatDuration(s: number | null | undefined): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-function progressPercent(
-  completed: number,
-  pending: number,
-  processing: number,
-): number {
+function progressPercent(completed: number, pending: number, processing: number): number {
   const done = completed;
   const denominator = completed + pending + processing;
   if (denominator === 0) return 0;
@@ -158,10 +153,7 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
   const isProcessing = task.status === "processing";
 
   // ── Phase / progress / ETA (only meaningful for processing tasks) ────────────
-  const phaseLabel =
-    isProcessing && task.phase != null
-      ? resolvePhaseLabel(task.phase, t)
-      : null;
+  const phaseLabel = isProcessing && task.phase != null ? resolvePhaseLabel(task.phase, t) : null;
 
   // progress: number → determinate; null → indeterminate; absent → hide bar entirely
   const hasProgressBar = isProcessing && task.phase != null; // show bar when phase is known
@@ -268,9 +260,7 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
                   background: "var(--syn-accent)",
                   borderRadius: 2,
                   opacity: reducedMotion ? 0.4 : 1,
-                  animation: reducedMotion
-                    ? undefined
-                    : "taskBarSweep 1.4s ease-in-out infinite",
+                  animation: reducedMotion ? undefined : "taskBarSweep 1.4s ease-in-out infinite",
                 }}
               />
             )}
@@ -288,19 +278,9 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
               marginTop: 2,
             }}
           >
-            {hasElapsed && (
-              <span aria-label={t("activity.elapsed")}>
-                {elapsedStr}
-              </span>
-            )}
-            {hasElapsed && hasEta && (
-              <span aria-hidden="true"> · </span>
-            )}
-            {hasEta && (
-              <span>
-                {t("activity.etaLeft", { eta: etaStr })}
-              </span>
-            )}
+            {hasElapsed && <span aria-label={t("activity.elapsed")}>{elapsedStr}</span>}
+            {hasElapsed && hasEta && <span aria-hidden="true"> · </span>}
+            {hasEta && <span>{t("activity.etaLeft", { eta: etaStr })}</span>}
           </span>
         )}
 
@@ -366,9 +346,7 @@ function TaskRow({ task, isCancelling, onCancel, onRetry }: TaskRowProps) {
               opacity: isMaxRetries ? 0.4 : 1,
               cursor: isMaxRetries ? "not-allowed" : "pointer",
             }}
-            aria-label={
-              isMaxRetries ? t("activity.maxRetriesReached") : t("activity.retry")
-            }
+            aria-label={isMaxRetries ? t("activity.maxRetriesReached") : t("activity.retry")}
           >
             <RotateCcw size={11} />
           </button>
@@ -399,7 +377,10 @@ export function ActivityBar(): ReactNode {
   const activeProvider = useProviderStore(selectActiveProvider);
 
   // Status-bar polling (GET /status every 30s)
-  const [status, setStatus] = useState<{ dataVersion: number | null; uptimeSeconds: number | null }>({
+  const [status, setStatus] = useState<{
+    dataVersion: number | null;
+    uptimeSeconds: number | null;
+  }>({
     dataVersion: null,
     uptimeSeconds: null,
   });
@@ -417,6 +398,13 @@ export function ActivityBar(): ReactNode {
           useStatusStore.getState().setBackendVersion(res.version);
           // Pending review count → NavRail badge (owner request; absent on old backends).
           useStatusStore.getState().setReviewPending(res.review_pending);
+          // Sync the active vault from the backend so every data list (review, pages, graph,
+          // lint) queries the vault the backend is actually serving — not a stale "default".
+          // The badges read /status directly (active vault); without this a non-default
+          // VAULT_ID makes the lists query the wrong vault (13-badge / 2-list mismatch).
+          if (res.vault_id && res.vault_id !== useGraphStore.getState().vaultId) {
+            useGraphStore.getState().setVaultId(res.vault_id);
+          }
           // Vision capability → MessageInput attach-image gate (B2 — absent = false).
           useStatusStore.getState().setSupportsVision(res.supports_vision ?? false);
           // WS-A [F16/F4/F18]: surface data_version for HomeDashboard + GraphViewer freshness.
@@ -495,9 +483,7 @@ export function ActivityBar(): ReactNode {
   // ── Task grouping (processing → pending → failed; failed capped at MAX_VISIBLE_FAILED) ──
   const processingTasks = tasks.filter((tk) => tk.status === "processing");
   const pendingTasks = tasks.filter((tk) => tk.status === "pending");
-  const failedTasks = tasks
-    .filter((tk) => tk.status === "failed")
-    .slice(0, MAX_VISIBLE_FAILED);
+  const failedTasks = tasks.filter((tk) => tk.status === "failed").slice(0, MAX_VISIBLE_FAILED);
 
   const pct = progressPercent(counts.completed_since_idle, counts.pending, counts.processing);
   const hasActiveTasks = counts.pending + counts.processing >= 2;
@@ -528,138 +514,162 @@ export function ActivityBar(): ReactNode {
     }
   }, [failedTasks, retryRun]);
 
-  const handleTaskCancel = useCallback(
-    (runId: string) => void cancelRun(runId),
-    [cancelRun],
-  );
+  const handleTaskCancel = useCallback((runId: string) => void cancelRun(runId), [cancelRun]);
   const handleTaskRetry = useCallback((_runId: string) => {
     // retryRun already called inside TaskRow; this callback is a no-op hook for future extensions
   }, []);
 
   return (
     <>
-    {/* R7-12: Cancel All confirmation dialog */}
-    {showCancelAllDialog && (
-      <ConfirmDialog
-        title={t("activity.cancelAllDialogTitle")}
-        body={t("activity.cancelAllDialogBody")}
-        confirmLabel={t("activity.cancelAllDialogConfirm")}
-        cancelLabel={t("activity.cancelAllDialogCancel")}
-        danger={true}
-        onConfirm={handleCancelAllConfirm}
-        onCancel={handleCancelAllCancel}
-      />
-    )}
-    <div style={{ position: "relative" }}>
-      {/* ── Expanded panel (upward) ──────────────────────────────────────────── */}
-      {expanded && (
-        <div
-          data-testid="activity-panel"
-          style={{
-            position: "absolute",
-            bottom: "100%",
-            right: 0,
-            width: "min(420px, 100vw)",
-            maxHeight: "50vh",
-            overflowY: "auto",
-            background: "var(--syn-bg-card)",
-            border: "1px solid var(--syn-border)",
-            borderRadius: "6px 6px 0 0",
-            boxShadow: "0 -4px 16px rgba(0,0,0,0.25)",
-            zIndex: 200,
-            padding: "10px 12px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          {/* Header row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "var(--syn-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                flex: 1,
-              }}
-            >
-              {t("activity.queueStatus")}
-            </span>
+      {/* R7-12: Cancel All confirmation dialog */}
+      {showCancelAllDialog && (
+        <ConfirmDialog
+          title={t("activity.cancelAllDialogTitle")}
+          body={t("activity.cancelAllDialogBody")}
+          confirmLabel={t("activity.cancelAllDialogConfirm")}
+          cancelLabel={t("activity.cancelAllDialogCancel")}
+          danger={true}
+          onConfirm={handleCancelAllConfirm}
+          onCancel={handleCancelAllCancel}
+        />
+      )}
+      <div style={{ position: "relative" }}>
+        {/* ── Expanded panel (upward) ──────────────────────────────────────────── */}
+        {expanded && (
+          <div
+            data-testid="activity-panel"
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              right: 0,
+              width: "min(420px, 100vw)",
+              maxHeight: "50vh",
+              overflowY: "auto",
+              background: "var(--syn-bg-card)",
+              border: "1px solid var(--syn-border)",
+              borderRadius: "6px 6px 0 0",
+              boxShadow: "0 -4px 16px rgba(0,0,0,0.25)",
+              zIndex: 200,
+              padding: "10px 12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
+            {/* Header row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--syn-text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  flex: 1,
+                }}
+              >
+                {t("activity.queueStatus")}
+              </span>
 
-            {/* Pause / Resume */}
-            <button
-              data-testid="activity-pause-toggle"
-              title={counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
-              onClick={() => void togglePause()}
-              style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
-              aria-label={counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
-            >
-              {counts.paused ? (
-                <PlayCircle size={12} />
-              ) : (
-                <PauseCircle size={12} />
+              {/* Pause / Resume */}
+              <button
+                data-testid="activity-pause-toggle"
+                title={counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
+                onClick={() => void togglePause()}
+                style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
+                aria-label={counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
+              >
+                {counts.paused ? <PlayCircle size={12} /> : <PauseCircle size={12} />}
+                {counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
+              </button>
+
+              {/* Cancel All (only when ≥2 active tasks) */}
+              {hasActiveTasks && (
+                <button
+                  data-testid="activity-cancel-all"
+                  title={t("activity.cancelAll")}
+                  onClick={handleCancelAll}
+                  style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
+                  aria-label={t("activity.cancelAll")}
+                >
+                  <X size={12} />
+                  {t("activity.cancelAll")}
+                </button>
               )}
-              {counts.paused ? t("activity.resumeQueue") : t("activity.pauseQueue")}
-            </button>
 
-            {/* Cancel All (only when ≥2 active tasks) */}
-            {hasActiveTasks && (
-              <button
-                data-testid="activity-cancel-all"
-                title={t("activity.cancelAll")}
-                onClick={handleCancelAll}
-                style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
-                aria-label={t("activity.cancelAll")}
+              {/* Retry Failed */}
+              {hasFailed && (
+                <button
+                  data-testid="activity-retry-failed"
+                  title={t("activity.retryFailed")}
+                  onClick={handleRetryFailed}
+                  style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
+                  aria-label={t("activity.retryFailed")}
+                >
+                  <RotateCcw size={12} />
+                  {t("activity.retryFailed")}
+                </button>
+              )}
+            </div>
+
+            {/* Batch progress ("Index all") — whole-batch done/total + total ETA */}
+            {batch && batch.total > 0 && (batch.running || batch.done < batch.total) && (
+              <div
+                data-testid="activity-batch"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                  padding: "6px 8px",
+                  borderRadius: 4,
+                  background: "color-mix(in srgb, var(--syn-accent) 8%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, transparent)",
+                }}
               >
-                <X size={12} />
-                {t("activity.cancelAll")}
-              </button>
-            )}
-
-            {/* Retry Failed */}
-            {hasFailed && (
-              <button
-                data-testid="activity-retry-failed"
-                title={t("activity.retryFailed")}
-                onClick={handleRetryFailed}
-                style={{ ...iconButtonStyle, fontSize: 11, gap: 4, padding: "3px 6px" }}
-                aria-label={t("activity.retryFailed")}
-              >
-                <RotateCcw size={12} />
-                {t("activity.retryFailed")}
-              </button>
-            )}
-          </div>
-
-          {/* Batch progress ("Index all") — whole-batch done/total + total ETA */}
-          {batch && batch.total > 0 && (batch.running || batch.done < batch.total) && (
-            <div
-              data-testid="activity-batch"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-                padding: "6px 8px",
-                borderRadius: 4,
-                background: "color-mix(in srgb, var(--syn-accent) 8%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--syn-accent) 25%, transparent)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Layers size={12} style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: "var(--syn-text)" }}>
-                  {t("activity.batchIndexing", { done: batch.done, total: batch.total })}
-                </span>
-                {batch.eta_seconds != null && batch.eta_seconds > 0 && (
-                  <span style={{ fontSize: 10, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}>
-                    {t("activity.etaLeft", { eta: formatDuration(batch.eta_seconds) })}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <Layers size={12} style={{ color: "var(--syn-accent)", flexShrink: 0 }} />
+                  <span
+                    style={{ flex: 1, fontSize: 11, fontWeight: 600, color: "var(--syn-text)" }}
+                  >
+                    {t("activity.batchIndexing", { done: batch.done, total: batch.total })}
                   </span>
-                )}
+                  {batch.eta_seconds != null && batch.eta_seconds > 0 && (
+                    <span
+                      style={{ fontSize: 10, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}
+                    >
+                      {t("activity.etaLeft", { eta: formatDuration(batch.eta_seconds) })}
+                    </span>
+                  )}
+                </div>
+                <div
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    background: "var(--syn-border)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${Math.round((batch.done / Math.max(1, batch.total)) * 100)}%`,
+                      background: "var(--syn-accent)",
+                      borderRadius: 2,
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </div>
               </div>
+            )}
+
+            {/* Progress bar */}
+            <div
+              data-testid="activity-progress"
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+            >
               <div
                 style={{
+                  flex: 1,
                   height: 4,
                   borderRadius: 2,
                   background: "var(--syn-border)",
@@ -669,238 +679,230 @@ export function ActivityBar(): ReactNode {
                 <div
                   style={{
                     height: "100%",
-                    width: `${Math.round((batch.done / Math.max(1, batch.total)) * 100)}%`,
-                    background: "var(--syn-accent)",
+                    width: `${pct}%`,
+                    background: hasFailed ? "var(--syn-red)" : "var(--syn-accent)",
                     borderRadius: 2,
                     transition: "width 0.3s ease",
                   }}
                 />
               </div>
+              <span style={{ fontSize: 10, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}>
+                {t("activity.completedCount", {
+                  completed: counts.completed_since_idle,
+                  total: Math.max(
+                    1,
+                    counts.completed_since_idle + counts.pending + counts.processing,
+                  ),
+                })}
+              </span>
             </div>
-          )}
 
-          {/* Progress bar */}
-          <div
-            data-testid="activity-progress"
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
-          >
-            <div
-              style={{
-                flex: 1,
-                height: 4,
-                borderRadius: 2,
-                background: "var(--syn-border)",
-                overflow: "hidden",
-              }}
-            >
-              <div
+            {/* Task list — empty state */}
+            {tasks.length === 0 && (
+              <p
                 style={{
-                  height: "100%",
-                  width: `${pct}%`,
-                  background: hasFailed ? "var(--syn-red)" : "var(--syn-accent)",
-                  borderRadius: 2,
-                  transition: "width 0.3s ease",
+                  fontSize: 12,
+                  color: "var(--syn-text-dim)",
+                  margin: 0,
+                  textAlign: "center",
+                  padding: "8px 0",
                 }}
+              >
+                {t("activity.emptyQueue")}
+              </p>
+            )}
+
+            {/* Processing tasks */}
+            {processingTasks.map((tk) => (
+              <TaskRow
+                key={tk.run_id ?? tk.source_path}
+                task={tk}
+                isCancelling={tk.run_id !== undefined && cancellingIds.has(tk.run_id)}
+                onCancel={handleTaskCancel}
+                onRetry={handleTaskRetry}
               />
-            </div>
-            <span style={{ fontSize: 10, color: "var(--syn-text-dim)", whiteSpace: "nowrap" }}>
-              {t("activity.completedCount", {
-                completed: counts.completed_since_idle,
-                total: Math.max(1, counts.completed_since_idle + counts.pending + counts.processing),
-              })}
-            </span>
+            ))}
+
+            {/* Pending tasks */}
+            {pendingTasks.map((tk, i) => (
+              <TaskRow
+                key={tk.run_id ?? `pending-${i}`}
+                task={tk}
+                isCancelling={tk.run_id !== undefined && cancellingIds.has(tk.run_id)}
+                onCancel={handleTaskCancel}
+                onRetry={handleTaskRetry}
+              />
+            ))}
+
+            {/* Failed tasks (capped at MAX_VISIBLE_FAILED) */}
+            {failedTasks.map((tk) => (
+              <TaskRow
+                key={tk.run_id ?? tk.source_path}
+                task={tk}
+                isCancelling={false}
+                onCancel={handleTaskCancel}
+                onRetry={handleTaskRetry}
+              />
+            ))}
+            {counts.failed > MAX_VISIBLE_FAILED && (
+              <p style={{ fontSize: 10, color: "var(--syn-text-dim)", margin: 0 }}>
+                {t("activity.moreFailedTasks", { count: counts.failed - MAX_VISIBLE_FAILED })}
+              </p>
+            )}
           </div>
-
-          {/* Task list — empty state */}
-          {tasks.length === 0 && (
-            <p style={{ fontSize: 12, color: "var(--syn-text-dim)", margin: 0, textAlign: "center", padding: "8px 0" }}>
-              {t("activity.emptyQueue")}
-            </p>
-          )}
-
-          {/* Processing tasks */}
-          {processingTasks.map((tk) => (
-            <TaskRow
-              key={tk.run_id ?? tk.source_path}
-              task={tk}
-              isCancelling={tk.run_id !== undefined && cancellingIds.has(tk.run_id)}
-              onCancel={handleTaskCancel}
-              onRetry={handleTaskRetry}
-            />
-          ))}
-
-          {/* Pending tasks */}
-          {pendingTasks.map((tk, i) => (
-            <TaskRow
-              key={tk.run_id ?? `pending-${i}`}
-              task={tk}
-              isCancelling={tk.run_id !== undefined && cancellingIds.has(tk.run_id)}
-              onCancel={handleTaskCancel}
-              onRetry={handleTaskRetry}
-            />
-          ))}
-
-          {/* Failed tasks (capped at MAX_VISIBLE_FAILED) */}
-          {failedTasks.map((tk) => (
-            <TaskRow
-              key={tk.run_id ?? tk.source_path}
-              task={tk}
-              isCancelling={false}
-              onCancel={handleTaskCancel}
-              onRetry={handleTaskRetry}
-            />
-          ))}
-          {counts.failed > MAX_VISIBLE_FAILED && (
-            <p style={{ fontSize: 10, color: "var(--syn-text-dim)", margin: 0 }}>
-              {t("activity.moreFailedTasks", { count: counts.failed - MAX_VISIBLE_FAILED })}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Collapsed bar (28px) ─────────────────────────────────────────────── */}
-      <footer
-        className="activity-bar"
-        aria-label="Activity bar"
-        data-testid="activity-bar"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "0 12px",
-          height: 28,
-          background: "var(--syn-bg-soft)",
-          borderTop: "1px solid var(--syn-border)",
-          fontSize: 11,
-          color: "var(--syn-text-dim)",
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {/* Vault id */}
-        <span
-          aria-label={`Vault: ${vaultId}`}
-          style={{ display: "flex", alignItems: "center", gap: 4 }}
-        >
-          <span aria-hidden="true" style={{ opacity: 0.5 }}>&#128193;</span>
-          <span style={{ color: "var(--syn-text-muted)" }}>{vaultId}</span>
-        </span>
-
-        {/* Data version */}
-        <span
-          aria-label={`Data version: ${displayVersion ?? "unknown"}`}
-          style={{ display: "flex", alignItems: "center", gap: 4 }}
-        >
-          <span aria-hidden="true" style={{ opacity: 0.5 }}>v</span>
-          <span style={{ fontFamily: "monospace", color: "var(--syn-text-muted)" }}>
-            {displayVersion ?? "–"}
-          </span>
-        </span>
-
-        {/* Uptime */}
-        {status.uptimeSeconds !== null && (
-          <span
-            aria-label={`Uptime: ${formatUptime(status.uptimeSeconds)}`}
-            style={{ display: "flex", alignItems: "center", gap: 4 }}
-          >
-            <span aria-hidden="true" style={{ opacity: 0.5 }}>&#8679;</span>
-            <span style={{ color: "var(--syn-text-dim)" }}>{formatUptime(status.uptimeSeconds)}</span>
-          </span>
         )}
 
-        {/* Connectivity indicator */}
-        <span
-          aria-label={pollError ? "Backend unreachable" : "Backend connected"}
-          style={{ display: "flex", alignItems: "center", gap: 4 }}
-        >
-          <span
-            aria-hidden="true"
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: pollError ? "var(--syn-red)" : "var(--syn-green)",
-              display: "inline-block",
-            }}
-          />
-        </span>
-
-        {/* Spacer */}
-        <span style={{ flex: 1 }} />
-
-        {/* Queue status summary + toggle — left of provider indicator */}
-        <button
-          data-testid="activity-panel-toggle"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? t("activity.collapse") : t("activity.expand")}
-          aria-expanded={expanded}
+        {/* ── Collapsed bar (28px) ─────────────────────────────────────────────── */}
+        <footer
+          className="activity-bar"
+          aria-label="Activity bar"
+          data-testid="activity-bar"
           style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: 5,
-            color: hasFailed
-              ? "var(--syn-red)"
-              : isActive
-              ? "var(--syn-accent)"
-              : "var(--syn-text-dim)",
+            gap: 16,
+            padding: "0 12px",
+            height: 28,
+            background: "var(--syn-bg-soft)",
+            borderTop: "1px solid var(--syn-border)",
             fontSize: 11,
-            padding: "0 4px",
+            color: "var(--syn-text-dim)",
+            flexShrink: 0,
+            overflow: "hidden",
           }}
         >
-          {/* Status icon */}
-          {isActive ? (
-            <Loader2
-              size={11}
-              style={{ animation: "spin 1s linear infinite" }}
-              aria-hidden="true"
-            />
-          ) : hasFailed ? (
-            <AlertCircle size={11} aria-hidden="true" />
-          ) : (
-            <CheckCircle2 size={11} aria-hidden="true" />
-          )}
+          {/* Vault id */}
+          <span
+            aria-label={`Vault: ${vaultId}`}
+            style={{ display: "flex", alignItems: "center", gap: 4 }}
+          >
+            <span aria-hidden="true" style={{ opacity: 0.5 }}>
+              &#128193;
+            </span>
+            <span style={{ color: "var(--syn-text-muted)" }}>{vaultId}</span>
+          </span>
 
-          {/* Status text (only show when non-empty queue or paused) */}
-          {(counts.total > 0 || counts.paused) && (
+          {/* Data version */}
+          <span
+            aria-label={`Data version: ${displayVersion ?? "unknown"}`}
+            style={{ display: "flex", alignItems: "center", gap: 4 }}
+          >
+            <span aria-hidden="true" style={{ opacity: 0.5 }}>
+              v
+            </span>
+            <span style={{ fontFamily: "monospace", color: "var(--syn-text-muted)" }}>
+              {displayVersion ?? "–"}
+            </span>
+          </span>
+
+          {/* Uptime */}
+          {status.uptimeSeconds !== null && (
             <span
-              style={{
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
+              aria-label={`Uptime: ${formatUptime(status.uptimeSeconds)}`}
+              style={{ display: "flex", alignItems: "center", gap: 4 }}
             >
-              {statusText}
+              <span aria-hidden="true" style={{ opacity: 0.5 }}>
+                &#8679;
+              </span>
+              <span style={{ color: "var(--syn-text-dim)" }}>
+                {formatUptime(status.uptimeSeconds)}
+              </span>
             </span>
           )}
 
-          {/* Chevron */}
-          {expanded ? (
-            <ChevronDown size={11} aria-hidden="true" />
-          ) : (
-            <ChevronUp size={11} aria-hidden="true" />
-          )}
-        </button>
+          {/* Connectivity indicator */}
+          <span
+            aria-label={pollError ? "Backend unreachable" : "Backend connected"}
+            style={{ display: "flex", alignItems: "center", gap: 4 }}
+          >
+            <span
+              aria-hidden="true"
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: pollError ? "var(--syn-red)" : "var(--syn-green)",
+                display: "inline-block",
+              }}
+            />
+          </span>
 
-        {/* Active provider indicator (F17) */}
-        <span
-          aria-label={`Active provider: ${activeProvider?.provider_type ?? "none"}`}
-          style={{
-            color: activeProvider ? "var(--syn-text-muted)" : "var(--syn-text-dim)",
-            cursor: "default",
-          }}
-        >
-          {activeProvider
-            ? `${activeProvider.provider_type}${activeProvider.model_id ? ` / ${activeProvider.model_id}` : ""}`
-            : "–"}
-        </span>
-      </footer>
+          {/* Spacer */}
+          <span style={{ flex: 1 }} />
 
-      {/* UXB-2 AC-UXB2-4: @keyframes spin + taskBarSweep moved to theme.css — no inline <style> needed */}
-    </div>
+          {/* Queue status summary + toggle — left of provider indicator */}
+          <button
+            data-testid="activity-panel-toggle"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? t("activity.collapse") : t("activity.expand")}
+            aria-expanded={expanded}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              color: hasFailed
+                ? "var(--syn-red)"
+                : isActive
+                  ? "var(--syn-accent)"
+                  : "var(--syn-text-dim)",
+              fontSize: 11,
+              padding: "0 4px",
+            }}
+          >
+            {/* Status icon */}
+            {isActive ? (
+              <Loader2
+                size={11}
+                style={{ animation: "spin 1s linear infinite" }}
+                aria-hidden="true"
+              />
+            ) : hasFailed ? (
+              <AlertCircle size={11} aria-hidden="true" />
+            ) : (
+              <CheckCircle2 size={11} aria-hidden="true" />
+            )}
+
+            {/* Status text (only show when non-empty queue or paused) */}
+            {(counts.total > 0 || counts.paused) && (
+              <span
+                style={{
+                  maxWidth: 160,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {statusText}
+              </span>
+            )}
+
+            {/* Chevron */}
+            {expanded ? (
+              <ChevronDown size={11} aria-hidden="true" />
+            ) : (
+              <ChevronUp size={11} aria-hidden="true" />
+            )}
+          </button>
+
+          {/* Active provider indicator (F17) */}
+          <span
+            aria-label={`Active provider: ${activeProvider?.provider_type ?? "none"}`}
+            style={{
+              color: activeProvider ? "var(--syn-text-muted)" : "var(--syn-text-dim)",
+              cursor: "default",
+            }}
+          >
+            {activeProvider
+              ? `${activeProvider.provider_type}${activeProvider.model_id ? ` / ${activeProvider.model_id}` : ""}`
+              : "–"}
+          </span>
+        </footer>
+
+        {/* UXB-2 AC-UXB2-4: @keyframes spin + taskBarSweep moved to theme.css — no inline <style> needed */}
+      </div>
     </>
   );
 }

@@ -114,6 +114,64 @@ _PURPOSE_SUGGESTION_TYPE = "purpose-suggestion"
 _SCHEMA_ADDITION_MARKER = "\n\n--- SUGGESTED schema.md ADDITION ---\n\n"
 _SCHEMA_SUGGESTION_TYPE = "schema-suggestion"
 
+# ── WS-C (ADR-0079): stub-create keyword tables (review-create-page.ts parity) ──────
+# detectPageType keyword regex constants (EN + CJK). Order matters in _detect_page_type:
+# entity > comparison > synthesis > concept > query (default).
+_STUB_ENTITY_KW = re.compile(
+    r"\b(entity|entities|person|people|organization|org|company|product|tool|service|"
+    r"institution|brand|author|researcher|country|region|city)\b"
+)
+_STUB_ENTITY_CJK = re.compile(
+    r"实体|人物|组织|公司|产品|工具|服务|机构|品牌|作者|研究者|国家|地区|城市"
+)  # noqa: E501
+_STUB_COMPARISON_KW = re.compile(
+    r"\b(comparison|compare|comparing|versus|vs\.?|contrast|contrasting|diff)\b"
+)
+_STUB_COMPARISON_CJK = re.compile(r"比较|对比|vs|比对|对照")
+_STUB_SYNTHESIS_KW = re.compile(
+    r"\b(synthesis|synthesize|overview|summary|survey|landscape|digest|roundup|compilation)\b"
+)
+_STUB_SYNTHESIS_CJK = re.compile(r"综合|合成|概览|总结|调研|概述|汇编|综述")
+_STUB_CONCEPT_KW = re.compile(
+    r"\b(concept|theory|method|technique|framework|approach|algorithm|model|principle|"
+    r"pattern|protocol|standard|process|mechanism|paradigm)\b"
+)
+_STUB_CONCEPT_CJK = re.compile(r"概念|理论|方法|技术|框架|算法|模型|原理|范式|机制|协议")
+
+
+def _detect_page_type(item_type: str, title: str) -> PageType:
+    """
+    Port of nashsu/llm_wiki ``detectPageType`` (review-create-page.ts).
+
+    Determines the wiki page type for a deterministic stub without an LLM call (WS-C).
+
+    Rules (checked in order):
+      1. ``missing-page`` → concept
+      2. ``contradiction`` / ``suggestion`` → query
+      3. Title keyword scan (EN + CJK):
+           entity keywords   → entity
+           comparison keywords → comparison
+           synthesis keywords  → synthesis
+           concept keywords    → concept
+      4. Default → query
+    """
+    if item_type == "missing-page":
+        return PageType.CONCEPT
+    if item_type in ("contradiction", "suggestion"):
+        return PageType.QUERY
+
+    lower = title.lower()
+    if _STUB_ENTITY_KW.search(lower) or _STUB_ENTITY_CJK.search(title):
+        return PageType.ENTITY
+    if _STUB_COMPARISON_KW.search(lower) or _STUB_COMPARISON_CJK.search(title):
+        return PageType.COMPARISON
+    if _STUB_SYNTHESIS_KW.search(lower) or _STUB_SYNTHESIS_CJK.search(title):
+        return PageType.SYNTHESIS
+    if _STUB_CONCEPT_KW.search(lower) or _STUB_CONCEPT_CJK.search(title):
+        return PageType.CONCEPT
+    return PageType.QUERY
+
+
 # ── R5 parity: title prefix stripping (review-utils.ts normalizeReviewTitle) ────────
 # Common prefixes the LLM may prepend to review titles. Stripped before normalization
 # so dedup + sweep agree on what "the same concept" means regardless of prefix presence.
@@ -2582,27 +2640,162 @@ def _extract_missing_page_candidates(proposed_title: str) -> list[str]:
     return candidates
 
 
-async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
+async def _create_stub_from_review(
+    item: ReviewItem,
+    origin_source: str,
+    candidates: list[str],
+) -> ReviewItem:
     """
-    Lazy on-demand Create action (ADR-0034 §5).
+    Deterministic stub-create path for ``create_page_from_review(mode='stub')`` (WS-C, ADR-0079).
 
-    Flow:
+    Ports nashsu/llm_wiki ``review-create-page.ts`` (Create Page button): writes a
+    ``# <title>\\n\\n<description>`` draft WITHOUT calling an LLM provider (I6-neutral).
+
+    One write per candidate (same fan-out logic as the generate path). The primary candidate
+    failure raises HTTPException(502). Secondary candidate failures are logged and skipped.
+    All writes go through the normal write_wiki_page seam (I1 — one data_version bump per page,
+    K3/K4 index+log maintenance).
+
+    Returns the updated ReviewItem (status=created).
+    """
+    from fastapi import HTTPException  # noqa: PLC0415
+
+    from app.ingest.schemas import WikiFrontmatter, WikiPage  # noqa: PLC0415
+    from app.ingest.writer import write_wiki_page  # noqa: PLC0415
+
+    item_id_str = str(item.id)
+    vault_id = item.vault_id
+    proposed_title = item.proposed_title or f"Review: {item.id}"
+    created_page_ids: list[str] = []
+
+    for _idx, candidate_title in enumerate(candidates):
+        _is_primary = _idx == 0
+
+        # Detect page type via keyword rules (llm_wiki detectPageType parity, ADR-0079 §2).
+        page_type = _detect_page_type(item.item_type, candidate_title)
+
+        # Build stub content: `# <title>\n\n<description>` (only if description non-empty).
+        _desc = (item.rationale or "").strip()
+        body_parts: list[str] = [f"# {candidate_title}"]
+        if _desc:
+            body_parts += ["", _desc]
+        body = "\n".join(body_parts)
+
+        fm = WikiFrontmatter(
+            type=page_type,
+            title=candidate_title,
+            sources=[origin_source] if origin_source else [],
+            tags=["stub"],
+        )
+        wiki_page = WikiPage(
+            title=candidate_title,
+            type=page_type,
+            content=body,
+            frontmatter=fm,
+        )
+
+        try:
+            created_page = await write_wiki_page(None, wiki_page, origin_source)
+        except Exception as exc:  # noqa: BLE001
+            if _is_primary:
+                logger.error(
+                    "create_page_from_review: stub write failed for item=%s: %s — item pending",
+                    item_id_str,
+                    exc,
+                )
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Failed to write stub page: {exc}. Item left pending — retry or skip.",
+                ) from exc
+            logger.warning(
+                "create_page_from_review: stub secondary candidate %r write failed — skipping: %s",
+                candidate_title,
+                exc,
+            )
+            continue
+
+        created_page_ids.append(str(created_page.id))
+        logger.debug(
+            "create_page_from_review: stub item=%s candidate[%d]=%r → page=%s",
+            item_id_str,
+            _idx,
+            candidate_title,
+            str(created_page.id),
+        )
+
+    if not created_page_ids:
+        raise HTTPException(
+            status_code=502,
+            detail="No stub pages were created. Item left pending — retry or skip.",
+        )
+
+    created_page_id_str = created_page_ids[0]
+
+    # Mark the item as created.
+    async with get_session() as session:
+        row2 = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
+        item2 = row2.scalar_one_or_none()
+        if item2 is None:
+            from fastapi import HTTPException as _HTTPExc  # noqa: PLC0415
+
+            raise _HTTPExc(status_code=404, detail=f"Review item {item.id} not found")
+        item2.status = "created"
+        item2.resolution = "created"
+        item2.created_page_id = created_page_id_str  # type: ignore[assignment]  # noqa: PGH003
+        item2.reviewed_at = datetime.now(UTC)
+        item2.reviewed_by = "web-ui"
+        await session.flush()
+        await session.refresh(item2)
+        session.expunge(item2)
+
+    logger.info(
+        "create_page_from_review: stub item=%s → page=%s title=%r vault=%s",
+        item_id_str,
+        created_page_id_str,
+        proposed_title,
+        vault_id,
+    )
+
+    # Fire-and-forget sweep so sibling proposals this page satisfies are resolved.
+    async def _do_stub_sweep() -> None:
+        try:
+            await sweep_reviews(vault_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("create_page_from_review: post-stub sweep failed (non-fatal): %s", exc)
+
+    asyncio.create_task(_do_stub_sweep())
+    return item2
+
+
+async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> ReviewItem:
+    """
+    Lazy on-demand Create action (ADR-0034 §5), with stub/generate routing (WS-C, ADR-0079).
+
+    ``mode="stub"`` (DEFAULT): writes a deterministic ``# <title>\\n\\n<description>`` page
+    without any provider call. ``mode="generate"``: the existing full-LLM generation path
+    (unchanged). The mode can be chosen per-request via the optional JSON body on the
+    ``POST /review/queue/{id}/create`` endpoint.
+
+    Flow (mode="stub"):
+      1. Load the review item (404 if absent; 409 if status != 'pending').
+      2. Route purpose/schema-suggestion items (no page write; unchanged).
+      3. Build candidate list + call _create_stub_from_review (no provider, I6-neutral).
+      4. Fire-and-forget sweep.
+
+    Flow (mode="generate"):
       1. Load the review item (404 if absent; 409 if status != 'pending').
       2. Resolve the ingest provider (409 if none configured — I6).
-      3. Call _run_generation — capability-aware (I6). On any failure (generation error, or the
-         delegated agent writing zero pages) → 502, item stays pending (no partial write).
-      4. Resolve the created page id (I1 — exactly one write):
-         - delegated route → the agent ALREADY wrote via MCP write_page; use its returned id.
-         - orchestrated route → write the produced WikiPage via write_wiki_page now.
+      3. Call _run_generation — capability-aware (I6). On any failure → 502, item pending.
+      4. Resolve the created page id (I1 — exactly one write).
       5. Set status=created, resolution=created, created_page_id, reviewed_at, reviewed_by.
-      6. Fire-and-forget sweep so sibling proposals that this page satisfies are closed.
+      6. Fire-and-forget sweep.
 
     Returns the updated ReviewItem.
 
     Raises:
       HTTPException(404) — item not found.
-      HTTPException(409) — item not pending, or no ingest provider configured (I6).
-      HTTPException(502) — generation failed; item left pending (§5.3).
+      HTTPException(409) — item not pending, or (mode=generate) no ingest provider configured.
+      HTTPException(502) — page write / generation failed; item left pending.
     """
     from fastapi import HTTPException
 
@@ -2711,24 +2904,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
         )
         return item_ss
 
-    # ── 2. Resolve provider (I6 — 409 if none configured) ────────────────────
-    try:
-        provider_config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError as cnfe:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "No ingest provider configured for this vault. "
-                "Configure a provider before using the Create action (I6)."
-            ),
-        ) from cnfe
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=409,
-            detail=f"Provider resolution failed: {exc}",
-        ) from exc
-
-    # ── 3. Derive title / type / origin_source (§5.2) ────────────────────────
+    # ── 2. Derive title / origin_source / candidates (shared by stub + generate) ──
     proposed_title = item.proposed_title or f"Review: {item_id}"
     proposed_page_type = item.proposed_page_type  # may be None → heuristic in _run_generation
     corpus_generation_key = (
@@ -2754,7 +2930,7 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
     else:
         origin_source = f"review:{item_id_str}"
 
-    # ── 4. Build candidate list for missing-page fan-out (R1 parity, ADR-0064) ────
+    # ── Build candidate list for missing-page fan-out (R1 parity, ADR-0064) ────
     # For missing-page items the proposed_title may encode a comma/、/"and"/"e" separated
     # list of pages to create (one per candidate, each exactly one data_version bump — I1,
     # bounded by _MISSING_PAGE_FANOUT_CAP — I7). All other item types keep the existing
@@ -2765,7 +2941,30 @@ async def create_page_from_review(item_id: uuid.UUID) -> ReviewItem:
         # D7 parity: clean the title (strip "Create:"/quote noise) for the generated page too.
         candidates = [_clean_candidate_title(proposed_title) or proposed_title]
 
-    # ── 5. Generate each candidate page (I1 — one write per page; bounded fan-out) ──
+    # ── WS-C mode routing (ADR-0079): stub vs generate ───────────────────────
+    # "stub" (default): deterministic draft, no provider call (I6-neutral).
+    # "generate": existing full-LLM path (unchanged — explicit secondary action).
+    if mode == "stub":
+        return await _create_stub_from_review(item, origin_source, candidates)
+
+    # ── Generate path: resolve provider (I6 — 409 if none configured) ────────
+    try:
+        provider_config_row = await resolve_provider_config("ingest", vault_id)
+    except ConfigNotFoundError as cnfe:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No ingest provider configured for this vault. "
+                "Configure a provider before using the Create action (I6)."
+            ),
+        ) from cnfe
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=409,
+            detail=f"Provider resolution failed: {exc}",
+        ) from exc
+
+    # ── Generate each candidate page (I1 — one write per page; bounded fan-out) ──
     # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
     # single-page behavior). Secondary candidate failures are logged and skipped; the primary
     # is already committed at that point.
@@ -3377,35 +3576,34 @@ def _coerce_token_budget(raw: Any, fallback: int) -> int:
     return value or fallback
 
 
+_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS = 2048
+
+
 async def _chat_collect(provider: Any, instruction: str, *, max_tokens: int | None = None) -> str:
     """
-    Run ONE capability-agnostic provider.chat() turn and collect the full text (I6).
+    Run ONE single-turn ``provider.complete()`` call and return the text (I6).
 
-    Rides the existing chat() seam (same surface ops/deep_research.py uses) so the call is
-    backend-neutral — no new ABC method, no isinstance/type branching. Usage is recorded out
-    of band onto the bound accumulator by the provider. Returns the concatenated text.
+    Uses ``complete()`` (single-turn, no tools) rather than ``chat()``: the agentic CLI provider's
+    ``chat()`` seam runs a full agent loop that HANGS and times out on a one-shot judging/proposing
+    call (the same reason the block ingest loop and overview regen use ``complete()`` — ADR-0076).
+    All providers implement ``complete()``; it is backend-neutral (no isinstance/type branch, I6).
+    Usage is recorded out of band onto the bound accumulator by the provider.
 
-    max_tokens (R9-3 / UXB-1 pattern): the chat() ABC intentionally has ONE neutral 2-arg
-    surface (I6 — no per-backend max_tokens plumbing). The output bound is therefore enforced
-    HERE at the collection site: streaming stops once ~max_tokens worth of text is collected
-    (~4 chars/token). Combined with the single call + no retry + wait_for timeout, this caps
-    the call cost regardless of backend.
+    ``max_tokens`` bounds the output (defaults to ``_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS`` when the
+    caller does not set one). Combined with the single call + no retry + the caller's ``wait_for``
+    timeout, this caps the call cost regardless of backend. A belt-and-suspenders ~4 chars/token
+    truncation preserves the historical hard char bound.
     """
-    from app.ingest.schemas import Message
-
-    char_cap: int | None = max_tokens * 4 if max_tokens else None
-    chunks: list[str] = []
-    collected = 0
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
-        collected += len(chunk)
-        if char_cap is not None and collected >= char_cap:
-            break
-    text = "".join(chunks).strip()
-    if char_cap is not None and len(text) > char_cap:
+    cap = max_tokens if max_tokens else _DEFAULT_REVIEW_COMPLETE_MAX_TOKENS
+    raw = await provider.complete(
+        instruction,
+        "Respond now, following the instructions above exactly. "
+        "Output only what was requested — no preamble, no chain-of-thought.",
+        max_tokens=cap,
+    )
+    text = str(raw).strip()
+    char_cap = cap * 4
+    if len(text) > char_cap:
         text = text[:char_cap]
     return text
 

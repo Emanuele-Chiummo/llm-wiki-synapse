@@ -209,7 +209,7 @@ export function ConnectScreen() {
             gap: 0,
           }}
         >
-          {/* Gradient accent bar */}
+          {/* Gradient accent bar — UXA-25: uses --syn-brand-grad-horizontal token */}
           <div
             aria-hidden="true"
             style={{
@@ -219,7 +219,7 @@ export function ConnectScreen() {
               right: 0,
               height: 3,
               borderRadius: "16px 16px 0 0",
-              background: "linear-gradient(90deg, #2563eb 0%, #8250df 100%)",
+              background: "var(--syn-brand-grad-horizontal)",
               pointerEvents: "none",
             }}
           />

@@ -18,6 +18,11 @@
     "deepSearch": "Ricerca profonda",
     "deepSearchShort": "Ricerca Profonda",
     "toolsGroup": "Strumenti",
+    "group": {
+      "create": "Crea",
+      "understand": "Vedi",
+      "maintain": "Cura"
+    },
     "convert": "Converti",
     "settings": "Opzioni",
     "projects": "Progetti",
@@ -846,6 +851,16 @@
       "synthesis": "sintesi",
       "comparison": "confronto",
       "query": "query"
+    },
+    "trace": {
+      "origin": "origine",
+      "evidence": "evidenza",
+      "proposedType": "tipo proposto",
+      "search": "ricerca"
+    },
+    "dismissConfirm": {
+      "title": "Ignorare questo elemento?",
+      "body": "L'elemento verrà ignorato definitivamente e rimosso dalla coda. Questa azione non può essere annullata."
     }
   },
   "cascadeDelete": {
@@ -1311,14 +1326,19 @@
     "connectedTo_one": "Collegata a 1 altra pagina",
     "technicalDetails": "Dettagli tecnici",
     "bodyHint": "Apri la pagina nella Wiki per leggerne il contenuto completo.",
-    "connections": "Connessioni"
+    "connections": "Connessioni",
+    "linkedFrom": "Collegato da",
+    "linksTo": "Collega a",
+    "neighborhood": "Vicinato"
   },
   "palette": {
     "placeholder": "Cerca sezioni e pagine…",
     "noResults": "Nessun risultato",
     "sections": "Sezioni",
     "pages": "Pagine",
-    "hint": "↑↓ naviga · Invio apri · Esc chiudi"
+    "hint": "↑↓ naviga · Invio apri · Esc chiudi",
+    "trigger": "⌘K",
+    "searchHint": "Cerca o salta…"
   },
   "conversation": {
     "autoTitle": {
@@ -1529,7 +1549,24 @@
       "deferredTitle": "Configurazione salvata per dopo",
       "deferredDesc": "Alcune verifiche necessarie sono ancora incomplete. Puoi esplorare Synapse e riprendere la checklist da Impostazioni › Per iniziare.",
       "deferredCta": "Esplora e completa più tardi"
-    }
+    },
+    "cancel": "Annulla",
+    "newProjectTitle": "Nuovo progetto",
+    "stepNameTitle": "Dettagli progetto",
+    "nameLabel": "Nome",
+    "namePlaceholder": "Nome del progetto",
+    "parentDirLabel": "Directory padre",
+    "parentDirPlaceholder": "Percorso assoluto sul server (es. /data/vaults)",
+    "nameRequired": "Il nome del progetto è obbligatorio.",
+    "parentDirRequired": "La directory padre è obbligatoria.",
+    "stepLanguageTitle": "Lingua di output AI",
+    "languageLabel": "Scegli la lingua con cui Synapse scriverà le pagine wiki.",
+    "languageRequired": "Scegli una lingua di output.",
+    "stepTemplateTitle": "Template di progetto",
+    "templateDesc": "Scegli un template di scenario per strutturare il vault con uno scopo, uno schema e una struttura predefiniti.",
+    "create": "Crea progetto",
+    "creating": "Creazione in corso…",
+    "createError": "Impossibile creare il progetto."
   },
   "home": {
     "title": "Panoramica sistema",
@@ -1587,6 +1624,7 @@
       "communities": "Comunità",
       "reviewPending": "Revisione",
       "lintOpen": "Lint",
+      "lintClean": "Pulito",
       "monthlyCost": "Spesa mensile",
       "dataVersion": "Versione dati"
     },

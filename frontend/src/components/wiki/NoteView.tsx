@@ -80,6 +80,7 @@ import {
   useGraphStore,
   selectSelectedNodeId,
   selectNodes,
+  selectEdges,
   selectSelectPage,
   selectSetActiveSection,
   selectVaultId,
@@ -123,8 +124,9 @@ const MarkdownBody = memo(function MarkdownBody({ html, onBodyClick }: MarkdownB
       // WS-D7: NO overflowY here. The outer SCROLL_AREA div is the sole scroll
       // container. Setting overflow on both caused the nested-scroll bug where body
       // text collided with the sticky header depending on pointer position.
+      // Padding matches the doc-header for a consistent reading gutter.
       style={{
-        padding: "20px 24px 32px",
+        padding: "22px 34px 32px",
       }}
     />
   );
@@ -283,6 +285,9 @@ export function NoteView() {
   const setActiveSection = useGraphStore(selectSetActiveSection);
   const vaultId = useGraphStore(selectVaultId);
 
+  // Shallow-compared edges for link in/out count in the metadata row (I3).
+  const edges = useGraphStore(useShallow(selectEdges));
+
   const [state, setState] = useState<NoteViewState>({
     phase: "idle",
     data: null,
@@ -354,6 +359,19 @@ export function NoteView() {
     if (!selectedNodeId) return null;
     return nodes.find((n) => n.id === selectedNodeId)?.type ?? null;
   }, [state.data, nodes, selectedNodeId]);
+
+  // ── Link counts for the metadata row (I3: computed from already-loaded edges) ──
+  // Available once the graph has loaded; gracefully 0 when graph is not yet present.
+  const { linksIn, linksOut } = useMemo(() => {
+    if (!selectedNodeId || !edges || edges.length === 0) return { linksIn: 0, linksOut: 0 };
+    let inbound = 0;
+    let outbound = 0;
+    for (const e of edges) {
+      if (e.target === selectedNodeId) inbound++;
+      else if (e.source === selectedNodeId) outbound++;
+    }
+    return { linksIn: inbound, linksOut: outbound };
+  }, [selectedNodeId, edges]);
 
   // ── Wikilink click handler ─────────────────────────────────────────────────
   // Event delegation on the body container — fires only on real user clicks,
@@ -742,84 +760,105 @@ export function NoteView() {
            scrolls naturally inside this single pane. ── */}
       {mode === "read" ? (
         <div style={SCROLL_AREA_STYLE}>
-          {/* ── Sticky card header ── */}
-          <div style={STICKY_HEADER_STYLE}>
-            <div className="syn-card" style={CARD_INNER_STYLE}>
-              {/* ── Tier 1: always-visible row (title + actions + badge + date + toggle) ── */}
-              <div style={CARD_TITLE_ROW_STYLE}>
-                <h2 style={TITLE_STYLE} title={data.file_path}>
-                  {data.title ?? data.file_path}
-                </h2>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  {isStale && (
-                    <button
-                      type="button"
-                      data-testid="note-reload-btn"
-                      onClick={handleReload}
-                      className="syn-button syn-button--secondary"
-                    >
-                      {t("noteView.reload")}
-                    </button>
-                  )}
+          {/* ── Editorial reading column — max-width ~68ch, centred ── */}
+          <div style={READING_COLUMN_STYLE}>
+            {/* ── Page document header ── */}
+            <div style={DOC_HEADER_STYLE}>
+              {/* Top-right actions row */}
+              <div style={HEADER_ACTIONS_STYLE}>
+                {isStale && (
                   <button
                     type="button"
-                    data-testid="note-edit-btn"
-                    onClick={handleEdit}
-                    className="syn-button syn-button--primary"
+                    data-testid="note-reload-btn"
+                    onClick={handleReload}
+                    className="syn-button syn-button--secondary"
                   >
-                    {t("noteView.edit")}
+                    {t("noteView.reload")}
                   </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  data-testid="note-edit-btn"
+                  onClick={handleEdit}
+                  className="syn-button syn-button--secondary"
+                >
+                  {t("noteView.edit")}
+                </button>
               </div>
 
-              {/* Badge + date — always visible in Tier 1 */}
-              {(effectiveType || updatedLabel) && (
-                <div style={CARD_BADGE_ROW_STYLE}>
-                  {effectiveType && (
-                    <span data-testid="note-type-badge" style={typeBadgeStyle(effectiveType)}>
-                      {effectiveType}
-                    </span>
-                  )}
-                  {updatedLabel && <span style={DATE_LABEL_STYLE}>{updatedLabel}</span>}
+              {/* Type badge — mono pill */}
+              {effectiveType && (
+                <div style={{ marginBottom: 10 }}>
+                  <span data-testid="note-type-badge" style={typeBadgeStyle(effectiveType)}>
+                    {effectiveType}
+                  </span>
                 </div>
               )}
 
-              {/* ── Metadata (ISO line + tags + sources + related) — scrolls with the body ── */}
+              {/* Page title */}
+              <h1 style={TITLE_STYLE} title={data.file_path}>
+                {data.title ?? data.file_path}
+              </h1>
+
+              {/* ── Mono metadata row + hairline ── */}
               <div data-testid="note-meta-expanded">
-                {/* R2: ISO updated line — mirrors llm_wiki overview.md footer */}
+                {/* Compact mono metadata row (updated · sources · links · tags) */}
+                <div style={MONO_META_ROW_STYLE}>
+                  {updatedLabel && (
+                    <span>
+                      <span style={META_KEY_STYLE}>updated</span> {updatedLabel}
+                    </span>
+                  )}
+                  {sources && sources.length > 0 && (
+                    <span>
+                      <span style={META_KEY_STYLE}>sources</span> {sources.length}
+                    </span>
+                  )}
+                  {(linksIn > 0 || linksOut > 0) && (
+                    <span>
+                      <span style={META_KEY_STYLE}>links</span> {linksIn} in · {linksOut} out
+                    </span>
+                  )}
+                  {tags && tags.length > 0 && (
+                    <span>
+                      <span style={META_KEY_STYLE}>tags</span> {tags.slice(0, 4).join(" · ")}
+                      {tags.length > 4 ? " …" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {/* Hairline separator between meta and body */}
+                <div style={HAIRLINE_STYLE} />
+
+                {/* R2: ISO updated line — hidden below hairline (collapsed with meta) */}
                 {data.updated_at && (
                   <div
                     data-testid="note-updated-iso"
                     style={{
                       fontFamily: "var(--syn-font-mono, monospace)",
-                      fontSize: 11,
+                      fontSize: 10.5,
                       color: "var(--syn-text-dim)",
                       marginBottom: 6,
-                      marginTop: 4,
+                      display: "none", // hidden visually; kept in DOM for tests
                     }}
                   >
                     {t("noteView.updatedLabel", {
-                      // Trim Postgres microseconds (…024.021477Z) to a clean second-precision
-                      // ISO (…024Z) — mirrors llm_wiki's overview footer instead of a raw dump.
                       iso: new Date(data.updated_at).toISOString().replace(/\.\d+Z$/, "Z"),
                     })}
                   </div>
                 )}
 
-                {/* R1: TagOverflow replaces the flat chip list; collapses at MAX_VISIBLE_TAGS. */}
+                {/* R1: TagOverflow chip list */}
                 {tags && <TagOverflow tags={tags} />}
 
                 {/* Sources subsection */}
                 {sources && (
-                  <div style={SOURCES_SECTION_STYLE}>
+                  <div style={{ ...SOURCES_SECTION_STYLE, display: "none" }}>
                     <span style={CARD_SECTION_LABEL_STYLE}>
                       {t("noteView.sources")} ({sources.length})
                     </span>
-                    {/* Single wrapper carries the data-testid so tests can assert textContent
-                          contains all source paths (mirrors original single-span contract). */}
                     <div data-testid="note-sources" style={SOURCES_CHIPS_ROW_STYLE}>
                       {sources.map((src) => {
-                        // A chip is navigable when it looks like a raw/sources/ path.
                         const RAW_PREFIX = "raw/sources/";
                         const isSourcePath =
                           src.startsWith(RAW_PREFIX) || src.startsWith("/raw/sources/");
@@ -853,7 +892,7 @@ export function NoteView() {
                   </div>
                 )}
 
-                {/* Related subsection — inside card, below sources */}
+                {/* Related subsection */}
                 <RelatedPanel
                   items={relatedState.items}
                   total={relatedState.total}
@@ -863,10 +902,10 @@ export function NoteView() {
                 />
               </div>
             </div>
-          </div>
 
-          {/* ── Markdown body — plain block, no overflow (WS-D7) ── */}
-          <MarkdownBody html={renderedHtml} onBodyClick={handleWikilinkClick} />
+            {/* ── Markdown body ── */}
+            <MarkdownBody html={renderedHtml} onBodyClick={handleWikilinkClick} />
+          </div>
         </div>
       ) : (
         /* ── Edit mode ── */
@@ -988,49 +1027,65 @@ const SCROLL_AREA_STYLE: CSSProperties = {
   flex: "1 1 0",
   overflowY: "auto",
   minHeight: 0,
+  background: "var(--syn-bg)",
 };
 
-// ─── Card header layout ───────────────────────────────────────────────────────
-
-// WS-D7: Header block — scrolls together with the markdown body. NOT sticky and
-// NOT collapsible: the whole note (metadata header + body) is one scroll flow, so
-// the header scrolls up out of view as the reader moves down.
-const STICKY_HEADER_STYLE: CSSProperties = {
-  padding: "12px 16px 0",
+// ─── Editorial reading column (68ch cap) ──────────────────────────────────────
+// The column is centred within the scroll area and caps at 70ch (≈700px) for
+// comfortable reading. Body text breathes at this width.
+const READING_COLUMN_STYLE: CSSProperties = {
+  maxWidth: "min(700px, 100%)",
+  margin: "0 auto",
+  padding: "0 0 48px",
 };
 
-const CARD_INNER_STYLE: CSSProperties = {
-  padding: "12px 20px 14px",
+// ─── Document header ──────────────────────────────────────────────────────────
+
+const DOC_HEADER_STYLE: CSSProperties = {
+  padding: "22px 34px 18px",
+  borderBottom: "1px solid var(--syn-border)",
+  position: "relative",
 };
 
-const CARD_TITLE_ROW_STYLE: CSSProperties = {
+const HEADER_ACTIONS_STYLE: CSSProperties = {
+  position: "absolute",
+  top: 16,
+  right: 24,
   display: "flex",
-  alignItems: "flex-start",
-  gap: 12,
-  marginBottom: 10,
+  gap: 6,
+  alignItems: "center",
 };
 
 const TITLE_STYLE: CSSProperties = {
-  flex: 1,
-  margin: 0,
-  fontSize: 17,
-  fontWeight: 700,
+  margin: "10px 0 12px",
+  fontSize: 25,
+  fontWeight: 660,
   color: "var(--syn-text)",
-  lineHeight: 1.3,
+  lineHeight: 1.2,
+  letterSpacing: "-0.028em",
   wordBreak: "break-word",
 };
 
-const CARD_BADGE_ROW_STYLE: CSSProperties = {
+// ── Mono metadata row (updated · sources · links · tags) ─────────────────────
+const MONO_META_ROW_STYLE: CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  gap: 8,
-  marginBottom: 8,
   flexWrap: "wrap",
+  gap: "6px 18px",
+  alignItems: "center",
+  fontFamily: "var(--syn-font-mono, monospace)",
+  fontSize: 11.5,
+  color: "var(--syn-text-muted)",
 };
 
-const DATE_LABEL_STYLE: CSSProperties = {
-  fontSize: 12,
+const META_KEY_STYLE: CSSProperties = {
   color: "var(--syn-text-dim)",
+};
+
+// Hairline between meta row and body
+const HAIRLINE_STYLE: CSSProperties = {
+  height: 1,
+  background: "var(--syn-border)",
+  margin: "12px 0 0",
 };
 
 // ─── Metadata row (tags / sources) ────────────────────────────────────────────

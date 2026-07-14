@@ -55,6 +55,12 @@ vi.mock("../api/graphClient", async (importOriginal) => {
   return { ...actual };
 });
 
+// ─── Mock zustand shallow (identity in test env) ─────────────────────────────
+
+vi.mock("zustand/react/shallow", () => ({
+  useShallow: (fn: unknown) => fn,
+}));
+
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 const mockSelectPage = vi.fn();
@@ -65,12 +71,14 @@ vi.mock("../store/graphStore", async (importOriginal) => {
     useGraphStore: (selector: (s: unknown) => unknown) =>
       selector({
         selectedNodeId: null,
+        nodes: [],
         selectPage: mockSelectPage,
         toggleGroup: vi.fn(),
         vaultId: "vault-1",
       }),
     useTreeCollapsed: () => ({}),
     selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
+    selectNodes: (s: { nodes: unknown[] }) => s.nodes,
     selectSelectPage: (s: { selectPage: () => void }) => s.selectPage,
     selectToggleGroup: (s: { toggleGroup: () => void }) => s.toggleGroup,
     selectVaultId: (s: { vaultId: string }) => s.vaultId,

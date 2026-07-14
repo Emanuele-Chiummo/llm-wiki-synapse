@@ -25,7 +25,6 @@ Every enabled test sets settings.schema_suggestion_enabled=True (default is Fals
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -50,21 +49,21 @@ _NO_CHANGE_JSON = '{"needs_change": false}'
 
 
 def _make_chat_provider(response: str, *, fail: bool = False) -> Any:
-    """Mock InferenceProvider whose chat() yields *response* once (or raises if fail)."""
+    """Mock InferenceProvider whose complete() returns *response* once (or raises if fail).
+
+    review.py::_chat_collect now uses the single-turn complete() seam (ADR-0076) so the CLI
+    provider does not hang on the agentic chat() loop.
+    """
     provider = MagicMock()
     provider._chat_calls = [0]
 
-    async def mock_chat(*, messages: list[Any], retrieval_context: str = "") -> AsyncIterator[str]:
+    async def mock_complete(system: str, prompt: str, *, max_tokens: int) -> str:
         provider._chat_calls[0] += 1
+        if fail:
+            raise RuntimeError("provider boom")
+        return response
 
-        async def _gen() -> AsyncIterator[str]:
-            if fail:
-                raise RuntimeError("provider boom")
-            yield response
-
-        return _gen()
-
-    provider.chat = mock_chat
+    provider.complete = mock_complete
     provider.bind_accumulator = MagicMock()
     return provider
 

@@ -340,7 +340,12 @@ class TestR76FolderContext:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """The folderContext string is present in the vault_context the orchestrated loop uses."""
+        import app.config_overrides as config_overrides
         from app.ingest import orchestrator as orch
+
+        # This test captures vault_context via the JSON loop's _run_orchestrated, which the 1.7.0
+        # "blocks" default bypasses (it calls run_block_loop). Pin json to exercise that path.
+        monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
 
         # Make the base ingest context deterministic (no DB catalogue).
         async def _fake_ingest_context() -> str:

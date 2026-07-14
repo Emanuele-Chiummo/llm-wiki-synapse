@@ -563,13 +563,11 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
               data-testid="community-low-cohesion-warning"
               style={{
                 padding: "6px 8px",
-                background:
-                  "color-mix(in srgb, var(--syn-amber, #d97706) 10%, var(--syn-mix-base) 90%)",
-                border:
-                  "1px solid color-mix(in srgb, var(--syn-amber, #d97706) 30%, transparent 70%)",
+                background: "color-mix(in srgb, var(--syn-amber) 10%, var(--syn-mix-base) 90%)",
+                border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
                 borderRadius: 4,
                 fontSize: 11,
-                color: "var(--syn-amber, #d97706)",
+                color: "var(--syn-amber)",
                 fontWeight: 500,
               }}
             >
@@ -772,7 +770,11 @@ function EdgeRow({ label, value, bold }: { label: string; value: number; bold?: 
         {label}
       </span>
       <span
-        style={{ color: "var(--syn-text)", fontFamily: "monospace", fontWeight: bold ? 700 : 400 }}
+        style={{
+          color: "var(--syn-text)",
+          fontFamily: "var(--syn-font-mono)",
+          fontWeight: bold ? 700 : 400,
+        }}
       >
         {value.toFixed(3)}
       </span>
@@ -1114,9 +1116,9 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
               data-testid="graph-header-hidden"
               style={{
                 fontSize: 11,
-                color: "#d97706",
-                background: "color-mix(in srgb, #d97706 12%, transparent)",
-                border: "1px solid color-mix(in srgb, #d97706 30%, transparent)",
+                color: "var(--syn-amber)",
+                background: "color-mix(in srgb, var(--syn-amber) 12%, var(--syn-mix-base) 90%)",
+                border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent)",
                 borderRadius: 3,
                 padding: "1px 5px",
                 whiteSpace: "nowrap",
@@ -1802,29 +1804,59 @@ const GraphLegend: React.FC<GraphLegendProps> = ({
       {!collapsed &&
         (colorMode === "type" ? (
           <>
-            {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1) */}
-            {Object.entries(TYPE_COLORS).map(([type, color]) => (
-              <div
-                key={type}
-                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
-              >
+            {/* TYPE mode legend — CVD-safe: name + swatch (WCAG 1.4.1).
+                Zero-count types are hidden so the legend lists only what's actually on the
+                canvas (no "Query 0 · Synthesis 0 · Comparison 0" noise). */}
+            {Object.entries(TYPE_COLORS)
+              .filter(([type]) => (countsByType[type] ?? 0) > 0)
+              .map(([type, color]) => (
+                <div
+                  key={type}
+                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}
+                >
+                  <span
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: color,
+                      flexShrink: 0,
+                      boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                    }}
+                    aria-hidden="true"
+                  />
+                  {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
+                  <span
+                    style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}
+                  >
+                    {type}
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      color: "var(--syn-text-dim)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {countsByType[type] ?? 0}
+                  </span>
+                </div>
+              ))}
+            {otherCount > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                 <span
                   style={{
                     width: 9,
                     height: 9,
                     borderRadius: "50%",
-                    background: color,
+                    background: DEFAULT_NODE_COLOR,
                     flexShrink: 0,
                     boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
                   }}
                   aria-hidden="true"
                 />
-                {/* Redundant encoding: type NAME shown alongside color (WCAG 1.4.1) */}
-                <span
-                  style={{ fontSize: 11, color: "var(--syn-text)", textTransform: "capitalize" }}
-                >
-                  {type}
-                </span>
+                <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
                 <span
                   style={{
                     marginLeft: "auto",
@@ -1833,34 +1865,10 @@ const GraphLegend: React.FC<GraphLegendProps> = ({
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {countsByType[type] ?? 0}
+                  {otherCount}
                 </span>
               </div>
-            ))}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-              <span
-                style={{
-                  width: 9,
-                  height: 9,
-                  borderRadius: "50%",
-                  background: DEFAULT_NODE_COLOR,
-                  flexShrink: 0,
-                  boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
-                }}
-                aria-hidden="true"
-              />
-              <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>other</span>
-              <span
-                style={{
-                  marginLeft: "auto",
-                  fontSize: 11,
-                  color: "var(--syn-text-dim)",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {otherCount}
-              </span>
-            </div>
+            )}
           </>
         ) : (
           <>
@@ -1939,7 +1947,7 @@ const GraphLegend: React.FC<GraphLegendProps> = ({
                       <span
                         data-testid={`community-legend-low-cohesion-${c.id}`}
                         title={t("graph.legendCommunityLowCohesion")}
-                        style={{ color: "var(--syn-amber, #d97706)", fontSize: 10, lineHeight: 1 }}
+                        style={{ color: "var(--syn-amber)", fontSize: 10, lineHeight: 1 }}
                         aria-label={t("graph.legendCommunityLowCohesion")}
                       >
                         !
@@ -3297,8 +3305,7 @@ export const GraphViewer: React.FC = () => {
         flexDirection: "column",
       }}
     >
-      {/* Keyframes for the spinning refresh icon in the toolbar */}
-      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
 
       {/* GR1–GR5, GR7, GI-2: Graph header with stats, search, filter, reset, fullscreen, color-mode, insights, refresh */}
       <GraphHeader

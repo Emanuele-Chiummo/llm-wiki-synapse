@@ -26,14 +26,7 @@
  * No per-token heavy work; no layout algorithm (I2, I3).
  */
 
-import {
-  useRef,
-  useState,
-  useCallback,
-  useEffect,
-  type DragEvent,
-  type ChangeEvent,
-} from "react";
+import { useRef, useState, useCallback, useEffect, type DragEvent, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FileText,
@@ -193,7 +186,7 @@ function StatusIcon({ status }: { status: ConvertFileStatus | "pending" }) {
         <CheckCircle2
           size={ICON_SIZE}
           aria-hidden="true"
-          style={{ color: "var(--syn-success, #22c55e)", flexShrink: 0 }}
+          style={{ color: "var(--syn-green)", flexShrink: 0 }}
         />
       );
     case "failed":
@@ -201,7 +194,7 @@ function StatusIcon({ status }: { status: ConvertFileStatus | "pending" }) {
         <XCircle
           size={ICON_SIZE}
           aria-hidden="true"
-          style={{ color: "var(--syn-error, #ef4444)", flexShrink: 0 }}
+          style={{ color: "var(--syn-red)", flexShrink: 0 }}
         />
       );
   }
@@ -296,7 +289,9 @@ export function ConvertPanel() {
     void doPoll();
 
     // Recurring poll
-    const id = setInterval(() => { void doPoll(); }, POLL_INTERVAL_MS);
+    const id = setInterval(() => {
+      void doPoll();
+    }, POLL_INTERVAL_MS);
 
     return () => {
       mounted = false;
@@ -548,9 +543,7 @@ export function ConvertPanel() {
   const showStartBtn = isDesktop && isOffline && !healthLoading;
 
   const pct =
-    pollStatus && pollStatus.total > 0
-      ? Math.round((pollStatus.done / pollStatus.total) * 100)
-      : 0;
+    pollStatus && pollStatus.total > 0 ? Math.round((pollStatus.done / pollStatus.total) * 100) : 0;
 
   const batchDone = pollStatus !== null && !pollStatus.running;
   const anyOk = batchDone && pollStatus.files.some((f) => f.status === "ok");
@@ -610,9 +603,9 @@ export function ConvertPanel() {
             }}
           />
         ) : isOffline ? (
-          <WifiOff size={14} aria-hidden="true" style={{ color: "var(--syn-error, #ef4444)" }} />
+          <WifiOff size={14} aria-hidden="true" style={{ color: "var(--syn-red)" }} />
         ) : (
-          <Wifi size={14} aria-hidden="true" style={{ color: "var(--syn-success, #22c55e)" }} />
+          <Wifi size={14} aria-hidden="true" style={{ color: "var(--syn-green)" }} />
         )}
         <span
           data-testid="marker-status-badge"
@@ -622,8 +615,8 @@ export function ConvertPanel() {
             color: healthLoading
               ? "var(--syn-text-dim)"
               : isOffline
-                ? "var(--syn-error, #ef4444)"
-                : "var(--syn-success, #22c55e)",
+                ? "var(--syn-red)"
+                : "var(--syn-green)",
           }}
         >
           {healthLoading
@@ -740,7 +733,7 @@ export function ConvertPanel() {
               background: "var(--syn-surface-sunken)",
               color: "var(--syn-text)",
               fontSize: 12,
-              fontFamily: "monospace",
+              fontFamily: "var(--syn-font-mono)",
             }}
           />
           <div style={{ display: "flex", gap: 8 }}>
@@ -790,7 +783,7 @@ export function ConvertPanel() {
         <p
           role="alert"
           data-testid="start-marker-error"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
         >
           {markerStartError}
         </p>
@@ -848,16 +841,14 @@ export function ConvertPanel() {
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--syn-text-muted)" }}>
           {t("convert.dropLabel")}
         </span>
-        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
-          {t("convert.dropHint")}
-        </span>
+        <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>{t("convert.dropHint")}</span>
       </div>
 
       {/* ── Validation message ── */}
       {validationMsg && (
         <p
           role="alert"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
           data-testid="convert-validation-msg"
         >
           {validationMsg}
@@ -869,7 +860,7 @@ export function ConvertPanel() {
         <p
           role="alert"
           data-testid="convert-submit-error"
-          style={{ margin: 0, fontSize: 12, color: "var(--syn-error, #ef4444)" }}
+          style={{ margin: 0, fontSize: 12, color: "var(--syn-red)" }}
         >
           {submitError}
         </p>
@@ -1068,7 +1059,7 @@ export function ConvertPanel() {
                     </div>
                     {f.status === "failed" && f.detail && (
                       <div
-                        style={{ fontSize: 11, color: "var(--syn-error, #ef4444)", marginTop: 1 }}
+                        style={{ fontSize: 11, color: "var(--syn-red)", marginTop: 1 }}
                         data-testid="convert-file-error"
                       >
                         {f.detail}
@@ -1132,16 +1123,11 @@ export function ConvertPanel() {
                   </div>
                   <div style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 1 }}>
                     {f.status === "failed" && f.detail ? (
-                      <span
-                        style={{ color: "var(--syn-error, #ef4444)" }}
-                        data-testid="convert-file-error"
-                      >
+                      <span style={{ color: "var(--syn-red)" }} data-testid="convert-file-error">
                         {f.detail}
                       </span>
                     ) : (
-                      <span>
-                        {t(`convert.status.${f.status === "ok" ? "done" : f.status}`)}
-                      </span>
+                      <span>{t(`convert.status.${f.status === "ok" ? "done" : f.status}`)}</span>
                     )}
                   </div>
                 </div>
@@ -1194,7 +1180,7 @@ export function ConvertPanel() {
             transition: "background 0.1s ease",
           }}
         >
-          {(submitting || converting) ? (
+          {submitting || converting ? (
             <Loader2
               size={14}
               aria-hidden="true"
@@ -1230,7 +1216,7 @@ export function ConvertPanel() {
 
         {/* Offline note */}
         {isOffline && !healthLoading && hasPending && (
-          <span role="note" style={{ fontSize: 11, color: "var(--syn-error, #ef4444)" }}>
+          <span role="note" style={{ fontSize: 11, color: "var(--syn-red)" }}>
             {t("convert.markerOfflineTooltip")}
           </span>
         )}
@@ -1238,7 +1224,10 @@ export function ConvertPanel() {
 
       {/* ── Conversion history ── */}
       {history.length > 0 && (
-        <div data-testid="convert-history" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div
+          data-testid="convert-history"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
           <div
             style={{
               display: "flex",
@@ -1281,13 +1270,13 @@ export function ConvertPanel() {
                   <CheckCircle2
                     size={13}
                     aria-hidden="true"
-                    style={{ color: "var(--syn-success, #22c55e)", flexShrink: 0 }}
+                    style={{ color: "var(--syn-green)", flexShrink: 0 }}
                   />
                 ) : (
                   <XCircle
                     size={13}
                     aria-hidden="true"
-                    style={{ color: "var(--syn-error, #ef4444)", flexShrink: 0 }}
+                    style={{ color: "var(--syn-red)", flexShrink: 0 }}
                   />
                 )}
                 <span
@@ -1336,8 +1325,7 @@ export function ConvertPanel() {
         </div>
       )}
 
-      {/* Keyframe for spinner (inline, scoped) */}
-      <style>{`@keyframes syn-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
     </div>
   );
 }

@@ -650,11 +650,26 @@ class ApiProvider(InferenceProvider):
             return await self._complete_openai(system=system, user=user)
         return await self._complete_anthropic(system=system, user=user)
 
-    async def _complete_anthropic(self, *, system: str, user: str) -> str:
+    async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
+        """
+        Raw-text completion for the block-based ingest loop (ADR-0076). Routes to the OpenAI-compat
+        wire (json_mode OFF — the FILE/REVIEW-block contract is text) or the Anthropic-native wire
+        by base_url (I6), honoring *max_tokens*. Usage recorded out of band.
+        """
+        if self._openai_compatible:
+            return await self._complete_openai(
+                system=system, user=prompt, max_tokens=max_tokens, json_mode=False
+            )
+        return await self._complete_anthropic(system=system, user=prompt, max_tokens=max_tokens)
+
+    async def _complete_anthropic(
+        self, *, system: str, user: str, max_tokens: int | None = None
+    ) -> str:
         api_key = self._anthropic_key()
+        cap = max_tokens or _DEFAULT_MAX_TOKENS
         body: dict[str, object] = {
             "model": self._model,
-            "max_tokens": _DEFAULT_MAX_TOKENS,
+            "max_tokens": cap,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         }
@@ -691,13 +706,15 @@ class ApiProvider(InferenceProvider):
         # body still reports truncation rather than being parsed.
         if payload.get("stop_reason") == "max_tokens":
             raise ValueError(
-                f"generation truncated at max_tokens={_DEFAULT_MAX_TOKENS} — the source is too "
+                f"generation truncated at max_tokens={cap} — the source is too "
                 f"rich to fit one response. Raise PROVIDER_MAX_OUTPUT_TOKENS "
                 f"(Claude Haiku 4.5 accepts up to 64000)."
             )
         return text
 
-    async def _complete_openai(self, *, system: str, user: str) -> str:
+    async def _complete_openai(
+        self, *, system: str, user: str, max_tokens: int | None = None, json_mode: bool = True
+    ) -> str:
         api_key = self._openai_key()
         body: dict[str, object] = {
             "model": self._model,
@@ -705,8 +722,12 @@ class ApiProvider(InferenceProvider):
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "response_format": {"type": "json_object"},
         }
+        # JSON mode is the structured analyze/generate path; the block pipeline needs raw text.
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         self._apply_reasoning(body, anthropic=False)  # W1 (F17); no-op unless opted in
         self._finalize_openai_body(body)
         headers = self._openai_headers(api_key)

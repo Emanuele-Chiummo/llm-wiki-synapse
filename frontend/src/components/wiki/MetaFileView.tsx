@@ -107,7 +107,7 @@ const EDITOR_WRAP_STYLE: CSSProperties = {
 const ERROR_STYLE: CSSProperties = {
   padding: "8px 16px",
   fontSize: 12,
-  color: "var(--syn-danger, #d1242f)",
+  color: "var(--syn-red)",
   background: "var(--syn-notice-danger-bg, #ffebe9)",
   borderBottom: "1px solid var(--syn-border)",
   flexShrink: 0,
@@ -178,7 +178,11 @@ export function MetaFileView({ file, onClose, onSaved }: MetaFileViewProps) {
     >
       {/* Header */}
       <div style={HEADER_STYLE}>
-        <FileText size={15} aria-hidden="true" style={{ color: "var(--syn-text-muted)", flexShrink: 0 }} />
+        <FileText
+          size={15}
+          aria-hidden="true"
+          style={{ color: "var(--syn-text-muted)", flexShrink: 0 }}
+        />
         <span style={TITLE_STYLE} data-testid="meta-file-title">
           {file?.title ?? ""}
         </span>

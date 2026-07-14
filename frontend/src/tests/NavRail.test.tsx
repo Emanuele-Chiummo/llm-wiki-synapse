@@ -175,10 +175,7 @@ describe("NavRail — icon + label on each button (AC-HARD-LBL-7)", () => {
     expect(buttons.length).toBeGreaterThan(0);
     buttons.forEach((btn) => {
       const svgs = btn.querySelectorAll("svg[aria-hidden='true']");
-      expect(
-        svgs.length,
-        `Button id="${btn.id}" should have an SVG icon`,
-      ).toBeGreaterThan(0);
+      expect(svgs.length, `Button id="${btn.id}" should have an SVG icon`).toBeGreaterThan(0);
     });
   });
 
@@ -187,10 +184,7 @@ describe("NavRail — icon + label on each button (AC-HARD-LBL-7)", () => {
     expect(buttons.length).toBeGreaterThan(0);
     buttons.forEach((btn) => {
       const labelSpan = btn.querySelector(".nav-rail__label");
-      expect(
-        labelSpan,
-        `Button id="${btn.id}" should have a .nav-rail__label span`,
-      ).not.toBeNull();
+      expect(labelSpan, `Button id="${btn.id}" should have a .nav-rail__label span`).not.toBeNull();
       expect(
         labelSpan?.textContent?.trim().length,
         `Button id="${btn.id}" .nav-rail__label should be non-empty`,
@@ -236,23 +230,40 @@ describe("NavRail — UXA-05: inactive buttons do not set outline:none", () => {
   });
 });
 
-// ─── UXA-01: secondary group label rendered ───────────────────────────────────
+// ─── UXA-01: section group labels rendered (v1.7.0 — 3 groups) ───────────────
+// The NavRail is split into 3 labelled groups (CREATE/UNDERSTAND/MAINTAIN).
+// Each group has a <span aria-hidden="true"> mono uppercase label.
 
-describe("NavRail — UXA-01: tools group label present", () => {
+describe("NavRail — UXA-01: section group labels present (v1.7.0)", () => {
   beforeEach(() => {
     renderNavRail();
   });
 
-  it("renders a group label element for the M5 tools group", () => {
-    // The group label is a <span aria-hidden="true"> with the toolsGroup translation key.
-    // Our mock returns "Toolsgroup" from "nav.toolsGroup" → "Toolsgroup".
-    // Match case-insensitively against the last segment of the i18n key.
+  it("renders at least one group label span (aria-hidden, not nav-rail__label class)", () => {
+    // The mock returns the last i18n key segment capitalised, so:
+    //   nav.group.create → "Create", nav.group.understand → "Understand",
+    //   nav.group.maintain → "Maintain".
+    // The test verifies the group label spans exist without checking specific text.
     const rail = document.querySelector("[data-testid='nav-rail']");
     expect(rail).not.toBeNull();
-    // Any span with aria-hidden that contains text for the tools group
     const allSpans = Array.from(rail!.querySelectorAll("span[aria-hidden='true']"));
-    const groupLabel = allSpans.find((s) => (s.textContent ?? "").trim().length > 0 && !s.className.includes("nav-rail__label"));
-    expect(groupLabel, "A tools-group label span should be present").not.toBeUndefined();
+    const groupLabels = allSpans.filter(
+      (s) => (s.textContent ?? "").trim().length > 0 && !s.className.includes("nav-rail__label"),
+    );
+    expect(
+      groupLabels.length,
+      "At least one group label span should be present",
+    ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders 3 group label spans (CREATE · UNDERSTAND · MAINTAIN)", () => {
+    const rail = document.querySelector("[data-testid='nav-rail']");
+    expect(rail).not.toBeNull();
+    const allSpans = Array.from(rail!.querySelectorAll("span[aria-hidden='true']"));
+    const groupLabels = allSpans.filter(
+      (s) => (s.textContent ?? "").trim().length > 0 && !s.className.includes("nav-rail__label"),
+    );
+    expect(groupLabels.length, "Should have exactly 3 group label spans").toBe(3);
   });
 });
 

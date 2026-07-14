@@ -140,6 +140,25 @@
 }
 
 /*
+ * .syn-btn--accent-ghost — accent-tinted ghost: soft accent background, accent border,
+ * accent text. Used where a call-to-action should be visually prominent without the
+ * full filled-primary weight (e.g. FirstRunWizard primary step actions).
+ * Hover: fills with solid accent (same as --primary).
+ * WCAG: --syn-accent (#2563eb) on --syn-accent-soft (#eaf1fe) ≈ 4.5:1 AA for bold 12px+.
+ */
+.syn-btn--accent-ghost {
+  background: var(--syn-accent-soft);
+  border: 1px solid var(--syn-accent);
+  color: var(--syn-accent);
+}
+
+.syn-btn--accent-ghost:not(:disabled):not([aria-disabled="true"]):hover {
+  background: var(--syn-accent);
+  border-color: var(--syn-accent-strong);
+  color: #ffffff;
+}
+
+/*
  * .syn-btn--gradient — branded gradient CTA (ConnectScreen Connetti button).
  * Overrides background with the brand accent gradient.
  * Keep border transparent (gradient replaces the border visual).
@@ -376,15 +395,179 @@
 }
 
 /*
+ * .syn-eyebrow — shared mono section label.
+ * Uppercase, tracked, 11px, monospace. Use for: section <h2> labels,
+ * conversation list header, block title spans, any editorial caption.
+ * Mirrors the mockup .eyebrow pattern: mono + tracked + uppercase.
+ */
+.syn-eyebrow {
+  font-family: var(--syn-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--syn-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/*
+ * .syn-stat-tile — editorial KPI tile for the home dashboard.
+ * Flex column with 6px gap; monospace tabular number as hero value.
+ * --accent modifier: brand blue for actionable / attention-needed tiles.
+ *
+ * Structure:
+ *   <div class="syn-stat-tile syn-stat-tile--accent">
+ *     <div class="syn-stat-tile__label">…icon + label text…</div>
+ *     <span class="syn-stat-tile__value">42</span>
+ *   </div>
+ */
+.syn-stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--syn-radius-md);
+  border: 1px solid var(--syn-border);
+  background: var(--syn-bg-soft);
+  box-shadow: var(--syn-shadow-soft);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
+.syn-stat-tile--accent {
+  border-color: color-mix(in srgb, var(--syn-accent) 30%, var(--syn-border) 70%);
+  background: var(--syn-accent-soft);
+}
+
+.syn-stat-tile__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--syn-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.syn-stat-tile__value {
+  font-family: var(--syn-font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--syn-text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.syn-stat-tile--accent .syn-stat-tile__value {
+  color: var(--syn-accent);
+}
+
+/*
+ * .synapse-citation / .synapse-web-citation
+ * Rendered via dangerouslySetInnerHTML in MarkdownView after stream ends (I3).
+ * Small accent superscript chips for in-text citations.
+ *
+ *   synapse-citation    — wiki page reference [n]
+ *   synapse-web-citation — web source reference [Wn]
+ */
+.synapse-citation,
+.synapse-web-citation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: super;
+  font-family: var(--syn-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: var(--syn-radius-pill);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.synapse-citation {
+  background: var(--syn-accent-soft);
+  color: var(--syn-accent);
+  border: 1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%);
+}
+
+.synapse-citation:hover,
+.synapse-citation:focus-visible {
+  background: var(--syn-accent);
+  color: #ffffff; /* white on --syn-accent is vetted for contrast, same as .syn-btn--primary */
+  outline: none;
+}
+
+.synapse-web-citation {
+  background: var(--syn-notice-success-bg);
+  color: var(--syn-green);
+  border: 1px solid color-mix(in srgb, var(--syn-green) 25%, var(--syn-border) 75%);
+}
+
+.synapse-web-citation:hover,
+.synapse-web-citation:focus-visible {
+  background: var(--syn-green);
+  color: #ffffff; /* white on --syn-green is vetted for contrast */
+  outline: none;
+}
+
+/*
+ * .syn-composer-toggle — shared style for the MessageInput toolbar toggles
+ * (web search, AnyTXT, skills, attach image).
+ *
+ * Active state is driven by [aria-pressed="true"] — no JS class-toggle needed.
+ * Disabled state (vision gate, streaming) is driven by the :disabled pseudo-class.
+ * Dynamic status-dot colors (green/dim) remain as inline styles on the inner <span>
+ * since they respond to the same boolean state.
+ */
+.syn-composer-toggle {
+  background: none;
+  border: 1px solid var(--syn-border);
+  border-radius: var(--syn-radius-sm);
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--syn-text-muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.syn-composer-toggle[aria-pressed="true"] {
+  background: var(--syn-accent-soft);
+  border-color: var(--syn-accent);
+  color: var(--syn-accent);
+}
+
+.syn-composer-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/*
  * .syn-role-label — chat role identifier (YOU / ASSISTANT).
- * Reduced hierarchy: 9px, var(--syn-text-dim), uppercase but subdued.
- * Use in MessageRow role header.
+ * Mono eyebrow treatment: 9px, monospace, uppercase but subdued (text-dim).
+ * Use in MessageRow role header; layout props (border-left, margin) stay inline.
  */
 .syn-role-label {
+  font-family: var(--syn-font-mono);
   font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   color: var(--syn-text-dim);
 }
 

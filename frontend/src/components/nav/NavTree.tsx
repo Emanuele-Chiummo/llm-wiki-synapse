@@ -18,7 +18,16 @@
  * R7-2: "+" button in header opens a modal to create a new page.
  */
 
-import { useRef, useState, useCallback, useLayoutEffect, type CSSProperties, type ElementType, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useRef,
+  useState,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  type CSSProperties,
+  type ElementType,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import {
@@ -35,12 +44,14 @@ import {
   FileText,
   X,
 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import {
   useGraphStore,
   useTreeCollapsed,
   selectSelectedNodeId,
   selectSelectPage,
   selectToggleGroup,
+  selectNodes,
 } from "../../store/graphStore";
 import { useNavTreeData } from "./useNavTreeData";
 import type { TreeRow, KnownType } from "./useNavTreeData";
@@ -56,14 +67,14 @@ import type { VaultMetaFile } from "../../api/vaultMetaClient";
 // We use inline CSS strings; the actual color is resolved by the browser at paint time.
 
 const TYPE_COLOR: Record<KnownType, string> = {
-  overview:   "var(--syn-type-overview)",
-  concept:    "var(--syn-type-concept)",
-  entity:     "var(--syn-type-entity)",
-  source:     "var(--syn-type-source)",
-  synthesis:  "var(--syn-type-synthesis)",
+  overview: "var(--syn-type-overview)",
+  concept: "var(--syn-type-concept)",
+  entity: "var(--syn-type-entity)",
+  source: "var(--syn-type-source)",
+  synthesis: "var(--syn-type-synthesis)",
   comparison: "var(--syn-type-comparison)",
-  query:      "var(--syn-type-query)",
-  other:      "var(--syn-type-other)",
+  query: "var(--syn-type-query)",
+  other: "var(--syn-type-other)",
 };
 
 /**
@@ -71,25 +82,25 @@ const TYPE_COLOR: Record<KnownType, string> = {
  * Used in GroupHeader only; PageRow retains a small colored dot for compactness.
  */
 const TYPE_ICON: Record<KnownType, ElementType> = {
-  overview:   LayoutDashboard,
-  concept:    Lightbulb,
-  entity:     Users,
-  source:     BookOpen,
-  synthesis:  GitBranch,
+  overview: LayoutDashboard,
+  concept: Lightbulb,
+  entity: Users,
+  source: BookOpen,
+  synthesis: GitBranch,
   comparison: BarChart3,
-  query:      HelpCircle,
-  other:      File,
+  query: HelpCircle,
+  other: File,
 };
 
 const TYPE_LABEL: Record<KnownType, string> = {
-  overview:   "Overview",
-  concept:    "Concepts",
-  entity:     "Entities",
-  source:     "Sources",
-  synthesis:  "Synthesis",
+  overview: "Overview",
+  concept: "Concepts",
+  entity: "Entities",
+  source: "Sources",
+  synthesis: "Synthesis",
   comparison: "Comparisons",
-  query:      "Queries",
-  other:      "Other",
+  query: "Queries",
+  other: "Other",
 };
 
 // ─── Row heights (px) ─────────────────────────────────────────────────────────
@@ -181,7 +192,9 @@ function NewPageModal({ onClose, onCreated }: NewPageModalProps) {
   return (
     <div
       data-testid="new-page-modal-overlay"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -217,7 +230,10 @@ function NewPageModal({ onClose, onCreated }: NewPageModalProps) {
         {/* Title field */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <label style={{ fontSize: 11, fontWeight: 600, color: "var(--syn-text-muted)" }}>
-            {t("nav.newPage.titleLabel")} <span aria-hidden="true" style={{ color: "var(--syn-red)" }}>*</span>
+            {t("nav.newPage.titleLabel")}{" "}
+            <span aria-hidden="true" style={{ color: "var(--syn-red)" }}>
+              *
+            </span>
           </label>
           <input
             ref={focusTitleRef}
@@ -236,7 +252,11 @@ function NewPageModal({ onClose, onCreated }: NewPageModalProps) {
             aria-describedby={titleError ? "new-page-title-error" : undefined}
           />
           {titleError && (
-            <span id="new-page-title-error" role="alert" style={{ fontSize: 11, color: "var(--syn-red)" }}>
+            <span
+              id="new-page-title-error"
+              role="alert"
+              style={{ fontSize: 11, color: "var(--syn-red)" }}
+            >
               {titleError}
             </span>
           )}
@@ -303,7 +323,9 @@ function NewPageModal({ onClose, onCreated }: NewPageModalProps) {
             type="button"
             data-testid="new-page-create-btn"
             disabled={submitting}
-            onClick={() => { void handleSubmit(); }}
+            onClick={() => {
+              void handleSubmit();
+            }}
             style={{
               padding: "6px 14px",
               border: "1px solid var(--syn-accent)",
@@ -351,8 +373,22 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const toggleGroup = useGraphStore(selectToggleGroup);
   const collapsed = useTreeCollapsed(); // shallow equality
 
+  // Graph node degree map — used to show connection counts in page rows (I3: shallow).
+  // Only populated after the graph loads; rows without a match simply omit the count.
+  const graphNodes = useGraphStore(useShallow(selectNodes));
+  const degreeMap = useMemo<Map<string, number>>(() => {
+    const m = new Map<string, number>();
+    for (const n of graphNodes) {
+      if (n.degree != null) m.set(n.id, n.degree);
+    }
+    return m;
+  }, [graphNodes]);
+
   // Data hook (WS-D8: now also returns metaFiles; NavFilter: filterLabel + clearFilter)
-  const { rows, loading, error, refresh, filterLabel, clearFilter } = useNavTreeData(vaultId, collapsed);
+  const { rows, loading, error, refresh, filterLabel, clearFilter } = useNavTreeData(
+    vaultId,
+    collapsed,
+  );
 
   // New page modal state (R7-2)
   const [showNewPageModal, setShowNewPageModal] = useState(false);
@@ -431,7 +467,9 @@ export function NavTree({ vaultId }: NavTreeProps) {
   if (error) {
     return (
       <div className="nav-tree nav-tree--error" role="alert">
-        <span className="nav-tree__error-icon" aria-hidden="true">!</span>
+        <span className="nav-tree__error-icon" aria-hidden="true">
+          !
+        </span>
         <span className="nav-tree__error-text">{error}</span>
       </div>
     );
@@ -508,7 +546,8 @@ export function NavTree({ vaultId }: NavTreeProps) {
               gap: 6,
               padding: "4px 8px",
               background: "color-mix(in srgb, var(--syn-accent) 10%, var(--syn-bg-soft) 90%)",
-              borderBottom: "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
+              borderBottom:
+                "1px solid color-mix(in srgb, var(--syn-accent) 25%, var(--syn-border) 75%)",
               flexShrink: 0,
             }}
           >
@@ -602,6 +641,7 @@ export function NavTree({ vaultId }: NavTreeProps) {
                   key={row.id}
                   row={row}
                   selected={row.id === selectedNodeId}
+                  count={degreeMap.get(row.id)}
                   style={{ position: "absolute", top: virtualRow.start, width: "100%" }}
                   onClick={() => selectPage(row.id, "tree")}
                 />
@@ -613,10 +653,7 @@ export function NavTree({ vaultId }: NavTreeProps) {
 
       {/* New page modal (R7-2) */}
       {showNewPageModal && (
-        <NewPageModal
-          onClose={() => setShowNewPageModal(false)}
-          onCreated={handlePageCreated}
-        />
+        <NewPageModal onClose={() => setShowNewPageModal(false)} onCreated={handlePageCreated} />
       )}
 
       {/* WS-D8 + v1.5 P1: meta file drawer — reads AND edits schema.md / purpose.md */}
@@ -656,16 +693,17 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
         alignItems: "center",
         width: "100%",
         height: GROUP_ROW_HEIGHT,
-        padding: "0 8px",
+        padding: "0 10px 0 8px",
         border: "none",
         background: "transparent",
         cursor: "pointer",
         textAlign: "left",
         gap: 6,
-        color: "var(--syn-text-muted)",
-        fontSize: 11,
+        color: "var(--syn-text-dim)",
+        fontFamily: "var(--syn-font-mono, monospace)",
+        fontSize: 10.5,
         fontWeight: 600,
-        letterSpacing: "0.04em",
+        letterSpacing: "0.08em",
         textTransform: "uppercase",
         userSelect: "none",
       }}
@@ -674,9 +712,9 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
       onClick={onToggle}
       data-type={row.type}
     >
-      {/* Type icon — replaces the colored dot; uses per-type CSS variable */}
+      {/* Type icon — colored by per-type CSS variable */}
       <TypeIcon
-        size={14}
+        size={13}
         aria-hidden="true"
         style={{ color, flexShrink: 0 }}
         data-testid={`type-icon-${row.type}`}
@@ -685,16 +723,13 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {label}
       </span>
-      {/* Count badge */}
+      {/* Count — mono, right-aligned */}
       <span
         aria-hidden="true"
         style={{
+          fontFamily: "var(--syn-font-mono, monospace)",
           fontSize: 10,
           color: "var(--syn-text-dim)",
-          background: "var(--syn-surface-sunken)",
-          border: "1px solid var(--syn-border-subtle)",
-          borderRadius: 10,
-          padding: "1px 5px",
           flexShrink: 0,
         }}
       >
@@ -704,11 +739,12 @@ function GroupHeader({ row, style, onToggle }: GroupHeaderProps) {
       <span
         aria-hidden="true"
         style={{
-          fontSize: 10,
+          fontSize: 9,
           color: "var(--syn-text-dim)",
           transform: ariaExpanded ? "rotate(0deg)" : "rotate(-90deg)",
           transition: "transform 0.15s ease",
           flexShrink: 0,
+          marginLeft: 2,
         }}
       >
         &#9660;
@@ -850,11 +886,13 @@ function MetaRow({ file, selected, style, onClick }: MetaRowProps) {
 interface PageRowProps {
   row: Extract<TreeRow, { kind: "page" }>;
   selected: boolean;
+  /** Connection degree from the graph store — shown as a mono count right-aligned. */
+  count?: number | undefined;
   style: CSSProperties;
   onClick: () => void;
 }
 
-function PageRow({ row, selected, style, onClick }: PageRowProps) {
+function PageRow({ row, selected, count, style, onClick }: PageRowProps) {
   const color = TYPE_COLOR[row.type];
 
   return (
@@ -866,15 +904,15 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
         alignItems: "center",
         width: "100%",
         height: PAGE_ROW_HEIGHT,
-        padding: "0 8px 0 20px",
+        padding: "0 10px 0 22px",
         border: "none",
         // llm_wiki style: accent-soft bg + accent text when selected; transparent otherwise
         background: selected ? "var(--syn-accent-soft)" : "transparent",
         cursor: "pointer",
         textAlign: "left",
-        gap: 6,
+        gap: 9,
         color: selected ? "var(--syn-accent)" : "var(--syn-text-muted)",
-        fontSize: 13,
+        fontSize: 13.5,
         outline: "none",
         borderRadius: 4,
         transition: "background 0.1s ease, color 0.1s ease",
@@ -885,16 +923,16 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
       data-page-id={row.id}
       data-type={row.type}
     >
-      {/* Type dot — compact file-row indicator; matches llm_wiki file-row style */}
+      {/* Type dot — square-ish colored indicator matching design reference */}
       <span
         aria-hidden="true"
         style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
+          width: 7,
+          height: 7,
+          borderRadius: 2,
           background: color,
           flexShrink: 0,
-          opacity: selected ? 1 : 0.7,
+          opacity: selected ? 1 : 0.75,
         }}
       />
       {/* Title */}
@@ -908,6 +946,20 @@ function PageRow({ row, selected, style, onClick }: PageRowProps) {
       >
         {row.title}
       </span>
+      {/* Connection count — mono, right-aligned, hidden when 0 or unavailable */}
+      {count != null && count > 0 && (
+        <span
+          aria-hidden="true"
+          style={{
+            fontFamily: "var(--syn-font-mono, monospace)",
+            fontSize: 11,
+            color: "var(--syn-text-dim)",
+            flexShrink: 0,
+          }}
+        >
+          {count}
+        </span>
+      )}
     </button>
   );
 }

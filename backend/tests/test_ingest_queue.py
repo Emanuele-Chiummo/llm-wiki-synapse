@@ -892,3 +892,156 @@ class TestOnPhaseCallback:
             assert result.converged is True
 
         asyncio.run(run())
+
+
+# ── Drain callback (WS-C, ADR-0079) ──────────────────────────────────────────
+
+
+class TestDrainCallback:
+    """
+    Drain callback fires once when the queue transitions to idle AND completed_since_idle > 0.
+    (ADR-0079 §1: sweep-on-drain — llm_wiki parity onQueueDrained).
+    """
+
+    def test_callback_fires_when_work_completed(self) -> None:
+        """T-DRAIN-001: drain callback is scheduled after a successful finalize → idle."""
+        calls: list[str] = []
+
+        async def _cb() -> None:
+            calls.append("drained")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_cb)
+            run_id = uuid.uuid4()
+            mgr.open_run(run_id, "/vault/raw/sources/a.md")
+            mgr.finalize(run_id, "completed")
+            # Give the scheduled task a tick to execute.
+            await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert calls == ["drained"], "drain callback must fire exactly once on idle with work done"
+
+    def test_callback_not_fired_when_no_work(self) -> None:
+        """T-DRAIN-002: finalize → idle with completed_since_idle == 0 → callback NOT fired."""
+        calls: list[str] = []
+
+        async def _cb() -> None:
+            calls.append("drained")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_cb)
+            run_id = uuid.uuid4()
+            mgr.open_run(run_id, "/vault/raw/sources/a.md")
+            # Finalize with failure — completed_since_idle stays 0.
+            mgr.finalize(run_id, "failed", error="boom")
+            await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert calls == [], "drain callback must NOT fire when no work completed"
+
+    def test_callback_not_fired_while_more_active(self) -> None:
+        """T-DRAIN-003: queue does NOT drain while a second run is still active."""
+        calls: list[str] = []
+
+        async def _cb() -> None:
+            calls.append("drained")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_cb)
+            run_a = uuid.uuid4()
+            run_b = uuid.uuid4()
+            mgr.open_run(run_a, "/vault/raw/sources/a.md")
+            mgr.open_run(run_b, "/vault/raw/sources/b.md")
+            # Only finalize the first one — queue still has b.md active.
+            mgr.finalize(run_a, "completed")
+            await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert calls == [], "drain callback must NOT fire while another run is active"
+
+    def test_debounce_guard_prevents_double_fire(self) -> None:
+        """T-DRAIN-004: two rapid drains — callback fires at most once (_drain_in_flight guard)."""
+        calls: list[str] = []
+
+        async def _slow_cb() -> None:
+            # Simulate a callback that yields control (slow I/O).
+            await asyncio.sleep(0.01)
+            calls.append("drained")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_slow_cb)
+
+            # First drain cycle.
+            r1 = uuid.uuid4()
+            mgr.open_run(r1, "/vault/raw/sources/x.md")
+            mgr.finalize(r1, "completed")
+            # _drain_in_flight should now be True — a second drain is suppressed.
+            r2 = uuid.uuid4()
+            mgr.open_run(r2, "/vault/raw/sources/y.md")
+            mgr.finalize(r2, "completed")
+            # Allow both tasks (if any were created) to settle.
+            await asyncio.sleep(0.05)
+
+        asyncio.run(run())
+        # Only one "drained" allowed even though two drains occurred.
+        assert (
+            len(calls) == 1
+        ), f"drain callback fired {len(calls)} times but debounce should suppress the second"
+
+    def test_no_callback_registered_is_noop(self) -> None:
+        """T-DRAIN-005: finalize with no callback registered → no error, no fire."""
+
+        async def run() -> None:
+            mgr = make_manager()
+            # No set_on_drained call.
+            r = uuid.uuid4()
+            mgr.open_run(r, "/vault/raw/sources/a.md")
+            mgr.finalize(r, "completed")
+            await asyncio.sleep(0)
+
+        # Must not raise.
+        asyncio.run(run())
+
+    def test_callback_exception_is_non_fatal(self) -> None:
+        """T-DRAIN-006: if callback raises, the exception is caught and the guard is cleared."""
+
+        async def _bad_cb() -> None:
+            raise RuntimeError("sweep exploded")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_bad_cb)
+
+            r = uuid.uuid4()
+            mgr.open_run(r, "/vault/raw/sources/a.md")
+            mgr.finalize(r, "completed")
+            await asyncio.sleep(0)
+
+            # After the failed callback the guard must be cleared so the next drain can fire.
+            assert mgr._drain_in_flight is False, "_drain_in_flight must be cleared after callback"
+
+        asyncio.run(run())
+
+    def test_set_on_drained_clears_callback(self) -> None:
+        """T-DRAIN-007: set_on_drained(None) unregisters the callback."""
+        calls: list[str] = []
+
+        async def _cb() -> None:
+            calls.append("drained")
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr.set_on_drained(_cb)
+            mgr.set_on_drained(None)  # unregister
+
+            r = uuid.uuid4()
+            mgr.open_run(r, "/vault/raw/sources/a.md")
+            mgr.finalize(r, "completed")
+            await asyncio.sleep(0)
+
+        asyncio.run(run())
+        assert calls == [], "callback must not fire after being cleared with None"

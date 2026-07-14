@@ -36,12 +36,24 @@
  * Light design: --syn-* tokens; Lucide named imports (F1).
  */
 
-import { useState, useEffect, useRef, useCallback, type ChangeEvent, type KeyboardEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type ChangeEvent,
+  type KeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Search, X, RefreshCw, XCircle, FileSearch } from "lucide-react";
 import { searchWiki } from "../../api/searchClient";
 import type { SearchResultItem, PageTypeFilter, SearchSortOption } from "../../api/searchClient";
-import { useGraphStore, selectVaultId, selectSelectPage, selectSetActiveSection } from "../../store/graphStore";
+import {
+  useGraphStore,
+  selectVaultId,
+  selectSelectPage,
+  selectSetActiveSection,
+} from "../../store/graphStore";
 import { ErrorState } from "../common/ErrorState";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -152,9 +164,7 @@ function FilterBar({ activeTypes, sort, onTypeToggle, onSortChange }: FilterBarP
       </div>
 
       {/* Sort dropdown */}
-      <div
-        style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}
-      >
+      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         <label
           htmlFor="search-sort-select"
           style={{
@@ -213,10 +223,7 @@ function SkeletonRow({ index }: { index: number }) {
         className="syn-skeleton"
         style={{ height: 14, width: titleWidth, marginBottom: 6, borderRadius: 4 }}
       />
-      <div
-        className="syn-skeleton"
-        style={{ height: 11, width: slugWidth, borderRadius: 4 }}
-      />
+      <div className="syn-skeleton" style={{ height: 11, width: slugWidth, borderRadius: 4 }} />
     </div>
   );
 }
@@ -269,9 +276,7 @@ function ResultRow({ item, onSelect }: ResultRowProps) {
   // meaningful 0-100%. Expansion results carry a raw graph relevance weight
   // (can be >1), so rendering it as a percentage produces nonsense like 2144%.
   // Show the % chip for vector only; clamp to [0,100] defensively.
-  const scoreDisplay = isVector
-    ? Math.min(100, Math.max(0, item.score * 100)).toFixed(0)
-    : null;
+  const scoreDisplay = isVector ? Math.min(100, Math.max(0, item.score * 100)).toFixed(0) : null;
 
   const handleClick = useCallback(() => {
     onSelect(item.id);
@@ -356,7 +361,7 @@ function ResultRow({ item, onSelect }: ResultRowProps) {
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
-          fontFamily: "monospace",
+          fontFamily: "var(--syn-font-mono)",
         }}
       >
         {item.slug}
@@ -497,7 +502,7 @@ export function SearchView() {
         debounceRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, vaultId, activeTypes, sort, t, retryKey]);
 
   // Cleanup abort controller and slow-load timer on unmount
@@ -543,11 +548,14 @@ export function SearchView() {
     setSort(newSort);
   }, []);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape") {
-      handleClear();
-    }
-  }, [handleClear]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Escape") {
+        handleClear();
+      }
+    },
+    [handleClear],
+  );
 
   const handleSelectResult = useCallback(
     (pageId: string) => {
@@ -685,11 +693,7 @@ export function SearchView() {
       >
         {/* Loading: skeleton rows + optional slow-load message (audit #6) */}
         {loading && (
-          <div
-            data-testid="search-loading"
-            role="status"
-            aria-label={t("common.loading")}
-          >
+          <div data-testid="search-loading" role="status" aria-label={t("common.loading")}>
             {/* Skeleton result rows */}
             {Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
               <SkeletonRow key={i} index={i} />
@@ -742,11 +746,7 @@ export function SearchView() {
         {/* Error: ErrorState component (audit #6 + #1b) */}
         {!loading && error && (
           <div style={{ padding: "12px 16px" }}>
-            <ErrorState
-              title={t("search.error")}
-              onRetry={handleRetry}
-              error={error}
-            />
+            <ErrorState title={t("search.error")} onRetry={handleRetry} error={error} />
           </div>
         )}
 
@@ -767,7 +767,14 @@ export function SearchView() {
               aria-hidden="true"
               style={{ display: "block", margin: "0 auto 12px" }}
             />
-            <div style={{ marginBottom: 6, fontWeight: 600, fontSize: 14, color: "var(--syn-text-muted)" }}>
+            <div
+              style={{
+                marginBottom: 6,
+                fontWeight: 600,
+                fontSize: 14,
+                color: "var(--syn-text-muted)",
+              }}
+            >
               {t("search.noResults")}
             </div>
             <div style={{ fontSize: 12, color: "var(--syn-text-dim)", lineHeight: 1.45 }}>
@@ -778,11 +785,7 @@ export function SearchView() {
 
         {/* Results list */}
         {!loading && !error && results.length > 0 && (
-          <div
-            data-testid="search-results"
-            role="list"
-            aria-label={t("search.resultsLabel")}
-          >
+          <div data-testid="search-results" role="list" aria-label={t("search.resultsLabel")}>
             {results.map((item) => (
               <div key={item.id} role="listitem">
                 <ResultRow item={item} onSelect={handleSelectResult} />
@@ -808,7 +811,14 @@ export function SearchView() {
               aria-hidden="true"
               style={{ marginBottom: 12, display: "block", margin: "0 auto 12px" }}
             />
-            <div style={{ fontWeight: 500, fontSize: 13, color: "var(--syn-text-muted)", marginBottom: 4 }}>
+            <div
+              style={{
+                fontWeight: 500,
+                fontSize: 13,
+                color: "var(--syn-text-muted)",
+                marginBottom: 4,
+              }}
+            >
               {t("search.emptyTitle")}
             </div>
             <div>{t("search.emptyBody")}</div>

@@ -532,7 +532,7 @@ function FindingRowComponent({
               fontSize: 11,
               color: "var(--syn-accent)",
               overflowWrap: "anywhere",
-              fontFamily: "monospace",
+              fontFamily: "var(--syn-font-mono)",
             }}
             title={finding.proposed_action}
           >
@@ -1024,8 +1024,7 @@ export function LintView() {
         background: "var(--syn-bg)",
       }}
     >
-      {/* Spinner keyframe — injected once */}
-      <style>{`@keyframes syn-spin { to { transform: rotate(360deg); } }`}</style>
+      {/* UXA-28: @keyframes syn-spin is declared globally in theme.css — no inline <style> needed */}
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <div

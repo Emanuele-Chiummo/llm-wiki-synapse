@@ -184,6 +184,9 @@ async def enrich_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> dict[str
     (vault_root / "wiki" / "concepts").mkdir(parents=True)
     monkeypatch.setattr(cfg.settings, "vault_id", "test-vault")
     monkeypatch.setattr(type(cfg.settings), "vault_root", property(lambda self: vault_root))
+    # Enrich defaults OFF since v1.7.0 (ADR-0076); these tests exercise the pass itself, so the
+    # fixture opts it back in. The dedicated disabled-flag test overrides this to False.
+    monkeypatch.setattr(cfg.settings, "wikilink_enrich_enabled", True)
     # Low default so the apply/no-provider tests pass the gate with short bodies; the dedicated
     # anti-spam test overrides this to a large value.
     monkeypatch.setattr(cfg.settings, "wikilink_enrich_min_chars", 10)
