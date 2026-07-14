@@ -242,7 +242,12 @@ async def test_delegated_route_appends_scaffold_to_system_prompt(
     the 1:1 E2E path). The base ingest context (schema.md + catalogue) is still prepended, and a
     configured vault language reaches the prompt. Deterministic source-page guarantee stubbed.
     """
+    import app.config_overrides as config_overrides
     from app.ingest import orchestrator as orch
+
+    # The delegated/CLI route is taken ONLY in the "json" rollback mode; the 1.7.0 "blocks" default
+    # routes even agentic providers through the block loop. Pin json to exercise delegation here.
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
 
     async def _fake_ingest_context() -> str:
         return "# schema.md\n(rules)"
