@@ -15,6 +15,7 @@ from app.ingest.prompts import (
     GENERATION_WIKI_TYPES,
     build_analysis_prompt,
     build_analysis_user,
+    build_delegated_generation_guidance,
     build_generation_prompt,
     build_generation_user,
     build_language_directive,
@@ -206,3 +207,42 @@ def test_review_stage_prompt_trims_long_sections() -> None:
     assert "[... trimmed to fit context budget ...]" in p
     # each section capped at max(4000, 15% of ctx) = 30720; three sections << 500k*3
     assert len(p) < 200_000
+
+
+# ── delegated CLI guidance — shares the link-critical rules (contract) ────────────
+
+# Lines that MUST appear on BOTH the orchestrated generation prompt and the delegated CLI guidance
+# — the shared _OTHER_RULES that carry the link-density fix. A drift here would reintroduce the
+# 1.6.0 regression on one route.
+_SHARED_LINK_RULES = (
+    "- Use [[wikilink]] syntax in the BODY for cross-references between pages",
+    "- If the analysis found connections to existing pages, add cross-references",
+    "- Preserve subject boundaries: when a source discusses multiple",
+)
+
+
+def test_delegated_guidance_shares_link_rules_with_generation_prompt() -> None:
+    gen = build_generation_prompt(source_filename="foo.md", today=_FIXED)
+    deleg = build_delegated_generation_guidance(source_filename="foo.md", today=_FIXED)
+    for line in _SHARED_LINK_RULES:
+        assert line in gen, f"generation prompt missing shared rule: {line!r}"
+        assert line in deleg, f"delegated guidance missing shared rule: {line!r}"
+
+
+def test_delegated_guidance_is_tool_writing_not_file_blocks() -> None:
+    deleg = build_delegated_generation_guidance(source_filename="foo.md", today=_FIXED)
+    # The CLI agent writes via tools — it must NOT be told to emit FILE-block output.
+    assert "---FILE:" not in deleg
+    assert "## Output Format" not in deleg
+    assert "file-writing tools" in deleg
+    # but still carries routing authority, the source-filename sources rule, and the date
+    assert "Routing (AUTHORITATIVE)" in deleg
+    assert "MUST include this filename" in deleg
+    assert "2026-07-14" in deleg
+
+
+def test_delegated_guidance_language_directive_repeated() -> None:
+    deleg = build_delegated_generation_guidance(
+        source_filename="foo.md", language_name="Italian", today=_FIXED
+    )
+    assert deleg.count("MANDATORY OUTPUT LANGUAGE: Italian") == 2

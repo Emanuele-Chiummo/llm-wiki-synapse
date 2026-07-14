@@ -38,6 +38,36 @@ GENERATION_WIKI_TYPES: tuple[str, ...] = (
     "finding",
 )
 
+# Shared normative "Other rules" — the link-critical guidance (prominent [[wikilink]] cross-refs,
+# subject boundaries, naming). SINGLE SOURCE consumed by BOTH the orchestrated generation prompt
+# and the delegated-CLI guidance so the link-density fix cannot drift between the two paths (a
+# contract test asserts both carry these). Do not re-bury the wikilink lines (the 1.6.0 regression).
+_OTHER_RULES: tuple[str, ...] = (
+    "- Use [[wikilink]] syntax in the BODY for cross-references between pages",
+    "- If you include images, use wiki-root-relative paths such as "
+    "`media/source-slug/image.png`; never output absolute filesystem paths.",
+    "- Preserve subject boundaries: when a source discusses multiple "
+    "entities/models/products/methods, keep claims, evaluations, limitations, benchmark "
+    "results, and recommendations attached to the exact subject they describe.",
+    "- Do not merge or generalize a claim about one subject into another subject's page "
+    "solely because they share terms (for example context window size, benchmark name, "
+    "dataset, architecture, or feature name).",
+    "- If a page needs to mention another subject for comparison, write it explicitly as "
+    "a comparison and cite which source/frontmatter `sources` entry supports that "
+    "statement.",
+    "- Use kebab-case filenames",
+    "- Derive filenames from the page title in the mandatory output language, but short "
+    "proper nouns and technical identifiers take precedence: preserve names such as "
+    "OpenAI, GPT-5, Transformer, CLIP, ImageNet, PyTorch, CUDA, GitHub, arXiv, React, "
+    "LanceDB, AnyTXT, MinerU, model names, dataset names, tool names, and code "
+    "identifiers in their standard original form. Do not put raw URLs, citation strings, "
+    "or full paper titles directly into file paths; convert surrounding descriptive prose "
+    "to a safe readable title. For Chinese/Japanese/Korean prose titles, keep readable "
+    "CJK characters in the filename instead of translating the slug to English.",
+    "- Follow the analysis recommendations on what to emphasize",
+    "- If the analysis found connections to existing pages, add cross-references",
+)
+
 # ISO-639-1 → display name for the MANDATORY OUTPUT LANGUAGE directive. Extend as needed; an
 # unknown/None code yields no directive (the caller may instead pass a resolved display name).
 _LANGUAGE_NAMES: dict[str, str] = {
@@ -333,29 +363,7 @@ def build_generation_prompt(
             "    Body content goes here. Use [[wikilink]] syntax in the body for cross-references.",
             "",
             "Other rules:",
-            "- Use [[wikilink]] syntax in the BODY for cross-references between pages",
-            "- If you include images, use wiki-root-relative paths such as "
-            "`media/source-slug/image.png`; never output absolute filesystem paths.",
-            "- Preserve subject boundaries: when a source discusses multiple "
-            "entities/models/products/methods, keep claims, evaluations, limitations, benchmark "
-            "results, and recommendations attached to the exact subject they describe.",
-            "- Do not merge or generalize a claim about one subject into another subject's page "
-            "solely because they share terms (for example context window size, benchmark name, "
-            "dataset, architecture, or feature name).",
-            "- If a page needs to mention another subject for comparison, write it explicitly as "
-            "a comparison and cite which source/frontmatter `sources` entry supports that "
-            "statement.",
-            "- Use kebab-case filenames",
-            "- Derive filenames from the page title in the mandatory output language, but short "
-            "proper nouns and technical identifiers take precedence: preserve names such as "
-            "OpenAI, GPT-5, Transformer, CLIP, ImageNet, PyTorch, CUDA, GitHub, arXiv, React, "
-            "LanceDB, AnyTXT, MinerU, model names, dataset names, tool names, and code "
-            "identifiers in their standard original form. Do not put raw URLs, citation strings, "
-            "or full paper titles directly into file paths; convert surrounding descriptive prose "
-            "to a safe readable title. For Chinese/Japanese/Korean prose titles, keep readable "
-            "CJK characters in the filename instead of translating the slug to English.",
-            "- Follow the analysis recommendations on what to emphasize",
-            "- If the analysis found connections to existing pages, add cross-references",
+            *_OTHER_RULES,
             "",
             "## Review block types",
             "",
@@ -537,5 +545,88 @@ def build_review_stage_prompt(
             "",
             "## Generated Wiki Output",
             _trim_long_text(generation, section_cap),
+        )
+    )
+
+
+# ── Delegated CLI generation guidance ────────────────────────────────────────────
+
+
+def build_delegated_generation_guidance(
+    *,
+    schema: str = "",
+    source_filename: str,
+    language_name: str | None = None,
+    today: date | None = None,
+    source_summary_path: str | None = None,
+) -> str:
+    """
+    Content-generation guidance for the DELEGATED (CLI agent) route (ADR-0076). The agent writes
+    pages directly via its file/MCP tools, so this OMITS the FILE/REVIEW-block output-format
+    contract of build_generation_prompt — but it shares the same authoritative schema-routing and
+    the SAME ``_OTHER_RULES`` (prominent [[wikilink]] cross-referencing, subject boundaries,
+    naming). This is the delegated half of the link-density fix: it replaces the old buried-wikilink
+    GENERATION_SCAFFOLD so the CLI path (the 1:1 E2E) links pages as densely as nashsu/llm_wiki.
+    A contract test asserts this and build_generation_prompt carry the same normative link lines.
+    """
+    day = wiki_date(today)
+    source_base = source_filename.rsplit(".", 1)[0] if "." in source_filename else source_filename
+    summary_path = source_summary_path or f"wiki/sources/{source_base}.md"
+    types_line = " | ".join(GENERATION_WIKI_TYPES)
+    lang = build_language_directive(language_name)
+
+    # Full schema block only when the caller passes schema.md explicitly; the pipeline instead
+    # prepends the project schema via the shared ingest context, so it passes schema="" and relies
+    # on the always-on routing-adherence instruction below.
+    schema_block = (
+        _join(("## Project Schema and Routing (AUTHORITATIVE)", schema)) if schema else ""
+    )
+
+    return _join(
+        (
+            "You are a wiki maintainer running as an autonomous agent. Using your file-writing "
+            "tools, create the wiki pages this source supports — write each page directly to its "
+            "path under wiki/. Reason internally; do not narrate.",
+            "",
+            lang,
+            "",
+            "## IMPORTANT: Source File",
+            f"The original source file is: **{source_filename}**",
+            "Every wiki page generated from this source MUST include this filename in its "
+            "frontmatter `sources` field.",
+            f"Today's date is **{day}**. Use this exact date for all new `created`, `updated`, "
+            "and wiki/log.md ingest dates.",
+            "",
+            schema_block,
+            "",
+            "## Routing (AUTHORITATIVE)",
+            "Route each page by the project schema's Page Types table: a page's frontmatter type "
+            "MUST match the directory in its path, and schema-defined folders (people, "
+            "technologies, methods, cases, …) take precedence over wiki/entities/ and "
+            "wiki/concepts/. Use wiki/entities/ or wiki/concepts/ only when the schema offers no "
+            "more specific destination.",
+            "",
+            "## What to write",
+            "",
+            f"1. A source summary page at **{summary_path}** (use this exact path).",
+            "2. Entity or schema-defined typed pages for the key named things in the source. "
+            "Prefer schema-defined directories when present; otherwise use wiki/entities/.",
+            "3. Concept or schema-defined typed pages for the key ideas, methods, and "
+            "abstractions. Prefer schema-defined dirs when present; otherwise use wiki/concepts/.",
+            "4. Append a wiki/log.md entry (format: ## [YYYY-MM-DD] ingest | Title).",
+            "Do not create or rewrite wiki/index.md or wiki/overview.md — the application "
+            "maintains aggregate navigation separately.",
+            "",
+            "## Frontmatter (every page)",
+            f"YAML frontmatter between `---` fences with: type (one of {types_line}, or a "
+            "schema-defined custom type), title, created/updated = today, tags (bare strings), "
+            "related (bare page slugs — no wiki/, no .md, no [[…]]), and sources (MUST include "
+            f'"{source_filename}"). Wikilinks belong in the BODY, never in frontmatter.',
+            "",
+            "Other rules:",
+            *_OTHER_RULES,
+            "",
+            # Repeat the language directive last (most-recent-instruction tie-breaker).
+            lang,
         )
     )

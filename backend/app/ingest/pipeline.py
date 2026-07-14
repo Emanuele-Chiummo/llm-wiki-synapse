@@ -481,34 +481,29 @@ async def run_ingest_pipeline(
             orch.ingest_queue.set_route(run_id, route)
             # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
             orch.ingest_queue.set_phase(run_id, "agent running")
-            # Append the SAME source-grounded six-type generation scaffold the orchestrated
-            # backends get via GENERATE_SYSTEM to the CLI agent's system_prompt. This is a PROMPT
-            # instruction, not a deterministic post-write guarantee — see the CLI-route gap in
-            # ADR-0063 §7 (_ensure_source_summary is NOT wired into the delegated write path; I6
-            # forbids post-processing the agent's own MCP writes here).
-            from app.ingest.provider._common import GENERATION_SCAFFOLD
+            # Give the CLI agent the SAME source-grounded generation guidance the orchestrated
+            # block path builds (ADR-0076): prompts.build_delegated_generation_guidance shares the
+            # _OTHER_RULES block (prominent [[wikilink]] cross-referencing, subject boundaries,
+            # naming) so the delegated/CLI route — the 1:1 E2E — links pages as densely as
+            # nashsu/llm_wiki, fixing the 1.6.0 regression on this path. It omits the FILE/REVIEW
+            # output-format contract (the agent writes via its MCP tools). Prompt text only (I6).
+            from app.ingest import prompts as _prompts
 
-            # F3 language parity: the orchestrated route injects a MANDATORY OUTPUT LANGUAGE
-            # directive (build_generate_prompt) derived from the detected/target language; the
-            # delegated agent got no such instruction and could silently translate to English.
-            # Mirror nashsu/llm_wiki, which threads its configured `outputLanguage` (targetLang,
-            # ingest.ts:1706/2137) into the ingest prompt: use the vault language so delegated
-            # pages come out in the vault's language too. Prompt text only (I6) — no provider
-            # branch. Empty → omit (agent auto-detects from the source, prior behaviour).
-            _vault_lang = (getattr(settings, "overview_language", "") or "").strip()
-            _lang_directive = (
-                (
-                    "## Mandatory output language\n"
-                    f"Write every page's body, section headings, and frontmatter `lang` in "
-                    f"{_vault_lang} (ISO-639-1). Do NOT translate to English unless "
-                    f"{_vault_lang!r} is 'en'. Preserve proper nouns, acronyms, model/dataset/tool "
-                    "names, code identifiers, URLs, and citation strings in their original form."
-                )
-                if _vault_lang
-                else ""
+            # F3 language parity: prefer the per-vault output_language (ADR-0081, migration 0032),
+            # falling back to the legacy overview_language setting. Threaded as a resolved display
+            # name so the MANDATORY OUTPUT LANGUAGE directive reads naturally; None → omitted.
+            _vault_lang_code = (
+                await _vault_output_language()
+                or (getattr(settings, "overview_language", "") or "").strip()
+                or None
+            )
+            _lang_name = _prompts.language_prompt_name(_vault_lang_code)
+            _delegated_guidance = _prompts.build_delegated_generation_guidance(
+                source_filename=origin_source,
+                language_name=_lang_name,
             )
             _delegated_system_prompt = "\n\n".join(
-                part for part in (ingest_context, GENERATION_SCAFFOLD, _lang_directive) if part
+                part for part in (ingest_context, _delegated_guidance) if part
             )
             converged, delegated_pages_written, delegated_page_ids = await orch._delegate_ingest(
                 provider=provider,
