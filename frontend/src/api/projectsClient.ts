@@ -70,22 +70,28 @@ export async function openProject(path: string, signal?: AbortSignal): Promise<P
 export async function createProject(
   name: string,
   path: string,
-  signal?: AbortSignal,
+  options?: {
+    scenario?: string;
+    output_language?: string;
+    signal?: AbortSignal;
+  },
 ): Promise<Project> {
+  const { scenario, output_language, signal } = options ?? {};
+  const body: Record<string, string> = { name, path };
+  if (scenario !== undefined && scenario !== "") body.scenario = scenario;
+  if (output_language !== undefined && output_language !== "")
+    body.output_language = output_language;
   const res = await fetchWithTimeout(`${apiBase()}/projects`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, path }),
+    body: JSON.stringify(body),
     ...(signal !== undefined ? { signal } : {}),
   });
   return _json<Project>(res);
 }
 
 /** POST /projects/{id}/activate — switch the active vault at runtime. */
-export async function activateProject(
-  id: string,
-  signal?: AbortSignal,
-): Promise<ActivateResponse> {
+export async function activateProject(id: string, signal?: AbortSignal): Promise<ActivateResponse> {
   const res = await fetchWithTimeout(`${apiBase()}/projects/${encodeURIComponent(id)}/activate`, {
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
