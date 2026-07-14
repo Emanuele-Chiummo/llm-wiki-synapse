@@ -461,3 +461,270 @@ async def test_default_json_format_still_writes_pages(
     assert concept is not None and concept.page_type == "concept"
     source = await _load_page(pipeline_env, "wiki/sources/doc.md")
     assert source is not None and source.page_type == "source"
+
+
+# ── D3 WS-C: REVIEW block enqueue (ADR-0079 §3) ──────────────────────────────
+
+# A generation response that includes one REVIEW block after the FILE blocks.
+_GEN_BLOCKS_WITH_REVIEW = GEN_BLOCKS + """
+---REVIEW: missing-page | Missing Entity Acme Supplier---
+The report references an upstream supplier that is not in the wiki yet.
+SEARCH: Acme Corp supplier network
+---END REVIEW---
+"""
+
+
+@pytest.fixture()
+async def pipeline_env_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[dict[str, Any]]:
+    """pipeline_env extended with a review_items table for D3/WS-C tests (ADR-0079)."""
+    import asyncio as _asyncio
+    from contextlib import asynccontextmanager
+
+    from app import config as cfg
+    from app.embeddings import FakeEmbeddingClient, set_embedding_client
+
+    vault_root = tmp_path / "vault"
+    (vault_root / "raw" / "sources").mkdir(parents=True)
+    wiki_dir = vault_root / "wiki"
+    wiki_dir.mkdir()
+    (wiki_dir / "log.md").write_text(
+        "---\ntype: log\ntitle: Synapse Ingest Log\n---\n\n", encoding="utf-8"
+    )
+    (vault_root / "schema.md").write_text(SCHEMA_MD, encoding="utf-8")
+    (vault_root / "purpose.md").write_text("# Purpose\n\nStudy Acme Corp.\n", encoding="utf-8")
+
+    monkeypatch.setattr(cfg.settings, "vault_path", str(vault_root))
+    monkeypatch.setattr(cfg.settings, "vault_id", "test-vault")
+    monkeypatch.setattr(type(cfg.settings), "vault_root", property(lambda self: vault_root))
+    monkeypatch.setattr(type(cfg.settings), "wiki_dir", property(lambda self: wiki_dir))
+    monkeypatch.setattr(
+        type(cfg.settings), "log_md_path", property(lambda self: wiki_dir / "log.md")
+    )
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    _meta = MetaData()
+    Table(
+        "pages",
+        _meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False),
+        Column("file_path", Text, nullable=False),
+        Column("title", Text, nullable=True),
+        Column("type", Text, nullable=True),
+        Column("sources", Text, nullable=True),
+        Column("tags", Text, nullable=True),
+        Column("generation_key", Text, nullable=True),
+        Column("content_hash", String(64), nullable=False),
+        Column("source_mtime_ns", BigInteger, nullable=True),
+        Column("qdrant_point_id", String(36), nullable=True),
+        Column("x", Float, nullable=True),
+        Column("y", Float, nullable=True),
+        Column("community", Integer, nullable=True),
+        Column("pinned", Integer, nullable=False, server_default=sa_text("0")),
+        Column("deleted_at", Text, nullable=True),
+        Column("created_at", Text, nullable=False),
+        Column("updated_at", Text, nullable=False),
+    )
+    Table(
+        "vault_state",
+        _meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False, unique=True),
+        Column("data_version", Integer, nullable=False, default=0),
+        Column("remote_mcp_enabled", Integer, nullable=False, server_default=sa_text("0")),
+        Column("remote_mcp_write_enabled", Integer, nullable=True),
+        Column("mcp_access_token_hash", Text, nullable=True),
+        Column("mcp_allow_without_token", Integer, nullable=False, server_default=sa_text("0")),
+        Column("clip_enabled_db", Integer, nullable=True),
+        Column("clip_access_token", Text, nullable=True),
+        Column("clip_allowed_origins_db", Text, nullable=True),
+        Column("cli_oauth_token", Text, nullable=True),
+        Column("cli_oauth_token_encrypted", LargeBinary, nullable=True),
+        Column("web_search_api_keys_encrypted", LargeBinary, nullable=True),
+        Column("searxng_url_db", Text, nullable=True),
+        Column("searxng_categories_db", Text, nullable=True),
+        Column("searxng_max_queries_db", Integer, nullable=True),
+        Column("output_language", Text, nullable=True),
+        Column("updated_at", Text, nullable=False),
+    )
+    Table(
+        "links",
+        _meta,
+        Column("id", String(36), primary_key=True),
+        Column("source_page_id", String(36), nullable=False),
+        Column("target_title", Text, nullable=False),
+        Column("target_page_id", String(36), nullable=True),
+        Column("alias", Text, nullable=True),
+        Column("dangling", Boolean, nullable=False, server_default=sa_text("0")),
+        Column("created_at", Text, nullable=False),
+    )
+    # ADR-0079 §3: review_items table for block review enqueue.
+    Table(
+        "review_items",
+        _meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False),
+        Column("item_type", Text, nullable=False),
+        Column("proposal_origin", Text, nullable=False, server_default=sa_text("'legacy'")),
+        Column("status", Text, nullable=False, server_default=sa_text("'pending'")),
+        Column("page_id", String(36), nullable=True),
+        Column("source_page_id", String(36), nullable=True),
+        Column("proposed_title", Text, nullable=True),
+        Column("proposed_page_type", Text, nullable=True),
+        Column("proposed_dir", Text, nullable=True),
+        Column("rationale", Text, nullable=True),
+        Column("resolution", Text, nullable=True),
+        Column("created_page_id", String(36), nullable=True),
+        Column("deep_research_run_id", String(36), nullable=True),
+        Column("content_key", Text, nullable=True),
+        Column("referenced_page_ids", Text, nullable=True),
+        Column("search_queries", Text, nullable=True),
+        Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+        Column("reviewed_at", Text, nullable=True),
+        Column("reviewed_by", Text, nullable=True),
+    )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(_meta.create_all)
+
+    sf = async_sessionmaker(
+        bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
+    )
+    async with sf() as session:
+        await session.execute(
+            sa_text(
+                "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "
+                "VALUES (:id, :vault_id, 0, datetime('now'))"
+            ),
+            {"id": str(uuid.uuid4()), "vault_id": "test-vault"},
+        )
+        await session.commit()
+
+    set_embedding_client(FakeEmbeddingClient(dim=8))
+    fake_qdrant = _FakeQdrant()
+
+    @asynccontextmanager
+    async def patched_get_session() -> AsyncIterator[AsyncSession]:
+        async with sf() as sess:
+            try:
+                yield sess
+                await sess.commit()
+            except Exception:
+                await sess.rollback()
+                raise
+
+    monkeypatch.setattr("app.db.get_session", patched_get_session)
+    monkeypatch.setattr("app.ingest.orchestrator.get_session", patched_get_session)
+    monkeypatch.setattr("app.ops.review.get_session", patched_get_session)
+    monkeypatch.setattr(
+        "app.ingest.orchestrator.upsert_point",
+        lambda **kwargs: fake_qdrant.upsert(
+            "synapse_pages",
+            [
+                type(
+                    "Pt",
+                    (),
+                    {
+                        "id": str(kwargs["page_id"]),
+                        "vector": kwargs["vector"],
+                        "payload": {"file_path": kwargs["file_path"], "title": kwargs["title"]},
+                    },
+                )()
+            ],
+        ),
+    )
+
+    runs: list[dict[str, Any]] = []
+
+    async def fake_open_ingest_run(**_kwargs: Any) -> uuid.UUID:
+        return uuid.uuid4()
+
+    async def fake_finalize_ingest_run(**kwargs: Any) -> None:
+        runs.append(kwargs)
+
+    monkeypatch.setattr(orch, "_open_ingest_run", fake_open_ingest_run)
+    monkeypatch.setattr(orch, "_finalize_ingest_run", fake_finalize_ingest_run)
+
+    from app.ingest.queue_manager import IngestQueueManager
+
+    class _FakeHandle2:
+        cancel_event = _asyncio.Event()
+        written_page_ids: list[Any] = []
+
+    fake_queue = IngestQueueManager.__new__(IngestQueueManager)
+    fake_queue.open_run = lambda run_id, source_path: _FakeHandle2()  # type: ignore[attr-defined]
+    fake_queue.finalize = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.get_retry_count = lambda path: 0  # type: ignore[attr-defined]
+    fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.set_route = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.set_phase = lambda *a, **kw: None  # type: ignore[attr-defined]
+    monkeypatch.setattr(orch, "ingest_queue", fake_queue)
+
+    monkeypatch.setattr(orch, "_update_overview", _anoop)
+    monkeypatch.setattr(orch, "_index_index_and_log_files", _anoop)
+    monkeypatch.setattr(orch, "_auto_tag_written_pages", _anoop)
+    import app.ops.enrich_wikilinks as _enrich_mod
+    import app.ops.review as _review_mod
+
+    monkeypatch.setattr(_review_mod, "propose_reviews", _anoop)
+    monkeypatch.setattr(_review_mod, "sweep_reviews", _anoop)
+    monkeypatch.setattr(_review_mod, "generate_purpose_suggestion", _anoop)
+    monkeypatch.setattr(_review_mod, "generate_schema_suggestion", _anoop)
+    monkeypatch.setattr(_enrich_mod, "enrich_wikilinks", _anoop)
+
+    yield {"session_factory": sf, "vault_root": vault_root, "runs": runs}
+
+    set_embedding_client(None)  # type: ignore[arg-type]
+
+
+async def test_blocks_format_enqueues_review_blocks(
+    pipeline_env_review: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    T-D3-001 (WS-C, ADR-0079 §3): REVIEW blocks returned by the block loop are enqueued
+    as ReviewItems (proposal_origin='ai', status='pending', content_key dedup).
+
+    The file pages still land normally (no regression on the write path). The REVIEW block
+    enqueue is fire-and-forget: failures are non-fatal (I7).
+    """
+    provider = _BlockProvider([ANALYSIS, _GEN_BLOCKS_WITH_REVIEW])
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
+
+    result = await orch.run_ingest_pipeline(
+        provider_config_row=object(),
+        source_text="The Acme Corp report references an unindexed supplier.",
+        origin_source=ORIGIN,
+        abs_source=ABS_SOURCE,
+    )
+
+    # File blocks still land.
+    assert result.converged is True
+    assert result.pages_written >= 2  # thesis + entity + optional source summary
+
+    # REVIEW block must appear in review_items as a pending proposal (ADR-0079 §3).
+    async with pipeline_env_review["session_factory"]() as session:
+        rows = list(
+            (
+                await session.execute(
+                    sa_text(
+                        "SELECT item_type, proposed_title, proposal_origin, status FROM review_items"
+                    )
+                )
+            ).fetchall()
+        )
+
+    assert (
+        len(rows) >= 1
+    ), "at least one ReviewItem must be enqueued from the REVIEW block (ADR-0079 §3)"
+    row = rows[0]
+    assert row.item_type == "missing-page"
+    assert row.proposed_title == "Missing Entity Acme Supplier"
+    assert row.proposal_origin == "ai"
+    assert row.status == "pending"

@@ -18,9 +18,9 @@ import logging
 import sys as _sys
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -44,6 +44,27 @@ class _LazyMain:
 
 
 _m = _LazyMain()
+
+# ── WS-C (ADR-0079): Create-mode request body ────────────────────────────────
+
+
+class CreateReviewBody(BaseModel):
+    """
+    Optional JSON body for POST /review/queue/{id}/create (and /approve alias).
+
+    ``mode="stub"`` (default): write a deterministic ``# <title>\\n\\n<description>`` draft
+    without calling the LLM (llm_wiki parity — review-create-page.ts Create Page button).
+    ``mode="generate"``: the existing full-LLM generation path (explicit secondary action).
+    """
+
+    mode: Literal["stub", "generate"] = Field(
+        default="stub",
+        description=(
+            "stub (default) — deterministic draft, no provider call; "
+            "generate — full LLM generation (existing behaviour, explicit opt-in)."
+        ),
+    )
+
 
 # ── F9 Review Queue REST (ADR-0034 §7 — proposal model redesign) ─────────────
 
@@ -415,20 +436,25 @@ async def list_review_queue(
     )
 
 
-async def _create_review_item_handler(item_id: uuid.UUID) -> ReviewItemResponse:
+async def _create_review_item_handler(
+    item_id: uuid.UUID,
+    body: CreateReviewBody | None = None,
+) -> ReviewItemResponse:
     """
-    Shared Create handler for both /approve and /create routes (ADR-0034 §5).
+    Shared Create handler for both /approve and /create routes (ADR-0034 §5, WS-C ADR-0079).
 
-    Runs the bounded orchestrated loop to generate the page on-demand (lazy — ADR-0034 §2),
-    writes it through write_wiki_page (I1 — one data_version bump), and returns 201.
+    Routes on ``body.mode`` (default ``"stub"``):
+      - ``stub``:     deterministic ``# <title>\\n\\n<description>`` draft, no LLM call.
+      - ``generate``: full LLM generation (legacy behaviour, explicit opt-in).
 
-    409 if item not pending or no ingest provider configured (I6).
-    502 if generation fails; item left pending (§5.3).
+    409 if item not pending or (mode=generate) no ingest provider configured (I6).
+    502 if page write or generation fails; item left pending.
     404 if item not found.
     """
     from app.ops.review import create_page_from_review
 
-    item = await create_page_from_review(item_id)
+    mode = body.mode if body is not None else "stub"
+    item = await create_page_from_review(item_id, mode=mode)
     created_page_type: str | None = None
     if item.created_page_id is not None:
         from sqlalchemy import String as _SAString
@@ -466,9 +492,12 @@ async def _create_review_item_handler(item_id: uuid.UUID) -> ReviewItemResponse:
         502: {"description": "Generation failed; item left pending"},
     },
 )
-async def approve_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
-    """POST /review/queue/{id}/approve — Create alias for backward compatibility (ADR-0034 §5)."""
-    return await _create_review_item_handler(item_id)
+async def approve_review_item(
+    item_id: uuid.UUID,
+    body: CreateReviewBody | None = Body(default=None),
+) -> ReviewItemResponse:
+    """POST /review/queue/{id}/approve — Create alias for backward compat (ADR-0034 §5, WS-C)."""
+    return await _create_review_item_handler(item_id, body)
 
 
 @router.post(
@@ -492,9 +521,12 @@ async def approve_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
         502: {"description": "Generation failed; item left pending"},
     },
 )
-async def create_review_item(item_id: uuid.UUID) -> ReviewItemResponse:
-    """POST /review/queue/{id}/create — lazy on-demand Create (ADR-0034 §5 preferred verb)."""
-    return await _create_review_item_handler(item_id)
+async def create_review_item(
+    item_id: uuid.UUID,
+    body: CreateReviewBody | None = Body(default=None),
+) -> ReviewItemResponse:
+    """POST /review/queue/{id}/create — lazy on-demand Create (ADR-0034 §5 preferred verb, WS-C)."""
+    return await _create_review_item_handler(item_id, body)
 
 
 @router.post(
