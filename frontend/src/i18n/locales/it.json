@@ -18,6 +18,11 @@
     "deepSearch": "Ricerca profonda",
     "deepSearchShort": "Ricerca Profonda",
     "toolsGroup": "Strumenti",
+    "group": {
+      "create": "Crea",
+      "understand": "Esplora",
+      "maintain": "Gestisci"
+    },
     "convert": "Converti",
     "settings": "Opzioni",
     "projects": "Progetti",
@@ -846,6 +851,16 @@
       "synthesis": "sintesi",
       "comparison": "confronto",
       "query": "query"
+    },
+    "trace": {
+      "origin": "origine",
+      "evidence": "evidenza",
+      "proposedType": "tipo proposto",
+      "search": "ricerca"
+    },
+    "dismissConfirm": {
+      "title": "Ignorare questo elemento?",
+      "body": "L'elemento verrà ignorato definitivamente e rimosso dalla coda. Questa azione non può essere annullata."
     }
   },
   "cascadeDelete": {
@@ -1319,7 +1334,8 @@
     "sections": "Sezioni",
     "pages": "Pagine",
     "hint": "↑↓ naviga · Invio apri · Esc chiudi",
-    "trigger": "⌘K"
+    "trigger": "⌘K",
+    "searchHint": "Cerca o salta…"
   },
   "conversation": {
     "autoTitle": {

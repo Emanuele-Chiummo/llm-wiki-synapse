@@ -170,7 +170,17 @@ vi.mock("react-i18next", () => ({
         "common.loading": "Loading…",
         "common.retry": "Retry",
         "common.close": "Close",
+        "common.cancel": "Cancel",
         "nav.review": "Review",
+        // v1.7.0 decision-trace card keys
+        "review.trace.origin": "origin",
+        "review.trace.evidence": "evidence",
+        "review.trace.proposedType": "proposed type",
+        "review.trace.search": "search",
+        "review.dismissConfirm.title": "Dismiss this item?",
+        "review.dismissConfirm.body":
+          "The item will be permanently dismissed and removed from the queue. This cannot be undone.",
+        "palette.searchHint": "Search or jump…",
       };
       return map[key] ?? key;
     },
@@ -313,7 +323,9 @@ describe("ReviewQueueView — v1.6 generation diagnostics", () => {
 
     await waitFor(() => expect(screen.getAllByTestId("review-query-quality")).toHaveLength(3));
     const labels = screen.getAllByTestId("review-query-quality").map((node) => node.textContent);
-    expect(labels).toEqual(expect.arrayContaining(["No queries", "Title-only query", "Contextual queries"]));
+    expect(labels).toEqual(
+      expect.arrayContaining(["No queries", "Title-only query", "Contextual queries"]),
+    );
   });
 
   it("sends proposal origin and page type filters through the store", async () => {
@@ -468,7 +480,9 @@ describe("ReviewQueueView — rendering", () => {
       // "Conflicts with" is split across text nodes (label + colon + <em>),
       // so match by regex on the parent element's full text content.
       expect(screen.getByText(/Conflicts with/i)).toBeTruthy();
-      expect(screen.getByText("Existing Conflicting Page")).toBeTruthy();
+      // "Existing Conflicting Page" now appears twice: once in the .trace "evidence" step
+      // and once in the explicit conflictsWith row. getAllByText handles both.
+      expect(screen.getAllByText("Existing Conflicting Page").length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -693,11 +707,10 @@ describe("ReviewQueueView — deep-research action", () => {
     });
   });
 
-  it("renders Deep Research first + as the filled primary CTA (llm_wiki button-order parity)", async () => {
-    // llm_wiki review-view.tsx: the leading per-item action is Deep Research, styled as the
-    // dark/filled primary button, followed by Create then Skip. Synapse substitutes the brand
-    // accent (never-black policy) → the deep-research button carries .syn-btn--primary and
-    // precedes the create button in DOM order.
+  it("renders Create as the filled primary CTA; Deep Research as ghost (v1.7.0 .r-actions redesign)", async () => {
+    // F3 v1.7.0 decision-trace card: Create Page is the primary accent CTA, Deep Research
+    // is a ghost/secondary button. Create precedes Deep Research in DOM order.
+    // (Previously: Deep Research was primary and first — that was llm_wiki parity pre-v1.7.)
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("mp", { item_type: "missing-page" })],
       total: 1,
@@ -707,17 +720,18 @@ describe("ReviewQueueView — deep-research action", () => {
 
     render(<ReviewQueueView />);
 
-    const deepBtn = await screen.findByTestId("review-action-deep-research");
-    const createBtn = screen.getByTestId("review-action-create");
+    const createBtn = await screen.findByTestId("review-action-create");
+    const deepBtn = screen.getByTestId("review-action-deep-research");
 
-    // Emphasis: filled primary, not the ghost/outline secondary.
-    expect(deepBtn.className).toContain("syn-btn--primary");
-    expect(deepBtn.className).not.toContain("syn-btn--secondary");
-    expect(createBtn.className).toContain("syn-btn--secondary");
+    // Create is the primary CTA; Deep Research is ghost/secondary.
+    expect(createBtn.className).toContain("syn-btn--primary");
+    expect(createBtn.className).not.toContain("syn-btn--secondary");
+    expect(deepBtn.className).toContain("syn-btn--secondary");
+    expect(deepBtn.className).not.toContain("syn-btn--primary");
 
-    // Order: Deep Research precedes Create in the document.
+    // Order: Create precedes Deep Research in the document.
     expect(
-      deepBtn.compareDocumentPosition(createBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
+      createBtn.compareDocumentPosition(deepBtn) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
@@ -941,9 +955,12 @@ describe("ReviewQueueView — card enrichment: search_queries (ADR-0044 §7)", (
 
     await waitFor(() => {
       expect(screen.getByTestId("search-queries-row")).toBeTruthy();
-      // "will search: q1 · q2"
-      expect(screen.getByText(/llm wiki pattern/)).toBeTruthy();
-      expect(screen.getByText(/karpathy knowledge graph/)).toBeTruthy();
+      // "will search: q1 · q2" — search query text appears in both the .trace "search" step
+      // and the search-queries-row (v1.7.0 decision-trace card). getAllByText handles both.
+      expect(screen.getAllByText(/llm wiki pattern/).length).toBeGreaterThanOrEqual(1);
+      // Second query only appears in the search-queries-row (joined by " · ")
+      const sqRow = screen.getByTestId("search-queries-row");
+      expect(sqRow.textContent).toContain("karpathy knowledge graph");
     });
   });
 
@@ -967,7 +984,7 @@ describe("ReviewQueueView — card enrichment: search_queries (ADR-0044 §7)", (
 // ─── Dismiss per-item action (ADR-0044 §7) ───────────────────────────────────
 
 describe("ReviewQueueView — dismiss per-item action (ADR-0044 §6)", () => {
-  it("calls dismissReviewItem and item leaves the list", async () => {
+  it("calls dismissReviewItem and item leaves the list (via ConfirmDialog gate — UXA-10)", async () => {
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("A"), makeItem("B")],
       total: 2,
@@ -984,7 +1001,16 @@ describe("ReviewQueueView — dismiss per-item action (ADR-0044 §6)", () => {
       expect(screen.getAllByTestId("review-action-dismiss")).toHaveLength(2);
     });
 
+    // Click dismiss → ConfirmDialog opens (UXA-10: irreversible action guard)
     fireEvent.click(screen.getAllByTestId("review-action-dismiss")[0]!);
+
+    // Confirm dialog must appear before dismissReviewItem is called
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog")).toBeTruthy();
+    });
+
+    // Confirm the dismiss action
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
 
     await waitFor(() => {
       expect(reviewClient.dismissReviewItem).toHaveBeenCalledWith("A");
@@ -1278,10 +1304,12 @@ describe("ReviewQueueView — R2: Approve action for confirm only", () => {
   });
 });
 
-// ─── R3: ✕ dismiss icon at card top-right ────────────────────────────────────
+// ─── R3: dismiss button in .r-actions footer (v1.7.0 redesign) ──────────────
+// Dismiss moved from ✕ icon at card top-right to danger-outline button in
+// .r-actions footer; fires only after ConfirmDialog confirmation (UXA-10).
 
-describe("ReviewQueueView — R3: ✕ dismiss icon", () => {
-  it("dismiss ✕ icon fires dismissReviewItem and item leaves the list", async () => {
+describe("ReviewQueueView — R3: dismiss footer button", () => {
+  it("dismiss button fires dismissReviewItem after ConfirmDialog confirmation", async () => {
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("d1"), makeItem("d2")],
       total: 2,
@@ -1298,7 +1326,26 @@ describe("ReviewQueueView — R3: ✕ dismiss icon", () => {
       expect(screen.getAllByTestId("review-action-dismiss")).toHaveLength(2);
     });
 
+    // Click dismiss → ConfirmDialog opens (UXA-10 guard)
     fireEvent.click(screen.getAllByTestId("review-action-dismiss")[0]!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog")).toBeTruthy();
+    });
+
+    // Cancel → dialog closes, no dismiss call
+    fireEvent.click(screen.getByTestId("confirm-dialog-cancel"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("confirm-dialog")).toBeNull();
+    });
+    expect(reviewClient.dismissReviewItem).not.toHaveBeenCalled();
+
+    // Click dismiss again and confirm
+    fireEvent.click(screen.getAllByTestId("review-action-dismiss")[0]!);
+    await waitFor(() => {
+      expect(screen.getByTestId("confirm-dialog")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
 
     await waitFor(() => {
       expect(reviewClient.dismissReviewItem).toHaveBeenCalledWith("d1");
@@ -1368,7 +1415,9 @@ describe("ReviewQueueView — R5: purpose-suggestion and schema-suggestion types
     await waitFor(() => {
       expect(screen.getByTestId("review-item-row")).toBeTruthy();
     });
-    expect(within(screen.getByTestId("review-item-row")).getByText("Purpose suggestion")).toBeTruthy();
+    expect(
+      within(screen.getByTestId("review-item-row")).getByText("Purpose suggestion"),
+    ).toBeTruthy();
   });
 
   it("schema-suggestion renders 'Schema suggestion' label (not grey fallback)", async () => {
@@ -1382,7 +1431,9 @@ describe("ReviewQueueView — R5: purpose-suggestion and schema-suggestion types
     await waitFor(() => {
       expect(screen.getByTestId("review-item-row")).toBeTruthy();
     });
-    expect(within(screen.getByTestId("review-item-row")).getByText("Schema suggestion")).toBeTruthy();
+    expect(
+      within(screen.getByTestId("review-item-row")).getByText("Schema suggestion"),
+    ).toBeTruthy();
   });
 });
 
@@ -1512,7 +1563,8 @@ describe("ReviewQueueView — UXB-2 design-system class assertions (AC-UXB2-2 + 
     });
   });
 
-  it("AC-UXB2-2: ActionButton (create) renders with syn-btn and syn-btn--secondary class", async () => {
+  it("AC-UXB2-2: ActionButton (create) renders with syn-btn and syn-btn--primary class (v1.7.0 primary CTA)", async () => {
+    // F3 v1.7.0: Create is the primary accent CTA in .r-actions footer (emphasis="primary").
     render(<ReviewQueueView />);
 
     await waitFor(() => {
@@ -1521,7 +1573,7 @@ describe("ReviewQueueView — UXB-2 design-system class assertions (AC-UXB2-2 + 
 
     const btn = screen.getAllByTestId("review-action-create")[0]!;
     expect(btn.classList.contains("syn-btn")).toBe(true);
-    expect(btn.classList.contains("syn-btn--secondary")).toBe(true);
+    expect(btn.classList.contains("syn-btn--primary")).toBe(true);
     expect(btn.classList.contains("syn-btn--sm")).toBe(true);
   });
 
@@ -1713,9 +1765,9 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
     expect(screen.queryByTestId("review-action-deep-research")).toBeNull();
   });
 
-  it("pending item (missing-page) shows Create/Skip/DeepResearch buttons + ✕ dismiss icon (R1-R3)", async () => {
+  it("pending item (missing-page) shows Create/DeepResearch/Skip buttons + Dismiss in footer (v1.7.0)", async () => {
     // missing-page uses "Create", not "Approve" (R2).
-    // Dismiss is now the ✕ icon at top-right (R3), not a separate action button.
+    // Dismiss is now a danger-outline button in .r-actions footer (v1.7.0), gated by ConfirmDialog (UXA-10).
     vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValue({
       items: [makeItem("p1", { status: "pending" })],
       total: 1,
@@ -1733,7 +1785,7 @@ describe("ReviewQueueView — WS-B: resolved card state (AC-WS-B-2)", () => {
     expect(screen.getByTestId("review-action-create")).toBeTruthy();
     // "Skip" action button
     expect(screen.getByTestId("review-action-skip")).toBeTruthy();
-    // "✕" dismiss icon button (R3 — same testid, now an icon at top-right)
+    // "Dismiss" footer button (danger-outline, gated by ConfirmDialog)
     expect(screen.getByTestId("review-action-dismiss")).toBeTruthy();
     // "Deep Research" action button
     expect(screen.getByTestId("review-action-deep-research")).toBeTruthy();

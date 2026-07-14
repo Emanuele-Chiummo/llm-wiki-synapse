@@ -18,6 +18,11 @@
     "deepSearch": "Deep Research",
     "deepSearchShort": "Deep Search",
     "toolsGroup": "Tools",
+    "group": {
+      "create": "Make",
+      "understand": "See",
+      "maintain": "Tend"
+    },
     "convert": "Convert",
     "settings": "Settings",
     "projects": "Projects",
@@ -846,6 +851,16 @@
       "synthesis": "synthesis",
       "comparison": "comparison",
       "query": "query"
+    },
+    "trace": {
+      "origin": "origin",
+      "evidence": "evidence",
+      "proposedType": "proposed type",
+      "search": "search"
+    },
+    "dismissConfirm": {
+      "title": "Dismiss this item?",
+      "body": "The item will be permanently dismissed and removed from the queue. This cannot be undone."
     }
   },
   "cascadeDelete": {
@@ -1319,7 +1334,8 @@
     "sections": "Sections",
     "pages": "Pages",
     "hint": "↑↓ navigate · Enter open · Esc close",
-    "trigger": "⌘K"
+    "trigger": "⌘K",
+    "searchHint": "Search or jump…"
   },
   "conversation": {
     "autoTitle": {

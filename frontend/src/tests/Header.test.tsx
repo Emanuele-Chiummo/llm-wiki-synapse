@@ -93,6 +93,17 @@ vi.mock("../store/settingsStore", () => ({
   resolveTheme: () => "light",
 }));
 
+// ─── Mock graphStore (Header uses selectActiveSection for breadcrumb, v1.7.0) ──
+
+vi.mock("../store/graphStore", () => ({
+  useGraphStore: (selector: (s: unknown) => unknown) => selector({ activeSection: "home" }),
+  selectActiveSection: (s: { activeSection: string }) => s.activeSection,
+  // Stubs for any other selectors imported from graphStore
+  selectVaultId: (s: { vaultId: string | null }) => s.vaultId,
+  selectSetActiveSection: (s: { setActiveSection: unknown }) => s.setActiveSection,
+  selectSelectPage: (s: { selectPage: unknown }) => s.selectPage,
+}));
+
 // ─── api/base mock — controlled isTauri and getKnownServers ──────────────────
 
 let mockIsTauri = false;
