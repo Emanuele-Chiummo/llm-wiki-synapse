@@ -1,8 +1,8 @@
 # Synapse User Guide
 
-<!-- Updated: v1.6.0 generation lifecycle parity | 2026-07-13 -->
+<!-- Updated: v1.7.1 output language, onboarding wizard, knowledge graph | 2026-07-15 -->
 
-> Version: v1.6.0
+> Version: v1.7.1
 > Language toggle: English / Italian available in Settings.
 
 ---
@@ -50,6 +50,18 @@ the Obsidian app without any conversion or export step.
 ---
 
 ## 2. Quick start — the core journey
+
+**New vault?** On a fresh install or when you add a second vault, Synapse shows a
+**new-vault onboarding wizard** — a 3-step modal (ADR-0081, v1.7.0):
+
+1. **Vault name + parent directory** — where the vault folder will live on the server.
+2. **AI output language** (mandatory) — the ISO 639-1 code (e.g. `it`, `en`) that
+   drives the language all generated wiki pages are written in. Set it now; you can
+   change it later in Settings → Appearance → "AI Output Language".
+3. **Scenario template** — one of Research, Reading, Personal Growth, Business, or
+   General; applies a preset `purpose.md` and `schema.md` to the new vault.
+
+Clicking **Finish** auto-activates the vault and opens the Home dashboard.
 
 1. **Open the app** — you land on the Home dashboard. Glance at the KPI row and
    domain section cards.
@@ -123,19 +135,22 @@ The Home section is the default landing screen. It loads once on mount and polls
 `GET /status` every 10 seconds to detect vault data-version changes (only re-fetches
 stats when `data_version` changes — no wasteful polling).
 
-#### KPI row
+#### Composition hero and KPI row
 
-Seven cards span the top:
+A **composition hero** (v1.7.0) spans the top of the Home dashboard: the total page
+count is displayed large, over a jewel-tone per-type bar and legend showing the
+breakdown by page type (entity, concept, source, synthesis, comparison, query). The
+previous flat Pages and Data version tiles are incorporated into this hero widget.
+
+Below the hero, semantic KPI cards show:
 
 | Card | What it shows |
 |------|--------------|
-| **Pages** | Total live wiki pages |
 | **Links** | Total wikilink edges in the knowledge graph |
 | **Communities** | Louvain communities detected (0 if graph not yet computed) |
-| **Review** | Open HITL review items — accented when non-zero |
-| **Lint** | Open lint findings — accented when non-zero |
+| **Review** | Open HITL review items — shown green when the queue is empty |
+| **Lint** | Open lint findings — shown green when count is zero ("clean") |
 | **Monthly AI spend** | Month-to-date provider cost in USD |
-| **Data version** | Current `data_version` counter |
 
 #### Recent activity
 
@@ -519,11 +534,14 @@ hardcoded anywhere.
 |------|---------|-----------------|---------|
 | **Local** | Ollama on your GPU via Ollama's `/api/chat` | Orchestrated loop (analyze → generate → validate → retry, max N) | Privacy-sensitive vaults; offline use; zero cost |
 | **API** | Anthropic Messages API or any OpenAI-compatible endpoint | Orchestrated loop with native tool-calling when available | Quality + cost control; recommended default |
-| **CLI** | `claude-agent-sdk` bundled CLI | Delegated — the agent runs its own autonomous loop | Maximum quality; full agentic ingest |
+| **CLI** | `claude-agent-sdk` bundled CLI | Block loop via `complete()` in the default `"blocks"` pipeline (v1.7.0+); delegated agent loop only when `ingest_pipeline_format="json"` is set (non-default rollback) | Maximum quality; full agentic ingest |
 
-**Capability-aware routing** is done by the backend, not you: when the active
-provider has `supports_agentic_loop = True` (CLI only), the orchestrator delegates
-the full ingest to the agent. Otherwise it runs the step-by-step orchestrated loop.
+**Pipeline mode (v1.7.0+).** The default `"blocks"` pipeline runs all three provider
+backends — Local, API, and CLI — through the same two-stage block loop via the
+`complete()` transport. The delegated autonomous agent loop (CLI only) is used only
+when `ingest_pipeline_format="json"` is explicitly set; that mode is a rollback lever
+slated for removal in v1.8. The orchestrated analyze → generate → validate loop still
+describes API/Local behavior in `"json"` mode.
 
 **Cost tracking.** Every AI call logs `total_cost_usd` to the database. Local Ollama
 runs always log `$0.0000`. View the month-to-date total in Settings → System →
@@ -607,7 +625,7 @@ The minimum configuration to get Synapse working.
 | Page | Label | Contents |
 |------|-------|----------|
 | `providers` | **AI & provider** | LLM provider CRUD; CLI Subscription Auth sub-block |
-| `appearance` | **Appearance** | Theme (Light / Dark / System), language (EN / IT) |
+| `appearance` | **Appearance** | Theme (Light / Dark / System), interface language (EN / IT), AI Output Language (v1.7.1) |
 | `setup` | **Setup** | Context window size and budget-split bar chart; "Re-open setup wizard" button |
 
 **AI & provider** lists all configured `provider_config` rows. Each row shows type,
@@ -626,6 +644,14 @@ shown if you are deleting the last provider). The **CLI Subscription Auth** bloc
 
 CodeMirror (the wiki editor) and the sigma.js graph canvas both follow the resolved
 theme automatically.
+
+**AI Output Language** (added in v1.7.1) is also in the Appearance page. It lets you
+change the language that generated wiki pages are written in, independently of the
+interface language. Enter an ISO 639-1 code (e.g. `it`, `en`) or leave blank to let
+the backend infer the language from source content. Changes save immediately via
+`PUT /vault/meta/output-language` — no container restart needed. This is distinct from
+the interface language toggle (EN / IT) and applies only to AI-generated wiki page
+bodies. The same setting is configured during the new-vault onboarding wizard (step 2).
 
 **Setup** — the context window selector (4K through 1M tokens). The token budget is
 split 60 % conversation history / 20 % retrieved context / 5 % system prompt /

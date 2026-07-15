@@ -1,10 +1,10 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
+<!-- Generated: v1.7.1 | 2026-07-15 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v1.0 — covers v1.0.0 release (M10 — Distribution: shared-token auth, mobile/PWA polish, MkDocs site, code-signing guide)
-> Status: CURRENT — updated for v1.0.0 release
+> Version: v1.7.1 — current as of 2026-07-15
+> Status: CURRENT — updated for v1.7.1 release
 
 ---
 
@@ -111,6 +111,7 @@ cp .env.example .env
 | `EMBEDDINGS_ENABLED` | `true` | No | Set to `false` to disable bge-m3 vectorization and Qdrant entirely. Ingest still runs (Postgres metadata + links only); retrieval and `/search` degrade to lexical Postgres keyword search. Startup skips the embedding probe — Synapse starts even when Qdrant and Ollama embeddings are unreachable. (ADR-0030) |
 | `EMBEDDING_FORMAT` | `ollama` | No | Request/response adapter for the embedding service: `ollama` (default — `{"prompt": ...}` → `{"embedding": [...]}`) or `openai` (`{"input": ...}` → `{"data":[{"embedding":[...]}]}`). Set to `openai` when `EMBEDDING_URL` points at an OpenAI-compatible endpoint (e.g. a hosted embeddings API). (ADR-0031) |
 | `EMBEDDING_API_KEY` | *(none)* | No | Bearer token for the embedding service. When set, every embedding request includes `Authorization: Bearer <key>`. Leave unset for the local bge-m3/Ollama service (no auth). Never logged or returned by any endpoint. (ADR-0031) |
+| `SYNAPSE_SECRET_KEY` | *(none)* | No | Master key for at-rest encryption of provider API keys entered from the UI (`provider_config.api_key_encrypted`). Must be a urlsafe-base64 32-byte Fernet key — generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. When unset or invalid, storing keys from the UI is disabled (HTTP 400) and the provider layer falls back to `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`. Never logged or returned by any endpoint. (W1 / F17) |
 | `MCP_AUTH_TOKEN` | *(none)* | No | Static bearer token for the remote MCP HTTP surface at `/mcp/server`. When set, the HTTP surface is mounted and requires `Authorization: Bearer <token>` on every request. When **unset**, `/mcp/server` is not mounted (404) — fail-closed. The stdio entry (`python -m app.mcp.server`) is unaffected by this variable. Never logged or returned by any endpoint. (ADR-0029, see §5) |
 | `MCP_REMOTE_WRITE_ENABLED` | `false` | No | When `true`, the `write_page` tool is also exposed on the HTTP MCP surface (still bearer-gated by `MCP_AUTH_TOKEN`). Default `false`: only `search_wiki`, `get_page`, `list_pages` are reachable remotely. The stdio path always has all four tools regardless of this setting. (ADR-0029 §2.3) |
 | `MCP_TRUSTED_PROXIES` | *(empty)* | No | Comma-separated list of trusted reverse-proxy IP addresses (e.g. `127.0.0.1,::1`). When set, the `X-Forwarded-For` header from listed IPs is honoured to determine the real client IP for the allow-without-token public/private classification. Leave empty (the default) unless you run a local reverse proxy in front of Synapse. The Cloudflare header check (`CF-Connecting-IP`/`CF-Ray`) is independent of this setting. (ADR-0033) |
@@ -207,12 +208,16 @@ CORS_ALLOW_ORIGINS=http://localhost:5173
 
 ### 3.1 Services defined in docker-compose.yml
 
-The Compose file defines exactly two services:
+The Compose file defines two always-on services plus three optional profile-gated
+services (`marker`, `whisper`, `watchtower`):
 
-| Service | Image / build | Purpose |
-|---------|--------------|---------|
-| `postgres` | `postgres:16-alpine` | PostgreSQL 16 — metadata, links, graph coords, provider config, conversations |
-| `synapse-backend` | `./backend/Dockerfile` (local build) | FastAPI app — watcher, ingest, REST API, graph engine, chat |
+| Service | Profile | Image / build | Purpose |
+|---------|---------|--------------|---------|
+| `postgres` | (always) | `postgres:16-alpine` | PostgreSQL 16 — metadata, links, graph coords, provider config, conversations |
+| `synapse-backend` | (always) | `./backend/Dockerfile` (local build) or GHCR image | FastAPI app — watcher, ingest, REST API, graph engine, chat |
+| `marker` | `marker` | `./tools/marker-converter/Dockerfile` or GHCR image | High-quality PDF extraction (optional, ADR-0051) |
+| `whisper` | `av` | inline Dockerfile | AV transcription microservice (optional) |
+| `watchtower` | `autoupdate` | `containrrr/watchtower:latest` | Auto-update watcher, polls GHCR hourly (optional) |
 
 Ollama, Qdrant, SearXNG, and bge-m3 are external; they are referenced via env vars and
 accessed from the containers as `host.docker.internal:<port>`.
@@ -233,7 +238,7 @@ On the first startup the backend runs:
 alembic upgrade head
 ```
 
-before launching uvicorn. This creates all tables (migrations 0001–0010), seeds the
+before launching uvicorn. This applies all migrations (currently 0001–0032, the schema head), seeds the
 `vault_state` row, and inserts the initial `provider_config` rows using the
 `DEFAULT_MODEL_ID` env var. You do not need to run migrations manually.
 
@@ -253,6 +258,11 @@ Migration 0014 adds the `lint_runs` and `lint_findings` tables (K2, ADR-0037): `
 each bounded lint scan run (vault_id, status, max_iter_used, total_tokens, total_cost_usd,
 converged, started_at, completed_at); `lint_findings` stores per-finding rows (run_id FK,
 category, page_id FK, severity, message, suggested_fix, acknowledged, applied, applied_at).
+Migrations 0015–0031 add columns and tables for features introduced in v1.1–v1.6 (provider API
+key encryption, Fernet-encrypted OAuth token, MCP write toggle, corpus generation identity,
+review provenance, and more). Migration 0032 (v1.7.0) adds the nullable
+`vault_state.output_language` column written by the new-vault wizard and the Settings →
+Appearance "AI Output Language" field (NULL = auto-detect from source content).
 All tables are empty on first run and are populated through normal use.
 
 ### 3.3 Verify the backend is up
@@ -321,8 +331,22 @@ the desktop app's Connect-screen probe and is not affected by this change.
 
 ### 3.5 Open the frontend
 
-The frontend is served by the Vite dev server (development) or a static file server
-(production build). In v0.4 development mode:
+**Production — GHCR image (since v1.2.4).** A production frontend image is published
+to GHCR on every release:
+
+```
+ghcr.io/emanuele-chiummo/llm-wiki-synapse-frontend:latest
+```
+
+It packages the Vite static SPA behind nginx. nginx serves the SPA shell and
+reverse-proxies all API path prefixes to the backend; the backend target URL is set
+via the `BACKEND_PROXY_TARGET` environment variable (default
+`http://synapse-backend:8000`). The frontend image is not defined as a service in the
+production `docker-compose.yml` and is deployed separately — either via the TrueNAS
+SCALE custom-app catalog (§9.3) or by running the container alongside the compose
+stack with `BACKEND_PROXY_TARGET` pointing at the backend.
+
+**Local development mode:**
 
 ```bash
 cd frontend
@@ -1192,15 +1216,20 @@ docker compose up -d  # (without --profile autoupdate)
 Existing deployments that do NOT use the `--profile autoupdate` flag will never start
 Watchtower — it is off by default.
 
-### 9.3 TrueNAS SCALE Custom App update button
+### 9.3 TrueNAS SCALE custom-app catalog
 
-If you deployed Synapse via the TrueNAS Custom App interface (instead of CLI Docker
-Compose), TrueNAS may show an **Update available** button in the App card. Clicking it
-initiates an update of the backend image (if the Custom App is configured to pull from GHCR).
+Since v1.2.5, Synapse is available in the TrueNAS SCALE custom-app catalog at
+`trains/stable/synapse`. One-click installation from the TrueNAS Apps UI deploys
+Postgres, the backend, and the frontend together with a guided configuration form
+and in-place update support — no SSH or manual compose steps needed.
 
-**This is a semi-automatic option:** TrueNAS handles the pull and restart, but you control
-the timing — there is no polling interval like Watchtower. Check the TrueNAS app update
-UI for status.
+**Updating via the TrueNAS Apps UI.** If you deployed via the TrueNAS Custom App
+interface, TrueNAS may show an **Update available** button in the App card. Clicking
+it initiates an update of the backend and frontend images (pulled from GHCR).
+
+**This is a semi-automatic option:** TrueNAS handles the pull and restart, but you
+control the timing — there is no polling interval like Watchtower. Check the TrueNAS
+app update UI for status.
 
 ### 9.4 Diun — notify-only (most conservative)
 
