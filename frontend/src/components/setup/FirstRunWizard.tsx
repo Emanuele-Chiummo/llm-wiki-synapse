@@ -89,8 +89,14 @@ export function useFirstRunSetup(providerListLength: number): {
   const [dismissedForSession, setDismissedForSession] = useState(false);
 
   useEffect(() => {
-    const done = getSetupCompleted();
-    setFlagSet(done);
+    // Auto-show ONLY while setup has never been addressed (status "pending"). Both "completed"
+    // AND "deferred" suppress the wizard across sessions — once the user dismisses/skips it (via
+    // "Salta configurazione" → deferSetup), it must not reappear on every reload (it can still be
+    // reopened deliberately). Previously only "completed" suppressed it, so skipping only hid it
+    // for the current session and it came back on the next load.
+    const state = readSetupState();
+    const addressed = state.status === "completed" || state.status === "deferred";
+    setFlagSet(addressed);
     setFlagChecked(true);
   }, []);
 
