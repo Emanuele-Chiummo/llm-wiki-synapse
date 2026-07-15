@@ -65,6 +65,7 @@ First launch: enter your backend URL (local servers are auto-detected). Builds a
 
 ## Documentation
 
+- 📘 **[Documentation site](https://emanuele-chiummo.github.io/llm-wiki-synapse/)** — user + deploy guides, architecture, ADRs
 - [User guide](docs/USER.md) · [Deploy guide](docs/DEPLOY.md)
 - [Architecture (C4)](docs/architecture/) · [ADRs](docs/adr/) · [API reference](docs/api/)
 - [Roadmap](docs/reference/ROADMAP-v1.3-v2.0.md)

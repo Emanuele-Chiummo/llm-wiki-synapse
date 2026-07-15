@@ -1,7 +1,9 @@
 site_name: Synapse
 site_description: Self-hosted AI wiki that organizes itself.
 site_author: Emanuele Chiummo
-site_url: https://github.com/Emanuele-Chiummo/llm-wiki-synapse
+site_url: https://emanuele-chiummo.github.io/llm-wiki-synapse/
+repo_url: https://github.com/Emanuele-Chiummo/llm-wiki-synapse
+repo_name: Emanuele-Chiummo/llm-wiki-synapse
 
 docs_dir: docs
 site_dir: site
