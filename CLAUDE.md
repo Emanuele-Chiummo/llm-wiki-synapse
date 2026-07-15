@@ -303,6 +303,10 @@ InferenceProvider (ABC)
 - **Commit format:** `feat(module): description [Fxx]` or `fix(module): description [Kxx]`
   - Every commit references at least one feature ID (K1–K8 / F1–F17)
   - Example: `feat(provider): ollama backend + ingest loop [F17]`
+- **No AI attribution in git metadata (repo policy, 2026-07):** commits are authored by
+  Emanuele only. Never add `Co-Authored-By:`, `Claude-Session:` or "Generated with …"
+  trailers/footers to commits, PR bodies, or release notes. Claude/Anthropic may of course
+  be mentioned where it is a *product feature* (e.g. the CLI provider via claude-agent-sdk).
 - **Cost tracking:** log `total_cost_usd` for every agent run and bounded loop; flag anomalies
 
 ## 12. Coding standards
