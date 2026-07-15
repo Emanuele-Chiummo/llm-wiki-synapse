@@ -11,6 +11,7 @@ Drop in raw documents — Synapse reads them, writes interlinked wiki pages,
 builds a weighted knowledge graph, and lets you chat with your own knowledge base, with citations.
 
 [![Release](https://img.shields.io/github/v/release/Emanuele-Chiummo/llm-wiki-synapse?label=release&color=4338ca)](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest)
+[![CI](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/actions/workflows/ci.yml)
 [![Desktop build](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/actions/workflows/desktop-release.yml/badge.svg)](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/actions/workflows/desktop-release.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -34,6 +35,8 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 | 🖥️ **Desktop app** | Native macOS/Windows app (Tauri v2, ~6 MB) with auto-update from GitHub Releases. Point it at your server and go. |
 
 ## Screenshots
+
+![Home dashboard](docs/screens/home-dashboard.png)
 
 | Knowledge graph (dark) | Wiki + graph workspace |
 |---|---|

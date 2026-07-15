@@ -26,7 +26,10 @@ jobs:
           for f in docs/release-notes/v*.md; do
             tag=$(basename "$f" .md)
             if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --notes-file "$f"
+              # Release title = the notes file's H1 (e.g. "Synapse v1.7.1 — …"),
+              # so titles stay as consistent as the bodies.
+              title=$(sed -n '1s/^# *//p' "$f")
+              gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "${title:-$tag}" --notes-file "$f"
               echo "synced $tag"
             else
               echo "skip $tag (no release)"

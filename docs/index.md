@@ -11,10 +11,12 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 
 </div>
 
-!!! tip "New in v1.3.11"
-    A refreshed dashboard and graph, WCAG-AA contrast, and a fully rewritten
-    **[User Guide](USER.md)** — including a detailed section on reaching Synapse from
-    outside your network with **Tailscale** and **Cloudflare Access**.
+!!! tip "New in v1.7"
+    1:1 behavioral parity with `nashsu/llm_wiki` for the three core operations
+    (Ingest · Review · Lint), a block-based ingest pipeline as the new default,
+    a 3-step new-vault onboarding wizard with per-vault AI output language, and a
+    refreshed "editorial knowledge workspace" UI — see the
+    **[release notes](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases)**.
 
 ---
 
@@ -67,7 +69,7 @@ FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vit
 - **[Architecture](architecture/index.md)** — C4 diagrams (system context, containers, components)
 - **[ADRs](adr/index.md)** — Architecture Decision Records documenting design choices
 - **[API Reference](api/index.md)** — OpenAPI specification of all endpoints
-- **[Roadmap](reference/ROADMAP-v0.7-v1.0.md)** — feature roadmap and development status
+- **[Roadmap](reference/ROADMAP-v1.3-v2.0.md)** — feature roadmap and development status
 
 ---
 
