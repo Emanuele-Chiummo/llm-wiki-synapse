@@ -1,0 +1,342 @@
+{
+ "repo": "Emanuele-Chiummo/llm-wiki-synapse",
+ "purpose": "One-shot history republish: move main and all tags to the rewritten history (attribution trailers stripped, authors normalized). Trees, dates and content are identical; only commit metadata changed.",
+ "old_main": "1d1c9798e9c289c20942f31a58e5e64cd79cf837",
+ "new_main": "955a7c1cb2fc15f866f5f853c76d955f8f3e16f1",
+ "tags": [
+  {
+   "name": "archive/claude-audit-plan",
+   "type": "commit",
+   "old_ref": "5160421d11780a44fd448215f53d6329e22c9762",
+   "new_target": "349aed13851e7539c685a866c4962dea6ddc6a3a"
+  },
+  {
+   "name": "v0.1",
+   "type": "tag",
+   "old_ref": "ca88673697ff5518c9e610daefc313082bf7da50",
+   "new_tag_sha": "e17aaca609785689bdcfdad4b0e3ec17353bd716",
+   "new_target": "a8d3c420d77fab0cc2fc638dfb92cf47e6f1aa2d",
+   "raw_tag_b64": "b2JqZWN0IGE4ZDNjNDIwZDc3ZmFiMGNjMmZjNjM4ZGZiOTJjZjQ3ZTZmMWFhMmQKdHlwZSBjb21taXQKdGFnIHYwLjEKdGFnZ2VyIEVtYW51ZWxlIENoaXVtbW8gPGVtYW51ZWxlY2hpdW1tb0BNYWMuaG9tZW5ldC50ZWxlY29taXRhbGlhLml0PiAxNzgyNjU5ODU4ICswMjAwCgpTeW5hcHNlIHYwLjEg4oCUIE0xOiBEYXRhIGZsb3dzIGVuZC10by1lbmQgKHdhbGtpbmcgc2tlbGV0b246IHdhdGNoZXIgKyBQb3N0Z3JlcyArIFFkcmFudCArIFJFU1QpCg=="
+  },
+  {
+   "name": "v0.2",
+   "type": "tag",
+   "old_ref": "66bebace852b1fc67b39c8691a494ca99363edcd",
+   "new_tag_sha": "3a6a5b330037164c28e9a5ba5bfc78eb68762be5",
+   "new_target": "440619728268447284873a1858498f3cec1090a3",
+   "raw_tag_b64": "b2JqZWN0IDQ0MDYxOTcyODI2ODQ0NzI4NDg3M2ExODU4NDk4ZjNjZWMxMDkwYTMKdHlwZSBjb21taXQKdGFnIHYwLjIKdGFnZ2VyIEVtYW51ZWxlIENoaXVtbW8gPGVtYW51ZWxlY2hpdW1tb0BNYWMuaG9tZW5ldC50ZWxlY29taXRhbGlhLml0PiAxNzgyNjU5ODU4ICswMjAwCgpTeW5hcHNlIHYwLjIg4oCUIE0yOiBBZ2VudGljIGxvb3AgY2xvc2VkLCAzIGluZmVyZW5jZSBwcm92aWRlcnMgKExvY2FsL0FQSS9DTEkpICsgaW5nZXN0IGxvb3AgKyBNQ1Agc2VydmVyCg=="
+  },
+  {
+   "name": "v0.3",
+   "type": "tag",
+   "old_ref": "f4d7ad8a5e5b8360b7507154c0a1130c63ff790e",
+   "new_tag_sha": "f13598612bf6ff5cb51fedc7b0859a0727434beb",
+   "new_target": "fc45ecb4ec05fc4228305ce2ff2a43b4ee45f5d5",
+   "raw_tag_b64": "b2JqZWN0IGZjNDVlY2I0ZWMwNWZjNDIyODMwNWNlMmZmMmE0M2I0ZWU0NWY1ZDUKdHlwZSBjb21taXQKdGFnIHYwLjMKdGFnZ2VyIEVtYW51ZWxlIENoaXVtbW8gPGVtYW51ZWxlY2hpdW1tb0BNYWMuaG9tZW5ldC50ZWxlY29taXRhbGlhLml0PiAxNzgyNjU5ODU4ICswMjAwCgpTeW5hcHNlIHYwLjMg4oCUIE0zOiBLbm93bGVkZ2UgZ3JhcGggbGl2ZSAoNC1zaWduYWwgd2VpZ2h0aW5nICsgRkEyIHNlcnZlci1zaWRlICsgc2lnbWEgdmlld2VyKSwgbm8gbWFpbi10aHJlYWQgZnJlZXplCg=="
+  },
+  {
+   "name": "v0.4.0",
+   "type": "commit",
+   "old_ref": "e4f3d1a5ec30ad324b2dfc1a42bb6a49dd408eba",
+   "new_target": "7b207dd3049d43017d9e92e20240fe0a7069bb88"
+  },
+  {
+   "name": "v0.5.0",
+   "type": "commit",
+   "old_ref": "ee3eceab9b9613082e3158be1cfb8ca9c694ada0",
+   "new_target": "b2f5ed7f70b770e3f4012a50462dbeab667ceea0"
+  },
+  {
+   "name": "v0.6.0",
+   "type": "tag",
+   "old_ref": "6bd9b179bc3f50f4ea17cdd3f8a4d1112b89b190",
+   "new_tag_sha": "ad4312f0d904c4e7693b105239b8851b32a7e5cf",
+   "new_target": "dbb78d30de631792fed99b86e13834d626e37e2e",
+   "raw_tag_b64": "b2JqZWN0IGRiYjc4ZDMwZGU2MzE3OTJmZWQ5OWI4NmUxMzgzNGQ2MjZlMzdlMmUKdHlwZSBjb21taXQKdGFnIHYwLjYuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNTg2NTAgKzAyMDAKClN5bmFwc2UgdjAuNi4wIOKAlCBNNiBTaGlwcGFibGU6IGRlc2t0b3AgYXBwIChUYXVyaSB2MiksIGJyYW5kIGlkZW50aXR5LCBkYXJrIG1vZGUsIGNvbW1hbmQgcGFsZXR0ZSwgZGVza3RvcCBwYWNrCg=="
+  },
+  {
+   "name": "v0.7.0",
+   "type": "tag",
+   "old_ref": "72ade4a75a4138188fafd6b012fc404b416cb600",
+   "new_tag_sha": "74bf79d6426939102a279a33647b505ed2da2367",
+   "new_target": "71d21236f128e6c427f3a03d748a121859bd4c41",
+   "raw_tag_b64": "b2JqZWN0IDcxZDIxMjM2ZjEyOGU2YzQyN2YzYTAzZDc0OGExMjE4NTliZDRjNDEKdHlwZSBjb21taXQKdGFnIHYwLjcuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNjI1MjEgKzAyMDAKClN5bmFwc2UgdjAuNy4wIOKAlCBDb3JlIGNvbXBsZXRlbmVzcyAmIGRhaWx5IFVYICsgZGVza3RvcCBhdXRvLXVwZGF0ZQo="
+  },
+  {
+   "name": "v0.8.0",
+   "type": "tag",
+   "old_ref": "8fe0779c31397348d1b263ce91705adc280e57cc",
+   "new_tag_sha": "199a5850d4de3282bd1a324cec2cdaa6d5e4c62b",
+   "new_target": "4c04478cf04e8e8758262f0afbe04d80acb9147f",
+   "raw_tag_b64": "b2JqZWN0IDRjMDQ0NzhjZjA0ZThlODc1ODI2MmYwYWZiZTA0ZDgwYWNiOTE0N2YKdHlwZSBjb21taXQKdGFnIHYwLjguMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNjY5ODIgKzAyMDAKClN5bmFwc2UgdjAuOC4wIOKAlCBDb250ZW50IHBvd2VyCg=="
+  },
+  {
+   "name": "v0.8.1",
+   "type": "tag",
+   "old_ref": "c863a077bff6e5689de98377aa960fd55245389d",
+   "new_tag_sha": "799002365223eae85f85542179a815d82ab5f479",
+   "new_target": "184791eea377841cff459066c772dd00ae0e66f9",
+   "raw_tag_b64": "b2JqZWN0IDE4NDc5MWVlYTM3Nzg0MWNmZjQ1OTA2NmM3NzJkZDAwYWUwZTY2ZjkKdHlwZSBjb21taXQKdGFnIHYwLjguMQp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNjg1MDYgKzAyMDAKClN5bmFwc2UgdjAuOC4xIOKAlCB1cGRhdGVyIGhvdGZpeDogcGx1Z2luIEpTIG5vdyBidW5kbGVkLCB1cGRhdGUgYmFubmVyIHdvcmtzCg=="
+  },
+  {
+   "name": "v0.9.0",
+   "type": "tag",
+   "old_ref": "3104c22c3d36385b006c72f275ecaba10fa807d6",
+   "new_tag_sha": "e98532ab0063f503078d7cd3ea0fbbee0e8bbd2a",
+   "new_target": "0f95df3c3debcc10db06d7e3663284f82b8dd3ba",
+   "raw_tag_b64": "b2JqZWN0IDBmOTVkZjNjM2RlYmNjMTBkYjA2ZDdlMzY2MzI4NGY4MmI4ZGQzYmEKdHlwZSBjb21taXQKdGFnIHYwLjkuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNzMwNzMgKzAyMDAKClN5bmFwc2UgdjAuOS4wIOKAlCBUcnVzdCAmIG9ic2VydmFiaWxpdHkK"
+  },
+  {
+   "name": "v1.0.0",
+   "type": "tag",
+   "old_ref": "1569a830b7a5467765ee825b89cbcc0a38df8928",
+   "new_tag_sha": "a6ff195a43f8a7aeb0d0388ad24dd176261a807c",
+   "new_target": "960b29081cdbd4d876aac2213f3dd67b9354cc20",
+   "raw_tag_b64": "b2JqZWN0IDk2MGIyOTA4MWNkYmQ0ZDg3NmFhYzIyMTNmM2RkNjdiOTM1NGNjMjAKdHlwZSBjb21taXQKdGFnIHYxLjAuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwNzk3NjIgKzAyMDAKClN5bmFwc2UgMS4wLjAg4oCUIERpc3RyaWJ1dGlvbjogYXV0aCwgbW9iaWxlLCBkb2NzIHNpdGUuIFJvYWRtYXAgY29tcGxldGUuCg=="
+  },
+  {
+   "name": "v1.1.0",
+   "type": "tag",
+   "old_ref": "b9279df47008f656633e3004b6c52ee541ed9782",
+   "new_tag_sha": "3defb994d816d1d6705cfbeabe9fecd85ac652d8",
+   "new_target": "0fae97942b89ce263b4bbb28f3377d44edf3e70c",
+   "raw_tag_b64": "b2JqZWN0IDBmYWU5Nzk0MmI4OWNlMjYzYjRiYmIyOGYzMzc3ZDQ0ZWRmM2U3MGMKdHlwZSBjb21taXQKdGFnIHYxLjEuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMwOTI2NDUgKzAyMDAKClN5bmFwc2UgdjEuMS4wIOKAlCBDb252ZXJ0ICYgQ29uZmlndXJlCg=="
+  },
+  {
+   "name": "v1.2.0",
+   "type": "tag",
+   "old_ref": "75be8dc1da1bcb36a5181a04a020a1644631064b",
+   "new_tag_sha": "109a8121a47722ace80c1fca8d860fcf77a7b338",
+   "new_target": "c922f07f6188938472e54dfafbf1a1c53696fb24",
+   "raw_tag_b64": "b2JqZWN0IGM5MjJmMDdmNjE4ODkzODQ3MmU1NGRmYWZiZjFhMWM1MzY5NmZiMjQKdHlwZSBjb21taXQKdGFnIHYxLjIuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMxMDY3MjQgKzAyMDAKClN5bmFwc2UgdjEuMi4wIOKAlCBIb21lICYgSW5zaWdodHMK"
+  },
+  {
+   "name": "v1.2.1",
+   "type": "tag",
+   "old_ref": "82d40ec808703e429f55654f471d7da0b1502035",
+   "new_tag_sha": "536d5ff0402d8401c7446ba287b807c04fba53eb",
+   "new_target": "45d3031e06979dcbda4ba646261782571b627583",
+   "raw_tag_b64": "b2JqZWN0IDQ1ZDMwMzFlMDY5NzlkY2JkYTRiYTY0NjI2MTc4MjU3MWI2Mjc1ODMKdHlwZSBjb21taXQKdGFnIHYxLjIuMQp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMxMDg3OTYgKzAyMDAKClN5bmFwc2UgdjEuMi4xIOKAlCBkYXJrIGdyYXBoICsgbGl2ZSB1cGRhdGUgY2hlY2tzCg=="
+  },
+  {
+   "name": "v1.2.2",
+   "type": "tag",
+   "old_ref": "1bd28fcd069acf86eee42d0a764115258593ed4d",
+   "new_tag_sha": "023734c5ea2c71fa3aab1d213ca3ecbdcd8736be",
+   "new_target": "c19194eb6adb4b3303aed06146d73768cc58390b",
+   "raw_tag_b64": "b2JqZWN0IGMxOTE5NGViNmFkYjRiMzMwM2FlZDA2MTQ2ZDczNzY4Y2M1ODM5MGIKdHlwZSBjb21taXQKdGFnIHYxLjIuMgp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMxMDk3ODIgKzAyMDAKClN5bmFwc2UgdjEuMi4yIOKAlCBIb21lIGZpeGVzICsgdHlwZSByZWNsYXNzaWZpY2F0aW9uCg=="
+  },
+  {
+   "name": "v1.2.3",
+   "type": "tag",
+   "old_ref": "16bcfd762da5d833dac2f18add4904b5c1f96010",
+   "new_tag_sha": "f130bcd469d918f8e1f634fc679f52d21ff7fdbb",
+   "new_target": "f7d6278f7047ee0606565331b9738ca380d62554",
+   "raw_tag_b64": "b2JqZWN0IGY3ZDYyNzhmNzA0N2VlMDYwNjU2NTMzMWI5NzM4Y2EzODBkNjI1NTQKdHlwZSBjb21taXQKdGFnIHYxLjIuMwp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMxMTI1NjYgKzAyMDAKClN5bmFwc2UgdjEuMi4zIOKAlCBpbi1hcHAgcmVjbGFzc2lmaWNhdGlvbiArIGV4YWN0IGJhZGdlcwo="
+  },
+  {
+   "name": "v1.2.4",
+   "type": "commit",
+   "old_ref": "f73ed9a52ee9c60bc23f4bf3e9d84a2e15095100",
+   "new_target": "516190ef1dcc805487737ff65699fd8a674da3ad"
+  },
+  {
+   "name": "v1.2.5",
+   "type": "commit",
+   "old_ref": "d8d4063945c2cb03e4332557cdaebc311de1d1d5",
+   "new_target": "e1cfc77f751c0cc2cb421d7a7b67dfc5cc5e5d13"
+  },
+  {
+   "name": "v1.2.6",
+   "type": "commit",
+   "old_ref": "4db272577c3681d6aa521781b0bdafc26b14e73b",
+   "new_target": "290c18bc8d7da3d299edc70c32feb1bbeedffd65"
+  },
+  {
+   "name": "v1.3.0",
+   "type": "commit",
+   "old_ref": "95d3765541850360dafc996d4236ae40d7b5ef2d",
+   "new_target": "7c1a189eaa40c2e32eefb031d8e696fa71f96cec"
+  },
+  {
+   "name": "v1.3.1",
+   "type": "commit",
+   "old_ref": "fdb71b0c7e87b759b2d4bf63862aa8b4cc552a65",
+   "new_target": "960ef70a5d2d18fee401d94960aa2ba4079ef5fb"
+  },
+  {
+   "name": "v1.3.10",
+   "type": "commit",
+   "old_ref": "aeb87594904335c89613572baecf89a372c43bb5",
+   "new_target": "44b7811f94aa27bc7ca170480a33a979f3acdd1d"
+  },
+  {
+   "name": "v1.3.11",
+   "type": "tag",
+   "old_ref": "04e8276139341d9869687540ee45906a11b811de",
+   "new_tag_sha": "02432f95f2714e6e8cc5c734932d7c6b003301bd",
+   "new_target": "edb5521b4ba956f5bf215ed9aa7618bc9744c495",
+   "raw_tag_b64": "b2JqZWN0IGVkYjU1MjFiNGJhOTU2ZjViZjIxNWVkOWFhNzYxOGJjOTc0NGM0OTUKdHlwZSBjb21taXQKdGFnIHYxLjMuMTEKdGFnZ2VyIEVtYW51ZWxlIENoaXVtbW8gPDk4OTAwMDU5K0VtYW51ZWxlLUNoaXVtbW9AdXNlcnMubm9yZXBseS5naXRodWIuY29tPiAxNzgzNDQyNDQyICswMjAwCgpTeW5hcHNlIHYxLjMuMTEK"
+  },
+  {
+   "name": "v1.3.12",
+   "type": "commit",
+   "old_ref": "23fd7092a9bc2e25cc0e7a5b01aac7034897e640",
+   "new_target": "b0b3b1a8c144bc5436fdc7a65fe9aa1c6b0f0aff"
+  },
+  {
+   "name": "v1.3.13",
+   "type": "commit",
+   "old_ref": "b3917d67dfaf5b359cba723eefbd8d1deb94e1df",
+   "new_target": "ba8b7fb388342680ee6968c1fd20c37f7652d3df"
+  },
+  {
+   "name": "v1.3.14",
+   "type": "commit",
+   "old_ref": "33618e822bead1353f1e3250bd32dae1b8880671",
+   "new_target": "ac4a2449b2bf1ca0bd82b857d1f437bfbb17fa3a"
+  },
+  {
+   "name": "v1.3.15",
+   "type": "commit",
+   "old_ref": "9073d2415580e11dfd2e37d5a5f474c765f9b022",
+   "new_target": "570f74801e5a087b446b6b0918f2ec7ca8fca2a1"
+  },
+  {
+   "name": "v1.3.16",
+   "type": "commit",
+   "old_ref": "808d9337a1b294a65df312e28504872cf3ae4d8b",
+   "new_target": "af02723b3d925b78a49bf3b67d235717b004d5a7"
+  },
+  {
+   "name": "v1.3.2",
+   "type": "tag",
+   "old_ref": "eb622665547c3fa867f6450d96f4b64ea4c65077",
+   "new_tag_sha": "4edff0673a60ddc73696c26d9347869ddba34f73",
+   "new_target": "4d31812d05aec873ff5d356515840285075f6708",
+   "raw_tag_b64": "b2JqZWN0IDRkMzE4MTJkMDVhZWM4NzNmZjVkMzU2NTE1ODQwMjg1MDc1ZjY3MDgKdHlwZSBjb21taXQKdGFnIHYxLjMuMgp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMyNzY5MDggKzAyMDAKClN5bmFwc2UgMS4zLjIg4oCUIFFBIHBhc3MgbGl2ZSArIDQgZml4Cg=="
+  },
+  {
+   "name": "v1.3.3",
+   "type": "commit",
+   "old_ref": "5c3084ae5d115bdf73f00f072b3de189f6d26ffd",
+   "new_target": "4fc55eeb245801eb022420de8b51141084ad4555"
+  },
+  {
+   "name": "v1.3.4",
+   "type": "tag",
+   "old_ref": "24937050fc02f31e3ed8887234ae1a24747cec1d",
+   "new_tag_sha": "2bf865472852f125e1079b8c30b1d1276245d10c",
+   "new_target": "38333e45f9a94985cac951fe06f0f1dfbcaad79e",
+   "raw_tag_b64": "b2JqZWN0IDM4MzMzZTQ1ZjlhOTQ5ODVjYWM5NTFmZTA2ZjBmMWRmYmNhYWQ3OWUKdHlwZSBjb21taXQKdGFnIHYxLjMuNAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODMzNDM3OTQgKzAyMDAKClN5bmFwc2UgMS4zLjQg4oCUIGxsbV93aWtpIFVJLWFsaWdubWVudCBwcm9ncmFtIChMaW50L0NoYXQvR3JhcGgvU291cmNlcy9XaWtpLXRhYi9NQ1Arc2tpbGwvUmVzZWFyY2ggZGlhbG9nKQo="
+  },
+  {
+   "name": "v1.3.5",
+   "type": "commit",
+   "old_ref": "69ccab22845f86b2816a2f1712c5b8069f41e32a",
+   "new_target": "fc9655aa9ba14e6519979b76d1c37fe091a71f32"
+  },
+  {
+   "name": "v1.3.6",
+   "type": "commit",
+   "old_ref": "322f6f9d1c9c150c058a3a1d3033c3611fce5800",
+   "new_target": "ed5b1a7db0a25bf3d2af03f4cc1577ee890e925f"
+  },
+  {
+   "name": "v1.3.7",
+   "type": "commit",
+   "old_ref": "580ae3b723d472a83e10dc742819ef51c2c58df7",
+   "new_target": "25263196d20c5fcd1799d86bb188d203d8717855"
+  },
+  {
+   "name": "v1.3.8",
+   "type": "commit",
+   "old_ref": "4ce7e066c923faa74206e2d8a832a226380f3488",
+   "new_target": "b8cb78e10b5b2adb2c919224885ac0ead437766e"
+  },
+  {
+   "name": "v1.3.9",
+   "type": "commit",
+   "old_ref": "77abed915d089dd8521440f0664012ad57a836b3",
+   "new_target": "b14ef74ed2bf439c7b359d6c055ddb9b457c68df"
+  },
+  {
+   "name": "v1.4.0",
+   "type": "commit",
+   "old_ref": "6700a03f78962328e79aac167d60f31f373b1b6d",
+   "new_target": "c2130cc018510b5943262bad3109513a7b5dc052"
+  },
+  {
+   "name": "v1.5.0",
+   "type": "commit",
+   "old_ref": "cd8d8be44419e788a61a0ab6fc49a33564416870",
+   "new_target": "575cf81c3115826741ebce83762ec6bd7a9f5571"
+  },
+  {
+   "name": "v1.5.1",
+   "type": "commit",
+   "old_ref": "1eeb2599688252f9b5b3f83cc774c412e4cd867e",
+   "new_target": "c073c0707b41bef97e734bba33f4fda6995a0a63"
+  },
+  {
+   "name": "v1.5.2",
+   "type": "commit",
+   "old_ref": "8525100ac595a2fd8ccf83b37c4c26696a449177",
+   "new_target": "27c91385d7ff77840d1e99ac32989aed77e92c17"
+  },
+  {
+   "name": "v1.5.3",
+   "type": "commit",
+   "old_ref": "119ee9f10ad1bc81e24a6b64e3fef60f41b83273",
+   "new_target": "e1b21bb7657514f5a72d52382171c2e883a939d5"
+  },
+  {
+   "name": "v1.5.4",
+   "type": "commit",
+   "old_ref": "606dafa29938892da2a0bb4573770bc50a1f1ce3",
+   "new_target": "b8b79e2d7a2cdcf907f020bc69028db9bf21e6a6"
+  },
+  {
+   "name": "v1.5.5",
+   "type": "commit",
+   "old_ref": "d0af4804f7bd9e22d6e02a1121fc740c78a11f85",
+   "new_target": "39e8f5447a011b48b23b8542620dce3b989221eb"
+  },
+  {
+   "name": "v1.5.6",
+   "type": "tag",
+   "old_ref": "e542422a8fa98f70ac69656167e6cfa0ef969811",
+   "new_tag_sha": "296757a16f09c51044d513466150e5c4593661af",
+   "new_target": "9816f4b2c2d39c9125c655ad987f21c890612277",
+   "raw_tag_b64": "b2JqZWN0IDk4MTZmNGIyYzJkMzljOTEyNWM2NTVhZDk4N2YyMWM4OTA2MTIyNzcKdHlwZSBjb21taXQKdGFnIHYxLjUuNgp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODM5NTI2MTkgKzAyMDAKClN5bmFwc2UgdjEuNS42IOKAlCBNQ1Agd3JpdGUgdG9nZ2xlLCBNYXJrZXIgLS1hdXRvIHNwbGl0LCBVSSBhdWRpdCBmaXhlcwo="
+  },
+  {
+   "name": "v1.6.0",
+   "type": "commit",
+   "old_ref": "c9f2cc3028380e59782a6e1218df9cfe8cb6701d",
+   "new_target": "74ebe3eed3807b7bdc4554a67c5afeae651f50d0"
+  },
+  {
+   "name": "v1.6.1",
+   "type": "commit",
+   "old_ref": "b4dc54c461262757ee49b302ec631e0775d1f10d",
+   "new_target": "32e3eda667af75de732eb9f8a543649d186cbcf8"
+  },
+  {
+   "name": "v1.7.0",
+   "type": "tag",
+   "old_ref": "c397c6cee559d5e186b173c991f87bf77189bbb4",
+   "new_tag_sha": "e4d89f2ec3ec48f8e061b84465ff7289c0b974b1",
+   "new_target": "f2041e180ca2c90d420ec2ceab4b4ca86749dedc",
+   "raw_tag_b64": "b2JqZWN0IGYyMDQxZTE4MGNhMmM5MGQ0MjBlYzJjZWFiNGI0Y2E4Njc0OWRlZGMKdHlwZSBjb21taXQKdGFnIHYxLjcuMAp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODQwNTY1MjQgKzAyMDAKClN5bmFwc2UgdjEuNy4wIOKAlCBsbG1fd2lraSAxOjEgY29yZSBwYXJpdHksIGxpbmstcmVncmVzc2lvbiBmaXgsIGVkaXRvcmlhbCByZWRlc2lnbgo="
+  },
+  {
+   "name": "v1.7.1",
+   "type": "tag",
+   "old_ref": "8ca455341423cb0b0ec9771736e4dc133e3ce986",
+   "new_tag_sha": "94bc1a99f3cd4729209a10c218811f9822a9a18a",
+   "new_target": "955a7c1cb2fc15f866f5f853c76d955f8f3e16f1",
+   "raw_tag_b64": "b2JqZWN0IDk1NWE3YzFjYjJmYzE1Zjg2NmY1Zjg1M2M3NmQ5NTVmOGYzZTE2ZjEKdHlwZSBjb21taXQKdGFnIHYxLjcuMQp0YWdnZXIgRW1hbnVlbGUgQ2hpdW1tbyA8OTg5MDAwNTkrRW1hbnVlbGUtQ2hpdW1tb0B1c2Vycy5ub3JlcGx5LmdpdGh1Yi5jb20+IDE3ODQwOTk0OTMgKzAyMDAKClN5bmFwc2UgdjEuNy4xIOKAlCBvdXRwdXQtbGFuZ3VhZ2UsIGtub3dsZWRnZS1ncmFwaCwgYW5kIG9uYm9hcmRpbmctVVggZml4ZXMK"
+  }
+ ]
+}
