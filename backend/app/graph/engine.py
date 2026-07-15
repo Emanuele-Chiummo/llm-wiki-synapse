@@ -119,8 +119,16 @@ FA2_CLAMP_FACTOR: float = 3.0
 # "N/total pages" + "hidden" chips can never drift (parity with nashsu/llm_wiki, which
 # counts only graph-eligible pages). Before this was shared, total_nodes counted raw/
 # and query rows the engine had already excluded → a permanent phantom "hidden" count.
-GRAPH_HIDDEN_PAGE_TYPES: frozenset[str] = frozenset({"query"})
-"""Page types excluded from the graph (llm_wiki HIDDEN_TYPES, wiki-graph.ts:204-209)."""
+GRAPH_HIDDEN_PAGE_TYPES: frozenset[str] = frozenset({"query", "index", "log", "overview"})
+"""Page types excluded from the graph.
+
+``query`` mirrors llm_wiki (wiki-graph.ts:204 — research/chat artifacts, not knowledge structure).
+``index``/``log``/``overview`` are app-managed aggregate pages (catalogue / history / summary):
+Synapse writes them OUTSIDE the link-persistence path, so they carry no resolved edges and would
+otherwise render as stray isolated dots. Excluding them keeps the graph to real knowledge structure
+(entities / concepts / sources / comparisons / synthesis). This is a deliberate step BEYOND llm_wiki
+(which keeps index.md as a catalogue hub) — a product decision, not strict parity.
+"""
 
 GROUP_LABEL_EXCLUDED_TYPES: frozenset[str] = frozenset({"index", "log", "overview"})
 """Meta-aggregate types that stay graph NODES (D4 parity) but must NEVER label a Louvain

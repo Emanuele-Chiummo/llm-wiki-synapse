@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [Unreleased]
+
+### Fixed
+- **The knowledge graph stayed near-empty on localized (non-English) vaults.** The wikilink resolver
+  indexed pages only by `_slugify(title)`, but the generation prompt mandates bare-slug wikilinks
+  (`[[multi-cloud-orchestration]]`) that match the FILENAME a page is filed under — and on e.g. an
+  Italian vault the title is localized ("Orchestrazione Multi-Cloud …"), so `_slugify(title)` never
+  reproduced the linked slug and almost every link stayed dangling. Measured on a clean 4-source
+  Italian ingest: **2 of 114 links resolved (2 edges)**. The resolver now also indexes pages by their
+  `file_path` slug; the same ingest yields **58 of 114 resolved (29 edges)**, the rest being genuine
+  not-yet-created "missing-page" targets. This is distinct from — and deeper than — the 1.7.1
+  vault-scoping fix. [F4]
+- **`index` / `log` / `overview` appeared in the knowledge graph as stray isolated dots.** They are
+  app-managed aggregate pages (catalogue / history / summary), not knowledge nodes, and Synapse writes
+  them outside the link-persistence path so they carry no edges. They are now excluded from the graph
+  via `GRAPH_HIDDEN_PAGE_TYPES` (alongside the existing `query` exclusion) — a deliberate step beyond
+  llm_wiki, which keeps `index.md` as a catalogue hub. [F4]
+- **Clicking a node in the knowledge graph did not open its wiki page.** `downNode` disabled sigma's
+  mouse captor to stop the stage panning during a drag, which also suppressed the `upNode` /
+  `clickNode` events the open handler relied on — so a click only highlighted the node. Click-to-open
+  now runs from the `endDrag` (`!moved`) seam; stage-pan is prevented via `preventSigmaDefault` in
+  `moveBody` (the official sigma v3 pattern); and a `suppressStageClick` flag stops the follow-up
+  stage click (sigma classifies node clicks as stage clicks) from wiping the just-opened selection. [F4]
+
 ## [1.7.1] — 2026-07-15 — "post-1.7.0 fixes: output language, knowledge graph, onboarding UX"
 
 Patch release fixing issues surfaced right after 1.7.0.

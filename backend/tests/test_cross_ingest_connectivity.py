@@ -39,10 +39,15 @@ import pytest
 
 @dataclass
 class _Row:
-    """Row exposing attribute access (mimics a SQLAlchemy Row for the resolver maps)."""
+    """Row exposing attribute access (mimics a SQLAlchemy Row for the resolver maps).
+
+    ``file_path`` defaults to None so pre-existing title-only fakes keep working; set it to
+    exercise the by_fileslug map (the slug a page is FILED under, which is what [[wikilinks]] use).
+    """
 
     id: uuid.UUID
     title: str | None
+    file_path: str | None = None
 
 
 class _MapResult:
@@ -305,6 +310,53 @@ class TestTolerantResolution:
         )
         # Exact "RAG" resolves to the exact page, not any lossy fallback.
         assert _resolve_target("RAG", maps) == exact_id
+
+    @pytest.mark.asyncio
+    async def test_file_slug_match(self) -> None:
+        """
+        A ``[[file-slug]]`` link resolves to the page FILED under that slug even when the page's
+        TITLE (localized / descriptive) slugifies to something completely different.
+
+        Regression: the resolver only indexed pages by ``_slugify(title)``, never by the
+        file_path basename. The generation prompt mandates bare-slug wikilinks
+        (``[[multi-cloud-orchestration]]``) matching the FILENAME, but on non-English vaults the
+        title is localized ("Orchestrazione Multi-Cloud …") so ``_slugify(title)`` never matched →
+        ~98% of links stayed dangling and the knowledge graph collapsed (2/114 resolved).
+        """
+        from app.wiki.links import ParsedLink, persist_links
+
+        pid = uuid.uuid4()
+        session = _persist_session(
+            [
+                _Row(
+                    pid,
+                    "Orchestrazione Multi-Cloud — Pattern di Ereditarietà Permessi",
+                    file_path="wiki/concepts/multi-cloud-orchestration.md",
+                )
+            ]
+        )
+        # The model links by the page's FILE slug (llm_wiki bare-slug convention).
+        await persist_links(session, uuid.uuid4(), [ParsedLink("multi-cloud-orchestration", None)])
+
+        link = session.add.call_args[0][0]
+        assert link.dangling is False
+        assert link.target_page_id == pid
+
+    def test_resolve_by_file_slug_precedence_after_title(self) -> None:
+        """by_fileslug resolves file-slug links, but exact title still wins (precedence intact)."""
+        from app.wiki.links import _resolve_target, _ResolverMaps
+
+        pid = uuid.uuid4()
+        maps = _ResolverMaps(
+            by_title={"Orchestrazione Multi-Cloud": pid},
+            by_lower={"orchestrazione multi-cloud": pid},
+            by_slug={"orchestrazione-multi-cloud": pid},  # slug(title) — NOT the file slug
+            by_fileslug={"multi-cloud-orchestration": pid},  # the file slug the model links by
+        )
+        # The file slug is absent from every title-derived map → only by_fileslug can resolve it.
+        assert _resolve_target("multi-cloud-orchestration", maps) == pid
+        # The exact title still resolves (exact-first precedence preserved).
+        assert _resolve_target("Orchestrazione Multi-Cloud", maps) == pid
 
 
 # ── Part 3: dangling-link backfill ───────────────────────────────────────────────
