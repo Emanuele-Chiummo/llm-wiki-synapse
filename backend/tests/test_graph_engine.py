@@ -1474,3 +1474,55 @@ def _get_session_factory(engine: Any) -> Any:
     from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
+
+
+@pytest.mark.asyncio
+async def test_resolver_maps_are_vault_scoped() -> None:
+    """Regression: _build_resolver_maps must only see the given vault's pages.
+
+    Two vaults with the same-slug page ("Shared Concept") must not cross-resolve. Before the fix
+    the slug→id map was built over ALL vaults (first-hit-wins), so a wikilink in vault-a could
+    resolve to vault-b's page — pointing Link.target_page_id cross-vault, which produces NO graph
+    edge (the target isn't a node in vault-a's graph) and collapsed the knowledge graph on any
+    multi-vault deployment (or a repeated-ingest test DB).
+    """
+    from app.wiki.links import _build_resolver_maps, _slugify
+
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    await _setup_sqlite(engine)
+    session_factory = async_sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
+    )
+    id_a = "00000000-0000-0000-0000-0000000000aa"
+    id_b = "00000000-0000-0000-0000-0000000000bb"
+    async with session_factory() as sess:
+        await _insert_page(
+            sess,
+            page_id=id_a,
+            vault_id="vault-a",
+            title="Shared Concept",
+            page_type="concept",
+            sources=["doc"],
+        )
+        await _insert_page(
+            sess,
+            page_id=id_b,
+            vault_id="vault-b",
+            title="Shared Concept",
+            page_type="concept",
+            sources=["doc"],
+        )
+        await sess.commit()
+
+        maps_a = await _build_resolver_maps(sess, "vault-a")
+        maps_b = await _build_resolver_maps(sess, "vault-b")
+
+    slug = _slugify("Shared Concept")
+    assert str(maps_a.by_slug[slug]) == id_a, "vault-a must resolve the slug to ITS OWN page"
+    assert str(maps_b.by_slug[slug]) == id_b, "vault-b must resolve the slug to ITS OWN page"
+    assert maps_a.by_slug[slug] != maps_b.by_slug[slug], "no cross-vault bleed"
+    await engine.dispose()

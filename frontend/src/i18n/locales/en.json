@@ -338,6 +338,10 @@
     "output": {
       "title": "Output Preferences",
       "desc": "Controls for generated content — language, conversation history length.",
+      "aiLanguageTitle": "AI Output Language",
+      "aiLanguageDesc": "The language the AI writes this vault's wiki pages, queries and overview in. Existing pages keep the language they were generated in; new ingests (and the next overview) use this one.",
+      "aiLanguageAuto": "Auto (detect from source)",
+      "aiLanguageSaved": "Saved",
       "note": "These settings affect how Synapse speaks and how much prior conversation it carries forward.",
       "languageHelp": "Language changes labels and model-facing output preferences where the app supports them.",
       "convHistoryTitle": "Conversation History Length",
