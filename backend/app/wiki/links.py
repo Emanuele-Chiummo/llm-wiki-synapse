@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.ingest.orchestrator import _slugify
 from app.models import Link, Page
 
@@ -112,9 +113,17 @@ class _ResolverMaps:
     by_slug: dict[str, uuid.UUID]  # _slugify(title) → id (first-hit-wins)
 
 
-async def _build_resolver_maps(session: AsyncSession) -> _ResolverMaps:
+async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _ResolverMaps:
     """
-    Build exact / case-insensitive / slug lookup maps over ALL live pages in ONE query.
+    Build exact / case-insensitive / slug lookup maps over the live pages OF *vault_id* in ONE
+    query.
+
+    VAULT-SCOPED (bugfix): the maps must contain only the target vault's pages. When multiple
+    vaults share page slugs (e.g. the same sources ingested into several vaults), a global map
+    would resolve ``[[some-slug]]`` to whichever vault's page was inserted first — pointing the
+    Link.target_page_id cross-vault, which then produces NO graph edge (the target isn't a node in
+    the source vault's graph) and collapses the knowledge graph. Scope to the source vault so the
+    link resolves to that vault's own page.
 
     First-hit-wins for the lossy (lower/slug) maps: when two live titles collapse to the same
     lower/slug key we keep the first seen and do NOT overwrite. This is conservative — it never
@@ -122,6 +131,7 @@ async def _build_resolver_maps(session: AsyncSession) -> _ResolverMaps:
     """
     result = await session.execute(
         select(Page.id, Page.title).where(
+            Page.vault_id == vault_id,
             Page.deleted_at.is_(None),
             Page.title.is_not(None),
         )
@@ -292,7 +302,9 @@ async def persist_links(
     #    Resolution precedence is exact → case-insensitive → slug (see _resolve_target). This
     #    catches near-miss titles the ingest LLM invents so cross-ingest links form real edges
     #    instead of dangling — while staying conservative (exact-first, first-hit-wins).
-    maps = await _build_resolver_maps(session)
+    #    Scope to the ACTIVE vault (bugfix): a cross-vault slug collision must not steal the target
+    #    and drop the graph edge. Ingest/reresolve always run for settings.vault_id.
+    maps = await _build_resolver_maps(session, settings.vault_id)
 
     now = datetime.now(UTC)
     dangling_count = 0
@@ -347,7 +359,7 @@ async def resolve_suggested_target(
     actually surfaces "did you mean [[Transformer]]?" re-point suggestions (llm_wiki
     suggestBrokenTarget parity) instead of forcing a stub page for every typo.
     """
-    maps = await _build_resolver_maps(session)
+    maps = await _build_resolver_maps(session, settings.vault_id)
     hit = _resolve_target(target, maps)
     if hit is None:
         # L2b — exact/case/slug all missed; try the typo-tolerant fuzzy repair candidate.
@@ -386,7 +398,7 @@ async def reresolve_dangling_links(session: AsyncSession) -> int:
     if not dangling_links:
         return 0
 
-    maps = await _build_resolver_maps(session)
+    maps = await _build_resolver_maps(session, settings.vault_id)
 
     reconnected = 0
     for link in dangling_links:
