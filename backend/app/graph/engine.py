@@ -365,13 +365,17 @@ class GraphEngine:
             )
             nodes = [dict(row._mapping) for row in pages_result]
 
-            # Resolved links only (dangling=false, target_page_id IS NOT NULL)
+            # Resolved links only (dangling=false, target_page_id IS NOT NULL), SCOPED to this
+            # vault (I1 + correctness): the links table has no vault_id column, so join through the
+            # source page. Without the scope this loaded every vault's links — harmless for the
+            # edge set (cross-vault endpoints aren't nodes here) but a cross-vault read and a waste.
             links_result = await sess.execute(
                 sa_text(
-                    "SELECT source_page_id, target_page_id "
-                    "FROM links "
-                    "WHERE dangling = false AND target_page_id IS NOT NULL"
-                )
+                    "SELECT l.source_page_id, l.target_page_id "
+                    "FROM links l JOIN pages p ON l.source_page_id = p.id "
+                    "WHERE l.dangling = false AND l.target_page_id IS NOT NULL "
+                    "AND p.vault_id = :vid"
+                ).bindparams(vid=vault_id)
             )
             links = [dict(row._mapping) for row in links_result]
             return nodes, links
