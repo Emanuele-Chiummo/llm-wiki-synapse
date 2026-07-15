@@ -338,6 +338,10 @@
     "output": {
       "title": "Preferenze Output",
       "desc": "Controlli per i contenuti generati — lingua, lunghezza cronologia conversazione.",
+      "aiLanguageTitle": "Lingua di output dell'AI",
+      "aiLanguageDesc": "La lingua in cui l'AI scrive pagine wiki, query e overview di questo vault. Le pagine esistenti mantengono la lingua con cui sono state generate; i nuovi ingest (e il prossimo overview) useranno questa.",
+      "aiLanguageAuto": "Automatica (rileva dalla fonte)",
+      "aiLanguageSaved": "Salvato",
       "note": "Queste impostazioni influenzano come Synapse parla e quanta conversazione precedente porta avanti.",
       "languageHelp": "La lingua cambia le etichette e, dove supportato, le preferenze di output rivolte al modello.",
       "convHistoryTitle": "Lunghezza Cronologia Conversazione",
