@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.7.1] — 2026-07-15 — "post-1.7.0 fixes: output language, knowledge graph, onboarding UX"
+
+Patch release fixing issues surfaced right after 1.7.0.
+
+### Fixed
+- **The knowledge graph collapsed on multi-vault deployments.** Wikilink resolution built its
+  slug→page map over ALL vaults' pages (no `vault_id` filter, first-hit-wins), so when vaults share
+  page slugs (e.g. the same sources ingested into several vaults) a link resolved cross-vault and
+  produced NO graph edge — the target isn't a node in the source vault's graph. Measured on an
+  8-vault DB: 50 graph-eligible links became 5 edges. `_build_resolver_maps` and the graph engine's
+  link query are now vault-scoped. **Single-vault deployments were unaffected.**
+- **overview.md ignored the per-vault output language.** Regeneration resolved language from content
+  detection, so an Italian vault built from English sources got an English overview. It now honors
+  `vault_state.output_language` (explicit override → per-vault → this run's analysis → detection).
+- **The first-run setup wizard reappeared on every reload.** Skipping it (defer) only hid it for the
+  current session. Both "completed" and "deferred" now suppress the auto-show across sessions.
+
+### Added
+- **Settings → Appearance → "AI Output Language".** Change a vault's generation language after
+  creation (previously only settable in the new-project wizard); saves immediately via
+  `PUT /vault/meta/output-language`. Distinct from the interface language.
+- **D5 Home dashboard screenshot** + its Playwright capture spec.
+
+### Upgrade notes
+- No migration. The graph fix takes effect for new ingests; a single-vault graph is already correct.
+  To reconnect an existing multi-vault graph, re-ingest the affected vault (links re-resolve to the
+  right pages).
+
 ## [1.7.0] — 2026-07-14 — "llm_wiki 1:1 core parity, link-regression fix, editorial redesign"
 
 Aligns the three core operations (Ingest · Review · Lint) and the generated page types 1:1 with
@@ -1043,6 +1071,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.7.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0
 [1.4.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...v1.4.0
 [1.3.16]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.15...v1.3.16
