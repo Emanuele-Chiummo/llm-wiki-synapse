@@ -1269,6 +1269,21 @@ class Settings(BaseSettings):
     Env var: RATE_LIMIT_WINDOW_SECONDS.
     """
 
+    auth_failure_limit_attempts: int = 10
+    """
+    Max authentication failures (401 responses) per IP per window (SEC-RL-1).
+    Prevents token-guessing and brute-force auth attacks. Default 10 attempts.
+    When rate_limit_enabled=false, this check is bypassed.
+    Env var: AUTH_FAILURE_LIMIT_ATTEMPTS.
+    """
+
+    auth_failure_limit_window_seconds: int = 300
+    """
+    Window duration (seconds) for authentication failure rate limiting (SEC-RL-1).
+    Default 300 s (5 minutes) — 10 failures per 5-minute window.
+    Env var: AUTH_FAILURE_LIMIT_WINDOW_SECONDS.
+    """
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()
