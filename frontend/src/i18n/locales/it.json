@@ -1582,6 +1582,7 @@
   "home": {
     "title": "Panoramica sistema",
     "subtitle": "Panoramica della tua base di conoscenza",
+    "updating": "Aggiornamento…",
     "error": {
       "title": "Impossibile caricare la panoramica della conoscenza"
     },

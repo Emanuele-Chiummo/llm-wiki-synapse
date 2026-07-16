@@ -121,6 +121,12 @@ import { readSetupState } from "../setup/setupState";
 import { providerVerificationFingerprint } from "../setup/providerVerification";
 import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
 
+// ─── Reduced-motion detection (UX-1) ─────────────────────────────────────────
+// Read once at module load (stable across renders). Used to disable the spin
+// animation on the "updating…" pill for users who prefer reduced motion.
+const reducedMotion =
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 /** localStorage key used to pass a domain filter to the Wiki/NavTree section. */
@@ -1552,17 +1558,7 @@ function WikiThesisBlock() {
           aria-hidden="true"
           style={{ color: "var(--syn-accent)", flexShrink: 0 }}
         />
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: "var(--syn-text-muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          {t("home.wikiThesis.title")}
-        </span>
+        <span className="syn-eyebrow">{t("home.wikiThesis.title")}</span>
       </div>
 
       {/* Thesis statement */}
@@ -2431,6 +2427,13 @@ export function HomeDashboard() {
   const [costByDay, setCostByDay] = useState<number[] | null>(null);
   const statsAbortRef = useRef<AbortController | null>(null);
 
+  // UX-1: true ONLY while a version-bump-triggered stats re-fetch is in-flight.
+  // Never set on the initial mount fetch (which already shows the main skeleton).
+  const [isRefetching, setIsRefetching] = useState(false);
+  // Ref so loadStats (stable useCallback) can clear the flag without being a dep.
+  const setIsRefetchingRef = useRef<(v: boolean) => void>(setIsRefetching);
+  setIsRefetchingRef.current = setIsRefetching;
+
   // Track the last data_version for which we successfully fetched stats.
   // WS-A: only re-fetch when the version advances — no spurious re-renders (I3).
   const lastFetchedVersionRef = useRef<number | null>(null);
@@ -2461,6 +2464,9 @@ export function HomeDashboard() {
       } catch (err: unknown) {
         if (isStatsRequestAbort(err, signal)) return;
         setLoadError(err instanceof Error ? err.message : String(err));
+      } finally {
+        // UX-1: clear the "updating…" pill regardless of success or failure.
+        setIsRefetchingRef.current(false);
       }
     })();
   }, []); // Stable: reads state via refs, no reactive deps needed.
@@ -2473,7 +2479,12 @@ export function HomeDashboard() {
   }, [loadStats]);
 
   // Initial fetch on mount.
+  // rt-6: seed lastFetchedVersionRef to the current statusDataVersion BEFORE calling
+  // reloadStats so the version-bump effect (which also runs on mount) sees the ref
+  // already matches the current version and skips — preventing a redundant 2nd fetch.
+  // statusDataVersionRef.current mirrors statusDataVersion (updated every render).
   useEffect(() => {
+    lastFetchedVersionRef.current = statusDataVersionRef.current;
     reloadStats();
     return () => statsAbortRef.current?.abort();
   }, [reloadStats]);
@@ -2499,7 +2510,10 @@ export function HomeDashboard() {
   useEffect(() => {
     if (statusDataVersion === null) return;
     if (statusDataVersion === lastFetchedVersionRef.current) return;
-    // Version has advanced — re-fetch stats without a full page reload (AC-WS-A-1).
+    // Version has advanced — show the "updating…" pill then re-fetch stats (AC-WS-A-1).
+    // UX-1: setIsRefetching(true) BEFORE reloadStats so the pill appears immediately;
+    //        loadStats' finally block clears it when the fetch settles.
+    setIsRefetching(true);
     reloadStats();
     return undefined;
   }, [statusDataVersion, reloadStats]); // Only re-run when the polled version changes.
@@ -2700,9 +2714,38 @@ export function HomeDashboard() {
     >
       {/* ── Header ── */}
       <div>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--syn-text)" }}>
-          {t("home.title")}
-        </h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--syn-text)" }}>
+            {t("home.title")}
+          </h1>
+          {/* UX-1: "updating…" pill — visible ONLY while a version-bump stats re-fetch is
+              in-flight. NOT shown on initial mount (which shows the full loading skeleton). */}
+          {isRefetching && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: 10,
+                fontWeight: 600,
+                color: "var(--syn-accent)",
+                background: "var(--syn-accent-soft)",
+                borderRadius: "var(--syn-radius-pill)",
+                padding: "2px 7px",
+              }}
+            >
+              <Loader2
+                size={10}
+                aria-hidden="true"
+                style={{
+                  animation: reducedMotion ? "none" : "syn-spin 0.8s linear infinite",
+                  flexShrink: 0,
+                }}
+              />
+              {t("home.updating")}
+            </span>
+          )}
+        </div>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--syn-text-muted)" }}>
           {t("home.subtitle")}
         </p>

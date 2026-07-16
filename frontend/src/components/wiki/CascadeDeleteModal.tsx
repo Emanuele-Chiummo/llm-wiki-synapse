@@ -22,6 +22,7 @@ import type { TFunction } from "i18next";
 import { previewCascadeDelete, cascadeDelete } from "../../api/cascadeDeleteClient";
 import type { CascadePreviewResponse, CascadeDeleteResult } from "../../api/types";
 import { ApiError } from "../../api/graphClient";
+import { refreshDataVersion } from "../../store/statusStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,6 +280,8 @@ export function CascadeDeleteModal({
 
     try {
       const result = await cascadeDelete(pageId);
+      // RT-2: bump data_version so dashboard/graph refresh immediately.
+      refreshDataVersion();
       onDeleted(result);
     } catch (err: unknown) {
       const msg =

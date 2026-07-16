@@ -1582,6 +1582,7 @@
   "home": {
     "title": "System Overview",
     "subtitle": "At-a-glance view of your knowledge base",
+    "updating": "Updating…",
     "error": {
       "title": "The knowledge overview could not be loaded"
     },

@@ -48,6 +48,7 @@ import {
 } from "../../store/graphStore";
 import { saveToWikiV2 } from "../../api/chatClient";
 import { fetchPageBySlug } from "../../api/pagesClient";
+import { refreshDataVersion } from "../../store/statusStore";
 import { showToast } from "../common/Toast";
 import { MarkdownView } from "./MarkdownView";
 import { StreamingMessage } from "./StreamingMessage";
@@ -310,6 +311,9 @@ const MessageRow = memo(function MessageRow({
       setSaveState({ kind: "success", pageId: result.page_id, filePath: result.file_path });
       // Success toast — i18n IT/EN (F16)
       showToast(t("chat.saveToWikiSavedToast", { path: result.file_path }), "success");
+      // RT-2: bump data_version so dashboard/graph see the new page without
+      // waiting for the next ActivityBar poll (fire-and-forget, never blocks).
+      refreshDataVersion();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("chat.saveToWikiError");
       setSaveState({ kind: "error", message });

@@ -19,6 +19,7 @@
  */
 
 import { create } from "zustand";
+import { fetchStatus } from "../api/pagesClient";
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -133,4 +134,25 @@ export function selectStatusDataVersion(s: StatusStore): number | null {
 
 export function selectSetDataVersion(s: StatusStore): StatusActions["setDataVersion"] {
   return s.setDataVersion;
+}
+
+/**
+ * refreshDataVersion — fire-and-forget helper (RT-2).
+ *
+ * Calls GET /status and pushes the latest data_version into the store.
+ * Intended to be called after mutating REST operations (PUT /pages, DELETE /pages,
+ * lint-fix apply, save-to-wiki) so the dashboard and graph pick up the server
+ * version bump without waiting the full ActivityBar poll cadence (~30s).
+ *
+ * Never awaited; never throws (errors are silently swallowed).
+ * Does NOT introduce a new polling interval (I7).
+ */
+export function refreshDataVersion(): void {
+  void fetchStatus()
+    .then((res) => {
+      useStatusStore.getState().setDataVersion(res.data_version);
+    })
+    .catch(() => {
+      // fire-and-forget: transient network errors are acceptable
+    });
 }
