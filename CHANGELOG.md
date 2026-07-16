@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.9.0] — 2026-07-16 — "clean room"
+
+First release of the v2.0 train (1.9.x → 2.0.0, plan set 2026-07-16 from an 8-dimension multi-agent
+audit of 1.8.1). Theme: repo hygiene, test infrastructure, and security hardening — no user-facing
+feature work; every change is behavior-preserving or additive/opt-in. Ships in five workstreams.
+
+### Fixed
+- **Backend watcher could drop an in-flight ingest task to garbage collection.** `watcher.py`'s
+  file-change handler fired `asyncio.create_task` without retaining a strong reference — the same
+  bug class fixed for eight other sites in 1.8.1. It now holds one via the shared `_bg_tasks` set.
+- **Stats caches (`/stats/overview`, `/stats/sections`, `/stats/groups`) were not vault-aware.**
+  Switching the active vault could serve the previous vault's cached numbers until the next
+  `data_version` bump happened to land on the new vault. Cache keys now include `vault_id`.
+- **A misleading `AC-K6-2/3` warning fired on every raw source file.** The K6 frontmatter check
+  (`type`, `title`, `sources` required) only applies to generated `wiki/` pages, but
+  `_parse_frontmatter` logged it for `raw/sources/*` files too — which legitimately have no
+  frontmatter. The warning is now `wiki/`-path-only; `raw/` paths log at debug level.
+- **`overview.md`/`index.md`/`log.md` were invisible in the Nav Tree right after creating a new
+  vault.** The onboarding wizard scaffolds the three meta pages to disk, but nothing indexed them
+  into Postgres until an unrelated edit touched a file — so `GET /pages` (and the Nav Tree's
+  Overview section) came back empty on a brand-new vault. `POST /projects` now explicitly indexes
+  the three scaffolded files right after bootstrap (a targeted index of known files, not a rescan —
+  I1 intact).
+- **A CTA on the Home dashboard was silently broken in dark mode.** Synthesize's "review only"
+  button used the class `syn-button--ghost`, which exists in no stylesheet, so it fell back to
+  unstyled UA chrome. Fixed to the live kit's `syn-btn--ghost`.
+- **Three prominent Home dashboard cards showed Italian text in the English locale.**
+  `home.systemStatus.title`, `home.groups.title`, and `home.activeJobs.title` in `en.json` held their
+  Italian source strings ("STATO DEL SISTEMA", "GRUPPI AUTOMATICI", "LAVORI ATTIVI") — invisible to
+  key-parity checks since both locales had the same keys, just the wrong *value* in one of them.
+  Retranslated; a new `i18n-language-leak.test.ts` CI gate catches the class going forward.
+- **A dozen `aria-label`/toast strings were hardcoded in English** (nav rail, graph viewer, activity
+  bar, panel resize handles, a conversation-creation failure toast) — Italian screen-reader users got
+  English announcements despite an otherwise fully-paired i18n layer. All routed through `t()`.
+- **Keyboard shortcuts (⌘1–5) and the command palette had drifted from the 1.7 nav rail** — the
+  numeric shortcuts pointed at stale sections and the palette was missing Home/Convert/Projects.
+  Both realigned to the current rail order.
+- **`ConfirmDialog` did not restore keyboard focus on close**, and one native `window.confirm` was
+  still in use (Settings → Maintenance) instead of the accessible dialog. Both fixed.
+- **Marker and Whisper were reachable from the whole LAN with no authentication**, while the backend
+  itself was already loopback-bound — `docker-compose.yml` published `8555`/`8666` on `0.0.0.0`.
+  Both now bind to `${SYNAPSE_BIND_HOST:-127.0.0.1}` like the backend; Marker additionally supports
+  an optional shared-secret `MARKER_SERVICE_TOKEN` for multi-host setups (off by default, fully
+  backward-compatible).
+
+### Added
+- **`provider_config.base_url` allowlist validation** (write-time only, existing configs unaffected):
+  scheme must be `http`/`https`; host must be `localhost`, `127.0.0.1`, `host.docker.internal`
+  (the known Docker/TrueNAS gotcha — explicitly preserved), an RFC1918 private address (LAN
+  Ollama/local LLMs), or a known provider host (`api.anthropic.com`, `api.openai.com`,
+  `*.openai.azure.com`). Closes the base_url-as-exfiltration-channel gap flagged in the 2026-07
+  security audit.
+- **Rate limiting on authentication failures.** Repeated 401 responses from one client IP now trip
+  the existing rate-limit infrastructure (429 after the configured threshold) — mitigates
+  token-guessing against the bearer-token auth model.
+- **Optional `QDRANT_API_KEY` support** for Qdrant deployments that require authentication (unset by
+  default; no behavior change for the common unauthenticated local/LAN Qdrant).
+- **Shared LLM-call helper (`app/ops/_llm.py`).** Seven ops modules (review, lint, enrich-wikilinks,
+  synthesize, reclassify-types, deep-research, backfill-domains) each re-implemented the same
+  resolve-provider → bounded-chat → parse-JSON-leniently → cost-log pattern, with divergence already
+  starting between copies. Consolidated into one typed helper; **446 duplicated lines removed**
+  across 8 modules (the 7 above + `ingest/domain_tagger.py`). Purely internal — no behavior change.
+- **Shared SQLite test fixture.** 52 hand-written `CREATE TABLE` statements across 14 test files —
+  every schema change historically broke ~20+ of them at once — replaced with one
+  `Base.metadata.create_all()`-based fixture; schema changes now propagate automatically. Surfaced
+  and fixed 8 columns that were `nullable=False` with no `server_default`, whose old hand-rolled DDL
+  silently supplied a default that masked the real constraint (test inserts now match Postgres too).
+- **CI hygiene**: a junk-file guard rejects the iCloud-sync `"name N.ext"` duplicate pattern in the
+  tracked tree (root-caused a ~300-file cleanup this release — 9 of them importable backend modules,
+  14 pytest-collectable test copies); an Alembic single-head check prevents the known
+  parallel-migration-collision gotcha; `ci.yml`/`desktop-release.yml` gained concurrency groups;
+  Playwright now retries once in CI only (never locally, to avoid masking real flakes locally) with
+  a `FLAKE_LEDGER.md` ready for use; `pytest-cov`/`vitest --coverage` are wired in as available
+  tooling (a no-decrease ratchet is future work).
+- **ADR corpus unification**: retired the legacy `ADR-NNNN-*.md` naming (32 files renamed, 76 inbound
+  links rewritten); resolved a duplicate-number collision (the multi-vault Project Launcher ADR was
+  renumbered 0067→0082; generation-semantics parity keeps 0067). New `scripts/check_adr_index.py`
+  (wired into the Docs Gate + `make adr-check`) checks naming, index completeness, dead links,
+  duplicate numbers, and Status-line presence.
+
+### Known follow-ups (not in this release)
+- The DI-seam refactor needed to stop tests from monkeypatching `app.ingest.orchestrator.*` module
+  globals was scoped and deferred to 1.9.2 (23 sites across 13 files mapped) — it's the stated
+  precondition for that release's orchestrator-facade dissolution, not test-infrastructure work.
+- Coverage measurement is instrumented but not yet gated (no ratchet threshold).
+
 ## [1.8.1] — 2026-07-16 — "ingest robustness, real-time UI & accessibility"
 
 Bug-fix release hardening the ingest pipeline against token-dense (regulatory/tabular) documents,
