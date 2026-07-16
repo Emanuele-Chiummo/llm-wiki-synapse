@@ -125,6 +125,9 @@ logging.basicConfig(level=logging.INFO)
 # their historical private names so existing `from app.main import X` /
 # `patch("app.main.X")` call-sites keep working for one release (removed in
 # 2.0.0 — BE-ARCH-3).
+# Client-IP resolution lives in app.client_ip (shared with app.rate_limit / runtime_state).
+# Kept as a private alias for the historical app.main._resolve_source_ip test seam (2.0 removal).
+from app.client_ip import resolve_source_ip as _resolve_source_ip  # noqa: E402,F401
 from app.runtime_state import (  # noqa: E402,F401  (compat aliases for app.main.* seam)
     MCP_MOUNT_PATH,  # noqa: E402  (used by mount + /mcp/info)
     MCP_PRIVATE_CIDRS,

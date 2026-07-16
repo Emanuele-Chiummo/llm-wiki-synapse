@@ -32,7 +32,9 @@ class SearxngProvider(WebSearchProvider):
         ADR-0041 §2.2). Empty string counts as unconfigured (matches the pre-seam guards).
         """
         try:
-            from app.main import _web_search_config_cache  # noqa: PLC0415
+            from app.runtime_state import (
+                web_search_config_cache as _web_search_config_cache,
+            )  # noqa: PLC0415
 
             url = _web_search_config_cache.resolved_url()
         except (ImportError, AttributeError):

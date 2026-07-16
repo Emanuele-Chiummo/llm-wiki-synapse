@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
-import sys as _sys
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +28,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy import text as sa_text
 
+from app import runtime_state
 from app.config import settings
 from app.config_overrides import effective_domain_vocabulary
 from app.models import Page
@@ -36,21 +36,6 @@ from app.models import Page
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 
 class PageResponse(BaseModel):
@@ -219,7 +204,7 @@ async def list_pages(
     limit: int = Query(default=50, ge=1, le=500, description="Max rows to return"),
     offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
 ) -> PageListResponse:
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         total_row = await session.execute(
             select(func.count())
             .select_from(Page)
@@ -361,7 +346,7 @@ async def create_page(body: PageCreateRequest) -> PageCreateResponse:
     rel_path = f"wiki/{subdir}/{slug}.md"
 
     # 409 pre-check: live page with the same path already exists
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         existing = await session.execute(
             select(Page).where(
                 Page.vault_id == settings.vault_id,
@@ -424,7 +409,7 @@ async def create_page(body: PageCreateRequest) -> PageCreateResponse:
 async def get_page_by_slug(slug: str) -> PageResponse:
     from app.rag.retrieval import slugify
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         rows = await session.execute(
             select(Page).where(
                 Page.vault_id == settings.vault_id,
@@ -454,7 +439,7 @@ async def get_page_by_slug(slug: str) -> PageResponse:
     ),
 )
 async def get_page(page_id: uuid.UUID) -> PageResponse:
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(Page).where(
                 Page.id == page_id,
@@ -555,7 +540,7 @@ async def get_related_pages(
     pid_str = str(page_id)  # standard hyphenated form, e.g. "abc-..."; stripped in SQL
     vault = settings.vault_id
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         # 1. Verify the page exists and is live (ORM — clean, portable)
         page_row = await session.execute(
             select(Page).where(
@@ -726,7 +711,7 @@ def _resolve_wiki_page_path(file_path: str) -> Path:
     },
 )
 async def get_page_content(page_id: uuid.UUID) -> PageContentResponse:
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(Page).where(
                 Page.id == page_id,
@@ -863,7 +848,7 @@ async def put_page_content(
     # non-atomic check-then-write allowed silent last-writer-wins).  On SQLite (tests)
     # with_for_update() is a no-op (SQLite silently ignores FOR UPDATE), so tests remain
     # unaffected.  The lock is released when the session commits at the end of the block.
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(Page)
             .where(
@@ -966,7 +951,7 @@ async def put_page_content(
     )
 
     # ── Return updated_at from the freshly committed row ─────────────────────
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row2 = await session.execute(select(Page).where(Page.id == page_id))
         updated_page = row2.scalar_one_or_none()
 
@@ -1029,7 +1014,7 @@ async def patch_node_position(
     """
     from sqlalchemy import text as sa_text
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         result = await session.execute(
             sa_text(
                 "UPDATE pages "
@@ -1055,8 +1040,9 @@ async def patch_node_position(
 
     # Patch the live snapshot so the next HIT already has the new coords (Feature A).
     node_id_str = str(page_id)
-    if _m._graph_cache is not None:
-        found = _m._graph_cache.patch_node_position(node_id_str, body.x, body.y)
+    _gc = runtime_state.graph_cache()
+    if _gc is not None:
+        found = _gc.patch_node_position(node_id_str, body.x, body.y)
         logger.debug(
             "patch_node_position: cache patch %s for node_id=%s",
             "succeeded" if found else "no-op (no snapshot yet)",
@@ -1210,7 +1196,7 @@ async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
     # ── L9: meta-page guard (409 for navigation roots — never deletable via this endpoint) ──
     # Use raw SQL for portability with the SQLite test schema (avoids JSONB column issues).
     _META_PAGE_BASES = frozenset({"index.md", "log.md", "overview.md"})
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         meta_row = await session.execute(
             sa_text(
                 "SELECT file_path FROM pages "
@@ -1241,7 +1227,7 @@ async def delete_page(page_id: uuid.UUID) -> CascadeDeleteResponse:
         from app.ingest.orchestrator import append_log
 
         # Resolve the file_path from the now soft-deleted row (no deleted_at filter).
-        async with _m.get_session() as del_sess:
+        async with runtime_state.get_session() as del_sess:
             del_row = await del_sess.execute(
                 sa_text("SELECT file_path FROM pages WHERE CAST(id AS TEXT) = :pid").bindparams(
                     pid=str(page_id)

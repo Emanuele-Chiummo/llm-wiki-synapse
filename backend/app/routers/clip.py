@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import hmac
 import logging
-import sys as _sys
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from app import runtime_state
 from app.config import settings
 from app.upload import resolve_under_sources, safe_source_name
 
@@ -26,20 +26,6 @@ _TokenSource = Literal["db", "env", "none"]
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 _CLIP_LOOPBACK_ORIGINS: frozenset[str] = frozenset(
     {
@@ -238,7 +224,7 @@ async def clip_ingest(
 
     # ── 1. CLIP_ENABLED gate (ADR-0040: DB wins over env when set) ─────────────
     # Resolution: DB clip_enabled_db (if not None) else CLIP_ENABLED env.
-    if not _m._clip_config_cache.resolved_enabled():
+    if not runtime_state.clip_config_cache.resolved_enabled():
         raise HTTPException(
             status_code=503,
             detail="Web clipper ingress is disabled (CLIP_ENABLED=false).",
@@ -246,10 +232,10 @@ async def clip_ingest(
 
     # ── 2. AuthN: bearer token — source-aware constant-time compare (ADR-0038 §2.1, ADR-0040) ──
     # Precedence (ADR-0040 §2.2):
-    #   DB path  (token_source == "db"):  _m._verify_token(presented, stored_pbkdf2_hash)
+    #   DB path  (token_source == "db"):  runtime_state.verify_token(presented, stored_pbkdf2_hash)
     #   Env path (token_source == "env"): hmac.compare_digest(presented, env_plaintext)
     # NEVER log the token, hash, or presented value. Fail-closed: no token = always 401.
-    tok_source: _TokenSource = _m._clip_config_cache.token_source()
+    tok_source: _TokenSource = runtime_state.clip_config_cache.token_source()
     if tok_source == "none":
         raise HTTPException(
             status_code=401,
@@ -264,8 +250,8 @@ async def clip_ingest(
     if presented is not None:
         if tok_source == "db":
             # PBKDF2 constant-time verification (mirrors MCP _BearerAuthMiddleware).
-            db_hash = _m._clip_config_cache.get_hash()
-            bearer_ok = db_hash is not None and _m._verify_token(presented, db_hash)
+            db_hash = runtime_state.clip_config_cache.get_hash()
+            bearer_ok = db_hash is not None and runtime_state.verify_token(presented, db_hash)
         else:
             # Env bootstrap: plaintext pre-shared secret — constant-time compare.
             env_token = settings.clip_token or ""
@@ -280,7 +266,7 @@ async def clip_ingest(
     # ── 3. Origin allowlist (server-side — CORS alone doesn't block simple POSTs) ──
     # ADR-0040: resolved_allowed_origins_list() = DB if set, else env.
     origin: str | None = request.headers.get("origin")
-    resolved_origins = _m._clip_config_cache.resolved_allowed_origins_list()
+    resolved_origins = runtime_state.clip_config_cache.resolved_allowed_origins_list()
     if not _clip_origin_allowed(origin, extra_origins=resolved_origins):
         raise HTTPException(
             status_code=403,

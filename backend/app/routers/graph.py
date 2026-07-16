@@ -13,8 +13,6 @@ Covers:
 from __future__ import annotations
 
 import logging
-import sys as _sys
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
@@ -22,6 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy import text as sa_text
 
+from app import runtime_state
 from app.config import settings
 from app.config_overrides import effective_str
 from app.graph.cache import GraphCache
@@ -36,21 +35,6 @@ from app.models import Link, Page, VaultState
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 
 class RegenerateOverviewResponse(BaseModel):
@@ -398,14 +382,15 @@ async def regenerate_overview() -> RegenerateOverviewResponse:
     regenerated = after != before
     if regenerated:
         await bump_version()
-        if _m._graph_cache is not None:
-            async with _m.get_session() as _vs_sess:
+        _gc = runtime_state.graph_cache()
+        if _gc is not None:
+            async with runtime_state.get_session() as _vs_sess:
                 _vs_row = await _vs_sess.execute(
                     select(VaultState).where(VaultState.vault_id == settings.vault_id)
                 )
                 _vs = _vs_row.scalar_one_or_none()
                 _new_version = _vs.data_version if _vs is not None else 0
-            _m._graph_cache.notify_bump(_new_version)
+            _gc.notify_bump(_new_version)
 
     return RegenerateOverviewResponse(regenerated=regenerated, detected_language=detected)
 
@@ -441,7 +426,7 @@ async def reresolve_links() -> ReresolveLinksResponse:
     from app.models import Link
     from app.wiki.links import reresolve_dangling_links
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         reconnected = await reresolve_dangling_links(session)
         # Flush the in-place dangling→resolved mutations so the count below reflects them
         # (the session has autoflush off, so an unflushed UPDATE would otherwise be invisible
@@ -456,14 +441,15 @@ async def reresolve_links() -> ReresolveLinksResponse:
     # Only bump the graph when something actually changed (avoid a needless FA2 recompute, I2).
     if reconnected:
         await bump_version()
-        if _m._graph_cache is not None:
-            async with _m.get_session() as _vs_sess:
+        _gc = runtime_state.graph_cache()
+        if _gc is not None:
+            async with runtime_state.get_session() as _vs_sess:
                 _vs_row = await _vs_sess.execute(
                     select(VaultState).where(VaultState.vault_id == settings.vault_id)
                 )
                 _vs = _vs_row.scalar_one_or_none()
                 _new_version = _vs.data_version if _vs is not None else 0
-            _m._graph_cache.notify_bump(_new_version)
+            _gc.notify_bump(_new_version)
 
     return ReresolveLinksResponse(
         reconnected=reconnected,
@@ -506,7 +492,7 @@ async def get_graph() -> Response:
     """
     # Read the current data_version (lightweight SELECT) — the one query that stays
     # unconditional: it's what tells us whether this request is even a candidate HIT.
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(VaultState).where(VaultState.vault_id == settings.vault_id)
         )
@@ -514,17 +500,19 @@ async def get_graph() -> Response:
         current_version: int = state.data_version if state is not None else 0
 
     # Initialise cache lazily (e.g. in test environments that bypass lifespan)
-    if _m._graph_cache is None:
-        _m._graph_cache = GraphCache(
+    graph_cache = runtime_state.graph_cache()
+    if graph_cache is None:
+        graph_cache = GraphCache(
             engine=GraphEngine(),
             vault_id=settings.vault_id,
         )
+        runtime_state.set_graph_cache(graph_cache)
 
     # BE-PERF-5 fast path: a pure cache HIT skips BOTH the totals COUNT queries below AND
     # the Pydantic node/edge/community re-serialization — it's a direct byte-for-byte replay
     # of the JSON body cached by the last store_response() call (invalidated together with
     # the coords on every recompute / patch_node_position, see graph/cache.py).
-    cached_body = _m._graph_cache.get_cached_response(current_version)
+    cached_body = graph_cache.get_cached_response(current_version)
     if cached_body is not None:
         return Response(
             content=cached_body,
@@ -535,11 +523,11 @@ async def get_graph() -> Response:
     # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────────────
     # Skipped when get_cached_totals() still holds a value for current_version (e.g. the
     # cached BODY was invalidated by a position patch, but row counts didn't change).
-    cached_totals = _m._graph_cache.get_cached_totals(current_version)
+    cached_totals = graph_cache.get_cached_totals(current_version)
     if cached_totals is not None:
         total_nodes, total_edges = cached_totals
     else:
-        async with _m.get_session() as session:
+        async with runtime_state.get_session() as session:
             # total_nodes: GRAPH-ELIGIBLE live pages only. MUST mirror the engine's node
             # inclusion rule (GRAPH_HIDDEN_PAGE_TYPES + GRAPH_RAW_PATH_LIKE, engine.py) or the
             # "hidden" chip shows a phantom count: raw/ tracking rows and query pages are
@@ -582,7 +570,7 @@ async def get_graph() -> Response:
             )
             total_edges = int(_links_count_row.scalar_one() or 0)
 
-    snapshot, cached = await _m._graph_cache.get_graph(current_version)
+    snapshot, cached = await graph_cache.get_graph(current_version)
 
     # Build response payload (ADR-0014 §6, G-P0-2)
     nodes: list[GraphNodeResponse] = [
@@ -636,7 +624,7 @@ async def get_graph() -> Response:
     # BE-PERF-5: cache the serialized body + totals so the next matching GET is a pure-read
     # HIT (get_cached_response fast path above) — no-op if a concurrent bump/recompute has
     # already moved the marker past current_version (store_response guards on that).
-    _m._graph_cache.store_response(current_version, body, total_nodes, total_edges)
+    graph_cache.store_response(current_version, body, total_nodes, total_edges)
 
     cache_header = "hit" if cached else "miss"
     return Response(
@@ -683,7 +671,7 @@ async def recompute_graph() -> RegenerateGraphResponse:
     from app.wiki.links import reresolve_dangling_links
 
     # ── Step 1: reconnect dangling wikilinks (K3/F3 cross-ingest connectivity) ──
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         reconnected = await reresolve_dangling_links(session)
         await session.flush()
         remaining_row = await session.execute(
@@ -696,7 +684,7 @@ async def recompute_graph() -> RegenerateGraphResponse:
         await bump_version()
 
     # ── Read the (possibly bumped) current data_version ──────────────────────
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(VaultState).where(VaultState.vault_id == settings.vault_id)
         )
@@ -704,11 +692,13 @@ async def recompute_graph() -> RegenerateGraphResponse:
         current_version = state.data_version if state is not None else 0
 
     # Initialise cache lazily (e.g. in test environments that bypass lifespan)
-    if _m._graph_cache is None:
-        _m._graph_cache = GraphCache(engine=GraphEngine(), vault_id=settings.vault_id)
+    graph_cache = runtime_state.graph_cache()
+    if graph_cache is None:
+        graph_cache = GraphCache(engine=GraphEngine(), vault_id=settings.vault_id)
+        runtime_state.set_graph_cache(graph_cache)
 
     # ── Step 2: FORCE a fresh FA2 recompute (applies the outlier clamp) ──────
-    snapshot = await _m._graph_cache.force_recompute(current_version)
+    snapshot = await graph_cache.force_recompute(current_version)
 
     return RegenerateGraphResponse(
         reconnected=reconnected,
@@ -831,14 +821,13 @@ async def get_graph_community(community_id: int) -> GraphCommunityDetailResponse
     """
     GET /graph/communities/{community_id} — community drill-down (R9-5, AC-R9-5-1/5).
 
-    I2 compliance: reads ONLY from _m._graph_cache._snapshot (the last stored result of
+    I2 compliance: reads ONLY from runtime_state.graph_cache()._snapshot (the last stored result of
     a previous recompute). Does NOT call get_graph() / force_recompute() / recompute().
     Cold cache -> 409 (client must call POST /graph/recompute first).
     """
     # I2 guard: read directly from the in-memory snapshot, never call recompute.
-    snapshot: GraphSnapshot | None = (
-        _m._graph_cache._snapshot if _m._graph_cache is not None else None
-    )
+    _gc = runtime_state.graph_cache()
+    snapshot: GraphSnapshot | None = _gc._snapshot if _gc is not None else None
     if snapshot is None:
         raise HTTPException(
             status_code=409,
@@ -979,7 +968,7 @@ async def get_graph_edge(source_id: str, target_id: str) -> GraphEdgeSignalsResp
         "LIMIT 1"
     )
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         result = await session.execute(
             sa_text(_EDGE_QUERY).bindparams(
                 vid=settings.vault_id,

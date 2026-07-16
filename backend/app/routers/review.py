@@ -15,7 +15,6 @@ Covers:
 from __future__ import annotations
 
 import logging
-import sys as _sys
 import uuid
 from datetime import datetime
 from typing import Any, Literal
@@ -24,26 +23,13 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app import runtime_state
 from app.models import Page, ReviewItem
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── WS-C (ADR-0079): Create-mode request body ────────────────────────────────
 
@@ -390,7 +376,7 @@ async def list_review_queue(
         from sqlalchemy import String as _SAString
         from sqlalchemy import cast as _sa_cast
 
-        async with _m.get_session() as session:
+        async with runtime_state.get_session() as session:
             rows = await session.execute(
                 select(Page.id, Page.title, Page.page_type).where(
                     # CAST for SQLite/Postgres id portability (mirrors retrieval.py / sweep).
@@ -460,7 +446,7 @@ async def _create_review_item_handler(
         from sqlalchemy import String as _SAString
         from sqlalchemy import cast as _sa_cast
 
-        async with _m.get_session() as session:
+        async with runtime_state.get_session() as session:
             created_page_type = (
                 await session.execute(
                     select(Page.page_type).where(

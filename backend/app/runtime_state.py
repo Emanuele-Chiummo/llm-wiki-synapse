@@ -344,7 +344,7 @@ class ClipConfigCache:
 
     # ── Source helpers ────────────────────────────────────────────────────────
 
-    def token_source(self) -> str:
+    def token_source(self) -> TokenSource:
         """'db' | 'env' | 'none' — which token source is authoritative."""
         if self._hash is not None:
             return "db"
@@ -684,6 +684,11 @@ def get_session() -> AbstractAsyncContextManager[AsyncSession]:
 def graph_cache() -> GraphCache | None:
     """The lifespan-owned GraphCache singleton (None before startup / in some tests)."""
     return getattr(_main(), "_graph_cache", None)
+
+
+def set_graph_cache(cache: GraphCache | None) -> None:
+    """Set the lifespan-owned GraphCache singleton on app.main (lazy-init from routers)."""
+    _main()._graph_cache = cache  # type: ignore[attr-defined]
 
 
 def import_scheduler() -> ImportScheduler | None:

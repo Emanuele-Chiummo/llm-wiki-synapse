@@ -5,14 +5,13 @@ Per-domain APIRouter: GET /status.
 from __future__ import annotations
 
 import logging
-import sys as _sys
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from app import runtime_state
 from app.config import settings
 from app.models import ReviewItem, VaultState
 
@@ -27,21 +26,6 @@ router = APIRouter()
 # just to read one boolean is unnecessary once the config hasn't changed. None means "not yet
 # computed" so the first poll after a (re)start still resolves fresh.
 _supports_vision_cache: tuple[int, bool] | None = None
-
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 
 class StatusResponse(BaseModel):
@@ -96,7 +80,7 @@ class StatusResponse(BaseModel):
     ),
 )
 async def get_status() -> StatusResponse:
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         row = await session.execute(
             select(VaultState).where(VaultState.vault_id == settings.vault_id)
         )
@@ -139,15 +123,15 @@ async def get_status() -> StatusResponse:
         _supports_vision_cache = (current_cfg_version, supports_vision)
 
     now = datetime.now(UTC)
-    uptime = (now - _m._started_at).total_seconds()
+    uptime = (now - runtime_state.started_at()).total_seconds()
     # Backend version: APP_VERSION env (release-stamped) wins over installed package
     # metadata, which can lag for editable/dev installs (ADR-0054 §6, R12-3).
     return StatusResponse(
         vault_id=settings.vault_id,
         data_version=data_version,
-        started_at=_m._started_at,
+        started_at=runtime_state.started_at(),
         uptime_seconds=uptime,
-        version=_m._resolve_backend_version(),
+        version=runtime_state.resolve_backend_version(),
         review_pending=review_pending,
         supports_vision=supports_vision,
     )
