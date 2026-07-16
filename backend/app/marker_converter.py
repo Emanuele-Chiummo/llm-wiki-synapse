@@ -149,6 +149,7 @@ def start_marker_batch(
     eff_marker_url: str,
     eff_marker_timeout: float,
     vault_root: Path,
+    service_token: str | None = None,
 ) -> MarkerBatch:
     """
     Arm the batch state and fire the background driver as an asyncio.Task.
@@ -164,7 +165,13 @@ def start_marker_batch(
     batch = MarkerBatch(batch_id=batch_id, entries=entries)
     _current_batch = batch
 
-    coro = _marker_batch_driver(batch, eff_marker_url, eff_marker_timeout, vault_root)
+    coro = _marker_batch_driver(
+        batch,
+        eff_marker_url,
+        eff_marker_timeout,
+        vault_root,
+        service_token,
+    )
     _current_task = asyncio.create_task(coro)
 
     logger.info("marker_converter: batch %s started — %d file(s) queued", batch_id, len(entries))
@@ -179,6 +186,7 @@ async def _marker_batch_driver(
     eff_marker_url: str,
     eff_marker_timeout: float,
     vault_root: Path,
+    service_token: str | None = None,
 ) -> None:
     """
     Serial Marker conversion driver (concurrency=1 — single GPU, I7).
@@ -221,9 +229,13 @@ async def _marker_batch_driver(
 
             try:
                 async with httpx.AsyncClient(timeout=eff_marker_timeout) as http:
+                    headers = {}
+                    if service_token:
+                        headers["Authorization"] = f"Bearer {service_token}"
                     response = await http.post(
                         convert_url,
                         files={"file": (entry.safe_stem + ".pdf", pdf_bytes, "application/pdf")},
+                        headers=headers if headers else None,
                     )
                 if response.status_code == 200:
                     data = response.json()

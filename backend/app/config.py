@@ -881,6 +881,16 @@ class Settings(BaseSettings):
     Env var: MARKER_SERVICE_URL.
     """
 
+    marker_service_token: str = ""
+    """
+    Optional bearer token for Marker microservice authentication (SEC-OPS-1).
+    When set, all POST /convert requests carry Authorization: Bearer <token> header.
+    When empty (default), no auth header is sent — backward compatible.
+    Used only when the Marker service is configured to require authentication (multi-host setup).
+    SECRET — env-only; NEVER exposed through PUT /config/app/{key}.
+    Env var: MARKER_SERVICE_TOKEN.
+    """
+
     marker_timeout_seconds: float = 1800.0
     """
     HTTP timeout (seconds) for the call to the Marker microservice (ADR-0051, R8-1, I7).
