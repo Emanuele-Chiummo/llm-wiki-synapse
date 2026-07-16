@@ -149,11 +149,15 @@ function buildMockState(snapshot: IngestQueueSnapshot | null): ActivityStore {
 
 vi.mock("../store/activityStore", () => {
   // Capture the module factory so we can also export hooks/selectors consistently.
+  const useActivityStore = (selector?: (s: ActivityStore) => unknown) => {
+    if (typeof selector === "function") return selector(mockActivityState);
+    return mockActivityState;
+  };
+  // ActivityBar's adaptive /status poll reads useActivityStore.getState().snapshot (RT-1).
+  (useActivityStore as unknown as { getState: () => ActivityStore }).getState = () =>
+    mockActivityState;
   const hooks = {
-    useActivityStore: (selector?: (s: ActivityStore) => unknown) => {
-      if (typeof selector === "function") return selector(mockActivityState);
-      return mockActivityState;
-    },
+    useActivityStore,
     useActivityCounts: () => ({
       paused: mockActivityState.snapshot?.paused ?? false,
       pending: mockActivityState.snapshot?.pending ?? 0,
