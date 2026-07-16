@@ -11,7 +11,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,19 +26,6 @@ export interface ScenarioApplyResponse {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore JSON parse failure
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
 
 // ─── API functions ────────────────────────────────────────────────────────────
 

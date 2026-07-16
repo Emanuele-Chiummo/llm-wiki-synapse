@@ -21,7 +21,7 @@
  * No secrets in this file (CLAUDE.md §12).
  */
 
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 import { apiBase, apiFetch } from "./base";
 
 export { triggerIngest } from "./ingestClient";
@@ -70,15 +70,7 @@ export interface SourceListResponse {
  * Maps to preview strategy in SourcePreview.
  */
 export type SourceCategory =
-  | "text"
-  | "markdown"
-  | "image"
-  | "pdf"
-  | "document"
-  | "data"
-  | "code"
-  | "av"
-  | "other";
+  "text" | "markdown" | "image" | "pdf" | "document" | "data" | "code" | "av" | "other";
 
 /** Response from GET /sources/content?path=<rel>. */
 export interface SourceContentResponse {
@@ -153,19 +145,6 @@ export class IngestAllRunningError extends Error {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore JSON parse failure
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
 
 // ─── API functions ────────────────────────────────────────────────────────────
 

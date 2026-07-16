@@ -26,7 +26,7 @@
  */
 
 import { fetchWithTimeout } from "./http";
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 import { apiBase } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
@@ -72,13 +72,7 @@ export interface SearchResponse {
  * R8-5: valid page types for the `type` filter (AC-R8-5-1).
  * Matches YAML frontmatter `type` field values used by the backend schema.
  */
-export type PageTypeFilter =
-  | "concept"
-  | "entity"
-  | "source"
-  | "synthesis"
-  | "comparison"
-  | "query";
+export type PageTypeFilter = "concept" | "entity" | "source" | "synthesis" | "comparison" | "query";
 
 /**
  * R8-5: sort options for GET /search (AC-R8-5-1).
@@ -113,19 +107,6 @@ export interface SearchWikiOptions {
 
 // ─── Client function ──────────────────────────────────────────────────────────
 
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
-
 /**
  * Call GET /search with a query string and return structured results.
  *
@@ -145,14 +126,11 @@ export async function searchWiki(
   const params = new URLSearchParams({ q: query });
   if (opts.vault_id) params.set("vault_id", opts.vault_id);
   if (opts.k !== undefined) params.set("k", String(opts.k));
-  if (opts.context_window != null)
-    params.set("context_window", String(opts.context_window));
+  if (opts.context_window != null) params.set("context_window", String(opts.context_window));
   // R8-5: type facet — only send param when at least one type is selected
-  if (opts.types && opts.types.length > 0)
-    params.set("type", opts.types.join(","));
+  if (opts.types && opts.types.length > 0) params.set("type", opts.types.join(","));
   // R8-5: sort — only send param when a non-default (non-relevance) sort is requested
-  if (opts.sort && opts.sort !== "relevance")
-    params.set("sort", opts.sort);
+  if (opts.sort && opts.sort !== "relevance") params.set("sort", opts.sort);
 
   const url = `${apiBase()}/search?${params.toString()}`;
 

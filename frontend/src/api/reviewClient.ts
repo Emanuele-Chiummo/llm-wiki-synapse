@@ -29,22 +29,9 @@ import type {
   ReviewItemType,
   ReviewProposalOrigin,
 } from "./types";
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
-
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
 
 /**
  * Status filter for GET /review/queue (ADR-0044 §6).
@@ -155,9 +142,7 @@ export async function dismissReviewItem(itemId: string): Promise<ReviewItem> {
  * 503 if SEARXNG_URL is unset on the backend (I9 guard — no fake run).
  * AC-F10-5: run_id is stored on the review_item row for traceability.
  */
-export async function deepResearchReviewItem(
-  itemId: string,
-): Promise<ReviewDeepResearchResponse> {
+export async function deepResearchReviewItem(itemId: string): Promise<ReviewDeepResearchResponse> {
   const url = `${apiBase()}/review/queue/${encodeURIComponent(itemId)}/deep-research`;
   const res = await apiFetch(url, { method: "POST" });
   await checkResponse(res);
@@ -191,9 +176,7 @@ export async function bulkReview(request: ReviewBulkRequest): Promise<ReviewBulk
  * Pass-1: rule-based title match (no LLM). Pass-2: conservative bounded LLM (I6/I7).
  * Idempotent. Bounded. Does not fail if no items qualify (ADR-0034 §6).
  */
-export async function sweepReviewQueue(
-  vaultId: string,
-): Promise<ReviewSweepResponse> {
+export async function sweepReviewQueue(vaultId: string): Promise<ReviewSweepResponse> {
   const url = `${apiBase()}/review/queue/sweep?vault_id=${encodeURIComponent(vaultId)}`;
   const res = await apiFetch(url, { method: "POST" });
   await checkResponse(res);
@@ -208,9 +191,7 @@ export async function sweepReviewQueue(
  * Pending rows are NEVER touched (ADR-0044 §10 Do-NOT #6).
  * Bounded, vault-scoped, idempotent.
  */
-export async function clearResolved(
-  vaultId: string,
-): Promise<ReviewClearResolvedResponse> {
+export async function clearResolved(vaultId: string): Promise<ReviewClearResolvedResponse> {
   const url = `${apiBase()}/review/queue/resolved?vault_id=${encodeURIComponent(vaultId)}`;
   const res = await apiFetch(url, { method: "DELETE" });
   await checkResponse(res);

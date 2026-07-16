@@ -13,36 +13,15 @@
 
 import type { CacheStatus, GraphResponse, PageDetail } from "./types";
 import { apiBase, apiFetch } from "./base";
+import { ApiError, checkResponse } from "./errors";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
-// ─── Errors ───────────────────────────────────────────────────────────────────
-
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+// Re-exported for backward compatibility — canonical home is now ./errors (FE-QUAL-5).
+export { ApiError };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error; use statusText
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
 
 function parseCacheHeader(res: Response): CacheStatus {
   const value = res.headers.get("X-Graph-Cache");
@@ -98,10 +77,7 @@ export async function fetchGraph(
  * Fetch page detail for the node-click tooltip.
  * GET /pages/{id}
  */
-export async function fetchPageDetail(
-  pageId: string,
-  signal?: AbortSignal,
-): Promise<PageDetail> {
+export async function fetchPageDetail(pageId: string, signal?: AbortSignal): Promise<PageDetail> {
   const url = `${apiBase()}/pages/${encodeURIComponent(pageId)}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);

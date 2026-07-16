@@ -8,34 +8,20 @@
  * No secrets. No hardcoded model/provider IDs (I6).
  */
 
-import type {
-  ImportSchedule,
-  ImportSchedulePutBody,
-  ImportSchedulePutResponse,
-} from "./types";
-import { ApiError } from "./graphClient";
+import type { ImportSchedule, ImportSchedulePutBody, ImportSchedulePutResponse } from "./types";
+import { checkResponse } from "./errors";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
-
-async function checkResponse(res: Response): Promise<void> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
-}
 
 /**
  * Fetch the current schedule config + last-run status.
  * Returns sane defaults (enabled:false, frequency:"1h", …) if no row exists.
  */
 export async function getImportSchedule(signal?: AbortSignal): Promise<ImportSchedule> {
-  const res = await apiFetch(`${apiBase()}/import-schedule`, signal !== undefined ? { signal } : undefined);
+  const res = await apiFetch(
+    `${apiBase()}/import-schedule`,
+    signal !== undefined ? { signal } : undefined,
+  );
   await checkResponse(res);
   return (await res.json()) as ImportSchedule;
 }
