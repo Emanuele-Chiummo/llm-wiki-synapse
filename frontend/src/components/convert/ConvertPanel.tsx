@@ -237,7 +237,7 @@ export function ConvertPanel() {
   const [markerStartError, setMarkerStartError] = useState<string | null>(null);
   const [showCmdField, setShowCmdField] = useState(false);
   const [cmdFieldValue, setCmdFieldValue] = useState("");
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollDeadlineRef = useRef<number>(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -247,14 +247,24 @@ export function ConvertPanel() {
 
   // ── Polling effect — runs while `converting` is true ────────────────────────
   //
-  // Uses an immediate first call then repeats every POLL_INTERVAL_MS.
-  // Stops automatically when the backend reports running = false.
-  // Component-local state only for ephemeral progress (I3).
+  // rt-4: setTimeout-chain pattern (I7 — no setInterval).
+  // Each next poll is scheduled only in the resolved callback of the current one,
+  // preventing concurrent in-flight requests. Immediate first call avoids the
+  // 2.5 s blank state after submit. The chain stops when the backend reports
+  // running = false (setConverting(false) → effect re-runs and returns early).
 
   useEffect(() => {
     if (!converting) return;
 
     let mounted = true;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleNext = () => {
+      if (!mounted) return;
+      timerId = setTimeout(() => {
+        void doPoll();
+      }, POLL_INTERVAL_MS);
+    };
 
     const doPoll = async () => {
       if (!mounted) return;
@@ -264,7 +274,7 @@ export function ConvertPanel() {
         setPollStatus(status);
 
         if (!status.running) {
-          // Batch finished — update history and stop
+          // Batch finished — update history and stop (do NOT schedule next)
           setConverting(false);
           const newEntries: HistoryEntry[] = status.files.map((f) => ({
             id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${f.safe_stem}`,
@@ -279,23 +289,20 @@ export function ConvertPanel() {
             saveHistory(next);
             return next;
           });
+          return; // chain ends here
         }
       } catch {
-        // Network hiccup — will retry on next interval
+        // Network hiccup — schedule next anyway so we keep retrying
       }
+      scheduleNext();
     };
 
     // Immediate first poll (avoids 2.5 s blank state after submit)
     void doPoll();
 
-    // Recurring poll
-    const id = setInterval(() => {
-      void doPoll();
-    }, POLL_INTERVAL_MS);
-
     return () => {
       mounted = false;
-      clearInterval(id);
+      if (timerId !== null) clearTimeout(timerId);
     };
   }, [converting]);
 
@@ -317,7 +324,7 @@ export function ConvertPanel() {
 
   const stopMarkerPoll = useCallback(() => {
     if (pollTimerRef.current !== null) {
-      clearInterval(pollTimerRef.current);
+      clearTimeout(pollTimerRef.current);
       pollTimerRef.current = null;
     }
   }, []);
@@ -348,24 +355,32 @@ export function ConvertPanel() {
 
       pollDeadlineRef.current = Date.now() + MARKER_POLL_TIMEOUT_MS;
 
-      pollTimerRef.current = setInterval(() => {
-        if (Date.now() > pollDeadlineRef.current) {
-          stopMarkerPoll();
-          setMarkerStarting(false);
-          setMarkerStartError(t("convert.startMarkerError"));
-          return;
-        }
-
-        void getMarkerHealth().then((h) => {
-          if (h.status === "ok") {
+      // rt-4: setTimeout-chain pattern (I7 — no setInterval).
+      // Next poll is scheduled only after the current one resolves.
+      const schedulePoll = () => {
+        pollTimerRef.current = setTimeout(() => {
+          if (Date.now() > pollDeadlineRef.current) {
             stopMarkerPoll();
-            setHealth(h);
-            setHealthLoading(false);
             setMarkerStarting(false);
-            setMarkerStartError(null);
+            setMarkerStartError(t("convert.startMarkerError"));
+            return; // chain ends — deadline expired
           }
-        });
-      }, MARKER_POLL_INTERVAL_MS);
+
+          void getMarkerHealth().then((h) => {
+            if (h.status === "ok") {
+              stopMarkerPoll();
+              setHealth(h);
+              setHealthLoading(false);
+              setMarkerStarting(false);
+              setMarkerStartError(null);
+              // chain ends — Marker is online
+            } else {
+              schedulePoll(); // schedule next only on still-offline response
+            }
+          });
+        }, MARKER_POLL_INTERVAL_MS);
+      };
+      schedulePoll();
     },
     [stopMarkerPoll, t],
   );

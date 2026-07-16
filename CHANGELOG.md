@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.8.1] — 2026-07-16 — "ingest robustness, real-time UI & accessibility"
+
+Bug-fix release hardening the ingest pipeline against token-dense (regulatory/tabular) documents,
+making the dashboard and graph update in real time, and closing a batch of accessibility gaps —
+found via a multi-agent audit and each adversarially verified before landing.
+
+### Fixed
+- **Token-dense documents crashed embedding and aborted the whole ingest.** `embed_max_chars` bounded
+  *characters*, but bge-m3's limit is *tokens*: dense content (Marker-extracted tables, numeric
+  registries, legal references) packs >1 token/char, so a payload well under the cap still made
+  Ollama return HTTP 500 "input length exceeds the context length" — and that 500 propagated,
+  aborting the entire document with **0 pages created**. `EmbeddingClient.embed` now catches that
+  specific 500 and retries with the input halved down to a floor (bounded, tokenizer-free), and
+  `upsert_vector` degrades an unrecoverable embedding failure to a **vector-less page** (the page
+  stays fully indexed; only the Qdrant vector is skipped) instead of aborting the run.
+- **"PAGINE CREATE 0" even when pages were written.** The counter keyed off the provider capability
+  instead of the resolved route, so every CLI + block-pipeline run reported 0 pages; the failure
+  path hard-coded 0; and the delegated count came from the model's self-reported tool-call count.
+  All three now report the pages actually persisted.
+- **CLI provider failures were opaque and fatal.** An empty/rate-limited completion raised one
+  generic error that aborted the document with no retry. The provider now classifies the terminal
+  result (rate-limit / overloaded / execution error → transient vs a clean empty), the block loop
+  retries transients with bounded exponential backoff (and treats an empty generation as a
+  zero-block attempt), and per-call cost/tokens are recorded even when the SDK raises mid-stream (I7).
+- **Dashboard KPIs and the knowledge graph did not update in real time.** The server `data_version`
+  was only refreshed by a fixed 30 s poll, so after an ingest the numbers and graph stayed stale up
+  to 30 s. The `/status` poll cadence is now adaptive (~3 s while the queue is working, 30 s idle),
+  and direct edits (page save, cascade-delete, lint-fix apply, save-to-wiki) push the new
+  `data_version` immediately — so the UI reflects changes within seconds. The graph's re-fetch is
+  throttled to ≥10 s during a long ingest to stay smooth (server-computed coords only; I2 intact).
+- **Ingest run list froze / stopped polling** for runs beyond the first page during bulk imports —
+  it now re-fetches the full loaded range and counts running rows across the whole list.
+- **Background jobs could be garbage-collected mid-run.** Eight `asyncio.create_task` sites
+  (deep-research runners, ingest-all drivers, review sweeps, the queue drain) did not retain a
+  strong reference, so an unreferenced task could be GC-cancelled — wedging a run at "running"
+  forever or leaving a permanent HTTP 409. All now hold a strong reference.
+- **Accessibility:** the ⌘K search affordance is now a real button (reachable on touch/mobile, was an
+  `aria-hidden` div); keyboard focus rings on the graph/search inputs are restored (WCAG 2.4.7);
+  toast auto-dismiss pauses on hover/focus (WCAG 2.2.1); amber warning text meets 4.5:1 contrast;
+  the nav rail moves focus to the active item under arrow keys.
+
+### Added
+- A subtle **"Updating…"** affordance on the dashboard and graph while a live refresh is in flight.
+
+### Changed
+- `EMBED_MAX_CHARS` default lowered 8000 → 4000 (the shrink-retry handles anything denser); the
+  stale "degrade to a vector-less page (connectors.importer)" doc was corrected to describe the
+  real, now-implemented behavior. `ConvertPanel`'s pollers use a `setTimeout` chain (no overlap, I7).
+
+### Known follow-ups (not in this release)
+- Queue-level 429 auto-pause + capability-keyed concurrency cap (the per-call retry-with-backoff is
+  the current mitigation); removal of stray macOS `* 2.py` / `schema 4|5.mmd` duplicate files;
+  a few graph/stats query micro-optimizations.
+
 ## [1.8.0] — 2026-07-16 — "one-click system update"
 
 ### Added
@@ -1136,6 +1190,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.8.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.2...v1.7.3

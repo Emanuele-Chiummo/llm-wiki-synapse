@@ -17,7 +17,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp, ChevronDown, Search } from "lucide-react";
 import { ProviderSelector } from "./provider/ProviderSelector";
 import { SynapseMark } from "./brand/SynapseMark";
 import { isTauri, getKnownServers } from "../api/base";
@@ -314,11 +314,14 @@ export function Header() {
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* UXA-26: ⌘K search affordance — bordered pill that looks interactive [v1.7.0 refinement].
-          aria-hidden: purely decorative; keyboard users discover it via tab-focus on palette.
-          Matches mockup .cmdk style: border, rounded, mono ⌘K kbd hint on right. */}
-      <div
-        aria-hidden="true"
+      {/* UXA-26 / a11y-cmdk-pill: ⌘K search affordance — real <button> so touch/mobile
+          users can reach it. Dispatches synapse:openPalette; AppShell owns the state.
+          CSS class .app-header__cmdk collapses to icon-only on mobile (≤767px). */}
+      <button
+        type="button"
+        className="app-header__cmdk"
+        aria-label={t("palette.openLabel")}
+        onClick={() => window.dispatchEvent(new Event("synapse:openPalette"))}
         style={{
           display: "flex",
           alignItems: "center",
@@ -333,11 +336,15 @@ export function Header() {
           fontSize: 12,
           userSelect: "none",
           whiteSpace: "nowrap",
-          cursor: "default",
+          cursor: "pointer",
         }}
       >
-        <span style={{ flex: 1, opacity: 0.7 }}>{t("palette.searchHint")}</span>
+        <Search size={13} aria-hidden="true" className="app-header__cmdk-icon" />
+        <span className="app-header__cmdk-text" style={{ flex: 1, opacity: 0.7 }}>
+          {t("palette.searchHint")}
+        </span>
         <kbd
+          className="app-header__cmdk-kbd"
           style={{
             marginLeft: "auto",
             fontFamily: "var(--syn-font-mono)",
@@ -351,7 +358,7 @@ export function Header() {
         >
           {t("palette.trigger")}
         </kbd>
-      </div>
+      </button>
 
       {/* Provider Selector (F17) */}
       <div className="app-header__provider-slot">

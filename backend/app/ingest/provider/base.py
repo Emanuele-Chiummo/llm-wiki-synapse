@@ -63,6 +63,27 @@ class UsageAccumulator:
         )
 
 
+class ProviderError(RuntimeError):
+    """Base for provider-transport failures surfaced to the orchestrated block loop / pipeline.
+
+    Typed so the loop can decide retry-vs-fallback-vs-surface without inspecting provider identity
+    (I6): the provider classifies the failure; the orchestrator reacts to the TYPE, never the class.
+    """
+
+
+class ProviderEmptyOutput(ProviderError):
+    """The provider completed cleanly but produced no usable text (a genuine no-op).
+
+    Retrying the same prompt is unlikely to help; the block loop treats an empty GENERATION as a
+    zero-block attempt and lets its own augment-and-retry handle it, and an empty ANALYSIS as fatal.
+    """
+
+
+class ProviderTransientError(ProviderError):
+    """A transient, retryable provider failure — rate-limit (429), overloaded, or an SDK/execution
+    error that a short backoff-and-retry (or the single provider fallback) can recover from."""
+
+
 class InferenceProvider(abc.ABC):
     """
     Abstract inference backend (ADR-0007). Three concrete subclasses ship in v0.2:

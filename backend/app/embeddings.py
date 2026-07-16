@@ -54,6 +54,29 @@ class EmbeddingError(RuntimeError):
     """Raised when the embedding service returns an error or unexpected shape."""
 
 
+# ── Token-robustness (I7) ──────────────────────────────────────────────────────
+# embed_max_chars bounds CHARACTERS, but bge-m3's limit is TOKENS (~8192). Token-dense content
+# (Marker-extracted tables/numbers/legal refs) packs >1 token/char, so a payload well under the
+# char cap can still 500 with "input length exceeds the context length". With no tokenizer
+# available (I9 — no new dependency), embed() catches that specific 500 and retries with the input
+# halved, down to a floor: O(log n), bounded attempts.
+_EMBED_HALVING_MAX_ATTEMPTS = 6
+_EMBED_HALVING_MIN_CHARS = 512
+
+
+def _is_context_length_error(exc: httpx.HTTPStatusError) -> bool:
+    """True only for the bge-m3/Ollama 'input length exceeds the context length' 500 — the one
+    that shrinking the input can fix. Any other 5xx/4xx surfaces immediately (not retried)."""
+    resp = exc.response
+    if resp is None or resp.status_code != 500:
+        return False
+    try:
+        body = resp.text.lower()
+    except Exception:  # noqa: BLE001 — unreadable body → treat as non-retryable
+        return False
+    return "context length" in body or "input length" in body
+
+
 # ── Real HTTP implementation ───────────────────────────────────────────────────
 
 
@@ -159,19 +182,49 @@ class HttpEmbeddingClient(EmbeddingClient):
             text = text[:max_chars]
 
         client = await self._ensure_client()
-        try:
-            resp = await client.post(
-                self._url,
-                json=self._build_body(text),
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise EmbeddingError(
-                f"Embedding service at {self._url} returned an error: {exc}"
-            ) from exc
+        # Token-robust guard (I7): the char cap above cannot bound TOKENS, so token-dense content
+        # under embed_max_chars can still exceed bge-m3's 8192-token context and 500. Catch that
+        # specific error and retry with the text halved, down to a floor — bounded, tokenizer-free.
+        attempt_text = text
+        last_exc: httpx.HTTPStatusError | None = None
+        for _ in range(_EMBED_HALVING_MAX_ATTEMPTS):
+            try:
+                resp = await client.post(
+                    self._url,
+                    json=self._build_body(attempt_text),
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if _is_context_length_error(exc) and len(attempt_text) > _EMBED_HALVING_MIN_CHARS:
+                    last_exc = exc
+                    new_len = max(len(attempt_text) // 2, _EMBED_HALVING_MIN_CHARS)
+                    logger.warning(
+                        "EmbeddingClient.embed: %s context-length 500 for %d chars — retrying "
+                        "with %d (token-dense content exceeds bge-m3's context).",
+                        self._url,
+                        len(attempt_text),
+                        new_len,
+                    )
+                    attempt_text = attempt_text[:new_len]
+                    continue
+                raise EmbeddingError(
+                    f"Embedding service at {self._url} returned an error: {exc}"
+                ) from exc
+            except httpx.HTTPError as exc:
+                # Transport/timeout/connection error — not a context-length issue; surface now.
+                raise EmbeddingError(
+                    f"Embedding service at {self._url} returned an error: {exc}"
+                ) from exc
+            else:
+                return self._parse_response(resp.json())
 
-        return self._parse_response(resp.json())
+        # Still 500ing at the floor after the bounded attempts — surface so the caller degrades
+        # (upsert_vector persists a vector-less page).
+        raise EmbeddingError(
+            f"Embedding service at {self._url} returned an error after "
+            f"{_EMBED_HALVING_MAX_ATTEMPTS} shrink-retries: {last_exc}"
+        ) from last_exc
 
     async def _ensure_client(self) -> httpx.AsyncClient:
         """Return the shared AsyncClient, creating it under a lock on first use."""

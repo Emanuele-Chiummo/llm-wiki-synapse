@@ -61,6 +61,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[asyncio.Task[Any]] = set()
+
 # W1 (F17): bounded provider-test knobs (I7). Short wall-clock timeout + tiny token cap so a
 # connection/function probe can never run away. Both overridable via env for slow gateways.
 _PROVIDER_TEST_TIMEOUT_S = float(os.environ.get("PROVIDER_TEST_TIMEOUT_SECONDS", "15"))
@@ -1938,7 +1941,9 @@ async def run_import_now() -> RunNowResponse:
     except HTTPException:
         raise
 
-    asyncio.create_task(_run())
+    _t = asyncio.create_task(_run())
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
     return RunNowResponse(status="started")
 
 

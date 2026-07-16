@@ -59,6 +59,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[asyncio.Task[Any]] = set()
+
 # ── Accepted value sets (app-side enum-by-convention, no DB CHECK — ADR-0034 §3.1) ──
 # R9-3 (v0.9): `purpose-suggestion` added. R9-4 (v0.9): `schema-suggestion` added. item_type is
 # a free Text column (no DB CHECK constraint — ADR-0034 §3.1), so extending this app-side set is
@@ -2763,7 +2766,9 @@ async def _create_stub_from_review(
         except Exception as exc:  # noqa: BLE001
             logger.warning("create_page_from_review: post-stub sweep failed (non-fatal): %s", exc)
 
-    asyncio.create_task(_do_stub_sweep())
+    _t = asyncio.create_task(_do_stub_sweep())
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
     return item2
 
 
@@ -3144,7 +3149,9 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
         except Exception as exc:  # noqa: BLE001
             logger.warning("create_page_from_review: post-create sweep failed (non-fatal): %s", exc)
 
-    asyncio.create_task(_do_sweep())
+    _t = asyncio.create_task(_do_sweep())
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
 
     return item2
 
@@ -3509,7 +3516,7 @@ async def deep_research(
 
     # Schedule the background task. R7-5: pass the curated seed_queries so the first research
     # round uses them verbatim (no re-generation) — AC-R7-5-2.
-    _asyncio.create_task(
+    _t = _asyncio.create_task(
         run_deep_research(
             vault_id=effective_vault_id,
             topic=topic,
@@ -3519,6 +3526,8 @@ async def deep_research(
             seed_queries=seed_queries or None,
         )
     )
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
 
     logger.info(
         "deep_research action: review_item_id=%s → run_id=%s vault=%s topic=%r seeds=%d",

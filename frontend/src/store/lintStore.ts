@@ -36,6 +36,7 @@ import {
   sendLintFindingToReview,
   deleteWikiPage,
 } from "../api/lintClient";
+import { refreshDataVersion } from "./statusStore";
 
 // ─── localStorage key ─────────────────────────────────────────────────────────
 
@@ -263,6 +264,8 @@ export const useLintStore = create<LintStore>((set, get) => ({
         findingsTotal: Math.max(0, s.findingsTotal - 1),
         actionInFlight: { ...s.actionInFlight, [findingId]: null },
       }));
+      // RT-2: lint-fix apply may write wiki files → bump data_version immediately.
+      refreshDataVersion();
     } catch (err: unknown) {
       set((s) => ({
         actionInFlight: { ...s.actionInFlight, [findingId]: null },
@@ -417,6 +420,8 @@ export const useLintStore = create<LintStore>((set, get) => ({
         selectedIds: new Set<string>(),
         batchInFlight: false,
       }));
+      // RT-2: batch apply may write wiki files → bump data_version immediately.
+      refreshDataVersion();
       await get().refresh(vaultId);
       return { ok: res.ok_count, err: res.error_count };
     } catch (err: unknown) {

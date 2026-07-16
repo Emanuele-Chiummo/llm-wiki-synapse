@@ -48,6 +48,7 @@ import {
   Lightbulb,
   Search,
   X,
+  Loader2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -126,6 +127,13 @@ import {
 
 const reducedMotion: boolean =
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ─── RT-3: minimum interval between version-driven graph re-fetches ───────────
+// During a long ingest the data_version can bump on every poll tick (3s cadence).
+// Re-fetching the full graph on every bump is jittery and wasteful; a 10s minimum
+// interval means we update the graph at most 6×/minute. HomeDashboard stats are
+// cheap JSON and are NOT throttled (still re-fetch on every bump).
+const GRAPH_REFETCH_MIN_MS = 10_000;
 
 // ─── Resolved theme helpers (ADR-0048 §T1) ───────────────────────────────────
 // Read render-only sigma properties from resolved CSS custom properties.
@@ -567,7 +575,7 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
                 border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
                 borderRadius: 4,
                 fontSize: 11,
-                color: "var(--syn-amber)",
+                color: "var(--syn-warn-text)",
                 fontWeight: 500,
               }}
             >
@@ -1116,7 +1124,7 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
               data-testid="graph-header-hidden"
               style={{
                 fontSize: 11,
-                color: "var(--syn-amber)",
+                color: "var(--syn-warn-text)",
                 background: "color-mix(in srgb, var(--syn-amber) 12%, var(--syn-mix-base) 90%)",
                 border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent)",
                 borderRadius: 3,
@@ -1164,7 +1172,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                 background: "var(--syn-bg)",
                 color: "var(--syn-text)",
                 width: 160,
-                outline: "none",
               }}
             />
             {/* Clear / collapse button */}
@@ -1338,7 +1345,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                     borderRadius: 3,
                     background: "var(--syn-bg)",
                     color: "var(--syn-text)",
-                    outline: "none",
                   }}
                 />
                 <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>–</span>
@@ -1361,7 +1367,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                     borderRadius: 3,
                     background: "var(--syn-bg)",
                     color: "var(--syn-text)",
-                    outline: "none",
                   }}
                 />
               </div>
@@ -2181,7 +2186,7 @@ const CentroidOverlay: React.FC<CentroidOverlayProps> = ({
 
 // ─── Status bar ───────────────────────────────────────────────────────────────
 
-const StatusBar: React.FC = () => {
+const StatusBar: React.FC<{ isRefetching?: boolean }> = ({ isRefetching = false }) => {
   const { t } = useTranslation();
   const { loading, error } = useGraphStatus();
   const { dataVersion, cacheStatus } = useGraphMeta();
@@ -2253,6 +2258,32 @@ const StatusBar: React.FC = () => {
       <span>{nodes.length} nodes</span>
       <span>{edges.length} edges</span>
       {dataVersion !== null && <span>v{dataVersion}</span>}
+      {/* UX-1: "updating…" pill — visible only while a version-bump re-fetch is in-flight */}
+      {isRefetching && (
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            fontSize: 10,
+            fontWeight: 600,
+            color: "var(--syn-accent)",
+            background: "var(--syn-accent-soft)",
+            borderRadius: "var(--syn-radius-pill)",
+            padding: "1px 6px",
+          }}
+        >
+          <Loader2
+            size={9}
+            aria-hidden="true"
+            style={{
+              animation: reducedMotion ? "none" : "syn-spin 0.8s linear infinite",
+              flexShrink: 0,
+            }}
+          />
+          {t("home.updating")}
+        </span>
+      )}
       {cacheStatus !== "unknown" && (
         <span style={{ color: cacheStatus === "hit" ? "var(--syn-green)" : "var(--syn-amber)" }}>
           {cacheStatus}
@@ -2384,6 +2415,15 @@ export const GraphViewer: React.FC = () => {
   // Track which data_version the current graph data corresponds to so we only
   // refetch when the server version actually advances (AC-WS-A-3).
   const lastFetchedGraphVersionRef = useRef<number | null>(null);
+
+  // RT-3: timestamp of the last version-driven graph re-fetch (milliseconds).
+  // Prevents re-fetching on every version bump during a long ingest — throttled
+  // to at most once per GRAPH_REFETCH_MIN_MS. The initial mount fetch is exempt.
+  const lastGraphRefetchTimeRef = useRef<number>(0);
+
+  // UX-1: true only while a version-bump-triggered graph re-fetch is in-flight
+  // (NOT during the initial mount fetch which shows its own skeleton).
+  const [isGraphRefetching, setIsGraphRefetching] = useState(false);
 
   // Graph container ref — used for fullscreen API (GR7)
   const graphRootRef = useRef<HTMLDivElement>(null);
@@ -2554,11 +2594,18 @@ export const GraphViewer: React.FC = () => {
   // Skips re-fetch if the version hasn't changed from last graph fetch (AC-WS-A-3).
   // INVARIANT I2: only calls fetchGraph; NEVER runs FA2 or any layout algorithm.
   // INVARIANT I3: effect deps are the version scalar; no per-tick re-render when unchanged.
+  // RT-3: throttled to at most once per GRAPH_REFETCH_MIN_MS to prevent jitter during
+  // long ingests (status poll cadence = 3s; many bumps in a row → skip intermediate ones).
   useEffect(() => {
     if (statusDataVersion === null) return;
     if (statusDataVersion === lastFetchedGraphVersionRef.current) return;
-    // Version has advanced — refetch precomputed coords from server (AC-WS-A-2).
+    // RT-3: enforce minimum interval between version-driven re-fetches (not initial mount).
+    const now = Date.now();
+    if (now - lastGraphRefetchTimeRef.current < GRAPH_REFETCH_MIN_MS) return;
+    lastGraphRefetchTimeRef.current = now;
+    // Version has advanced past the throttle window — refetch precomputed coords (AC-WS-A-2).
     const ctrl = new AbortController();
+    setIsGraphRefetching(true); // UX-1: show "updating…" pill while in-flight
     fetchGraph(vaultId, ctrl.signal)
       .then(({ data, cacheStatus }) => {
         setGraph(
@@ -2577,6 +2624,9 @@ export const GraphViewer: React.FC = () => {
         if (err instanceof Error && err.name !== "AbortError") {
           console.warn("[WS-A] graph freshness re-fetch failed:", err.message);
         }
+      })
+      .finally(() => {
+        setIsGraphRefetching(false);
       });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3498,7 +3548,7 @@ export const GraphViewer: React.FC = () => {
         </div>
 
         {/* Status bar overlay — bottom-center so it doesn't conflict with zoom controls top-right */}
-        <StatusBar />
+        <StatusBar isRefetching={isGraphRefetching} />
 
         {/* Legend overlay — CVD-safe: name + color swatch; switches on colorMode.
           "community" mode shows ONE row per Louvain community, labeled with

@@ -657,3 +657,29 @@
     flex-basis: 100%;
   }
 }
+
+/* ── a11y-cmdk-pill: ⌘K search button in the header [a11y / F1] ─────────────
+ * Desktop: full pill (Search icon + hint text + ⌘K badge).
+ * Mobile (≤767px): collapses to a square icon-only 44×44 tap target.
+ *   - min-width removed so the button shrinks to its icon.
+ *   - Text and kbd badge hidden via display:none (they are decorative on mobile;
+ *     the aria-label on the <button> remains for screen readers).
+ */
+.app-header__cmdk {
+  /* No additional desktop overrides needed — inline styles on the element handle geometry. */
+}
+
+@media (max-width: 767px) {
+  .app-header__cmdk {
+    min-width: 44px !important;
+    width: 44px;
+    height: 44px !important;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  .app-header__cmdk-text,
+  .app-header__cmdk-kbd {
+    display: none;
+  }
+}

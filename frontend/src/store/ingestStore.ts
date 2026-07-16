@@ -220,15 +220,21 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
       const { runningCount: prevRunning, runs: prevRuns } = get();
       if (prevRunning === 0) return; // bounded: stop when no running rows
       try {
+        // Re-fetch the full loaded range (not just the first page) so running rows beyond
+        // PAGE_LIMIT refresh their status, and compute runningCount over the WHOLE list — else a
+        // running row past the first page never updates, and if the first page has no running rows
+        // the poll halts (prevRunning===0 guard) while deeper rows are still running (freeze).
+        const pollLimit = Math.max(PAGE_LIMIT, prevRuns.length);
         const pollOpts =
           vaultId !== undefined
-            ? { limit: PAGE_LIMIT, offset: 0, vaultId }
-            : { limit: PAGE_LIMIT, offset: 0 };
+            ? { limit: pollLimit, offset: 0, vaultId }
+            : { limit: pollLimit, offset: 0 };
         const res = await fetchIngestRuns(pollOpts, ctrl.signal);
         if (!ctrl.signal.aborted) {
-          const running = countRunning(res.items);
+          const merged = [...res.items, ...prevRuns.slice(res.items.length)];
+          const running = countRunning(merged);
           set((s) => ({
-            // Replace the first page in the accumulated list; keep deeper pages
+            // Replace the refreshed range in the accumulated list; keep any deeper pages
             runs: [...res.items, ...s.runs.slice(res.items.length)],
             total: res.total,
             runningCount: running,

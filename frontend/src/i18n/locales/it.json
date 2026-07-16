@@ -1348,7 +1348,8 @@
     "pages": "Pagine",
     "hint": "↑↓ naviga · Invio apri · Esc chiudi",
     "trigger": "⌘K",
-    "searchHint": "Cerca o salta…"
+    "searchHint": "Cerca o salta…",
+    "openLabel": "Apri palette comandi"
   },
   "conversation": {
     "autoTitle": {
@@ -1581,6 +1582,7 @@
   "home": {
     "title": "Panoramica sistema",
     "subtitle": "Panoramica della tua base di conoscenza",
+    "updating": "Aggiornamento…",
     "error": {
       "title": "Impossibile caricare la panoramica della conoscenza"
     },

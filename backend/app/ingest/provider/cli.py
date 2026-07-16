@@ -60,7 +60,12 @@ from pathlib import Path
 from typing import Any
 
 from app.ingest.provider._common import CAPTION_INSTRUCTION, resolve_image_bytes_and_media_type
-from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.provider.base import (
+    InferenceProvider,
+    ProviderEmptyOutput,
+    ProviderTransientError,
+    UsageAccumulator,
+)
 from app.ingest.provider.config import ProviderSettings
 from app.ingest.schemas import (
     Analysis,
@@ -629,9 +634,10 @@ class CliAgentProvider(InferenceProvider):
                         if msg_cost is not None:
                             sdk_cost_usd = msg_cost
         finally:
+            # I7: record usage/cost even if the SDK raised mid-stream (mirror complete()).
+            self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
             if tmp_path is not None:
                 tmp_path.unlink(missing_ok=True)
-        self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
         caption = "".join(parts).strip()
         if not caption:
             raise ValueError("CliAgentProvider vision returned an empty caption")
@@ -669,19 +675,35 @@ class CliAgentProvider(InferenceProvider):
         parts: list[str] = []
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         sdk_cost_usd: float | None = None
-        with _cli_subscription_env_scope(self._config.subscription_token):
-            async with ClaudeSDKClient(options=options) as client:
-                await client.query(prompt)
-                async for message in client.receive_response():
-                    parts.extend(_extract_text_deltas(message))
-                    usage = _merge_sdk_usage(usage, message)
-                    msg_cost = _extract_sdk_cost(message)
-                    if msg_cost is not None:
-                        sdk_cost_usd = msg_cost
-        self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
+        result_message: Any = None
+        try:
+            with _cli_subscription_env_scope(self._config.subscription_token):
+                async with ClaudeSDKClient(options=options) as client:
+                    await client.query(prompt)
+                    async for message in client.receive_response():
+                        parts.extend(_extract_text_deltas(message))
+                        usage = _merge_sdk_usage(usage, message)
+                        msg_cost = _extract_sdk_cost(message)
+                        if msg_cost is not None:
+                            sdk_cost_usd = msg_cost
+                        result_message = message  # terminal ResultMessage wins (last message)
+        finally:
+            # I7: record whatever usage/cost accrued even if the SDK raised mid-stream (a dropped
+            # 429 / connection error). Without this the failed runs operators most need to audit
+            # would under-report total_cost_usd.
+            self._record_usage(_finalize_chat_usage(usage, sdk_cost_usd, auth_mode))
         text = "".join(parts).strip()
         if not text:
-            raise ValueError("CliAgentProvider.complete() returned empty text")
+            # Classify empty output so the loop/pipeline can react to the TYPE, not the provider
+            # (I6): an empty completion coinciding with an error result (api_error_status / is_error
+            # / error subtype) is transient (rate-limit / overloaded / execution error →
+            # retry-with-backoff or single fallback); a clean empty is a genuine no-op.
+            # NOTE: max_tokens is advisory on the CLI backend — the installed ClaudeAgentOptions
+            # has no per-call output-token field; output is bounded by max_turns=1 + token_budget.
+            reason = _sdk_result_error(result_message)
+            if reason is not None:
+                raise ProviderTransientError(f"CliAgentProvider.complete(): {reason}")
+            raise ProviderEmptyOutput("CliAgentProvider.complete() returned empty text")
         return text
 
 
@@ -959,6 +981,33 @@ def _extract_sdk_cost(message: Any) -> float | None:
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _sdk_result_error(message: Any) -> str | None:
+    """Return a short reason string if the terminal ResultMessage signals an ERROR, else None.
+
+    Distinguishes a transient/upstream failure (rate-limit / overloaded / execution error — the
+    SDK carries it via `api_error_status` (429/500/529), `is_error`, or an error `subtype`) from a
+    clean empty completion. Read defensively (getattr / dict) because the SDK shape may evolve (R3).
+    """
+    if message is None:
+        return None
+
+    def _field(name: str) -> Any:
+        val = getattr(message, name, None)
+        if val is None and isinstance(message, dict):
+            val = message.get(name)
+        return val
+
+    api_error = _field("api_error_status")
+    if api_error:
+        return f"api_error_status={api_error}"
+    if _field("is_error"):
+        return f"is_error subtype={_field('subtype')}"
+    subtype = _field("subtype")
+    if isinstance(subtype, str) and subtype.startswith("error"):
+        return f"subtype={subtype}"
+    return None
 
 
 __all__ = [

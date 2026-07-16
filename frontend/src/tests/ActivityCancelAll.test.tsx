@@ -119,11 +119,16 @@ function buildMockState(snapshot: IngestQueueSnapshot | null): ActivityStore {
 }
 
 vi.mock("../store/activityStore", () => {
+  const useActivityStore = (selector?: (s: ActivityStore) => unknown) => {
+    if (typeof selector === "function") return selector(mockActivityState);
+    return mockActivityState;
+  };
+  // ActivityBar's adaptive /status poll reads useActivityStore.getState().snapshot (RT-1) without
+  // subscribing — the mock must expose getState too, else the poll throws in fake-timer runs.
+  (useActivityStore as unknown as { getState: () => ActivityStore }).getState = () =>
+    mockActivityState;
   const hooks = {
-    useActivityStore: (selector?: (s: ActivityStore) => unknown) => {
-      if (typeof selector === "function") return selector(mockActivityState);
-      return mockActivityState;
-    },
+    useActivityStore,
     useActivityCounts: () => ({
       paused: mockActivityState.snapshot?.paused ?? false,
       pending: mockActivityState.snapshot?.pending ?? 0,

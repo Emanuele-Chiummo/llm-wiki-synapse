@@ -56,11 +56,26 @@ import {
   MAX_VISIBLE_FAILED,
 } from "../../store/activityStore";
 import { MaxRetriesExceededError } from "../../api/ingestClient";
-import type { QueueTask } from "../../api/types";
+import type { IngestQueueSnapshot, QueueTask } from "../../api/types";
 
 // ─── Status-poll constants ─────────────────────────────────────────────────────
 
 const STATUS_POLL_MS = 30_000;
+// RT-1: while an ingest / queue is active, poll fast so data_version — and the dashboard KPIs +
+// graph that re-fetch on data_version change — stay live within a few seconds instead of lagging
+// up to STATUS_POLL_MS. Self-throttles back to 30s when idle. I3: no new poller (same setTimeout
+// chain); I7: bounded, aborted on cleanup.
+const STATUS_POLL_ACTIVE_MS = 3_000;
+
+/**
+ * RT-1: adaptive /status cadence. Fast (3s) while the queue is doing work — every write bumps
+ * data_version and the dashboard KPIs + graph re-fetch on that change — else the idle 30s.
+ * `paused` is intentionally NOT "active": a paused queue produces no writes.
+ */
+export function statusPollDelayMs(snap: IngestQueueSnapshot | null): number {
+  const active = (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0;
+  return active ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_MS;
+}
 
 // ─── Known phase keys — maps backend phase string to i18n key ─────────────────
 
@@ -421,7 +436,9 @@ export function ActivityBar(): ReactNode {
         }
       }
       if (!ctrl.signal.aborted) {
-        statusTimerRef.current = setTimeout(pollStatus, STATUS_POLL_MS);
+        // RT-1: adaptive cadence. Reads the snapshot without subscribing (no extra re-render, I3).
+        const delay = statusPollDelayMs(useActivityStore.getState().snapshot);
+        statusTimerRef.current = setTimeout(pollStatus, delay);
       }
     }
     void pollStatus();

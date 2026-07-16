@@ -131,6 +131,14 @@ export function AppShell() {
     return () => window.removeEventListener(OPEN_SETUP_EVENT, onReopenWizard);
   }, []);
 
+  // a11y-cmdk-pill: listen for the custom event dispatched by the Header cmdk button.
+  // This avoids prop-drilling; the palette state stays owned here (no duplication).
+  useEffect(() => {
+    const handleOpenPalette = () => setPaletteOpen(true);
+    window.addEventListener("synapse:openPalette", handleOpenPalette);
+    return () => window.removeEventListener("synapse:openPalette", handleOpenPalette);
+  }, []);
+
   const showWizard = shouldShow || wizardForceOpen;
 
   if (inTauri && serverUrl === null) {

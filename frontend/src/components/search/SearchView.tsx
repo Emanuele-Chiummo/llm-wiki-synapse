@@ -633,7 +633,6 @@ export function SearchView() {
             style={{
               flex: 1,
               border: "none",
-              outline: "none",
               background: "transparent",
               color: "var(--syn-text)",
               fontSize: 13,

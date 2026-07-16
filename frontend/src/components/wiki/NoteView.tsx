@@ -92,6 +92,7 @@ import {
   fetchRelatedPages,
   fetchAllPages,
 } from "../../api/pagesClient";
+import { refreshDataVersion } from "../../store/statusStore";
 import { ApiError } from "../../api/graphClient";
 import { renderMarkdown, stripLeadingFrontmatter } from "../chat/renderMarkdown";
 import { EmptyState } from "../common/EmptyState";
@@ -616,6 +617,9 @@ export function NoteView() {
       setIsDirty(false);
       setMode("read");
       showToast(t("noteView.saved"), "success");
+      // RT-2: bump data_version in store so dashboard/graph refresh without waiting
+      // for the next ActivityBar poll (fire-and-forget, never blocks the UI).
+      refreshDataVersion();
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 409) {
         // Stale conflict — surface the reload affordance in the UI.

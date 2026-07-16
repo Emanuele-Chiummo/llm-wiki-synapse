@@ -546,7 +546,6 @@ async def run_ingest_pipeline(
                 )
                 if _src_pg is not None:
                     delegated_page_ids.append(str(_src_pg.id))
-                    delegated_pages_written += 1
                     orch.ingest_queue.record_written(run_id, _src_pg.id)
             except Exception as _src_d_exc:  # noqa: BLE001
                 logger.warning(
@@ -554,6 +553,12 @@ async def run_ingest_pipeline(
                     "(non-fatal): %s",
                     _src_d_exc,
                 )
+
+            # Delegated count = the pages actually captured by the MCP write seam (deduped), so
+            # pages_created agrees with page_type_counts (both derive from delegated_page_ids). The
+            # provider's self-reported write_page tool-call count can over-count on a failed/retried
+            # tool call, which is why we key off the recorded ids instead (I7 accounting truth).
+            delegated_pages_written = len(dict.fromkeys(delegated_page_ids))
 
             # ── overview.md: ingest no longer regenerates overview.md (ADR-0078) ──────────
             # overview.md is now a manual-op, triggered via POST /ops/overview/regenerate.
@@ -905,7 +910,11 @@ async def run_ingest_pipeline(
             converged=False,
             cost_anomaly=round(accumulator.total_cost_usd, 4) > orch.COST_ANOMALY_THRESHOLD_USD,
             finished_at=finished_at,
-            pages_created=0,
+            # Truthful ledger (I7): report the pages actually persisted before the failure, not a
+            # literal 0. record_written tracks each successful write, so handle.written_page_ids is
+            # the count of pages that survive in Postgres + on disk. (The cancel path above keeps 0
+            # because it cascade-deletes its partial output first.)
+            pages_created=len(handle.written_page_ids),
             error_message=str(exc) or exc.__class__.__name__,
         )
         orch.ingest_queue.finalize(run_id, "failed", error=str(exc) or exc.__class__.__name__)
@@ -919,14 +928,17 @@ async def run_ingest_pipeline(
 
     finished_at = datetime.now(UTC)
 
-    # Actual pages persisted this run (BUG A2): the orchestrated branch counts the Page rows it
-    # actually wrote (post source-summary guarantee) — equal to len(pages) on the JSON path and
-    # correct for the ADR-0076 block path (which writes via block_writer, not write_wiki_page);
-    # the delegated branch reports its own count.
-    pages_written = delegated_pages_written if caps.supports_agentic_loop else len(written_pages)
+    # Actual pages persisted this run: key off the RESOLVED route, not the provider capability.
+    # A CLI provider reports supports_agentic_loop=True but, with ingest_pipeline_format="blocks"
+    # (the default), it runs the ORCHESTRATED block path (route=="orchestrated"), populating
+    # written_pages while delegated_pages_written stays 0 — so keying off the capability reported
+    # 0 pages for every CLI+blocks run. route is "delegated" ONLY when the delegated branch
+    # actually ran (json + agentic); every orchestrated path (json loop OR blocks) counts
+    # written_pages.
+    pages_written = delegated_pages_written if route == "delegated" else len(written_pages)
     page_type_counts = (
         await _page_type_counts_for_ids(delegated_page_ids)
-        if caps.supports_agentic_loop
+        if route == "delegated"
         else _page_type_counts(written_pages)
     )
 

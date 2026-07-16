@@ -80,6 +80,9 @@
   --syn-error: var(--syn-red);
   --syn-danger: var(--syn-red);
   --syn-warn: var(--syn-amber); /* semantic amber for "needs attention" states (theme-adaptive) */
+  /* a11y-amber-contrast: text token guaranteed ≥4.5:1 on amber-10-12% tint backgrounds.
+   * #7a5000 on the ~12% amber/white tint (L≈0.85) yields ≈6.05:1 — passes AA. */
+  --syn-warn-text: #7a5000;
   --syn-accent2: #7c3aed;
   --syn-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 
@@ -205,6 +208,8 @@
   --syn-amber: #d29922;
   --syn-red: #f85149;
   --syn-accent2: #c084fc;
+  /* a11y-amber-contrast: on the dark amber tint (L≈0.023) #e3b341 yields ≈7.4:1 — passes AA. */
+  --syn-warn-text: #e3b341;
 
   /* ── Per-type colors (jewel tones lightened for the navy ground — v1.7.0) ── */
   --syn-type-concept: #a78bfa; /* violet */
