@@ -1,4 +1,4 @@
-.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi docs-serve docs-build bump bump-check clean
+.PHONY: help up down dev dev-down migrate logs test lint typecheck fmt er openapi lock docs-serve docs-build bump bump-check clean
 
 # Default target
 help:
@@ -85,6 +85,14 @@ openapi:
 # ADR corpus consistency (1.9.0 W1 — naming, index completeness, duplicate numbers)
 adr-check:
 	python3 scripts/check_adr_index.py
+
+# ──────────────────────────────────────────────────────────────────────────
+# Supply chain (1.9.1 W4, SEC-DEPS-1) — regenerate the pinned lockfiles via uv.
+# Run after any pyproject.toml dependency change and commit both files.
+# ──────────────────────────────────────────────────────────────────────────
+lock:
+	cd backend && uv pip compile pyproject.toml --extra dev -o requirements-lock.txt --python-version 3.11
+	cd backend && uv pip compile pyproject.toml -o requirements-prod-lock.txt --python-version 3.11
 
 # ──────────────────────────────────────────────────────────────────────────
 # Documentation site (MkDocs Material)
