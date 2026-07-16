@@ -1035,6 +1035,24 @@ class Settings(BaseSettings):
     Env var: INGEST_MAX_CONCURRENCY.
     """
 
+    # ── System self-update (R12-3, B1: Watchtower HTTP API) ───────────────────────
+
+    watchtower_url: str | None = None
+    """Base URL of the Watchtower HTTP API (e.g. ``http://watchtower:8080``).
+
+    When set together with ``watchtower_http_api_token``, ``POST /ops/system-update`` pokes
+    Watchtower's ``/v1/update`` to pull the latest images and recreate every container labelled
+    ``com.centurylinklabs.watchtower.enable=true`` on the host. Unset ⇒ the update button is
+    unsupported and the UI hides it (``update_supported=false``). Env: WATCHTOWER_URL."""
+
+    watchtower_http_api_token: str | None = None
+    """Bearer token for Watchtower's ``--http-api-update`` endpoint; must match the token Watchtower
+    was started with. Never logged, env-only. Env: WATCHTOWER_HTTP_API_TOKEN."""
+
+    update_check_repo: str = "Emanuele-Chiummo/llm-wiki-synapse"
+    """``owner/repo`` whose latest GitHub Release tag is the "available version" for the update
+    check (public API, no auth). Env: UPDATE_CHECK_REPO."""
+
     # ── Authentication (ADR-0052) ─────────────────────────────────────────────────
 
     deployment_mode: Literal["local", "server"] = Field(

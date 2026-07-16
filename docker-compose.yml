@@ -99,6 +99,12 @@ services:
       EMBEDDING_MODEL: bge-m3
       EMBEDDING_DIM: "1024"  # ADR-0004: verify against live service
 
+      # System self-update (R12-3, B1): the backend pokes Watchtower's HTTP API to pull + recreate
+      # every labelled container. Both must match the watchtower service below. The TOKEN defaults
+      # empty ⇒ update_supported=false ⇒ the UI hides the "Update system" button until you set it.
+      WATCHTOWER_URL: ${WATCHTOWER_URL:-http://watchtower:8080}
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:-}
+
       # Generative Ollama base URL for the Local InferenceProvider (F17, I9 — NB-5).
       # Same Ollama instance, used for analyze/generate (e.g. qwen2.5). External, not containerized.
       OLLAMA_URL: http://host.docker.internal:11434
@@ -232,6 +238,10 @@ services:
         APP_VERSION: dev
     # For GHCR deployment (R12-5): pull pre-built image (disable build: above)
     # image: ghcr.io/emanuele-chiummo/llm-wiki-synapse-marker:latest
+    labels:
+      # Watchtower auto-update label (R12-3): marker joins the backend in the update set so
+      # POST /ops/system-update (or the hourly poll) refreshes it too. Data services never carry it.
+      com.centurylinklabs.watchtower.enable: "true"
     profiles:
       - marker
     environment:
@@ -365,18 +375,30 @@ services:
   # To enable zero-touch backend updates on TrueNAS, run:
   #   docker compose --profile autoupdate up -d
   # Watchtower will poll the container registry hourly and update any service
-  # with the label `com.centurylinklabs.watchtower.enable=true` (synapse-backend only).
-  # Postgres and Qdrant are never touched (no label).
+  # with the label `com.centurylinklabs.watchtower.enable=true` (synapse-backend + marker).
+  # Postgres, Qdrant and other data services are never touched (no label).
+  #
+  # --http-api-update exposes POST /v1/update (Bearer WATCHTOWER_HTTP_API_TOKEN) so the app's
+  # "Update system" button (POST /ops/system-update — R12-3 B1) can trigger a pull + recreate on
+  # demand; --http-api-periodic-polls keeps the hourly schedule ALSO active. The backend reaches it
+  # at http://watchtower:8080 on the compose network (no host port needed).
   # See docs/DEPLOY.md §Updating Synapse for details.
   watchtower:
     image: containrrr/watchtower:latest
     profiles:
       - autoupdate
+    environment:
+      # Shared secret for the HTTP API — must match WATCHTOWER_HTTP_API_TOKEN on synapse-backend.
+      # Empty ⇒ the API rejects requests and the app keeps the update button hidden. Set a strong
+      # value (e.g. `openssl rand -hex 32`).
+      WATCHTOWER_HTTP_API_TOKEN: ${WATCHTOWER_HTTP_API_TOKEN:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command: >
       --interval 3600
       --label-enable
+      --http-api-update
+      --http-api-periodic-polls
     restart: unless-stopped
 
 volumes:

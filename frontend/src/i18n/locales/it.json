@@ -393,6 +393,12 @@
       "version": "Versione",
       "sprint": "Sprint",
       "milestone": "Milestone",
+      "updateAvailable": "Aggiornamento disponibile: v{{version}}",
+      "updateNow": "Aggiorna sistema",
+      "updateStarting": "Avvio…",
+      "updateStarted": "Aggiornamento avviato — il sistema si riavvierà a breve",
+      "updateManual": "Abilita Watchtower per aggiornare da qui",
+      "upToDate": "Sei all'ultima versione",
       "links": "Risorse",
       "github": "Codice sorgente",
       "docs": "Documentazione"

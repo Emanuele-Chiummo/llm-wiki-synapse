@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.8.0] — 2026-07-16 — "one-click system update"
+
+### Added
+- **One-click system update (Settings → Info).** When a newer GitHub Release exists, Settings → Info
+  now shows "Update available: vX.Y.Z" and an **Update system** button that pokes Watchtower's HTTP
+  API (`POST /ops/system-update`) to pull the latest images and recreate the labelled containers —
+  no more manual `docker pull`. Availability comes from `GET /ops/update-status` (running version vs
+  the latest GitHub Release, cached ~1h). Requires Watchtower's HTTP API and a shared
+  `WATCHTOWER_HTTP_API_TOKEN` (the compose now wires it for backend + marker); when the token is
+  unset the button is hidden and the availability line still shows. No download percentage —
+  Watchtower's API is fire-and-forget, a deliberate trade-off (B1) that keeps Docker privileges out
+  of the backend. See `docs/DEPLOY.md` §9.2b. [R12-3]
+
 ## [1.7.4] — 2026-07-16 — "log/index parity fixes"
 
 ### Fixed
@@ -1123,6 +1136,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.8.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.4...v1.8.0
 [1.7.4]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.1...v1.7.2

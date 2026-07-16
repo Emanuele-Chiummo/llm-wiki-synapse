@@ -748,3 +748,88 @@ async def run_ops_schedule_now(op: str) -> dict[str, str]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     return {"status": "triggered", "op": op}
+
+
+# ── System self-update (R12-3, B1: Watchtower HTTP API) ───────────────────────────
+
+
+class UpdateStatusResponse(BaseModel):
+    """Deployment update availability (read-only; safe to poll)."""
+
+    current_version: str = Field(..., description="Running backend version.")
+    latest_version: str | None = Field(
+        None, description="Latest published GitHub Release tag (X.Y.Z), or null if unknown."
+    )
+    update_available: bool = Field(
+        ..., description="True when latest_version is semver-newer than current_version."
+    )
+    update_supported: bool = Field(
+        ...,
+        description=(
+            "True when the Watchtower HTTP API is configured, i.e. POST /ops/system-update can "
+            "actually trigger an update. When false the UI hides the 'update' button."
+        ),
+    )
+
+
+class SystemUpdateResponse(BaseModel):
+    """Result of poking Watchtower to pull+recreate the labelled containers."""
+
+    triggered: bool = Field(..., description="True when Watchtower accepted the update request.")
+    message: str = Field(..., description="Human-facing status line.")
+
+
+@router.get(
+    "/ops/update-status",
+    response_model=UpdateStatusResponse,
+    summary="Deployment update availability (R12-3)",
+    description=(
+        "Compares the running backend version with the latest published GitHub Release. Read-only "
+        "and cached ~1h. `update_supported` reflects whether the Watchtower HTTP API is wired up."
+    ),
+)
+async def get_update_status_endpoint() -> UpdateStatusResponse:
+    from app.ops.system_update import get_update_status  # noqa: PLC0415
+
+    st = await get_update_status()
+    return UpdateStatusResponse(
+        current_version=st.current_version,
+        latest_version=st.latest_version,
+        update_available=st.update_available,
+        update_supported=st.update_supported,
+    )
+
+
+@router.post(
+    "/ops/system-update",
+    response_model=SystemUpdateResponse,
+    status_code=202,
+    summary="Trigger a Watchtower pull + recreate (R12-3, B1)",
+    description=(
+        "Pokes Watchtower's /v1/update (fire-and-forget) to pull the latest images and recreate "
+        "every container labelled com.centurylinklabs.watchtower.enable=true on the host. The "
+        "backend itself is recreated, so the connection drops — the UI shows an indeterminate "
+        "'update in progress' state and reconnects when the new backend is up. Auth-gated in "
+        "server mode (ADR-0052)."
+    ),
+    responses={
+        202: {"description": "Update triggered."},
+        501: {"description": "Update mechanism not configured (no Watchtower URL/token)."},
+        502: {"description": "Watchtower request failed."},
+    },
+)
+async def trigger_system_update_endpoint() -> SystemUpdateResponse:
+    import httpx  # noqa: PLC0415
+
+    from app.ops.system_update import (  # noqa: PLC0415
+        UpdateNotConfiguredError,
+        trigger_system_update,
+    )
+
+    try:
+        message = await trigger_system_update()
+    except UpdateNotConfiguredError as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Watchtower request failed: {exc}") from exc
+    return SystemUpdateResponse(triggered=True, message=message)
