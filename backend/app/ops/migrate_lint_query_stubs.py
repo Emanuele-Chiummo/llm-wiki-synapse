@@ -464,6 +464,7 @@ async def _move_and_retype(page: Any, new_type: str, new_rel_path: str) -> None:
         file_path=new_rel_path,
         title=page.title,
         page_type=new_type,
+        vault_id=page.vault_id,
     )
 
 

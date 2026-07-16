@@ -170,6 +170,7 @@ async def reindex_wiki_page_body(
         file_path=page.file_path,
         title=page.title,
         page_type=page.page_type,
+        vault_id=page.vault_id,
     )
 
     # K5: re-derive wikilinks from the new body (the new [[links]] land in `links` → F4 ×3 signal).
@@ -243,6 +244,7 @@ async def apply_domain_tags(page: Page, new_tags: list[str]) -> None:
         file_path=page.file_path,
         title=page.title,
         page_type=page.page_type,
+        vault_id=page.vault_id,
     )
     # Reflect the new tags on the in-memory ORM object so callers see the merged set.
     page.tags = cleaned or None
@@ -301,6 +303,7 @@ async def apply_page_type(page: Page, new_type: str) -> None:
         file_path=page.file_path,
         title=page.title,
         page_type=new_type,
+        vault_id=page.vault_id,
     )
     # Reflect the new type on the in-memory ORM object so callers see the change.
     page.page_type = new_type
@@ -984,6 +987,7 @@ async def _index_overview_file(file_text: str, title: str, tags: list[str] | Non
         file_path=OVERVIEW_REL_PATH,
         title=title,
         page_type="overview",
+        vault_id=settings.vault_id,
     )
 
 
@@ -1039,6 +1043,7 @@ async def _index_aggregate_file(rel_path: str, page_type: str) -> None:
         file_path=rel_path,
         title=title,
         page_type=page_type,
+        vault_id=settings.vault_id,
     )
 
 
@@ -1138,6 +1143,7 @@ async def _index_bootstrap_file(
         file_path=rel_path,
         title=title,
         page_type=page_type,
+        vault_id=vault_id,
     )
 
 
@@ -1263,12 +1269,13 @@ async def upsert_vector(
     file_path: str,
     title: str | None,
     page_type: str | None,
+    vault_id: str,
 ) -> None:
     """
     Compute an embedding via EmbeddingClient (I9 — calls EMBEDDING_URL) and upsert to Qdrant.
 
     Point id == page_id (ADR-0002).
-    Payload = {file_path, title, type} (AC-QD-2).
+    Payload = {file_path, title, type, vault_id} (AC-QD-2, BE-PERF-3).
 
     When ``settings.embeddings_enabled`` is False (ADR-0030 §2.2) this returns early WITHOUT
     embedding or upserting: no EmbeddingClient call, no Qdrant point. Every other ingest step
@@ -1311,6 +1318,7 @@ async def upsert_vector(
         file_path=file_path,
         title=title,
         page_type=page_type,
+        vault_id=vault_id,
     )
 
 

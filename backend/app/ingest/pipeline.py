@@ -247,6 +247,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
         file_path=rel,
         title=_title,
         page_type=_type,
+        vault_id=settings.vault_id,
     )
 
     # ── K4 append log line ────────────────────────────────────────────────────

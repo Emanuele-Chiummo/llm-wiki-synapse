@@ -5,7 +5,20 @@ Collection: synapse_pages (configurable via Settings.qdrant_collection).
 Distance:   Cosine.
 Vector size: EMBEDDING_DIM (ADR-0004 — from Settings, never hardcoded).
 Point id:   == pages.id UUID (ADR-0002 — stable join key).
-Payload:    {file_path, title, type} (AC-QD-2).
+Payload:    {file_path, title, type, vault_id} (AC-QD-2, BE-PERF-3).
+
+BE-PERF-3 (also a correctness/security fix, not just performance): the payload MUST carry
+``vault_id`` so that Phase-1 vector search (``app.rag.retrieval._phase1_vector_search``) can
+scope its ``query_points`` call with a ``Filter`` on ``vault_id``. Without this, a multi-vault
+deployment's dense top-k is diluted by — and can surface — points from OTHER vaults, which is
+both a recall regression and a cross-tenant data leak (mirrors the graph-resolver cross-vault
+fix pattern already applied elsewhere in this codebase, e.g. ``app.graph.engine`` /
+``app.ops.cascade_delete`` scoping all reads by ``vault_id``). A payload index on ``vault_id``
+is created so the filtered query stays O(log n) rather than a full collection scan.
+
+Points written BEFORE this fix landed lack ``vault_id`` in their payload. Callers that rely on
+vault-scoped filtering must tolerate zero-hit results for those legacy points until a backfill
+is run — see ``backend/scripts/backfill_qdrant_vault_id.py``.
 
 Write ordering (ADR-0002): Postgres commits first; then this module is called.
 If this call fails, Postgres row is the source of truth; a future reconciliation
@@ -82,6 +95,7 @@ async def ensure_collection(dim: int | None = None) -> None:
                 distance=qmodels.Distance.COSINE,
             ),
         )
+        await _ensure_vault_id_payload_index(client, collection_name)
         return
 
     # Collection exists — validate dimension (ADR-0004 fail-fast guard)
@@ -110,6 +124,33 @@ async def ensure_collection(dim: int | None = None) -> None:
         collection_name,
         existing_size,
     )
+    # BE-PERF-3: idempotent — also ensures the payload index on pre-existing collections
+    # created before this fix (create_payload_index is a no-op if the index already exists).
+    await _ensure_vault_id_payload_index(client, collection_name)
+
+
+async def _ensure_vault_id_payload_index(client: AsyncQdrantClient, collection_name: str) -> None:
+    """
+    Create a keyword payload index on ``vault_id`` (BE-PERF-3), so vault-scoped
+    ``Filter(must=[FieldCondition(key="vault_id", ...)])`` queries stay indexed rather than
+    falling back to a full collection scan.
+
+    Best-effort: some Qdrant client versions / test doubles may not implement
+    ``create_payload_index``; any failure is logged and swallowed so collection setup never
+    aborts on this optimization (the filter itself still works without the index).
+    """
+    try:
+        await client.create_payload_index(
+            collection_name=collection_name,
+            field_name="vault_id",
+            field_schema=qmodels.PayloadSchemaType.KEYWORD,
+        )
+    except Exception as exc:  # noqa: BLE001 - best-effort index creation, never fatal
+        logger.warning(
+            "Qdrant create_payload_index(vault_id) skipped for collection %r: %s",
+            collection_name,
+            exc,
+        )
 
 
 # ── Point operations ──────────────────────────────────────────────────────────
@@ -122,12 +163,17 @@ async def upsert_point(
     file_path: str,
     title: str | None,
     page_type: str | None,
+    vault_id: str,
 ) -> None:
     """
     Upsert a Qdrant point for *page_id*.
 
     Uses the UUID as the point id (ADR-0002).
-    Payload = {file_path, title, type} (AC-QD-2).
+    Payload = {file_path, title, type, vault_id} (AC-QD-2, BE-PERF-3).
+
+    ``vault_id`` MUST be supplied by every caller so Phase-1 vector search can scope its
+    query to the active vault (BE-PERF-3 — a correctness/security fix: without it, points
+    from other vaults could be returned and even cited in chat/search).
     """
     client = get_qdrant_client()
     await client.upsert(
@@ -140,11 +186,14 @@ async def upsert_point(
                     "file_path": file_path,
                     "title": title,
                     "type": page_type,
+                    "vault_id": vault_id,
                 },
             )
         ],
     )
-    logger.debug("Qdrant upsert: point_id=%s file_path=%r", page_id, file_path)
+    logger.debug(
+        "Qdrant upsert: point_id=%s file_path=%r vault_id=%r", page_id, file_path, vault_id
+    )
 
 
 async def delete_point(page_id: uuid.UUID) -> None:

@@ -62,6 +62,7 @@ class _FakeQdrant:
         query: list[float],
         limit: int,
         with_payload: bool,
+        query_filter: Any = None,
     ) -> _FakeQueryResponse:
         return _FakeQueryResponse(self._points[:limit])
 

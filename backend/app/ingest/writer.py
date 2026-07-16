@@ -480,6 +480,7 @@ async def write_wiki_page(
         file_path=rel_path,
         title=page.title,
         page_type=page_type,
+        vault_id=settings.vault_id,
     )
     # K4: log this indexed file. This seam is the WATCHER indexing a raw wiki page (one file → one
     # page → one log line, correct). The multi-page LLM-generation paths (block_writer / pipeline)

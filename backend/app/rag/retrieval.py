@@ -80,6 +80,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel
+from qdrant_client.http import models as qmodels
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -320,7 +321,7 @@ async def retrieve(
     # Vector phase (Qdrant) cannot filter by type at the collection level without a
     # payload filter — type filtering is applied at Phase 4 assembly (defense-in-depth).
     if effective_bool("embeddings_enabled", settings.embeddings_enabled):
-        vector_candidates = await _phase1_vector_search(query, k=k)
+        vector_candidates = await _phase1_vector_search(query, vault_id=vault_id, k=k)
     else:
         vector_candidates = await _phase1_lexical_search(
             query,
@@ -346,6 +347,7 @@ async def retrieve(
     # mirrors the raw/ exclusion pattern from ADR-0049, AC-R8-5-2).
     text, citations = await _phase4_assemble(
         ranked,
+        vault_id=vault_id,
         budget_chars=budget_chars,
         session=session,
         type_filter=effective_type_filter,
@@ -392,28 +394,69 @@ async def retrieve(
 
 # ── Phase 1 — vector search ─────────────────────────────────────────────────────
 
+# BE-PERF-3: log the unscoped-fallback warning at most once per process (avoid log spam on
+# every chat/search call while the backfill script has not yet been run).
+_legacy_vault_id_fallback_warned: bool = False
 
-async def _phase1_vector_search(query: str, *, k: int) -> list[_Candidate]:
+
+async def _phase1_vector_search(query: str, *, vault_id: str, k: int) -> list[_Candidate]:
     """
     Embed *query* via the existing bge-m3 wrapper and run a dense top-k cosine search over
     the existing ``synapse_pages`` collection (I9 — no new service, no new collection).
 
     Point ids are ``pages.id`` (ADR-0002). Score = cosine similarity. Dense-only (AQ-v0.5-1).
+
+    BE-PERF-3: the query is scoped to *vault_id* via a Qdrant payload ``Filter`` so a
+    multi-vault deployment's dense top-k is never diluted — or leaked into citations — by
+    points belonging to another vault (mirrors the vault-scoping pattern already applied to
+    Postgres reads elsewhere in this module, e.g. ``_phase1_lexical_search``, ``_load_page_meta``).
+
+    Backward-compat fallback: points written before ``vault_id`` was added to the Qdrant
+    payload (``app.qdrant_client.upsert_point``) have no ``vault_id`` field and will never
+    match the filter. Until ``backend/scripts/backfill_qdrant_vault_id.py`` has been run, an
+    UNFILTERED retry is attempted — but ONLY when the filtered search comes back empty AND
+    *vault_id* is the instance's configured default vault (``settings.vault_id``), i.e. the
+    single legacy vault that existed before multi-vault support. This never leaks OTHER
+    vaults' points into a non-default vault's search, and a warning is logged once per
+    process so the operator knows to run the backfill.
     """
     if k <= 0:
         return []
 
     vector = await get_embedding_client().embed(query)
     client = get_qdrant_client()
+    vault_filter = qmodels.Filter(
+        must=[qmodels.FieldCondition(key="vault_id", match=qmodels.MatchValue(value=vault_id))]
+    )
 
     # query_points is the current (non-deprecated) dense top-k API; returns QueryResponse
     # whose .points are ScoredPoint(id, score, payload, ...). Replaces the removed .search().
     response = await client.query_points(
         collection_name=settings.qdrant_collection,
         query=vector,
+        query_filter=vault_filter,
         limit=k,
         with_payload=True,
     )
+
+    if not response.points and vault_id == settings.vault_id:
+        global _legacy_vault_id_fallback_warned  # noqa: PLW0603
+        if not _legacy_vault_id_fallback_warned:
+            logger.warning(
+                "retrieval: vault-scoped vector search returned 0 hits for the default "
+                "vault (vault_id=%r) — falling back to an UNFILTERED query_points call to "
+                "cover legacy Qdrant points written before vault_id was added to the payload "
+                "(BE-PERF-3). Run backend/scripts/backfill_qdrant_vault_id.py to backfill "
+                "vault_id on existing points and remove this fallback path's relevance.",
+                vault_id,
+            )
+            _legacy_vault_id_fallback_warned = True
+        response = await client.query_points(
+            collection_name=settings.qdrant_collection,
+            query=vector,
+            limit=k,
+            with_payload=True,
+        )
 
     candidates: list[_Candidate] = []
     seen: set[str] = set()
@@ -710,6 +753,7 @@ def _phase3_rank(
 async def _phase4_assemble(
     ranked: list[_Candidate],
     *,
+    vault_id: str,
     budget_chars: int,
     session: AsyncSession | None,
     type_filter: list[str] | None = None,
@@ -736,6 +780,11 @@ async def _phase4_assemble(
 
     CG-A6: when ``exclude_stub_pages`` is True, ``_load_page_meta`` drops type=query lint
     stubs so they never resolve a citation.
+
+    BE-PERF-3: ``vault_id`` is the authoritative gate applied inside ``_load_page_meta`` —
+    a Phase-1 vector candidate from another vault (possible until the Qdrant backfill runs,
+    see ``app.rag.retrieval._phase1_vector_search``) is silently dropped here rather than
+    surfaced/cited, closing the cross-vault citation leak.
     """
     if not ranked or budget_chars <= 0:
         return "", []
@@ -745,7 +794,11 @@ async def _phase4_assemble(
 
     page_ids = [c.page_id for c in ranked]
     meta = await _load_page_meta(
-        page_ids, session, type_filter=type_filter or [], exclude_stub_pages=exclude_stub_pages
+        page_ids,
+        session,
+        vault_id=vault_id,
+        type_filter=type_filter or [],
+        exclude_stub_pages=exclude_stub_pages,
     )
 
     # BE-PERF-12: candidates that survived the meta gate, still in rank order. The source-file
@@ -876,6 +929,7 @@ async def _read_data_version(vault_id: str, session: AsyncSession | None) -> int
 async def _load_page_meta(
     page_ids: list[str],
     session: AsyncSession | None,
+    vault_id: str,
     type_filter: list[str] | None = None,
     exclude_stub_pages: bool = False,
 ) -> dict[str, dict[str, Any]]:
@@ -884,6 +938,16 @@ async def _load_page_meta(
 
     ``title`` falls back to the filename stem when frontmatter title is NULL/blank, so it is
     NEVER empty (§2.6). Soft-deleted pages are excluded (they must not be cited).
+
+    BE-PERF-3 (security/correctness fix): ``vault_id`` is now a REQUIRED, authoritative gate
+    (``AND vault_id = :vid``), mirroring the vault-scoping already applied to graph reads
+    (``app.graph.engine._load_data``) and cascade/orphan-detect ops. Before this fix, a page
+    belonging to ANOTHER vault could be loaded here and actually CITED in chat/search
+    responses — a cross-vault leak, not merely a performance issue — because Phase-1 vector
+    candidates (Qdrant) were not vault-scoped either. Both sides are now scoped: Phase 1
+    filters by ``vault_id`` in the Qdrant query, and this function re-asserts the same scope
+    against Postgres as the authoritative gate (defense-in-depth, same pattern as the raw/
+    exclusion below and R8-5's type_filter).
 
     R8-5: optional ``type_filter`` adds ``AND CAST(type AS TEXT) IN (:t0, :t1, …)`` — the
     authoritative gate (defense-in-depth, mirrors ADR-0049 raw/ pattern, AC-R8-5-2).
@@ -898,6 +962,7 @@ async def _load_page_meta(
 
     placeholders = ",".join(f":p{i}" for i in range(len(page_ids)))
     binds: dict[str, object] = {f"p{i}": pid for i, pid in enumerate(page_ids)}
+    binds["vid"] = vault_id
 
     # R8-5: type filter clause (AC-R8-5-2).
     # CAST(type AS TEXT) is portable (Postgres + SQLite); avoids Postgres-only ::text.
@@ -942,6 +1007,7 @@ async def _load_page_meta(
         page_sql = (
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
             f"WHERE deleted_at IS NULL "
+            f"AND vault_id = :vid "
             f"{id_clause}"
             f"AND file_path NOT LIKE 'raw/%' "
             f"{type_clause}"

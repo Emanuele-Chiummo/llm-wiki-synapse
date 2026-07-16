@@ -166,5 +166,6 @@ async def test_upsert_vector_degrades_to_vectorless_page_on_embedding_error(
         file_path="wiki/concepts/x.md",
         title="X",
         page_type="concept",
+        vault_id="test-vault",
     )
     assert upsert_calls["n"] == 0  # no Qdrant point written on degrade
