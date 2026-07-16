@@ -41,6 +41,7 @@ from sqlalchemy.engine import CursorResult
 
 from app import cli_auth as _cli_auth
 from app import secrets_crypto
+from app.base_url_validator import validate_base_url
 from app.config import settings
 from app.config_overrides import (
     ALLOWED_CONFIG_KEYS,
@@ -717,6 +718,12 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
             detail=f"vault_id must be provided when scope={body.scope!r}",
         )
 
+    # SEC-BASEURL-1: validate base_url allowlist
+    try:
+        validate_base_url(body.base_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     # W1: encrypt the UI key up front so we fail with 400 BEFORE opening a session/writing a row.
     api_key_encrypted: bytes | None = None
     if body.api_key:
@@ -832,6 +839,11 @@ async def update_provider_config(
         if "model_id" in fields and body.model_id is not None:
             row.model_id = body.model_id
         if "base_url" in fields:
+            # SEC-BASEURL-1: validate base_url allowlist
+            try:
+                validate_base_url(body.base_url)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
             row.base_url = body.base_url
         if "reasoning_effort" in fields:
             row.reasoning_effort = body.reasoning_effort
