@@ -482,7 +482,7 @@ export function NavTree({ vaultId }: NavTreeProps) {
     <>
       <nav
         className="nav-tree"
-        aria-label="Wiki pages"
+        aria-label={t("navTree.ariaLabel")}
         data-testid="nav-tree"
         // height:100% + flex-column gives the nav a *bounded* height so the inner
         // scroll container's height resolves to a real pixel value (not auto).

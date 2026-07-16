@@ -48,10 +48,20 @@ export function ConfirmDialog({
   const confirmRef = useRef<HTMLButtonElement>(null);
   const titleId = "confirm-dialog-title";
   const bodyId = "confirm-dialog-body";
+  // Capture the element that triggered the dialog so focus can be restored on close.
+  const returnFocusRef = useRef<Element | null>(null);
 
   // Move focus to Cancel on mount (safe default — avoids accidental confirm).
+  // Save the currently-focused element to restore it when the dialog closes (FE-A11Y-2).
   useEffect(() => {
+    returnFocusRef.current = document.activeElement;
     cancelRef.current?.focus();
+    return () => {
+      // Restore focus to the element that was active before the dialog opened.
+      if (returnFocusRef.current instanceof HTMLElement) {
+        returnFocusRef.current.focus();
+      }
+    };
   }, []);
 
   // Esc key closes with onCancel.

@@ -26,6 +26,7 @@
     "convert": "Converti",
     "settings": "Opzioni",
     "projects": "Progetti",
+    "ariaLabel": "Navigazione principale",
     "settingsShort": "Impost.",
     "chatComingSoon": "Fase 3",
     "comingSoon": "Prossimamente",
@@ -1002,6 +1003,7 @@
   },
   "graph": {
     "loading": "Caricamento del grafo…",
+    "statsAriaLabel": "Statistiche del grafo",
     "header": {
       "pages": "pagine",
       "links": "link",
@@ -1188,6 +1190,7 @@
     "cta": "Apri Impostazioni"
   },
   "activity": {
+    "ariaLabel": "Barra delle attività",
     "queueStatus": "Coda",
     "processing": "In elaborazione",
     "pending": "In attesa",
@@ -1282,7 +1285,10 @@
     "batchSubmitted": "Conversione in coda — elaborazione in background",
     "error409": "Una conversione è già in corso. Attendi il completamento.",
     "error413": "File troppo grande.",
-    "error415": "Sono accettati solo file PDF."
+    "error415": "Sono accettati solo file PDF.",
+    "filesAriaLabel": "File da convertire",
+    "statusAriaLabel": "Stato della conversione file",
+    "resultsAriaLabel": "Risultati della conversione"
   },
   "panels": {
     "expandPanel": "Espandi pannello",
@@ -1291,7 +1297,9 @@
     "collapse": "Comprimi",
     "openTree": "Apri albero wiki",
     "openPreview": "Apri dettagli pagina",
-    "quickStart": "Avvio rapido"
+    "quickStart": "Avvio rapido",
+    "resizeLeft": "Ridimensiona pannello sinistro",
+    "resizeRight": "Ridimensiona pannello destro"
   },
   "common": {
     "loading": "Caricamento…",
@@ -1303,7 +1311,11 @@
     "unknown": "Sconosciuto",
     "edit": "Modifica",
     "save": "Salva",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "loadingSection": "Caricamento sezione"
+  },
+  "scenarios": {
+    "ariaLabel": "Template di scenario"
   },
   "launcher": {
     "title": "Progetti",
@@ -1608,7 +1620,7 @@
     },
     "systemStatus": {
       "ariaLabel": "Stato del sistema",
-      "title": "STATO DEL SISTEMA",
+      "title": "Stato del sistema",
       "refresh": "Aggiorna stato",
       "loading": "Controllo sistema…",
       "overallOk": "Tutti i sistemi operativi",
@@ -1648,7 +1660,7 @@
     },
     "sections": {
       "ariaLabel": "Sezioni dominio",
-      "title": "SEZIONI",
+      "title": "Sezioni",
       "untaggedLabel": "Non classificate",
       "filterHint": "Sfoglia",
       "emptyVocabHint": "Nessun vocabolario di dominio configurato.",
@@ -1657,7 +1669,7 @@
     },
     "groups": {
       "ariaLabel": "Gruppi automatici per comunità",
-      "title": "GRUPPI AUTOMATICI",
+      "title": "Gruppi automatici",
       "pages": "pagine",
       "openTopPage": "Apri pagina principale",
       "topPage": "Pagina principale",
@@ -1669,7 +1681,7 @@
     },
     "activeJobs": {
       "ariaLabel": "Lavori attivi",
-      "title": "LAVORI ATTIVI",
+      "title": "Lavori attivi",
       "refresh": "Aggiorna lavori attivi",
       "ingest": "Ingest",
       "ingestProcessing": "in corso",
@@ -1738,6 +1750,7 @@
     }
   },
   "navTree": {
+    "ariaLabel": "Pagine wiki",
     "filterBanner": "Filtrato per: {{label}}",
     "clearFilter": "Rimuovi filtro"
   }

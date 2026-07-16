@@ -4,7 +4,7 @@
  * Shortcuts:
  *   Cmd/Ctrl+K     → toggle command palette (ALWAYS active, even in inputs/CodeMirror)
  *   Cmd/Ctrl+N     → new conversation (ignored while typing in an input)
- *   Cmd/Ctrl+1..5  → switch to the first 5 sections (ignored while typing in an input)
+ *   Cmd/Ctrl+1..5  → switch to the first 5 sections in NavRail order: Home · Sources · Chat · Convert · Wiki (ignored while typing in an input)
  *
  * "Ignored while typing" discrimination: checks event.target tagName and
  * isContentEditable. Cmd+K is the sole exception — it must remain reachable
@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useGraphStore, selectSetActiveSection } from "../store/graphStore";
 import type { Section } from "../store/graphStore";
 import { createConversation } from "../api/chatClient";
@@ -27,7 +28,9 @@ import { useGraphStore as _useGraphStore, selectVaultId } from "../store/graphSt
 import { showToast } from "../components/common/Toast";
 
 // First 5 sections in NavRail order (Cmd+1..5 mapping).
-const SECTION_SHORTCUTS: Section[] = ["chat", "pages", "sources", "search", "graph"];
+// ORDER follows NavRail v1.7: GROUP_CREATE = home · sources · chat · convert,
+// then first of GROUP_UNDERSTAND = pages. [FE-NAV-1]
+const SECTION_SHORTCUTS: Section[] = ["home", "sources", "chat", "convert", "pages"];
 
 /**
  * Returns true when the event target is a text-editable element that should
@@ -66,6 +69,7 @@ export function useGlobalShortcuts({
   paletteOpen,
   onTogglePalette,
 }: UseGlobalShortcutsOptions): void {
+  const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
   const vaultId = _useGraphStore(selectVaultId);
   const addConversation = useChatStore(selectAddConversation);
@@ -83,9 +87,9 @@ export function useGlobalShortcuts({
     } catch (err) {
       console.error("[shortcuts] new conversation failed", err);
       // Use the same error toast path as ConversationList.
-      showToast("Failed to create conversation.", "error");
+      showToast(t("chat.newConvError"), "error");
     }
-  }, [vaultId, addConversation, setActiveConversationId, setMessages, setActiveSection]);
+  }, [t, vaultId, addConversation, setActiveConversationId, setMessages, setActiveSection]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

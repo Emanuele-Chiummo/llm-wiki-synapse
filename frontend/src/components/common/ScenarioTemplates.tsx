@@ -47,7 +47,7 @@ export function ScenarioTemplates() {
   return (
     <div
       className="scenario-templates"
-      aria-label="Scenario templates"
+      aria-label={t("scenarios.ariaLabel")}
       data-testid="scenario-templates"
       style={{
         display: "flex",

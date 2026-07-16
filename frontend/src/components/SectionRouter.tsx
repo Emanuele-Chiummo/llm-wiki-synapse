@@ -29,6 +29,7 @@
  */
 
 import React, { Suspense } from "react";
+import { useTranslation } from "react-i18next";
 import { useGraphStore, selectActiveSection } from "../store/graphStore";
 import { SectionErrorBoundary } from "./common/SectionErrorBoundary";
 // HomeDashboard is EAGER — it is the default landing view; lazy would add a flash.
@@ -97,10 +98,11 @@ const ProjectLauncher = React.lazy(() =>
 // Kept in this file to avoid an extra async chunk for the fallback itself.
 
 function SectionSkeleton(): React.JSX.Element {
+  const { t } = useTranslation();
   return (
     <div
       aria-busy="true"
-      aria-label="Loading section"
+      aria-label={t("common.loadingSection")}
       style={{
         flex: 1,
         display: "flex",

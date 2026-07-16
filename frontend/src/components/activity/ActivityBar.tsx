@@ -772,7 +772,7 @@ export function ActivityBar(): ReactNode {
         {/* ── Collapsed bar (28px) ─────────────────────────────────────────────── */}
         <footer
           className="activity-bar"
-          aria-label="Activity bar"
+          aria-label={t("activity.ariaLabel")}
           data-testid="activity-bar"
           style={{
             display: "flex",
