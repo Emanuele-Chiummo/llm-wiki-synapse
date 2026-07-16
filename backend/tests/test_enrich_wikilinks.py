@@ -263,7 +263,7 @@ async def test_enrich_applies_links_and_reindexes(
         f'{{"substitutions": [{{"page_id": "{transformer.id}", '
         '"mention": "attention mechanism", "target_title": "Attention mechanism"}]}'
     )
-    monkeypatch.setattr(enrich_mod, "_resolve_provider", _async_return((provider, _cfg_row())))
+    monkeypatch.setattr(enrich_mod, "resolve_operation_provider", _async_return((provider, _cfg_row())))
 
     result = await enrich_wikilinks([transformer], "test-vault")
 
@@ -299,7 +299,7 @@ async def test_enrich_drops_hallucinated_substitution(
         f'{{"substitutions": [{{"page_id": "{transformer.id}", '
         '"mention": "quantum entanglement", "target_title": "Nonexistent Page"}]}'
     )
-    monkeypatch.setattr(enrich_mod, "_resolve_provider", _async_return((provider, _cfg_row())))
+    monkeypatch.setattr(enrich_mod, "resolve_operation_provider", _async_return((provider, _cfg_row())))
 
     result = await enrich_wikilinks([transformer], "test-vault")
 
@@ -320,7 +320,7 @@ async def test_enrich_skips_when_no_provider(
     transformer = _seed_page_file(
         enrich_env, title="Transformer", body="The transformer relies on attention mechanism."
     )
-    monkeypatch.setattr(enrich_mod, "_resolve_provider", _async_return(None))
+    monkeypatch.setattr(enrich_mod, "resolve_operation_provider", _async_return(None))
 
     result = await enrich_wikilinks([transformer], "test-vault")
     assert result.skipped_reason == "no_provider"
@@ -337,7 +337,7 @@ async def test_enrich_antispam_gate_below_min_chars(
     enrich_env["candidate_titles"] = {"Attention mechanism"}
     transformer = _seed_page_file(enrich_env, title="Transformer", body="tiny body")
     provider = _make_chat_provider("{}")
-    monkeypatch.setattr(enrich_mod, "_resolve_provider", _async_return((provider, _cfg_row())))
+    monkeypatch.setattr(enrich_mod, "resolve_operation_provider", _async_return((provider, _cfg_row())))
 
     result = await enrich_wikilinks([transformer], "test-vault")
     assert result.skipped_reason == "below_min_chars"

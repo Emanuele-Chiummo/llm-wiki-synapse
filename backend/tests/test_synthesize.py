@@ -277,7 +277,7 @@ def sy_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         )
         return type("R", (), {"id": uuid.uuid4()})()
 
-    monkeypatch.setattr(sy, "_resolve_provider", fake_resolve)
+    monkeypatch.setattr(sy, "resolve_operation_provider", fake_resolve)
     monkeypatch.setattr(sy, "_seed_candidates", fake_seed)
     monkeypatch.setattr(sy, "_generation_key_exists", fake_key_exists)
     monkeypatch.setattr(orch, "write_wiki_page", fake_write)

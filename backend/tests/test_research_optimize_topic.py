@@ -80,8 +80,8 @@ async def test_optimize_topic_parses_provider_response() -> None:
 
     with (
         patch(
-            "app.ops.deep_research._resolve_provider",
-            new=AsyncMock(return_value=provider),
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(provider, None)),
         ),
         patch(
             "app.ops.deep_research._load_research_vault_context",
@@ -108,7 +108,7 @@ async def test_optimize_topic_no_provider_fallback() -> None:
     """T-OPT-002: no provider → naive fallback echoing the seed topic (never raises)."""
     from app.ops.deep_research import optimize_topic
 
-    with patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=None)):
+    with patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=None)):
         result = await optimize_topic(vault_id="v", topic="  homelab backups  ")
 
     assert result.optimized_topic == "homelab backups"
@@ -140,7 +140,7 @@ async def test_optimize_topic_timeout_falls_back() -> None:
     provider._accumulator = None
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
         patch.object(cfg.settings, "deep_research_optimize_timeout_seconds", 0.01),
     ):
@@ -168,7 +168,7 @@ async def test_optimize_topic_provider_error_falls_back() -> None:
     provider._accumulator = None
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
     ):
         result = await optimize_topic(vault_id="v", topic="zfs snapshots")
@@ -188,7 +188,7 @@ async def test_optimize_topic_empty_response_falls_back() -> None:
     provider = _make_optimize_provider("   \n  \n")
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
     ):
         result = await optimize_topic(vault_id="v", topic="grafana dashboards")
@@ -209,7 +209,7 @@ async def test_optimize_topic_clamps_too_many_queries() -> None:
     provider = _make_optimize_provider(f"TOPIC: big topic\nQUERIES:\n{lines}")
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
     ):
         result = await optimize_topic(vault_id="v", topic="seed")
@@ -225,7 +225,7 @@ async def test_optimize_topic_pads_too_few_queries() -> None:
     provider = _make_optimize_provider("TOPIC: refined topic\nQUERIES:\nonly one query")
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
     ):
         result = await optimize_topic(vault_id="v", topic="seed")
@@ -249,7 +249,7 @@ async def test_optimize_topic_binds_accumulator_and_logs_cost(
     provider = _make_optimize_provider("TOPIC: t\nQUERIES:\nq1\nq2\nq3")
 
     with (
-        patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=provider)),
+        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
         patch("app.ops.deep_research._load_research_vault_context", return_value=""),
         caplog.at_level(logging.INFO, logger="app.ops.deep_research"),
     ):
@@ -318,7 +318,7 @@ async def test_endpoint_returns_optimized_topic(optimize_client: AsyncClient) ->
 async def test_endpoint_no_provider_echo_fallback(optimize_client: AsyncClient) -> None:
     """T-OPT-009: no provider configured → 200 with the seed echoed (never 500/503)."""
     # Real optimize_topic runs, but provider resolution returns None → naive fallback.
-    with patch("app.ops.deep_research._resolve_provider", new=AsyncMock(return_value=None)):
+    with patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=None)):
         resp = await optimize_client.post(
             "/research/optimize-topic",
             json={"topic": "offline topic"},

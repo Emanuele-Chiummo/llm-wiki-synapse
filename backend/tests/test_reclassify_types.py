@@ -88,7 +88,7 @@ def rt_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     def fake_vault_context() -> str:
         return "# schema.md\ntype rules here"
 
-    monkeypatch.setattr(rt, "_resolve_provider", fake_resolve)
+    monkeypatch.setattr(rt, "resolve_operation_provider", fake_resolve)
     monkeypatch.setattr(rt, "_load_candidate_pages", fake_load)
     monkeypatch.setattr(orch, "apply_page_type", fake_apply)
     monkeypatch.setattr(orch, "bump_version", fake_bump)

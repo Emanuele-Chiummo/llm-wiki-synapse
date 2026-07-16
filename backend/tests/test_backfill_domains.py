@@ -92,7 +92,7 @@ def bf_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         return state["body"]
 
     monkeypatch.setattr(cfg_ov, "effective_domain_vocabulary", fake_vocab, raising=False)
-    monkeypatch.setattr(bf, "_resolve_provider", fake_resolve)
+    monkeypatch.setattr(bf, "resolve_operation_provider", fake_resolve)
     monkeypatch.setattr(bf, "_load_candidate_pages", fake_load)
     monkeypatch.setattr(orch, "apply_domain_tags", fake_apply)
     monkeypatch.setattr(orch, "bump_version", fake_bump)
