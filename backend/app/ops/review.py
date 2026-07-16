@@ -2667,14 +2667,14 @@ async def _create_stub_from_review(
     ``# <title>\\n\\n<description>`` draft WITHOUT calling an LLM provider (I6-neutral).
 
     One write per candidate (same fan-out logic as the generate path). The primary candidate
-    failure raises HTTPException(502). Secondary candidate failures are logged and skipped.
+    failure raises UpstreamError (→ HTTP 502). Secondary candidate failures are logged and
+    skipped.
     All writes go through the normal write_wiki_page seam (I1 — one data_version bump per page,
     K3/K4 index+log maintenance).
 
     Returns the updated ReviewItem (status=created).
     """
-    from fastapi import HTTPException  # noqa: PLC0415
-
+    from app.errors import NotFoundError, UpstreamError  # noqa: PLC0415
     from app.ingest.schemas import WikiFrontmatter, WikiPage  # noqa: PLC0415
     from app.ingest.writer import write_wiki_page  # noqa: PLC0415
 
@@ -2718,9 +2718,8 @@ async def _create_stub_from_review(
                     item_id_str,
                     exc,
                 )
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Failed to write stub page: {exc}. Item left pending — retry or skip.",
+                raise UpstreamError(
+                    f"Failed to write stub page: {exc}. Item left pending — retry or skip.",
                 ) from exc
             logger.warning(
                 "create_page_from_review: stub secondary candidate %r write failed — skipping: %s",
@@ -2739,9 +2738,8 @@ async def _create_stub_from_review(
         )
 
     if not created_page_ids:
-        raise HTTPException(
-            status_code=502,
-            detail="No stub pages were created. Item left pending — retry or skip.",
+        raise UpstreamError(
+            "No stub pages were created. Item left pending — retry or skip.",
         )
 
     created_page_id_str = created_page_ids[0]
@@ -2751,9 +2749,7 @@ async def _create_stub_from_review(
         row2 = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
         item2 = row2.scalar_one_or_none()
         if item2 is None:
-            from fastapi import HTTPException as _HTTPExc  # noqa: PLC0415
-
-            raise _HTTPExc(status_code=404, detail=f"Review item {item.id} not found")
+            raise NotFoundError(f"Review item {item.id} not found")
         item2.status = "created"
         item2.resolution = "created"
         item2.created_page_id = created_page_id_str  # type: ignore[assignment]  # noqa: PGH003
@@ -2810,12 +2806,12 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
     Returns the updated ReviewItem.
 
     Raises:
-      HTTPException(404) — item not found.
-      HTTPException(409) — item not pending, or (mode=generate) no ingest provider configured.
-      HTTPException(502) — page write / generation failed; item left pending.
+      NotFoundError (→ HTTP 404) — item not found.
+      ConflictError (→ HTTP 409) — item not pending, or (mode=generate) no ingest
+        provider configured.
+      UpstreamError (→ HTTP 502) — page write / generation failed; item left pending.
     """
-    from fastapi import HTTPException
-
+    from app.errors import ConflictError, NotFoundError, UpstreamError
     from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
 
     item_id_str = str(item_id)
@@ -2825,14 +2821,11 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
         row = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
         item = row.scalar_one_or_none()
         if item is None:
-            raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+            raise NotFoundError(f"Review item {item_id} not found")
         if item.status != "pending":
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Review item {item_id} has status={item.status!r}; "
-                    "only pending items can be Created."
-                ),
+            raise ConflictError(
+                f"Review item {item_id} has status={item.status!r}; "
+                "only pending items can be Created."
             )
         session.expunge(item)
 
@@ -2851,19 +2844,16 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                 item_id_str,
                 exc,
             )
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    f"Failed to apply purpose.md suggestion: {exc}. "
-                    "Item left pending — retry or dismiss."
-                ),
+            raise UpstreamError(
+                f"Failed to apply purpose.md suggestion: {exc}. "
+                "Item left pending — retry or dismiss."
             ) from exc
 
         async with get_session() as session:
             row_ps = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
             item_ps = row_ps.scalar_one_or_none()
             if item_ps is None:
-                raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+                raise NotFoundError(f"Review item {item_id} not found")
             item_ps.status = "created"
             item_ps.resolution = "created"
             item_ps.reviewed_at = datetime.now(UTC)
@@ -2893,19 +2883,16 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                 item_id_str,
                 exc,
             )
-            raise HTTPException(
-                status_code=502,
-                detail=(
-                    f"Failed to apply schema.md suggestion: {exc}. "
-                    "Item left pending — retry or dismiss."
-                ),
+            raise UpstreamError(
+                f"Failed to apply schema.md suggestion: {exc}. "
+                "Item left pending — retry or dismiss."
             ) from exc
 
         async with get_session() as session:
             row_ss = await session.execute(select(ReviewItem).where(ReviewItem.id == item_id_str))
             item_ss = row_ss.scalar_one_or_none()
             if item_ss is None:
-                raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+                raise NotFoundError(f"Review item {item_id} not found")
             item_ss.status = "created"
             item_ss.resolution = "created"
             item_ss.reviewed_at = datetime.now(UTC)
@@ -2968,18 +2955,12 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
     try:
         provider_config_row = await resolve_provider_config("ingest", vault_id)
     except ConfigNotFoundError as cnfe:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "No ingest provider configured for this vault. "
-                "Configure a provider before using the Create action (I6)."
-            ),
+        raise ConflictError(
+            "No ingest provider configured for this vault. "
+            "Configure a provider before using the Create action (I6)."
         ) from cnfe
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=409,
-            detail=f"Provider resolution failed: {exc}",
-        ) from exc
+        raise ConflictError(f"Provider resolution failed: {exc}") from exc
 
     # ── Generate each candidate page (I1 — one write per page; bounded fan-out) ──
     # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
@@ -3011,12 +2992,9 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                     " (ADR-0034 §5): %s",
                     nie,
                 )
-                raise HTTPException(
-                    status_code=502,
-                    detail=(
-                        "Page generation raised NotImplementedError (ADR-0034 §5). "
-                        "Item left pending — retry or skip."
-                    ),
+                raise UpstreamError(
+                    "Page generation raised NotImplementedError (ADR-0034 §5). "
+                    "Item left pending — retry or skip."
                 ) from nie
             logger.warning(
                 "create_page_from_review: secondary candidate %r NotImplementedError"
@@ -3033,11 +3011,8 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                     item_id_str,
                     exc,
                 )
-                raise HTTPException(
-                    status_code=502,
-                    detail=(
-                        f"Page generation failed: {exc}. " "Item left pending — retry or skip."
-                    ),
+                raise UpstreamError(
+                    f"Page generation failed: {exc}. " "Item left pending — retry or skip."
                 ) from exc
             logger.warning(
                 "create_page_from_review: secondary candidate %r generation failed"
@@ -3065,12 +3040,9 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                         item_id_str,
                         exc,
                     )
-                    raise HTTPException(
-                        status_code=502,
-                        detail=(
-                            f"Failed to write page to wiki: {exc}. "
-                            "Item left pending — retry or skip."
-                        ),
+                    raise UpstreamError(
+                        f"Failed to write page to wiki: {exc}. "
+                        "Item left pending — retry or skip."
                     ) from exc
                 logger.warning(
                     "create_page_from_review: secondary candidate %r write failed"
@@ -3088,9 +3060,8 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
                     " — item pending",
                     item_id_str,
                 )
-                raise HTTPException(
-                    status_code=502,
-                    detail="Page generation produced no page. Item left pending — retry or skip.",
+                raise UpstreamError(
+                    "Page generation produced no page. Item left pending — retry or skip."
                 )
             logger.warning(
                 "create_page_from_review: secondary candidate %r produced no page — skipping",
@@ -3114,10 +3085,7 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
             "create_page_from_review: no pages created for item=%s — item pending",
             item_id_str,
         )
-        raise HTTPException(
-            status_code=502,
-            detail="No pages were created. Item left pending — retry or skip.",
-        )
+        raise UpstreamError("No pages were created. Item left pending — retry or skip.")
 
     # The primary (first) created page is recorded on the review item for API compatibility
     # (existing callers expect a single created_page_id — ADR-0064 §4 / I8).
@@ -3129,7 +3097,7 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
         item2 = row2.scalar_one_or_none()
         if item2 is None:
             # Theoretically impossible at this point, but handle gracefully
-            raise HTTPException(status_code=404, detail=f"Review item {item_id} not found")
+            raise NotFoundError(f"Review item {item_id} not found")
         item2.status = "created"
         item2.resolution = "created"
         # Assign as str for SQLite/Postgres compat: with_variant(String(36),"sqlite") stores
