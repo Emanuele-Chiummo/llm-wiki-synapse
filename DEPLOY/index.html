@@ -1080,10 +1080,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#92b-why-only-the-backend-is-auto-updated" class="md-nav__link">
+  <a href="#92b-on-demand-updates-from-the-app-the-update-system-button" class="md-nav__link">
     <span class="md-ellipsis">
       
-        9.2b Why only the backend is auto-updated
+        9.2b On-demand updates from the app (the "Update system" button)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92c-which-services-are-auto-updated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2c Which services are auto-updated
       
     </span>
   </a>
@@ -2723,10 +2734,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#92b-why-only-the-backend-is-auto-updated" class="md-nav__link">
+  <a href="#92b-on-demand-updates-from-the-app-the-update-system-button" class="md-nav__link">
     <span class="md-ellipsis">
       
-        9.2b Why only the backend is auto-updated
+        9.2b On-demand updates from the app (the "Update system" button)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92c-which-services-are-auto-updated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2c Which services are auto-updated
       
     </span>
   </a>
@@ -4789,8 +4811,33 @@ runs in the background and checks the GHCR registry every hour (configurable via
 <span class="c1"># watchtower_1  | time=&quot;2026-07-03T12:00:00Z&quot; level=info msg=&quot;Watchtower 1.x.x started&quot;</span>
 <span class="c1"># watchtower_1  | time=&quot;2026-07-03T12:05:00Z&quot; level=info msg=&quot;Checking synapse-backend...&quot;</span>
 </code></pre></div>
-<h4 id="92b-why-only-the-backend-is-auto-updated">9.2b Why only the backend is auto-updated<a class="headerlink" href="#92b-why-only-the-backend-is-auto-updated" title="Permanent link">&para;</a></h4>
-<p>The backend service carries the Watchtower enable label:</p>
+<h4 id="92b-on-demand-updates-from-the-app-the-update-system-button">9.2b On-demand updates from the app (the "Update system" button)<a class="headerlink" href="#92b-on-demand-updates-from-the-app-the-update-system-button" title="Permanent link">&para;</a></h4>
+<p>Settings → <strong>Info</strong> shows the running version and — when a newer GitHub Release exists — an
+<strong>"Update system"</strong> button. Clicking it triggers Watchtower to pull the latest images and recreate
+the labelled containers immediately, so you never run <code>docker pull</code> by hand.</p>
+<p>This needs Watchtower's HTTP API, gated by a <strong>shared token</strong> both services read from
+<code>WATCHTOWER_HTTP_API_TOKEN</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># .env (next to docker-compose.yml)</span>
+<span class="nv">WATCHTOWER_HTTP_API_TOKEN</span><span class="o">=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">32</span><span class="k">)</span>
+</code></pre></div>
+<p>The compose already wires it: the <code>watchtower</code> service starts with <code>--http-api-update</code>
+(plus <code>--http-api-periodic-polls</code>, so the hourly poll stays active too), and the backend receives
+<code>WATCHTOWER_URL=http://watchtower:8080</code> + the same token so <code>POST /ops/system-update</code> can reach it.
+When the token is empty the app reports <code>update_supported=false</code> and <strong>hides the button</strong> — the
+availability line still shows so you can update manually.</p>
+<p>Notes:
+- <strong>No download percentage.</strong> Watchtower's API is fire-and-forget, so the UI shows an indeterminate
+  "in progress" state, not a byte-level percentage — a deliberate trade-off (B1) to keep Docker
+  privileges out of the backend. The backend is recreated too, so the app briefly disconnects and
+  reconnects on the new version.
+- <strong>Which containers update:</strong> every container on the host labelled
+  <code>com.centurylinklabs.watchtower.enable=true</code>, regardless of which compose defined it. If your
+  <strong>frontend</strong> runs as a separate container/app (production serves the UI separately), add the same
+  label there for the button to refresh it too.
+- Availability is checked against the public GitHub Releases API (<code>UPDATE_CHECK_REPO</code>, cached ~1h);
+  the check is read-only and never blocks the UI.</p>
+<h4 id="92c-which-services-are-auto-updated">9.2c Which services are auto-updated<a class="headerlink" href="#92c-which-services-are-auto-updated" title="Permanent link">&para;</a></h4>
+<p>The backend and marker services carry the Watchtower enable label:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">labels</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">com.centurylinklabs.watchtower.enable</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </code></pre></div>

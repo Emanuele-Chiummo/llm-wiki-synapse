@@ -3,7 +3,7 @@
   "info": {
     "title": "Synapse",
     "description": "Self-organising wiki backend \u2014 M5 Phase 1 (F5 4-phase retrieval + [n] citations). 4-signal knowledge graph (F4): direct\u00d73 + source-overlap\u00d74 + Adamic-Adar\u00d71.5 + type\u00d71. FA2 server-side via igraph (I2); coords persisted in Postgres; dataVersion-debounced GraphCache; GET /graph precomputed coords (ADR-0014). Pluggable inference provider (F17): Local/Ollama, API/Anthropic-compatible, CLI/claude-agent-sdk. Bounded orchestrated ingest loop (I7). POST /ingest/upload: multipart upload \u2192 ingest (ADR-0020 Feature U). POST /ingest/from-text: inline text \u2192 ingest (ADR-0019 \u00a72.7, AC-F6-5 save-to-wiki). GET /search: F5 4-phase RAG retrieval (ADR-0022, AC-F5-6). GET|PUT /import-schedule + POST /import-schedule/run-now: scheduled folder import (ADR-0020 Feature S). Karpathy LLM Wiki pattern [K1\u2013K8]. POST /clip: Chrome MV3 web clipper ingress \u2014 token-gated, origin-checked, body-capped, safe-joined (F11, ADR-0038).",
-    "version": "1.7.4"
+    "version": "1.8.0"
   },
   "paths": {
     "/sources": {
@@ -1065,6 +1065,60 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/update-status": {
+      "get": {
+        "summary": "Deployment update availability (R12-3)",
+        "description": "Compares the running backend version with the latest published GitHub Release. Read-only and cached ~1h. `update_supported` reflects whether the Watchtower HTTP API is wired up.",
+        "operationId": "get_update_status_endpoint_ops_update_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/ops/system-update": {
+      "post": {
+        "summary": "Trigger a Watchtower pull + recreate (R12-3, B1)",
+        "description": "Pokes Watchtower's /v1/update (fire-and-forget) to pull the latest images and recreate every container labelled com.centurylinklabs.watchtower.enable=true on the host. The backend itself is recreated, so the connection drops \u2014 the UI shows an indeterminate 'update in progress' state and reconnects when the new backend is up. Auth-gated in server mode (ADR-0052).",
+        "operationId": "trigger_system_update_endpoint_ops_system_update_post",
+        "responses": {
+          "202": {
+            "description": "Update triggered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemUpdateResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Update mechanism not configured (no Watchtower URL/token)."
+          },
+          "502": {
+            "description": "Watchtower request failed."
           }
         },
         "security": [
@@ -12409,6 +12463,66 @@
         ],
         "title": "SynthesizeStatusResponse",
         "description": "GET /ops/synthesize \u2014 single-flight state + last completed summary."
+      },
+      "SystemUpdateResponse": {
+        "properties": {
+          "triggered": {
+            "type": "boolean",
+            "title": "Triggered",
+            "description": "True when Watchtower accepted the update request."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-facing status line."
+          }
+        },
+        "type": "object",
+        "required": [
+          "triggered",
+          "message"
+        ],
+        "title": "SystemUpdateResponse",
+        "description": "Result of poking Watchtower to pull+recreate the labelled containers."
+      },
+      "UpdateStatusResponse": {
+        "properties": {
+          "current_version": {
+            "type": "string",
+            "title": "Current Version",
+            "description": "Running backend version."
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version",
+            "description": "Latest published GitHub Release tag (X.Y.Z), or null if unknown."
+          },
+          "update_available": {
+            "type": "boolean",
+            "title": "Update Available",
+            "description": "True when latest_version is semver-newer than current_version."
+          },
+          "update_supported": {
+            "type": "boolean",
+            "title": "Update Supported",
+            "description": "True when the Watchtower HTTP API is configured, i.e. POST /ops/system-update can actually trigger an update. When false the UI hides the 'update' button."
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_version",
+          "update_available",
+          "update_supported"
+        ],
+        "title": "UpdateStatusResponse",
+        "description": "Deployment update availability (read-only; safe to poll)."
       },
       "UploadResponse": {
         "properties": {
