@@ -119,3 +119,57 @@ export async function triggerSynthesize(
 ): Promise<SynthesizeTriggerResponse> {
   return postJsonOp("/ops/synthesize", options, signal);
 }
+
+// ─── System self-update (R12-3, B1: Watchtower HTTP API) ──────────────────────────
+
+/** GET /ops/update-status — deployment update availability (read-only; safe to poll). */
+export interface UpdateStatus {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  /**
+   * Watchtower HTTP API is configured → POST /ops/system-update can act. When false the UI must
+   * hide the "Update system" button (there is nothing to trigger).
+   */
+  update_supported: boolean;
+}
+
+/** POST /ops/system-update — result of poking Watchtower. */
+export interface SystemUpdateResponse {
+  triggered: boolean;
+  message: string;
+}
+
+/** fetchUpdateStatus — GET /ops/update-status. Compares running vs latest release (server caches ~1h). */
+export async function fetchUpdateStatus(signal?: AbortSignal): Promise<UpdateStatus> {
+  const url = `${apiBase()}/ops/update-status`;
+  const res = await apiFetch(url, { ...(signal !== undefined ? { signal } : {}) });
+  if (!res.ok) throw new Error(`GET /ops/update-status: ${res.status}`);
+  return res.json() as Promise<UpdateStatus>;
+}
+
+/**
+ * triggerSystemUpdate — POST /ops/system-update (B1).
+ *
+ * Pokes Watchtower to pull the latest images and recreate the labelled containers. The backend is
+ * itself recreated, so the connection may drop right after the 202 — the caller should treat a
+ * network error immediately following the request as "update started" rather than a failure.
+ */
+export async function triggerSystemUpdate(signal?: AbortSignal): Promise<SystemUpdateResponse> {
+  const url = `${apiBase()}/ops/system-update`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`POST /ops/system-update: ${detail}`);
+  }
+  return res.json() as Promise<SystemUpdateResponse>;
+}

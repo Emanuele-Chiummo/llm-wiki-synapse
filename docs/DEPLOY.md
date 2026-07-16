@@ -1141,9 +1141,41 @@ docker compose logs -f watchtower | head -20
 # watchtower_1  | time="2026-07-03T12:05:00Z" level=info msg="Checking synapse-backend..."
 ```
 
-#### 9.2b Why only the backend is auto-updated
+#### 9.2b On-demand updates from the app (the "Update system" button)
 
-The backend service carries the Watchtower enable label:
+Settings → **Info** shows the running version and — when a newer GitHub Release exists — an
+**"Update system"** button. Clicking it triggers Watchtower to pull the latest images and recreate
+the labelled containers immediately, so you never run `docker pull` by hand.
+
+This needs Watchtower's HTTP API, gated by a **shared token** both services read from
+`WATCHTOWER_HTTP_API_TOKEN`:
+
+```bash
+# .env (next to docker-compose.yml)
+WATCHTOWER_HTTP_API_TOKEN=$(openssl rand -hex 32)
+```
+
+The compose already wires it: the `watchtower` service starts with `--http-api-update`
+(plus `--http-api-periodic-polls`, so the hourly poll stays active too), and the backend receives
+`WATCHTOWER_URL=http://watchtower:8080` + the same token so `POST /ops/system-update` can reach it.
+When the token is empty the app reports `update_supported=false` and **hides the button** — the
+availability line still shows so you can update manually.
+
+Notes:
+- **No download percentage.** Watchtower's API is fire-and-forget, so the UI shows an indeterminate
+  "in progress" state, not a byte-level percentage — a deliberate trade-off (B1) to keep Docker
+  privileges out of the backend. The backend is recreated too, so the app briefly disconnects and
+  reconnects on the new version.
+- **Which containers update:** every container on the host labelled
+  `com.centurylinklabs.watchtower.enable=true`, regardless of which compose defined it. If your
+  **frontend** runs as a separate container/app (production serves the UI separately), add the same
+  label there for the button to refresh it too.
+- Availability is checked against the public GitHub Releases API (`UPDATE_CHECK_REPO`, cached ~1h);
+  the check is read-only and never blocks the UI.
+
+#### 9.2c Which services are auto-updated
+
+The backend and marker services carry the Watchtower enable label:
 
 ```yaml
 labels:
