@@ -7,8 +7,9 @@
  *
  * Polling strategy (ADR-0018 §3):
  *   - Polls GET /ingest/runs every 5s ONLY while at least one run has status "running".
- *   - Uses a single AbortController + setTimeout chain — no setInterval, no runaway loop.
- *   - Stops automatically when no running rows remain.
+ *   - Built on the shared `createPollChain` primitive (FE-ARCH-2) — single
+ *     AbortController + setTimeout chain, stops automatically when no running
+ *     rows remain.
  *
  * Ingest-completion notification (ADR-0048 §T4c):
  *   - Fired when the poll detects runningCount transitions from >0 to 0 (terminal state).
@@ -23,6 +24,7 @@ import { useShallow } from "zustand/react/shallow";
 import type { IngestRunItem, IngestStatus } from "../api/types";
 import { fetchIngestRuns, cancelIngestRun } from "../api/ingestClient";
 import { isTauri } from "../api/base";
+import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -213,13 +215,11 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
   },
 
   startPolling: (vaultId) => {
-    const ctrl = new AbortController();
-
-    async function tick() {
-      if (ctrl.signal.aborted) return;
-      const { runningCount: prevRunning, runs: prevRuns } = get();
-      if (prevRunning === 0) return; // bounded: stop when no running rows
-      try {
+    // bounded: stop when no running rows remain (I3/I7, via createPollChain).
+    const chain = createPollChain({
+      shouldContinue: () => get().runningCount > 0,
+      fetch: async (signal) => {
+        const { runningCount: prevRunning, runs: prevRuns } = get();
         // Re-fetch the full loaded range (not just the first page) so running rows beyond
         // PAGE_LIMIT refresh their status, and compute runningCount over the WHOLE list — else a
         // running row past the first page never updates, and if the first page has no running rows
@@ -229,45 +229,41 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
           vaultId !== undefined
             ? { limit: pollLimit, offset: 0, vaultId }
             : { limit: pollLimit, offset: 0 };
-        const res = await fetchIngestRuns(pollOpts, ctrl.signal);
-        if (!ctrl.signal.aborted) {
-          const merged = [...res.items, ...prevRuns.slice(res.items.length)];
-          const running = countRunning(merged);
-          set((s) => ({
-            // Replace the refreshed range in the accumulated list; keep any deeper pages
-            runs: [...res.items, ...s.runs.slice(res.items.length)],
-            total: res.total,
-            runningCount: running,
-          }));
+        const res = await fetchIngestRuns(pollOpts, signal);
+        const merged = [...res.items, ...prevRuns.slice(res.items.length)];
+        const running = countRunning(merged);
+        return { res, prevRunning, prevRuns, running };
+      },
+      onResult: ({ res, prevRunning, prevRuns, running }) => {
+        set((s) => ({
+          // Replace the refreshed range in the accumulated list; keep any deeper pages
+          runs: [...res.items, ...s.runs.slice(res.items.length)],
+          total: res.total,
+          runningCount: running,
+        }));
 
-          // ── Ingest-completion notification (ADR-0048 §T4c) ────────────────
-          // Detect transition: was running, now 0 running → terminal state.
-          // Find the runs that were "running" in the previous snapshot and are
-          // now completed/failed. Fire-and-forget; only when isTauri().
-          if (prevRunning > 0 && running === 0 && isTauri()) {
-            const prevRunningIds = new Set(
-              prevRuns.filter((r) => r.status === "running").map((r) => r.id),
-            );
-            const nowTerminal = res.items.filter(
-              (r) => prevRunningIds.has(r.id) && r.status !== "running",
-            );
-            if (nowTerminal.length > 0) {
-              void sendIngestNotification(nowTerminal);
-            }
-          }
-
-          if (running > 0) {
-            setTimeout(() => void tick(), POLL_INTERVAL_MS);
+        // ── Ingest-completion notification (ADR-0048 §T4c) ────────────────
+        // Detect transition: was running, now 0 running → terminal state.
+        // Find the runs that were "running" in the previous snapshot and are
+        // now completed/failed. Fire-and-forget; only when isTauri().
+        if (prevRunning > 0 && running === 0 && isTauri()) {
+          const prevRunningIds = new Set(
+            prevRuns.filter((r) => r.status === "running").map((r) => r.id),
+          );
+          const nowTerminal = res.items.filter(
+            (r) => prevRunningIds.has(r.id) && r.status !== "running",
+          );
+          if (nowTerminal.length > 0) {
+            void sendIngestNotification(nowTerminal);
           }
         }
-      } catch {
-        // Stop polling on error — user can manually refresh
-      }
-    }
+      },
+      intervalFor: ({ running }) => (running > 0 ? POLL_INTERVAL_MS : null),
+      initialDelayMs: POLL_INTERVAL_MS,
+      // Stop polling on error — user can manually refresh (errorIntervalFor omitted).
+    });
 
-    setTimeout(() => void tick(), POLL_INTERVAL_MS);
-
-    return () => ctrl.abort();
+    return chain.subscribe();
   },
 }));
 

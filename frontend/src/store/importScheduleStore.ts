@@ -3,8 +3,8 @@
  *
  * INVARIANT I3: separate from graphStore (and settingsStore) so schedule polling/changes
  *               never re-render the graph or the page tree.
- * INVARIANT I7: polling uses a bounded setTimeout chain with AbortController — stops when
- *               last_status is no longer "running". Never a setInterval leak.
+ * INVARIANT I7: polling uses the shared `createPollChain` primitive (FE-ARCH-2) — stops
+ *               when last_status is no longer "running". Never a setInterval leak.
  *
  * State lives here; UI reads via typed selectors + useShallow for objects.
  */
@@ -21,6 +21,7 @@ import {
   putImportSchedule,
   runImportNow,
 } from "../api/importScheduleClient";
+import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -107,27 +108,15 @@ export const useImportScheduleStore = create<ImportScheduleStore>((set, get) => 
   },
 
   startPollingIfRunning: () => {
-    const ctrl = new AbortController();
-
-    async function tick() {
-      if (ctrl.signal.aborted) return;
-      const { schedule } = get();
-      if (schedule?.last_status !== "running") return; // bounded: stop when done
-      try {
-        const s = await getImportSchedule(ctrl.signal);
-        if (!ctrl.signal.aborted) {
-          set({ schedule: s });
-          if (s.last_status === "running") {
-            setTimeout(() => void tick(), POLL_INTERVAL_MS);
-          }
-        }
-      } catch {
-        // stop polling on error
-      }
-    }
-
-    setTimeout(() => void tick(), POLL_INTERVAL_MS);
-    return () => ctrl.abort();
+    const chain = createPollChain({
+      shouldContinue: () => get().schedule?.last_status === "running", // bounded: stop when done
+      fetch: (signal) => getImportSchedule(signal),
+      onResult: (s) => set({ schedule: s }),
+      intervalFor: (s) => (s.last_status === "running" ? POLL_INTERVAL_MS : null),
+      initialDelayMs: POLL_INTERVAL_MS,
+      // stop polling on error (errorIntervalFor omitted)
+    });
+    return chain.subscribe();
   },
 
   clearErrors: () => set({ error: null, saveError: null }),

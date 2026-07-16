@@ -1,15 +1,11 @@
 /**
  * activityStore.ts — Zustand store for the live ingest queue (Activity Panel, F1).
  *
- * Polling strategy (mirrors ingestStore.ts ADR-0018 §3):
- *   - Fast poll: 1500ms while processing > 0 || pending > 0 || paused.
- *   - Slow poll: 5000ms when idle (queue is empty and not paused).
- *   - Single setTimeout chain — no setInterval, no runaway loop (I7).
- *   - SHARED singleton loop with refcount: multiple callers of startPolling()
- *     (StrictMode double-invoke, HMR reloads, extra mount sites) share ONE
- *     in-flight GET /ingest/queue chain instead of each spawning their own.
- *     The chain is aborted only when the last subscriber's cleanup runs.
- *     This kills the "burst of ~5 identical /ingest/queue per tick" regression.
+ * Polling strategy: adaptive setTimeout chain (fast 1500ms while active, slow
+ * 5000ms when idle), shared across all subscribers via `createPollChain`'s
+ * refcounted `subscribe()` — see `pollChain.ts` (FE-ARCH-2). This kills the
+ * "burst of ~5 identical /ingest/queue per tick" regression from StrictMode
+ * double-invoke / HMR / extra mount sites.
  *
  * INVARIANT I3: Zustand selectors + useShallow for tasks array. No whole-store
  * subscriptions. No heavy work per render cycle.
@@ -25,6 +21,7 @@ import {
   pauseIngestQueue,
   resumeIngestQueue,
 } from "../api/ingestClient";
+import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -66,16 +63,14 @@ export interface ActivityActions {
 
 export type ActivityStore = ActivityState & ActivityActions;
 
-// ─── Shared singleton poll loop (dedup guard) ───────────────────────────────────
+// ─── Shared singleton poll chain (dedup guard) ──────────────────────────────────
 //
 // Module-level so that every startPolling() caller shares ONE GET /ingest/queue
-// chain. Without this, StrictMode's double-invoke, Vite HMR reloads that leave
-// orphan chains, and any extra mount site each spawn an independent poll loop —
-// producing bursts of identical requests per tick. Refcount ensures the chain
-// starts on the first subscriber and stops only when the last one leaves.
-let pollCtrl: AbortController | null = null;
-let pollTimer: ReturnType<typeof setTimeout> | null = null;
-let pollRefCount = 0;
+// chain via createPollChain's refcounted subscribe() (FE-ARCH-2). Without this,
+// StrictMode's double-invoke, Vite HMR reloads that leave orphan chains, and any
+// extra mount site each spawn an independent poll loop — producing bursts of
+// identical requests per tick.
+let sharedPollChain: ReturnType<typeof createPollChain<IngestQueueSnapshot>> | null = null;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
@@ -98,17 +93,10 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
   },
 
   startPolling: () => {
-    // Refcounted singleton: if a shared chain is already running, just attach.
-    pollRefCount += 1;
-    if (pollCtrl === null) {
-      const ctrl = new AbortController();
-      pollCtrl = ctrl;
-
-      async function tick() {
-        if (ctrl.signal.aborted) return;
-        try {
-          const snap = await getIngestQueue(ctrl.signal);
-          if (ctrl.signal.aborted) return;
+    if (sharedPollChain === null) {
+      sharedPollChain = createPollChain<IngestQueueSnapshot>({
+        fetch: (signal) => getIngestQueue(signal),
+        onResult: (snap) => {
           // Clear cancellingIds that are no longer in the task list.
           const currentIds = new Set(
             snap.tasks.filter((t) => t.run_id !== undefined).map((t) => t.run_id as string),
@@ -120,43 +108,30 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
             }
             return { snapshot: snap, error: null, cancellingIds: nextCancelling };
           });
-        } catch (err: unknown) {
-          if (ctrl.signal.aborted) return;
+        },
+        intervalFor: (snap) => {
+          const isActive = snap.processing > 0 || snap.pending > 0 || snap.paused;
+          return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+        },
+        onError: (err) => {
           if (err instanceof Error && err.name !== "AbortError") {
-            set({ error: (err as Error).message });
+            set({ error: err.message });
           }
-          // Keep polling on transient errors (backend may restart).
-        }
-
-        if (ctrl.signal.aborted) return;
-
-        const { snapshot } = get();
-        const isActive =
-          (snapshot?.processing ?? 0) > 0 ||
-          (snapshot?.pending ?? 0) > 0 ||
-          (snapshot?.paused ?? false);
-        pollTimer = setTimeout(() => void tick(), isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS);
-      }
-
-      // Kick off immediately.
-      pollTimer = setTimeout(() => void tick(), 0);
+        },
+        // Keep polling on transient errors (backend may restart) — reuse the
+        // last-known active/idle cadence rather than a fixed retry delay.
+        errorIntervalFor: () => {
+          const { snapshot } = get();
+          const isActive =
+            (snapshot?.processing ?? 0) > 0 ||
+            (snapshot?.pending ?? 0) > 0 ||
+            (snapshot?.paused ?? false);
+          return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+        },
+      });
     }
-
-    // Cleanup: detach this subscriber; abort the shared chain only when the last
-    // one leaves. Idempotent — a double-call won't over-decrement the refcount.
-    let stopped = false;
-    return () => {
-      if (stopped) return;
-      stopped = true;
-      pollRefCount -= 1;
-      if (pollRefCount <= 0) {
-        pollRefCount = 0;
-        if (pollCtrl !== null) pollCtrl.abort();
-        pollCtrl = null;
-        if (pollTimer !== null) clearTimeout(pollTimer);
-        pollTimer = null;
-      }
-    };
+    // Refcounted singleton: shares ONE chain across every subscriber.
+    return sharedPollChain.subscribe();
   },
 
   cancelRun: async (runId, signal) => {

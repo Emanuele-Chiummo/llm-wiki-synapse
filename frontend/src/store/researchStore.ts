@@ -6,10 +6,9 @@
  * INVARIANT I7: total_cost_usd is always present and rendered at 4dp by consumers.
  * INVARIANT I4: this store accumulates pages in `runs[]`; the UI virtualises the list.
  *
- * Polling strategy (mirrors ingestStore ADR-0018 §3 pattern):
+ * Polling strategy: built on the shared `createPollChain` primitive (FE-ARCH-2).
  *   - Polls GET /research/runs/{id} every 5s ONLY while the selected run has
- *     status "running". Uses a single AbortController + setTimeout chain —
- *     no setInterval, no tight loop. Stops automatically on a terminal status.
+ *     status "running". Stops automatically on a terminal status.
  *   - Interval cleanup is ALWAYS called on unmount (I3 — no runaway timers).
  *
  * Terminal statuses (stop polling): converged | max_iter_reached | budget_exhausted | error.
@@ -24,6 +23,7 @@ import {
   fetchResearchRunDetail,
   startResearch,
 } from "../api/researchClient";
+import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -236,50 +236,43 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
 
   // ── startPollingDetail ────────────────────────────────────────────────────
   startPollingDetail: (runId) => {
-    const ctrl = new AbortController();
+    // Stop if the user navigated away or the run is already terminal (I3/I7).
+    const chain = createPollChain({
+      shouldContinue: () => {
+        const { detail, selectedRunId } = get();
+        if (selectedRunId !== runId) return false;
+        if (detail !== null && isTerminal(detail.status)) return false;
+        return true;
+      },
+      fetch: (signal) => fetchResearchRunDetail(runId, signal),
+      onResult: (updated) => {
+        set((s) => ({
+          detail: updated,
+          // Also keep the list summary in sync (status + cost)
+          runs: s.runs.map((r) =>
+            r.id === runId
+              ? {
+                  ...r,
+                  status: updated.status,
+                  iterations_used: updated.iterations_used,
+                  sources_fetched: updated.sources_fetched,
+                  total_cost_usd: updated.total_cost_usd,
+                  completed_at: updated.completed_at,
+                }
+              : r,
+          ),
+          runningCount: s.runs
+            .map((r) => (r.id === runId ? { ...r, status: updated.status } : r))
+            .filter((r) => r.status === "running").length,
+        }));
+      },
+      // Schedule next tick ONLY if still running (I3 — no tight loop)
+      intervalFor: (updated) => (isTerminal(updated.status) ? null : POLL_INTERVAL_MS),
+      initialDelayMs: POLL_INTERVAL_MS,
+      // Stop polling on error — user can retry by re-selecting (errorIntervalFor omitted).
+    });
 
-    async function tick() {
-      if (ctrl.signal.aborted) return;
-      const { detail, selectedRunId } = get();
-      // Stop if the user navigated away or the run is terminal
-      if (selectedRunId !== runId) return;
-      if (detail !== null && isTerminal(detail.status)) return;
-      try {
-        const updated = await fetchResearchRunDetail(runId, ctrl.signal);
-        if (!ctrl.signal.aborted) {
-          set((s) => ({
-            detail: updated,
-            // Also keep the list summary in sync (status + cost)
-            runs: s.runs.map((r) =>
-              r.id === runId
-                ? {
-                    ...r,
-                    status: updated.status,
-                    iterations_used: updated.iterations_used,
-                    sources_fetched: updated.sources_fetched,
-                    total_cost_usd: updated.total_cost_usd,
-                    completed_at: updated.completed_at,
-                  }
-                : r,
-            ),
-            runningCount: s.runs
-              .map((r) => (r.id === runId ? { ...r, status: updated.status } : r))
-              .filter((r) => r.status === "running").length,
-          }));
-          // Schedule next tick ONLY if still running (I3 — no tight loop)
-          if (!isTerminal(updated.status)) {
-            setTimeout(() => void tick(), POLL_INTERVAL_MS);
-          }
-        }
-      } catch {
-        // Stop polling on error — user can retry by re-selecting
-      }
-    }
-
-    // First tick after one interval
-    setTimeout(() => void tick(), POLL_INTERVAL_MS);
-
-    return () => ctrl.abort();
+    return chain.subscribe();
   },
 
   clearStartError: () => set({ startError: null }),
