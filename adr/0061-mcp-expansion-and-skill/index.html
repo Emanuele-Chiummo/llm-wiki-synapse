@@ -1,0 +1,972 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0061-mcp-expansion-and-skill/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0061 — MCP tool expansion + review bulk-resolve + installable agent skill (README-delta parity, B5/D2) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0061-mcp-tool-expansion-review-bulk-resolve-installable-agent-skill-readme-delta-parity-b5d2" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0061 — MCP tool expansion + review bulk-resolve + installable agent skill (README-delta parity, B5/D2)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-three-new-read-only-mcp-tools-bounded-reuse-existing-seams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Three new READ-ONLY MCP tools (bounded, reuse existing seams)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-two-new-write-mcp-tools-gated-exactly-like-write_page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Two new WRITE MCP tools (gated exactly like write_page)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-rest-post-reviewqueuebulk-resolve-patch-reviewqueueid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 REST — POST /review/queue/bulk-resolve + PATCH /review/queue/{id}
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-read_source_file-is-confined-to-rawsources-path-safety-critical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 read_source_file is confined to raw/sources/ (path safety — CRITICAL)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-resolve_review-action-set-the-existing-review-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 resolve_review action set = the existing review actions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-agent-skill-toolssynapse-skillskillmd-trigger-disciplined" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Agent skill — tools/synapse-skill/SKILL.md, trigger-disciplined
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-do-not-list-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Do-NOT list (binding)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-acceptance-check-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Acceptance check (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0061-mcp-tool-expansion-review-bulk-resolve-installable-agent-skill-readme-delta-parity-b5d2">ADR-0061 — MCP tool expansion + review bulk-resolve + installable agent skill (README-delta parity, B5/D2)<a class="headerlink" href="#adr-0061-mcp-tool-expansion-review-bulk-resolve-installable-agent-skill-readme-delta-parity-b5d2" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-06</li>
+<li><strong>Sprint:</strong> B5 (README-delta parity — <code>feat/b5-mcp-skill</code>)</li>
+<li><strong>Feature:</strong> F17-adjacent (MCP surface) + F9 (review queue) · closes UI-ALIGNMENT-PLAN-2026-07 §B5 row <strong>D2</strong></li>
+<li><strong>Extends:</strong> ADR-0010 (MCP transport + shared write path) · ADR-0029/0032/0033 (remote HTTP surface, runtime toggle, UI token + source-trust gate) · ADR-0044 (review bulk actions + <code>status</code> filter) · ADR-0034 (review proposal model)</li>
+<li><strong>Invariants owned:</strong> <strong>I6</strong> (every new tool reuses an existing provider-neutral seam; NO tool touches <code>InferenceProvider</code>, NO provider is hardcoded) · <strong>I9</strong> (reuse the existing FastMCP server, <code>rag.retrieval</code>, the graph engine, and the watcher rescan — no new search/graph/gateway) · <strong>I1</strong> (the write tools are incremental upserts / status writes; the rescan is the incremental watcher, never a full re-scan) · <strong>I7</strong> (every read is capped: <code>depth ≤ 2</code>, <code>limit ≤ 100</code>, <code>ids ≤ 200</code>; no new loop) · <strong>I5</strong> (write tools keep the ADR-0010 §2 shared validated write path)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (MCP tool bodies + <code>build_http_mcp</code> gating + <code>POST /review/queue/bulk-resolve</code> + <code>PATCH /review/queue/{id}</code>) · ai-agent-engineer (co-sign the tool contracts + <code>tools/synapse-skill/SKILL.md</code> trigger discipline) · tech-writer (D4 MCP reference + OpenAPI regen)</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The current llm_wiki README (2026-07) has evolved past the v0.5.4 audit baseline. Its local
+service now exposes an <strong>MCP server with a richer tool surface</strong> (graph neighbourhood, review
+listing/resolution, source-file read, source rescan), a <strong>review bulk-resolve + PATCH</strong> REST
+surface, and an <strong>installable agent skill</strong> (<code>npx skills add llm_wiki_skill</code>) that lets a Claude
+Code / Codex agent operate the wiki from a disciplined trigger.</p>
+<p>Synapse's MCP server (<code>backend/app/mcp/server.py</code>) exposes exactly <strong>four</strong> tools —
+<code>search_wiki</code>, <code>write_page</code>, <code>get_page</code>, <code>list_pages</code> — split into read-only bodies plus one
+gated write body (<code>write_page</code>), with <code>build_http_mcp(write_enabled=...)</code> deciding whether the
+HTTP surface registers the write tool (ADR-0029 §2.3 / ADR-0033 §2.4). The review queue has
+per-item actions and a <code>POST /review/queue/bulk</code> (ADR-0044) but <strong>no <code>bulk-resolve</code> verb and no
+<code>PATCH</code></strong>. There is no packaged agent skill.</p>
+<p>This is a <strong>parity gap, not a redesign.</strong> The abstraction is already correct: read bodies +
+one write body, a stdio <code>mcp</code>, an in-process SDK server, and a token-gated HTTP surface. This
+ADR extends that surface with more tools of the <em>same two kinds</em> and one narrow REST pair, and
+adds a trigger-disciplined skill package. It does <strong>not</strong> change transport, auth, the write
+path, or provider routing.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-three-new-read-only-mcp-tools-bounded-reuse-existing-seams">2.1 Three new READ-ONLY MCP tools (bounded, reuse existing seams)<a class="headerlink" href="#21-three-new-read-only-mcp-tools-bounded-reuse-existing-seams" title="Permanent link">&para;</a></h3>
+<p>Added as new shared <code>_*_body</code> functions and registered on the stdio <code>mcp</code>, the <code>build_http_mcp</code>
+read set (always present, like <code>get_page</code>/<code>list_pages</code>), and the SDK server:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Signature</th>
+<th>Seam reused (I9)</th>
+<th>Bound (I7)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>get_graph_neighborhood</code></td>
+<td><code>(title: str, depth: int = 1)</code></td>
+<td>the existing graph engine / links tables (ADR-0012/0016) — <strong>read the persisted edges, never recompute layout</strong> (I2)</td>
+<td><code>depth</code> clamped to <code>1..2</code>; <strong>2 is the hard ceiling</strong></td>
+</tr>
+<tr>
+<td><code>list_reviews</code></td>
+<td><code>(status: str \| None = None, limit: int = 50)</code></td>
+<td><code>ops.review</code> list path + the ADR-0044 <code>status</code> filter</td>
+<td><code>limit</code> clamped to <code>1..100</code>; excludes nothing new</td>
+</tr>
+<tr>
+<td><code>read_source_file</code></td>
+<td><code>(path: str)</code></td>
+<td>reads a file under the vault <code>raw/sources/</code> root only</td>
+<td>path resolved and confined to <code>raw/sources/</code> (§2.4)</td>
+</tr>
+</tbody>
+</table>
+<p>All three are <strong>read-only</strong>: they never mutate the vault, so they are registered on the HTTP
+surface unconditionally (same class as <code>search_wiki</code>/<code>get_page</code>/<code>list_pages</code>) and require no
+<code>write_enabled</code>. <code>get_graph_neighborhood</code> reads the <strong>already-computed</strong> graph — it must not
+trigger a layout or a graph recompute (I2 stands; it is a lookup, mirroring how <code>search_wiki</code>
+is a lookup, not the F5 pipeline rebuild).</p>
+<h3 id="22-two-new-write-mcp-tools-gated-exactly-like-write_page">2.2 Two new WRITE MCP tools (gated exactly like <code>write_page</code>)<a class="headerlink" href="#22-two-new-write-mcp-tools-gated-exactly-like-write_page" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Signature</th>
+<th>Effect</th>
+<th>Gating</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resolve_review</code></td>
+<td><code>(id: str, action: str)</code></td>
+<td>set a review item's status via the <strong>existing</strong> <code>ops.review</code> seam (§2.5 action set)</td>
+<td><code>write_enabled</code> only — same gate as <code>write_page</code></td>
+</tr>
+<tr>
+<td><code>trigger_source_rescan</code></td>
+<td><code>()</code></td>
+<td>enqueue the <strong>incremental watcher</strong> rescan of <code>raw/sources/</code> (I1) — never a full re-scan</td>
+<td><code>write_enabled</code> only</td>
+</tr>
+</tbody>
+</table>
+<p>Both are <strong>mutating</strong>, so they follow <code>write_page</code> exactly: registered on the stdio <code>mcp</code> and
+the SDK server unconditionally, but on the HTTP surface <strong>only inside the
+<code>if write_enabled:</code> block of <code>build_http_mcp</code></strong> (ADR-0029 §2.3). Remote/HTTP therefore stays
+<strong>read-only by default</strong> (ADR-0033 §2.4 decision table unchanged) — a leaked token cannot
+resolve reviews or trigger a rescan unless the operator explicitly opted the write surface in.
+<code>resolve_review</code> reuses <code>ops.review._set_status</code> / the existing action handlers, so terminal-
+status and idempotency guarantees (ADR-0044) hold identically — no second review writer.
+<code>trigger_source_rescan</code> calls the existing watcher entry point; it does <strong>not</strong> implement a new
+scan (I1/I9).</p>
+<h3 id="23-rest-post-reviewqueuebulk-resolve-patch-reviewqueueid">2.3 REST — <code>POST /review/queue/bulk-resolve</code> + <code>PATCH /review/queue/{id}</code><a class="headerlink" href="#23-rest-post-reviewqueuebulk-resolve-patch-reviewqueueid" title="Permanent link">&para;</a></h3>
+<p>Parity with the llm_wiki "reviews export/PATCH/bulk-resolve" surface, layered on ADR-0044:</p>
+<ul>
+<li><strong><code>POST /review/queue/bulk-resolve {ids: list[str], action: str}</code></strong> — apply one action to up
+  to <strong>200</strong> items (<code>ids ≤ 200</code>, request rejected <code>422</code> above the cap). Bounded DB writes over
+  the existing <code>_set_status</code> / action handlers; no loop over an unbounded set (I7). This is a
+  distinct verb from ADR-0044's <code>POST /review/queue/bulk</code> (which is UI-selection bulk over the
+  live statuses); <code>bulk-resolve</code> takes an explicit id list + action for API/agent callers.</li>
+<li><strong><code>PATCH /review/queue/{id} {action: str}</code> (or status field)</strong> — single-item state transition
+  through the same seam, for callers that prefer a REST PATCH over the per-verb routes.</li>
+</ul>
+<p>Both route into the <strong>existing</strong> <code>ops.review</code> handlers — no new review logic, no new table, no
+migration (D2/ER unchanged, I8 has nothing to regenerate here beyond OpenAPI).</p>
+<h3 id="24-read_source_file-is-confined-to-rawsources-path-safety-critical">2.4 <code>read_source_file</code> is confined to <code>raw/sources/</code> (path safety — CRITICAL)<a class="headerlink" href="#24-read_source_file-is-confined-to-rawsources-path-safety-critical" title="Permanent link">&para;</a></h3>
+<p><code>read_source_file(path)</code> MUST resolve the requested path against the vault <code>raw/sources/</code> root
+and <strong>reject anything that escapes it</strong> (<code>..</code>, absolute paths, symlink traversal). The
+implementation resolves to a real path and verifies it is a descendant of the <code>raw/sources/</code>
+directory; a miss returns a structured <code>{"error": ...}</code> (never an exception, never file bytes
+from elsewhere). It reads <strong>source inputs only</strong> — never <code>wiki/</code>, never <code>.obsidian/</code>, never
+config, never anything outside <code>raw/sources/</code>. This mirrors the reference's allow-list file-read
+posture and keeps the tool from becoming an arbitrary-file-read primitive over the token-gated
+HTTP surface.</p>
+<h3 id="25-resolve_review-action-set-the-existing-review-actions">2.5 <code>resolve_review</code> action set = the existing review actions<a class="headerlink" href="#25-resolve_review-action-set-the-existing-review-actions" title="Permanent link">&para;</a></h3>
+<p><code>resolve_review(id, action)</code> accepts only the <strong>already-defined</strong> review actions/statuses from
+ADR-0034/0044 (<code>skip</code>, <code>dismiss</code>, <code>mark-resolved</code>/<code>resolved</code>, and — where the item supports it —
+<code>create</code> / <code>deep-research</code> via their existing handlers). No new status value is introduced. An
+unknown action returns a structured error. <code>bulk-resolve</code> shares this same action validation.
+Terminal statuses (ADR-0044) are never re-mutated.</p>
+<h3 id="26-agent-skill-toolssynapse-skillskillmd-trigger-disciplined">2.6 Agent skill — <code>tools/synapse-skill/SKILL.md</code>, trigger-disciplined<a class="headerlink" href="#26-agent-skill-toolssynapse-skillskillmd-trigger-disciplined" title="Permanent link">&para;</a></h3>
+<p>Ship an installable skill that drives the REST/MCP surface, mirroring llm_wiki's
+trigger-disciplined <code>llm_wiki_skill</code>:</p>
+<ul>
+<li><strong>Trigger discipline (load-bearing):</strong> the skill activates <strong>only</strong> on an explicit
+  reference to <strong>"Synapse"</strong> or <strong>"my wiki"</strong> (the user's own vault). It MUST NOT trigger on a
+  generic "search my notes", "look something up", or any ambient note/file phrasing. The skill
+  description states the trigger narrowly so it does not hijack unrelated requests.</li>
+<li>It operates entirely through the <strong>existing</strong> REST endpoints and MCP tools defined above
+  (search/read/graph/review/rescan/write); it introduces <strong>no</strong> new capability and <strong>no</strong>
+  provider logic (I6/I9). It is a client of the surface, not part of it.</li>
+<li>Lives in <code>tools/synapse-skill/</code> (backend-agent owned); this ADR fixes only its <strong>contract and
+  trigger rule</strong>, not its prose.</li>
+</ul>
+<hr />
+<h2 id="3-do-not-list-binding">3. Do-NOT list (binding)<a class="headerlink" href="#3-do-not-list-binding" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Do NOT expose any write tool (<code>resolve_review</code>, <code>trigger_source_rescan</code>, <code>write_page</code>) on
+   the HTTP surface without the <code>write_enabled</code> gate.</strong> They belong inside the
+   <code>if write_enabled:</code> block of <code>build_http_mcp</code>, exactly like <code>write_page</code>. Remote/HTTP stays
+   read-only by default (ADR-0029 §2.3 / ADR-0033 §2.4).</li>
+<li><strong>Do NOT let <code>read_source_file</code> escape <code>raw/sources/</code>.</strong> No <code>..</code>, no absolute paths, no
+   symlink traversal, no reading <code>wiki/</code>/<code>.obsidian/</code>/config. Confinement is verified against a
+   resolved real path; a miss returns a structured error.</li>
+<li><strong>Do NOT exceed the caps:</strong> <code>get_graph_neighborhood</code> <code>depth ≤ 2</code>; <code>list_reviews</code> <code>limit ≤ 100</code>;
+   <code>bulk-resolve</code> <code>ids ≤ 200</code>. Clamp/reject rather than run unbounded (I7).</li>
+<li><strong>Do NOT make the skill trigger on generic phrasing</strong> ("search my notes", "find a file").
+   It fires only on explicit "Synapse" / "my wiki".</li>
+<li><strong>Do NOT recompute the graph or run a layout</strong> inside <code>get_graph_neighborhood</code> — read the
+   persisted edges only (I2).</li>
+<li><strong>Do NOT add a second review writer or a new status value</strong> — <code>resolve_review</code> /
+   <code>bulk-resolve</code> / <code>PATCH</code> route through the existing <code>ops.review</code> seam (ADR-0034/0044).</li>
+<li><strong>Do NOT implement a new scan</strong> in <code>trigger_source_rescan</code> — enqueue the existing incremental
+   watcher (I1).</li>
+</ol>
+<hr />
+<h2 id="4-acceptance-check-dod">4. Acceptance check (DoD)<a class="headerlink" href="#4-acceptance-check-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li>stdio <code>mcp</code> and the SDK server register all tools (4 existing + 5 new = read: <code>search_wiki</code>,
+   <code>get_page</code>, <code>list_pages</code>, <code>get_graph_neighborhood</code>, <code>list_reviews</code>, <code>read_source_file</code>;
+   write: <code>write_page</code>, <code>resolve_review</code>, <code>trigger_source_rescan</code>).</li>
+<li><code>build_http_mcp(write_enabled=False)</code> registers <strong>only</strong> the read tools (no <code>resolve_review</code>,
+   no <code>trigger_source_rescan</code>, no <code>write_page</code>); <code>write_enabled=True</code> adds all three write tools.</li>
+<li><code>get_graph_neighborhood(depth=5)</code> is clamped to <code>2</code>; <code>list_reviews(limit=999)</code> clamped to
+   <code>100</code>; <code>POST /review/queue/bulk-resolve</code> with <code>&gt;200</code> ids → <code>422</code>.</li>
+<li><code>read_source_file("../wiki/index.md")</code> (and absolute/symlink variants) → structured error, no
+   bytes returned; a valid <code>raw/sources/*</code> path returns content.</li>
+<li><code>resolve_review</code> / <code>bulk-resolve</code> / <code>PATCH</code> route through <code>ops.review</code> (grep proves no second
+   writer); terminal statuses unchanged.</li>
+<li><code>trigger_source_rescan</code> enqueues the incremental watcher — no full re-scan path invoked (I1).</li>
+<li>The skill description triggers on "Synapse"/"my wiki" and not on "search my notes" (documented
+   trigger rule).</li>
+<li><code>make openapi</code> includes <code>POST /review/queue/bulk-resolve</code> and <code>PATCH /review/queue/{id}</code>
+   (I8). No DB migration ⇒ no ER change.</li>
+</ol>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — closes the B5/D2 parity gap by <em>extending</em> the surface Synapse already has: the
+new tools are the same two kinds (read bodies + gated write bodies) wired through the same
+<code>build_http_mcp</code> split, so remote-read-only-by-default and the shared validated write path are
+preserved for free. The skill is a disciplined client, adding no runtime capability. No
+transport, auth, provider-routing, or schema change.</p>
+<p><strong>Trade-offs (explicit)</strong> — five more tools widen the MCP surface area, so the write-gating and
+the <code>read_source_file</code> confinement are the two things that MUST be verified in tests (they are
+the only new attack surface). <code>resolve_review</code> over HTTP (when the operator opts write in) lets a
+token holder resolve reviews remotely — acceptable and symmetric with the already-gated
+<code>write_page</code>. The skill's usefulness depends on trigger discipline; a loose trigger would be a UX
+regression, hence the explicit Do-NOT.</p>
+<p><strong>Invariant check</strong> — <strong>I6:</strong> no tool touches <code>InferenceProvider</code>; nothing hardcoded. <strong>I9:</strong>
+reuses FastMCP, <code>rag.retrieval</code>, the graph engine, the watcher, and <code>ops.review</code> — no new
+search/graph/gateway/writer. <strong>I1:</strong> rescan is the incremental watcher; review writes are
+status writes. <strong>I7:</strong> every read/bulk is capped (<code>depth ≤ 2</code>, <code>limit ≤ 100</code>, <code>ids ≤ 200</code>); no
+new loop. <strong>I5:</strong> the shared validated write path (ADR-0010 §2) is untouched. <strong>I2/I3/I4/I8:</strong>
+untouched (no layout recompute, no UI-thread work, no schema change). <strong>No invariant is traded
+for convenience.</strong></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

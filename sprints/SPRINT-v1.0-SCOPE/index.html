@@ -1073,7 +1073,7 @@ but routing remains single-vault. Document this explicitly in ADR-0052.</p>
 <p><strong>Acceptance criteria:</strong></p>
 <ul>
 <li>
-<p>AC-R10-1-0: ADR-0052 committed to <code>docs/adr/ADR-0052-auth-token-model.md</code> and accepted
+<p>AC-R10-1-0: ADR-0052 committed to <code>docs/adr/0052-auth-token-model.md</code> and accepted
   by solution-architect BEFORE any implementation code is written. ADR covers: why shared
   token not OIDC, why OIDC is deferred, single-vault scope for 1.0, HTTPS responsibility
   model, rotation procedure, excluded endpoints.</p>
@@ -1607,7 +1607,7 @@ PR run on the same branch).</p>
 <h2 id="4-explicit-sequencing-and-file-conflict-map">4. Explicit sequencing and file conflict map<a class="headerlink" href="#4-explicit-sequencing-and-file-conflict-map" title="Permanent link">&para;</a></h2>
 <h3 id="wave-1-adr-first-then-auth-backend-days-14">Wave 1 — ADR first, then auth backend (days 1–4)<a class="headerlink" href="#wave-1-adr-first-then-auth-backend-days-14" title="Permanent link">&para;</a></h3>
 <p><strong>Day 1 (PM-mandated blocker):</strong> solution-architect writes and commits ADR-0052
-(<code>docs/adr/ADR-0052-auth-token-model.md</code>). No backend code written until ADR-0052 is
+(<code>docs/adr/0052-auth-token-model.md</code>). No backend code written until ADR-0052 is
 accepted. QA-v0.9-leftovers (AC-QA-LO-1 and AC-QA-LO-2) start in parallel (no shared
 files with auth).</p>
 <p><strong>Days 2–4:</strong> backend-engineer implements R10-1 (auth middleware, <code>auth.py</code> module,
@@ -1878,7 +1878,7 @@ QA-test-engineer + Solution-architect + Tech-writer + Product-manager.</p>
 </tr>
 <tr>
 <td>EC-M10-12</td>
-<td><code>docs/adr/ADR-0052-auth-token-model.md</code> committed and in Accepted status. ADR-0052 linked from the ADR index (R10-6 AC-R10-6-6).</td>
+<td><code>docs/adr/0052-auth-token-model.md</code> committed and in Accepted status. ADR-0052 linked from the ADR index (R10-6 AC-R10-6-6).</td>
 </tr>
 <tr>
 <td>EC-M10-13</td>

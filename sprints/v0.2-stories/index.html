@@ -2683,7 +2683,7 @@ why these choices were made without reading the entire codebase.</p>
 <p><strong>Invariants touched:</strong> I8 (D7 required from v0.2; must be approved by architect before M2 sign-off)</p>
 <hr />
 <h3 id="ac-d7-1-adr-0007-inferenceprovider-abc-design-is-present-and-approved">AC-D7-1 — ADR-0007: InferenceProvider ABC design is present and approved<a class="headerlink" href="#ac-d7-1-adr-0007-inferenceprovider-abc-design-is-present-and-approved" title="Permanent link">&para;</a></h3>
-<p><strong>Given</strong> <code>docs/adr/ADR-0007-inference-provider-abc.md</code> has been authored,
+<p><strong>Given</strong> <code>docs/adr/0007-inference-provider-abc.md</code> has been authored,
 <strong>When</strong> it is reviewed by the solution-architect,
 <strong>Then</strong> the document is present, non-empty, and covers all of:
 1. Why an ABC (abstract base class) was chosen over duck typing or a Protocol.
@@ -2694,7 +2694,7 @@ why these choices were made without reading the entire codebase.</p>
    or deferred to v0.3.
 5. Status field set to "Accepted" and Date/Sprint/Decider populated.</p>
 <p>Testable assert (automated structure check):</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/ADR-0007-inference-provider-abc.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0007-inference-provider-abc.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">500</span>  <span class="c1"># non-trivial document</span>
 <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ABC&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">,</span> <span class="s2">&quot;chat&quot;</span><span class="p">,</span> <span class="s2">&quot;NotImplementedError&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
     <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0007 missing expected content: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -2702,7 +2702,7 @@ why these choices were made without reading the entire codebase.</p>
 <p>Approval by solution-architect is a mandatory human gate (recorded in sign-off register).</p>
 <hr />
 <h3 id="ac-d7-2-adr-0008-provider_config-schema-is-present-and-approved">AC-D7-2 — ADR-0008: provider_config schema is present and approved<a class="headerlink" href="#ac-d7-2-adr-0008-provider_config-schema-is-present-and-approved" title="Permanent link">&para;</a></h3>
-<p><strong>Given</strong> <code>docs/adr/ADR-0008-provider-config-schema.md</code> has been authored,
+<p><strong>Given</strong> <code>docs/adr/0008-provider-config-schema.md</code> has been authored,
 <strong>When</strong> it is reviewed by the solution-architect,
 <strong>Then</strong> the document covers all of:
 1. Why Postgres was chosen over a YAML/JSON config file for provider_config.
@@ -2710,14 +2710,14 @@ why these choices were made without reading the entire codebase.</p>
 3. Why vault_id is nullable at global scope.
 4. Status "Accepted", Date/Sprint/Decider populated.</p>
 <p>Testable assert (automated structure check):</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/ADR-0008-provider-config-schema.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0008-provider-config-schema.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">400</span>
 <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;vault&quot;</span><span class="p">,</span> <span class="s2">&quot;operation&quot;</span><span class="p">,</span> <span class="s2">&quot;Postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
     <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0008 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d7-3-adr-0009-bounded-loop-defaults-and-cost-logging-is-present-and-approved">AC-D7-3 — ADR-0009: bounded-loop defaults and cost logging is present and approved<a class="headerlink" href="#ac-d7-3-adr-0009-bounded-loop-defaults-and-cost-logging-is-present-and-approved" title="Permanent link">&para;</a></h3>
-<p><strong>Given</strong> <code>docs/adr/ADR-0009-bounded-loop-defaults.md</code> has been authored,
+<p><strong>Given</strong> <code>docs/adr/0009-bounded-loop-defaults.md</code> has been authored,
 <strong>When</strong> it is reviewed by the solution-architect,
 <strong>Then</strong> the document covers all of:
 1. Rationale for <code>max_iter=3</code> (happy path + 2 retries is sufficient; beyond 3 is a provider
@@ -2729,7 +2729,7 @@ why these choices were made without reading the entire codebase.</p>
 4. The $1.00/run anomaly WARNING threshold and why that value was chosen.
 5. Status "Accepted", Date/Sprint/Decider populated.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/ADR-0009-bounded-loop-defaults.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0009-bounded-loop-defaults.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">500</span>
 <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="s2">&quot;token_budget&quot;</span><span class="p">,</span> <span class="s2">&quot;total_cost_usd&quot;</span><span class="p">,</span> <span class="s2">&quot;1.00&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
     <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0009 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>

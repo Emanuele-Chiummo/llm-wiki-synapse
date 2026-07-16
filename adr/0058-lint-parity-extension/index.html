@@ -1,0 +1,1408 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0058-lint-parity-extension/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0058 — Lint parity extension: broken-wikilink, batch actions, review bridge, orphan delete - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0058-lint-parity-extension-broken-wikilink-batch-actions-review-bridge-orphan-delete" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0058 — Lint parity extension: broken-wikilink, batch actions, review bridge, orphan delete
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-new-deterministic-category-broken-wikilink-i1-i7-zero-cost" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 New deterministic category broken-wikilink (I1, I7, zero cost)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#21a-cap-separation-lint_max_findings-bounds-the-paid-pass-only-amended-2026-07-06-live-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1a Cap separation: LINT_MAX_FINDINGS bounds the PAID pass only (amended 2026-07-06, live-preview)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-apply_lint_fix-gains-a-broken-wikilink-branch-i1-i5-same-safety-class-as-missing-xref" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 apply_lint_fix gains a broken-wikilink branch (I1, I5 — same safety class as missing-xref)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-rest-surface-additions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 REST surface additions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-category-review-item_type-mapping-send-to-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Category → review item_type mapping (send-to-review)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-delete-pagesid-orphan-delete-k8-human-double-confirmed-never-automated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 DELETE /pages/{id} — orphan delete (K8 — human-double-confirmed, never automated)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-frontend-affordances-i4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Frontend affordances (I4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-persistence-alembic-migration-0024" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Persistence — Alembic migration 0024
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-bounds-the-i7-contract-extends-adr-0037-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bounds — the I7 contract (extends ADR-0037 §4)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-list-extends-adr-0037-8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do-NOT list (extends ADR-0037 §8)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-v1313-lint-parity-extensions-l1l5-adr-0058-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#l1-no-outlinks-deterministic-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L1 — no-outlinks deterministic category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l2-suggestion-semantic-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L2 — suggestion semantic category
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L3 — Fuzzy suggested_target/suggested_page_id on no-outlinks and orphan-page
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L4 — Auto-fixes for no-outlinks, orphan-page, and stub-less broken-wikilink
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#l5-severity-corrections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        L5 — Severity corrections
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_valid_categories-final-v1313" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _VALID_CATEGORIES (final, v1.3.13)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#do-not-additions-extends-6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Do-NOT additions (extends §6)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-parity-corrections-v1313-incremental-amendment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Parity corrections (v1.3.13 — incremental amendment)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Parity corrections (v1.3.13 — incremental amendment)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-orphan-detection-source-filter-l-bug1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Orphan detection source filter (L-bug1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-missing-xref-excluded-from-semantic-pass-parser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 missing-xref excluded from semantic-pass parser
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0058-lint-parity-extension-broken-wikilink-batch-actions-review-bridge-orphan-delete">ADR-0058 — Lint parity extension: broken-wikilink, batch actions, review bridge, orphan delete<a class="headerlink" href="#adr-0058-lint-parity-extension-broken-wikilink-batch-actions-review-bridge-orphan-delete" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-06</li>
+<li><strong>Sprint:</strong> v1.3 UI-alignment batch <strong>B1 — Lint</strong> (<code>docs/reference/UI-ALIGNMENT-PLAN-2026-07.md</code>)</li>
+<li><strong>Extends:</strong> ADR-0037 (K2 Lint-fix loop). This ADR does <strong>not</strong> supersede it — the two-phase
+  scan (deterministic + bounded semantic), the human-gate model, and the I7 bounds table of
+  ADR-0037 stand unchanged. This ADR <em>adds</em> one deterministic category, four new endpoints, two
+  columns, and one page-delete verb, all within ADR-0037's safety envelope.</li>
+<li><strong>Features:</strong> K2 (Lint — the third Karpathy operation) · K8 (human curates, LLM maintains — the
+  batch bar, the review bridge, and orphan delete are all human-gated curation surfaces) ·
+  F9 (the lint→review bridge feeds the existing HITL queue) · F13 (orphan delete reuses the
+  cascade-delete cleanup seams) · F4 (broken-wikilink reads the <code>links</code> health signal)</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki — <code>lint-view.tsx</code> / <code>lint-fixes.ts</code>: the live lint screen with
+  issue-count badge, <code>Semantic (LLM)</code> checkbox, severity group headers, batch bar, green
+  <code>Suggested target:</code> strip, per-row <code>Open</code>/<code>Fix</code>, <code>Delete</code> on orphans) · R2 (Karpathy — periodic
+  lint/health-check)</li>
+<li><strong>Invariants owned:</strong> <strong>I1</strong> (broken-wikilink is a bounded indexed scan of <code>links.dangling=True</code>
+  rows — never a vault walk; every apply/delete touches only the affected page(s) and bumps
+  <code>data_version</code> <strong>at most once</strong>) · <strong>I5</strong> (the broken-wikilink rewrite and the orphan-delete
+  dead-link cleanup edit page <strong>bodies</strong> only, via frontmatter-preserving round-trip) · <strong>I6</strong> (the
+  <code>?semantic=false</code> path skips the provider entirely; when <code>true</code>, the semantic pass still routes
+  through the ADR-0037 backend-neutral surface — no hardcoded backend, no <code>isinstance</code> branching) ·
+  <strong>I7</strong> (broken-wikilink is <strong>zero provider cost</strong> and scan-capped; <code>/lint/findings/batch</code> caps
+  <code>ids ≤ 200</code> and runs sequentially server-side; no new unbounded loop) · <strong>I4</strong> (severity group
+  headers are synthetic rows inside the existing TanStack-virtualised list — no de-virtualisation) ·
+  <strong>K8</strong> (<code>DELETE /pages/{id}</code> is <strong>UI-only, human-double-confirmed</strong>, never reachable from any
+  automated loop; every fix stays propose-then-apply)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The live nashsu/llm_wiki lint screen is the batch's headline gap (B1, P0). Its lint view shows a
+health surface Synapse's backend already <em>computes</em> but never <em>exposes</em>: an issue-count badge, a
+<code>Semantic (LLM)</code> toggle, severity group headers (<code>⚠ Warnings (741)</code>), a multi-select <strong>batch bar</strong>
+(<code>Select all / Fix selected / Send selected to Review / Ignore selected</code>), a per-row <code>Open</code>/<code>Fix</code>
+pair, a green <code>Suggested target:</code> strip, and a <code>Delete</code> action on orphan rows. The "741 warnings"
+that dominate the reference screen are, structurally, <strong>broken wikilinks</strong> — which Synapse already
+tracks (<code>links.dangling=True</code>, <code>backend/app/wiki/links.py</code>) but never surfaces as findings.</p>
+<p>ADR-0037 shipped the K2 lint <strong>vertical</strong> (deterministic <code>orphan-page</code> + a bounded semantic pass
+over <code>missing-xref</code> / <code>contradiction</code> / <code>stale-claim</code> / <code>missing-page</code>, plus <code>apply</code>/<code>dismiss</code>
+human gates). The B1 batch closes the <em>UI-affordance</em> gap on top of that vertical without loosening
+any of its guarantees. The controlling tensions are unchanged from ADR-0037:</p>
+<ul>
+<li><strong>K8</strong> — a lint screen that batch-mutates a human-curated vault on one click is exactly the loss
+  of control K8 forbids. So every new action is either a <em>bounded, reversible-by-the-human</em> body
+  edit (the same safety class ADR-0037 §5 already permits for <code>missing-xref</code>), a <em>proposal handoff</em>
+  (the review bridge), or a <em>human-double-confirmed destructive</em> verb (orphan delete). Nothing
+  auto-runs.</li>
+<li><strong>I7</strong> — the new "741 warnings" category must not add provider cost. It is fully deterministic.</li>
+<li><strong>I1/I5</strong> — every edit stays a single-page, body-only, one-bump operation. No rescans.</li>
+</ul>
+<p>The implementation contract is already pinned (backend + frontend engineers are building it in
+parallel); this ADR <em>documents and gates</em> that contract against the invariants.</p>
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<p>Extend the K2 lint module (<code>backend/app/ops/lint.py</code>) and its persistence with the following. Each
+item names the ADR-0037 seam it reuses so the vertical stays <em>one</em> idiom, not a fork.</p>
+<h3 id="21-new-deterministic-category-broken-wikilink-i1-i7-zero-cost">2.1 New deterministic category <code>broken-wikilink</code> (I1, I7, zero cost)<a class="headerlink" href="#21-new-deterministic-category-broken-wikilink-i1-i7-zero-cost" title="Permanent link">&para;</a></h3>
+<p>Add <code>broken-wikilink</code> to <code>_VALID_CATEGORIES</code>. It is produced by the <strong>deterministic</strong> phase of
+<code>run_lint_scan</code> (alongside <code>orphan-page</code>), so it costs <strong>nothing</strong> and runs even when no provider is
+configured. It reads only the <code>links</code> table — a <strong>bounded</strong> indexed scan of <code>links.dangling=True</code>
+rows (capped at <code>_BROKEN_SCAN_MAX_LINKS = 1000</code>, its <strong>own</strong> I7 bound — see §2.1a); <strong>never</strong> a
+vault walk (I1).</p>
+<p><strong>Finding semantics (deliberate, and different from the graph-signal categories):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value for <code>broken-wikilink</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_page_id</code></td>
+<td>the <strong>referencing</strong> page — the page whose body contains the broken <code>[[link]]</code>. (This is what the row's <code>Open</code> button navigates to: you fix a broken link by opening the page that has it.)</td>
+</tr>
+<tr>
+<td><code>target_title</code></td>
+<td>the <strong>dangling target text</strong> — the literal <code>[[Target]]</code> string that failed to resolve.</td>
+</tr>
+<tr>
+<td><code>suggested_target</code> (new col)</td>
+<td>the tolerant-resolver best-guess title, computed <strong>at scan time</strong> via the exact → case-insensitive → slug precedence (the same family as <code>reresolve_dangling_links</code> / <code>_resolve_target</code> in <code>backend/app/wiki/links.py</code>). <code>NULL</code> when nothing plausibly matches.</td>
+</tr>
+<tr>
+<td><code>suggested_page_id</code> (new col)</td>
+<td>the live page id backing <code>suggested_target</code>, or <code>NULL</code>.</td>
+</tr>
+<tr>
+<td><code>severity</code></td>
+<td><code>warning</code> (mirrors the llm_wiki "Warnings" grouping).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Dedup:</strong> a new broken-wikilink finding is suppressed when an identical <strong>open</strong> finding already
+exists for the same <code>(vault_id, target_page_id, target_title)</code> — so re-scanning does not pile up
+duplicate rows for the same unresolved link. (Same spirit as the ADR-0037 semantic-pass dedup and
+the review-queue FNV-1a content-key: a finding is a <em>sighting</em>, and a still-open sighting is not
+re-emitted.)</p>
+<h3 id="21a-cap-separation-lint_max_findings-bounds-the-paid-pass-only-amended-2026-07-06-live-preview">2.1a Cap separation: <code>LINT_MAX_FINDINGS</code> bounds the PAID pass only (amended 2026-07-06, live-preview)<a class="headerlink" href="#21a-cap-separation-lint_max_findings-bounds-the-paid-pass-only-amended-2026-07-06-live-preview" title="Permanent link">&para;</a></h3>
+<p><strong>Defect found in live-preview verification</strong> (986-page vault, 155 dangling links): the original
+<code>run_lint_scan</code> merged deterministic + semantic findings into one list and truncated the total at
+<code>LINT_MAX_FINDINGS</code> (default 50). Because orphan-page detection ran first and a real vault has ≥50
+orphans, the cap was exhausted by orphans alone and <strong>every broken-wikilink finding was truncated to
+zero</strong> — the single most important llm_wiki-parity category (its lint page is dominated by "Broken
+Link" warnings) never reached the UI. Unit tests missed it: their fixtures had &lt; 50 findings.</p>
+<p><strong>Root cause:</strong> <code>LINT_MAX_FINDINGS</code> conflated two different concerns. It exists to bound the <strong>paid</strong>
+semantic (LLM) pass (I7 = cost control). Deterministic findings are <strong>free</strong> (pure Postgres) and are
+<strong>already</strong> bounded by their own scan caps (<code>_ORPHAN_SCAN_MAX_PAGES</code> and <code>_BROKEN_SCAN_MAX_LINKS</code>,
+each 1000). Throttling free findings with the cost cap was wrong.</p>
+<p><strong>Decision:</strong> <code>LINT_MAX_FINDINGS</code> bounds the <strong>semantic tail only</strong>. <code>run_lint_scan</code> records
+<code>det_baseline = len(findings)</code> after the deterministic phase; the loop's stop conditions and the
+final truncation count <strong>semantic additions</strong> (<code>len(findings) - det_baseline</code>), never the total.
+Deterministic findings persist in full, bounded by their per-scan caps. <strong>Total persisted ≤
+<code>_ORPHAN_SCAN_MAX_PAGES + _BROKEN_SCAN_MAX_LINKS + LINT_MAX_FINDINGS</code></strong> — still a hard I7 ceiling,
+just not one that hides free findings. The paginated <code>GET /lint/findings</code> (page 50) surfaces the rest.</p>
+<p><strong>Ordering:</strong> the deterministic phase appends <code>broken-wikilink</code> <strong>before</strong> <code>orphan-page</code> so the more
+actionable, visually-dominant category leads the list (matches llm_wiki's "Broken Link"-first page).</p>
+<h3 id="22-apply_lint_fix-gains-a-broken-wikilink-branch-i1-i5-same-safety-class-as-missing-xref">2.2 <code>apply_lint_fix</code> gains a <code>broken-wikilink</code> branch (I1, I5 — same safety class as missing-xref)<a class="headerlink" href="#22-apply_lint_fix-gains-a-broken-wikilink-branch-i1-i5-same-safety-class-as-missing-xref" title="Permanent link">&para;</a></h3>
+<p><code>apply_lint_fix</code> dispatches by category (ADR-0037 §5). The new branch:</p>
+<ul>
+<li><strong>Suggestion present</strong> (<code>suggested_target != NULL</code>): rewrite the dangling link in the <strong>body</strong> of
+  the referencing page (<code>target_page_id</code>), preserving alias — <code>[[old]] → [[Suggested]]</code> and
+  <code>[[old|label]] → [[Suggested|label]]</code> — via a frontmatter-preserving load/dump round-trip (I5;
+  the same body-only mechanism cascade-delete uses for dead-link cleanup). Then <strong>re-persist links
+  for that one page</strong> (<code>persist_links</code>, so the row flips <code>dangling=False</code> and the resolved edge
+  appears) and bump <code>data_version</code> <strong>exactly once</strong> (I1). Exactly one link, one page, one bump.</li>
+<li><strong>No suggestion</strong> (<code>suggested_target == NULL</code>): <strong>flag-only</strong> — <code>status → applied</code> +
+  <code>resolution_note</code> acknowledging the human handled it. No file write, no bump. (Identical to the
+  ADR-0037 flag-only branches for orphan/contradiction/stale-claim.)</li>
+</ul>
+<p>This is the <strong>same safety class as <code>missing-xref</code></strong> (ADR-0037 §5, "Automatic"): a bounded,
+well-understood, human-reversible body edit that never invents or deletes curated prose — it only
+repoints a link the human already wrote to an existing title. K8 holds: the scan still never
+applies anything; the human clicks <code>Fix</code>.</p>
+<h3 id="23-rest-surface-additions">2.3 REST surface additions<a class="headerlink" href="#23-rest-surface-additions" title="Permanent link">&para;</a></h3>
+<p>ADR-0037 §6 shipped <code>POST /lint/scan</code>, <code>GET /lint/runs[/{id}]</code>, <code>GET /lint/findings</code>,
+<code>POST /lint/findings/{id}/apply</code>, <code>POST /lint/findings/{id}/dismiss</code>. B1 adds/extends:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/scan?semantic=bool</code></td>
+<td><code>semantic</code> <strong>defaults <code>true</code></strong> (unchanged behaviour). <code>false</code> → <strong>skip the provider pass entirely</strong>: deterministic-only, <strong>free</strong> (I6/I7). Powers the <code>Semantic (LLM)</code> checkbox.</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/lint/findings?category=&amp;severity=</code></td>
+<td>New <strong>enum-validated</strong> filters (values from <code>_VALID_CATEGORIES</code> / <code>_VALID_SEVERITIES</code>; invalid → 422). Composes with the existing <code>status</code> filter and the cap-200 pagination.</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/findings/batch</code></td>
+<td><code>{ids: UUID[], action: "apply"｜"dismiss"｜"send-to-review"}</code>. <strong>Cap <code>ids ≤ 200</code></strong> (&gt;200 → 422; I7). Executed <strong>sequentially server-side</strong> — no new concurrency. Returns a <strong>per-id result list</strong> (<code>{id, ok, error?}</code>) so a mid-batch failure never fails the whole batch. Reuses the single-id verbs; the batch endpoint is a bounded loop over them, not a new fix path.</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/lint/findings/{id}/send-to-review</code></td>
+<td>Bridge a finding into the F9 review queue via <code>ops/review.enqueue_review()</code> (FNV-1a idempotency preserved — a re-bridge is a NO-OP on the same content_key). Finding <code>status → applied</code> + <code>resolution_note</code> carrying the resulting <code>review_item_id</code>.</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/pages/{id}</code></td>
+<td>Orphan delete from the lint UI (§2.5). <strong>UI-only, human-double-confirmed</strong> (K8).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-category-review-item_type-mapping-send-to-review">2.4 Category → review <code>item_type</code> mapping (send-to-review)<a class="headerlink" href="#24-category-review-item_type-mapping-send-to-review" title="Permanent link">&para;</a></h3>
+<p><code>enqueue_review</code> accepts <code>item_type ∈ {missing-page, suggestion, contradiction, duplicate,
+confirm, …}</code>. The bridge maps each lint category onto a <strong>valid</strong> existing item type — it does not
+introduce a new review type:</p>
+<table>
+<thead>
+<tr>
+<th>Lint category</th>
+<th>Review <code>item_type</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>broken-wikilink</code></td>
+<td><code>missing-page</code></td>
+</tr>
+<tr>
+<td><code>missing-page</code></td>
+<td><code>missing-page</code></td>
+</tr>
+<tr>
+<td><code>contradiction</code></td>
+<td><code>contradiction</code></td>
+</tr>
+<tr>
+<td><code>stale-claim</code></td>
+<td><code>suggestion</code></td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td><code>suggestion</code></td>
+</tr>
+<tr>
+<td><code>missing-xref</code></td>
+<td><code>suggestion</code></td>
+</tr>
+</tbody>
+</table>
+<p>The bridge passes the finding's page anchors (<code>target_page_id</code> / <code>target_title</code>) so
+<code>enqueue_review</code>'s content-key dedup keys on the right entity. After a successful enqueue the
+finding is terminal (<code>applied</code>), with the <code>review_item_id</code> recorded in <code>resolution_note</code> for
+traceability.</p>
+<h3 id="25-delete-pagesid-orphan-delete-k8-human-double-confirmed-never-automated">2.5 <code>DELETE /pages/{id}</code> — orphan delete (K8 — human-double-confirmed, never automated)<a class="headerlink" href="#25-delete-pagesid-orphan-delete-k8-human-double-confirmed-never-automated" title="Permanent link">&para;</a></h3>
+<p>The lint view's orphan rows get a <code>Delete</code> action (llm_wiki parity). It is a <strong>new</strong> page-delete
+verb, distinct from cascade-delete's plan/execute pair, but it <strong>reuses cascade-delete's cleanup
+seams</strong> rather than reinventing them:</p>
+<ul>
+<li><strong>Scope guard:</strong> <code>wiki/</code> pages only. The navigation roots <code>index.md</code> / <code>log.md</code> / <code>overview.md</code>
+  are <strong>not deletable</strong> → <strong>409</strong> (they are excluded from orphan detection in ADR-0037 §2.1 for the
+  same reason).</li>
+<li><strong>Effect (single transaction, ONE bump):</strong> soft-delete the <code>Page</code> row (<code>deleted_at</code>, per the
+  ADR-0005 convention — never a hard delete) · remove the Qdrant point (<code>delete_point</code>, cascade-delete
+  §Step 3 convention) · remove the file · <strong>structural <code>index.md</code> cleanup</strong> (regenerate; the deleted
+  page auto-drops) · <strong>dead <code>[[wikilinks]]</code> → plain text</strong> in referencing pages (reuse the
+  cascade-delete body-rewrite seam — I5) · append to <code>log.md</code> · bump <code>data_version</code> <strong>exactly once</strong>
+  (I1).</li>
+<li><strong>K8 gate:</strong> two-stage client confirm in the UI, and — critically — <strong>no automated path ever
+  calls this endpoint</strong>. It is not wired into <code>run_lint_scan</code>, <code>apply_lint_fix</code>, the batch endpoint,
+  the review sweep, or any loop. It exists solely behind a human double-confirm click.</li>
+</ul>
+<h3 id="26-frontend-affordances-i4">2.6 Frontend affordances (I4)<a class="headerlink" href="#26-frontend-affordances-i4" title="Permanent link">&para;</a></h3>
+<p>The batch bar, <code>Select all</code>, per-row <code>Open</code>/<code>Fix</code>/<code>Delete</code>, the green <code>Suggested target:</code> strip, the
+<code>Semantic (LLM)</code> checkbox, and the <strong>severity group headers</strong> (<code>Errors (N) / Warnings (N) /
+Info (N)</code>) are all presentation over the endpoints above. The group headers are <strong>synthetic rows
+inside the existing TanStack-virtualised list</strong> (I4) — grouping must not de-virtualise the list or
+move heavy work onto the main thread. <code>Open</code> reuses the existing <code>selectPage(target_page_id,
+"tree")</code> seam; for a broken-wikilink row that navigates to the <strong>referencing</strong> page (§2.1).</p>
+<h2 id="3-persistence-alembic-migration-0024">3. Persistence — Alembic migration 0024<a class="headerlink" href="#3-persistence-alembic-migration-0024" title="Permanent link">&para;</a></h2>
+<p>Migration <strong>0024</strong> (next free; 0023 is the highest existing) adds two nullable columns to
+<code>lint_findings</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>suggested_target</code></td>
+<td><code>Text</code>, nullable</td>
+<td>tolerant-resolver best-guess title for a broken-wikilink (or <code>NULL</code>).</td>
+</tr>
+<tr>
+<td><code>suggested_page_id</code></td>
+<td><code>UUID</code> FK → <code>pages</code>, nullable</td>
+<td>live page id backing <code>suggested_target</code> (or <code>NULL</code>). Uses the <code>UUID(as_uuid=True).with_variant(String(36), "sqlite")</code> pattern (SQLite unit-test variant, matching every other UUID column).</td>
+</tr>
+</tbody>
+</table>
+<p>Both are nullable — every existing category leaves them <code>NULL</code>; only <code>broken-wikilink</code> populates
+them. <code>category</code> and <code>severity</code> remain <strong>enum-by-convention</strong> (no DB CHECK — consistent with
+ADR-0037 §3.2 and <code>review_items</code>).</p>
+<p><strong>I8:</strong> the ER diagram MUST be regenerated (<code>make er</code>) so <code>docs/er/schema.mmd</code> matches the live
+models, and <code>docs/api/openapi.json</code> regenerated for the new endpoints/params. The B1 batch is not
+Done until those D-artifacts are updated and consistent (this ADR does not itself run the regen —
+it records the requirement; the docs gate enforces it).</p>
+<h2 id="4-bounds-the-i7-contract-extends-adr-0037-4">4. Bounds — the I7 contract (extends ADR-0037 §4)<a class="headerlink" href="#4-bounds-the-i7-contract-extends-adr-0037-4" title="Permanent link">&para;</a></h2>
+<p>The ADR-0037 bounds table (iteration cap, token budget, <code>LINT_MAX_FINDINGS</code>, per-call timeout,
+cost logging, terminal-status-in-<code>finally</code>) is <strong>unchanged</strong>. B1 adds:</p>
+<table>
+<thead>
+<tr>
+<th>Bound</th>
+<th>Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>broken-wikilink scan</td>
+<td>bounded indexed read of <code>links.dangling=True</code>; <strong>zero provider cost</strong>; result set subject to <code>LINT_MAX_FINDINGS</code> like every other finding path</td>
+</tr>
+<tr>
+<td><code>?semantic=false</code></td>
+<td><strong>skips the provider pass entirely</strong> — the cheapest possible scan (deterministic only, free); no provider resolved, no <code>chat()</code> call</td>
+</tr>
+<tr>
+<td><code>/lint/findings/batch</code></td>
+<td><code>ids ≤ 200</code> hard cap (&gt;200 → 422); <strong>sequential</strong> server-side execution (no fan-out); per-id result list — one failing id never aborts or re-runs the batch</td>
+</tr>
+<tr>
+<td><code>send-to-review</code></td>
+<td>single <code>enqueue_review</code> call, FNV-1a idempotent (re-bridge = NO-OP); no loop</td>
+</tr>
+<tr>
+<td><code>DELETE /pages/{id}</code></td>
+<td>single bounded transaction, one <code>data_version</code> bump; <strong>not</strong> callable from any loop</td>
+</tr>
+</tbody>
+</table>
+<p>No new env knob is required for the batch cap; <code>200</code> is a fixed structural limit (equivalently, the
+UI page size). If a future ADR raises it, it must stay a bounded constant.</p>
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>llm_wiki lint-view parity reached.</strong> Issue-count badge, semantic toggle, severity groups, batch
+  bar, suggested-target strip, <code>Open</code>/<code>Fix</code>/<code>Delete</code> — all backed by real endpoints, no UI stubs.</li>
+<li><strong>The "741 warnings" gap is closed for free.</strong> broken-wikilink turns an existing DB signal
+  (<code>links.dangling</code>) into visible, fixable findings at zero provider cost (I7).</li>
+<li><strong>K8 preserved end-to-end.</strong> The scan still proposes; the human still applies. The batch bar is a
+  bounded loop over the same human-gated single-id verbs. Orphan delete is human-double-confirmed
+  and unreachable from any automated path.</li>
+<li><strong>One idiom, extended not forked.</strong> broken-wikilink is a deterministic finding like <code>orphan-page</code>;
+  its <code>Fix</code> is the <code>missing-xref</code> safety class; send-to-review reuses <code>enqueue_review</code>; delete reuses
+  the cascade-delete cleanup seams. No parallel machinery.</li>
+<li><strong>ADR-0037 stands.</strong> Nothing here changes the semantic loop, the bounds, or the flag-only classes;
+  the flag-only orphan/contradiction/stale-claim apply behaviour is unchanged (send-to-review is an
+  <em>additional</em> action, not a replacement).</li>
+<li><strong>Docs debt tracked.</strong> ER regen (I8) and OpenAPI regen are prerequisites to Done, enforced by the
+  docs gate.</li>
+</ul>
+<h2 id="6-do-not-list-extends-adr-0037-8">6. Do-NOT list (extends ADR-0037 §8)<a class="headerlink" href="#6-do-not-list-extends-adr-0037-8" title="Permanent link">&para;</a></h2>
+<p>ADR-0037's ten Do-NOTs still apply. B1 adds:</p>
+<ol>
+<li>Do <strong>not</strong> call <code>DELETE /pages/{id}</code> from any automated path — scan, apply, batch, review sweep,
+    watcher, or any loop. It is <strong>human-double-confirmed UI only</strong> (K8).</li>
+<li>Do <strong>not</strong> allow <code>DELETE /pages/{id}</code> on <code>index.md</code> / <code>log.md</code> / <code>overview.md</code> — meta pages are
+    409, never deleted.</li>
+<li>Do <strong>not</strong> let a broken-wikilink <code>Fix</code> touch more than <strong>one link in one page</strong> with <strong>one</strong>
+    <code>data_version</code> bump (I1/I5); the rewrite is body-only and alias-preserving.</li>
+<li>Do <strong>not</strong> exceed the batch cap: <code>/lint/findings/batch</code> rejects <code>ids &gt; 200</code> (422) and runs the
+    ids <strong>sequentially</strong> — never fan-out, never partial-fail the whole batch (I7).</li>
+<li>Do <strong>not</strong> spend a provider call for <code>broken-wikilink</code> — it is deterministic, computed from
+    <code>links.dangling</code> + the tolerant resolver (I7). When <code>?semantic=false</code>, resolve <strong>no</strong> provider
+    at all.</li>
+<li>Do <strong>not</strong> walk the vault filesystem to find dangling links — read the <code>links</code> table (I1).</li>
+<li>Do <strong>not</strong> invent a new review <code>item_type</code> for the bridge — map every category onto an existing
+    valid type (§2.4); preserve FNV-1a idempotency (re-bridge = NO-OP).</li>
+<li>Do <strong>not</strong> re-emit a broken-wikilink finding that is already <strong>open</strong> for the same
+    <code>(vault_id, target_page_id, target_title)</code> — dedup on re-scan.</li>
+<li>Do <strong>not</strong> de-virtualise the findings list to render severity group headers — headers are
+    synthetic rows inside TanStack Virtual (I4).</li>
+<li>Do <strong>not</strong> compute <code>suggested_target</code> at apply/render time — it is resolved once <strong>at scan time</strong>
+    and stored, so <code>Fix</code> never triggers a fresh vault-wide resolve.</li>
+</ol>
+<hr />
+<h2 id="7-v1313-lint-parity-extensions-l1l5-adr-0058-7">7. v1.3.13 lint-parity extensions (L1–L5, ADR-0058 §7)<a class="headerlink" href="#7-v1313-lint-parity-extensions-l1l5-adr-0058-7" title="Permanent link">&para;</a></h2>
+<p>Closes five gaps versus nashsu/llm_wiki <code>lint.ts</code> 0.6.0. No DB migration; no new Alembic revision;
+no invariant loosened.</p>
+<h3 id="l1-no-outlinks-deterministic-category">L1 — <code>no-outlinks</code> deterministic category<a class="headerlink" href="#l1-no-outlinks-deterministic-category" title="Permanent link">&para;</a></h3>
+<p>A live <code>wiki/%</code> page with <strong>zero</strong> outgoing wikilinks (no <code>links</code> row with <code>source_page_id ==
+page.id</code>). Detected in the same deterministic phase as <code>orphan-page</code> and <code>broken-wikilink</code>, with
+its own I7 scan cap (<code>_NO_OUTLINKS_SCAN_MAX_PAGES = 1000</code>). Reads the <code>pages</code> and <code>links</code> tables
+only (I1 — no vault walk). index.md / log.md / overview.md excluded. Severity: <strong>info</strong> (L5).
+Added to <code>_VALID_CATEGORIES</code> and wired into <code>run_lint_scan</code> after <code>_detect_orphans</code>.</p>
+<p>Reference: <code>lint.ts:267-276</code>.</p>
+<h3 id="l2-suggestion-semantic-category">L2 — <code>suggestion</code> semantic category<a class="headerlink" href="#l2-suggestion-semantic-category" title="Permanent link">&para;</a></h3>
+<p>A question or source worth adding to the wiki. Added to <code>_VALID_CATEGORIES</code>, to the <code>category:</code>
+enumeration in <code>_build_semantic_instruction</code>, and to the Definitions line (<code>suggestion = a question
+or source worth adding to the wiki</code>). <code>_parse_findings</code> accepts it from the model. It is
+<strong>flag-only</strong> (added to <code>_FLAG_ONLY_CATEGORIES</code>); no deterministic fix exists. <code>_CATEGORY_TO_ITEM_TYPE</code>
+maps it to <code>"suggestion"</code>.</p>
+<p>Reference: <code>lint.ts:376-381</code> (semantic type list).</p>
+<h3 id="l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page">L3 — Fuzzy suggested_target/suggested_page_id on no-outlinks and orphan-page<a class="headerlink" href="#l3-fuzzy-suggested_targetsuggested_page_id-on-no-outlinks-and-orphan-page" title="Permanent link">&para;</a></h3>
+<p>Port of <code>lint.ts::tokenizeForSuggestion</code> + <code>suggestRelatedPage</code>. Three new private helpers:
+<code>_tokenize_for_suggestion</code>, <code>_fuzzy_score</code>, <code>_fuzzy_suggest_page</code>, plus a bounded DB loader
+<code>_load_candidate_pages_fuzzy</code> (reads <code>(id, title, file_path)</code> from <code>pages</code>, capped at
+<code>_CANDIDATE_TITLES_MAX = 500</code>; I7). Called once per <code>_detect_orphans</code> / <code>_detect_no_outlinks</code>
+invocation, not per finding (I1 — no N+1).</p>
+<ul>
+<li><strong><code>no-outlinks</code></strong>: <code>suggested_target</code> = title of the best related page to link TO (direction=
+  "target"). <code>suggested_page_id</code> = that page's id.</li>
+<li><strong><code>orphan-page</code></strong>: <code>suggested_target</code> = title of the best SOURCE page (direction="source"); the
+  one that should link to the orphan. <code>suggested_page_id</code> = its id.</li>
+</ul>
+<p>Min score threshold: <code>_RELATED_PAGE_SUGGESTION_MIN_SCORE = 0.08</code>. Score = token-overlap /
+sqrt(|A| × |B|) + 0.08 same-folder bonus. CJK single chars weighted at 0.35.</p>
+<h3 id="l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink">L4 — Auto-fixes for <code>no-outlinks</code>, <code>orphan-page</code>, and stub-less <code>broken-wikilink</code><a class="headerlink" href="#l4-auto-fixes-for-no-outlinks-orphan-page-and-stub-less-broken-wikilink" title="Permanent link">&para;</a></h3>
+<p>Three new apply paths, each doing exactly <strong>one</strong> <code>data_version</code> bump (I1), <strong>body-only</strong> edit
+(I5), and 502 on failure (finding left open):</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Condition</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>no-outlinks</code></td>
+<td><code>suggested_target</code> present</td>
+<td>Append <code>- [[suggested_target]]</code> under <code>## Related</code> in the page body (<code>_apply_no_outlinks</code>).</td>
+</tr>
+<tr>
+<td><code>no-outlinks</code></td>
+<td>no suggestion</td>
+<td>Flag-only acknowledgement (no write).</td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td><code>suggested_page_id</code> present</td>
+<td>Append <code>- [[&lt;orphan title&gt;]]</code> under <code>## Related</code> in the suggested SOURCE page (<code>_apply_orphan_page</code>).</td>
+</tr>
+<tr>
+<td><code>orphan-page</code></td>
+<td>no suggestion</td>
+<td>Flag-only acknowledgement (no write — same behaviour as pre-L4).</td>
+</tr>
+<tr>
+<td><code>broken-wikilink</code></td>
+<td>no <code>suggested_target</code></td>
+<td>Create a type=query, tags=[stub, lint] stub page under <code>queries/</code> via <code>write_wiki_page</code>, then call <code>reresolve_dangling_links</code> so the link connects (<code>_create_broken_link_stub</code>).</td>
+</tr>
+<tr>
+<td><code>broken-wikilink</code></td>
+<td><code>suggested_target</code> present</td>
+<td>Existing rewrite path unchanged.</td>
+</tr>
+</tbody>
+</table>
+<p><code>orphan-page</code> is removed from <code>_FLAG_ONLY_CATEGORIES</code>; it now routes through <code>_apply_orphan_page</code>
+which has an internal flag-only fallback. A shared body helper <code>_append_wikilink_to_body</code> (port of
+<code>lint-fixes.ts::appendWikilink</code>) and <code>_write_body_back</code> (persist links + bump) are factored out for
+reuse by both <code>_apply_no_outlinks</code> and <code>_apply_orphan_page</code>.</p>
+<h3 id="l5-severity-corrections">L5 — Severity corrections<a class="headerlink" href="#l5-severity-corrections" title="Permanent link">&para;</a></h3>
+<p><code>orphan-page</code> and <code>no-outlinks</code> now emit <code>severity="info"</code> (was <code>"warning"</code> for orphan-page),
+matching the reference lint.ts categorization. <code>broken-wikilink</code> retains <code>severity="warning"</code>
+(no change).</p>
+<h3 id="_valid_categories-final-v1313">_VALID_CATEGORIES (final, v1.3.13)<a class="headerlink" href="#_valid_categories-final-v1313" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">_VALID_CATEGORIES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
+    <span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;broken-wikilink&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;missing-xref&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;contradiction&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;stale-claim&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;missing-page&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span>   <span class="c1"># L1</span>
+    <span class="s2">&quot;suggestion&quot;</span><span class="p">,</span>    <span class="c1"># L2</span>
+<span class="p">})</span>
+</code></pre></div>
+<h3 id="do-not-additions-extends-6">Do-NOT additions (extends §6)<a class="headerlink" href="#do-not-additions-extends-6" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Do <strong>not</strong> emit <code>no-outlinks</code> from the semantic pass — it is deterministic-only; <code>_parse_findings</code>
+    explicitly excludes it from <code>semantic_categories</code> (alongside <code>orphan-page</code>).</li>
+<li>Do <strong>not</strong> run the fuzzy scorer without the <code>_CANDIDATE_TITLES_MAX</code> cap — the candidate pool
+    is always bounded by the existing constant (I7).</li>
+<li>Do <strong>not</strong> call <code>_write_body_back</code> when the target link already exists in the body —
+    <code>_append_wikilink_to_body</code> is idempotent; the apply seam must not write if the body is unchanged.</li>
+<li>Do <strong>not</strong> call <code>write_wiki_page</code> for a broken-wikilink stub more than once per finding —
+    exactly one page, one bump (I1).</li>
+</ol>
+<hr />
+<h2 id="8-parity-corrections-v1313-incremental-amendment">8. Parity corrections (v1.3.13 — incremental amendment)<a class="headerlink" href="#8-parity-corrections-v1313-incremental-amendment" title="Permanent link">&para;</a></h2>
+<p>Three correctness gaps were found and fixed during parity review. None requires a DB migration,
+none loosens any invariant, and none changes the semantic loop or the human-gate model.</p>
+<h3 id="81-orphan-detection-source-filter-l-bug1">8.1 Orphan detection source filter (L-bug1)<a class="headerlink" href="#81-orphan-detection-source-filter-l-bug1" title="Permanent link">&para;</a></h3>
+<p>See ADR-0037 §9.1. The <code>_detect_orphans</code> <code>linked_ids</code> query was unfiltered; links from <code>index.md</code>
+and <code>log.md</code> counted as inbound edges, making almost no page appear as an orphan.</p>
+<p><strong>Fix:</strong> <code>linked_ids</code> joins <code>Link → Page</code> and restricts to live content pages in the vault
+(<code>vault_id</code>, <code>deleted_at IS NULL</code>, <code>LIKE 'wiki/%'</code>, <code>NOT LIKE '%/index.md'</code>, <code>NOT LIKE '%/log.md'</code>).
+Matches <code>lint.ts</code> orphan-detection semantics.</p>
+<h3 id="82-missing-xref-excluded-from-semantic-pass-parser">8.2 <code>missing-xref</code> excluded from semantic-pass parser<a class="headerlink" href="#82-missing-xref-excluded-from-semantic-pass-parser" title="Permanent link">&para;</a></h3>
+<p><code>_build_semantic_instruction</code> deliberately omits <code>missing-xref</code> from the model's category list
+(this ADR's §7 L2 is the <code>suggestion</code> category — <code>missing-xref</code> is a separate deterministic-only
+category). However, <code>_parse_findings</code> was still accepting <code>missing-xref</code> from model output if the
+model happened to hallucinate it.</p>
+<p><strong>Fix:</strong> <code>_parse_findings</code> computes:
+<div class="highlight"><pre><span></span><code><span class="n">semantic_categories</span> <span class="o">=</span> <span class="n">_VALID_CATEGORIES</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span> <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span> <span class="s2">&quot;missing-xref&quot;</span><span class="p">}</span>
+</code></pre></div>
+Any finding whose <code>category</code> is not in <code>semantic_categories</code> is silently dropped. <code>missing-xref</code>
+remains in <code>_VALID_CATEGORIES</code> for <code>apply_lint_fix</code> / DB compatibility — it is only excluded from
+model-output parsing. This matches the existing treatment of <code>orphan-page</code> and <code>no-outlinks</code> (Do-NOT</p>
+<h1 id="21-in-6">21 in §6).<a class="headerlink" href="#21-in-6" title="Permanent link">&para;</a></h1>
+<p><strong>Do-NOT addition:</strong>
+25. Do <strong>not</strong> accept <code>missing-xref</code> from model output in <code>_parse_findings</code> — it is a deterministic-
+    only category and is excluded from <code>semantic_categories</code> (same rule as <code>orphan-page</code>/<code>no-outlinks</code>,
+    Do-NOT #21).</p>
+<h3 id="83-overviewmd-eligibility-for-orphan-and-no-outlinks-detection-l4-parity">8.3 <code>overview.md</code> eligibility for orphan and no-outlinks detection (L4 parity)<a class="headerlink" href="#83-overviewmd-eligibility-for-orphan-and-no-outlinks-detection-l4-parity" title="Permanent link">&para;</a></h3>
+<p>See ADR-0037 §9.2. <code>overview.md</code> was incorrectly excluded from <code>_detect_orphans</code> and
+<code>_detect_no_outlinks</code>. Only <code>index.md</code> and <code>log.md</code> are navigation roots; <code>overview.md</code> is a
+generated wiki page that must participate in health detection. The exclusion set in both detectors
+is now <code>{"index.md", "log.md"}</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

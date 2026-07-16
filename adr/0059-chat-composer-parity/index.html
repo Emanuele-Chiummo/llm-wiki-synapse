@@ -1,0 +1,1194 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0059-chat-composer-parity/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0059 — Chat composer parity: attach-image (vision), web-search toggle, retrieval modes - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0059-chat-composer-parity-attach-image-vision-web-search-toggle-retrieval-modes" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0059 — Chat composer parity: attach-image (vision), web-search toggle, retrieval modes
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#blocking-objections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BLOCKING OBJECTIONS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-c1-attach-image-vision-in-chat-capability-aware-i6-i3-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 C1 — Attach image (vision in chat), capability-aware (I6, I3, I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-c2-web-search-toggle-amends-adr-0050-additive-separately-namespaced" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 C2 — Web-search toggle (AMENDS ADR-0050 — additive, separately namespaced)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-c3-retrieval-modes-frozen-preset-table-i7-no-arbitrary-per-request-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 C3 — Retrieval modes (FROZEN preset table — I7, no arbitrary per-request depth)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-c4-anytxt-do-not-mirror-documented-decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 C4 — AnyTXT: DO-NOT-MIRROR (documented decision)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-adr-0050-compatibility-why-the-web-block-does-not-dilute-wiki-only-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. ADR-0050 compatibility — why the web block does not dilute wiki-only retrieval
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-bounds-the-i7-contract-new-keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Bounds — the I7 contract (new keys)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-do-not-list-this-adr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Do-NOT list (this ADR)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0059-chat-composer-parity-attach-image-vision-web-search-toggle-retrieval-modes">ADR-0059 — Chat composer parity: attach-image (vision), web-search toggle, retrieval modes<a class="headerlink" href="#adr-0059-chat-composer-parity-attach-image-vision-web-search-toggle-retrieval-modes" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-06</li>
+<li><strong>Sprint:</strong> v1.3 UI-alignment batch <strong>B2 — Chat composer</strong> (<code>docs/reference/UI-ALIGNMENT-PLAN-2026-07.md</code> §B2, gaps C1–C4)</li>
+<li><strong>Amends:</strong> <strong>ADR-0050</strong> (Retrieval scope restricted to <code>wiki/</code> pages only). This ADR does <strong>not</strong>
+  supersede ADR-0050 — wiki retrieval stays wiki-only. The web-search block of §C2 is an
+  <strong>additive, separately-labeled, separately-namespaced</strong> context source that never enters the
+  wiki citation path. See §3 for the compatibility argument.</li>
+<li><strong>Builds on:</strong> ADR-0007 (InferenceProvider ABC, I6) · ADR-0011 (ingest-contract DTOs — <code>Message</code>,
+  <code>ProviderCapabilities</code>) · ADR-0019 (chat streaming transport, <code>&lt;think&gt;</code>, G3) · ADR-0022 (F5
+  4-phase retrieval + <code>[n]</code> citations, <code>expansion_depth ≤ 2</code> hard cap) · ADR-0024 (bounded SearXNG
+  fetch/strip seam, I9) · R8-2/F12 (<code>supports_vision</code> capability + <code>caption_image</code> seam, already
+  shipped)</li>
+<li><strong>Features:</strong> F6 (multi-conversation chat) · F5 (retrieval + citations) · F10/I9 (SearXNG web
+  search) · F14 (configurable context-window budget) · F17/I6 (capability-aware provider routing —
+  vision gating) · R1 (nashsu/llm_wiki <code>chat-input.tsx</code> composer parity)</li>
+<li><strong>Reference:</strong> R1 (nashsu/llm_wiki <code>chat-input.tsx</code>: Attach-image with previews + count/size caps ·
+  Web-search toggle · AnyTXT toggle · segmented <code>Fast | Standard | Deep | Local first</code> mode
+  selector) · R8 (SearXNG — the web-search backend, never Tavily)</li>
+<li><strong>Invariants owned:</strong> <strong>I3</strong> (attached images are static thumbnails — never re-rendered per
+  streamed token; markdown/LaTeX parse still happens at stream END) · <strong>I6</strong> (vision is gated on
+  <code>self.capabilities().supports_vision</code>, NOT on <code>isinstance</code>/<code>type</code>/<code>provider_type</code>; no backend
+  hardcoded) · <strong>I7</strong> (every new path is bounded: image count/bytes caps, single-shot web fetch
+  with result/char caps, frozen retrieval presets with <code>expansion_depth ≤ 2</code>, cost logged) ·
+  <strong>I9</strong> (web search is one bounded SearXNG call through the existing <code>ops/searxng.py</code> seam — never
+  Tavily, never a new search service)</li>
+<li><strong>Author:</strong> solution-architect</li>
+</ul>
+<hr />
+<h2 id="blocking-objections">BLOCKING OBJECTIONS<a class="headerlink" href="#blocking-objections" title="Permanent link">&para;</a></h2>
+<p><strong>None.</strong> The pinned C1–C4 contract is invariant-compliant as written. Three <strong>non-blocking
+corrections / clarifications</strong> are folded into the decision below (they refine the contract, they do
+not reject it):</p>
+<ol>
+<li>
+<p><strong><code>supports_vision</code> already exists.</strong> C1 says <code>capabilities()</code> "gains <code>supports_vision: bool</code>".
+   It is <strong>already present</strong> on <code>ProviderCapabilities</code> (<code>backend/app/ingest/schemas.py</code>, added for
+   R8-2/F12 image captioning, default <code>False</code>) and every provider already reports it. C1 must
+   <strong>reuse</strong> the existing field for the chat path, not re-add it. No ABC change, no migration on the
+   descriptor. This is a strengthening of the contract (the seam already exists), recorded so the
+   engineers do not duplicate the field. See §2.1.</p>
+</li>
+<li>
+<p><strong>Two message DTOs must both carry images, and the field is dropped at the boundary if the
+   backend cannot see it.</strong> The wire model is <code>ChatMessageIn</code> (<code>backend/app/routers/chat.py</code>); the
+   backend-neutral provider DTO is <code>Message</code> (<code>backend/app/ingest/schemas.py</code>). The contract names
+   <code>Message</code>; <code>ChatMessageIn</code> mirrors <code>Message</code> (its docstring says so) and therefore must gain the
+   same optional <code>images</code> field, mapped through in <code>run_chat_stream</code>. The <strong>capability check lives
+   in the provider's <code>chat()</code></strong>, reading <code>self.capabilities().supports_vision</code> (defense-in-depth) —
+   the frontend gate is UX, not the security boundary. See §2.1.</p>
+</li>
+<li>
+<p><strong>The retrieval presets map onto EXISTING <code>retrieve()</code> knobs — no new retrieval internals.</strong>
+   <code>retrieve()</code> already accepts <code>k</code> and <code>expansion_depth</code> with a hard-clamped
+   <code>_MAX_EXPANSION_DEPTH = 2</code>. C3's four modes are a <strong>frozen preset table</strong> that selects <code>(k,
+   expansion_depth)</code> and the F14 budget slice — they do <strong>not</strong> add a new retrieval pass, a new
+   phase, or agent rounds. <code>deep</code> cannot breach the depth-2 clamp even if the preset were
+   mis-authored, because <code>retrieve()</code> re-clamps. This is exactly the I7-safe shape. See §2.3.</p>
+</li>
+</ol>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>The live nashsu/llm_wiki chat composer (<code>chat-input.tsx</code>) exposes a toolbar Synapse's chat composer
+does not: an <strong>Attach-image</strong> button (multimodal input with inline previews and count/size caps), a
+<strong>Web-search</strong> toggle (the emerald-dot affordance), an <strong>AnyTXT</strong> toggle (Windows-only local-index
+search, greyed when unavailable), and a segmented <strong>agent-mode</strong> selector (<code>Fast | Standard | Deep |
+Local first</code>). B2 (P0 in the UI-alignment plan) closes this composer gap.</p>
+<p>Synapse's chat backend already has the right seams to do this <strong>without</strong> loosening any invariant:</p>
+<ul>
+<li><strong>Vision</strong> is already a first-class provider capability. <code>ProviderCapabilities.supports_vision</code>
+  (R8-2/F12) and the <code>InferenceProvider.caption_image()</code> default-<code>NotImplementedError</code> seam already
+  exist; the ingest path already gates image captioning on <code>supports_vision</code> <strong>explicitly, never by
+  <code>isinstance</code></strong> (the I6 rule, enforced in <code>backend/app/ingest/provider/base.py</code>). C1 extends the
+  <em>same</em> capability to the chat surface; it does not invent a new one.</li>
+<li><strong>Retrieval</strong> is a single bounded pass with explicit <code>k</code> / <code>expansion_depth</code> caps
+  (<code>backend/app/rag/retrieval.py</code>, ADR-0022). <code>expansion_depth</code> is hard-clamped to
+  <code>_MAX_EXPANSION_DEPTH = 2</code> at the top of <code>retrieve()</code>. C3's user-facing modes are presets over
+  these existing caps.</li>
+<li><strong>Web search</strong> is already a bounded SearXNG seam. <code>ops/searxng.py::searxng_search()</code> (I9, the
+  emerald search backend) and <code>ops/deep_research.py::_fetch_and_extract</code> / <code>_fetch_max_chars</code> (the
+  bounded fetch/strip helpers, ADR-0024) already exist. C2 makes <strong>one</strong> bounded call through them —
+  it does not reinvent search or introduce a fetch loop.</li>
+</ul>
+<p>The controlling tension is <strong>ADR-0050</strong>: chat retrieval was deliberately narrowed to <code>wiki/</code> pages
+only, so the user is never confused about the epistemic status of a citation (raw input vs.
+synthesized wiki knowledge). C2 adds an <em>external</em> knowledge source. The design must add web context
+<strong>without diluting wiki grounding or blurring the citation UX</strong> ADR-0050 protects. §3 makes that
+argument in full; the short version is: the web block is a <strong>separate, clearly-labeled block with its
+own <code>[W1]…[Wn]</code> citation namespace</strong> — the wiki <code>[n]</code> namespace and the wiki-only <code>_load_page_meta</code>
+filter are <strong>untouched</strong>.</p>
+<p>The implementation contract (C1–C4) is already pinned; three engineers are building against it in
+parallel. This ADR <strong>documents and gates</strong> that contract against I3/I6/I7/I9 and freezes the two
+tables (retrieval presets, bounds) so no per-request arbitrary depth or unbounded fetch can slip in.</p>
+<hr />
+<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
+<h3 id="21-c1-attach-image-vision-in-chat-capability-aware-i6-i3-i7">2.1 C1 — Attach image (vision in chat), capability-aware (I6, I3, I7)<a class="headerlink" href="#21-c1-attach-image-vision-in-chat-capability-aware-i6-i3-i7" title="Permanent link">&para;</a></h3>
+<p>Add multimodal image input to the chat turn, gated on the provider's already-existing vision
+capability.</p>
+<p><strong>Contract DTOs.</strong>
+- New <code>MessageImage</code> model: <code>{ mime: str, data_base64: str }</code> (base64-encoded bytes + MIME type).
+- <code>Message</code> (<code>backend/app/ingest/schemas.py</code>) gains <strong>optional</strong> <code>images: list[MessageImage] = []</code>.
+  Additive and backward-compatible (absent → <code>[]</code>), exactly like the <code>tags</code> precedent on
+  <code>WikiFrontmatter</code>.
+- <code>ChatMessageIn</code> (<code>backend/app/routers/chat.py</code>, the wire model that "mirrors the backend-neutral
+  <code>Message</code> shape") gains the <strong>same</strong> optional <code>images</code> field and maps it through to <code>Message</code> in
+  the <code>run_chat_stream</code> call. Both DTOs change together — they are one contract in two layers.</p>
+<p><strong>Capability field — REUSE, do not re-add.</strong> <code>ProviderCapabilities.supports_vision: bool</code> <strong>already
+exists</strong> (default <code>False</code>, shipped for R8-2/F12). Each provider already reports it. C1 does <strong>not</strong>
+add it; it reuses it for the chat path. (Correction #1 above.)</p>
+<p><strong>The I6 gate lives in <code>provider.chat()</code>, reading <code>self.capabilities().supports_vision</code>.</strong>
+- <code>supports_vision == True</code>  → the provider includes the images in its model call using the backend's
+  native multimodal message format (Anthropic image content blocks / OpenAI-compatible image parts /
+  Ollama vision input).
+- <code>supports_vision == False</code> → the provider <strong>drops</strong> the images and sends text only
+  (defense-in-depth — a text-only backend never receives an image payload it would choke on or
+  silently mis-handle).
+- <strong>NO <code>isinstance</code> / <code>type()</code> / class-name / <code>provider_type == "…"</code> branch</strong> anywhere on this path.
+  The decision reads the capability descriptor <strong>only</strong> (the I6 rule in <code>provider/base.py</code>). This is
+  the same idiom the ingest path already uses for <code>caption_image</code>.</p>
+<p><strong>Frontend gate (UX, not the boundary).</strong> The composer's Attach-image button is enabled only when the
+resolved chat provider reports <code>supports_vision</code>. That flag is surfaced to the client via
+<code>GET /status</code> (a new additive <code>supports_vision: bool</code>, resolved from the chat provider's
+<code>capabilities()</code> — resolved at runtime, never hardcoded). When <code>False</code>, the button is disabled with a
+tooltip. <strong>The frontend gate is a nicety; the provider <code>chat()</code> drop is the guarantee.</strong></p>
+<p><strong>Bounds (I7).</strong> Two hard caps, both env-configurable structural limits:
+- <code>CHAT_MAX_IMAGES</code> (default <strong>4</strong>) — max images per turn; over-limit → <strong>422</strong>.
+- <code>CHAT_MAX_IMAGE_BYTES</code> (default <strong>5 MB</strong>, decoded) — max per-image size; over-limit → <strong>422</strong>.
+Enforced at the request boundary (before any provider call). No loop is introduced.</p>
+<p><strong>I3 — images never enter the streaming hot path.</strong> Attached images are rendered as <strong>static
+thumbnails</strong> in the composer and in message history. They are decoded/validated <strong>once</strong> at submit,
+persisted <strong>once</strong>, and shown as static <code>&lt;img&gt;</code> — they are <strong>never</strong> re-rendered per streamed token,
+and they do <strong>not</strong> touch the <code>ThinkScanner</code> delta loop or the end-of-stream markdown/LaTeX parse
+(ADR-0019 §2.4, the G3 gate). The stream still carries text deltas only.</p>
+<p><strong>Persistence (history / regenerate).</strong> The images are persisted on the <code>messages</code> row (the same
+<code>ChatMessage</code> row that already carries <code>content</code> + <code>citations</code>), so history renders them and
+<strong>Regenerate</strong> (ADR-0019, AC-F6-4) re-sends the exact same image payload. The engineers choose the
+column shape (a <code>JSONB images</code> column mirroring the existing <code>citations</code> JSONB, or an equivalent) —
+this ADR requires only that (a) the payload round-trips, (b) if a column is added the ER diagram is
+regenerated (<code>make er</code>, I8), and (c) no image bytes are ever inlined into the streamed NDJSON.</p>
+<h3 id="22-c2-web-search-toggle-amends-adr-0050-additive-separately-namespaced">2.2 C2 — Web-search toggle (AMENDS ADR-0050 — additive, separately namespaced)<a class="headerlink" href="#22-c2-web-search-toggle-amends-adr-0050-additive-separately-namespaced" title="Permanent link">&para;</a></h3>
+<p>Add an opt-in web-search context source to the chat turn. <strong>Default OFF.</strong></p>
+<p><strong>Request field.</strong> <code>use_web_search: bool = False</code> on <code>ChatRequest</code>.</p>
+<p><strong>When ON — exactly one bounded pass (no loop, I7/I9):</strong>
+1. <strong>One</strong> SearXNG call via the existing <code>ops/searxng.py::searxng_search()</code> seam (I9 — never Tavily,
+   never a new search service), capped to <code>CHAT_WEB_MAX_RESULTS</code> (default <strong>5</strong>).
+2. Fetch + strip the top-N results reusing the existing <code>ops/deep_research.py</code> fetch/strip helper
+   (<code>_fetch_and_extract</code> / <code>_fetch_max_chars</code>), each result capped to <code>CHAT_WEB_FETCH_MAX_CHARS</code>
+   (default <strong>8000</strong>). Concurrency and per-fetch timeout inherit the deep-research seam's existing
+   bounds. <strong>Single-shot</strong> — there is NO assess→refine→re-query loop (that is deep-research's job,
+   ADR-0024; chat web-search is one pass).
+3. Inject the stripped web results as a <strong>SEPARATE, clearly-labeled context block</strong> appended AFTER
+   the wiki retrieval block, with its <strong>own citation namespace <code>[W1]…[Wn]</code></strong>. The wiki block and its
+   <code>[n]</code> markers are <strong>byte-for-byte unchanged</strong> — the web block is concatenated as a distinct,
+   headed section (e.g. <code>## Web results (external)</code>), never interleaved into the wiki block.
+4. <strong>Cost logged (I7).</strong> The web pass is fetch/strip only — no inference call of its own — but the
+   run's structured log line records that web-search ran and how many results were fetched, so the
+   turn's cost/behaviour is auditable (consistent with the ADR-0024 cost-logging discipline).</p>
+<p><strong><code>done</code> event gains <code>web_citations</code>.</strong> The terminal <code>done</code> NDJSON event gains an additive
+<code>web_citations: [{ index, title, url }]</code> field (parallel to the existing <code>citations</code> field, but a
+<strong>distinct</strong> field with a <strong>distinct</strong> namespace). Existing clients that ignore unknown keys are
+unaffected (non-breaking, ADR-0019/0022 convention). The <code>citations</code> field (wiki <code>[n]</code>) is
+unchanged.</p>
+<p><strong>ADR-0050 compatibility — see §3 for the full argument.</strong> In one line: the wiki-only
+<code>_load_page_meta</code> filter (<code>file_path NOT LIKE 'raw/%'</code>) and the wiki <code>[n]</code> namespace are untouched;
+the web block is <em>additional</em> external context with its own <code>[W]</code> namespace and its own labeled
+block, so it can never be mistaken for a wiki citation and never dilutes wiki grounding.</p>
+<h3 id="23-c3-retrieval-modes-frozen-preset-table-i7-no-arbitrary-per-request-depth">2.3 C3 — Retrieval modes (FROZEN preset table — I7, no arbitrary per-request depth)<a class="headerlink" href="#23-c3-retrieval-modes-frozen-preset-table-i7-no-arbitrary-per-request-depth" title="Permanent link">&para;</a></h3>
+<p>Add a user-facing retrieval-depth selector that maps to a <strong>fixed, frozen table</strong> of presets over
+the <strong>existing</strong> <code>retrieve()</code> knobs. Synapse keeps its ⭐ deterministic single-pass pipeline;
+llm_wiki uses agent decision-rounds. <strong>We mirror the user-facing MODES via presets, NOT the
+internals</strong> — there are no agent rounds, no extra retrieval pass, no per-request arbitrary depth.</p>
+<p><strong>Request field.</strong> <code>retrieval_mode: "fast" | "standard" | "deep" | "local_first" = "standard"</code> on
+<code>ChatRequest</code>. An enum — any other value → <strong>422</strong>. There is <strong>no</strong> raw <code>k</code> / <code>expansion_depth</code> on
+the chat request (that would be the I7 hole this ADR forbids — see Do-NOT #4).</p>
+<p><strong>FROZEN preset table</strong> (this is the authoritative source; the code MUST match it exactly):</p>
+<table>
+<thead>
+<tr>
+<th><code>retrieval_mode</code></th>
+<th><code>k</code></th>
+<th><code>expansion_depth</code></th>
+<th>F14 retrieval budget slice</th>
+<th>Web-search behaviour</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fast</code></td>
+<td>4</td>
+<td><strong>0</strong> (no graph expansion)</td>
+<td>standard (0.20)</td>
+<td>as requested</td>
+<td>Vector/lexical seeds only; skips Phase 2 BFS.</td>
+</tr>
+<tr>
+<td><code>standard</code></td>
+<td>8</td>
+<td>1</td>
+<td>standard (0.20)</td>
+<td>as requested</td>
+<td><strong>CURRENT defaults — behaviour UNCHANGED.</strong> Backward-compatible baseline.</td>
+</tr>
+<tr>
+<td><code>deep</code></td>
+<td>12</td>
+<td><strong>2</strong> (HARD cap — never exceed)</td>
+<td>larger slice (see below)</td>
+<td>as requested</td>
+<td>Widest retrieval; <code>expansion_depth</code> is at the ADR-0022/I2 ceiling and cannot go higher.</td>
+</tr>
+<tr>
+<td><code>local_first</code></td>
+<td>8</td>
+<td>1</td>
+<td>standard (0.20)</td>
+<td><strong>gated</strong>: fetch web only if local hits <code>&lt; LOCAL_FIRST_MIN_HITS</code> (3)</td>
+<td>Retrieval == <code>standard</code>; the <em>only</em> effect is suppressing the web fetch when local grounding already suffices. Meaningful only with <code>use_web_search=True</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Constraints on the table:
+- <strong><code>expansion_depth</code> NEVER exceeds 2</strong> for any mode. <code>retrieve()</code> re-clamps to
+  <code>_MAX_EXPANSION_DEPTH = 2</code> regardless, so even a mis-authored preset cannot breach the ADR-0022/I2
+  ceiling — but the table itself must never <em>specify</em> &gt; 2 (Do-NOT #1).
+- <strong><code>standard</code> is exactly today's behaviour.</strong> <code>k=8, expansion_depth=1</code> is the current
+  <code>run_chat_stream</code> call shape; existing chat tests stay green with <code>retrieval_mode</code> defaulting to
+  <code>standard</code>.
+- <strong><code>deep</code>'s "larger slice"</strong> raises the F14 retrieval fraction from the default 0.20 to a <strong>fixed,
+  frozen</strong> larger constant (e.g. 0.30) — it is a <strong>constant in the preset table</strong>, never a
+  per-request value, and it stays within the F14 60/20/5/15 envelope (it borrows from the model's
+  own generation slice, never exceeds the configured <code>context_window</code>). The exact constant is fixed
+  in code to match this row; if it is ever tuned, that is an amendment to this ADR, not a runtime
+  knob.
+- <strong><code>local_first</code></strong> does not change retrieval at all; it changes only whether the C2 web fetch
+  fires. <code>LOCAL_FIRST_MIN_HITS</code> (default <strong>3</strong>) is the local-hit threshold below which web fetch is
+  allowed. With <code>use_web_search=False</code>, <code>local_first</code> behaves identically to <code>standard</code>.</p>
+<p>The selected mode is persisted as a per-conversation default in the frontend settings store
+(presentation state); the backend is stateless per request (it reads <code>retrieval_mode</code> off the
+request each turn).</p>
+<h3 id="24-c4-anytxt-do-not-mirror-documented-decision">2.4 C4 — AnyTXT: DO-NOT-MIRROR (documented decision)<a class="headerlink" href="#24-c4-anytxt-do-not-mirror-documented-decision" title="Permanent link">&para;</a></h3>
+<p>The llm_wiki composer's AnyTXT toggle drives <strong>AnyTXT Searcher</strong>, a <strong>Windows-only</strong> local
+full-text indexing <em>service</em> (a background Windows daemon exposing a local search API). Synapse's
+deployment targets are <strong>TrueNAS SCALE / Docker + macOS</strong> (CLAUDE.md §1) — AnyTXT does not run there
+and has no cross-platform equivalent. Mirroring it would mean shipping a dead, permanently-greyed
+toggle on every supported platform, or coupling Synapse to a Windows-only dependency (a direct I9
+violation — "do not reinvent / respect existing infra").</p>
+<p><strong>Decision: DO-NOT-MIRROR.</strong> No toggle, no code. The parity doc (<code>SYNAPSE-VS-LLMWIKI-PARITY.md</code>) gets
+a ⛔/N-A row with this rationale (already staged in the UI-alignment plan's "Decisions &amp;
+do-not-mirror" table). An <strong>optional future</strong> ripgrep-based full-text search over <code>raw/sources/</code>
+could deliver the <em>user intent</em> (local raw-file search) cross-platform — but it is <strong>out of scope</strong>
+for B2 and would be its own ADR if pursued. It would also live in the <strong>Search</strong> surface, not chat,
+and chat citations would remain wiki-only per ADR-0050.</p>
+<hr />
+<h2 id="3-adr-0050-compatibility-why-the-web-block-does-not-dilute-wiki-only-retrieval">3. ADR-0050 compatibility — why the web block does not dilute wiki-only retrieval<a class="headerlink" href="#3-adr-0050-compatibility-why-the-web-block-does-not-dilute-wiki-only-retrieval" title="Permanent link">&para;</a></h2>
+<p>ADR-0050 restricted chat/search <strong>retrieval</strong> to <code>wiki/</code> pages so citations never surface raw input
+material as if it were synthesized knowledge, and so the <code>[n]</code> citation UX always resolves to a
+navigable wiki page. Its mechanism is a SQL filter (<code>file_path NOT LIKE 'raw/%'</code>) in
+<code>_load_page_meta</code> / <code>_phase1_lexical_search</code>, and its intent is: <strong>the wiki is the primary,
+unambiguous grounding for chat.</strong></p>
+<p>The C2 web block is consistent with that intent, on four grounds:</p>
+<ol>
+<li>
+<p><strong>The wiki-only filter is untouched.</strong> C2 adds <strong>zero</strong> rows to the retrieval SQL path. The
+   <code>wiki/</code>-only <code>_load_page_meta</code> gate, the <code>[n]</code> numbering, and the F5 pipeline are byte-for-byte
+   unchanged. The web block is assembled by a <em>separate</em> function and <em>concatenated</em> as a distinct
+   section after the wiki block — it never flows through <code>retrieve()</code>.</p>
+</li>
+<li>
+<p><strong>The wiki remains PRIMARY; web is OPT-IN and SUPPLEMENTARY.</strong> <code>use_web_search</code> defaults <strong>OFF</strong>,
+   so the default chat behaviour is identical to today (wiki-only). Web context appears only when the
+   user explicitly asks for it, and even then it is appended <em>after</em> the wiki grounding, not in place
+   of it. The wiki is never diluted; it is (optionally) <em>supplemented</em>.</p>
+</li>
+<li>
+<p><strong>Distinct namespace, distinct label — no epistemic confusion.</strong> ADR-0050's core worry was the
+   user being unable to tell input material from synthesized knowledge. The web block has its <strong>own</strong>
+   <code>[W1]…[Wn]</code> namespace and its <strong>own</strong> labeled section (<code>## Web results (external)</code>), and its
+   citations ride a <strong>separate</strong> <code>web_citations</code> field in <code>done</code>. A <code>[W3]</code> marker resolves to an
+   external URL; a <code>[3]</code> marker resolves to a wiki page. The two can never be confused, and a web
+   result can never masquerade as a wiki citation. This <em>strengthens</em> ADR-0050's clarity principle
+   rather than eroding it.</p>
+</li>
+<li>
+<p><strong>Raw/ stays excluded from BOTH namespaces.</strong> The web block is external URLs, not <code>raw/</code> vault
+   files; ADR-0050's raw-exclusion is orthogonal and remains fully in force for the wiki path.</p>
+</li>
+</ol>
+<p><strong>Conclusion:</strong> ADR-0050 is <strong>amended, not superseded</strong> — its wiki-only <em>retrieval</em> scope stands
+verbatim. This ADR records that chat may, on explicit opt-in, present a <strong>clearly-separated external
+web context</strong> alongside (never inside) the wiki grounding.</p>
+<hr />
+<h2 id="4-bounds-the-i7-contract-new-keys">4. Bounds — the I7 contract (new keys)<a class="headerlink" href="#4-bounds-the-i7-contract-new-keys" title="Permanent link">&para;</a></h2>
+<p>Every new path is bounded. All keys are structural env-configurable limits with the fixed defaults
+below; none introduces a loop.</p>
+<table>
+<thead>
+<tr>
+<th>Bound / key</th>
+<th>Default</th>
+<th>Applies to</th>
+<th>Enforcement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CHAT_MAX_IMAGES</code></td>
+<td><strong>4</strong></td>
+<td>C1 attach-image</td>
+<td>count &gt; cap → <strong>422</strong> at request boundary</td>
+</tr>
+<tr>
+<td><code>CHAT_MAX_IMAGE_BYTES</code></td>
+<td><strong>5 MB</strong></td>
+<td>C1 attach-image</td>
+<td>decoded per-image size &gt; cap → <strong>422</strong></td>
+</tr>
+<tr>
+<td><code>CHAT_WEB_MAX_RESULTS</code></td>
+<td><strong>5</strong></td>
+<td>C2 web search</td>
+<td>SearXNG call <code>max_results</code> cap (I9)</td>
+</tr>
+<tr>
+<td><code>CHAT_WEB_FETCH_MAX_CHARS</code></td>
+<td><strong>8000</strong></td>
+<td>C2 web fetch</td>
+<td>per-result strip cap (reuses deep-research helper)</td>
+</tr>
+<tr>
+<td>C2 web pass</td>
+<td><strong>single-shot</strong></td>
+<td>C2 web search</td>
+<td>ONE call → fetch → inject; NO assess/refine loop</td>
+</tr>
+<tr>
+<td><code>retrieval_mode</code> presets</td>
+<td>frozen (§2.3)</td>
+<td>C3 retrieval</td>
+<td>enum → fixed <code>(k, expansion_depth, budget)</code>; no raw depth on request</td>
+</tr>
+<tr>
+<td><code>expansion_depth</code></td>
+<td><strong>≤ 2 (HARD)</strong></td>
+<td>C3 <code>deep</code></td>
+<td><code>_MAX_EXPANSION_DEPTH</code> re-clamp in <code>retrieve()</code> (ADR-0022/I2)</td>
+</tr>
+<tr>
+<td><code>LOCAL_FIRST_MIN_HITS</code></td>
+<td><strong>3</strong></td>
+<td>C3 <code>local_first</code></td>
+<td>local-hit threshold below which web fetch may fire</td>
+</tr>
+<tr>
+<td>cost logging</td>
+<td>per turn</td>
+<td>C2</td>
+<td>structured log records web-search ran + result count (ADR-0024 discipline)</td>
+</tr>
+</tbody>
+</table>
+<p>No new <em>loop</em> is introduced by any of the above. The existing chat <code>token_budget</code> + <code>timeout_seconds</code>
+bounds (ADR-0019 §2.2) still cap the streaming turn end-to-end; the web pass runs <strong>before</strong>
+streaming (like <code>retrieve()</code>), so it is inside the turn's overall wall-clock budget.</p>
+<hr />
+<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>llm_wiki composer parity reached</strong> for the three portable affordances (attach-image, web-search
+  toggle, retrieval modes), backed by real endpoints and real provider plumbing — no UI stubs.
+  AnyTXT is a documented, principled decline.</li>
+<li><strong>Vision is now available in chat, capability-aware.</strong> The same <code>supports_vision</code> capability that
+  gates ingest captioning (R8-2/F12) now gates chat images — one abstraction, extended not forked.
+  A text-only backend degrades gracefully (images dropped in <code>chat()</code>), and the composer button is
+  disabled with a tooltip so the user is never surprised. <strong>I6 holds:</strong> the decision is a capability
+  read, never a class/type branch.</li>
+<li><strong>ADR-0050 stands; web is additive and unambiguous.</strong> Wiki retrieval is still wiki-only and still
+  the primary grounding. Opt-in web context is a separate, labeled, separately-namespaced block —
+  the <code>[n]</code> citation UX and the raw-exclusion filter are untouched.</li>
+<li><strong>Retrieval depth is user-facing but I7-bounded.</strong> Four frozen presets replace any temptation to
+  expose raw <code>k</code>/<code>expansion_depth</code> on the wire. <code>deep</code> sits at the ADR-0022/I2 depth-2 ceiling and
+  cannot breach it. <code>standard</code> is exactly today's behaviour, so existing tests stay green.</li>
+<li><strong>I3 preserved.</strong> Images are static thumbnails decoded once; they never touch the per-token
+  streaming loop or the end-of-stream parse (G3). The stream still carries text deltas only.</li>
+<li><strong>I9 preserved.</strong> Web search is one bounded call through the existing SearXNG seam — never Tavily,
+  never a new search service; fetch/strip reuses the deep-research helper.</li>
+<li><strong>Docs debt tracked (I8).</strong> <code>GET /status</code> gains <code>supports_vision</code>; <code>ChatRequest</code> gains
+  <code>use_web_search</code> / <code>retrieval_mode</code>; <code>ChatMessageIn</code> / <code>Message</code> gain <code>images</code>; the <code>done</code> event
+  gains <code>web_citations</code> — all must land in a regenerated <code>docs/api/openapi.json</code>. If a <code>messages</code>
+  column is added for image persistence, the ER diagram MUST be regenerated (<code>make er</code>) so
+  <code>docs/er/schema.mmd</code> matches the live models. B2 is not Done until these D-artifacts are updated
+  and consistent (this ADR records the requirement; the docs gate enforces it).</li>
+</ul>
+<hr />
+<h2 id="6-do-not-list-this-adr">6. Do-NOT list (this ADR)<a class="headerlink" href="#6-do-not-list-this-adr" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Do <strong>not</strong> exceed <code>expansion_depth = 2</code> in any retrieval mode. <code>deep</code> is capped at 2; <code>retrieve()</code>
+   re-clamps to <code>_MAX_EXPANSION_DEPTH</code> regardless (ADR-0022/I2). Never author a preset row &gt; 2.</li>
+<li>Do <strong>not</strong> expose raw <code>k</code> / <code>expansion_depth</code> (or any arbitrary depth) on the chat request. Depth
+   is chosen ONLY by the frozen <code>retrieval_mode</code> preset table (§2.3) — no per-request arbitrary
+   depth (I7).</li>
+<li>Do <strong>not</strong> loop the web fetch. C2 is <strong>single-shot</strong>: one SearXNG call → fetch top-N → inject.
+   The assess→refine→re-query loop belongs to deep-research (ADR-0024), not to chat web-search (I7).</li>
+<li>Do <strong>not</strong> send images to a backend when <code>capabilities().supports_vision</code> is <code>False</code>. The provider
+   <code>chat()</code> <strong>drops</strong> them (defense-in-depth); the frontend button-disable is UX, not the boundary.</li>
+<li>Do <strong>not</strong> branch on <code>isinstance</code> / <code>type()</code> / class name / <code>provider_type == "…"</code> to decide
+   vision. The decision reads <code>self.capabilities().supports_vision</code> ONLY (I6 — the <code>provider/base.py</code>
+   rule).</li>
+<li>Do <strong>not</strong> mix the web <code>[W]</code> and wiki <code>[n]</code> citation namespaces. They are <strong>distinct</strong> namespaces
+   in <strong>distinct</strong>, <strong>distinctly-labeled</strong> context blocks and <strong>distinct</strong> <code>done</code> fields
+   (<code>web_citations</code> vs <code>citations</code>). A <code>[W3]</code> is external; a <code>[3]</code> is a wiki page. Never interleave,
+   never renumber one into the other.</li>
+<li>Do <strong>not</strong> modify the wiki-only retrieval filter. The <code>_load_page_meta</code> /
+   <code>_phase1_lexical_search</code> <code>file_path NOT LIKE 'raw/%'</code> gate and the F5 <code>[n]</code> numbering are
+   untouched (ADR-0050 stands). The web block is assembled and concatenated separately, never through
+   <code>retrieve()</code>.</li>
+<li>Do <strong>not</strong> re-render attached images per streamed token, and do <strong>not</strong> route image bytes through
+   the NDJSON stream or the <code>ThinkScanner</code> delta loop. Images are static thumbnails, decoded and
+   persisted once; the stream carries text deltas only (I3 / G3, ADR-0019).</li>
+<li>Do <strong>not</strong> re-add <code>supports_vision</code> to <code>ProviderCapabilities</code> — it already exists (R8-2/F12).
+   Reuse it for the chat path.</li>
+<li>Do <strong>not</strong> exceed <code>CHAT_MAX_IMAGES</code> (4) or <code>CHAT_MAX_IMAGE_BYTES</code> (5 MB) — over-limit requests
+    are rejected with <strong>422</strong> at the boundary, before any provider call (I7).</li>
+<li>Do <strong>not</strong> use Tavily or any search backend other than SearXNG for C2. One bounded call through
+    the existing <code>ops/searxng.py</code> seam (I9).</li>
+<li>Do <strong>not</strong> ship an AnyTXT toggle. It is a Windows-only service, N/A on Synapse's
+    TrueNAS/Docker+macOS targets — documented decline, no code (C4 / I9).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

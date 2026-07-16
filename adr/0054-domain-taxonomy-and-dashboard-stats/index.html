@@ -1,0 +1,1362 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0054-domain-taxonomy-and-dashboard-stats/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>ADR-0054 — Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (GET /stats/overview, GET /stats/sections; POST /ops/backfill-domains) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0054-domain-taxonomy-controlled-vocabulary-ingest-auto-tag-and-dashboard-stats-api-get-statsoverview-get-statssections-post-opsbackfill-domains" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0054 — Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (GET /stats/overview, GET /stats/sections; POST /ops/backfill-domains)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-decision-domain-vocabulary-tag-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Decision — Domain vocabulary &amp; tag convention
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Decision — Domain vocabulary &amp; tag convention">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-new-app_config-allowed-key-domain_vocabulary-decision-json-array-of-strings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 New app_config allowed key domain_vocabulary — DECISION: JSON array of strings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-tag-convention-decision-domainname-nested-tags-in-the-existing-pagestags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Tag convention — DECISION: domain/&lt;Name&gt; nested tags in the existing pages.tags
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-decision-auto-tag-step-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Decision — Auto-tag step (ingest)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Decision — Auto-tag step (ingest)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-provider-routing-decision-reuse-the-ingest-operation-config-no-new-operation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Provider routing — DECISION: reuse the "ingest" operation config (no new operation)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-hook-point-decision-post-write-before-the-version-bump-is-finalised-reuse-the-single-existing-bump-i1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Hook point — DECISION: post-write, before the version bump is finalised; reuse the SINGLE existing bump (I1)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-classification-contract-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Classification contract &amp; merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-failure-page-saved-untagged-logged-never-blocks-ingest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Failure = page saved untagged, logged, never blocks ingest
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-decision-backfill-post-opsbackfill-domains" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Decision — Backfill (POST /ops/backfill-domains)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Decision — Backfill (POST /ops/backfill-domains)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-sync-with-cap-vs-background-decision-background-asyncio-task-202-summary-by-polling-deep-research-precedent" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Sync-with-cap vs background — DECISION: background asyncio task, 202 + summary-by-polling (deep-research precedent)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-bounds-i7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Bounds (I7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-idempotency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Idempotency
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-decision-stats-api-dashboard-contract-frozen-the-fe-builds-against-these-verbatim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Decision — Stats API (dashboard contract — FROZEN; the FE builds against these verbatim)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Decision — Stats API (dashboard contract — FROZEN; the FE builds against these verbatim)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-get-statsoverview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 GET /stats/overview
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-get-statssections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 GET /stats/sections
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-decision-status-gains-a-version-field-additive-r12-3-consumer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Decision — /status gains a version field (additive, R12-3 consumer)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-do-not-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Do-NOT list
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-acceptance-checks-dod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Acceptance checks (DoD)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0054-domain-taxonomy-controlled-vocabulary-ingest-auto-tag-and-dashboard-stats-api-get-statsoverview-get-statssections-post-opsbackfill-domains">ADR-0054 — Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (<code>GET /stats/overview</code>, <code>GET /stats/sections</code>; <code>POST /ops/backfill-domains</code>)<a class="headerlink" href="#adr-0054-domain-taxonomy-controlled-vocabulary-ingest-auto-tag-and-dashboard-stats-api-get-statsoverview-get-statssections-post-opsbackfill-domains" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-03</li>
+<li><strong>Sprint:</strong> v1.2 (M12 — "Home &amp; Insights"; R12-1 domain taxonomy + auto-tag, R12-2 dashboard stats API, R12-3 version-mismatch notice)</li>
+<li><strong>Features:</strong> <strong>F18</strong> (Domain taxonomy + Home dashboard — NEW) · F16 (Settings / config surface — this ADR
+  EXTENDS the ADR-0053 <code>app_config</code> allow-list with one new key) · F17 (the auto-tag classification MUST be
+  provider-routed via <code>resolve_provider_config</code> — no hardcoded backend, I6) · K6 (tags as the frontmatter pivot) ·
+  F4 (<code>degree</code> reuse for section top-pages)</li>
+<li><strong>Reference:</strong> docs/sprints/SPRINT-v1.2-SCOPE.md (R12-1/R12-2/R12-3 — same committed items as this brief; if the
+  scope file post-dates this ADR and diverges, the OWNER-LOCKED decisions in this ADR govern) ·
+  <strong>ADR-0053</strong> (the <code>app_config</code> key/value override layer + <code>ALLOWED_CONFIG_KEYS</code> this ADR extends; §2.2, §2.3, §8
+  allow-list/UI sync rule) · ADR-0052 (<code>SYNAPSE_AUTH_TOKEN</code> — the auth <strong>middleware</strong> that gates the new routes by
+  construction; the <code>/status</code> OpenAPI-exempt set) · ADR-0007/0008 (<code>InferenceProvider</code> ABC + <code>provider_config</code>,
+  <code>resolve_provider_config(operation, vault_id)</code>) · ADR-0009 (bounded loop defaults + <code>UsageAccumulator</code> /
+  <code>total_cost_usd</code> accounting the auto-tag + backfill reuse, I7) · ADR-0034/0044 (Review Queue — <code>review_items.status</code>
+  = <code>pending</code>) · ADR-0037 (Lint — <code>lint_findings.status</code> = <code>open</code>) · ADR-0012/0016 (graph <code>Edge</code> table +
+  <code>degree</code> = distinct incident structural edges) · ADR-0014 (<code>data_version</code> debounce signal reused as the stats
+  cache key) · costs.py / R9-1 (<code>GET /costs/summary</code> monthly aggregation this ADR REUSES, never duplicates) ·
+  ADR-0036 (wikilink-enrichment post-write hook — the sibling non-fatal hook the auto-tag step sits beside)</li>
+<li><strong>Invariants owned:</strong> <strong>I1</strong> (INCREMENTAL — auto-tag mutates only the just-ingested page's <code>tags</code> and writes it
+  back through the SAME <code>write_wiki_page</code> primitive; <strong>zero</strong> vault re-scan; the SINGLE <code>data_version</code> bump per ingest
+  is preserved — the auto-tag reuses the existing bump, never adds a second) · <strong>I5</strong> (OBSIDIAN — <code>domain/&lt;Name&gt;</code>
+  tags live in the existing <code>tags[]</code> YAML frontmatter and round-trip as ordinary Obsidian nested tags) · <strong>I6</strong>
+  (PLUGGABLE — the classification call is routed through <code>resolve_provider_config("ingest", …)</code> → <code>resolve_provider</code>;
+  NO backend hardcoded; empty vocabulary ⇒ ZERO provider calls) · <strong>I7</strong> (BOUNDED — one bounded provider call per
+  page for auto-tag; backfill capped by <code>max_pages</code> + <code>token_budget</code>; <code>total_cost_usd</code> logged; no unbounded loop) ·
+  <strong>I8</strong> (DOCS — D2 ER unchanged [no new table]; D4 OpenAPI regenerated for the 3 new routes + the <code>/status</code>
+  <code>version</code> field; D1 unchanged [no new container]) · <strong>I3/I4</strong> (stats endpoints are cheap COUNT/GROUP reads,
+  no heavy compute, no per-token work — the FE renders precomputed numbers)</li>
+<li><strong>Author:</strong> solution-architect</li>
+<li><strong>Implementers:</strong> backend-engineer (extend <code>ALLOWED_CONFIG_KEYS</code> + <code>validate_value</code> for <code>domain_vocabulary</code> in
+  <code>config_overrides.py</code>; the auto-tag hook in <code>ingest/orchestrator.py</code>; <code>ops/backfill_domains.py</code>; <code>stats.py</code> router
+  with <code>GET /stats/overview</code> + <code>GET /stats/sections</code>; add <code>version</code> to <code>StatusResponse</code> read from pyproject; pytests;
+  OpenAPI regen) · ai-agent-engineer (the classification prompt + <code>resolve_provider</code> routing + bounded-call /
+  cost-accounting wiring — this touches F17, MANDATORY per §13) · frontend-engineer (Home dashboard builds against the
+  two verbatim stats shapes in §5; domain-vocabulary editor writes ONLY via <code>PUT /config/app/domain_vocabulary</code>;
+  R12-3 version-mismatch notice reads <code>/status.version</code>) · tech-writer (D4 OpenAPI, USER.md "Home &amp; Domains")</li>
+<li><strong>Gate:</strong> This ADR <strong>GATES all R12-1/R12-2 backend code</strong>. No <code>domain_vocabulary</code> allow-list entry, no auto-tag
+  hook, no <code>ops/backfill_domains.py</code>, and no <code>/stats/*</code> route may be written until this ADR is <strong>Accepted</strong>. The
+  frontend Home dashboard may start immediately against the two frozen response shapes in §5 (they will not change).</li>
+</ul>
+<hr />
+<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
+<p>Sprint v1.2 "Home &amp; Insights" (F18) adds a <strong>landing dashboard</strong> ("Home") and a <strong>domain taxonomy</strong> so the owner can
+see the vault at a glance and slice it by subject area (ServiceNow, SAM, Procurement, Regolamentazioni, TPRM, …).
+The owner has <strong>locked</strong> four decisions this ADR must honour and MUST NOT reopen:</p>
+<ol>
+<li><strong>Domains are a CONTROLLED VOCABULARY</strong> of owner-edited domain tags — not free-form, not LLM-invented. Ingest
+   <strong>auto-tags</strong> each new page against that vocabulary; the LLM may only choose from the list, never extend it.</li>
+<li><strong>Home = dashboard = the landing screen.</strong></li>
+<li>The feature ID is <strong>F18</strong>.</li>
+<li>Empty/absent vocabulary ⇒ the feature is <strong>dormant</strong>: no provider calls at ingest, and Home shows global KPIs only.</li>
+</ol>
+<p>Three properties make this a small, low-risk ADR rather than a new subsystem:</p>
+<ul>
+<li><strong>The storage already exists.</strong> <code>pages.tags</code> (JSONB <code>list[str] | None</code>, migration 0018, K6 parity) is the
+  frontmatter <code>tags[]</code> array. Domain membership is a <strong>tag convention</strong> on that column (§2.2), so <strong>no new table and
+  no ER change</strong> (I8 — D2 unchanged). The <code>edges</code> table (<code>degree</code>), <code>review_items.status="pending"</code>,
+  <code>lint_findings.status="open"</code>, <code>vault_state.data_version</code>, and the R9-1 monthly cost aggregation all already exist
+  and are <strong>read</strong>, never re-derived.</li>
+<li><strong>The config surface already exists.</strong> ADR-0053 built the generic <code>app_config</code> key/value override layer with an
+  <code>ALLOWED_CONFIG_KEYS</code> allow-list, per-key validation, an in-memory cache, and <code>GET/PUT/DELETE /config/app</code>. The
+  domain vocabulary is <strong>one new allowed key</strong> on that exact layer (§2.1) — no new persistence mechanism.</li>
+<li><strong>The provider seam already exists.</strong> Auto-tag classification is one more provider-routed call through
+  <code>resolve_provider_config("ingest", …)</code> → <code>resolve_provider</code> (ADR-0007/0008), accounted with <code>UsageAccumulator</code> /
+  <code>total_cost_usd</code> (ADR-0009). No backend is hardcoded (I6).</li>
+</ul>
+<p><strong>Two facts the implementer must not re-derive</strong> (both established by prior ADRs):</p>
+<ol>
+<li><strong>Auth is the ADR-0052 middleware, not a route dependency.</strong> All three new routes (<code>/stats/overview</code>,
+   <code>/stats/sections</code>, <code>/ops/backfill-domains</code>) are ordinary REST routes on the main router and are therefore
+   <strong>gated by construction</strong> by <code>SynapseAuthMiddleware</code>. Do NOT add a per-route <code>Depends</code> (that double-gates —
+   ADR-0052 §6). They are NOT in the <code>_OPENAPI_SECURITY_EXEMPT</code> set (<code>{"/status", "/health/detailed"}</code>), so they
+   inherit the global <code>BearerAuth</code> security requirement in OpenAPI. <code>/status</code> stays exempt even after gaining
+   <code>version</code> (§6).</li>
+<li><strong>Allow-list and UI must not diverge (ADR-0053 §8).</strong> Adding <code>domain_vocabulary</code> to <code>ALLOWED_CONFIG_KEYS</code> is the
+   act of exposing it to the UI; the frontend domain-vocabulary editor MUST write only through
+   <code>PUT /config/app/domain_vocabulary</code> (no parallel path). If the key were ever de-scoped it must be removed from the
+   allow-list in the same change.</li>
+</ol>
+<hr />
+<h2 id="2-decision-domain-vocabulary-tag-convention">2. Decision — Domain vocabulary &amp; tag convention<a class="headerlink" href="#2-decision-domain-vocabulary-tag-convention" title="Permanent link">&para;</a></h2>
+<h3 id="21-new-app_config-allowed-key-domain_vocabulary-decision-json-array-of-strings">2.1 New <code>app_config</code> allowed key <code>domain_vocabulary</code> — <strong>DECISION: JSON array of strings</strong><a class="headerlink" href="#21-new-app_config-allowed-key-domain_vocabulary-decision-json-array-of-strings" title="Permanent link">&para;</a></h3>
+<p>Extend the ADR-0053 allow-list in <code>config_overrides.py</code>. The <strong>exact diff</strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># config_overrides.py — ADR-0054 extends the ADR-0053 allow-list with ONE key (F18).</span>
+<span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;pdf_extractor&quot;</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
+        <span class="s2">&quot;marker_service_url&quot;</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
+        <span class="s2">&quot;marker_timeout_seconds&quot;</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
+        <span class="s2">&quot;cost_alert_threshold_usd&quot;</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
+        <span class="s2">&quot;embeddings_enabled&quot;</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030)</span>
+        <span class="s2">&quot;embedding_format&quot;</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031)</span>
+        <span class="s2">&quot;overview_language&quot;</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
+        <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
+        <span class="s2">&quot;domain_vocabulary&quot;</span><span class="p">,</span>        <span class="c1"># S9  (ADR-0054, F18) ← NEW: JSON array of domain names</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+<span class="c1"># Append to ORDERED_KEYS as well (stable GET /config/app order for the FE snapshot test):</span>
+<span class="n">ORDERED_KEYS</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="o">...</span> <span class="p">,</span> <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span> <span class="s2">&quot;domain_vocabulary&quot;</span><span class="p">]</span>
+</code></pre></div>
+<p><strong>Value format — DECISION: a JSON array of strings, e.g. <code>["ServiceNow","SAM","Procurement","Regolamentazioni","TPRM"]</code>.
+Justification (vs comma-separated):</strong></p>
+<ul>
+<li><code>app_config.value</code> is <code>TEXT NOT NULL</code> (ADR-0053 §2.1). Both formats fit TEXT. But domain <strong>names may legitimately
+  contain a comma-adjacent phrase, a space, or non-ASCII</strong> ("Regolamentazioni", "Third-Party Risk Management"). A
+  comma-separated string forces a fragile split/trim/escape convention and cannot represent a name containing a comma;
+  a JSON array is unambiguous, escapes for free, and preserves Unicode (round-trips cleanly to Obsidian, I5).</li>
+<li>The value is validated and <strong>parsed once at write</strong> and <strong>cached</strong> by the ADR-0053 layer; readers call a typed
+  accessor (below) that <code>json.loads</code> the cached string — O(1), no per-request parse of anything unbounded.</li>
+<li>It matches how <code>pages.sources</code>/<code>pages.tags</code> already store lists (JSONB arrays), keeping one mental model for "a
+  list-valued value" across the codebase.</li>
+</ul>
+<p><strong>Per-key validation</strong> (add to <code>validate_value</code> in <code>config_overrides.py</code>, ADR-0053 §2.3 style — fail-closed, 422 on
+violation, no write):</p>
+<div class="highlight"><pre><span></span><code>key == &quot;domain_vocabulary&quot;:
+  - MUST parse as JSON (json.loads) → else 422 &quot;domain_vocabulary must be a JSON array of strings&quot;
+  - MUST be a list                  → else 422
+  - every element MUST be a non-empty str after .strip()   → else 422
+  - element count ≤ 100 (sanity cap; the UI is a small owned list)   → else 422
+  - normalise: strip each name, drop empties, DEDUPE case-insensitively preserving first spelling
+  - re-serialise canonically (json.dumps of the normalised list) before upsert
+  - the EMPTY array &quot;[]&quot; is VALID and is the explicit &quot;dormant&quot; state (equivalent to no override)
+</code></pre></div>
+<p>A dedicated typed accessor lives beside the ADR-0053 accessors (coercion in one place, mypy-strict, no <code>Any</code>):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effective_domain_vocabulary</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse the cached domain_vocabulary JSON array → list[str]; [] if unset/empty/malformed.</span>
+<span class="sd">    Pure in-memory O(1) on the ADR-0053 cache; never touches the DB. Fail-closed to [] on any</span>
+<span class="sd">    json/type error (a malformed stored value can only exist if it bypassed validate_value).&quot;&quot;&quot;</span>
+</code></pre></div>
+<p><strong>Reset semantics</strong> inherit ADR-0053 §3.3 unchanged: "clear the vocabulary" = <code>DELETE /config/app/domain_vocabulary</code>
+(row removed ⇒ dormant) OR <code>PUT</code> with <code>"[]"</code> (explicit empty ⇒ dormant). Both yield <code>effective_domain_vocabulary()
+== []</code>.</p>
+<h3 id="22-tag-convention-decision-domainname-nested-tags-in-the-existing-pagestags">2.2 Tag convention — <strong>DECISION: <code>domain/&lt;Name&gt;</code> nested tags in the existing <code>pages.tags</code></strong><a class="headerlink" href="#22-tag-convention-decision-domainname-nested-tags-in-the-existing-pagestags" title="Permanent link">&para;</a></h3>
+<p>Domain membership is stored as <strong>nested Obsidian tags</strong> in the existing <code>pages.tags[]</code> JSONB array, prefixed
+<code>domain/</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># wiki/concepts/incident-management.md frontmatter</span>
+<span class="nt">tags</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">domain/ServiceNow</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">domain/TPRM</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workflow</span><span class="w">            </span><span class="c1"># a pre-existing user tag — UNTOUCHED</span>
+</code></pre></div>
+<ul>
+<li><strong>Prefix <code>domain/</code> (confirmed, with the one refinement below).</strong> <code>domain/</code> is an Obsidian <strong>nested-tag</strong> separator,
+  so <code>domain/ServiceNow</code> renders as a first-class tag, is searchable as <code>#domain/ServiceNow</code>, and groups under
+  <code>domain/</code> in Obsidian's tag pane — it round-trips through YAML frontmatter with <strong>zero</strong> special handling (I5). It
+  cannot collide with a user's flat tag (a user tag <code>ServiceNow</code> is a different string than <code>domain/ServiceNow</code>).</li>
+<li><strong>The <code>&lt;Name&gt;</code> is the vocabulary entry verbatim</strong> (post-normalisation from §2.1), including spaces/Unicode. Obsidian
+  permits spaces and Unicode in tags when quoted; the auto-tag writer emits the tag exactly as it appears in the
+  vocabulary so the <code>domain/&lt;Name&gt;</code> ↔ vocabulary-entry mapping is a byte-equality lookup (no slug ambiguity).</li>
+<li><strong>A page belongs to domain D iff <code>"domain/" + D</code> ∈ its <code>tags</code>.</strong> This is the single membership predicate used by
+  both the auto-tag step (§3) and the <code>/stats/sections</code> query (§5.2). Case-sensitive exact match against the current
+  vocabulary; a <code>domain/*</code> tag whose name is NOT in the current vocabulary (owner removed it later) is treated as a
+  <strong>stale domain tag</strong> — it is IGNORED by <code>/stats/sections</code> (no section rendered for it) and is NOT auto-removed
+  (removal is a future, explicitly out-of-scope cleanup; §7 Do-NOT).</li>
+<li><strong>User tags are never mutated.</strong> The auto-tag step only ADDs/removes <code>domain/*</code> entries (§3.3); any tag not starting
+  with <code>domain/</code> is preserved verbatim.</li>
+</ul>
+<hr />
+<h2 id="3-decision-auto-tag-step-ingest">3. Decision — Auto-tag step (ingest)<a class="headerlink" href="#3-decision-auto-tag-step-ingest" title="Permanent link">&para;</a></h2>
+<h3 id="31-provider-routing-decision-reuse-the-ingest-operation-config-no-new-operation">3.1 Provider routing — <strong>DECISION: reuse the <code>"ingest"</code> operation config (no new operation)</strong><a class="headerlink" href="#31-provider-routing-decision-reuse-the-ingest-operation-config-no-new-operation" title="Permanent link">&para;</a></h3>
+<p>The classification call resolves its provider via the <strong>existing</strong> <code>resolve_provider_config("ingest", vault_id)</code> →
+<code>resolve_provider(config_row)</code> (ADR-0007/0008). We do <strong>NOT</strong> add a fourth operation (<code>_VALID_OPERATIONS</code> stays
+<code>{"ingest", "chat", "lint"}</code>). Rationale: auto-tag IS part of ingest (it runs inside the ingest pipeline, on the
+just-ingested page, once per ingest); a per-operation override would add UI/config surface for a step the owner never
+thinks of as separate. It inherits the ingest provider the owner already selected (Local/API/CLI) — I6 satisfied,
+zero backend hardcoded. If a future need arises to route auto-tag independently, that is a follow-up ADR that adds
+the operation; this ADR deliberately keeps the surface minimal.</p>
+<h3 id="32-hook-point-decision-post-write-before-the-version-bump-is-finalised-reuse-the-single-existing-bump-i1">3.2 Hook point — <strong>DECISION: post-write, before the version bump is finalised; reuse the SINGLE existing bump (I1)</strong><a class="headerlink" href="#32-hook-point-decision-post-write-before-the-version-bump-is-finalised-reuse-the-single-existing-bump-i1" title="Permanent link">&para;</a></h3>
+<p>The auto-tag step is a <strong>non-fatal post-write hook</strong> in <code>run_ingest_pipeline</code> (<code>ingest/orchestrator.py</code>), placed on
+the orchestrated branch <strong>immediately after the write loop and the <code>write_wiki_page</code> calls, in the same neighbourhood
+as the ADR-0036 wikilink-enrichment hook and BEFORE <code>propose_reviews</code></strong> (orchestrator ~line 611–644). Precisely:</p>
+<div class="highlight"><pre><span></span><code>... write loop: for page in pages: write_wiki_page(...)   ← pages exist on disk + DB (I1 incremental)
+... _update_overview(...)
+[ADR-0054 AUTO-TAG HOOK]   ← here, wrapped in try/except (non-fatal), for each just-written page:
+      if effective_domain_vocabulary() == []: skip entirely (DORMANT — zero provider calls, I6)
+      else classify → merge domain/* tags → re-write the page frontmatter via write_wiki_page
+... enrich_wikilinks(...)   (ADR-0036)
+... propose_reviews(...)     (ADR-0034)
+</code></pre></div>
+<p><strong>Why post-write, not pre-write:</strong> the page must already be a valid persisted <code>Page</code> (frontmatter + DB row) before we
+touch its tags, so that (a) a classification failure leaves a <strong>fully valid untagged page</strong> (never a half-written
+one), and (b) the tag write reuses the SAME idempotent <code>write_wiki_page</code> upsert primitive (I1 — updates only that
+page's record + file; no re-scan). The auto-tag re-write of a single page's frontmatter is an <strong>incremental update to
+one already-indexed page</strong>, exactly the I1-legal operation <code>write_wiki_page</code> performs on re-ingest.</p>
+<p><strong><code>data_version</code> (I1/I2) — DECISION: NO extra bump.</strong> <code>run_ingest_pipeline</code> / <code>write_wiki_page</code> already performs the
+<strong>single</strong> <code>bump_version()</code> for the ingest. The auto-tag re-write MUST NOT add a second bump (that would fire a
+redundant GraphCache recompute for a tag-only change that does not alter the graph). The tags are folded into the
+page <strong>before or as part of</strong> the existing final write so exactly ONE bump occurs per ingest. If, for the delegated
+(CLI) route, the page is already written and bumped by the provider's own loop, the auto-tag re-write is a <code>pinned</code>-
+style metadata update that MUST NOT bump again (the tag write calls the metadata-persist path without a version bump,
+mirroring the position-pin precedent). One ingest ⇒ at most one <code>data_version</code> increment (AC-F16dv invariant preserved).</p>
+<h3 id="33-classification-contract-merge">3.3 Classification contract &amp; merge<a class="headerlink" href="#33-classification-contract-merge" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>One bounded provider call per just-written page</strong> (I7). Input: the page title + a bounded slice of its body +
+  the current vocabulary list. Output: a subset (0..N) of the vocabulary — <strong>strictly</strong> the classifier picks from the
+  provided list; any returned name not in the vocabulary is <strong>dropped</strong> (the LLM cannot invent a domain — owner-lock
+  #1). Prompt/response schema is the ai-agent-engineer's to finalise (structured JSON: <code>{"domains": ["ServiceNow", …]}</code>),
+  routed through the resolved provider's structured-output path (I6 — same adapter, no hardcoded shape).</li>
+<li><strong>0 domains is a valid result</strong> (the page fits no vocabulary domain) → the page keeps no <code>domain/*</code> tag and falls
+  into the <code>untagged</code> bucket in <code>/stats/sections</code> (§5.2). This is NOT a failure.</li>
+<li><strong>Merge rule (idempotent):</strong> compute the desired <code>domain/*</code> set = <code>{"domain/"+d for d in classified}</code>. Rewrite
+  <code>tags</code> = (existing tags with all <code>domain/*</code> entries removed) ∪ (desired set), preserving all non-<code>domain/</code> user
+  tags and stable ordering (user tags first, then sorted <code>domain/*</code>). Re-running ingest on an unchanged page yields
+  an unchanged tag set (idempotent — required for backfill §4 and for content-hash stability).</li>
+<li><strong>Cost accounting (I7):</strong> the classification call spends through the SAME <code>UsageAccumulator</code> as the ingest run, so
+  its tokens/cost roll into the ingest run's <code>total_cost_usd</code> (ADR-0009). One structured log line per ingest:
+  <code>auto_tag: page=&lt;id&gt; domains=[…] cost_usd=&lt;…&gt;</code> (log the domain NAMES — non-secret, useful; never a raw provider
+  key).</li>
+</ul>
+<h3 id="34-failure-page-saved-untagged-logged-never-blocks-ingest">3.4 Failure = page saved untagged, logged, never blocks ingest<a class="headerlink" href="#34-failure-page-saved-untagged-logged-never-blocks-ingest" title="Permanent link">&para;</a></h3>
+<p>The hook is wrapped exactly like the ADR-0036 enrichment hook: <code>try/except Exception</code> that logs a WARNING and
+returns. A provider error, timeout, malformed classification, or budget exhaustion leaves the page <strong>written and
+valid, just without domain tags</strong>. The ingest run's terminal status is unaffected. This is the I7 + owner-lock #4
+safety property: auto-tag is advisory and can never be the reason an ingest fails.</p>
+<hr />
+<h2 id="4-decision-backfill-post-opsbackfill-domains">4. Decision — Backfill (<code>POST /ops/backfill-domains</code>)<a class="headerlink" href="#4-decision-backfill-post-opsbackfill-domains" title="Permanent link">&para;</a></h2>
+<p>Backfills domain tags onto pages ingested before the vocabulary existed (or after the owner edits it).</p>
+<h3 id="41-sync-with-cap-vs-background-decision-background-asyncio-task-202-summary-by-polling-deep-research-precedent">4.1 Sync-with-cap vs background — <strong>DECISION: background asyncio task, 202 + summary-by-polling (deep-research precedent)</strong><a class="headerlink" href="#41-sync-with-cap-vs-background-decision-background-asyncio-task-202-summary-by-polling-deep-research-precedent" title="Permanent link">&para;</a></h3>
+<p>Backfill touches up-to-<code>max_pages</code> pages, each one a bounded provider call — potentially minutes of work. That is too
+long for a synchronous request. We follow the <strong><code>POST /research/start</code> precedent</strong> (ADR-0024): <strong>freeze the bounds,
+INSERT/return a run handle, schedule the work as an <code>asyncio.create_task</code>, respond 202</strong>. (Lint's synchronous
+<code>POST /lint/scan</code> is the counter-precedent for <em>short</em> scans; backfill is closer to deep-research in duration, so it
+uses the background pattern.)</p>
+<div class="highlight"><pre><span></span><code>POST /ops/backfill-domains
+body: {
+  &quot;max_pages&quot;:     &lt;int&gt;   | null,   # cap; null → settings default (e.g. 500). HARD upper bound enforced.
+  &quot;token_budget&quot;:  &lt;int&gt;   | null,   # cap; null → settings default. Stop when reached (under-spend, never over).
+  &quot;force&quot;:         &lt;bool&gt;            # default false — see idempotency below
+}
+→ 202 {
+  &quot;status&quot;: &quot;started&quot;,
+  &quot;max_pages&quot;: &lt;frozen int&gt;,
+  &quot;token_budget&quot;: &lt;frozen int&gt;,
+  &quot;force&quot;: &lt;bool&gt;
+}
+→ 409 { &quot;error&quot;: &quot;backfill_already_running&quot; }   # single-flight: only one backfill at a time per vault
+→ 400 { &quot;error&quot;: &quot;dormant_vocabulary&quot; }         # domain_vocabulary is [] → nothing to backfill, no provider calls
+</code></pre></div>
+<p>The final summary is surfaced by logging + (reuse) the ingest/run history the per-page re-writes already produce; a
+dedicated polling endpoint is NOT introduced in this ADR (keep surface minimal — the FE polls <code>/stats/sections</code> to
+watch section counts grow). The 202 body echoes the frozen bounds so the caller can display them. The completion log
+line is the authoritative summary:
+<code>backfill-domains: scanned=&lt;n&gt; tagged=&lt;n&gt; skipped=&lt;n&gt; failed=&lt;n&gt; cost_usd=&lt;…&gt; stopped_reason=&lt;budget|maxpages|complete&gt;</code>.</p>
+<h3 id="42-bounds-i7">4.2 Bounds (I7)<a class="headerlink" href="#42-bounds-i7" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong><code>max_pages</code></strong> — the page candidate SELECT is <code>LIMIT max_pages</code> (bounded query, no unbounded scan). Ordered by
+  <code>updated_at DESC</code> so the most-recently-touched pages are tagged first.</li>
+<li><strong><code>token_budget</code></strong> — checked at the TOP of each per-page iteration (mirrors <code>run_lint_scan</code>, ADR-0037): if
+  <code>accumulator.total_tokens &gt;= token_budget</code>, stop before spending, <code>stopped_reason="budget"</code>.</li>
+<li><strong><code>total_cost_usd</code></strong> logged for the whole run (I7). One accumulator for the backfill run.</li>
+<li><strong>No unbounded loop:</strong> the loop is <code>for page in candidate_pages[:max_pages]</code> with the budget gate — structurally
+  and cost-capped.</li>
+</ul>
+<h3 id="43-idempotency">4.3 Idempotency<a class="headerlink" href="#43-idempotency" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Default (<code>force=false</code>):</strong> the candidate SELECT <strong>skips any page that already has a <code>domain/*</code> tag</strong> (WHERE the
+  page's <code>tags</code> contains no element starting with <code>domain/</code>). Re-running a completed backfill does zero provider
+  work and zero writes (idempotent).</li>
+<li><strong><code>force=true</code>:</strong> re-classifies ALL pages up to <code>max_pages</code> (owner edited the vocabulary and wants everything
+  re-evaluated). Even here the §3.3 merge is idempotent per page, so a <code>force</code> run on an unchanged vocabulary
+  produces unchanged tags.</li>
+<li>Each per-page write reuses <code>write_wiki_page</code> (I1 incremental) and the §3.2 no-extra-bump discipline; the backfill
+  bumps <code>data_version</code> at most ONCE at the end (a single graph-neutral signal) or not at all — the implementer bumps
+  once after the batch so a single debounced recompute (if any tag change affected downstream views) fires, never
+  once-per-page.</li>
+</ul>
+<hr />
+<h2 id="5-decision-stats-api-dashboard-contract-frozen-the-fe-builds-against-these-verbatim">5. Decision — Stats API (dashboard contract — FROZEN; the FE builds against these verbatim)<a class="headerlink" href="#5-decision-stats-api-dashboard-contract-frozen-the-fe-builds-against-these-verbatim" title="Permanent link">&para;</a></h2>
+<p>Both endpoints are <strong>cheap read-only aggregations over existing tables</strong> — COUNT / GROUP BY / a small ORDER BY LIMIT.
+NO new heavy computation, NO graph recompute, NO provider call (I1/I2/I3/I6). Both are gated by
+<code>SynapseAuthMiddleware</code> by construction (ADR-0052) and carry the global <code>BearerAuth</code> in OpenAPI.</p>
+<p><strong>Caching — DECISION: <code>data_version</code>-keyed in-process memoisation (reuse the ADR-0014 debounce signal).</strong> The
+<code>/stats/overview</code> payload is memoised keyed on the current <code>vault_state.data_version</code> (+ the current month for the
+cost slice): a bump invalidates it, so a bounded recompute happens at most once per data change, not per request. The
+cost slice reuses the R9-1 aggregation (§5.1) which is itself month-bounded. <code>/stats/sections</code> is likewise memoised
+on <code>data_version</code> + a hash of the current vocabulary (an edit to the vocabulary invalidates it). Both fall back to a
+direct bounded query on a cache miss — the cache is an optimisation, not a correctness dependency.</p>
+<h3 id="51-get-statsoverview">5.1 <code>GET /stats/overview</code><a class="headerlink" href="#51-get-statsoverview" title="Permanent link">&para;</a></h3>
+<p>Global KPIs. <code>pages_total</code> / <code>pages_by_type</code> from <code>pages</code> (WHERE <code>deleted_at IS NULL</code>); <code>links_total</code> from <code>links</code>
+(or <code>edges</code> — the implementer picks the structural-link count consistent with the graph; documented in the route);
+<code>communities_count</code> = COUNT(DISTINCT <code>pages.community</code>) WHERE <code>community IS NOT NULL</code>; <code>review_pending</code> = COUNT
+<code>review_items</code> WHERE <code>status = 'pending'</code> (ADR-0034); <code>lint_open</code> = COUNT <code>lint_findings</code> WHERE <code>status = 'open'</code>
+(ADR-0037); <code>monthly_cost_usd</code> = the <strong>current-month</strong> <code>monthly_total_usd</code> from the <strong>REUSED</strong> R9-1 aggregation
+(costs.py — call the shared helper, do NOT duplicate the query); <code>data_version</code> from <code>vault_state</code>; <code>recent_activity</code>
+= the 10 most-recently-updated live pages (<code>ORDER BY updated_at DESC LIMIT 10</code>), <code>slug</code> derived server-side from the
+title (the existing <code>[^a-z0-9]+ → "-"</code> lowercased slugify — NOT a DB column). <strong>Response shape (verbatim):</strong></p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">55</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;synthesis&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">&quot;comparison&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">  </span><span class="p">},</span>
+<span class="w">  </span><span class="nt">&quot;links_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">342</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;communities_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;review_pending&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;lint_open&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;monthly_cost_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.8421</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;recent_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;page_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4-0000-0000-0000-000000000001&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Incident Management&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;incident-management&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;updated_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T09:12:44+00:00&quot;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>pages_by_type</code> keys are the live <code>page_type</code> values present; a page with <code>page_type IS NULL</code> is counted under the
+  key <code>"untyped"</code>. <code>recent_activity</code> is capped at 10; <code>monthly_cost_usd</code> is the current UTC month; <code>data_version</code>
+  lets the FE decide whether to refetch.</li>
+</ul>
+<h3 id="52-get-statssections">5.2 <code>GET /stats/sections</code><a class="headerlink" href="#52-get-statssections" title="Permanent link">&para;</a></h3>
+<p>One entry per <strong>current-vocabulary</strong> domain, plus a virtual <code>untagged</code> bucket. For each domain D, the membership
+predicate is <code>"domain/"+D ∈ pages.tags</code> (§2.2); <code>pages_by_type</code> is the type histogram within the section;
+<code>last_activity</code> is <code>MAX(updated_at)</code> over the section's live pages (<code>null</code> if empty); <code>top_pages</code> are the section's
+pages ordered by graph <code>degree</code> DESC (distinct incident structural <code>edges</code>, ADR-0016) then <code>updated_at</code> DESC, capped
+at 5. The <strong><code>untagged</code> bucket</strong> (DECISION on name/shape) is a section object with <code>"domain": "untagged"</code> collecting
+every live page that has <strong>no <code>domain/*</code> tag at all</strong> — it is always present (even when empty) so the FE can render an
+"unclassified" tile; it is listed <strong>last</strong>. <strong>Response shape (verbatim):</strong></p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;sections&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ServiceNow&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">      </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;last_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T08:40:11+00:00&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;top_pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">        </span><span class="p">{</span>
+<span class="w">          </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;b2c3d4e5-0000-0000-0000-000000000010&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Flow Designer&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flow-designer&quot;</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">&quot;degree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">      </span><span class="p">]</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;untagged&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">&quot;last_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-02T21:03:00+00:00&quot;</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">&quot;top_pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">]</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>Domains are emitted in <strong>vocabulary order</strong> (the order the owner stored them in <code>domain_vocabulary</code>), then
+  <code>untagged</code> last. A vocabulary domain with zero pages still appears (all-zero section) so the owner sees the empty
+  domain. A <strong>stale</strong> <code>domain/*</code> tag (name not in the current vocabulary) is NOT emitted as a section and its pages
+  fall into whatever current domains they still match, else <code>untagged</code>. When the vocabulary is <strong>dormant</strong> (<code>[]</code>),
+  <code>sections</code> contains ONLY the <code>untagged</code> bucket (holding every live page) — this is the "global KPIs only, no domain
+  slicing" state (owner-lock #4).</li>
+</ul>
+<hr />
+<h2 id="6-decision-status-gains-a-version-field-additive-r12-3-consumer">6. Decision — <code>/status</code> gains a <code>version</code> field (additive, R12-3 consumer)<a class="headerlink" href="#6-decision-status-gains-a-version-field-additive-r12-3-consumer" title="Permanent link">&para;</a></h2>
+<p><code>StatusResponse</code> gains one field, <code>version: str</code>, read from the backend package version in <code>pyproject.toml</code>
+(<code>synapse-backend</code> <code>version = "1.1.0"</code> at time of writing; the implementer reads it via
+<code>importlib.metadata.version("synapse-backend")</code> — NEVER a hardcoded literal). It is purely <strong>additive</strong> (existing
+consumers ignore the new field) and does not change <code>/status</code>'s OpenAPI-exempt / no-auth posture (<code>/status</code> stays in
+<code>_OPENAPI_SECURITY_EXEMPT</code>). R12-3 (frontend version-mismatch notice) reads <code>/status.version</code> and compares it to the
+frontend build version to warn on a backend/frontend skew.</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span>
+<span class="w">  </span><span class="nt">&quot;vault_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T07:00:00+00:00&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;uptime_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">8123.4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.2.0&quot;</span>
+<span class="p">}</span>
+</code></pre></div>
+<blockquote>
+<p>Note: the FastAPI app currently declares <code>version="0.6.0"</code> in <code>main.py</code> (stale — a doc-title string, not the
+release version). The <code>/status.version</code> field MUST read the <strong>package</strong> version (pyproject), not that literal;
+aligning the FastAPI app <code>version=</code> to the package version is a nice-to-have cleanup but out of this ADR's scope.</p>
+</blockquote>
+<hr />
+<h2 id="7-do-not-list">7. Do-NOT list<a class="headerlink" href="#7-do-not-list" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>DO NOT</strong> invent domains or free-form-tag. The classifier picks <strong>only</strong> from <code>domain_vocabulary</code>; any returned
+   name not in the current vocabulary is dropped (owner-lock #1).</li>
+<li><strong>DO NOT</strong> make a provider call when the vocabulary is <code>[]</code> (dormant) — auto-tag skips entirely, backfill returns
+   400 <code>dormant_vocabulary</code>, <code>/stats/sections</code> returns only <code>untagged</code> (owner-lock #4, I6/I7).</li>
+<li><strong>DO NOT</strong> add a second <code>data_version</code> bump for the auto-tag re-write — one ingest ⇒ at most one bump (§3.2, I1/I2).</li>
+<li><strong>DO NOT</strong> re-scan the vault or add a new table — domain membership is a tag convention on the existing
+   <code>pages.tags</code>; no ER change (I1, I8, §1).</li>
+<li><strong>DO NOT</strong> mutate non-<code>domain/</code> user tags — the merge only replaces the <code>domain/*</code> subset (§3.3, I5).</li>
+<li><strong>DO NOT</strong> let auto-tag failure block or fail an ingest — non-fatal hook, page saved untagged, logged (§3.4, I7).</li>
+<li><strong>DO NOT</strong> run backfill unbounded or synchronously — background task, <code>max_pages</code> + <code>token_budget</code> caps, single-
+   flight, <code>total_cost_usd</code> logged (§4, I7).</li>
+<li><strong>DO NOT</strong> duplicate the R9-1 monthly cost query — <code>/stats/overview.monthly_cost_usd</code> REUSES the costs.py
+   aggregation (§5.1, I9-spirit / no reinvention).</li>
+<li><strong>DO NOT</strong> add a per-route auth <code>Depends</code> to <code>/stats/*</code> or <code>/ops/backfill-domains</code> — they are gated by
+   <code>SynapseAuthMiddleware</code> by construction (ADR-0052 §6); they inherit global <code>BearerAuth</code>.</li>
+<li><strong>DO NOT</strong> add a 4th provider operation — auto-tag reuses <code>resolve_provider_config("ingest", …)</code>;
+    <code>_VALID_OPERATIONS</code> is unchanged (§3.1).</li>
+<li><strong>DO NOT</strong> store the vocabulary as comma-separated text — it is a JSON array (§2.1); comma-separated cannot
+    represent names with commas and mangles Unicode round-trips.</li>
+<li><strong>DO NOT</strong> auto-remove stale <code>domain/*</code> tags (vocabulary entry deleted) in this ADR — they are ignored by
+    <code>/stats/sections</code>; cleanup is a future ADR.</li>
+<li><strong>DO NOT</strong> hardcode the backend version in <code>/status.version</code> — read it from pyproject via <code>importlib.metadata</code> (§6).</li>
+<li><strong>DO NOT</strong> let the FE write the vocabulary anywhere but <code>PUT /config/app/domain_vocabulary</code> (ADR-0053 §8 allow-
+    list/UI sync; no parallel persistence path).</li>
+<li><strong>DO NOT</strong> skip the OpenAPI regen — the 3 new routes (+ <code>/status.version</code>) MUST be in <code>docs/api/openapi.json</code>
+    drift-clean, the 3 routes carrying <code>BearerAuth</code> (I8).</li>
+</ol>
+<hr />
+<h2 id="8-acceptance-checks-dod">8. Acceptance checks (DoD)<a class="headerlink" href="#8-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>ADR accepted before code</strong> — this file is Accepted and in the ADR index before any R12-1/R12-2 backend code.</li>
+<li><strong>Allow-list extended</strong> — <code>domain_vocabulary</code> ∈ <code>ALLOWED_CONFIG_KEYS</code> + <code>ORDERED_KEYS</code>; <code>GET /config/app</code> lists it;
+   <code>validate_value</code> enforces §2.1 (JSON-array-of-non-empty-strings, ≤100, dedupe); a bad value → 422 no write; <code>[]</code>
+   is valid (dormant).</li>
+<li><strong>Tag convention</strong> — a pytest asserts <code>domain/&lt;Name&gt;</code> tags round-trip through frontmatter write→read and that user
+   tags are preserved by the merge; membership predicate = <code>"domain/"+D ∈ tags</code> (§2.2, I5).</li>
+<li><strong>Auto-tag hook</strong> — orchestrated ingest with a non-empty vocabulary adds the classified <code>domain/*</code> tags via
+   <code>write_wiki_page</code>; with <code>[]</code> makes ZERO provider calls; a forced provider error leaves the page written+untagged
+   and the ingest <code>completed</code>; exactly one <code>data_version</code> bump per ingest (§3, I1/I6/I7).</li>
+<li><strong>Backfill</strong> — <code>POST /ops/backfill-domains</code> returns 202 + frozen bounds; respects <code>max_pages</code> + <code>token_budget</code>;
+   <code>force=false</code> skips already-<code>domain/*</code>-tagged pages (idempotent); logs <code>total_cost_usd</code>; dormant vocabulary → 400;
+   concurrent call → 409 (§4, I7).</li>
+<li><strong><code>/stats/overview</code></strong> — returns the §5.1 shape verbatim from existing tables; <code>monthly_cost_usd</code> equals the R9-1
+   current-month total (reused helper); <code>recent_activity</code> capped at 10 with derived slugs; memoised on
+   <code>data_version</code> (§5.1).</li>
+<li><strong><code>/stats/sections</code></strong> — returns the §5.2 shape verbatim; one section per vocabulary domain in vocabulary order +
+   <code>untagged</code> last; empty domains present; <code>top_pages</code> ordered by <code>degree</code> DESC capped at 5; dormant vocabulary ⇒
+   only <code>untagged</code> (§5.2).</li>
+<li><strong><code>/status.version</code></strong> — additive field read from pyproject via <code>importlib.metadata</code>; <code>/status</code> stays auth-exempt;
+   no hardcoded literal (§6).</li>
+<li><strong>Auth by construction</strong> — the 3 new routes require <code>Authorization: Bearer</code> when <code>SYNAPSE_AUTH_TOKEN</code> is set and
+   are open otherwise; NO per-route dependency; OpenAPI shows <code>BearerAuth</code> on all 3 (ADR-0052).</li>
+<li><strong>OpenAPI (I8)</strong> — <code>docs/api/openapi.json</code> regenerated drift-clean with the 3 routes + <code>/status.version</code>; ER (D2)
+    unchanged (no new table).</li>
+<li><strong>mypy strict / lint</strong> — new code (<code>stats.py</code>, <code>ops/backfill_domains.py</code>, the <code>config_overrides.py</code> diff, the
+    orchestrator hook) passes <code>ruff</code> + <code>black --check</code> + <code>mypy</code> (strict), no <code>Any</code>.</li>
+</ol>
+<hr />
+<h2 id="9-consequences">9. Consequences<a class="headerlink" href="#9-consequences" title="Permanent link">&para;</a></h2>
+<p><strong>Positive</strong> — the owner gets a Home dashboard and a domain-sliced view of the vault with <strong>zero new tables</strong> (domain
+membership is a tag convention on the existing <code>pages.tags</code>, D2 ER untouched), <strong>zero new persistence mechanism</strong> (the
+vocabulary is one key on the proven ADR-0053 <code>app_config</code> layer), and <strong>zero new provider seam</strong> (auto-tag reuses the
+<code>resolve_provider_config("ingest")</code> route, I6). The feature is <strong>dormant by default</strong> — an owner who never sets a
+vocabulary sees byte-identical pre-v1.2 behaviour and pays for zero extra provider calls. The stats endpoints are
+cheap reads over existing counters, cached on the existing <code>data_version</code> signal, so the dashboard adds no heavy
+compute (I3). The FE can start immediately against the two frozen shapes in §5.</p>
+<p><strong>Trade-offs (explicit)</strong> —
+- <strong>Auto-tag adds one provider call per ingested page</strong> when a vocabulary is set — bounded and cost-accounted (I7),
+  folded into the ingest run's <code>total_cost_usd</code>, and skippable (dormant). This is the deliberate cost of runtime
+  classification; the owner controls it by controlling the vocabulary.
+- <strong>Domain membership is a soft convention, not a foreign key.</strong> A <code>domain/*</code> tag can go stale when the owner edits
+  the vocabulary; we IGNORE stale tags in stats rather than eagerly cleaning them (§2.2, Do-NOT #12) — simpler and
+  correct now, with cleanup deferred to a future ADR. The trade is a small amount of dormant tag data vs a re-scan
+  we refuse to do (I1).
+- <strong>Backfill is background, not synchronous</strong> — the caller gets a 202 and watches section counts grow, rather than a
+  synchronous summary. This matches the deep-research precedent and keeps the request bounded; the completion log line
+  is the authoritative summary (§4.1).
+- <strong>Vocabulary as JSON-in-TEXT</strong> — one parse at write + one at cache read; chosen over comma-separated for Unicode/
+  comma safety and consistency with <code>pages.tags</code> (§2.1). The cost is a <code>json.loads</code> in the typed accessor, O(list).
+- <strong><code>/stats</code> caching is best-effort</strong> — memoised on <code>data_version</code>; a cache miss falls back to a bounded direct
+  query, so correctness never depends on the cache.</p>
+<p><strong>Invariant check</strong> — <strong>I1:</strong> no vault re-scan; auto-tag mutates only the just-ingested page via <code>write_wiki_page</code>;
+backfill is <code>LIMIT max_pages</code>; one <code>data_version</code> bump per ingest. <strong>I5:</strong> <code>domain/&lt;Name&gt;</code> are ordinary Obsidian
+nested tags in existing frontmatter; user tags preserved. <strong>I6:</strong> classification routed through
+<code>resolve_provider_config("ingest")</code> → <code>resolve_provider</code>; no backend hardcoded; dormant ⇒ zero calls. <strong>I7:</strong> one
+bounded call per page for auto-tag; backfill <code>max_pages</code> + <code>token_budget</code> + single-flight; <code>total_cost_usd</code> logged;
+no unbounded loop. <strong>I8:</strong> D4 OpenAPI regenerated (3 routes + <code>/status.version</code>, <code>BearerAuth</code>); D2 ER unchanged (no
+new table); D1 unchanged (no new container). <strong>I3/I4:</strong> stats are cheap COUNT/GROUP reads, memoised on <code>data_version</code>;
+no heavy compute, no per-token work. <strong>I2/I9:</strong> graph engine untouched; costs.py + provider seam + tags column reused,
+not reinvented.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

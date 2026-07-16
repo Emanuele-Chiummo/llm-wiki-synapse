@@ -4060,9 +4060,9 @@ retry, with max_iter annotated] → log total_cost_usd.</p>
 </table>
 <p><strong>Scope:</strong>
 Minimum required ADRs:
-- <code>docs/adr/ADR-0007-inference-provider-abc.md</code>: InferenceProvider ABC design — why ABC (not duck typing), why 3 backends, capability-aware routing approach, why chat() is stubbed not deferred.
-- <code>docs/adr/ADR-0008-provider-config-schema.md</code>: provider_config table scope model — why Postgres not a config file, why global/vault/operation hierarchy, resolution order.
-- <code>docs/adr/ADR-0009-bounded-loop-defaults.md</code>: max_iter=3 and token_budget defaults — rationale, how total_cost_usd is computed per provider type, anomaly threshold ($1.00/run), CLI cost = $0.00 convention.</p>
+- <code>docs/adr/0007-inference-provider-abc.md</code>: InferenceProvider ABC design — why ABC (not duck typing), why 3 backends, capability-aware routing approach, why chat() is stubbed not deferred.
+- <code>docs/adr/0008-provider-config-schema.md</code>: provider_config table scope model — why Postgres not a config file, why global/vault/operation hierarchy, resolution order.
+- <code>docs/adr/0009-bounded-loop-defaults.md</code>: max_iter=3 and token_budget defaults — rationale, how total_cost_usd is computed per provider type, anomaly threshold ($1.00/run), CLI cost = $0.00 convention.</p>
 <p>Additional ADRs as needed for: FastMCP choice over raw MCP SDK, links table schema (K5), wikilink parser approach.</p>
 <p><strong>Acceptance criteria:</strong>
 - AC-D7-1: ADR-0007 present, covers InferenceProvider design decisions, reviewed and approved by solution-architect.
@@ -6715,7 +6715,7 @@ SPRINT-v1.0-SCOPE.md §0 Rule 2) — no proxy commands.</p>
 </tr>
 </tbody>
 </table>
-<p><strong>Scope:</strong> <code>docs/adr/ADR-0052-auth-token-model.md</code> — documents: why shared token not
+<p><strong>Scope:</strong> <code>docs/adr/0052-auth-token-model.md</code> — documents: why shared token not
 OIDC, why OIDC is deferred to post-1.0, single-vault scope for 1.0, WebSocket auth
 approach, HTTPS responsibility model, excluded endpoints (<code>/health</code>, <code>/status</code>,
 <code>/health/detailed</code>), token rotation procedure.</p>

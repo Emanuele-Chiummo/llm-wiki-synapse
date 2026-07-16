@@ -2927,19 +2927,19 @@ ADRs: ADR-0076 verified + amended (implementation history note); ADR-0078 amende
 </tr>
 <tr>
 <td>D7</td>
-<td><code>docs/adr/ADR-0076-block-based-ingest-pipeline.md</code></td>
+<td><code>docs/adr/0076-block-based-ingest-pipeline.md</code></td>
 <td>AMENDED (this gate)</td>
 <td>Implementation history section added: clarifies that ADR was authored with blocks-as-default; code ran "json" during development; commit 2c5762e on release branch activated blocks as designed. ADR §6 already stated default "blocks" — no design change, only timeline documentation.</td>
 </tr>
 <tr>
 <td>D7</td>
-<td><code>docs/adr/ADR-0078-aggregate-ownership.md</code></td>
+<td><code>docs/adr/0078-aggregate-ownership.md</code></td>
 <td>AMENDED (this gate)</td>
 <td>"Refinement (v1.7.0)" section added after Implementation notes. Documents shift from manual-only to once-per-queue-drain: on_drained callback in main.py; complete() transport (ADR-0084); degrade-safe; POST /ops/overview/regenerate endpoint retained. Three-option rationale table. Commit 446e66f.</td>
 </tr>
 <tr>
 <td>D7</td>
-<td><code>docs/adr/ADR-0084-single-shot-complete-transport.md</code></td>
+<td><code>docs/adr/0084-single-shot-complete-transport.md</code></td>
 <td>CREATED (this gate)</td>
 <td>New ADR: complete() transport for all one-shot LLM seams (overview regen, review sweep Pass-2 judge, propose-reviews, purpose/schema drift suggestions) + raise three single-call timeouts to 120 s. Problem: CliAgentProvider.chat() hangs on seams without MCP write tools; 30 s expires before cold-start. Decision: provider.complete() (I6-preserving) + 120 s bounds (I7).</td>
 </tr>
@@ -2964,25 +2964,25 @@ ADRs: ADR-0076 verified + amended (implementation history note); ADR-0078 amende
 <tbody>
 <tr>
 <td>ADR-0076</td>
-<td><code>ADR-0076-block-based-ingest-pipeline.md</code></td>
+<td><code>0076-block-based-ingest-pipeline.md</code></td>
 <td>Verified + amended</td>
 <td>§6 already stated default <code>"blocks"</code>. Implementation history section added for timeline clarity. No design change.</td>
 </tr>
 <tr>
 <td>ADR-0078</td>
-<td><code>ADR-0078-aggregate-ownership.md</code></td>
+<td><code>0078-aggregate-ownership.md</code></td>
 <td>Amended</td>
 <td>Queue-drain refinement section added. Original Decision §3 ("manual-only") refined to "once per queue-drain batch".</td>
 </tr>
 <tr>
 <td>ADR-0083</td>
-<td><code>ADR-0083-parity-e2e-harness.md</code></td>
+<td><code>0083-parity-e2e-harness.md</code></td>
 <td>UP-TO-DATE (no change)</td>
 <td>Parity harness ADR is current. Unaffected by 1.7.0 pipeline fixes.</td>
 </tr>
 <tr>
 <td>ADR-0084</td>
-<td><code>ADR-0084-single-shot-complete-transport.md</code></td>
+<td><code>0084-single-shot-complete-transport.md</code></td>
 <td>Created</td>
 <td>Covers complete() transport + 120 s timeouts for all one-shot LLM seams.</td>
 </tr>
@@ -3398,7 +3398,7 @@ ADR: ADR-0058 (accepted 2026-07-06), extends ADR-0037.</p>
 <td>D7</td>
 <td><code>docs/adr/index.md</code></td>
 <td>UP-TO-DATE (ADR-0058 already indexed)</td>
-<td>ADR-0058 row confirmed present in <code>docs/adr/index.md</code>. File <code>docs/adr/ADR-0058-lint-parity-extension.md</code> present and complete.</td>
+<td>ADR-0058 row confirmed present in <code>docs/adr/index.md</code>. File <code>docs/adr/0058-lint-parity-extension.md</code> present and complete.</td>
 </tr>
 <tr>
 <td>R (parity)</td>
@@ -3573,7 +3573,7 @@ D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M13-HCP
 <p>Gate run: 2026-07-06
 Branch: <code>feat/b2-chat-composer</code>
 Batch: B2 — Chat composer (C1 attach-image, C2 web-search, C3 retrieval modes, C4 AnyTXT do-not-mirror)
-ADR: ADR-0059 (<code>docs/adr/ADR-0059-chat-composer-parity.md</code>)
+ADR: ADR-0059 (<code>docs/adr/0059-chat-composer-parity.md</code>)
 Amends: ADR-0050 (additive — wiki-only retrieval stands)</p>
 </blockquote>
 <table>
@@ -3630,9 +3630,9 @@ Amends: ADR-0050 (additive — wiki-only retrieval stands)</p>
 </tr>
 <tr>
 <td>D7</td>
-<td><code>docs/adr/ADR-0059-chat-composer-parity.md</code></td>
+<td><code>docs/adr/0059-chat-composer-parity.md</code></td>
 <td>UP-TO-DATE (pre-existing)</td>
-<td>File confirmed present (<code>docs/adr/ADR-0059-chat-composer-parity.md</code>). Status: Accepted. Content covers C1–C4, invariant compliance, Do-NOT list. ADR index (<code>docs/adr/index.md</code>) must have ADR-0059 row — see verification below.</td>
+<td>File confirmed present (<code>docs/adr/0059-chat-composer-parity.md</code>). Status: Accepted. Content covers C1–C4, invariant compliance, Do-NOT list. ADR index (<code>docs/adr/index.md</code>) must have ADR-0059 row — see verification below.</td>
 </tr>
 <tr>
 <td>D7</td>
@@ -3732,7 +3732,7 @@ and ADR refs inline. Valid <code>sequenceDiagram</code> syntax; no <code>--&gt;<
 </thead>
 <tbody>
 <tr>
-<td><code>docs/adr/ADR-0059-chat-composer-parity.md</code> present</td>
+<td><code>docs/adr/0059-chat-composer-parity.md</code> present</td>
 <td>YES (confirmed)</td>
 </tr>
 <tr>

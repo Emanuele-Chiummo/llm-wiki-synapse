@@ -1097,7 +1097,7 @@ the env defaults. Env remains the deploy-time default; UI persists a named overr
 key. This pattern mirrors the existing <code>clip_config</code> / GET-PUT pattern in <code>main.py</code>.</p>
 <p>No migration changes the existing env-var contract. Existing deployments that rely solely
 on env vars are unchanged.</p>
-<p>ADR required: ADR-0053 (<code>docs/adr/ADR-0053-ui-config-overrides.md</code>) to document the
+<p>ADR required: ADR-0053 (<code>docs/adr/0053-ui-config-overrides.md</code>) to document the
 override model, table design, and the explicit list of MIGRATED vs EXCLUDED settings.
 Must be accepted by solution-architect BEFORE any backend code is written for R11-2.</p>
 <h3 id="r11-3-logo-deduplication-in-scope-s">R11-3 — Logo deduplication: IN SCOPE (S)<a class="headerlink" href="#r11-3-logo-deduplication-in-scope-s" title="Permanent link">&para;</a></h3>
@@ -1308,7 +1308,7 @@ PM re-approval before any token is spent on it.</p>
 <p><strong>Acceptance criteria:</strong></p>
 <ul>
 <li>
-<p>AC-R11-2-0: ADR-0053 committed to <code>docs/adr/ADR-0053-ui-config-overrides.md</code> and
+<p>AC-R11-2-0: ADR-0053 committed to <code>docs/adr/0053-ui-config-overrides.md</code> and
   accepted by solution-architect BEFORE any backend code is written. ADR covers: the
   override model, the exact 8 migrated keys (matching the table in §2 R11-2), the
   <code>app_config</code> table design, the startup merge order (env → DB override), the explicit
@@ -1489,7 +1489,7 @@ rail's top padding to the first nav item) or replaced with a small top padding o
 <h2 id="4-explicit-sequencing-and-file-conflict-map">4. Explicit sequencing and file conflict map<a class="headerlink" href="#4-explicit-sequencing-and-file-conflict-map" title="Permanent link">&para;</a></h2>
 <h3 id="wave-1-adr-backend-foundation-days-14">Wave 1 — ADR + backend foundation (days 1–4)<a class="headerlink" href="#wave-1-adr-backend-foundation-days-14" title="Permanent link">&para;</a></h3>
 <p><strong>Day 1 (PM-mandated blocker for R11-2):</strong> solution-architect writes and commits ADR-0053
-(<code>docs/adr/ADR-0053-ui-config-overrides.md</code>). No backend code for R11-2 written until
+(<code>docs/adr/0053-ui-config-overrides.md</code>). No backend code for R11-2 written until
 ADR-0053 is accepted. R11-3 (logo dedup — no ADR needed) and R11-4 (bugfixes) can start
 immediately in parallel.</p>
 <p><strong>Days 1–4:</strong> backend-engineer implements R11-1 (new endpoint + health proxy) and
@@ -1721,7 +1721,7 @@ QA-test-engineer + Solution-architect + Tech-writer + Product-manager.</p>
 </tr>
 <tr>
 <td>EC-M11-9</td>
-<td><code>docs/adr/ADR-0053-ui-config-overrides.md</code> committed and in Accepted status. Present in the ADR index.</td>
+<td><code>docs/adr/0053-ui-config-overrides.md</code> committed and in Accepted status. Present in the ADR index.</td>
 </tr>
 <tr>
 <td>EC-M11-10</td>

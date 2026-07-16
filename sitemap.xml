@@ -221,131 +221,131 @@
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0053-ui-config-overrides/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0053-ui-config-overrides/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0054-domain-taxonomy-and-dashboard-stats/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0054-domain-taxonomy-and-dashboard-stats/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0055-settings-ia-v2/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0055-settings-ia-v2/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0056-ingest-concurrency-cap/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0056-ingest-concurrency-cap/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0057-responsive-mobile-tablet/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0057-responsive-mobile-tablet/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0058-lint-parity-extension/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0058-lint-parity-extension/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0059-chat-composer-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0059-chat-composer-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0060-graph-visual-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0060-graph-visual-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0061-mcp-expansion-and-skill/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0061-mcp-expansion-and-skill/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0062-cloudflare-access-edge-auth/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0062-cloudflare-access-edge-auth/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0063-ingest-quality-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0063-ingest-quality-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0064-missing-page-fanout/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0064-missing-page-fanout/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0065-marker-large-pdf-chunking/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0065-marker-large-pdf-chunking/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0066-llmwiki-1to1-parity-program/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0066-llmwiki-1to1-parity-program/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0067-llmwiki-1to1-generation-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0067-llmwiki-1to1-generation-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0067-multi-vault-project-launcher/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0068-source-watch-wider-types/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0068-source-watch-wider-types/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0069-mineru-cloud-pdf-extractor/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0069-mineru-cloud-pdf-extractor/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0070-multi-provider-web-search/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0070-multi-provider-web-search/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0071-web-search-provider-keys-ui/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0071-web-search-provider-keys-ui/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0072-mcp-remote-write-runtime-toggle/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0072-mcp-remote-write-runtime-toggle/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0073-generation-and-review-lifecycle-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0073-generation-and-review-lifecycle-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0074-idempotent-corpus-generation-and-operator-ux/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0074-idempotent-corpus-generation-and-operator-ux/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0075-deployment-mode-auth-health-boundary/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0075-deployment-mode-auth-health-boundary/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0076-block-based-ingest-pipeline/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0076-block-based-ingest-pipeline/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0077-schema-driven-page-routing/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0077-schema-driven-page-routing/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0078-aggregate-ownership/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0078-aggregate-ownership/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0079-review-parity/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0079-review-parity/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0080-lint-parity-assessment/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0080-lint-parity-assessment/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0081-onboarding-wizard-and-output-language/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0081-onboarding-wizard-and-output-language/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0082-multi-vault-project-launcher/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0083-parity-e2e-harness/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0083-parity-e2e-harness/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
-         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/ADR-0084-single-shot-complete-transport/</loc>
+         <loc>https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0084-single-shot-complete-transport/</loc>
          <lastmod>2026-07-16</lastmod>
     </url>
     <url>
