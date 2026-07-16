@@ -26,9 +26,11 @@ vi.mock("react-i18next", () => ({
         "palette.sections": "Sections",
         "palette.pages": "Pages",
         "palette.hint": "↑↓ navigate · Enter open · Esc close",
+        "nav.home": "Home",
         "nav.chat": "Chat",
         "nav.wiki": "Wiki",
         "nav.sources": "Sources",
+        "nav.convert": "Convert",
         "nav.search": "Search",
         "nav.graph": "Graph",
         "nav.lint": "Lint",
@@ -36,6 +38,7 @@ vi.mock("react-i18next", () => ({
         "nav.deepSearch": "Deep Search",
         "nav.ingest": "Ingest",
         "nav.settings": "Settings",
+        "nav.projects": "Projects",
       };
       return map[key] ?? key;
     },
@@ -146,12 +149,12 @@ describe("CommandPalette — section list", () => {
     vi.clearAllMocks();
   });
 
-  it("shows all 10 sections when query is empty", async () => {
+  it("shows all 13 sections when query is empty", async () => {
     render(<CommandPalette open={true} onClose={vi.fn()} />);
     await waitFor(() => {
-      // 10 sections: Chat, Wiki, Sources, Search, Graph, Lint, Review, Deep Search, Ingest, Settings
+      // 13 sections: Home, Sources, Chat, Convert, Wiki, Graph, Search, Deep Search, Review, Lint, Ingest, Settings, Projects
       const items = screen.getAllByRole("option");
-      expect(items.length).toBe(10);
+      expect(items.length).toBe(13);
     });
   });
 
@@ -256,10 +259,10 @@ describe("CommandPalette — keyboard navigation and Enter", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} />);
     const input = await waitFor(() => screen.getByTestId("palette-input"));
-    // First item in list is the "Chat" section (idx=0).
+    // First item in list is the "Home" section (idx=0) — NavRail v1.7 order.
     await waitFor(() => screen.getAllByRole("option"));
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(mockSetActiveSection).toHaveBeenCalledWith("chat");
+    expect(mockSetActiveSection).toHaveBeenCalledWith("home");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -424,11 +427,11 @@ describe("useGlobalShortcuts — Cmd+1..5 section switch", () => {
   });
 
   it.each([
-    [1, "chat"],
-    [2, "pages"],
-    [3, "sources"],
-    [4, "search"],
-    [5, "graph"],
+    [1, "home"],
+    [2, "sources"],
+    [3, "chat"],
+    [4, "convert"],
+    [5, "pages"],
   ] as [number, string][])(
     "Cmd+%i switches to section '%s'",
     (digit, section) => {

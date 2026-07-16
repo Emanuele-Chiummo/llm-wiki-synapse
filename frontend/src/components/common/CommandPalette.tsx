@@ -49,17 +49,23 @@ interface SectionEntry {
   labelKey: string;
 }
 
+// ORDER mirrors NavRail v1.7: GROUP_CREATE → GROUP_UNDERSTAND → GROUP_MAINTAIN → bottom.
+// All 13 navigable sections are listed so the palette covers Home, Convert and Projects
+// (previously missing). [FE-NAV-1]
 const ALL_SECTIONS: SectionEntry[] = [
-  { kind: "section", id: "chat",        labelKey: "nav.chat" },
-  { kind: "section", id: "pages",       labelKey: "nav.wiki" },
+  { kind: "section", id: "home",        labelKey: "nav.home" },
   { kind: "section", id: "sources",     labelKey: "nav.sources" },
-  { kind: "section", id: "search",      labelKey: "nav.search" },
+  { kind: "section", id: "chat",        labelKey: "nav.chat" },
+  { kind: "section", id: "convert",     labelKey: "nav.convert" },
+  { kind: "section", id: "pages",       labelKey: "nav.wiki" },
   { kind: "section", id: "graph",       labelKey: "nav.graph" },
-  { kind: "section", id: "lint",        labelKey: "nav.lint" },
-  { kind: "section", id: "review",      labelKey: "nav.review" },
+  { kind: "section", id: "search",      labelKey: "nav.search" },
   { kind: "section", id: "deep-search", labelKey: "nav.deepSearch" },
+  { kind: "section", id: "review",      labelKey: "nav.review" },
+  { kind: "section", id: "lint",        labelKey: "nav.lint" },
   { kind: "section", id: "ingest",      labelKey: "nav.ingest" },
   { kind: "section", id: "settings",    labelKey: "nav.settings" },
+  { kind: "section", id: "projects",    labelKey: "nav.projects" },
 ];
 
 // ─── Result union ─────────────────────────────────────────────────────────────
