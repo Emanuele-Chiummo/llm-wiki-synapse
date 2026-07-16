@@ -159,8 +159,8 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
         # existing non-fallback row with the same (scope, vault_id, operation, provider_type,
         # model_id, base_url); if one exists, update its mutable fields and bump created_at so it
         # becomes the newest → active row (no duplicate). limit(1) tolerates pre-existing dupes.
-        # Use the directly-imported model class (not the _LazyMain proxy) for the query so the
-        # statement builds against the real mapped entity.
+        # Use the directly-imported model class (not the runtime_state ctor seam) for the query so
+        # the statement builds against the real mapped entity.
         existing = await session.execute(
             select(ProviderConfig)
             .where(
