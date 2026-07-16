@@ -160,6 +160,10 @@ cp .env.example .env
 | `RATE_LIMIT_ENABLED` | `true` | No | Enable the in-process per-IP fixed-window rate limiter on inference-cost endpoints (`POST /chat/stream`, `/ingest/trigger`, `/ingest/upload`, `/ingest/from-text`, `/research/start`). Set `false` in CI or dev to remove the 429 gate. Default `true`. (R13-9, B4) |
 | `RATE_LIMIT_REQUESTS` | `20` | No | Maximum requests per IP per window for the endpoints listed above. Requests beyond this limit receive HTTP 429 with a `Retry-After` header. Default 20. (R13-9, B4) |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | No | Window length in seconds for the per-IP rate limiter. The counter resets to zero at the start of each new window. Default 60 s. (R13-9, B4) |
+| `BACKUP_DIR` | *(unset)* | No | Directory the scheduled `pg_dump` archives are written to (1.9.1 W4, SEC-OPS-2). Unset resolves to `<VAULT_PATH>/.synapse/backups`. See §12.0. |
+| `BACKUP_RETENTION_COUNT` | `7` | No | Number of most-recent backup archives kept per vault; older ones are deleted after each successful run (I7 — bounded disk growth). (SEC-OPS-2) |
+| `BACKUP_TIMEOUT_SECONDS` | `300` | No | Hard wall-clock timeout (seconds) for the `pg_dump` subprocess. A stuck dump is killed rather than hanging the scheduler or `POST /ops/system-update`. (SEC-OPS-2, I7) |
+| `PG_DUMP_PATH` | `pg_dump` | No | Executable name/path for the `pg_dump` client binary. Default assumes it's on `PATH` (the shipped image installs `postgresql-client`). (SEC-OPS-2) |
 
 ### 2.2 Example .env for TrueNAS Docker deployment
 
@@ -1300,7 +1304,47 @@ The docs gate CI job will fail on drift.
 
 ## 12. Backup strategy
 
-### 12.1 Postgres
+### 12.0 Built-in scheduled backup (1.9.1 W4, SEC-OPS-2)
+
+Synapse ships its own scheduled `pg_dump`, so §12.1's manual cron/periodic-task recipe is
+now OPTIONAL — enable the built-in job instead and skip straight to §12.2 for the vault
+filesystem (ZFS snapshots remain the right tool for that part).
+
+The backup op runs through the SAME `OpsScheduler` used by lint / domain-backfill /
+schema-review / type-reclassify (`backend/app/ops_scheduler.py`) — one more `off|hourly|
+daily|weekly` schedule key, no new infrastructure:
+
+```bash
+# Enable a daily backup (any authenticated client — curl, the Settings UI, etc.)
+curl -X PUT http://localhost:8000/config/app/backup_schedule \
+     -H "Content-Type: application/json" \
+     -d '{"value": "daily"}'
+
+# Trigger one immediately (does not wait for the schedule)
+curl -X POST http://localhost:8000/ops/schedules/backup/run-now
+
+# Check status (last_run_at, last_status, last_detail, in_flight)
+curl http://localhost:8000/ops/schedules
+```
+
+Where archives land (env vars — see `.env.example`):
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `BACKUP_DIR` | `<VAULT_PATH>/.synapse/backups` | Absolute path override; put it on the SAME backup-friendly volume as `vault/` (e.g. a TrueNAS dataset with its own snapshot schedule) so one ZFS snapshot policy covers both. |
+| `BACKUP_RETENTION_COUNT` | `7` | Archives beyond the newest N (per vault) are deleted after each successful run — bounded disk growth (I7). |
+| `BACKUP_TIMEOUT_SECONDS` | `300` | Hard wall-clock cap on the `pg_dump` subprocess; a stuck dump is killed, not left hanging. |
+| `PG_DUMP_PATH` | `pg_dump` | Override only for non-standard installs; the shipped image already has `postgresql-client` installed. |
+
+Archives are `pg_dump -Fc` (custom/compressed format) — restore with `pg_restore`, same as
+§20.3 below. **A pre-update dump also runs automatically**: `POST /ops/system-update` (the
+Home "Update system" button) runs one backup FIRST, before poking Watchtower, so an update
+that breaks the schema/app has a fresh rollback point. That pre-update dump is best-effort
+— a dump failure is logged (visible in `GET /ops/schedules`) but never blocks the update
+itself, since refusing an explicitly-requested update because the safety-net dump failed
+would be a worse outcome.
+
+### 12.1 Postgres (manual — still works, now optional)
 
 ```bash
 # Dump from inside the container
@@ -1309,7 +1353,8 @@ docker compose exec -T postgres pg_dump \
   | gzip > /mnt/pool/synapse/postgres-backups/synapse-db-$(date +%Y%m%d-%H%M%S).sql.gz
 ```
 
-Automate with a TrueNAS periodic task or cron job.
+Automate with a TrueNAS periodic task or cron job — or use §12.0's built-in scheduler
+instead, which needs no host-side cron entry.
 
 ### 12.2 Vault filesystem
 
@@ -2015,13 +2060,14 @@ that broke the wiki type system.
 
 ---
 
-## 20. Backup & restore (R8-4) {#backup-restore}
+## 20. Backup & restore (R8-4, extended 1.9.1 W4) {#backup-restore}
 
-Synapse provides two export artifacts that together constitute a full vault backup.
+Synapse provides export artifacts that together constitute a full vault backup, PLUS a
+built-in scheduled Postgres dump (§12.0) for point-in-time database recovery.
 There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
 below. A `/import` endpoint is planned for a future sprint.
 
-### 20.1 Downloading the two artifacts
+### 20.1 Downloading the export artifacts
 
 While Synapse is running:
 
@@ -2033,15 +2079,33 @@ curl -f http://localhost:8000/export \
 # 2 — Database metadata snapshot (pages, links, edges, ingest_runs, review_items)
 curl -f http://localhost:8000/export/data.json \
      -o synapse-data-$(date +%Y%m%d).json
+
+# 3 — Extended metadata snapshot (1.9.1 W4): everything in #2 PLUS conversations
+#     (with messages), provider_config, and vault_state
+curl -f http://localhost:8000/export/full \
+     -o synapse-data-full-$(date +%Y%m%d).json
 ```
 
 `GET /export` returns a streaming ZIP named `synapse-vault-{vault_id}-{date}.zip`.
 `GET /export/data.json` returns a JSON object with top-level keys:
 `pages`, `links`, `edges`, `runs`, `review_items`, `exported_at`, `data_version`.
+`GET /export/full` (1.9.1 W4) adds `conversations` (each with its `messages`),
+`provider_config`, and `vault_state` to the same shape.
+
+**Secrets stay secret:** `provider_config[].api_key_encrypted_b64` in `/export/full` is the
+Fernet ciphertext, base64-encoded for JSON transport — it is **never decrypted** by the
+export endpoint. Restoring those rows only works on a deployment configured with the
+**same** `SYNAPSE_SECRET_KEY` that encrypted them; after a key rotation, re-enter any
+UI-supplied provider API keys via Settings instead of restoring the old ciphertext.
 
 Bounds:
 - ZIP export is capped at 500 MB uncompressed (returns HTTP 413 if exceeded).
 - Only one export may run at a time per vault; a concurrent request returns HTTP 429.
+
+For the database itself, prefer the built-in scheduled `pg_dump` (§12.0) over
+`/export/data.json` / `/export/full` as your primary DB backup — the JSON exports are
+read-only audit snapshots (no content bodies, no restore tooling reads them directly),
+while the `pg_dump -Fc` archives from §12.0 are restorable with `pg_restore` (§20.3).
 
 ### 20.2 Restore path A — vault directory only (watcher re-ingest)
 

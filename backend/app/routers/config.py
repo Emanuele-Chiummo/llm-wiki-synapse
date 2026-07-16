@@ -620,6 +620,8 @@ def _build_app_config_response() -> AppConfigListResponse:
         "mineru_timeout_seconds": str(settings.mineru_timeout_seconds),
         # S23: web-search provider selector (v1.5 P3-e, ADR-0070) — non-secret; keys are env-only.
         "web_search_provider": settings.web_search_provider,
+        # S24: backup_schedule has no env-var baseline; default is "off" (1.9.1 W4, SEC-OPS-2).
+        "backup_schedule": "off",
     }
 
     result: list[AppConfigSetting] = []

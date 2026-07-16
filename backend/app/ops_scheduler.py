@@ -24,6 +24,10 @@ Ops:
                  type re-classification (NULL/untyped/concept pages by default). Skipped when
                  reclassify_types.is_running() (single-flight inherited from that module).
                  NEVER touches reserved types (overview/index). R12-9.
+  backup        → app.ops.backup.run_backup(vault_id) — `pg_dump` of the Postgres database
+                 into settings.backup_root, then retention pruning (SEC-OPS-2, 1.9.1 W4).
+                 Bounded by backup_timeout_seconds (I7); no external single-flight guard
+                 needed beyond the standard in-flight check (a dump never mutates state).
 
 Per-op state: last_run_at (datetime|None), last_status ("ok"|"error:<msg>"|None),
 in_flight bool. State is IN-MEMORY — restarts reset the clock. This is the same
@@ -65,8 +69,8 @@ SCHEDULE_SECONDS: dict[str, int] = {
 _TICK_SECONDS: int = 60
 
 # Op names (literal type for type safety)
-OpName = Literal["lint", "backfill", "schema_review", "reclassify"]
-_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review", "reclassify")
+OpName = Literal["lint", "backfill", "schema_review", "reclassify", "backup"]
+_OP_NAMES: tuple[OpName, ...] = ("lint", "backfill", "schema_review", "reclassify", "backup")
 
 
 # ── Per-op state ──────────────────────────────────────────────────────────────
@@ -120,6 +124,7 @@ LintFn = Callable[..., Awaitable[object]]
 BackfillFn = Callable[..., Awaitable[object]]
 SchemaReviewFn = Callable[..., Awaitable[object]]
 ReclassifyFn = Callable[..., Awaitable[object]]
+BackupFn = Callable[..., Awaitable[object]]
 
 
 # ── OpsScheduler ──────────────────────────────────────────────────────────────
@@ -148,12 +153,14 @@ class OpsScheduler:
         backfill_fn: BackfillFn | None = None,
         schema_review_fn: SchemaReviewFn | None = None,
         reclassify_fn: ReclassifyFn | None = None,
+        backup_fn: BackupFn | None = None,
     ) -> None:
         self._clock: _ClockProtocol = clock or _RealClock()
         self._lint_fn: LintFn = lint_fn or _default_lint_fn
         self._backfill_fn: BackfillFn = backfill_fn or _default_backfill_fn
         self._schema_review_fn: SchemaReviewFn = schema_review_fn or _default_schema_review_fn
         self._reclassify_fn: ReclassifyFn = reclassify_fn or _default_reclassify_fn
+        self._backup_fn: BackupFn = backup_fn or _default_backup_fn
         self._stopping: bool = False
         self._task: asyncio.Task[None] | None = None
         self._state: dict[OpName, OpState] = {
@@ -161,6 +168,7 @@ class OpsScheduler:
             "backfill": OpState(),
             "schema_review": OpState(),
             "reclassify": OpState(),
+            "backup": OpState(),
         }
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -339,8 +347,10 @@ class OpsScheduler:
                 result = await self._backfill_fn()
             elif op == "schema_review":
                 result = await self._schema_review_fn()
-            else:
+            elif op == "reclassify":
                 result = await self._reclassify_fn()
+            else:
+                result = await self._backup_fn()
             status, _succeeded, detail = _interpret_result(op, result)
             logger.info("ops_scheduler: op=%s completed (status=%s detail=%s)", op, status, detail)
         except Exception as exc:  # noqa: BLE001 — never crash the scheduler loop (I7)
@@ -506,6 +516,21 @@ async def _default_reclassify_fn() -> object:
         logger.debug("ops_scheduler: reclassify already in-flight (external) — skip")
         return None
     return await run_reclassify(vault_id=settings.vault_id, force=False)
+
+
+async def _default_backup_fn() -> object:
+    """
+    Run one bounded `pg_dump` + retention prune (SEC-OPS-2, 1.9.1 W4).
+
+    Returns the ``BackupSummary`` so the scheduler can report the TRUE outcome
+    (error / archive path / bytes) instead of a blind "ok" (R13-12).
+
+    Deferred import avoids circular import at module load time.
+    """
+    from app.config import settings  # noqa: PLC0415
+    from app.ops.backup import run_backup  # noqa: PLC0415
+
+    return await run_backup(vault_id=settings.vault_id)
 
 
 def _check_backfill_not_running() -> None:

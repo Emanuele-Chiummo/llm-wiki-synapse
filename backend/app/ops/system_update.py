@@ -109,7 +109,19 @@ async def get_update_status() -> UpdateStatus:
 
 
 async def trigger_system_update() -> str:
-    """POST Watchtower's ``/v1/update``; returns a human message.
+    """
+    Dump the database, then POST Watchtower's ``/v1/update``; returns a human message.
+
+    1.9.1 W4 (SEC-OPS-2): a pre-update `pg_dump` runs FIRST so an update that breaks the
+    schema/app has a fresh rollback point (Watchtower recreates every labelled container —
+    including Postgres itself if it carries the label — with no dump beforehand today, and
+    `alembic upgrade head` runs on every backend boot).
+
+    The backup is BEST-EFFORT and NON-BLOCKING: a dump failure (disk full, pg_dump missing,
+    DB unreachable) is logged but does NOT prevent the update from proceeding — the owner
+    explicitly asked to update, and refusing to update because the safety-net dump failed
+    would be a worse outcome than proceeding without one (the failure is visible in the
+    backend log / GET /ops/schedules "backup" op state either way).
 
     Raises :class:`UpdateNotConfiguredError` when Watchtower is not configured, and lets
     ``httpx.HTTPError`` propagate on a transport/HTTP failure (the caller maps these to 501 / 502).
@@ -120,6 +132,24 @@ async def trigger_system_update() -> str:
         raise UpdateNotConfiguredError(
             "system update is not configured (set WATCHTOWER_URL and WATCHTOWER_HTTP_API_TOKEN)"
         )
+
+    from app.ops.backup import run_backup  # noqa: PLC0415 — deferred, avoid import cycles
+
+    try:
+        summary = await run_backup(vault_id=settings.vault_id)
+        if summary.stopped_reason == "error":
+            logger.warning(
+                "system-update: pre-update backup failed (%s) — proceeding with update anyway",
+                summary.error_message,
+            )
+        else:
+            logger.info(
+                "system-update: pre-update backup complete (%s, %d bytes)",
+                summary.archive_path,
+                summary.archive_bytes,
+            )
+    except Exception as exc:  # noqa: BLE001 — backup must never block the update (I7)
+        logger.warning("system-update: pre-update backup raised unexpectedly: %s", exc)
 
     url = base.rstrip("/") + "/v1/update"
     async with httpx.AsyncClient(timeout=30.0) as http:

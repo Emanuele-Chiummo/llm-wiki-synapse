@@ -17,6 +17,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# File-level least-privilege default (1.9.1 W4, SEC-DEPS-1): read-only GITHUB_TOKEN unless
+# a job explicitly needs more. `docs-deploy` already declares its own job-level
+# `permissions: contents: write` (required to push to gh-pages) — job-level permissions
+# override this file-level default, so that job is unaffected by this change.
+permissions:
+  contents: read
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────
   # Stage 1: Lint & Format checks (ruff, black, eslint)
@@ -165,6 +172,76 @@ jobs:
       - name: pytest (infra-free tests)
         working-directory: backend
         run: python -m pytest -q
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Stage 4a: Dependency vulnerability audit (1.9.1 W4, SEC-DEPS-1)
+  # REPORT-ONLY (non-blocking): `continue-on-error: true` on both audit steps.
+  # Rationale: several transitive deps in this project (igraph/fa2_modified native
+  # extensions, older FastAPI/Starlette pins, etc.) sometimes carry advisories with no
+  # available fix yet, or where the fix requires a coordinated major-version bump that is
+  # its own separate PR. Making this job blocking on day one would turn CI red on unrelated
+  # PRs for issues no single commit can fix, training everyone to ignore the gate. Instead:
+  # this job ALWAYS reports (uploaded as an artifact, visible in the Actions summary even on
+  # a clean run) so vulnerabilities are visible and can be triaged deliberately, without
+  # blocking the merge train. Revisit blocking mode once the backlog is at a steady baseline.
+  # ──────────────────────────────────────────────────────────────────────
+  security-audit:
+    name: Dependency Audit (pip-audit + npm audit) — report-only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+          pip install pip-audit
+
+      - name: pip-audit (backend) — report-only
+        working-directory: backend
+        continue-on-error: true
+        run: pip-audit --desc -f json -o pip-audit-report.json || pip-audit --desc
+
+      - name: Upload pip-audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pip-audit-report
+          path: backend/pip-audit-report.json
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: npm audit (frontend) — report-only
+        working-directory: frontend
+        continue-on-error: true
+        run: npm audit --json > npm-audit-report.json || npm audit
+
+      - name: Upload npm audit report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-audit-report
+          path: frontend/npm-audit-report.json
+          retention-days: 30
+          if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────────
   # Stage 4b: Frontend tests (vitest, typecheck, eslint)

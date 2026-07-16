@@ -2,8 +2,11 @@
 # The Dockerfile COPYies explicit paths (app/, alembic/, tests/, scripts/), so this
 # file mostly shrinks the build-context upload: without it the local .venv (~hundreds
 # of MB) and tool caches are shipped to the daemon on every build.
-# NOTE: tests/ is still copied into the image on purpose (CI runs them in-container);
-# dropping tests + dev deps from the PROD image is the 1.9.1 multi-stage work (SEC-DEPS-1).
+# NOTE: tests/ is still copied into the DEFAULT stage on purpose (CI runs them
+# in-container). 1.9.1 W4 (SEC-DEPS-1) added a SEPARATE "production" stage (additional
+# `--target production` build) that never copies tests/ or installs dev deps — see the
+# Dockerfile header comment. The default stage (and every existing build path) is
+# unchanged.
 
 .venv/
 venv/

@@ -142,3 +142,88 @@ async def test_trigger_posts_to_watchtower_with_token(monkeypatch: pytest.Monkey
     assert capture["post_url"] == "http://watchtower:8080/v1/update"
     assert capture["post_headers"]["Authorization"] == "Bearer secret-token"
     assert "triggered" in msg.lower()
+
+
+@pytest.mark.asyncio
+async def test_trigger_runs_backup_before_watchtower_poke(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    1.9.1 W4 (SEC-OPS-2): trigger_system_update() runs a `pg_dump` BEFORE POSTing
+    Watchtower's /v1/update, so an update that breaks something has a fresh rollback point.
+    """
+    from app.ops.backup import BackupSummary
+
+    calls: list[str] = []
+
+    async def fake_run_backup(vault_id: str | None = None) -> BackupSummary:
+        calls.append("backup")
+        return BackupSummary(stopped_reason="complete", archive_path="/tmp/x.dump")
+
+    class _OrderTrackingClient:
+        def __init__(self, *_a: Any, **_k: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> _OrderTrackingClient:
+            return self
+
+        async def __aexit__(self, *_a: Any) -> None:
+            return None
+
+        async def post(self, url: str, headers: dict[str, str] | None = None) -> _FakeResp:
+            calls.append("watchtower")
+            return _FakeResp(200)
+
+    monkeypatch.setattr(settings, "watchtower_url", "http://watchtower:8080", raising=False)
+    monkeypatch.setattr(settings, "watchtower_http_api_token", "secret-token", raising=False)
+    monkeypatch.setattr("app.ops.backup.run_backup", fake_run_backup)
+    monkeypatch.setattr(httpx, "AsyncClient", _OrderTrackingClient)
+
+    await su.trigger_system_update()
+
+    assert calls == ["backup", "watchtower"], "backup must run BEFORE the Watchtower POST"
+
+
+@pytest.mark.asyncio
+async def test_trigger_proceeds_when_backup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed pre-update backup is logged but does NOT block the Watchtower update (I7)."""
+    from app.ops.backup import BackupSummary
+
+    async def failing_backup(vault_id: str | None = None) -> BackupSummary:
+        return BackupSummary(stopped_reason="error", error_message="disk full")
+
+    capture: dict[str, Any] = {}
+    monkeypatch.setattr(settings, "watchtower_url", "http://watchtower:8080", raising=False)
+    monkeypatch.setattr(settings, "watchtower_http_api_token", "secret-token", raising=False)
+    monkeypatch.setattr("app.ops.backup.run_backup", failing_backup)
+    monkeypatch.setattr(
+        httpx, "AsyncClient", _fake_client_cls(post_resp=_FakeResp(200), capture=capture)
+    )
+
+    msg = await su.trigger_system_update()
+
+    assert "triggered" in msg.lower()
+    assert capture["post_url"] == "http://watchtower:8080/v1/update"
+
+
+@pytest.mark.asyncio
+async def test_trigger_proceeds_when_backup_raises_unexpectedly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unexpected exception from run_backup() is swallowed — never blocks the update (I7)."""
+
+    async def exploding_backup(vault_id: str | None = None) -> None:
+        raise RuntimeError("boom")
+
+    capture: dict[str, Any] = {}
+    monkeypatch.setattr(settings, "watchtower_url", "http://watchtower:8080", raising=False)
+    monkeypatch.setattr(settings, "watchtower_http_api_token", "secret-token", raising=False)
+    monkeypatch.setattr("app.ops.backup.run_backup", exploding_backup)
+    monkeypatch.setattr(
+        httpx, "AsyncClient", _fake_client_cls(post_resp=_FakeResp(200), capture=capture)
+    )
+
+    msg = await su.trigger_system_update()
+
+    assert "triggered" in msg.lower()
+    assert capture["post_url"] == "http://watchtower:8080/v1/update"

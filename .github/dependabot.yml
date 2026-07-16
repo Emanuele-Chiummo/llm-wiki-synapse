@@ -1,0 +1,42 @@
+# Dependabot configuration (1.9.1 W4, SEC-DEPS-1).
+# Weekly PRs for backend (pip), frontend (npm), and GitHub Actions workflow dependencies.
+# Report-only in spirit like the pip-audit/npm audit CI job (ci.yml security-audit): these
+# PRs surface available updates for human review — nothing here auto-merges.
+
+version: 2
+updates:
+  # Backend Python dependencies (pyproject.toml).
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Frontend npm dependencies (package.json / package-lock.json).
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions workflow dependencies (action versions pinned in .github/workflows/*.yml).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(deps)"
