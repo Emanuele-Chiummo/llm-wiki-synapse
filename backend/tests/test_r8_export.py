@@ -200,6 +200,51 @@ def _build_sqlite_meta() -> MetaData:
         Column("reviewed_by", Text, nullable=True),
         Column("updated_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
     )
+    # 1.9.1 W4 (SEC-OPS-2) — /export/full additions
+    Table(
+        "conversations",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("vault_id", String, nullable=False),
+        Column("title", Text, nullable=True),
+        Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+        Column("updated_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+        Column("deleted_at", Text, nullable=True),
+    )
+    Table(
+        "messages",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("conversation_id", String(36), nullable=False),
+        Column("role", Text, nullable=False),
+        Column("content", Text, nullable=False),
+        Column("citations", Text, nullable=True),
+        Column("images", Text, nullable=True),
+        Column("provider_type", Text, nullable=True),
+        Column("model_id", Text, nullable=True),
+        Column("input_tokens", Integer, nullable=False, server_default=sa_text("0")),
+        Column("output_tokens", Integer, nullable=False, server_default=sa_text("0")),
+        Column("total_cost_usd", Float, nullable=False, server_default=sa_text("0")),
+        Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+    )
+    Table(
+        "provider_config",
+        meta,
+        Column("id", String(36), primary_key=True),
+        Column("scope", Text, nullable=False),
+        Column("operation", Text, nullable=True),
+        Column("vault_id", String, nullable=True),
+        Column("provider_type", Text, nullable=False),
+        Column("model_id", Text, nullable=False),
+        Column("base_url", Text, nullable=True),
+        Column("api_key_encrypted", LargeBinary, nullable=True),
+        Column("reasoning_effort", Text, nullable=True),
+        Column("max_iter", Integer, nullable=False, server_default=sa_text("3")),
+        Column("token_budget", Integer, nullable=False, server_default=sa_text("60000")),
+        Column("is_fallback", Integer, nullable=False, server_default=sa_text("0")),
+        Column("created_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+        Column("updated_at", Text, nullable=False, server_default=sa_text("datetime('now')")),
+    )
     return meta
 
 
@@ -327,6 +372,56 @@ async def export_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
             ),
             {"id": review_id, "vault_id": vault_id},
         )
+        # 1.9.1 W4 (SEC-OPS-2) — one conversation with two messages.
+        # NOTE: stored as .hex (no dashes) — matches how SQLAlchemy's
+        # postgresql.UUID(as_uuid=True) bind-processes a Python uuid.UUID on non-native
+        # dialects (SQLite). The ORM join `ChatMessage.conversation_id == c.id` (where
+        # `c.id` is a real uuid.UUID read back from the `conversations` row) binds via that
+        # same processor, so the FK column must be seeded in the identical hex form or the
+        # WHERE clause silently matches zero rows.
+        conv_uuid = uuid.uuid4()
+        conv_id_storage = conv_uuid.hex
+        conv_id = str(conv_uuid)  # dashed form — how it round-trips in the JSON response
+        msg1_id = str(uuid.uuid4())
+        msg2_id = str(uuid.uuid4())
+        await session.execute(
+            sa_text(
+                "INSERT INTO conversations (id, vault_id, title, created_at, updated_at, "
+                "deleted_at) VALUES (:id, :vault_id, 'Test chat', datetime('now'), "
+                "datetime('now'), NULL)"
+            ),
+            {"id": conv_id_storage, "vault_id": vault_id},
+        )
+        await session.execute(
+            sa_text(
+                "INSERT INTO messages (id, conversation_id, role, content, input_tokens, "
+                "output_tokens, total_cost_usd, created_at) "
+                "VALUES (:id, :conv, 'user', 'Hello', 0, 0, 0, datetime('now'))"
+            ),
+            {"id": msg1_id, "conv": conv_id_storage},
+        )
+        await session.execute(
+            sa_text(
+                "INSERT INTO messages (id, conversation_id, role, content, provider_type, "
+                "model_id, input_tokens, output_tokens, total_cost_usd, created_at) "
+                "VALUES (:id, :conv, 'assistant', 'Hi there', 'api', 'test-model', 10, 20, "
+                "0.02, datetime('now'))"
+            ),
+            {"id": msg2_id, "conv": conv_id_storage},
+        )
+        # One global provider_config row with an "encrypted" api key (opaque bytes for the
+        # test — never decrypted by export.py).
+        pc_id = str(uuid.uuid4())
+        await session.execute(
+            sa_text(
+                "INSERT INTO provider_config (id, scope, operation, vault_id, provider_type, "
+                "model_id, base_url, api_key_encrypted, reasoning_effort, max_iter, "
+                "token_budget, is_fallback, created_at, updated_at) "
+                "VALUES (:id, 'global', NULL, NULL, 'api', 'claude-sonnet-4-6', NULL, "
+                ":key, NULL, 3, 60000, 0, datetime('now'), datetime('now'))"
+            ),
+            {"id": pc_id, "key": b"\x01\x02fernet-ciphertext-stub\x03\x04"},
+        )
         await session.commit()
 
     # ── Patch get_session ─────────────────────────────────────────────────────
@@ -358,6 +453,8 @@ async def export_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         "vault_id": vault_id,
         "page1_id": page1_id,
         "page2_id": page2_id,
+        "conversation_id": conv_id,
+        "provider_config_id": pc_id,
     }
 
 
@@ -530,3 +627,98 @@ class TestExportDataJson:
         assert resp.status_code == 200
         data = resp.json()
         assert data["data_version"] == 7, f"Expected data_version=7, got {data['data_version']}"
+
+
+class TestExportFull:
+    """
+    Tests for GET /export/full (1.9.1 W4, SEC-OPS-2).
+
+    Extends /export/data.json with conversations/messages, provider_config
+    (ciphertext untouched), and the full vault_state row.
+    """
+
+    @pytest.mark.asyncio
+    async def test_top_level_keys(self, export_env: dict[str, Any]) -> None:
+        """T-W4-001: /export/full includes data.json's keys plus the 3 new sections."""
+        async with AsyncClient(
+            transport=ASGITransport(app=export_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.get("/export/full")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        required_keys = {
+            "pages",
+            "links",
+            "edges",
+            "runs",
+            "review_items",
+            "conversations",
+            "provider_config",
+            "vault_state",
+            "exported_at",
+            "data_version",
+            "secrets_note",
+        }
+        missing = required_keys - set(data.keys())
+        assert not missing, f"Missing keys in /export/full: {missing}"
+
+    @pytest.mark.asyncio
+    async def test_conversations_with_messages(self, export_env: dict[str, Any]) -> None:
+        """T-W4-002: the seeded conversation + its 2 messages round-trip."""
+        async with AsyncClient(
+            transport=ASGITransport(app=export_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.get("/export/full")
+
+        data = resp.json()
+        assert len(data["conversations"]) == 1
+        conv = data["conversations"][0]
+        assert conv["id"] == export_env["conversation_id"]
+        assert conv["title"] == "Test chat"
+        assert len(conv["messages"]) == 2
+        roles = {m["role"] for m in conv["messages"]}
+        assert roles == {"user", "assistant"}
+
+    @pytest.mark.asyncio
+    async def test_provider_config_ciphertext_never_decrypted(
+        self, export_env: dict[str, Any]
+    ) -> None:
+        """
+        T-W4-003: provider_config row is exported with its api_key ciphertext base64-encoded,
+        never plaintext, never decrypted (SEC-OPS-2 invariant).
+        """
+        import base64
+
+        async with AsyncClient(
+            transport=ASGITransport(app=export_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.get("/export/full")
+
+        data = resp.json()
+        assert len(data["provider_config"]) == 1
+        pc = data["provider_config"][0]
+        assert pc["id"] == export_env["provider_config_id"]
+        assert pc["scope"] == "global"
+        assert pc["provider_type"] == "api"
+        assert pc["model_id"] == "claude-sonnet-4-6"
+        # The stub "ciphertext" bytes round-trip exactly via base64 — proves no decryption
+        # (and no re-encoding) happened along the way.
+        raw = base64.b64decode(pc["api_key_encrypted_b64"])
+        assert raw == b"\x01\x02fernet-ciphertext-stub\x03\x04"
+        assert "secrets_note" in data
+        assert "SYNAPSE_SECRET_KEY" in data["secrets_note"]
+
+    @pytest.mark.asyncio
+    async def test_vault_state_full_row(self, export_env: dict[str, Any]) -> None:
+        """T-W4-004: vault_state block carries data_version + MCP toggle fields."""
+        async with AsyncClient(
+            transport=ASGITransport(app=export_env["app"]), base_url="http://test"
+        ) as client:
+            resp = await client.get("/export/full")
+
+        data = resp.json()
+        assert data["vault_state"] is not None
+        assert data["vault_state"]["data_version"] == 7
+        assert data["vault_state"]["vault_id"] == export_env["vault_id"]
+        assert "remote_mcp_enabled" in data["vault_state"]

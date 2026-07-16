@@ -10,6 +10,15 @@ Endpoints:
   GET /export/data.json — JSON dump of live pages, links, edges, ingest_runs summary,
                           review_items summary, generated_at, data_version.
                           All records for the current vault_id; no content bodies.
+  GET /export/full      — 1.9.1 W4 (SEC-OPS-2). Everything in /export/data.json PLUS
+                          conversations + messages, provider_config, and vault_state —
+                          the tables /export/data.json and the vault ZIP both miss today.
+                          Secrets stay SECRET: `provider_config.api_key_encrypted` is
+                          exported AS-IS (Fernet ciphertext, base64-encoded for JSON
+                          transport) — NEVER decrypted here. A restored dump is only
+                          usable with the SAME SYNAPSE_SECRET_KEY that encrypted it;
+                          rotating the key first orphans those ciphertexts (same
+                          constraint as the live app — app/secrets_crypto.py).
 
 Invariants honoured:
   I1  — read-only; no file mutations, no index re-scan.
@@ -25,6 +34,7 @@ Config:
 from __future__ import annotations
 
 import asyncio
+import base64
 import io
 import logging
 import zipfile
@@ -38,7 +48,17 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.db import get_session
-from app.models import Edge, IngestRun, Link, Page, ReviewItem, VaultState
+from app.models import (
+    ChatMessage,
+    Conversation,
+    Edge,
+    IngestRun,
+    Link,
+    Page,
+    ProviderConfig,
+    ReviewItem,
+    VaultState,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -384,6 +404,261 @@ async def export_data_json() -> JSONResponse:
         len(pages_out),
         len(links_out),
         len(edges_out),
+    )
+
+    return JSONResponse(content=payload)
+
+
+# ── GET /export/full ──────────────────────────────────────────────────────────
+# 1.9.1 W4 (SEC-OPS-2): /export/data.json omits conversations, provider_config, and
+# vault_state — a restore from it alone loses chat history, provider credentials/config,
+# and the data_version/MCP-token state. /export/full adds all three, ciphertext untouched.
+
+
+@router.get(
+    "/export/full",
+    summary="Extended JSON export — data.json PLUS conversations/provider_config/vault_state",
+    description=(
+        "Everything GET /export/data.json returns, PLUS: conversations (with their "
+        "messages), provider_config rows, and the vault_state row. Secrets are NEVER "
+        "decrypted: provider_config.api_key_encrypted is emitted as base64-encoded Fernet "
+        "ciphertext — restoring it requires the SAME SYNAPSE_SECRET_KEY that encrypted it. "
+        "Read-only; no file mutations, no provider calls, no graph recompute (I1/I2/I6)."
+    ),
+    response_class=JSONResponse,
+    responses={
+        200: {"description": "Extended JSON metadata export"},
+    },
+)
+async def export_full_json() -> JSONResponse:
+    """
+    GET /export/full — data.json + conversations/messages + provider_config + vault_state
+    (1.9.1 W4, SEC-OPS-2).
+
+    Encrypted provider API keys travel as base64 ciphertext — this endpoint has no access
+    to SYNAPSE_SECRET_KEY-decrypted plaintext anywhere in its code path (app/secrets_crypto.py
+    is never imported here), so there is nothing to accidentally leak.
+    """
+    vault_id = settings.vault_id
+
+    async with get_session() as session:
+        # ── data_version / vault_state (full row — includes MCP token hash, toggles) ──
+        vs_row = await session.execute(select(VaultState).where(VaultState.vault_id == vault_id))
+        vs = vs_row.scalar_one_or_none()
+        data_version = vs.data_version if vs else 0
+        vault_state_out: dict[str, Any] | None = (
+            None
+            if vs is None
+            else {
+                "id": str(vs.id),
+                "vault_id": vs.vault_id,
+                "data_version": vs.data_version,
+                "remote_mcp_enabled": vs.remote_mcp_enabled,
+                "mcp_access_token_hash": vs.mcp_access_token_hash,
+                "mcp_allow_without_token": vs.mcp_allow_without_token,
+            }
+        )
+
+        # ── pages (live only, no content bodies) ──────────────────────────────
+        pages_result = await session.execute(
+            select(Page).where(
+                Page.vault_id == vault_id,
+                Page.deleted_at.is_(None),
+            )
+        )
+        pages_rows = pages_result.scalars().all()
+        pages_out: list[dict[str, Any]] = [
+            {
+                "id": str(p.id),
+                "file_path": p.file_path,
+                "title": p.title,
+                "type": p.page_type,
+                "sources": p.sources,
+                "tags": p.tags,
+                "content_hash": p.content_hash,
+                "x": p.x,
+                "y": p.y,
+                "community": p.community,
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+            }
+            for p in pages_rows
+        ]
+
+        # ── links ─────────────────────────────────────────────────────────────
+        links_result = await session.execute(
+            select(Link).where(
+                Link.source_page_id.in_(
+                    select(Page.id).where(
+                        Page.vault_id == vault_id,
+                        Page.deleted_at.is_(None),
+                    )
+                )
+            )
+        )
+        links_rows = links_result.scalars().all()
+        links_out = [
+            {
+                "id": str(lnk.id),
+                "source_page_id": str(lnk.source_page_id),
+                "target_title": lnk.target_title,
+                "target_page_id": str(lnk.target_page_id) if lnk.target_page_id else None,
+                "alias": lnk.alias,
+                "dangling": lnk.dangling,
+                "created_at": lnk.created_at.isoformat() if lnk.created_at else None,
+            }
+            for lnk in links_rows
+        ]
+
+        # ── edges ─────────────────────────────────────────────────────────────
+        edges_result = await session.execute(select(Edge).where(Edge.vault_id == vault_id))
+        edges_rows = edges_result.scalars().all()
+        edges_out = [
+            {
+                "id": str(e.id),
+                "source_page_id": str(e.source_page_id),
+                "target_page_id": str(e.target_page_id),
+                "weight": e.weight,
+                "kind": e.kind,
+                "signals": e.signals,
+                "created_at": e.created_at.isoformat() if e.created_at else None,
+            }
+            for e in edges_rows
+        ]
+
+        # ── ingest_runs summary ───────────────────────────────────────────────
+        runs_result = await session.execute(select(IngestRun).where(IngestRun.vault_id == vault_id))
+        runs_rows = runs_result.scalars().all()
+        runs_out = [
+            {
+                "id": str(r.id),
+                "status": r.status,
+                "provider_name": r.provider_name,
+                "model_id": r.model_id,
+                "total_cost_usd": float(r.total_cost_usd),
+                "pages_created": r.pages_created,
+                "started_at": r.started_at.isoformat() if r.started_at else None,
+                "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+            }
+            for r in runs_rows
+        ]
+
+        # ── review_items summary ──────────────────────────────────────────────
+        review_result = await session.execute(
+            select(ReviewItem).where(ReviewItem.vault_id == vault_id)
+        )
+        review_rows = review_result.scalars().all()
+        review_out = [
+            {
+                "id": str(ri.id),
+                "item_type": ri.item_type,
+                "status": ri.status,
+                "proposed_title": ri.proposed_title,
+                "created_at": ri.created_at.isoformat() if ri.created_at else None,
+            }
+            for ri in review_rows
+        ]
+
+        # ── conversations + messages (F6) — NEW in /export/full ────────────────
+        conv_result = await session.execute(
+            select(Conversation).where(Conversation.vault_id == vault_id)
+        )
+        conv_rows = conv_result.scalars().all()
+        conversations_out: list[dict[str, Any]] = []
+        for c in conv_rows:
+            msgs_result = await session.execute(
+                select(ChatMessage)
+                .where(ChatMessage.conversation_id == c.id)
+                .order_by(ChatMessage.created_at.asc())
+            )
+            msgs_rows = msgs_result.scalars().all()
+            conversations_out.append(
+                {
+                    "id": str(c.id),
+                    "title": c.title,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+                    "deleted_at": c.deleted_at.isoformat() if c.deleted_at else None,
+                    "messages": [
+                        {
+                            "id": str(m.id),
+                            "role": m.role,
+                            "content": m.content,
+                            "citations": m.citations,
+                            "images": m.images,
+                            "provider_type": m.provider_type,
+                            "model_id": m.model_id,
+                            "input_tokens": m.input_tokens,
+                            "output_tokens": m.output_tokens,
+                            "total_cost_usd": float(m.total_cost_usd),
+                            "created_at": m.created_at.isoformat() if m.created_at else None,
+                        }
+                        for m in msgs_rows
+                    ],
+                }
+            )
+
+        # ── provider_config (F17) — NEW in /export/full. Ciphertext, NEVER decrypted ──
+        pc_result = await session.execute(
+            select(ProviderConfig).where(
+                (ProviderConfig.vault_id == vault_id) | (ProviderConfig.scope == "global")
+            )
+        )
+        pc_rows = pc_result.scalars().all()
+        provider_config_out = [
+            {
+                "id": str(pc.id),
+                "scope": pc.scope,
+                "operation": pc.operation,
+                "vault_id": pc.vault_id,
+                "provider_type": pc.provider_type,
+                "model_id": pc.model_id,
+                "base_url": pc.base_url,
+                # SECRET AT REST: exported AS CIPHERTEXT, base64-encoded for JSON transport.
+                # Restoring requires the SAME SYNAPSE_SECRET_KEY that encrypted it
+                # (app/secrets_crypto.py) — never decrypted anywhere in this code path.
+                "api_key_encrypted_b64": (
+                    base64.b64encode(pc.api_key_encrypted).decode("ascii")
+                    if pc.api_key_encrypted
+                    else None
+                ),
+                "reasoning_effort": pc.reasoning_effort,
+                "max_iter": pc.max_iter,
+                "token_budget": pc.token_budget,
+                "is_fallback": pc.is_fallback,
+                "created_at": pc.created_at.isoformat() if pc.created_at else None,
+                "updated_at": pc.updated_at.isoformat() if pc.updated_at else None,
+            }
+            for pc in pc_rows
+        ]
+
+    payload: dict[str, Any] = {
+        "pages": pages_out,
+        "links": links_out,
+        "edges": edges_out,
+        "runs": runs_out,
+        "review_items": review_out,
+        "conversations": conversations_out,
+        "provider_config": provider_config_out,
+        "vault_state": vault_state_out,
+        "exported_at": datetime.now(tz=UTC).isoformat(),
+        "data_version": data_version,
+        "secrets_note": (
+            "provider_config[].api_key_encrypted_b64 is Fernet ciphertext (base64-encoded), "
+            "NOT plaintext. Restoring these rows requires the SAME SYNAPSE_SECRET_KEY that "
+            "encrypted them on the source deployment — a different/rotated key renders them "
+            "unusable (they must be re-entered via Settings instead)."
+        ),
+    }
+
+    logger.info(
+        "export/full: vault=%s pages=%d links=%d edges=%d conversations=%d provider_config=%d",
+        vault_id,
+        len(pages_out),
+        len(links_out),
+        len(edges_out),
+        len(conversations_out),
+        len(provider_config_out),
     )
 
     return JSONResponse(content=payload)
