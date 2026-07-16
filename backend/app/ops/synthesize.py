@@ -51,9 +51,13 @@ from typing import Any
 
 from app.config import settings
 from app.db import get_session
-from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+from app.ops._llm import (
+    bounded_chat_collect,
+    loads_json_lenient,
+    resolve_operation_provider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -277,7 +281,7 @@ async def run_synthesize(
         "phase": "seeding",
     }
     try:
-        resolved = await _resolve_provider(vault_id)
+        resolved = await resolve_operation_provider(vault_id)
         if resolved is None and safe_mode == "auto":
             # I6: no provider configured → clean no-op (never a silent default, never an error).
             summary.stopped_reason = "no_provider"
@@ -954,7 +958,7 @@ async def _generate_cluster_body(
     else:
         instruction = _build_comparison_instruction(cluster, vault_context)
 
-    raw = await _chat_collect(provider, instruction)
+    raw = await bounded_chat_collect(provider, instruction)
     parsed = _parse_generated(raw)
     if parsed is None:
         return None
@@ -1026,7 +1030,7 @@ def _parse_generated(raw: str) -> tuple[str, str] | None:
     """
     if not raw or not raw.strip():
         return None
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if isinstance(obj, dict):
         title = obj.get("title")
         body = obj.get("body", obj.get("content"))
@@ -1124,49 +1128,9 @@ async def _propose_cluster_review(vault_id: str, cluster: Cluster) -> Any:
         return None
 
 
-# ── Provider surface + parsing helpers (mirror ops/reclassify_types.py) ────────
-
-
-async def _chat_collect(provider: InferenceProvider, instruction: str) -> str:
-    """ONE capability-agnostic ``provider.chat()`` turn, collecting the full text (I6/I7)."""
-    from app.ingest.schemas import Message  # noqa: PLC0415
-
-    chunks: list[str] = []
-    stream = await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    )
-    async for chunk in stream:
-        chunks.append(chunk)
-    return "".join(chunks).strip()
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """Best-effort JSON parse tolerant of ```json fences / surrounding prose. None on failure."""
-    import json  # noqa: PLC0415
-
-    if not raw:
-        return None
-    text = raw.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
+# ── Provider surface + parsing helpers ────────────────────────────────────────
+# bounded_chat_collect, loads_json_lenient, resolve_operation_provider
+# are imported from app.ops._llm (BE-DUP-1 fix).
 
 
 def _as_str_list(raw: Any) -> list[str]:
@@ -1215,32 +1179,3 @@ def _slugify(text: str) -> str:
     import re  # noqa: PLC0415
 
     return re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
-
-
-# ── Provider resolution (I6 — mirror ops/reclassify_types.py) ──────────────────
-
-
-async def _resolve_provider(vault_id: str) -> tuple[InferenceProvider, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6 — no hardcoded backend; "no
-    provider" → None). Mirrors ops/reclassify_types.py::_resolve_provider.
-    """
-    from app.provider_config_service import (  # noqa: PLC0415
-        ConfigNotFoundError,
-        resolve_provider_config,
-    )
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("synthesize: provider resolution failed (vault=%s): %s", vault_id, exc)
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("synthesize: provider build failed (vault=%s): %s", vault_id, exc)
-        return None
-    return provider, config_row
