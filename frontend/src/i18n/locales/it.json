@@ -1608,7 +1608,7 @@
     },
     "systemStatus": {
       "ariaLabel": "Stato del sistema",
-      "title": "STATO DEL SISTEMA",
+      "title": "Stato del sistema",
       "refresh": "Aggiorna stato",
       "loading": "Controllo sistema…",
       "overallOk": "Tutti i sistemi operativi",
@@ -1648,7 +1648,7 @@
     },
     "sections": {
       "ariaLabel": "Sezioni dominio",
-      "title": "SEZIONI",
+      "title": "Sezioni",
       "untaggedLabel": "Non classificate",
       "filterHint": "Sfoglia",
       "emptyVocabHint": "Nessun vocabolario di dominio configurato.",
@@ -1657,7 +1657,7 @@
     },
     "groups": {
       "ariaLabel": "Gruppi automatici per comunità",
-      "title": "GRUPPI AUTOMATICI",
+      "title": "Gruppi automatici",
       "pages": "pagine",
       "openTopPage": "Apri pagina principale",
       "topPage": "Pagina principale",
@@ -1669,7 +1669,7 @@
     },
     "activeJobs": {
       "ariaLabel": "Lavori attivi",
-      "title": "LAVORI ATTIVI",
+      "title": "Lavori attivi",
       "refresh": "Aggiorna lavori attivi",
       "ingest": "Ingest",
       "ingestProcessing": "in corso",

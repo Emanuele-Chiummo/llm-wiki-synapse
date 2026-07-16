@@ -1608,7 +1608,7 @@
     },
     "systemStatus": {
       "ariaLabel": "System status",
-      "title": "STATO DEL SISTEMA",
+      "title": "System Status",
       "refresh": "Refresh status",
       "loading": "Checking system…",
       "overallOk": "All systems operational",
@@ -1648,7 +1648,7 @@
     },
     "sections": {
       "ariaLabel": "Domain sections",
-      "title": "SEZIONI",
+      "title": "Sections",
       "untaggedLabel": "Untagged",
       "filterHint": "Browse",
       "emptyVocabHint": "No domain vocabulary configured.",
@@ -1657,7 +1657,7 @@
     },
     "groups": {
       "ariaLabel": "Automatic community groups",
-      "title": "GRUPPI AUTOMATICI",
+      "title": "Automatic Groups",
       "pages": "pages",
       "openTopPage": "Open top page",
       "topPage": "Top page",
@@ -1669,7 +1669,7 @@
     },
     "activeJobs": {
       "ariaLabel": "Active jobs",
-      "title": "LAVORI ATTIVI",
+      "title": "Active Jobs",
       "refresh": "Refresh active jobs",
       "ingest": "Ingest",
       "ingestProcessing": "processing",
