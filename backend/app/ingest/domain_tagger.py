@@ -20,12 +20,11 @@ and the backfill both call :func:`classify_page_domains`.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
 from app.ingest.provider.base import InferenceProvider
-from app.ingest.schemas import Message
+from app.ops._llm import bounded_chat_collect, loads_json_lenient
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,7 @@ async def classify_page_domains(
         vocabulary=list(canonical.values()),
     )
 
-    raw = await _chat_collect(provider, instruction)
+    raw = await bounded_chat_collect(provider, instruction)
     matched = _parse_domains(raw, canonical)
     logger.debug(
         "classify_page_domains: title=%r matched=%s (vocab_size=%d)",
@@ -136,7 +135,7 @@ def _parse_domains(raw: str, canonical: dict[str, str]) -> list[str]:
     matched case-insensitively to the canonical vocabulary casing; unknown names are dropped.
     Output is de-duplicated and emitted in vocabulary order. Never raises.
     """
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     items: Any
     if isinstance(obj, dict):
         items = obj.get("domains", obj.get("domain", []))
@@ -159,32 +158,6 @@ def _parse_domains(raw: str, canonical: dict[str, str]) -> list[str]:
 
     # Emit in vocabulary order (stable, deterministic) — dedup is implicit via `seen`.
     return [name for name in canonical.values() if name in seen]
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """Best-effort JSON parse tolerant of ```json fences / surrounding prose. None on failure."""
-    if not raw:
-        return None
-    text = raw.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
 
 
 # ── Prompt + provider surface ─────────────────────────────────────────────────
@@ -213,21 +186,3 @@ def _build_instruction(*, page_title: str, page_content: str, vocabulary: list[s
         "chosen domain names (each one exactly as spelled in the vocabulary). Return no prose, "
         "only the JSON object."
     )
-
-
-async def _chat_collect(provider: InferenceProvider, instruction: str) -> str:
-    """
-    ONE capability-agnostic ``provider.chat()`` turn, collecting the full text (I6/I7).
-
-    Same backend-neutral surface enrich_wikilinks / review / deep_research use — no new ABC
-    method, no isinstance/provider_type branch. Cost is recorded by the provider onto the bound
-    accumulator during the call.
-    """
-    chunks: list[str] = []
-    stream = await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    )
-    async for chunk in stream:
-        chunks.append(chunk)
-    return "".join(chunks).strip()

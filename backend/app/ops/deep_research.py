@@ -32,6 +32,7 @@ from typing import Any, Literal
 from app.db import get_session
 from app.ingest.provider.base import UsageAccumulator
 from app.models import DeepResearchRun, DeepResearchSource
+from app.ops._llm import resolve_operation_provider
 from app.ops.searxng import SearchHit, _semaphore
 from app.ops.web_search import web_search_many
 from app.security_net import SSRFError, safe_fetch
@@ -183,7 +184,8 @@ async def run_deep_research(
         )
 
     # ── Resolve provider ONCE (I6 — operation="ingest") ───────────────────────
-    provider = await _resolve_provider(vault_id)
+    _resolved = await resolve_operation_provider(vault_id)
+    provider = _resolved[0] if _resolved is not None else None
 
     accumulator = UsageAccumulator()
     if provider is not None:
@@ -487,7 +489,8 @@ async def optimize_topic(*, vault_id: str, topic: str) -> OptimizedTopic:
     if not seed:
         return _naive_optimized(topic)
 
-    provider = await _resolve_provider(vault_id)
+    _resolved = await resolve_operation_provider(vault_id)
+    provider = _resolved[0] if _resolved is not None else None
     if provider is None:
         logger.info(
             "optimize_topic: no provider configured for vault=%r — naive fallback (topic=%r)",
@@ -1120,33 +1123,6 @@ async def _insert_source_row(run_id: uuid.UUID, src: FetchedSource) -> None:
             created_at=datetime.now(UTC),
         )
         session.add(source)
-
-
-# ── Provider resolution helper (I6) ───────────────────────────────────────────
-
-
-async def _resolve_provider(vault_id: str) -> Any | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (ADR-0024 §1.1 / I6).
-
-    Returns None when no provider_config row resolves (mechanical path, no AI calls).
-    NEVER hardcodes a backend. NEVER uses isinstance/type-branch.
-    """
-    from app.ingest.provider import resolve_provider
-    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        logger.debug(
-            "_resolve_provider: no provider_config for vault=%r — mechanical path", vault_id
-        )
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("_resolve_provider: DB error resolving provider: %s — mechanical path", exc)
-        return None
-
-    return resolve_provider(config_row)
 
 
 # ── Text utilities ─────────────────────────────────────────────────────────────

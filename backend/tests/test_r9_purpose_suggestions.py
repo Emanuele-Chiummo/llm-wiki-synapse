@@ -77,7 +77,7 @@ def _fake_config_row() -> Any:
 
 def _patch_resolve(provider: Any) -> Any:
     return patch(
-        "app.ops.review._resolve_review_provider",
+        "app.ops.review.resolve_operation_provider",
         new=AsyncMock(return_value=(provider, _fake_config_row())),
     )
 
@@ -360,7 +360,7 @@ class TestProviderFailure:
             await _insert_source_page(review_env_0034, title=f"Src {i}")
 
         with patch(
-            "app.ops.review._resolve_review_provider",
+            "app.ops.review.resolve_operation_provider",
             new=AsyncMock(return_value=None),
         ):
             item = await review_mod.generate_purpose_suggestion(

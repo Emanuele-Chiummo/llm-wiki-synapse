@@ -54,6 +54,13 @@ from app.config import settings
 from app.db import get_session
 from app.ingest.schemas import PageType
 from app.models import LintFinding, LintRun, Page
+from app.ops._llm import (
+    bounded_chat_collect,
+    clean_str,
+    coerce_int,
+    loads_json_lenient,
+    resolve_operation_provider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -287,10 +294,10 @@ async def run_lint_scan(
                 "run_lint_scan: semantic=False → deterministic-only scan (vault=%s, L8)",
                 vault_id,
             )
-        elif (resolved := await _resolve_lint_provider(vault_id)) is not None:
+        elif (resolved := await resolve_operation_provider(vault_id)) is not None:
             provider, config_row = resolved
             provider.bind_accumulator(accumulator)
-            token_budget_local = _coerce_int(
+            token_budget_local = coerce_int(
                 getattr(config_row, "token_budget", None), token_budget_local
             )
             timeout_s = float(getattr(settings, "lint_timeout_seconds", 30.0))
@@ -1138,7 +1145,9 @@ async def _semantic_pass(
         token_budget=token_budget,
     )
     try:
-        return await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+        return await asyncio.wait_for(
+            bounded_chat_collect(provider, instruction), timeout=timeout_s
+        )
     except TimeoutError:
         logger.warning(
             "_semantic_pass: provider call timed out after %.1fs (vault=%s) — "
@@ -2092,7 +2101,7 @@ async def _phrase_contradiction_query(
     """
     fallback = _deterministic_contradiction_copy(pages, finding.description or "")
 
-    resolved = await _resolve_lint_provider(finding.vault_id)
+    resolved = await resolve_operation_provider(finding.vault_id)
     if resolved is None:
         logger.info(
             "_phrase_contradiction_query: no ingest provider — deterministic template (I6)."
@@ -2131,7 +2140,7 @@ async def _phrase_contradiction_query(
     degraded = False
     raw = ""
     try:
-        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+        raw = await asyncio.wait_for(bounded_chat_collect(provider, instruction), timeout=timeout_s)
     except (
         Exception
     ) as exc:  # noqa: BLE001 — degrade to template, never fail apply (TimeoutError too)
@@ -2159,11 +2168,11 @@ async def _phrase_contradiction_query(
     if degraded:
         return fallback
 
-    parsed = _loads_json_lenient(raw)
+    parsed = loads_json_lenient(raw)
     if not isinstance(parsed, dict):
         return fallback
 
-    question = _clean_str(parsed.get("question")) or fallback["question"]
+    question = clean_str(parsed.get("question")) or fallback["question"]
     if not question.rstrip().endswith("?"):
         question = question.rstrip().rstrip(".") + "?"
     open_points_raw = parsed.get("open_points")
@@ -2174,10 +2183,10 @@ async def _phrase_contradiction_query(
     ) or fallback["open_points"]
     return {
         "question": question,
-        "question_body": _clean_str(parsed.get("question_body")) or fallback["question_body"],
-        "hypothesis": _clean_str(parsed.get("hypothesis")) or fallback["hypothesis"],
+        "question_body": clean_str(parsed.get("question_body")) or fallback["question_body"],
+        "hypothesis": clean_str(parsed.get("hypothesis")) or fallback["hypothesis"],
         "open_points": open_points,
-        "impact": _clean_str(parsed.get("impact")) or fallback["impact"],
+        "impact": clean_str(parsed.get("impact")) or fallback["impact"],
     }
 
 
@@ -2471,55 +2480,8 @@ async def _load_page_digest(vault_id: str, *, max_pages: int = 60) -> str:
 
 
 # ── Provider resolution (I6) ────────────────────────────────────────────────────
-
-
-async def _resolve_lint_provider(vault_id: str) -> tuple[Any, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6) for the semantic lint pass.
-
-    Returns (provider, config_row) or None when no provider_config resolves / DB unavailable.
-    NEVER hardcodes a backend; NEVER branches on isinstance/type/class-name. Mirrors
-    ops/review.py::_resolve_review_provider and ops/enrich_wikilinks.py::_resolve_provider.
-    """
-    from app.ingest.provider import resolve_provider
-    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_resolve_lint_provider: provider resolution failed (vault=%s): %s", vault_id, exc
-        )
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_resolve_lint_provider: provider build failed (vault=%s): %s", vault_id, exc
-        )
-        return None
-    return provider, config_row
-
-
-async def _chat_collect(provider: Any, instruction: str) -> str:
-    """
-    ONE capability-agnostic provider.chat() turn, collecting the full text (I6).
-
-    Same surface ops/review.py, ops/deep_research.py and ops/enrich_wikilinks.py use —
-    backend-neutral, no new ABC method, no isinstance/type branching.
-    """
-    from app.ingest.schemas import Message
-
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
-    return "".join(chunks).strip()
+# resolve_operation_provider, bounded_chat_collect, loads_json_lenient,
+# clean_str, coerce_int imported from app.ops._llm (BE-DUP-1 fix).
 
 
 # ── Prompt + parse ──────────────────────────────────────────────────────────────
@@ -2611,7 +2573,7 @@ def _parse_findings(raw: str, existing_titles: list[str] | None = None) -> list[
     """
     if not raw:
         return []
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if obj is None:
         return []
     if isinstance(obj, dict):
@@ -2642,13 +2604,13 @@ def _parse_findings(raw: str, existing_titles: list[str] | None = None) -> list[
         category = entry.get("category") or entry.get("type")
         if category not in semantic_categories:
             continue
-        description = _clean_str(entry.get("description"))
+        description = clean_str(entry.get("description"))
         if not description:
             continue
-        severity = _clean_str(entry.get("severity")) or "warning"
+        severity = clean_str(entry.get("severity")) or "warning"
         if severity not in _VALID_SEVERITIES:
             severity = "warning"
-        target_title = _clean_str(entry.get("target_title"))
+        target_title = clean_str(entry.get("target_title"))
         proposed_action: str | None = None
         if category == "missing-page" and target_title:
             # llm_wiki parity guard: drop "create" findings for pages that already exist.
@@ -2681,48 +2643,3 @@ def _title_from_description(description: str) -> str | None:
             if len(parts) >= 3 and parts[1].strip():
                 return parts[1].strip()
     return None
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """Best-effort JSON parse tolerant of ```json fences / surrounding prose. None on failure."""
-    if not raw:
-        return None
-    text = raw.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
-
-
-def _clean_str(value: Any) -> str | None:
-    """Return a stripped non-empty string, or None."""
-    if isinstance(value, str):
-        s = value.strip()
-        return s or None
-    return None
-
-
-def _coerce_int(raw: Any, fallback: int) -> int:
-    """Coerce a provider-row token_budget (possibly None/Any) to int, else *fallback*."""
-    if raw is None:
-        return fallback
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return fallback
-    return value or fallback

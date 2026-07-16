@@ -680,7 +680,7 @@ class TestI7Bounds:
         provider = _make_findings_provider(calls_log=calls_log)
 
         with patch(
-            "app.ops.lint._resolve_lint_provider",
+            "app.ops.lint.resolve_operation_provider",
             return_value=(provider, MagicMock(token_budget=1_000_000)),
         ):
             from app.ops.lint import run_lint_scan
@@ -709,7 +709,7 @@ class TestI7Bounds:
         with (
             patch.object(UsageAccumulator, "__init__", _patched_init),
             patch(
-                "app.ops.lint._resolve_lint_provider",
+                "app.ops.lint.resolve_operation_provider",
                 return_value=(provider, MagicMock(token_budget=10)),
             ),
         ):
@@ -723,7 +723,7 @@ class TestI7Bounds:
 
     async def test_total_cost_logged_on_run_row(self, lint_env: dict[str, Any]) -> None:
         """T-LINT-004 / T-LINT-016: total_cost_usd persisted; status never left 'running'."""
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             from app.ops.lint import run_lint_scan
 
             result = await run_lint_scan("test-vault", max_iter=2, token_budget=20_000)
@@ -759,7 +759,7 @@ class TestHumanGate:
             bump_called.append(1)
 
         with (
-            patch("app.ops.lint._resolve_lint_provider", return_value=None),
+            patch("app.ops.lint.resolve_operation_provider", return_value=None),
             patch("app.ingest.orchestrator.bump_version", side_effect=_fake_bump),
         ):
             from app.ops.lint import run_lint_scan
@@ -999,7 +999,7 @@ class TestContradictionAuthoring:
             write_calls.append((page, origin))
             return MagicMock(id=uuid.uuid4())
 
-        monkeypatch.setattr("app.ops.lint._resolve_lint_provider", _fake_resolve)
+        monkeypatch.setattr("app.ops.lint.resolve_operation_provider", _fake_resolve)
         with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
@@ -1050,7 +1050,7 @@ class TestContradictionAuthoring:
             write_calls.append((page, origin))
             return MagicMock(id=uuid.uuid4())
 
-        monkeypatch.setattr("app.ops.lint._resolve_lint_provider", _resolve_none)
+        monkeypatch.setattr("app.ops.lint.resolve_operation_provider", _resolve_none)
         with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
@@ -1176,7 +1176,7 @@ class TestScanEndpoint:
         """T-LINT-013: POST /lint/scan returns the run + findings (orphan present)."""
         await _insert_page(lint_env, title="Lonely")
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200, resp.text
@@ -1194,7 +1194,7 @@ class TestScanEndpoint:
     async def test_runs_list_endpoint(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
     ) -> None:
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
         resp = await lint_client.get("/lint/runs?vault_id=test-vault")
         assert resp.status_code == 200
@@ -1409,7 +1409,7 @@ class TestBrokenWikilinkDetection:
             dangling=1,
         )
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200
@@ -1436,7 +1436,7 @@ class TestSemanticFalse:
         provider = _make_findings_provider(calls_log=calls_log)
 
         with patch(
-            "app.ops.lint._resolve_lint_provider",
+            "app.ops.lint.resolve_operation_provider",
             return_value=(provider, MagicMock(token_budget=1_000_000)),
         ):
             from app.ops.lint import run_lint_scan
@@ -1458,7 +1458,7 @@ class TestSemanticFalse:
         provider = _make_findings_provider(calls_log=calls_log)
 
         with patch(
-            "app.ops.lint._resolve_lint_provider",
+            "app.ops.lint.resolve_operation_provider",
             return_value=(provider, MagicMock(token_budget=1_000_000)),
         ):
             resp = await lint_client.post(
@@ -2018,7 +2018,7 @@ class TestNoOutlinksDetection:
         """L1: no-outlinks findings appear in POST /lint/scan response."""
         await _insert_page(lint_env, title="Isolated Page", file_path="wiki/entities/isolated.md")
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200
@@ -2605,7 +2605,7 @@ class TestSeverityInvariants:
         """L5: orphan-page findings from scan have severity=info."""
         await _insert_page(lint_env, title="Lone Page", file_path="wiki/entities/lone.md")
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200
@@ -2622,7 +2622,7 @@ class TestSeverityInvariants:
         """L5: no-outlinks findings from scan have severity=info."""
         await _insert_page(lint_env, title="No Links Page", file_path="wiki/entities/nolinks.md")
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200
@@ -2646,7 +2646,7 @@ class TestSeverityInvariants:
             dangling=1,
         )
 
-        with patch("app.ops.lint._resolve_lint_provider", return_value=None):
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
             resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault"})
 
         assert resp.status_code == 200

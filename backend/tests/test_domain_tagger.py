@@ -142,13 +142,13 @@ async def test_classify_truncates_long_content() -> None:
 
     import app.ingest.domain_tagger as mod
 
-    orig = mod._chat_collect
-    mod._chat_collect = spy_collect  # type: ignore[assignment]
+    orig = mod.bounded_chat_collect
+    mod.bounded_chat_collect = spy_collect  # type: ignore[assignment]
     try:
         provider = _make_provider('{"domains": []}')
         await classify_page_domains(provider, "T", "X" * 10_000, VOCAB)
     finally:
-        mod._chat_collect = orig  # type: ignore[assignment]
+        mod.bounded_chat_collect = orig  # type: ignore[assignment]
     # The body excerpt is capped at ~4k chars (§3.3).
     assert captured["instruction"].count("X") <= dt_mod._CONTENT_CHAR_CAP
 

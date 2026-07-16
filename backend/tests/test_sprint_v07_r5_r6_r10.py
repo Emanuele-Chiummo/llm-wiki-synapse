@@ -259,13 +259,13 @@ class TestR75DeepResearchUsesSeedsVerbatim:
         provider.bind_accumulator = MagicMock()
 
         async def _mock_resolve(vault_id: str) -> Any:
-            return provider
+            return (provider, None)
 
         with (
             patch("app.ops.deep_research._generate_queries", side_effect=_spy_generate),
             patch("app.ops.deep_research._search_searxng", side_effect=_mock_searxng),
             patch("app.ops.deep_research._fetch_and_extract", side_effect=_mock_fetch),
-            patch("app.ops.deep_research._resolve_provider", side_effect=_mock_resolve),
+            patch("app.ops.deep_research.resolve_operation_provider", side_effect=_mock_resolve),
             patch("app.ops.deep_research._create_run_row", new=AsyncMock()),
             patch("app.ops.deep_research._update_run_iterations", new=AsyncMock()),
             patch("app.ops.deep_research._update_run_sources", new=AsyncMock()),

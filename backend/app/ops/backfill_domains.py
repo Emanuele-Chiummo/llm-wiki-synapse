@@ -30,8 +30,8 @@ from typing import Any
 
 from app.config import settings
 from app.db import get_session
-from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ops._llm import resolve_operation_provider
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ async def run_backfill(
             _state.last_summary = summary
             return summary
 
-        resolved = await _resolve_provider(vault_id)
+        resolved = await resolve_operation_provider(vault_id)
         if resolved is None:
             summary.stopped_reason = "error"
             logger.warning(
@@ -303,29 +303,3 @@ async def _load_candidate_pages(vault_id: str, max_pages: int) -> list[Any]:
         for r in rows:
             session.expunge(r)
     return rows
-
-
-async def _resolve_provider(vault_id: str) -> tuple[InferenceProvider, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6 — no hardcoded backend; "no
-    provider" → None). Mirrors ops/enrich_wikilinks.py::_resolve_provider.
-    """
-    from app.provider_config_service import (  # noqa: PLC0415
-        ConfigNotFoundError,
-        resolve_provider_config,
-    )
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("backfill-domains: provider resolution failed (vault=%s): %s", vault_id, exc)
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("backfill-domains: provider build failed (vault=%s): %s", vault_id, exc)
-        return None
-    return provider, config_row

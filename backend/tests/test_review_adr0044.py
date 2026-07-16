@@ -552,15 +552,17 @@ async def test_B_single_provider_call(env: dict[str, Any], monkeypatch: pytest.M
 
     call_counter = {"n": 0}
 
-    async def _counting_chat(provider: Any, instruction: str) -> str:
+    async def _counting_chat(
+        provider: Any, instruction: str, *, use_complete: bool = False, max_tokens: Any = None
+    ) -> str:
         call_counter["n"] += 1
         return '{"proposals": [{"type":"suggestion","proposed_title":"P","rationale":"r"}]}'
 
     # Force the gate to pass + a resolvable provider; count _chat_collect calls.
-    monkeypatch.setattr(review_mod, "_chat_collect", _counting_chat)
+    monkeypatch.setattr(review_mod, "bounded_chat_collect", _counting_chat)
     monkeypatch.setattr(
         review_mod,
-        "_resolve_review_provider",
+        "resolve_operation_provider",
         AsyncMock(return_value=(object(), type("Cfg", (), {"token_budget": 4000})())),
     )
 
@@ -574,7 +576,7 @@ async def test_B_single_provider_call(env: dict[str, Any], monkeypatch: pytest.M
     fake_provider = type("P", (), {"bind_accumulator": lambda self, a: None})()
     monkeypatch.setattr(
         review_mod,
-        "_resolve_review_provider",
+        "resolve_operation_provider",
         AsyncMock(return_value=(fake_provider, type("Cfg", (), {"token_budget": 4000})())),
     )
 

@@ -86,10 +86,10 @@ def _fake_config_row(*, max_iter: int = 3, token_budget: int = 60_000) -> Any:
 
 
 def _patch_resolve(provider: Any, config_row: Any | None = None) -> Any:
-    """Patch _resolve_review_provider to return (provider, config_row)."""
+    """Patch resolve_operation_provider to return (provider, config_row)."""
     cfg = config_row or _fake_config_row()
     return patch(
-        "app.ops.review._resolve_review_provider",
+        "app.ops.review.resolve_operation_provider",
         new=AsyncMock(return_value=(provider, cfg)),
     )
 
@@ -232,7 +232,7 @@ class TestProposeBounded:
         from app.ops import review as review_mod
 
         with patch(
-            "app.ops.review._resolve_review_provider",
+            "app.ops.review.resolve_operation_provider",
             new=AsyncMock(return_value=None),
         ):
             out = await review_mod._llm_propose_reviews(
@@ -635,7 +635,7 @@ class TestSweepJudge:
         from app.ops import review as review_mod
 
         with patch(
-            "app.ops.review._resolve_review_provider",
+            "app.ops.review.resolve_operation_provider",
             new=AsyncMock(return_value=None),
         ):
             out = await review_mod._llm_sweep_judge(
