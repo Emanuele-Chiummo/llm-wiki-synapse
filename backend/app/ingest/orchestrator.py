@@ -73,7 +73,7 @@ from app.config import settings
 # ``orch.<name>`` from the extracted modules + monkeypatched on this module; the redundant
 # ``as`` alias marks them as an explicit re-export (mypy --no-implicit-reexport) (1.7.0 PR2).
 from app.db import get_session as get_session
-from app.embeddings import get_embedding_client
+from app.embeddings import EmbeddingError, get_embedding_client
 from app.ingest.provider import resolve_provider as resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 
@@ -1187,7 +1187,23 @@ async def upsert_vector(
         return
 
     client = get_embedding_client()
-    vector = await client.embed(text)
+    try:
+        vector = await client.embed(text)
+    except EmbeddingError as exc:
+        # Degrade to a vector-less page (I1/I7): a token-dense body the embedding server rejects
+        # (bge-m3 context 500, even after the client's bounded shrink-retry) must NOT abort the
+        # whole document ingest. The page is already fully indexed by the caller (Postgres
+        # metadata, K5 wikilinks, K4 log, dataVersion) — it just lacks a dense Qdrant vector, so
+        # retrieval still finds it via the graph-expansion + lexical phases. Only EmbeddingError
+        # is swallowed; a Qdrant/upsert failure below still surfaces.
+        logger.warning(
+            "upsert_vector: embedding failed for page_id=%s (file_path=%s) — persisting a "
+            "vector-less page (no Qdrant point). reason=%s",
+            page_id,
+            file_path,
+            exc,
+        )
+        return
     await upsert_point(
         page_id=page_id,
         vector=vector,
