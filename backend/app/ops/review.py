@@ -53,6 +53,14 @@ from app.config import settings
 from app.db import get_session
 from app.ingest.schemas import PageType, type_subdir
 from app.models import Page, ReviewItem, VaultState
+from app.ops._llm import (
+    bounded_chat_collect,
+    clean_str,
+    clean_str_list,
+    coerce_int,
+    loads_json_lenient,
+    resolve_operation_provider,
+)
 
 if TYPE_CHECKING:
     from app.ingest.schemas import Analysis, WikiPage
@@ -336,7 +344,7 @@ async def _llm_propose_reviews(
       List of ProposalDTO (0..N, capped at review_propose_max_items).
     """
     # ── Resolve provider (I6 — never hardcode; "no provider" → []) ───────────────
-    resolved = await _resolve_review_provider(vault_id)
+    resolved = await resolve_operation_provider(vault_id)
     if resolved is None:
         logger.debug(
             "_llm_propose_reviews: no ingest provider resolved (vault=%s) — "
@@ -350,7 +358,7 @@ async def _llm_propose_reviews(
         _AI_PROPOSE_MAX_ITEMS,
         max(0, int(getattr(settings, "review_propose_max_items", _AI_PROPOSE_MAX_ITEMS))),
     )
-    token_budget = _coerce_token_budget(
+    token_budget = coerce_int(
         getattr(config_row, "token_budget", None),
         int(getattr(settings, "review_propose_token_budget", 4_000)),
     )
@@ -373,7 +381,9 @@ async def _llm_propose_reviews(
 
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
     try:
-        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+        raw = await asyncio.wait_for(
+            bounded_chat_collect(provider, instruction, use_complete=True), timeout=timeout_s
+        )
     except TimeoutError:
         logger.warning(
             "_llm_propose_reviews: provider call timed out after %.1fs (vault=%s) — "
@@ -456,7 +466,7 @@ async def _llm_sweep_judge(
     judgeable = judgeable[:max_items]
 
     # ── Resolve provider (I6 — "no provider" → keep all pending) ─────────────────
-    resolved = await _resolve_review_provider(vault_id)
+    resolved = await resolve_operation_provider(vault_id)
     if resolved is None:
         logger.debug(
             "_llm_sweep_judge: no ingest provider resolved (vault=%s) — keep all pending (I6)",
@@ -465,7 +475,7 @@ async def _llm_sweep_judge(
         return set()
     provider, config_row = resolved
 
-    token_budget = _coerce_token_budget(
+    token_budget = coerce_int(
         getattr(config_row, "token_budget", None),
         int(getattr(settings, "review_sweep_llm_token_budget", 4_000)),
     )
@@ -486,7 +496,9 @@ async def _llm_sweep_judge(
 
     # ── ONE bounded batched call, no loop (I7) ───────────────────────────────────
     try:
-        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+        raw = await asyncio.wait_for(
+            bounded_chat_collect(provider, instruction, use_complete=True), timeout=timeout_s
+        )
     except TimeoutError:
         logger.warning(
             "_llm_sweep_judge: provider call timed out after %.1fs (vault=%s) — "
@@ -1003,7 +1015,7 @@ async def generate_purpose_suggestion(
         purpose_text = ""
 
     # ── Resolve provider (I6 — no provider → None, zero cost) ────────────────────
-    resolved = await _resolve_review_provider(vault_id)
+    resolved = await resolve_operation_provider(vault_id)
     if resolved is None:
         logger.debug(
             "generate_purpose_suggestion: no ingest provider resolved (vault=%s) — skip (I6)",
@@ -1030,7 +1042,7 @@ async def generate_purpose_suggestion(
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
     try:
         raw = await asyncio.wait_for(
-            _chat_collect(provider, instruction, max_tokens=max_tokens),
+            bounded_chat_collect(provider, instruction, use_complete=True, max_tokens=max_tokens),
             timeout=timeout_s,
         )
     except TimeoutError:
@@ -1228,7 +1240,7 @@ async def generate_schema_suggestion(
         schema_text = ""
 
     # ── Resolve provider (I6 — no provider → None, zero cost) ────────────────────
-    resolved = await _resolve_review_provider(vault_id)
+    resolved = await resolve_operation_provider(vault_id)
     if resolved is None:
         logger.debug(
             "generate_schema_suggestion: no ingest provider resolved (vault=%s) — skip (I6)",
@@ -1254,7 +1266,7 @@ async def generate_schema_suggestion(
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
     try:
         raw = await asyncio.wait_for(
-            _chat_collect(provider, instruction, max_tokens=max_tokens),
+            bounded_chat_collect(provider, instruction, use_complete=True, max_tokens=max_tokens),
             timeout=timeout_s,
         )
     except TimeoutError:
@@ -1374,18 +1386,18 @@ def _parse_schema_pattern(raw: str) -> tuple[str, str, str] | None:
     """
     if not raw:
         return None
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if not isinstance(obj, dict):
         return None
     # Explicit no-change, or missing change fields → no suggestion.
     if obj.get("needs_change") is False:
         return None
-    convention = _clean_str(obj.get("convention"))
-    addition = _clean_str(obj.get("addition"))
+    convention = clean_str(obj.get("convention"))
+    addition = clean_str(obj.get("addition"))
     if not convention or not addition:
         return None
     why = (
-        _clean_str(obj.get("why"))
+        clean_str(obj.get("why"))
         or f"Recurring frontmatter convention not in schema: {convention}."
     )
     return convention, why, addition
@@ -1593,17 +1605,17 @@ def _parse_purpose_drift(raw: str) -> tuple[str, str, str] | None:
     """
     if not raw:
         return None
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if not isinstance(obj, dict):
         return None
     # Explicit in-scope, or missing drift fields → no suggestion.
     if obj.get("in_scope") is True:
         return None
-    theme = _clean_str(obj.get("theme"))
-    addition = _clean_str(obj.get("addition"))
+    theme = clean_str(obj.get("theme"))
+    addition = clean_str(obj.get("addition"))
     if not theme or not addition:
         return None
-    why = _clean_str(obj.get("why")) or f"New recurring theme not covered by purpose: {theme}."
+    why = clean_str(obj.get("why")) or f"New recurring theme not covered by purpose: {theme}."
     return theme, why, addition
 
 
@@ -3346,7 +3358,7 @@ def _first_search_query(raw: Any) -> str | None:
     if not isinstance(raw, list):
         return None
     for entry in raw:
-        s = _clean_str(entry)
+        s = clean_str(entry)
         if s:
             return s
     return None
@@ -3365,7 +3377,7 @@ def _all_search_queries(raw: Any) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for entry in raw:
-        s = _clean_str(entry)
+        s = clean_str(entry)
         if s is None or s in seen:
             continue
         seen.add(s)
@@ -3541,80 +3553,9 @@ async def deep_research(
 
 
 # ── AI seam private helpers (ai-agent-engineer) ───────────────────────────────
-
-
-async def _resolve_review_provider(vault_id: str) -> tuple[Any, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6) for the proposal/sweep calls.
-
-    Returns (provider, config_row) or None when no provider_config resolves / DB unavailable.
-    NEVER hardcodes a backend; NEVER branches on isinstance/type/class-name (I6).
-    Mirrors the resolution in ops/deep_research.py and ingest/orchestrator.py.
-    """
-    from app.ingest.provider import resolve_provider
-    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_resolve_review_provider: provider resolution failed (vault=%s): %s", vault_id, exc
-        )
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "_resolve_review_provider: provider build failed (vault=%s): %s", vault_id, exc
-        )
-        return None
-    return provider, config_row
-
-
-def _coerce_token_budget(raw: Any, fallback: int) -> int:
-    """Coerce a provider-row token_budget (possibly None/Any) to int, else *fallback*."""
-    if raw is None:
-        return fallback
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return fallback
-    return value or fallback
-
-
-_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS = 2048
-
-
-async def _chat_collect(provider: Any, instruction: str, *, max_tokens: int | None = None) -> str:
-    """
-    Run ONE single-turn ``provider.complete()`` call and return the text (I6).
-
-    Uses ``complete()`` (single-turn, no tools) rather than ``chat()``: the agentic CLI provider's
-    ``chat()`` seam runs a full agent loop that HANGS and times out on a one-shot judging/proposing
-    call (the same reason the block ingest loop and overview regen use ``complete()`` — ADR-0076).
-    All providers implement ``complete()``; it is backend-neutral (no isinstance/type branch, I6).
-    Usage is recorded out of band onto the bound accumulator by the provider.
-
-    ``max_tokens`` bounds the output (defaults to ``_DEFAULT_REVIEW_COMPLETE_MAX_TOKENS`` when the
-    caller does not set one). Combined with the single call + no retry + the caller's ``wait_for``
-    timeout, this caps the call cost regardless of backend. A belt-and-suspenders ~4 chars/token
-    truncation preserves the historical hard char bound.
-    """
-    cap = max_tokens if max_tokens else _DEFAULT_REVIEW_COMPLETE_MAX_TOKENS
-    raw = await provider.complete(
-        instruction,
-        "Respond now, following the instructions above exactly. "
-        "Output only what was requested — no preamble, no chain-of-thought.",
-        max_tokens=cap,
-    )
-    text = str(raw).strip()
-    char_cap = cap * 4
-    if len(text) > char_cap:
-        text = text[:char_cap]
-    return text
+# resolve_operation_provider, bounded_chat_collect (use_complete=True for review),
+# loads_json_lenient, clean_str, clean_str_list, coerce_int
+# are all imported from app.ops._llm (BE-DUP-1 fix).
 
 
 def _read_bounded_page_excerpt(path: Path, cap: int) -> str:
@@ -3802,7 +3743,7 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
     """
     if not raw:
         return []
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if obj is None:
         return []
 
@@ -3822,7 +3763,7 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
         item_type = entry.get("type") or entry.get("item_type")
         if item_type not in _VALID_ITEM_TYPES:
             continue
-        proposed_type = _clean_str(entry.get("proposed_page_type"))
+        proposed_type = clean_str(entry.get("proposed_page_type"))
         # Provider JSON is untrusted boundary input. Only valid non-source user-content types
         # survive; invalid/source hints degrade to the deterministic cue heuristic.
         if proposed_type is not None:
@@ -3835,18 +3776,18 @@ def _parse_proposals(raw: str) -> list[ProposalDTO]:
         # cap lengths). These ride the SAME single call — no extra provider round-trip.
         ref_max = int(getattr(settings, "review_referenced_pages_max", 8))
         query_max = int(getattr(settings, "review_search_queries_max", 3))
-        referenced = _clean_str_list(
+        referenced = clean_str_list(
             entry.get("referenced_page_titles") or entry.get("referenced_pages"),
             cap=ref_max,
         )
-        queries = _clean_str_list(entry.get("search_queries"), cap=query_max)
+        queries = clean_str_list(entry.get("search_queries"), cap=query_max)
         out.append(
             ProposalDTO(
                 item_type=item_type,
-                proposed_title=_clean_str(entry.get("proposed_title")),
+                proposed_title=clean_str(entry.get("proposed_title")),
                 proposed_page_type=proposed_type,
-                rationale=_clean_str(entry.get("rationale")),
-                target_page_title=_clean_str(entry.get("target_page_title")),
+                rationale=clean_str(entry.get("rationale")),
+                target_page_title=clean_str(entry.get("target_page_title")),
                 referenced_page_titles=referenced,
                 search_queries=queries,
             )
@@ -3898,7 +3839,7 @@ def _parse_sweep_verdicts(raw: str, by_id: dict[str, ReviewItem]) -> set[str]:
     """
     if not raw:
         return set()
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if obj is None:
         return set()
 
@@ -3912,65 +3853,6 @@ def _parse_sweep_verdicts(raw: str, by_id: dict[str, ReviewItem]) -> set[str]:
         return set()
 
     return {str(x) for x in ids_raw if str(x) in by_id}
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """
-    Best-effort JSON parse tolerant of ```json fences / surrounding prose. Returns the parsed
-    value (dict/list/...) or None on failure. Never raises (degrade-safe for the AI seams).
-    """
-    text = raw.strip()
-    if text.startswith("```"):
-        # Strip the first fenced block.
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    # Try object slice, then array slice.
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
-
-
-def _clean_str(value: Any) -> str | None:
-    """Return a stripped non-empty string, or None."""
-    if isinstance(value, str):
-        s = value.strip()
-        return s or None
-    return None
-
-
-def _clean_str_list(value: Any, *, cap: int) -> list[str]:
-    """
-    Tolerant parse of a JSON list into a bounded list of stripped non-empty strings (ADR-0044).
-
-    Drops non-strings and empties; de-dups preserving order; truncates to *cap* (I7).
-    Anything that is not a list → []. Never raises (degrade-safe for the AI seam).
-    """
-    if not isinstance(value, list):
-        return []
-    out: list[str] = []
-    seen: set[str] = set()
-    for entry in value:
-        s = _clean_str(entry)
-        if s is None or s in seen:
-            continue
-        seen.add(s)
-        out.append(s)
-        if len(out) >= cap:
-            break
-    return out
 
 
 # nashsu/llm_wiki detectPageType cue vocabulary (review-create-page.ts:57-67). Substring match
