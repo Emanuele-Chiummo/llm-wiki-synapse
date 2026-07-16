@@ -2306,7 +2306,7 @@ function SynthesizeNudge({ overview, synthesizeStatus, onTriggered }: Synthesize
           data-testid="home-synthesize-review-cta"
           onClick={() => handleTrigger("review-only")}
           disabled={triggeringMode !== null || done}
-          className="syn-button syn-button--ghost"
+          className="syn-btn syn-btn--ghost"
           style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
         >
           {triggeringMode === "review-only"
