@@ -873,6 +873,13 @@ class IngestRun(Base):
         ),
     )
 
+    # BE-PERF-8: the run-list poll (GET /ingest/runs) and the monthly cost scan
+    # (costs.get_monthly_cost_usd) both filter WHERE vault_id = ? ORDER BY started_at DESC —
+    # with no index at all this forced a seq-scan + sort on every request. Same composite
+    # pattern already used by the sibling audit-ledger tables (ix_deep_research_runs_vault_started,
+    # ix_lint_runs_vault_created). Migration 0034 (BE-PERF-8).
+    __table_args__ = (Index("ix_ingest_runs_vault_started", "vault_id", "started_at"),)
+
     def __repr__(self) -> str:
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
