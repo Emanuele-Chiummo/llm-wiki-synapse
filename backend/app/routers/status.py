@@ -20,6 +20,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# BE-PERF-10: memoize the resolved supports_vision capability, keyed on the provider_config
+# generation counter (app.provider_config_service.get_config_version — bumped by every
+# provider_config create/update/delete). /status is polled ~every 30s (I3, NavRail badge);
+# re-resolving provider_config (up to 3 queries) and instantiating a provider on every poll
+# just to read one boolean is unnecessary once the config hasn't changed. None means "not yet
+# computed" so the first poll after a (re)start still resolves fresh.
+_supports_vision_cache: tuple[int, bool] | None = None
+
 
 class _LazyMain:
     """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
@@ -109,16 +117,26 @@ async def get_status() -> StatusResponse:
 
     # B2-C1: probe active chat provider for supports_vision capability.
     # Resolved via the normal provider abstraction (I6). Failure → False (safe default).
-    supports_vision = False
-    try:
-        from app.ingest.provider import resolve_provider
-        from app.provider_config_service import resolve_provider_config
+    # BE-PERF-10: memoized on the provider_config generation counter — skips the up-to-3
+    # resolver queries + provider instantiation on every /status poll when nothing changed.
+    global _supports_vision_cache  # noqa: PLW0603
+    from app.provider_config_service import get_config_version
 
-        config_row = await resolve_provider_config("chat", settings.vault_id)
-        provider = resolve_provider(config_row)
-        supports_vision = bool(provider.capabilities().supports_vision)
-    except Exception:  # noqa: BLE001  — ConfigNotFoundError, ImportError, any startup lag
+    current_cfg_version = get_config_version()
+    if _supports_vision_cache is not None and _supports_vision_cache[0] == current_cfg_version:
+        supports_vision = _supports_vision_cache[1]
+    else:
         supports_vision = False
+        try:
+            from app.ingest.provider import resolve_provider
+            from app.provider_config_service import resolve_provider_config
+
+            config_row = await resolve_provider_config("chat", settings.vault_id)
+            provider = resolve_provider(config_row)
+            supports_vision = bool(provider.capabilities().supports_vision)
+        except Exception:  # noqa: BLE001  — ConfigNotFoundError, ImportError, any startup lag
+            supports_vision = False
+        _supports_vision_cache = (current_cfg_version, supports_vision)
 
     now = datetime.now(UTC)
     uptime = (now - _m._started_at).total_seconds()

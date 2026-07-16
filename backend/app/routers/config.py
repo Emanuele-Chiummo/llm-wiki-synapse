@@ -56,6 +56,7 @@ from app.config_overrides import (
 from app.import_scheduler import ImportScheduler, load_schedule, upsert_schedule
 from app.mcp.server import mcp as _mcp_server
 from app.models import ImportSchedule, ProviderConfig, VaultState
+from app.provider_config_service import bump_config_version
 from app.provider_vendors import VENDORS, VendorInfo
 
 logger = logging.getLogger(__name__)
@@ -784,6 +785,9 @@ async def create_provider_config(body: ProviderConfigCreate) -> ProviderConfigRe
         await session.refresh(row)
         response = _provider_config_to_response(row)
 
+    # BE-PERF-10: invalidate GET /status's memoized supports_vision (and any other
+    # provider_config-derived memo) now that a row was created/re-activated.
+    bump_config_version()
     return response
 
 
@@ -865,6 +869,9 @@ async def update_provider_config(
         await session.refresh(row)
         response = _provider_config_to_response(row)
 
+    # BE-PERF-10: invalidate GET /status's memoized supports_vision (and any other
+    # provider_config-derived memo) now that this row was updated.
+    bump_config_version()
     return response
 
 
@@ -896,6 +903,10 @@ async def delete_provider_config(config_id: uuid.UUID) -> None:
             status_code=404,
             detail=f"provider_config {config_id} not found",
         )
+
+    # BE-PERF-10: invalidate GET /status's memoized supports_vision (and any other
+    # provider_config-derived memo) now that this row was deleted.
+    bump_config_version()
 
 
 # ── GET /provider/vendors — W1 vendor catalog (Settings UI) ───────────────────

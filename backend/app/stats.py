@@ -38,6 +38,7 @@ Invariants:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -48,12 +49,13 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, literal_column, select
+from sqlalchemy import text as sa_text
 
 from app.config import settings
 from app.config_overrides import effective_domain_vocabulary
 from app.db import get_session
 from app.graph.engine import GROUP_LABEL_EXCLUDED_TYPES
-from app.models import Edge, LintFinding, Page, ReviewItem, VaultState
+from app.models import Edge, Page, VaultState
 
 logger = logging.getLogger(__name__)
 
@@ -153,81 +155,76 @@ async def get_stats_overview() -> JSONResponse:
         "stats/overview: cache MISS (data_version=%d month=%s)", current_version, month_key
     )
 
-    async with get_session() as session:
-        # ── pages_total + pages_by_type ───────────────────────────────────────
-        type_rows = (
-            await session.execute(
-                select(
-                    Page.page_type,
-                    func.count().label("cnt"),
-                )
-                .where(
-                    Page.vault_id == vault_id,
-                    Page.deleted_at.is_(None),
-                )
-                .group_by(Page.page_type)
-            )
-        ).all()
+    # ── BE-PERF-6: 4 independent read groups, each in its OWN session so they run
+    # CONCURRENTLY via asyncio.gather instead of paying their round-trip latency
+    # sequentially. Within each group, counts that can be combined into ONE query
+    # (links_total / communities_count / review_pending / lint_open) are consolidated
+    # into a single 4-column scalar-subquery SELECT instead of 4 separate COUNT queries —
+    # cuts the previous ~11 sequential queries down to 1 (data_version, already read
+    # above) + 4 concurrent groups.
+    month_start, month_end = _current_month_bounds()
 
+    async def _fetch_type_counts() -> tuple[dict[str, int], int]:
+        async with get_session() as session:
+            type_rows = (
+                await session.execute(
+                    select(
+                        Page.page_type,
+                        func.count().label("cnt"),
+                    )
+                    .where(
+                        Page.vault_id == vault_id,
+                        Page.deleted_at.is_(None),
+                    )
+                    .group_by(Page.page_type)
+                )
+            ).all()
         pages_by_type: dict[str, int] = {}
         pages_total = 0
         for row in type_rows:
             key = row.page_type if row.page_type is not None else "untyped"
             pages_by_type[key] = row.cnt
             pages_total += row.cnt
+        return pages_by_type, pages_total
 
-        # ── links_total (count of structural edges — ADR-0016) ────────────────
-        links_total_row = await session.execute(
-            select(func.count()).select_from(Edge).where(Edge.vault_id == vault_id)
+    async def _fetch_counts() -> tuple[int, int, int, int]:
+        # Consolidated: links_total / communities_count / review_pending / lint_open in
+        # ONE round trip via 4 scalar subqueries (portable — plain COUNT, no dialect-
+        # specific date/grouping syntax) instead of 4 separate SELECT statements.
+        sql = sa_text(
+            "SELECT "
+            "(SELECT COUNT(*) FROM edges WHERE vault_id = :vid) AS links_total, "
+            "(SELECT COUNT(DISTINCT community) FROM pages "
+            " WHERE vault_id = :vid AND deleted_at IS NULL AND community IS NOT NULL) "
+            " AS communities_count, "
+            "(SELECT COUNT(*) FROM review_items WHERE vault_id = :vid AND status = 'pending') "
+            " AS review_pending, "
+            "(SELECT COUNT(*) FROM lint_findings WHERE vault_id = :vid AND status = 'open') "
+            " AS lint_open"
         )
-        links_total: int = links_total_row.scalar_one()
-
-        # ── communities_count (COUNT DISTINCT pages.community) ────────────────
-        communities_row = await session.execute(
-            select(func.count(func.distinct(Page.community))).where(
-                Page.vault_id == vault_id,
-                Page.deleted_at.is_(None),
-                Page.community.is_not(None),
-            )
+        async with get_session() as session:
+            row = (await session.execute(sql.bindparams(vid=vault_id))).one()
+        return (
+            int(row.links_total or 0),
+            int(row.communities_count or 0),
+            int(row.review_pending or 0),
+            int(row.lint_open or 0),
         )
-        communities_count: int = communities_row.scalar_one()
 
-        # ── review_pending ────────────────────────────────────────────────────
-        review_row = await session.execute(
-            select(func.count())
-            .select_from(ReviewItem)
-            .where(
-                ReviewItem.vault_id == vault_id,
-                ReviewItem.status == "pending",
-            )
-        )
-        review_pending: int = review_row.scalar_one()
-
-        # ── lint_open ─────────────────────────────────────────────────────────
-        lint_row = await session.execute(
-            select(func.count())
-            .select_from(LintFinding)
-            .where(
-                LintFinding.vault_id == vault_id,
-                LintFinding.status == "open",
-            )
-        )
-        lint_open: int = lint_row.scalar_one()
-
-        # ── recent_activity (last 10 by updated_at) ───────────────────────────
-        recent_rows = (
-            await session.execute(
-                select(Page.id, Page.title, Page.updated_at)
-                .where(
-                    Page.vault_id == vault_id,
-                    Page.deleted_at.is_(None),
+    async def _fetch_recent_activity() -> list[dict[str, Any]]:
+        async with get_session() as session:
+            recent_rows = (
+                await session.execute(
+                    select(Page.id, Page.title, Page.updated_at)
+                    .where(
+                        Page.vault_id == vault_id,
+                        Page.deleted_at.is_(None),
+                    )
+                    .order_by(Page.updated_at.desc())
+                    .limit(10)
                 )
-                .order_by(Page.updated_at.desc())
-                .limit(10)
-            )
-        ).all()
-
-        recent_activity = [
+            ).all()
+        return [
             {
                 "page_id": str(row.id),
                 "title": row.title or "",
@@ -237,9 +234,22 @@ async def get_stats_overview() -> JSONResponse:
             for row in recent_rows
         ]
 
+    async def _fetch_monthly_cost() -> float:
         # ── monthly_cost_usd — REUSED shared helper (AC-R12-1-3) ─────────────
-        month_start, month_end = _current_month_bounds()
-        monthly_cost_usd = await get_monthly_cost_usd(session, vault_id, month_start, month_end)
+        async with get_session() as session:
+            return await get_monthly_cost_usd(session, vault_id, month_start, month_end)
+
+    (
+        (pages_by_type, pages_total),
+        (links_total, communities_count, review_pending, lint_open),
+        recent_activity,
+        monthly_cost_usd,
+    ) = await asyncio.gather(
+        _fetch_type_counts(),
+        _fetch_counts(),
+        _fetch_recent_activity(),
+        _fetch_monthly_cost(),
+    )
 
     payload: dict[str, Any] = {
         "pages_total": pages_total,

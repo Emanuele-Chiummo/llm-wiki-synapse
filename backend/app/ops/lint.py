@@ -968,8 +968,14 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
             if not dangling_rows:
                 return out
 
-            # Build resolver maps ONCE for all suggestions (I1 — no N+1).
-            from app.wiki.links import resolve_suggested_target
+            # BE-PERF-1: build resolver maps ONCE for the WHOLE scan (one full-table SELECT
+            # over live pages), not once per dangling link. The previous code called
+            # resolve_suggested_target(target_text, session) INSIDE this loop, which rebuilt
+            # _build_resolver_maps (a full-table page query) on every iteration — up to
+            # _BROKEN_SCAN_MAX_LINKS (1000) redundant SELECTs per scan.
+            from app.wiki.links import _build_resolver_maps, resolve_suggested_target_with_maps
+
+            maps = await _build_resolver_maps(session, vault_id)
 
             # within-scan dedup set: (source_page_id_str, target_text).
             # NOTE: the previous cross-run dedup (skip if an OPEN broken-wikilink already exists)
@@ -978,6 +984,21 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
             # redundant AND harmful (it would skip re-emitting a finding that supersede then
             # closes → the finding vanishes). Within-scan dedup is all that's needed now.
             seen_within_scan: set[tuple[str, str]] = set()
+
+            # Collect the distinct dangling target texts up front so the (pure CPU)
+            # fuzzy-suggestion work for ALL of them can run in a SINGLE asyncio.to_thread call
+            # (BE-PERF-1) instead of blocking the event loop once per link. Levenshtein scoring
+            # against every live page title is O(links × pages) in the worst case — with
+            # _BROKEN_SCAN_MAX_LINKS=1000 links this can be ~2M synchronous string-distance ops,
+            # which must never run inline on the event loop (would stall chat/status polling).
+            unique_targets = sorted({row[2] for row in dangling_rows if row[2]})
+
+            def _compute_suggestions(
+                targets: list[str],
+            ) -> dict[str, tuple[uuid.UUID, str] | None]:
+                return {t: resolve_suggested_target_with_maps(t, maps) for t in targets}
+
+            suggestions_by_target = await asyncio.to_thread(_compute_suggestions, unique_targets)
 
             for _link_id, source_page_id, target_text, referencing_title in dangling_rows:
                 if not target_text:
@@ -995,8 +1016,8 @@ async def _detect_broken_wikilinks(vault_id: str) -> list[FindingDTO]:
                     f"Broken link: [[{target_text}]] — target page not found. " f"(in {ref_title})"
                 )
 
-                # L2: tolerant resolver for suggestion
-                suggestion = await resolve_suggested_target(target_text, session)
+                # L2: tolerant resolver for suggestion — pre-computed above (BE-PERF-1).
+                suggestion = suggestions_by_target.get(target_text)
                 suggested_target: str | None = None
                 suggested_page_id: uuid.UUID | None = None
                 proposed_action: str | None = None

@@ -873,6 +873,13 @@ class IngestRun(Base):
         ),
     )
 
+    # BE-PERF-8: the run-list poll (GET /ingest/runs) and the monthly cost scan
+    # (costs.get_monthly_cost_usd) both filter WHERE vault_id = ? ORDER BY started_at DESC —
+    # with no index at all this forced a seq-scan + sort on every request. Same composite
+    # pattern already used by the sibling audit-ledger tables (ix_deep_research_runs_vault_started,
+    # ix_lint_runs_vault_created). Migration 0034 (BE-PERF-8).
+    __table_args__ = (Index("ix_ingest_runs_vault_started", "vault_id", "started_at"),)
+
     def __repr__(self) -> str:
         return (
             f"<IngestRun provider={self.provider_name!r} route={self.route!r} "
@@ -1130,6 +1137,24 @@ class Link(Base):
         nullable=False,
         server_default=func.now(),
         comment="Row creation time",
+    )
+
+    # BE-DEBT-13: these indexes were previously declared ONLY in Alembic migrations
+    # (0002, 0033) and absent here — a model/schema drift (I8). No new migration needed;
+    # both are already applied to the live DB. Declared here purely so `make er` /
+    # scripts/generate_er.py reflect the true live schema (D2 source-of-truth, CLAUDE.md §9).
+    __table_args__ = (
+        # migration 0002 — retrieve all links from a given source page (K5).
+        Index("ix_links_source_page_id", "source_page_id"),
+        # migration 0002 — look up links resolving to a specific target page (v0.3 graph edges).
+        Index("ix_links_target_page_id", "target_page_id"),
+        # migration 0033 (BE-PERF-11) — dangling rows are a small minority of all links;
+        # keeps reresolve_dangling_links' vault-scoped join small regardless of table size.
+        Index(
+            "ix_links_dangling_source_page_id",
+            "source_page_id",
+            postgresql_where=sa_text("dangling = true"),
+        ),
     )
 
     def __repr__(self) -> str:
