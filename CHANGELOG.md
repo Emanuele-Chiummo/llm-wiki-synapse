@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.7.3] — 2026-07-16 — "cleanup: drop personal deployment references from the UI"
+
+### Changed
+- **Genericized user-facing text that leaked a homelab-specific detail.** The Ollama row in
+  Settings → AI & Providers described the local server as "Local Ollama server **(RTX 3060)**" — a
+  personal-config leftover that shouldn't ship in the product. It now reads simply "Local Ollama
+  server". Incidental hardware/IP references in code comments were genericized too (the Ollama
+  provider docstring and a specific LAN IP in a frontend comment). Deployment docs (compose /
+  `DEPLOY.md`) intentionally keep their TrueNAS references — they document the target platform.
+
 ## [1.7.2] — 2026-07-16 — "knowledge-graph fixes: file-slug links, hidden aggregates, node click-to-open"
 
 Patch release: three real knowledge-graph defects found while validating a clean re-ingest of a
@@ -1098,6 +1108,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.7.3]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0
