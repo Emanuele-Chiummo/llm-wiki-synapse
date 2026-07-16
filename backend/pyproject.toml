@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "synapse-backend"
-version = "1.7.3"
+version = "1.7.4"
 description = "Synapse — The self-hosted LLM wiki that turns your sources into connected knowledge."
 requires-python = ">=3.11"
 dependencies = [
