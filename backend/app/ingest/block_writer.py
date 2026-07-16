@@ -43,7 +43,12 @@ __all__ = ["write_block_page"]
 
 # App-managed aggregate pages the model must never write (llm_wiki writeFileBlocks step 2 —
 # ingest.ts:1793). Compared case-insensitively on the wiki-relative path.
-_APP_MANAGED_AGGREGATES: frozenset[str] = frozenset({"wiki/index.md", "wiki/overview.md"})
+# log.md is included: it is code-appended (append_log, K4) with one "## [date] ingest | <source>"
+# entry per ingest. Letting the model emit a log.md block overwrote that file (destroying its
+# frontmatter and mixing a second, schema-described format into it) — a real parity regression.
+_APP_MANAGED_AGGREGATES: frozenset[str] = frozenset(
+    {"wiki/index.md", "wiki/overview.md", "wiki/log.md"}
+)
 
 
 async def write_block_page(
@@ -143,7 +148,10 @@ async def write_block_page(
         title=title,
         page_type=page_type or None,
     )
-    await orch.append_log(normalized, page_type=page_type or "source", title=title)
+    # K4: ONE log line per ingest — only the source page. llm_wiki appends
+    # "## [date] ingest | <source title>" once per source, not once per generated page.
+    if page_type == "source":
+        await orch.append_log(normalized, title=title)
     await orch.bump_version()
 
     # K5: parse + persist wikilinks from the body (incremental, I1 — F4 direct-link ×3 edges).

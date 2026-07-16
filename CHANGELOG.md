@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [1.7.3] — 2026-07-16 — "cleanup: drop personal deployment references from the UI"
+## [1.7.3] — 2026-07-16 — "log/index parity fixes + UI cleanup"
+
+### Fixed
+- **`wiki/log.md` was corrupted by the block-ingest path.** Three issues compounded: the model's
+  `log.md` block was not dropped (only `index.md`/`overview.md` were), so it overwrote the
+  code-managed log and destroyed its frontmatter; `schema.md` described a second, conflicting
+  "Log Format" the model then emitted; and `append_log` fired **once per generated page** (plus
+  bogus `## [date] ingest | wiki/log.md` / `| raw/sources/…` entries). Now `log.md` is app-managed
+  (its block is dropped), `schema.md` marks it auto-maintained, and the block path appends exactly
+  **one `## [YYYY-MM-DD] ingest | <source title>` entry per source** (llm_wiki parity). The
+  watcher's raw-wiki-page indexing still logs one line per file (unchanged).
+- **`index.md` counted and listed EVERY vault's pages, not the active vault's.** `update_index` ran
+  its page query without a `vault_id` filter (e.g. "Total pages: 278" on a 35-page vault) — the same
+  cross-vault leak class fixed for the graph resolver. The query is now vault-scoped.
 
 ### Changed
 - **Genericized user-facing text that leaked a homelab-specific detail.** The Ollama row in

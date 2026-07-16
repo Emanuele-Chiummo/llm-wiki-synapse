@@ -69,6 +69,33 @@ async def _run_update_index(rows: list[Any], tmp_path: Path) -> str:
     return index_path.read_text(encoding="utf-8")
 
 
+@pytest.mark.asyncio
+async def test_update_index_query_is_vault_scoped(tmp_path: Path) -> None:
+    """update_index MUST filter by vault_id. Without it, index.md counted EVERY vault's pages
+    (measured 278 across the DB vs 35 for the target vault) — the same cross-vault leak class as the
+    graph resolver. We assert the compiled WHERE carries the vault_id predicate."""
+    from app.wiki.index import update_index
+
+    captured: dict[str, str] = {}
+    mock_result = MagicMock()
+    mock_result.all.return_value = []
+
+    async def _capture(stmt: Any) -> Any:
+        captured["sql"] = str(stmt)
+        return mock_result
+
+    mock_session = MagicMock()
+    mock_session.execute = AsyncMock(side_effect=_capture)
+
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir(parents=True, exist_ok=True)
+    await update_index(mock_session, vault_path)
+
+    assert (
+        "vault_id" in captured["sql"].lower()
+    ), "update_index query must be vault-scoped (WHERE pages.vault_id = ...)"
+
+
 class TestIndexMdFrontmatter:
     @pytest.mark.asyncio
     async def test_valid_frontmatter_header(self, tmp_path: Path) -> None:
