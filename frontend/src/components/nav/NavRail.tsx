@@ -22,7 +22,7 @@
  * Icon size: 20px; inactive color var(--syn-text-dim); active var(--syn-accent).
  */
 
-import { useCallback, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   House,
@@ -138,6 +138,11 @@ export function NavRail() {
   // Pending review items — fed by the existing 30s /status poll via statusStore (I3).
   const reviewPending = useStatusStore(selectReviewPending);
 
+  // a11y-navrail: hold DOM refs for every rail button so arrow-key navigation
+  // can call .focus() on the newly-activated button without a full roving-tabindex
+  // rewrite. Keyed by Section id. Map is populated via RailButton's buttonRef prop.
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+
   const handleItemClick = useCallback(
     (item: RailItem) => {
       setActiveSection(item.id);
@@ -152,11 +157,18 @@ export function NavRail() {
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
         const next = allItems[(currentIdx + 1) % allItems.length];
-        if (next) setActiveSection(next.id);
+        if (next) {
+          setActiveSection(next.id);
+          // DOM focus follows the newly-activated button (WCAG 2.4.3 focus order).
+          buttonRefs.current.get(next.id)?.focus();
+        }
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
         const prev = allItems[(currentIdx - 1 + allItems.length) % allItems.length];
-        if (prev) setActiveSection(prev.id);
+        if (prev) {
+          setActiveSection(prev.id);
+          buttonRefs.current.get(prev.id)?.focus();
+        }
       }
     },
     [activeSection, setActiveSection],
@@ -196,6 +208,7 @@ export function NavRail() {
           getBadge={() => 0}
           t={t}
           onItemClick={handleItemClick}
+          buttonRefs={buttonRefs.current}
         />
 
         {/* SEE group — Wiki · Graph · Search · Deep Research */}
@@ -206,6 +219,7 @@ export function NavRail() {
           getBadge={() => 0}
           t={t}
           onItemClick={handleItemClick}
+          buttonRefs={buttonRefs.current}
         />
 
         {/* TEND group — Review · Lint · Ingest */}
@@ -218,6 +232,7 @@ export function NavRail() {
           }
           t={t}
           onItemClick={handleItemClick}
+          buttonRefs={buttonRefs.current}
         />
       </div>
 
@@ -231,6 +246,10 @@ export function NavRail() {
             badge={0}
             label={t(item.labelKey)}
             onClick={() => handleItemClick(item)}
+            buttonRef={(el) => {
+              if (el) buttonRefs.current.set(item.id, el);
+              else buttonRefs.current.delete(item.id);
+            }}
           />
         ))}
       </div>
@@ -247,6 +266,7 @@ interface RailGroupProps {
   getBadge: (id: string) => number;
   t: (key: string) => string;
   onItemClick: (item: RailItem) => void;
+  buttonRefs: Map<string, HTMLButtonElement>;
 }
 
 /**
@@ -254,7 +274,15 @@ interface RailGroupProps {
  * Group label: small uppercase mono text (aria-hidden, decorative).
  * Separator: 1px --syn-border line before the label.
  */
-function RailGroup({ labelKey, items, activeSection, getBadge, t, onItemClick }: RailGroupProps) {
+function RailGroup({
+  labelKey,
+  items,
+  activeSection,
+  getBadge,
+  t,
+  onItemClick,
+  buttonRefs,
+}: RailGroupProps) {
   return (
     <>
       {/* 1px separator above each group */}
@@ -307,6 +335,10 @@ function RailGroup({ labelKey, items, activeSection, getBadge, t, onItemClick }:
             badge={getBadge(item.id)}
             label={t(item.labelKey)}
             onClick={() => onItemClick(item)}
+            buttonRef={(el) => {
+              if (el) buttonRefs.set(item.id, el);
+              else buttonRefs.delete(item.id);
+            }}
           />
         ))}
       </div>
@@ -322,11 +354,14 @@ interface RailButtonProps {
   badge: number;
   label: string;
   onClick: () => void;
+  /** a11y-navrail: callback ref so NavRail can imperatively focus this button after arrow-key navigation. */
+  buttonRef?: (el: HTMLButtonElement | null) => void;
 }
 
-function RailButton({ item, isActive, badge, label, onClick }: RailButtonProps) {
+function RailButton({ item, isActive, badge, label, onClick, buttonRef }: RailButtonProps) {
   return (
     <button
+      ref={buttonRef}
       id={`nav-rail-${item.id}`}
       className={`nav-rail__item${isActive ? " nav-rail__item--active" : ""}`}
       data-section={item.id}

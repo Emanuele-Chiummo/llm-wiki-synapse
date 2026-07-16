@@ -1348,7 +1348,8 @@
     "pages": "Pagine",
     "hint": "↑↓ naviga · Invio apri · Esc chiudi",
     "trigger": "⌘K",
-    "searchHint": "Cerca o salta…"
+    "searchHint": "Cerca o salta…",
+    "openLabel": "Apri palette comandi"
   },
   "conversation": {
     "autoTitle": {

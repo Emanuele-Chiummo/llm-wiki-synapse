@@ -567,7 +567,7 @@ const CommunityPanel: React.FC<CommunityPanelProps> = ({
                 border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
                 borderRadius: 4,
                 fontSize: 11,
-                color: "var(--syn-amber)",
+                color: "var(--syn-warn-text)",
                 fontWeight: 500,
               }}
             >
@@ -1116,7 +1116,7 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
               data-testid="graph-header-hidden"
               style={{
                 fontSize: 11,
-                color: "var(--syn-amber)",
+                color: "var(--syn-warn-text)",
                 background: "color-mix(in srgb, var(--syn-amber) 12%, var(--syn-mix-base) 90%)",
                 border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent)",
                 borderRadius: 3,
@@ -1164,7 +1164,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                 background: "var(--syn-bg)",
                 color: "var(--syn-text)",
                 width: 160,
-                outline: "none",
               }}
             />
             {/* Clear / collapse button */}
@@ -1338,7 +1337,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                     borderRadius: 3,
                     background: "var(--syn-bg)",
                     color: "var(--syn-text)",
-                    outline: "none",
                   }}
                 />
                 <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>–</span>
@@ -1361,7 +1359,6 @@ const GraphHeader: React.FC<GraphHeaderProps> = ({
                     borderRadius: 3,
                     background: "var(--syn-bg)",
                     color: "var(--syn-text)",
-                    outline: "none",
                   }}
                 />
               </div>

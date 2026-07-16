@@ -5,7 +5,15 @@
  * Toast auto-dismisses after 4s. Reduced-motion: instant show/hide (no animation).
  */
 
-import { useState, useCallback, useRef, useEffect, type Dispatch, type SetStateAction } from "react";
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { useTranslation } from "react-i18next";
 
 export type ToastVariant = "success" | "error";
 
@@ -66,21 +74,41 @@ export function ToastHost() {
 // ─── ToastItem ─────────────────────────────────────────────────────────────────
 
 function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: number) => void }) {
+  const { t } = useTranslation();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
+  // Start the auto-dismiss countdown.
+  const startTimer = useCallback(() => {
     timerRef.current = setTimeout(() => onDismiss(toast.id), 4000);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [toast.id, onDismiss]);
+
+  // Clear the countdown without dismissing (pause on hover/focus).
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    startTimer();
+    return clearTimer;
+  }, [startTimer, clearTimer]);
 
   const isError = toast.variant === "error";
 
   // UXA-16: error toasts use role="alert" (assertive live region) so screen readers
   // announce them immediately. Informational toasts use role="status" (polite).
+  // a11y-toast (WCAG 2.2.1): hover or focus pauses the auto-dismiss timer;
+  // leaving or blurring restarts it so keyboard/pointer users can read the message.
   return (
     <div
       role={isError ? "alert" : "status"}
       className={`syn-section-notice syn-section-notice--${isError ? "danger" : "success"}`}
+      onMouseEnter={clearTimer}
+      onMouseLeave={startTimer}
+      onFocus={clearTimer}
+      onBlur={startTimer}
       style={{
         pointerEvents: "auto",
         display: "flex",
@@ -91,9 +119,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
         boxShadow: "var(--syn-shadow-pop)",
       }}
     >
-      <span style={{ fontSize: 14, flexShrink: 0 }}>
-        {isError ? "✕" : "✓"}
-      </span>
+      <span style={{ fontSize: 14, flexShrink: 0 }}>{isError ? "✕" : "✓"}</span>
       <span style={{ flex: 1 }}>{toast.message}</span>
       <button
         onClick={() => onDismiss(toast.id)}
@@ -107,7 +133,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: 
           padding: 0,
           flexShrink: 0,
         }}
-        aria-label="Close notification"
+        aria-label={t("common.close")}
       >
         ✕
       </button>

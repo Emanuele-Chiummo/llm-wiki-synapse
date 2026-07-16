@@ -1348,7 +1348,8 @@
     "pages": "Pages",
     "hint": "↑↓ navigate · Enter open · Esc close",
     "trigger": "⌘K",
-    "searchHint": "Search or jump…"
+    "searchHint": "Search or jump…",
+    "openLabel": "Open command palette"
   },
   "conversation": {
     "autoTitle": {
