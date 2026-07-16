@@ -117,6 +117,12 @@ class _ResolverMaps:
     # filename slug is what actually reconnects [[slug]] links into graph edges (F4). Defaulted so
     # existing direct constructors / test fakes keep working.
     by_fileslug: dict[str, uuid.UUID] = field(default_factory=dict)
+    # Reverse id → canonical title (BE-PERF-1). Each page id has exactly one title, so this is
+    # an unambiguous 1:1 reverse of by_title — built alongside it in _build_resolver_maps so
+    # resolve_suggested_target_with_maps never needs an O(n) linear scan of by_title to recover
+    # the display title for a resolved id. Defaulted so existing direct constructors / test
+    # fakes keep working.
+    id_to_title: dict[uuid.UUID, str] = field(default_factory=dict)
 
 
 async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _ResolverMaps:
@@ -146,6 +152,7 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
     by_lower: dict[str, uuid.UUID] = {}
     by_slug: dict[str, uuid.UUID] = {}
     by_fileslug: dict[str, uuid.UUID] = {}
+    id_to_title: dict[uuid.UUID, str] = {}
     for row in result.all():
         # Attribute access (row.id/row.title) works for both SQLAlchemy Row and test fakes.
         pid = row.id
@@ -155,6 +162,9 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
         by_title.setdefault(title, pid)
         by_lower.setdefault(title.lower(), pid)
         by_slug.setdefault(_slugify(title), pid)
+        # id → title is unambiguous 1:1 (each page id has exactly one title) — direct
+        # assignment, no setdefault needed (BE-PERF-1 — O(1) reverse lookup).
+        id_to_title[pid] = title
         # Index the filename slug too — the identifier [[wikilinks]] actually use. getattr keeps
         # test fakes that only expose id/title working (they contribute no fileslug entry).
         file_path = getattr(row, "file_path", None)
@@ -166,7 +176,11 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
             if fileslug:
                 by_fileslug.setdefault(fileslug, pid)
     return _ResolverMaps(
-        by_title=by_title, by_lower=by_lower, by_slug=by_slug, by_fileslug=by_fileslug
+        by_title=by_title,
+        by_lower=by_lower,
+        by_slug=by_slug,
+        by_fileslug=by_fileslug,
+        id_to_title=id_to_title,
     )
 
 
@@ -292,6 +306,11 @@ def _fuzzy_suggest_target(target: str, maps: _ResolverMaps) -> tuple[uuid.UUID, 
             best_score = score
             best_id = pid
             best_title = title
+            # BE-PERF-1: 1.0 (exact-normalized) and _SAME_BASENAME_SCORE (0.96) are the two
+            # highest scores _string_similarity can ever return — nothing later in the
+            # iteration can beat them, so stop scanning the remaining titles early.
+            if best_score >= _SAME_BASENAME_SCORE:
+                break
     if best_id is None or best_title is None or best_score < _BROKEN_LINK_SUGGESTION_MIN_SCORE:
         return None
     return best_id, best_title
@@ -367,6 +386,46 @@ async def persist_links(
 # the resolver maps independently (I1 — one bulk query, no N+1).
 
 
+def resolve_suggested_target_with_maps(
+    target: str,
+    maps: _ResolverMaps,
+) -> tuple[uuid.UUID, str] | None:
+    """
+    Pure, synchronous core of :func:`resolve_suggested_target` (BE-PERF-1).
+
+    Resolve *target* to the best-matching live page using the tolerant 3-step matcher
+    (exact → case-insensitive → slug), then a typo-tolerant fuzzy fallback (L2b). Returns
+    ``(page_id, matched_title)`` or ``None`` when nothing clears the fuzzy threshold.
+
+    No DB I/O and no session — the caller supplies resolver *maps* built ONCE (e.g. once per
+    lint scan across up to ``_BROKEN_SCAN_MAX_LINKS`` dangling links, instead of once per
+    link). This function is pure CPU work (string scoring, no I/O) — callers that invoke it in
+    a per-item loop should run the whole loop inside ``asyncio.to_thread`` so the event loop is
+    never blocked by O(links × pages) Levenshtein scoring (BE-PERF-1).
+    """
+    hit = _resolve_target(target, maps)
+    if hit is None:
+        # L2b — exact/case/slug all missed; try the typo-tolerant fuzzy repair candidate.
+        return _fuzzy_suggest_target(target, maps)
+    # O(1) reverse lookup — id_to_title is an unambiguous 1:1 map built alongside by_title in
+    # _build_resolver_maps (BE-PERF-1: avoids an O(n) scan of by_title per resolved link).
+    title = maps.id_to_title.get(hit)
+    if title is not None:
+        return hit, title
+    # Defensive fallback for hand-built _ResolverMaps (e.g. test fakes) that omit id_to_title.
+    for title2, pid in maps.by_title.items():
+        if pid == hit:
+            return hit, title2
+    for title2, pid in maps.by_lower.items():
+        if pid == hit:
+            canonical = next(
+                (t for t, p in maps.by_title.items() if p == hit),
+                title2,
+            )
+            return hit, canonical
+    return hit, target  # last resort — return the raw target as the "title"
+
+
 async def resolve_suggested_target(
     target: str,
     session: AsyncSession,
@@ -379,30 +438,13 @@ async def resolve_suggested_target(
     Builds the resolver maps in ONE query (I1 — no N+1).  Scoped to ALL live pages
     (vault-agnostic, matching the behaviour of persist_links and reresolve_dangling_links).
 
-    Used by the broken-wikilink scan (L2) to compute suggested_target/suggested_page_id.
-    A dangling link means the exact matcher already missed, so the fuzzy fallback is what
-    actually surfaces "did you mean [[Transformer]]?" re-point suggestions (llm_wiki
-    suggestBrokenTarget parity) instead of forcing a stub page for every typo.
+    Convenience wrapper for CALLERS THAT RESOLVE A SINGLE TARGET (e.g. contradiction-page
+    resolution). Callers that resolve MANY targets in a loop (e.g. the broken-wikilink scan)
+    MUST instead build the maps once via ``_build_resolver_maps`` and call
+    ``resolve_suggested_target_with_maps`` directly — see BE-PERF-1.
     """
     maps = await _build_resolver_maps(session, settings.vault_id)
-    hit = _resolve_target(target, maps)
-    if hit is None:
-        # L2b — exact/case/slug all missed; try the typo-tolerant fuzzy repair candidate.
-        return _fuzzy_suggest_target(target, maps)
-    # Reverse-look-up the canonical title from the exact map (first-hit-wins, conservative).
-    for title, pid in maps.by_title.items():
-        if pid == hit:
-            return hit, title
-    # Fallback: scan by_lower and by_slug to find a displayable title when exact missed.
-    for title, pid in maps.by_lower.items():
-        if pid == hit:
-            # Recover the canonical-case title from by_title (same id).
-            canonical = next(
-                (t for t, p in maps.by_title.items() if p == hit),
-                title,
-            )
-            return hit, canonical
-    return hit, target  # last resort — return the raw target as the "title"
+    return resolve_suggested_target_with_maps(target, maps)
 
 
 # ── Backfill: re-resolve historical dangling links (F3/K3) ──────────────────────
