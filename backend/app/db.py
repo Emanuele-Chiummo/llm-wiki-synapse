@@ -57,3 +57,16 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 async def dispose_engine() -> None:
     """Dispose the connection pool (called on shutdown)."""
     await engine.dispose()
+
+
+def is_postgres_session(session: AsyncSession) -> bool:
+    """
+    True when *session* is bound to a Postgres engine (asyncpg), False otherwise (SQLite tests).
+
+    ``AsyncSession.get_bind()`` is a synchronous, no-I/O call (BE-PERF-4) — safe to use on the
+    hot path to pick a dialect-appropriate SQL form: Postgres can index-scan a UUID column
+    when compared against a ``CAST(:param AS UUID)`` bind, whereas casting the COLUMN to TEXT
+    (the previously portable-but-slow pattern) forces a sequential scan. SQLite has no native
+    UUID type and stores ids as TEXT, so it keeps the ``CAST(col AS TEXT) = :param`` form.
+    """
+    return session.get_bind().dialect.name == "postgresql"

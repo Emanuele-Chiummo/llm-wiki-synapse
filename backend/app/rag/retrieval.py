@@ -85,7 +85,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.config_overrides import effective_bool
-from app.db import get_session
+from app.db import get_session, is_postgres_session
 from app.embeddings import get_embedding_client
 from app.qdrant_client import get_qdrant_client
 
@@ -611,15 +611,30 @@ async def _expand_frontier(
     # S608 is suppressed: only app-generated bind-name placeholders (":f0,:f1,…") are
     # interpolated — the frontier ids travel as bound params, never as SQL text, so this is
     # not a user-input injection vector. Same justification for link_sql / page_sql below.
-    # Cast UUID columns to text so the string-typed frontier binds compare cleanly: asyncpg
-    # sends the placeholders as VARCHAR and Postgres has no implicit `uuid = varchar` operator
-    # (else: UndefinedFunctionError). CAST(... AS TEXT) is portable — equivalent to ::text on
-    # Postgres and valid on SQLite (tests), unlike the Postgres-only ::text shorthand. The
-    # frontier is small (k * fan-out), so the lost index use on edges/links is immaterial here.
-    in_clause = (
-        f"(CAST(source_page_id AS TEXT) IN ({placeholders}) "
-        f"OR CAST(target_page_id AS TEXT) IN ({placeholders}))"
-    )
+    #
+    # BE-PERF-4: this hop runs on EVERY chat retrieval call (Phase 2), against the full
+    # ``edges``/``links`` tables (filtered only by ``vault_id``), so it is a hot path — not
+    # the "immaterial" one-off the old comment claimed. The previous form cast the COLUMN to
+    # TEXT (``CAST(source_page_id AS TEXT) IN (...)``), which forces Postgres to seq-scan and
+    # cast every row instead of using ``ix_edges_source_page_id`` / ``ix_edges_target_page_id``
+    # (measured ~330x slower on a 200k-row table: 22.6ms seq scan vs 0.07ms bitmap index scan).
+    # On Postgres we instead cast the PARAMETER to ``uuid`` so the comparison hits the native
+    # column type and its index. SQLite (tests) has no UUID type and stores ids as TEXT, and
+    # ``CAST(text AS UUID)`` is UNSAFE there (SQLite falls back to NUMERIC affinity for an
+    # unrecognized type name and can silently parse a UUID's leading digits as scientific
+    # notation, e.g. "123e4567-..." → inf) — so SQLite keeps the original portable
+    # ``CAST(col AS TEXT)`` form unchanged (zero behaviour change on the test path).
+    if is_postgres_session(sess):
+        cast_placeholders = ",".join(f"CAST(:f{i} AS UUID)" for i in range(len(frontier_list)))
+        in_clause = (
+            f"(source_page_id IN ({cast_placeholders}) "
+            f"OR target_page_id IN ({cast_placeholders}))"
+        )
+    else:
+        in_clause = (
+            f"(CAST(source_page_id AS TEXT) IN ({placeholders}) "
+            f"OR CAST(target_page_id AS TEXT) IN ({placeholders}))"
+        )
     edge_sql = (
         f"SELECT source_page_id, target_page_id, weight FROM edges "  # noqa: S608
         f"WHERE vault_id = :vid AND {in_clause} ORDER BY weight DESC"
@@ -733,21 +748,27 @@ async def _phase4_assemble(
         page_ids, session, type_filter=type_filter or [], exclude_stub_pages=exclude_stub_pages
     )
 
+    # BE-PERF-12: candidates that survived the meta gate, still in rank order. The source-file
+    # reads below have NO cross-candidate dependency (each is a single targeted file read, I1),
+    # so they are fetched CONCURRENTLY via asyncio.gather — bounded by len(ranked), which is
+    # already capped by k * expansion_depth (I7) — instead of paying serial disk latency once
+    # per candidate on every chat turn. The budget/drop decision loop below stays sequential and
+    # rank-ordered (unchanged semantics), it just consumes the pre-fetched passages.
+    surviving = [(cand, meta[cand.page_id]) for cand in ranked if cand.page_id in meta]
+    passages = await asyncio.gather(
+        *(_load_passage(info["file_path"], cap=per_passage_cap) for _, info in surviving)
+    )
+
     parts: list[str] = []
     citations: list[Citation] = []
     used_chars = 0
     n = 0
 
-    for cand in ranked:
-        info = meta.get(cand.page_id)
-        if info is None:
-            continue  # page vanished (soft-deleted/race) — skip, do not cite
-
+    for (cand, info), passage in zip(surviving, passages, strict=True):
         title = info["title"]
         # CG-A1: compact page path exposed in the header so the model can reference it in prose.
         disp = _display_path(info["file_path"])
         header = f"[{n + 1}] {title} ({disp})" if disp else f"[{n + 1}] {title}"
-        passage = await _load_passage(info["file_path"], cap=per_passage_cap)
         if not passage:
             continue  # unreadable/empty source — skip rather than cite an empty passage
 
@@ -893,9 +914,16 @@ async def _load_page_meta(
 
     async def _run(sess: AsyncSession) -> dict[str, dict[str, Any]]:
         # S608 suppressed: app-generated bind placeholders (":p0,:p1,…") only — ids are bound.
-        # CAST(id AS TEXT) — page_ids arrive as strings; without the cast Postgres rejects
-        # `uuid = varchar` (UndefinedFunctionError). CAST is portable (Postgres + SQLite),
-        # unlike Postgres-only ::text. Same fix as _expand_frontier.
+        #
+        # BE-PERF-4: this runs on EVERY chat retrieval (Phase 4, one call per turn). The old
+        # ``CAST(id AS TEXT) IN (...)`` form casts every row's PK to text before comparing,
+        # which prevents Postgres from using the ``pages`` primary-key index — measured ~650x
+        # slower on a 200k-row table (18.7ms seq scan vs 0.03ms index scan). On Postgres we
+        # cast the PARAMETERS to ``uuid`` instead so the comparison hits the PK index directly.
+        # SQLite (tests) keeps the original ``CAST(id AS TEXT) = :param`` form unchanged —
+        # ``CAST(text AS UUID)`` is unsafe there (SQLite has no UUID type; an unrecognized cast
+        # target falls back to NUMERIC affinity and can misparse a UUID's leading digits as a
+        # float, e.g. "123e4567-..." → inf). Same fix as _expand_frontier.
         #
         # R7-8 (AC-R7-8-1): citation assembly is restricted to wiki/ pages only.
         # raw/ documents are source material, not citable wiki knowledge — they exist to
@@ -903,10 +931,18 @@ async def _load_page_meta(
         # results alongside synthesized wiki pages. The filter `file_path NOT LIKE 'raw/%'`
         # is portable SQL (works on both Postgres production and SQLite test engine).
         # See docs/adr/0049-retrieval-wiki-only-scope.md for the full rationale.
+        if is_postgres_session(sess):
+            id_clause = (
+                "AND id IN ("
+                + ",".join(f"CAST(:p{i} AS UUID)" for i in range(len(page_ids)))
+                + ") "
+            )
+        else:
+            id_clause = f"AND CAST(id AS TEXT) IN ({placeholders}) "
         page_sql = (
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
             f"WHERE deleted_at IS NULL "
-            f"AND CAST(id AS TEXT) IN ({placeholders}) "
+            f"{id_clause}"
             f"AND file_path NOT LIKE 'raw/%' "
             f"{type_clause}"
             f"{stub_clause}"
@@ -972,15 +1008,27 @@ async def _sort_citations_by_date(
     binds: dict[str, object] = {f"p{i}": pid for i, pid in enumerate(page_ids)}
 
     # S608: app-generated bind placeholders only — page_ids are already strings, not user input.
-    # CAST(id AS TEXT) is portable (Postgres + SQLite); CAST(updated_at AS TEXT) produces
-    # an ISO-8601 sortable string on both engines (SQLite stores timestamps as TEXT already;
-    # Postgres casts TIMESTAMPTZ to text in ISO format).
-    date_sql = (
-        f"SELECT CAST(id AS TEXT) AS pid, CAST(updated_at AS TEXT) AS ua FROM pages "  # noqa: S608
-        f"WHERE CAST(id AS TEXT) IN ({placeholders})"
-    )
-
+    # CAST(updated_at AS TEXT) produces an ISO-8601 sortable string on both engines (SQLite
+    # stores timestamps as TEXT already; Postgres casts TIMESTAMPTZ to text in ISO format) —
+    # that projection cast is unrelated to index use and stays unchanged.
+    #
+    # BE-PERF-4: the WHERE-side ``CAST(id AS TEXT) IN (...)`` prevented the ``pages`` PK index
+    # from being used on Postgres (same root cause as _load_page_meta). Cast the PARAMETERS to
+    # ``uuid`` on Postgres instead; SQLite keeps the original portable column-cast form (see
+    # _load_page_meta docstring for why casting the SQLite column to UUID would be unsafe).
     async def _run(sess: AsyncSession) -> dict[str, str]:
+        if is_postgres_session(sess):
+            id_clause = (
+                "WHERE id IN ("
+                + ",".join(f"CAST(:p{i} AS UUID)" for i in range(len(page_ids)))
+                + ")"
+            )
+        else:
+            id_clause = f"WHERE CAST(id AS TEXT) IN ({placeholders})"
+        date_sql = (
+            f"SELECT CAST(id AS TEXT) AS pid, CAST(updated_at AS TEXT) AS ua FROM pages "  # noqa: S608
+            f"{id_clause}"
+        )
         result = await sess.execute(sa_text(date_sql).bindparams(**binds))
         return {str(row._mapping["pid"]): str(row._mapping["ua"]) for row in result}
 
