@@ -90,6 +90,7 @@ class FakeQdrantClientAPI:
         query: list[float],
         limit: int,
         with_payload: bool,
+        query_filter: Any = None,
     ) -> MagicMock:
         """Return an empty QueryResponse (no Qdrant hits in API tests — search returns empty)."""
         resp = MagicMock()

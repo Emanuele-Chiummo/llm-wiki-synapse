@@ -462,6 +462,7 @@ async def _move_page(page: Any, new_rel_path: str) -> None:
         file_path=new_rel_path,
         title=page.title,
         page_type=page.page_type,
+        vault_id=page.vault_id,
     )
 
 

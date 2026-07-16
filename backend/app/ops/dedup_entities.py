@@ -564,6 +564,7 @@ async def _apply_cluster(
         file_path=canonical.file_path,
         title=canonical.title,
         page_type=canonical.page_type,
+        vault_id=canonical.vault_id,
     )
 
     # ── 6–8. Alias clean-up ────────────────────────────────────────────────────

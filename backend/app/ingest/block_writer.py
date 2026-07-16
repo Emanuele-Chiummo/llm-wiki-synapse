@@ -147,6 +147,7 @@ async def write_block_page(
         file_path=normalized,
         title=title,
         page_type=page_type or None,
+        vault_id=settings.vault_id,
     )
     # K4: ONE log line per ingest — only the source page. llm_wiki appends
     # "## [date] ingest | <source title>" once per source, not once per generated page.

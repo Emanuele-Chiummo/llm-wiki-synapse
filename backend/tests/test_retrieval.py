@@ -66,12 +66,14 @@ class _FakeQdrant:
         query: list[float],
         limit: int,
         with_payload: bool,
+        query_filter: Any = None,
     ) -> _FakeQueryResponse:
         self.calls.append(
             {
                 "collection_name": collection_name,
                 "limit": limit,
                 "with_payload": with_payload,
+                "query_filter": query_filter,
             }
         )
         return _FakeQueryResponse(self._points[:limit])
@@ -628,13 +630,13 @@ async def test_load_page_meta_excludes_query_stubs() -> None:
 
     ids = [concept_id, stub_id, genuine_q_id]
     async with factory() as sess:
-        kept = await _load_page_meta(ids, sess, exclude_stub_pages=True)
+        kept = await _load_page_meta(ids, sess, vault_id=VAULT, exclude_stub_pages=True)
     assert concept_id in kept
     assert genuine_q_id in kept, "a genuine query (no stub/lint tags) must NOT be excluded"
     assert stub_id not in kept, "a type=query stub (tags stub+lint) must be excluded"
 
     async with factory() as sess:
-        default_meta = await _load_page_meta(ids, sess, exclude_stub_pages=False)
+        default_meta = await _load_page_meta(ids, sess, vault_id=VAULT, exclude_stub_pages=False)
     assert stub_id in default_meta, "default (False) keeps stubs — search path unchanged"
 
     await engine.dispose()

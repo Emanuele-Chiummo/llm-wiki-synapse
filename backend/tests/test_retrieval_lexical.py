@@ -67,6 +67,7 @@ class _CountingQdrant:
         query: list[float],
         limit: int,
         with_payload: bool,
+        query_filter: Any = None,
     ) -> _FakeQueryResponse:
         self.call_count += 1
         return _FakeQueryResponse(self._points[:limit])
