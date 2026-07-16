@@ -504,7 +504,8 @@ async def get_graph() -> Response:
       - The background debounce (GraphCache) keeps the common case a HIT.
       - Coords are precomputed server-side via igraph (R9, I9) — never on the client.
     """
-    # Read the current data_version (lightweight SELECT)
+    # Read the current data_version (lightweight SELECT) — the one query that stays
+    # unconditional: it's what tells us whether this request is even a candidate HIT.
     async with _m.get_session() as session:
         row = await session.execute(
             select(VaultState).where(VaultState.vault_id == settings.vault_id)
@@ -512,53 +513,74 @@ async def get_graph() -> Response:
         state = row.scalar_one_or_none()
         current_version: int = state.data_version if state is not None else 0
 
-        # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────
-        # total_nodes: GRAPH-ELIGIBLE live pages only. MUST mirror the engine's node
-        # inclusion rule (GRAPH_HIDDEN_PAGE_TYPES + GRAPH_RAW_PATH_LIKE, engine.py) or the
-        # "hidden" chip shows a phantom count: raw/ tracking rows and query pages are counted
-        # here but never shipped as nodes → hiddenCount = total − shipped is permanently > 0
-        # even with all UI filters off. (Bug: 233 "hidden" on a source-heavy vault.)
-        total_nodes: int = int(
-            (
-                await session.execute(
-                    select(func.count())
-                    .select_from(Page)
-                    .where(
-                        Page.vault_id == settings.vault_id,
-                        Page.deleted_at.is_(None),
-                        Page.file_path.notlike(GRAPH_RAW_PATH_LIKE),
-                        # NULL-safe: an untyped page (page_type IS NULL) is graph-eligible,
-                        # matching the engine's Python check `None not in HIDDEN_TYPES`.
-                        # A bare NOT IN would drop NULL rows (SQL: NULL NOT IN (...) → NULL).
-                        or_(
-                            Page.page_type.is_(None),
-                            Page.page_type.notin_(GRAPH_HIDDEN_PAGE_TYPES),
-                        ),
-                    )
-                )
-            ).scalar_one()
-            or 0
-        )
-
-        # total_edges: all link rows whose source page belongs to this vault
-        # (Link has no direct vault_id; join to pages on source_page_id — indexed FK).
-        # NOTE: left as the full wikilink count on purpose — the visible LINKS chip uses
-        # the shipped edge set (edges.length), not this field, so no eligibility filter is
-        # applied here (unlike total_nodes, which drives the "hidden" chip).
-        _links_count_row = await session.execute(
-            select(func.count())
-            .select_from(Link)
-            .join(Page, Link.source_page_id == Page.id)
-            .where(Page.vault_id == settings.vault_id)
-        )
-        total_edges: int = int(_links_count_row.scalar_one() or 0)
-
     # Initialise cache lazily (e.g. in test environments that bypass lifespan)
     if _m._graph_cache is None:
         _m._graph_cache = GraphCache(
             engine=GraphEngine(),
             vault_id=settings.vault_id,
         )
+
+    # BE-PERF-5 fast path: a pure cache HIT skips BOTH the totals COUNT queries below AND
+    # the Pydantic node/edge/community re-serialization — it's a direct byte-for-byte replay
+    # of the JSON body cached by the last store_response() call (invalidated together with
+    # the coords on every recompute / patch_node_position, see graph/cache.py).
+    cached_body = _m._graph_cache.get_cached_response(current_version)
+    if cached_body is not None:
+        return Response(
+            content=cached_body,
+            media_type="application/json",
+            headers={"X-Graph-Cache": "hit"},
+        )
+
+    # ── GR1 vault-wide totals — bounded indexed COUNT queries (I1) ─────────────────
+    # Skipped when get_cached_totals() still holds a value for current_version (e.g. the
+    # cached BODY was invalidated by a position patch, but row counts didn't change).
+    cached_totals = _m._graph_cache.get_cached_totals(current_version)
+    if cached_totals is not None:
+        total_nodes, total_edges = cached_totals
+    else:
+        async with _m.get_session() as session:
+            # total_nodes: GRAPH-ELIGIBLE live pages only. MUST mirror the engine's node
+            # inclusion rule (GRAPH_HIDDEN_PAGE_TYPES + GRAPH_RAW_PATH_LIKE, engine.py) or the
+            # "hidden" chip shows a phantom count: raw/ tracking rows and query pages are
+            # counted here but never shipped as nodes → hiddenCount = total − shipped is
+            # permanently > 0 even with all UI filters off. (Bug: 233 "hidden" on a
+            # source-heavy vault.)
+            total_nodes = int(
+                (
+                    await session.execute(
+                        select(func.count())
+                        .select_from(Page)
+                        .where(
+                            Page.vault_id == settings.vault_id,
+                            Page.deleted_at.is_(None),
+                            Page.file_path.notlike(GRAPH_RAW_PATH_LIKE),
+                            # NULL-safe: an untyped page (page_type IS NULL) is
+                            # graph-eligible, matching the engine's Python check
+                            # `None not in HIDDEN_TYPES`. A bare NOT IN would drop NULL
+                            # rows (SQL: NULL NOT IN (...) → NULL).
+                            or_(
+                                Page.page_type.is_(None),
+                                Page.page_type.notin_(GRAPH_HIDDEN_PAGE_TYPES),
+                            ),
+                        )
+                    )
+                ).scalar_one()
+                or 0
+            )
+
+            # total_edges: all link rows whose source page belongs to this vault
+            # (Link has no direct vault_id; join to pages on source_page_id — indexed FK).
+            # NOTE: left as the full wikilink count on purpose — the visible LINKS chip
+            # uses the shipped edge set (edges.length), not this field, so no eligibility
+            # filter is applied here (unlike total_nodes, which drives the "hidden" chip).
+            _links_count_row = await session.execute(
+                select(func.count())
+                .select_from(Link)
+                .join(Page, Link.source_page_id == Page.id)
+                .where(Page.vault_id == settings.vault_id)
+            )
+            total_edges = int(_links_count_row.scalar_one() or 0)
 
     snapshot, cached = await _m._graph_cache.get_graph(current_version)
 
@@ -610,9 +632,15 @@ async def get_graph() -> Response:
         total_edges=total_edges,
     )
 
+    body = payload.model_dump_json().encode("utf-8")
+    # BE-PERF-5: cache the serialized body + totals so the next matching GET is a pure-read
+    # HIT (get_cached_response fast path above) — no-op if a concurrent bump/recompute has
+    # already moved the marker past current_version (store_response guards on that).
+    _m._graph_cache.store_response(current_version, body, total_nodes, total_edges)
+
     cache_header = "hit" if cached else "miss"
     return Response(
-        content=payload.model_dump_json(),
+        content=body,
         media_type="application/json",
         headers={"X-Graph-Cache": cache_header},
     )

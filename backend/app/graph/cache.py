@@ -80,6 +80,15 @@ class GraphCache:
         self._in_flight: bool = False
         self._pending: bool = False
 
+        # BE-PERF-5: cached vault-wide totals (total_nodes/total_edges, the two indexed
+        # COUNT queries GET /graph otherwise re-runs on every request) and the fully
+        # pre-serialized JSON response body, both keyed to _marker. Invalidated together
+        # whenever the snapshot changes (fresh recompute) or its node positions are patched
+        # (patch_node_position) — see the invalidation points below.
+        self._total_nodes: int | None = None
+        self._total_edges: int | None = None
+        self._cached_body: bytes | None = None
+
         # Background asyncio task handle (prod only)
         self._bg_task: asyncio.Task[None] | None = None
 
@@ -136,6 +145,11 @@ class GraphCache:
                 snapshot = await self._engine.recompute(self._vault_id)
                 self._snapshot = snapshot
                 self._marker = version_before  # stamp with pre-recompute version (B8 fix)
+                # BE-PERF-5: totals + serialized body are stale after any recompute — the
+                # caller (GET /graph) repopulates them via store_response() on its next miss.
+                self._total_nodes = None
+                self._total_edges = None
+                self._cached_body = None
                 logger.info(
                     "GraphCache.tick: recompute done marker=%d nodes=%d edges=%d",
                     version_before,
@@ -199,6 +213,11 @@ class GraphCache:
                 self._snapshot = snapshot
                 self._marker = current_version
                 self._fire_at = None  # cancel any pending debounce — we just recomputed
+                # BE-PERF-5: totals + serialized body are stale after any recompute — the
+                # caller (GET /graph) repopulates them via store_response() below.
+                self._total_nodes = None
+                self._total_edges = None
+                self._cached_body = None
             except Exception:
                 logger.exception("GraphCache.get_graph: inline recompute failed")
                 # Return empty snapshot on failure; do not crash the endpoint
@@ -214,6 +233,61 @@ class GraphCache:
 
         assert self._snapshot is not None  # mypy
         return self._snapshot, False
+
+    def get_cached_response(self, current_version: int) -> bytes | None:
+        """
+        Return the fully pre-serialized ``GET /graph`` JSON body for a pure cache HIT
+        (BE-PERF-5), or ``None`` when the caller must (re)build it.
+
+        A non-``None`` result means: no totals COUNT queries and no Pydantic
+        node/edge/community re-serialization are needed — the caller can respond with the
+        cached bytes verbatim (``X-Graph-Cache: hit``).
+        """
+        if (
+            self._marker is not None
+            and self._marker == current_version
+            and self._snapshot is not None
+            and self._cached_body is not None
+        ):
+            return self._cached_body
+        return None
+
+    def get_cached_totals(self, current_version: int) -> tuple[int, int] | None:
+        """
+        Return cached ``(total_nodes, total_edges)`` (BE-PERF-5) when they still correspond
+        to *current_version*, or ``None`` when the caller must re-run the COUNT queries.
+
+        Totals stay valid across a ``patch_node_position`` call (a position patch changes no
+        row counts) even though ``get_cached_response`` is invalidated by it — so a drag-drop
+        interaction still skips the totals queries on its next GET.
+        """
+        if (
+            self._marker is not None
+            and self._marker == current_version
+            and self._total_nodes is not None
+            and self._total_edges is not None
+        ):
+            return self._total_nodes, self._total_edges
+        return None
+
+    def store_response(
+        self,
+        current_version: int,
+        body: bytes,
+        total_nodes: int,
+        total_edges: int,
+    ) -> None:
+        """
+        Cache the serialized JSON *body* and *total_nodes*/*total_edges* alongside the
+        snapshot marker (BE-PERF-5), so the next matching GET is a pure-read HIT.
+
+        No-op if *current_version* no longer matches ``_marker`` (a concurrent bump/recompute
+        raced ahead of this store) — never cache a response for a version that isn't current.
+        """
+        if self._marker == current_version:
+            self._cached_body = body
+            self._total_nodes = total_nodes
+            self._total_edges = total_edges
 
     def patch_node_position(self, node_id: str, x: float, y: float) -> bool:
         """
@@ -232,6 +306,12 @@ class GraphCache:
             if node.id == node_id:
                 node.x = x
                 node.y = y
+                # BE-PERF-5: the pre-serialized response body now has a stale (x, y) for this
+                # node — invalidate it so the next GET /graph rebuilds + re-caches the body.
+                # Totals (_total_nodes/_total_edges) are untouched: a position patch changes
+                # no row counts, so they stay valid and the next GET still skips the COUNT
+                # queries via get_cached_totals().
+                self._cached_body = None
                 logger.debug(
                     "GraphCache.patch_node_position: updated node_id=%s x=%.4f y=%.4f",
                     node_id,
