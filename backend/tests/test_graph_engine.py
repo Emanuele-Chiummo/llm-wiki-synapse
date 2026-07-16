@@ -799,6 +799,51 @@ class TestEdgeInclusionRule:
             "an edge under ADR-0016 sec 1 (type is a weight modulator, not an edge generator)"
         )
 
+    async def test_aggregate_page_types_excluded_from_nodes(
+        self, graph_db: tuple[Any, dict[str, str], str]
+    ) -> None:
+        """
+        index / log / overview are app-managed aggregate pages (catalogue / history / summary),
+        NOT knowledge nodes. They must be excluded from the graph — Synapse writes them outside
+        the link-persistence path, so otherwise they render as stray isolated dots. A normal
+        concept inserted alongside them still appears, proving only the aggregates are filtered.
+        """
+        engine_obj, p, vault_id = graph_db
+        session_factory = _get_session_factory(engine_obj)
+
+        agg_ids = {ptype: _uid() for ptype in ("index", "log", "overview")}
+        concept_id = _uid()
+        async with session_factory() as s:
+            for ptype, pid in agg_ids.items():
+                await _insert_page(
+                    s,
+                    page_id=pid,
+                    vault_id=vault_id,
+                    title=f"{ptype}-page",
+                    page_type=ptype,
+                    sources=[],
+                )
+            await _insert_page(
+                s,
+                page_id=concept_id,
+                vault_id=vault_id,
+                title="A Real Concept",
+                page_type="concept",
+                sources=[],
+            )
+            await s.commit()
+
+        from app.graph.engine import GRAPH_HIDDEN_PAGE_TYPES, GraphEngine
+
+        # Guard the constant (single source of truth shared with the /graph count query).
+        assert {"index", "log", "overview"}.issubset(GRAPH_HIDDEN_PAGE_TYPES)
+
+        snapshot = await GraphEngine().recompute(vault_id)
+        node_ids = {n.id for n in snapshot.nodes}
+        for ptype, pid in agg_ids.items():
+            assert pid not in node_ids, f"{ptype} page must be excluded from the graph"
+        assert concept_id in node_ids, "a real concept page must still be a graph node"
+
 
 class TestADR0016KindAndSize:
     """ADR-0016 sec 4: per-edge kind field + structural_degree drives size monotonically."""

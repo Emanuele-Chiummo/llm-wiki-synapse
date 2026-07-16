@@ -2285,6 +2285,10 @@ interface DragState {
   /** Viewport-space pointer position at drag start (for the movement threshold) */
   downX: number;
   downY: number;
+  /** Set when endDrag just handled a node CLICK. Sigma mis-classifies node clicks as stage clicks
+   *  (clickNode never fires; clickStage fires right after upNode), so without this the clickStage
+   *  handler would wipe the selection endDrag just made. clickStage consumes+resets this flag. */
+  suppressStageClick: boolean;
 }
 
 /**
@@ -2999,7 +3003,13 @@ export const GraphViewer: React.FC = () => {
     sigmaRef.current = sigma;
 
     // ── Drag state (closed-over plain object — no React re-render during drag) ─
-    const dragState: DragState = { draggedNode: null, hasMoved: false, downX: 0, downY: 0 };
+    const dragState: DragState = {
+      draggedNode: null,
+      hasMoved: false,
+      downX: 0,
+      downY: 0,
+      suppressStageClick: false,
+    };
 
     // ── Event handlers ────────────────────────────────────────────────────
     // Mutate hoverState / dragState in-place, then call refresh.
@@ -3029,8 +3039,11 @@ export const GraphViewer: React.FC = () => {
       dragState.downY = event.y;
       // Highlight the node visually during drag
       sigmaGraph.setNodeAttribute(node, "highlighted", true);
-      // Disable the mouse captor so the stage doesn't pan while we drag
-      sigma.getMouseCaptor().enabled = false;
+      // NB: do NOT disable the mouse captor here. The captor is what dispatches sigma's
+      // upNode / upStage / clickNode events; disabling it suppressed them, so endDrag never ran
+      // and click-to-open was silently dead (the node highlighted but the page never opened).
+      // Stage-pan during a node drag is prevented instead by event.preventSigmaDefault() in the
+      // moveBody handler below (the official sigma v3 node-drag pattern).
       sigma.refresh({ skipIndexation: true });
     });
 
@@ -3070,9 +3083,6 @@ export const GraphViewer: React.FC = () => {
       // Clear highlighted attribute
       sigmaGraph.setNodeAttribute(node, "highlighted", false);
 
-      // Re-enable mouse captor (panning / zooming restored)
-      sigma.getMouseCaptor().enabled = true;
-
       if (moved) {
         // Persist the new position to the backend (fire-and-forget).
         // I2: we are writing a USER-CHOSEN position back to the server, not
@@ -3088,6 +3098,20 @@ export const GraphViewer: React.FC = () => {
             console.warn("[GraphViewer] patchNodePosition failed:", err.message);
           }
         });
+      } else {
+        // No pointer movement between downNode and upNode → a genuine CLICK, not a drag.
+        // Open the clicked node's wiki page here (Obsidian-style). This MUST live in endDrag,
+        // not in sigma's `clickNode`: downNode disables the mouse captor so the stage doesn't pan
+        // while dragging, and a disabled captor suppresses `clickNode` emission — so relying on it
+        // left click-to-open silently broken (the node highlighted but the page never opened).
+        // endDrag always fires on upNode/upStage, so this is the reliable click seam.
+        // Sigma dispatches a clickStage right after this (it treats node clicks as stage clicks);
+        // flag it so that handler does NOT immediately wipe the selection we just set.
+        dragState.suppressStageClick = true;
+        hoverState.selectedNode = node;
+        setSelectedNodeId(node);
+        selectPage(node, "graph");
+        setActiveSection("pages");
       }
 
       dragState.draggedNode = null;
@@ -3098,14 +3122,14 @@ export const GraphViewer: React.FC = () => {
     sigma.on("upNode", endDrag);
     sigma.on("upStage", endDrag);
 
-    // ── Click (no drag) ───────────────────────────────────────────────────
-    // clickNode fires after upNode; only show the tooltip when the pointer
-    // did NOT move (i.e. it was a genuine click, not the end of a drag).
+    // ── Click (no drag) — FALLBACK ────────────────────────────────────────
+    // In this sigma setup clickNode does NOT fire for node clicks (sigma classifies them as stage
+    // clicks, so clickStage fires instead) — the real click-to-open seam is endDrag's !moved branch
+    // above. This handler stays as a harmless, idempotent fallback for any environment where
+    // clickNode DOES fire: same action, and it flags suppressStageClick so the follow-up clickStage
+    // does not wipe the just-opened selection.
     sigma.on("clickNode", ({ node }) => {
-      // sigma only fires clickNode when the pointer barely moved (a drag ends with upNode and does
-      // NOT fire clickNode), so a genuine click reaches here. Obsidian-style: open the clicked
-      // node's wiki page — select it and switch to the pages section, where NoteView renders it.
-      // (v1.5.2 — previously this only showed an info tooltip and the page never opened.)
+      dragState.suppressStageClick = true;
       hoverState.selectedNode = node;
       setSelectedNodeId(node);
       selectPage(node, "graph");
@@ -3113,6 +3137,13 @@ export const GraphViewer: React.FC = () => {
     });
 
     sigma.on("clickStage", () => {
+      // Consume the flag set by a node click in endDrag: sigma dispatches clickStage right after a
+      // node click, which would otherwise wipe the just-opened page. One suppressed clear per node
+      // click; genuine empty-stage clicks (no preceding node endDrag) still deselect normally.
+      if (dragState.suppressStageClick) {
+        dragState.suppressStageClick = false;
+        return;
+      }
       hoverState.selectedNode = null;
       setSelectedNodeId(null);
       setTooltip(null);

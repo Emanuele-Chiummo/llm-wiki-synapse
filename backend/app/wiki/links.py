@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
@@ -111,6 +111,12 @@ class _ResolverMaps:
     by_title: dict[str, uuid.UUID]  # exact Page.title → id
     by_lower: dict[str, uuid.UUID]  # lower(title) → id (first-hit-wins)
     by_slug: dict[str, uuid.UUID]  # _slugify(title) → id (first-hit-wins)
+    # file_path basename slug → id. The generation prompt mandates bare-slug wikilinks
+    # ([[multi-cloud-orchestration]]); a page is FILED under that slug but TITLED descriptively
+    # (often in another language), so _slugify(title) never reproduces the linked slug. Indexing the
+    # filename slug is what actually reconnects [[slug]] links into graph edges (F4). Defaulted so
+    # existing direct constructors / test fakes keep working.
+    by_fileslug: dict[str, uuid.UUID] = field(default_factory=dict)
 
 
 async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _ResolverMaps:
@@ -130,7 +136,7 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
     invents an ambiguous edge; the exact map always wins at resolution time anyway.
     """
     result = await session.execute(
-        select(Page.id, Page.title).where(
+        select(Page.id, Page.title, Page.file_path).where(
             Page.vault_id == vault_id,
             Page.deleted_at.is_(None),
             Page.title.is_not(None),
@@ -139,6 +145,7 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
     by_title: dict[str, uuid.UUID] = {}
     by_lower: dict[str, uuid.UUID] = {}
     by_slug: dict[str, uuid.UUID] = {}
+    by_fileslug: dict[str, uuid.UUID] = {}
     for row in result.all():
         # Attribute access (row.id/row.title) works for both SQLAlchemy Row and test fakes.
         pid = row.id
@@ -148,7 +155,19 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
         by_title.setdefault(title, pid)
         by_lower.setdefault(title.lower(), pid)
         by_slug.setdefault(_slugify(title), pid)
-    return _ResolverMaps(by_title=by_title, by_lower=by_lower, by_slug=by_slug)
+        # Index the filename slug too — the identifier [[wikilinks]] actually use. getattr keeps
+        # test fakes that only expose id/title working (they contribute no fileslug entry).
+        file_path = getattr(row, "file_path", None)
+        if file_path:
+            stem = file_path.rsplit("/", 1)[-1]
+            if stem.endswith(".md"):
+                stem = stem[:-3]
+            fileslug = _slugify(stem)
+            if fileslug:
+                by_fileslug.setdefault(fileslug, pid)
+    return _ResolverMaps(
+        by_title=by_title, by_lower=by_lower, by_slug=by_slug, by_fileslug=by_fileslug
+    )
 
 
 def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
@@ -157,7 +176,8 @@ def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
 
         1. exact Page.title match                    (unchanged historical behavior)
         2. case-insensitive lower(title) match       (catches "rag" vs "RAG")
-        3. slug match (_slugify(title) == _slugify(target))  (catches punctuation/spacing drift)
+        3. filename-slug match (_slugify(file stem) == _slugify(target))  (the slug [[links]] use)
+        4. slug match (_slugify(title) == _slugify(target))  (catches punctuation/spacing drift)
 
     Exact-first is deliberate: it guarantees we never demote a real title to a fuzzy match. We
     stop at the first hit and only fall through to the looser maps when the stricter one misses,
@@ -168,6 +188,11 @@ def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
     if hit is not None:
         return hit
     hit = maps.by_lower.get(target.lower())
+    if hit is not None:
+        return hit
+    # filename-slug match — the model links by the page's file slug ([[multi-cloud-orchestration]]),
+    # which _slugify(title) does not reproduce when the title is descriptive / localized (F4).
+    hit = maps.by_fileslug.get(_slugify(target))
     if hit is not None:
         return hit
     return maps.by_slug.get(_slugify(target))
