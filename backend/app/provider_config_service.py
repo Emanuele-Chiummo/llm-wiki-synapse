@@ -43,6 +43,26 @@ VALID_OPERATIONS: frozenset[str] = frozenset({"ingest", "chat", "lint"})
 
 OperationT = Literal["ingest", "chat", "lint"]
 
+# ── BE-PERF-10: in-process invalidation counter for provider_config-derived memoizations ──
+# GET /status re-resolved the provider_config (up to 3 queries) and instantiated a provider
+# on EVERY poll just to read capabilities().supports_vision. Callers that memoize a
+# provider_config-derived value key their cache on this counter; bump_config_version() is
+# called by every provider_config mutation (create/update/delete, app/routers/config.py) so
+# a stale memo is invalidated exactly when the config actually changes — no TTL guessing,
+# same debounce-signal pattern as GraphCache's data_version marker (ADR-0014).
+_config_version: int = 0
+
+
+def bump_config_version() -> None:
+    """Invalidate all provider_config-derived memoizations (BE-PERF-10)."""
+    global _config_version  # noqa: PLW0603
+    _config_version += 1
+
+
+def get_config_version() -> int:
+    """Current provider_config generation counter (BE-PERF-10) — cheap, in-process, no I/O."""
+    return _config_version
+
 
 async def resolve_provider_config(
     operation: OperationT,
