@@ -24,17 +24,21 @@ Public entry point: ``enrich_wikilinks(written_pages, vault_id)`` — wired fire
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 from app.config import settings
 from app.db import get_session
 from app.ingest.provider.base import UsageAccumulator
 from app.models import Page
+from app.ops._llm import (
+    bounded_chat_collect,
+    coerce_int,
+    loads_json_lenient,
+    resolve_operation_provider,
+)
 from app.wiki.links import _WIKILINK_RE
 
 logger = logging.getLogger(__name__)
@@ -127,7 +131,7 @@ async def _enrich_wikilinks_inner(written_pages: list[Page], vault_id: str) -> E
         return EnrichResult(skipped_reason="no_candidates")
 
     # ── Resolve the ingest provider (I6 — "no provider" → skip, never default) ────
-    resolved = await _resolve_provider(vault_id)
+    resolved = await resolve_operation_provider(vault_id)
     if resolved is None:
         logger.debug(
             "enrich_wikilinks: no ingest provider resolved (vault=%s) — skip (I6)", vault_id
@@ -135,7 +139,7 @@ async def _enrich_wikilinks_inner(written_pages: list[Page], vault_id: str) -> E
         return EnrichResult(skipped_reason="no_provider")
     provider, config_row = resolved
 
-    token_budget = _coerce_int(
+    token_budget = coerce_int(
         getattr(config_row, "token_budget", None),
         int(getattr(settings, "wikilink_enrich_token_budget", 4_000)),
     )
@@ -155,7 +159,7 @@ async def _enrich_wikilinks_inner(written_pages: list[Page], vault_id: str) -> E
     # ── ONE bounded call, no loop, no retry (I7) ─────────────────────────────────
     raw: str | None = None
     try:
-        raw = await asyncio.wait_for(_chat_collect(provider, instruction), timeout=timeout_s)
+        raw = await asyncio.wait_for(bounded_chat_collect(provider, instruction), timeout=timeout_s)
     except TimeoutError:
         logger.warning(
             "enrich_wikilinks: provider call timed out after %.1fs (vault=%s) — "
@@ -390,57 +394,6 @@ async def _load_candidate_titles(vault_id: str, max_candidates: int) -> set[str]
         return {t for (t,) in rows.all() if t and t.strip()}
 
 
-async def _resolve_provider(vault_id: str) -> tuple[Any, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6). Returns (provider, config_row) or
-    None when no provider_config resolves / DB unavailable. Never hardcodes a backend; never
-    branches on isinstance/type/class-name. Mirrors ops/review.py::_resolve_review_provider.
-    """
-    from app.ingest.provider import resolve_provider
-    from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("enrich_wikilinks: provider resolution failed (vault=%s): %s", vault_id, exc)
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("enrich_wikilinks: provider build failed (vault=%s): %s", vault_id, exc)
-        return None
-    return provider, config_row
-
-
-def _coerce_int(raw: Any, fallback: int) -> int:
-    if raw is None:
-        return fallback
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        return fallback
-    return value or fallback
-
-
-async def _chat_collect(provider: Any, instruction: str) -> str:
-    """
-    ONE capability-agnostic ``provider.chat()`` turn, collecting the full text (I6). Same surface
-    ops/review.py and ops/deep_research.py use — backend-neutral, no new ABC method.
-    """
-    from app.ingest.schemas import Message
-
-    chunks: list[str] = []
-    async for chunk in await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    ):
-        chunks.append(chunk)
-    return "".join(chunks).strip()
-
-
 # ── Prompt + parse ───────────────────────────────────────────────────────────────
 
 
@@ -500,7 +453,7 @@ def _parse_substitutions(
     entry whose target_title is not a real candidate, whose mention is absent, whose page_id is
     not one of the written pages, or that is a self-link. Tolerant of fences/prose; never raises.
     """
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     if obj is None:
         return []
     if isinstance(obj, dict):
@@ -537,29 +490,3 @@ def _parse_substitutions(
             continue
         out.append(WikilinkSubstitution(page_id=page.id, mention=mention, target_title=target))
     return out
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """Best-effort JSON parse tolerant of ```json fences / surrounding prose. None on failure."""
-    if not raw:
-        return None
-    text = raw.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
