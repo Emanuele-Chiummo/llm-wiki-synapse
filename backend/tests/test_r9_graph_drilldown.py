@@ -27,8 +27,9 @@ from app.graph.engine import (
 )
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Test data ──────────────────────────────────────────────────────────────────
 
@@ -84,52 +85,14 @@ _EDGE_WEIGHT_AB: float = sum(_EDGE_SIGNALS_AB.values())  # = 11.2
 
 @pytest.fixture()
 async def db_engine():
-    """SQLite in-memory engine with edges + vault_state tables."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    """SQLite in-memory engine with the full Synapse schema (via Base.metadata.create_all)."""
+    engine = await make_sqlite_engine()
     async with engine.begin() as conn:
-        await conn.execute(sa_text("""
-                CREATE TABLE vault_state (
-                    id TEXT PRIMARY KEY,
-                    vault_id TEXT NOT NULL UNIQUE,
-                    data_version INTEGER NOT NULL DEFAULT 0,
-                    remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-                    remote_mcp_write_enabled INTEGER,
-                    mcp_access_token_hash TEXT,
-                    mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-                    clip_enabled_db INTEGER,
-                    clip_access_token TEXT,
-                    clip_allowed_origins_db TEXT,
-                    cli_oauth_token TEXT,
-                    cli_oauth_token_encrypted BLOB,
-                    web_search_api_keys_encrypted BLOB,
-                    searxng_url_db TEXT,
-                    searxng_categories_db TEXT,
-                    searxng_max_queries_db INTEGER,
-                    output_language TEXT,
-                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-                )
-                """))
         await conn.execute(
             sa_text(
                 "INSERT INTO vault_state (id, vault_id, data_version) " "VALUES (:id, 'test', 7)"
             ).bindparams(id=str(uuid.uuid4()))
         )
-        await conn.execute(sa_text("""
-                CREATE TABLE edges (
-                    id TEXT PRIMARY KEY,
-                    vault_id TEXT NOT NULL,
-                    source_page_id TEXT NOT NULL,
-                    target_page_id TEXT NOT NULL,
-                    weight REAL NOT NULL,
-                    signals TEXT,
-                    kind TEXT,
-                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-                )
-                """))
         import json
 
         # Insert edge A↔B with signals
