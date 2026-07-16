@@ -868,6 +868,10 @@ async def convert_marker(
     _eff_marker_timeout: float = effective_float(
         "marker_timeout_seconds", settings.marker_timeout_seconds
     )
+    _eff_marker_token: str | None = (
+        effective_str("marker_service_token", settings.marker_service_token)
+        or settings.marker_service_token
+    ) or None
 
     raw_sources = settings.raw_sources_dir
     raw_sources.mkdir(parents=True, exist_ok=True)
@@ -954,6 +958,7 @@ async def convert_marker(
         eff_marker_url=_eff_marker_url,
         eff_marker_timeout=_eff_marker_timeout,
         vault_root=settings.vault_root,
+        service_token=_eff_marker_token,
     )
 
     return MarkerConvertAcceptResponse(

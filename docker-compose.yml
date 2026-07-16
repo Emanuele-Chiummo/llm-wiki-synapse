@@ -91,6 +91,8 @@ services:
       # Qdrant (external TrueNAS service — I9, not containerized)
       # Reference via docker host gateway or Tailscale IP
       QDRANT_URL: http://host.docker.internal:6333
+      # QDRANT_API_KEY: (optional) Set if your Qdrant requires authentication (OPS-DATA-1).
+      # QDRANT_API_KEY: your-qdrant-api-key-here
       QDRANT_COLLECTION: synapse_pages
 
       # Embedding service: bge-m3 via Ollama on TrueNAS (I9, not containerized)
@@ -253,10 +255,11 @@ services:
       # Persists across container restarts; downloaded only once.
       - marker_models:/models
     ports:
-      # Expose 8555 to the Docker network (used by synapse-backend internally).
-      # For host access (e.g., testing the service manually), uncomment:
-      # - "8555:8555"
-      - "8555:8555"
+      # Bind to SYNAPSE_BIND_HOST (default 127.0.0.1 — loopback only).
+      # For remote access (e.g., multi-host TrueNAS setup), set SYNAPSE_BIND_HOST=0.0.0.0
+      # and protect via network policy. Token auth (MARKER_SERVICE_TOKEN) is recommended
+      # for any multi-host exposure (SEC-OPS-1).
+      - "${SYNAPSE_BIND_HOST:-127.0.0.1}:8555:8555"
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8555/health')"]
       interval: 10s
@@ -337,7 +340,9 @@ services:
       # Cache for downloaded Whisper model weights (persists across container restarts).
       - whisper_models:/models
     ports:
-      - "8666:8666"
+      # Bind to SYNAPSE_BIND_HOST (default 127.0.0.1 — loopback only).
+      # Token auth (WHISPER_SERVICE_TOKEN, optional) recommended for multi-host exposure.
+      - "${SYNAPSE_BIND_HOST:-127.0.0.1}:8666:8666"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8666/health')"]
       interval: 10s

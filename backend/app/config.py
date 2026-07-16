@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     qdrant_collection: str = "synapse_pages"
     """Name of the Qdrant collection; override only for test isolation."""
 
+    qdrant_api_key: str | None = None
+    """
+    Optional API key for Qdrant (OPS-DATA-1).
+    When set, passed to the AsyncQdrantClient for authentication.
+    When unset (default), no API key is sent — suitable for local/internal Qdrant.
+    SECRET — env-only; never returned by any endpoint.
+    Env var: QDRANT_API_KEY.
+    """
+
     # ── Embedding (bge-m3 via existing Ollama/service on TrueNAS) ─────────────
     embedding_url: str
     """
@@ -881,6 +890,16 @@ class Settings(BaseSettings):
     Env var: MARKER_SERVICE_URL.
     """
 
+    marker_service_token: str = ""
+    """
+    Optional bearer token for Marker microservice authentication (SEC-OPS-1).
+    When set, all POST /convert requests carry Authorization: Bearer <token> header.
+    When empty (default), no auth header is sent — backward compatible.
+    Used only when the Marker service is configured to require authentication (multi-host setup).
+    SECRET — env-only; NEVER exposed through PUT /config/app/{key}.
+    Env var: MARKER_SERVICE_TOKEN.
+    """
+
     marker_timeout_seconds: float = 1800.0
     """
     HTTP timeout (seconds) for the call to the Marker microservice (ADR-0051, R8-1, I7).
@@ -1257,6 +1276,21 @@ class Settings(BaseSettings):
     Fixed-window duration in seconds for the per-IP rate limiter (R13-9, B4).
     Default 60 s — 20 requests per minute sustained.
     Env var: RATE_LIMIT_WINDOW_SECONDS.
+    """
+
+    auth_failure_limit_attempts: int = 10
+    """
+    Max authentication failures (401 responses) per IP per window (SEC-RL-1).
+    Prevents token-guessing and brute-force auth attacks. Default 10 attempts.
+    When rate_limit_enabled=false, this check is bypassed.
+    Env var: AUTH_FAILURE_LIMIT_ATTEMPTS.
+    """
+
+    auth_failure_limit_window_seconds: int = 300
+    """
+    Window duration (seconds) for authentication failure rate limiting (SEC-RL-1).
+    Default 300 s (5 minutes) — 10 failures per 5-minute window.
+    Env var: AUTH_FAILURE_LIMIT_WINDOW_SECONDS.
     """
 
 

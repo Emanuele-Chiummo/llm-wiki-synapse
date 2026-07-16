@@ -214,9 +214,12 @@ def _convert_pdf_bytes(
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
 
+
+
 def _build_app(
     max_upload_bytes: int = DEFAULT_MAX_UPLOAD_MB * 1024 * 1024,
     pages_per_chunk: int = DEFAULT_PAGES_PER_CHUNK,
+    service_token: str | None = None,
 ) -> object:
     """
     Build and return the FastAPI application.
@@ -232,6 +235,16 @@ def _build_app(
 
     from fastapi import FastAPI, HTTPException, Request, UploadFile  # noqa: PLC0415
     from fastapi.responses import JSONResponse  # noqa: PLC0415
+
+    def _check_auth_inner(request: Request, token: str | None) -> None:
+        """Verify optional bearer token authorization (SEC-OPS-1)."""
+        if not token:
+            return  # No token configured, auth is optional
+        auth_header = request.headers.get("authorization", "").strip()
+        expected = f"Bearer {token}"
+        if auth_header != expected:
+            raise HTTPException(status_code=403, detail="Invalid or missing Authorization header")
+
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):  # type: ignore[type-arg]  # noqa: ANN001
@@ -267,6 +280,7 @@ def _build_app(
           429 if a conversion is already in progress.
           500 if Marker conversion fails.
         """
+        _check_auth_inner(request, service_token)
         lock = _get_lock()
 
         # Size guard (I7)
@@ -345,7 +359,9 @@ def main() -> None:
     args = parser.parse_args()
 
     max_bytes = args.max_upload_mb * 1024 * 1024
-    app = _build_app(max_upload_bytes=max_bytes, pages_per_chunk=args.pages_per_chunk)
+    # Load optional token from env (SEC-OPS-1)
+    service_token = os.environ.get("MARKER_SERVICE_TOKEN", "").strip() or None
+    app = _build_app(max_upload_bytes=max_bytes, pages_per_chunk=args.pages_per_chunk, service_token=service_token)
 
     logger.info(
         "Starting Marker service on %s:%d (max upload: %d MB, pages/chunk: %d)",

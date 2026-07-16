@@ -110,6 +110,7 @@ from app.models import (
 )
 from app.ops_scheduler import OpsScheduler
 from app.qdrant_client import ensure_collection
+from app.rate_limit import AuthFailureRateLimitMiddleware
 from app.security_headers import SecurityHeadersMiddleware
 from app.sources import router as sources_router
 from app.vault import bootstrap_vault
@@ -1028,6 +1029,10 @@ app.add_middleware(
 # (including 401s and CORS preflights) on the way out. Adding headers here does not affect
 # the load-bearing auth↔CORS ordering above (CORS still wraps auth).
 app.add_middleware(SecurityHeadersMiddleware)
+
+# ── Auth failure rate limit middleware (SEC-RL-1) ──────────────────────────
+# Rate-limits 401 responses per IP to prevent token-guessing attacks.
+app.add_middleware(AuthFailureRateLimitMiddleware)
 
 # ── Sources router (raw-source file browser — nashsu/llm_wiki parity) ────────
 app.include_router(sources_router)
