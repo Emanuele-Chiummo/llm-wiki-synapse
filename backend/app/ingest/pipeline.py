@@ -546,7 +546,6 @@ async def run_ingest_pipeline(
                 )
                 if _src_pg is not None:
                     delegated_page_ids.append(str(_src_pg.id))
-                    delegated_pages_written += 1
                     orch.ingest_queue.record_written(run_id, _src_pg.id)
             except Exception as _src_d_exc:  # noqa: BLE001
                 logger.warning(
@@ -554,6 +553,12 @@ async def run_ingest_pipeline(
                     "(non-fatal): %s",
                     _src_d_exc,
                 )
+
+            # Delegated count = the pages actually captured by the MCP write seam (deduped), so
+            # pages_created agrees with page_type_counts (both derive from delegated_page_ids). The
+            # provider's self-reported write_page tool-call count can over-count on a failed/retried
+            # tool call, which is why we key off the recorded ids instead (I7 accounting truth).
+            delegated_pages_written = len(dict.fromkeys(delegated_page_ids))
 
             # ── overview.md: ingest no longer regenerates overview.md (ADR-0078) ──────────
             # overview.md is now a manual-op, triggered via POST /ops/overview/regenerate.
