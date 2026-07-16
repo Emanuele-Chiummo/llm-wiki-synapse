@@ -91,6 +91,8 @@ services:
       # Qdrant (external TrueNAS service — I9, not containerized)
       # Reference via docker host gateway or Tailscale IP
       QDRANT_URL: http://host.docker.internal:6333
+      # QDRANT_API_KEY: (optional) Set if your Qdrant requires authentication (OPS-DATA-1).
+      # QDRANT_API_KEY: your-qdrant-api-key-here
       QDRANT_COLLECTION: synapse_pages
 
       # Embedding service: bge-m3 via Ollama on TrueNAS (I9, not containerized)

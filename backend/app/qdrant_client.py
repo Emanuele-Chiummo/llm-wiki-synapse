@@ -33,7 +33,11 @@ def get_qdrant_client() -> AsyncQdrantClient:
     """Return (or create) the module-level Qdrant async client."""
     global _client  # noqa: PLW0603
     if _client is None:
-        _client = AsyncQdrantClient(url=settings.qdrant_url)
+        # OPS-DATA-1: optional API key for Qdrant authentication
+        _client = AsyncQdrantClient(
+            url=settings.qdrant_url,
+            api_key=settings.qdrant_api_key,
+        )
     return _client
 
 

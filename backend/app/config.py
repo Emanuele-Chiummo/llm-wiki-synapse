@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     qdrant_collection: str = "synapse_pages"
     """Name of the Qdrant collection; override only for test isolation."""
 
+    qdrant_api_key: str | None = None
+    """
+    Optional API key for Qdrant (OPS-DATA-1).
+    When set, passed to the AsyncQdrantClient for authentication.
+    When unset (default), no API key is sent — suitable for local/internal Qdrant.
+    SECRET — env-only; never returned by any endpoint.
+    Env var: QDRANT_API_KEY.
+    """
+
     # ── Embedding (bge-m3 via existing Ollama/service on TrueNAS) ─────────────
     embedding_url: str
     """
