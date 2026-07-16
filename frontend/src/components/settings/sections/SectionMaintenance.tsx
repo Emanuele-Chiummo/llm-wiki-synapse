@@ -1,23 +1,35 @@
 /**
  * SectionMaintenance.tsx — duplicate detection + settings reset.
  * Extracted from SettingsPanel monolith (ADR-0055).
+ *
+ * FE-A11Y-2: replaced window.confirm with ConfirmDialog for accessible confirmation.
  */
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SectionHeader, BTN_PRIMARY } from "../ui";
 import {
   useSettingsStore,
   selectResetSettings,
 } from "../../../store/settingsStore";
+import { ConfirmDialog } from "../../common/ConfirmDialog";
 
 export function SectionMaintenance() {
   const { t, i18n } = useTranslation();
   const reset = useSettingsStore(selectResetSettings);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   const handleReset = () => {
-    if (window.confirm(t("settings.maintenance.resetConfirm"))) {
-      reset();
-      void i18n.changeLanguage("en");
-    }
+    setShowResetDialog(true);
+  };
+
+  const confirmReset = () => {
+    setShowResetDialog(false);
+    reset();
+    void i18n.changeLanguage("en");
+  };
+
+  const cancelReset = () => {
+    setShowResetDialog(false);
   };
 
   return (
@@ -73,6 +85,18 @@ export function SectionMaintenance() {
           {t("settings.maintenance.reset")}
         </button>
       </div>
+
+      {showResetDialog && (
+        <ConfirmDialog
+          title={t("settings.maintenance.dangerZone")}
+          body={t("settings.maintenance.resetConfirm")}
+          confirmLabel={t("settings.maintenance.reset")}
+          cancelLabel={t("common.cancel")}
+          danger
+          onConfirm={confirmReset}
+          onCancel={cancelReset}
+        />
+      )}
     </div>
   );
 }
