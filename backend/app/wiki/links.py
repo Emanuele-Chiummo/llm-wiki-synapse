@@ -452,20 +452,36 @@ async def resolve_suggested_target(
 
 async def reresolve_dangling_links(session: AsyncSession) -> int:
     """
-    Re-resolve every dangling Link against the CURRENT live pages using the same tolerant
-    matcher as persist_links (exact → case-insensitive → slug). For any dangling link whose
-    target_title now maps to a live page, set target_page_id and clear dangling.
+    Re-resolve every dangling Link belonging to the ACTIVE vault against the CURRENT live
+    pages of that SAME vault, using the same tolerant matcher as persist_links (exact →
+    case-insensitive → slug). For any dangling link whose target_title now maps to a live
+    page, set target_page_id and clear dangling.
+
+    BE-PERF-11 (correctness + performance bugfix): previously loaded EVERY dangling link
+    across ALL vaults (no vault filter) and resolved them all against ONLY the active
+    vault's resolver maps. Besides being unbounded across vaults, this was a correctness
+    bug: a dangling link from a DIFFERENT vault could be silently reconnected to this
+    vault's page on a title collision, corrupting that other vault's link (it isn't even a
+    node in this vault's graph). Now scoped to the active vault via a JOIN to ``pages`` on
+    ``source_page_id`` — the same vault-scoping already used by ``persist_links`` /
+    ``_build_resolver_maps``. Supported by the partial index
+    ``ix_links_dangling_source_page_id`` (``links(source_page_id) WHERE dangling = true``).
 
     Returns the number of links reconnected. Bounded single pass (I7): one query for the
     dangling rows + one query to build the resolver maps; no per-row DB round-trips. The caller
     commits and bumps the graph (main.py POST /links/reresolve).
     """
-    result = await session.execute(select(Link).where(Link.dangling.is_(True)))
+    vault_id = settings.vault_id
+    result = await session.execute(
+        select(Link)
+        .join(Page, Link.source_page_id == Page.id)
+        .where(Link.dangling.is_(True), Page.vault_id == vault_id)
+    )
     dangling_links = list(result.scalars().all())
     if not dangling_links:
         return 0
 
-    maps = await _build_resolver_maps(session, settings.vault_id)
+    maps = await _build_resolver_maps(session, vault_id)
 
     reconnected = 0
     for link in dangling_links:
