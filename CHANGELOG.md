@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [1.7.3] — 2026-07-16 — "log/index parity fixes + UI cleanup"
+## [1.7.4] — 2026-07-16 — "log/index parity fixes"
 
 ### Fixed
 - **`wiki/log.md` was corrupted by the block-ingest path.** Three issues compounded: the model's
@@ -21,6 +21,8 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
 - **`index.md` counted and listed EVERY vault's pages, not the active vault's.** `update_index` ran
   its page query without a `vault_id` filter (e.g. "Total pages: 278" on a 35-page vault) — the same
   cross-vault leak class fixed for the graph resolver. The query is now vault-scoped.
+
+## [1.7.3] — 2026-07-16 — "cleanup: drop personal deployment references from the UI"
 
 ### Changed
 - **Genericized user-facing text that leaked a homelab-specific detail.** The Ollama row in
@@ -1121,6 +1123,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.7.4]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.3...v1.7.4
 [1.7.3]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.0...v1.7.1
