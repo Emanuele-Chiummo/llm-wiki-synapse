@@ -359,7 +359,39 @@ async def create_project(body: CreateProjectRequest) -> Project:
     if body.output_language is not None:
         await _seed_vault_state_output_language(pid, body.output_language)
 
+    # Index the 3 scaffold meta-files (overview.md / index.md / log.md) so GET /pages
+    # returns them immediately without waiting for the first watcher modification event
+    # (NC-3). I1-compliant: targeted index of 3 known files, no vault scan. Best-effort:
+    # any exception is logged as a warning and the project is still returned.
+    await _index_new_vault_meta_files(vault_root=p, vault_id=pid)
+
     return proj
+
+
+async def _index_new_vault_meta_files(*, vault_root: Path, vault_id: str) -> None:
+    """
+    Best-effort: index the 3 scaffold meta-files for a newly-created vault (NC-3).
+
+    Uses a deferred import so that filesystem-only tests that don't set up a DB
+    or embedding service can still exercise create_project without DB calls here.
+    Any exception is caught and logged — the vault scaffold and registry are already
+    committed at this point.
+    """
+    try:
+        from app.ingest.orchestrator import index_bootstrap_meta_files  # noqa: PLC0415
+
+        await index_bootstrap_meta_files(vault_root=vault_root, vault_id=vault_id)
+        logger.info(
+            "projects: indexed bootstrap meta files for new vault %s at %s",
+            vault_id,
+            vault_root,
+        )
+    except Exception as exc:  # noqa: BLE001 — additive operation; vault is already committed
+        logger.warning(
+            "projects: best-effort bootstrap index failed for vault %s (non-fatal): %s",
+            vault_id,
+            exc,
+        )
 
 
 async def _seed_vault_state_output_language(vault_id: str, output_language: str) -> None:
