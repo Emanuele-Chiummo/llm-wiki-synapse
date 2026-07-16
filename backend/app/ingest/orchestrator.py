@@ -1,57 +1,45 @@
 """
-Thin ingest seam — the ONLY path through which files enter Postgres and Qdrant (ADR-0003, I6).
+Ingest COMPATIBILITY FACADE + persistence primitives — the historical single seam through which
+files enter Postgres and Qdrant (ADR-0003, I6). NOT "v0.1 mechanical only": the full F17
+capability-aware ingest (analyze → generate → validate → retry, or delegated CLI loop) is live and
+lives in ``pipeline.py``; this module now plays two roles.
 
-1.7.0 PR2 (pure extraction, no behaviour change): this module was decomposed into cohesive
-siblings and now re-exports their public seams (see the façade block at the end of the file), so
-every importer AND every monkeypatch of ``app.ingest.orchestrator.<name>`` keeps resolving through
-this module unchanged:
-  • ``context.py``  — vault/ingest context assembly (``_load_ingest_context``, the existing-pages
-                      catalogue, the R7-6 folderContext hint).
-  • ``writer.py``   — the single shared write path (``write_wiki_page``) + slug / source-identity /
-                      entity canonical-key / ``related`` helpers.
-  • ``pipeline.py`` — ``ingest_file`` / ``delete_file``, ``run_ingest_pipeline`` (F17 capability
-                      routing), the orchestrated/delegated route helpers, the source-summary
-                      guarantee, the language guard, and the ingest_runs lifecycle helpers.
-Kept here: the low-level persistence primitives (``persist_metadata`` / ``upsert_vector`` /
-``append_log`` / ``bump_version`` / ``reindex_wiki_page_body``), the ``overview.md`` maintenance
-seam, and the domain/type auto-tag seam. The extracted modules reach these (and each other's
-patched seams) via ``orch.<name>`` so this module stays the single patch surface.
+1) COMPATIBILITY FACADE (in the process of being dissolved — target 2.0.0).
+   1.7.0 PR2 decomposed the ingest into cohesive siblings; this module re-exports their seams
+   (see the façade block at the end of the file) so every importer AND every monkeypatch of
+   ``app.ingest.orchestrator.<name>`` keeps resolving through this module unchanged:
+     • ``context.py``  — vault/ingest context assembly (``_load_ingest_context``, the existing-
+                         pages catalogue, the R7-6 folderContext hint).
+     • ``writer.py``   — the single shared write path (``write_wiki_page``) + slug / source-
+                         identity / entity canonical-key / ``related`` helpers.
+     • ``pipeline.py`` — ``ingest_file`` / ``delete_file``, ``run_ingest_pipeline`` (F17
+                         capability routing), the orchestrated/delegated route helpers, the
+                         source-summary guarantee, the language guard, the ingest_runs lifecycle.
+   The siblings deliberately reach every primitive/seam via ``orch.<name>`` (NOT direct imports)
+   so ``app.ingest.orchestrator`` remains the ONE monkeypatch surface. This mirror indirection is
+   currently LOAD-BEARING FOR THE TEST SUITE — 18 test modules bind ``orch`` to this module and
+   patch pipeline-internal functions (``_delegate_ingest`` / ``_run_orchestrated`` /
+   ``_open_ingest_run`` / ``_finalize_ingest_run`` / …), the shared write path, the persistence
+   primitives, and the shared ``get_session`` / ``upsert_point`` seams ON THIS MODULE. Removing the
+   mirror, or moving the DB-touching primitives to a new module, silently bypasses those patches
+   (the get_session enumeration in those tests would miss the new module) and must therefore be
+   sequenced AFTER a dedicated test-decoupling pass — see docs/adr and the 1.9.2 recon notes.
 
-Public API (called by watcher.py and POST /ingest/trigger):
+2) PERSISTENCE PRIMITIVES kept here (the low-level, incremental-index building blocks — I1):
+     persist_metadata          — Postgres ``pages`` upsert (INSERT or re-ingest UPDATE)
+     upsert_vector             — embed via EmbeddingClient + Qdrant upsert (skip when disabled)
+     append_log                — K4 append-only ``log.md`` line
+     bump_version              — ``vault_state.data_version`` +1 (once per content change)
+     reindex_wiki_page_body    — atomic single-page rewrite + re-index (ADR-0035/0036)
+   plus the ``overview.md`` regeneration seam (``_update_overview`` & friends — F3) and the
+   F18 domain/type auto-tag write-back (``apply_domain_tags`` / ``apply_page_type``).
+
+Public API (called by watcher.py and POST /ingest/trigger, via the façade re-exports):
   ingest_file(file_path)  -> IngestResult   (K6, ADR-0001, ADR-0002)
   delete_file(file_path)  -> None           (soft-delete, ADR-0005)
 
-v0.1 is MECHANICAL ONLY — no LLM call, no provider, no model id.
-The mtime-then-hash gate (ADR-0001) lives here so both the watcher and the REST
-endpoint share the same change-detection logic.
-
-Factored helpers that v0.2's orchestrated loop will reuse as primitives:
-  persist_metadata  — Postgres upsert
-  upsert_vector     — embed via EmbeddingClient + Qdrant upsert
-  append_log        — K4 append-only log line
-  bump_version      — vault_state.data_version +1
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  F17 / I6 EXTENSION POINT — v0.2 slot (DO NOT IMPLEMENT HERE)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  After the hash gate confirms a real content change, v0.2 will:
-    1. Resolve an InferenceProvider from provider_config (ADR-0003, CLAUDE.md §5).
-    2. Call provider.capabilities() to determine routing:
-         - supports_agentic_loop == True (CliAgentProvider):
-             delegate full ingest to the CLI agent; skip the orchestrated loop.
-         - otherwise (OllamaProvider / ApiProvider):
-             run the ORCHESTRATED LOOP:
-               analyze(source_text) → Analysis
-               generate(analysis)  → list[WikiPage]
-               validate(pages)     → ok | augment & retry (max_iter, token_budget)
-             log total_cost_usd per run (I7).
-    3. After the provider produces WikiPage(s), call persist_metadata /
-       upsert_vector / append_log / bump_version for each page (reusing helpers below).
-
-  In v0.1 the branch below the hash gate goes directly to the mechanical helpers.
-  v0.2 inserts the provider selection and loop before persist_metadata is called.
-  The callers (watcher, REST endpoint) are NOT touched in v0.2 (ADR-0003 guarantee).
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The mtime-then-hash gate (ADR-0001) lives in ``pipeline.py`` so the watcher and the REST
+endpoint share the same change-detection logic (I1 — no full rescan).
 """
 
 from __future__ import annotations
