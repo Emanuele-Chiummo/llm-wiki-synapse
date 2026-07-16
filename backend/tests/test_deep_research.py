@@ -377,7 +377,10 @@ async def test_all_six_steps_execute() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(provider, None)),
+        ),
     ):
         result = await run_deep_research(
             vault_id="test", topic="docker networking", max_iter=3, token_budget=100_000
@@ -438,7 +441,10 @@ async def test_max_iter_reached_terminates_at_exactly_max_iter() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -507,7 +513,10 @@ async def test_zero_sources_skips_synthesis_and_page() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -587,7 +596,10 @@ async def test_no_provider_calls_after_max_iter() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(provider, None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(provider, None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -655,7 +667,10 @@ async def test_budget_exhausted_before_round() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -714,7 +729,10 @@ async def test_converged_after_first_round() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -794,7 +812,10 @@ async def test_assessment_before_refine() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -862,7 +883,10 @@ async def test_synthesis_routed_through_ingest_file() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -910,7 +934,10 @@ async def test_exception_sets_error_status_never_running() -> None:
         patch("app.ops.deep_research._update_run_sources", new=AsyncMock()),
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -976,7 +1003,10 @@ async def test_three_hits_three_fetch_calls() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
@@ -1037,7 +1067,10 @@ async def test_max_queries_per_iter_not_exceeded() -> None:
         patch("app.ops.deep_research._update_run_synthesis_text", new=AsyncMock()),
         patch("app.ops.deep_research._finalize_run_row", new=AsyncMock()),
         patch("app.ops.deep_research._insert_source_row", new=AsyncMock()),
-        patch("app.ops.deep_research.resolve_operation_provider", new=AsyncMock(return_value=(MagicMock(), None))),
+        patch(
+            "app.ops.deep_research.resolve_operation_provider",
+            new=AsyncMock(return_value=(MagicMock(), None)),
+        ),
     ):
         from app.ops.deep_research import run_deep_research
 
