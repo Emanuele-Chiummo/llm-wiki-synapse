@@ -70,6 +70,7 @@ ALLOWED_CONFIG_KEYS: frozenset[str] = frozenset(
         "backfill_schedule",  # S11 (R12-7/A5) — enum: off|hourly|daily|weekly; default "off"
         "schema_review_schedule",  # S12 (R12-8) — enum: off|hourly|daily|weekly; default "off"
         "reclassify_schedule",  # S13 (R12-9) — enum: off|hourly|daily|weekly; default "off"
+        "backup_schedule",  # S24 (1.9.1 W4, SEC-OPS-2) — enum: off|hourly|daily|weekly
         "deep_research_max_iter",  # S14 — int 1–10; caps DeepResearch loop (I7)
         "deep_research_token_budget",  # S15 — int 1000–1_000_000; caps DR token spend (I7)
         "deep_research_max_queries",  # S16 — int 1–10; caps SearXNG query fan-out (I7)
@@ -109,6 +110,7 @@ ORDERED_KEYS: list[str] = [
     "mineru_api_url",  # S21 (v1.5 P3-d, ADR-0069)
     "mineru_timeout_seconds",  # S22 (v1.5 P3-d, ADR-0069)
     "web_search_provider",  # S23 (v1.5 P3-e, ADR-0070)
+    "backup_schedule",  # S24 (1.9.1 W4, SEC-OPS-2)
 ]
 
 # S23 (ADR-0070): allowed web-search backend ids — keep in sync with ops.web_search.PROVIDERS.
@@ -230,10 +232,12 @@ def validate_value(key: str, value: str) -> str | None:
         "backfill_schedule",
         "schema_review_schedule",
         "reclassify_schedule",
+        "backup_schedule",
     ):
         # S10/S11 (R12-7/A5): enum off|hourly|daily|weekly.
         # S12 (R12-8): schema_review_schedule uses the same enum.
         # S13 (R12-9): reclassify_schedule uses the same enum.
+        # S24 (1.9.1 W4, SEC-OPS-2): backup_schedule uses the same enum.
         _SCHEDULE_VALUES: frozenset[str] = frozenset({"off", "hourly", "daily", "weekly"})
         if value not in _SCHEDULE_VALUES:
             return f"{key} must be one of {sorted(_SCHEDULE_VALUES)}, got {value!r}"

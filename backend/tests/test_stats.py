@@ -732,10 +732,10 @@ async def test_get_config_app_has_9_settings_with_domain_vocabulary() -> None:
     body = resp.json()
     settings_list = body["settings"]
     # Now 20 keys (S1..S20; S19/S20 = Image Captioning keys, v1.5 P3-a)
-    assert len(settings_list) == 23, f"Expected 23 settings, got {len(settings_list)}"
+    assert len(settings_list) == 24, f"Expected 24 settings, got {len(settings_list)}"
     keys = [s["key"] for s in settings_list]
     assert keys == ORDERED_KEYS, f"Keys out of order: {keys}"
-    assert keys[-1] == "web_search_provider", "web_search_provider must be last (S23)"
+    assert keys[-1] == "backup_schedule", "backup_schedule must be last (S24, 1.9.1 W4)"
 
 
 # ── T-STATS-014..018: GET /stats/groups (A1 amendment) ───────────────────────

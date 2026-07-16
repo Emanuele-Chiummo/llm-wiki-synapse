@@ -1293,6 +1293,46 @@ class Settings(BaseSettings):
     Env var: AUTH_FAILURE_LIMIT_WINDOW_SECONDS.
     """
 
+    # ── 1.9.1 W4: scheduled Postgres backup (SEC-OPS-2) ──────────────────────────
+
+    backup_dir: str | None = None
+    """
+    Directory `pg_dump` archives are written to (SEC-OPS-2, I7-style bounded op).
+    NULL (default) resolves to ``<vault_root>/.synapse/backups`` — inside the vault path so
+    the SAME bind-mount/backup-friendly volume already used for raw/ and wiki/ also covers
+    the DB dump (no new volume to wire up on TrueNAS). Set an absolute path to write
+    elsewhere (e.g. a dedicated backup share). Created on first use if missing.
+    Env var: BACKUP_DIR.
+    """
+
+    backup_retention_count: int = 7
+    """
+    Number of most-recent backup archives to KEEP per op (SEC-OPS-2, I7 — bounded, no
+    unbounded disk growth). Older archives beyond this count are deleted after each
+    successful dump. Default 7 (a week of dailies). Env var: BACKUP_RETENTION_COUNT.
+    """
+
+    backup_timeout_seconds: float = 300.0
+    """
+    Hard wall-clock timeout (seconds) for the `pg_dump` subprocess (SEC-OPS-2, I7 — bounded
+    loop/op contract; a stuck dump must never hang the scheduler or the system-update
+    endpoint forever). Env var: BACKUP_TIMEOUT_SECONDS.
+    """
+
+    pg_dump_path: str = "pg_dump"
+    """
+    Executable name/path for the `pg_dump` client binary (SEC-OPS-2). Default assumes it is
+    on PATH (installed via `postgresql-client` in the backend image). Override only for
+    non-standard installs. Env var: PG_DUMP_PATH.
+    """
+
+    @property
+    def backup_root(self) -> Path:
+        """Resolved absolute Path to the backup directory (SEC-OPS-2)."""
+        if self.backup_dir:
+            return Path(self.backup_dir).resolve()
+        return self.vault_root / ".synapse" / "backups"
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()

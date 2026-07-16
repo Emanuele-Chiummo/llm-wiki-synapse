@@ -56,6 +56,7 @@ def _make_scheduler(
     backfill_fn: Any = None,
     schema_review_fn: Any = None,
     reclassify_fn: Any = None,
+    backup_fn: Any = None,
     clock: _MockClock | None = None,
 ) -> Any:
     """Create an OpsScheduler with injected dependencies."""
@@ -71,6 +72,11 @@ def _make_scheduler(
         schema_review_fn = AsyncMock()
     if reclassify_fn is None:
         reclassify_fn = AsyncMock()
+    if backup_fn is None:
+        backup_fn = AsyncMock()
+    # NOTE: backup_fn is intentionally NOT part of this return tuple — all 15 existing
+    # call sites destructure exactly 6 values (scheduler, clock, lint, backfill, sr, rc).
+    # Backup-specific tests read it back via `scheduler._backup_fn` instead (see below).
     return (
         OpsScheduler(
             clock=clock,
@@ -78,6 +84,7 @@ def _make_scheduler(
             backfill_fn=backfill_fn,
             schema_review_fn=schema_review_fn,
             reclassify_fn=reclassify_fn,
+            backup_fn=backup_fn,
         ),
         clock,
         lint_fn,
@@ -387,13 +394,14 @@ def _make_client() -> Any:
 
 @pytest.mark.asyncio
 async def test_get_ops_schedules_shape() -> None:
-    """GET /ops/schedules returns the expected shape with 'ops' list of 4 entries (R12-9)."""
+    """GET /ops/schedules returns the expected shape with 'ops' list of 5 entries (W4)."""
     import app.config_overrides as co
 
     co._cache.pop("lint_schedule", None)
     co._cache.pop("backfill_schedule", None)
     co._cache.pop("schema_review_schedule", None)
     co._cache.pop("reclassify_schedule", None)
+    co._cache.pop("backup_schedule", None)
 
     async with _make_client() as client:
         resp = await client.get("/ops/schedules")
@@ -402,10 +410,10 @@ async def test_get_ops_schedules_shape() -> None:
     body = resp.json()
     assert "ops" in body
     ops = body["ops"]
-    # R12-9: now 4 entries — lint, backfill, schema_review, reclassify
-    assert len(ops) == 4
+    # 1.9.1 W4: now 5 entries — lint, backfill, schema_review, reclassify, backup
+    assert len(ops) == 5
     op_names = {e["op"] for e in ops}
-    assert op_names == {"lint", "backfill", "schema_review", "reclassify"}
+    assert op_names == {"lint", "backfill", "schema_review", "reclassify", "backup"}
     for entry in ops:
         assert "schedule" in entry
         assert "last_run_at" in entry
@@ -761,7 +769,7 @@ async def test_get_config_app_returns_12_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 23  # S1..S23 (S23 = web_search_provider, v1.5 P3-e)
+    assert len(settings_list) == 24  # S1..S24 (S24 = backup_schedule, 1.9.1 W4)
     keys = [s["key"] for s in settings_list]
     assert "schema_review_schedule" in keys
     # schema_review_schedule must appear at position 11 (0-indexed) — S12 position unchanged
@@ -1001,7 +1009,7 @@ async def test_get_config_app_returns_13_settings() -> None:
 
     assert resp.status_code == 200
     settings_list = resp.json()["settings"]
-    assert len(settings_list) == 23  # S1..S23 (S23 = web_search_provider, v1.5 P3-e)
+    assert len(settings_list) == 24  # S1..S24 (S24 = backup_schedule, 1.9.1 W4)
     keys = [s["key"] for s in settings_list]
     assert "reclassify_schedule" in keys
     # Must appear at position 12 (0-indexed)
@@ -1132,3 +1140,165 @@ async def test_no_summary_result_stays_ok_with_no_detail() -> None:
     state = scheduler.get_state("lint")
     assert state.last_status == "ok"
     assert state.last_detail is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# S24 backup_schedule — config-key validation (1.9.1 W4, SEC-OPS-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_validate_backup_schedule_valid_values() -> None:
+    """S24: backup_schedule accepts off|hourly|daily|weekly; rejects anything else."""
+    from app.config_overrides import validate_value
+
+    for v in ("off", "hourly", "daily", "weekly"):
+        assert validate_value("backup_schedule", v) is None
+
+    assert validate_value("backup_schedule", "monthly") is not None
+    assert validate_value("backup_schedule", "") is not None
+
+
+def test_backup_schedule_in_allowed_and_ordered_keys() -> None:
+    """S24: backup_schedule is in the allow-list and the stable GET /config/app order."""
+    from app.config_overrides import ALLOWED_CONFIG_KEYS, ORDERED_KEYS
+
+    assert "backup_schedule" in ALLOWED_CONFIG_KEYS
+    assert "backup_schedule" in ORDERED_KEYS
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OpsScheduler "backup" op — tick trigger, no-overlap, run-now (1.9.1 W4, SEC-OPS-2)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_scheduler_tick_triggers_backup_when_due() -> None:
+    """When backup_schedule='daily' and > 86400s have elapsed, the backup op triggers."""
+    import app.config_overrides as co
+
+    scheduler, clock, lint_fn, backfill_fn, sr_fn, rc_fn = _make_scheduler()
+
+    co._cache["backup_schedule"] = "daily"
+    co._cache.pop("lint_schedule", None)
+    co._cache.pop("backfill_schedule", None)
+    co._cache.pop("schema_review_schedule", None)
+    co._cache.pop("reclassify_schedule", None)
+
+    clock.advance(-(2 * 86400))
+    past = clock.now()
+    clock.advance(2 * 86400)
+    scheduler._state["backup"].last_run_at = past
+
+    try:
+        await scheduler._check_and_trigger("backup")
+
+        scheduler._backup_fn.assert_awaited_once()
+        lint_fn.assert_not_awaited()
+        backfill_fn.assert_not_awaited()
+        sr_fn.assert_not_awaited()
+        rc_fn.assert_not_awaited()
+        assert scheduler._state["backup"].last_status == "ok"
+    finally:
+        co._cache.pop("backup_schedule", None)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_backup_skips_when_off() -> None:
+    """backup_schedule='off' → op never triggered."""
+    import app.config_overrides as co
+
+    scheduler, *_ = _make_scheduler()
+
+    co._cache["backup_schedule"] = "off"
+    scheduler._state["backup"].last_run_at = None
+
+    try:
+        await scheduler._check_and_trigger("backup")
+        scheduler._backup_fn.assert_not_awaited()
+    finally:
+        co._cache.pop("backup_schedule", None)
+
+
+@pytest.mark.asyncio
+async def test_scheduler_backup_no_overlap_in_flight() -> None:
+    """backup op is skipped when already in-flight (no-overlap guard)."""
+    import app.config_overrides as co
+
+    scheduler, *_ = _make_scheduler()
+
+    co._cache["backup_schedule"] = "hourly"
+    scheduler._state["backup"].in_flight = True
+    scheduler._state["backup"].last_run_at = None
+
+    try:
+        await scheduler._check_and_trigger("backup")
+        scheduler._backup_fn.assert_not_awaited()
+    finally:
+        co._cache.pop("backup_schedule", None)
+        scheduler._state["backup"].in_flight = False
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_backup_202() -> None:
+    """POST /ops/schedules/backup/run-now → 202 when not in-flight (1.9.1 W4)."""
+    from app.ops_scheduler import OpsScheduler
+
+    mock_backup = AsyncMock()
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=AsyncMock(),
+        backup_fn=mock_backup,
+    )
+
+    with patch("app.main._ops_scheduler", test_scheduler):
+        async with _make_client() as client:
+            resp = await client.post("/ops/schedules/backup/run-now")
+
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["op"] == "backup"
+    assert body["status"] == "triggered"
+    mock_backup.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_post_run_now_backup_409_in_flight() -> None:
+    """POST /ops/schedules/backup/run-now → 409 when already in-flight (1.9.1 W4)."""
+    from app.ops_scheduler import OpsScheduler
+
+    test_scheduler = OpsScheduler(
+        lint_fn=AsyncMock(),
+        backfill_fn=AsyncMock(),
+        schema_review_fn=AsyncMock(),
+        reclassify_fn=AsyncMock(),
+        backup_fn=AsyncMock(),
+    )
+    test_scheduler._state["backup"].in_flight = True
+
+    try:
+        with patch("app.main._ops_scheduler", test_scheduler):
+            async with _make_client() as client:
+                resp = await client.post("/ops/schedules/backup/run-now")
+
+        assert resp.status_code == 409
+    finally:
+        test_scheduler._state["backup"].in_flight = False
+
+
+@pytest.mark.asyncio
+async def test_backup_error_reports_error_not_ok() -> None:
+    """run_backup returning stopped_reason='error' surfaces as 'error:...', not 'ok' (R13-12)."""
+    from app.ops.backup import BackupSummary
+
+    async def failing_backup() -> BackupSummary:
+        return BackupSummary(stopped_reason="error", error_message="pg_dump exited 1")
+
+    scheduler, *_ = _make_scheduler()
+    scheduler._backup_fn = failing_backup
+    await scheduler.run_now("backup")
+
+    state = scheduler.get_state("backup")
+    assert state.last_status is not None
+    assert state.last_status.startswith("error:")

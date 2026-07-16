@@ -404,6 +404,31 @@
         ]
       }
     },
+    "/export/full": {
+      "get": {
+        "tags": [
+          "export"
+        ],
+        "summary": "Extended JSON export \u2014 data.json PLUS conversations/provider_config/vault_state",
+        "description": "Everything GET /export/data.json returns, PLUS: conversations (with their messages), provider_config rows, and the vault_state row. Secrets are NEVER decrypted: provider_config.api_key_encrypted is emitted as base64-encoded Fernet ciphertext \u2014 restoring it requires the SAME SYNAPSE_SECRET_KEY that encrypted it. Read-only; no file mutations, no provider calls, no graph recompute (I1/I2/I6).",
+        "operationId": "export_full_json_export_full_get",
+        "responses": {
+          "200": {
+            "description": "Extended JSON metadata export",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/costs/summary": {
       "get": {
         "tags": [

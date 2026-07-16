@@ -235,7 +235,7 @@ async def test_get_config_app_all_env_sources() -> None:
     assert resp.status_code == 200
     body = resp.json()
     settings_list = body["settings"]
-    assert len(settings_list) == 23  # S1..S23 (S23 = web_search_provider, v1.5 P3-e)
+    assert len(settings_list) == 24  # S1..S24 (S24 = backup_schedule, 1.9.1 W4)
     for entry in settings_list:
         assert entry["source"] == "env", f"Expected source=env for {entry['key']}"
 
@@ -534,7 +534,11 @@ def test_validate_vision_keys() -> None:
 
     assert "vision_captions_enabled" in ALLOWED_CONFIG_KEYS
     assert "vision_max_images_per_run" in ALLOWED_CONFIG_KEYS
-    assert ORDERED_KEYS[-2:] == ["mineru_timeout_seconds", "web_search_provider"]
+    assert ORDERED_KEYS[-3:] == [
+        "mineru_timeout_seconds",
+        "web_search_provider",
+        "backup_schedule",
+    ]
 
     # bool toggle
     assert validate_value("vision_captions_enabled", "true") is None
