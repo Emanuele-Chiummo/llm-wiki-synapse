@@ -1190,10 +1190,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#121-postgres" class="md-nav__link">
+  <a href="#120-built-in-scheduled-backup-191-w4-sec-ops-2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.1 Postgres
+        12.0 Built-in scheduled backup (1.9.1 W4, SEC-OPS-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#121-postgres-manual-still-works-now-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 Postgres (manual — still works, now optional)
       
     </span>
   </a>
@@ -1691,19 +1702,19 @@
   <a href="#backup-restore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        20. Backup &amp; restore (R8-4)
+        20. Backup &amp; restore (R8-4, extended 1.9.1 W4)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="20. Backup &amp; restore (R8-4)">
+    <nav class="md-nav" aria-label="20. Backup &amp; restore (R8-4, extended 1.9.1 W4)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#201-downloading-the-two-artifacts" class="md-nav__link">
+  <a href="#201-downloading-the-export-artifacts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        20.1 Downloading the two artifacts
+        20.1 Downloading the export artifacts
       
     </span>
   </a>
@@ -2844,10 +2855,21 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#121-postgres" class="md-nav__link">
+  <a href="#120-built-in-scheduled-backup-191-w4-sec-ops-2" class="md-nav__link">
     <span class="md-ellipsis">
       
-        12.1 Postgres
+        12.0 Built-in scheduled backup (1.9.1 W4, SEC-OPS-2)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#121-postgres-manual-still-works-now-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 Postgres (manual — still works, now optional)
       
     </span>
   </a>
@@ -3345,19 +3367,19 @@
   <a href="#backup-restore" class="md-nav__link">
     <span class="md-ellipsis">
       
-        20. Backup &amp; restore (R8-4)
+        20. Backup &amp; restore (R8-4, extended 1.9.1 W4)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="20. Backup &amp; restore (R8-4)">
+    <nav class="md-nav" aria-label="20. Backup &amp; restore (R8-4, extended 1.9.1 W4)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#201-downloading-the-two-artifacts" class="md-nav__link">
+  <a href="#201-downloading-the-export-artifacts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        20.1 Downloading the two artifacts
+        20.1 Downloading the export artifacts
       
     </span>
   </a>
@@ -3943,6 +3965,30 @@ chmod<span class="w"> </span><span class="m">755</span><span class="w"> </span>/
 <td><code>60</code></td>
 <td>No</td>
 <td>Window length in seconds for the per-IP rate limiter. The counter resets to zero at the start of each new window. Default 60 s. (R13-9, B4)</td>
+</tr>
+<tr>
+<td><code>BACKUP_DIR</code></td>
+<td><em>(unset)</em></td>
+<td>No</td>
+<td>Directory the scheduled <code>pg_dump</code> archives are written to (1.9.1 W4, SEC-OPS-2). Unset resolves to <code>&lt;VAULT_PATH&gt;/.synapse/backups</code>. See §12.0.</td>
+</tr>
+<tr>
+<td><code>BACKUP_RETENTION_COUNT</code></td>
+<td><code>7</code></td>
+<td>No</td>
+<td>Number of most-recent backup archives kept per vault; older ones are deleted after each successful run (I7 — bounded disk growth). (SEC-OPS-2)</td>
+</tr>
+<tr>
+<td><code>BACKUP_TIMEOUT_SECONDS</code></td>
+<td><code>300</code></td>
+<td>No</td>
+<td>Hard wall-clock timeout (seconds) for the <code>pg_dump</code> subprocess. A stuck dump is killed rather than hanging the scheduler or <code>POST /ops/system-update</code>. (SEC-OPS-2, I7)</td>
+</tr>
+<tr>
+<td><code>PG_DUMP_PATH</code></td>
+<td><code>pg_dump</code></td>
+<td>No</td>
+<td>Executable name/path for the <code>pg_dump</code> client binary. Default assumes it's on <code>PATH</code> (the shipped image installs <code>postgresql-client</code>). (SEC-OPS-2)</td>
 </tr>
 </tbody>
 </table>
@@ -4928,13 +4974,71 @@ make<span class="w"> </span>screenshots<span class="w">  </span><span class="c1"
 The docs gate CI job will fail on drift.</p>
 <hr />
 <h2 id="12-backup-strategy">12. Backup strategy<a class="headerlink" href="#12-backup-strategy" title="Permanent link">&para;</a></h2>
-<h3 id="121-postgres">12.1 Postgres<a class="headerlink" href="#121-postgres" title="Permanent link">&para;</a></h3>
+<h3 id="120-built-in-scheduled-backup-191-w4-sec-ops-2">12.0 Built-in scheduled backup (1.9.1 W4, SEC-OPS-2)<a class="headerlink" href="#120-built-in-scheduled-backup-191-w4-sec-ops-2" title="Permanent link">&para;</a></h3>
+<p>Synapse ships its own scheduled <code>pg_dump</code>, so §12.1's manual cron/periodic-task recipe is
+now OPTIONAL — enable the built-in job instead and skip straight to §12.2 for the vault
+filesystem (ZFS snapshots remain the right tool for that part).</p>
+<p>The backup op runs through the SAME <code>OpsScheduler</code> used by lint / domain-backfill /
+schema-review / type-reclassify (<code>backend/app/ops_scheduler.py</code>) — one more <code>off|hourly|
+daily|weekly</code> schedule key, no new infrastructure:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Enable a daily backup (any authenticated client — curl, the Settings UI, etc.)</span>
+curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:8000/config/app/backup_schedule<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;value&quot;: &quot;daily&quot;}&#39;</span>
+
+<span class="c1"># Trigger one immediately (does not wait for the schedule)</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/ops/schedules/backup/run-now
+
+<span class="c1"># Check status (last_run_at, last_status, last_detail, in_flight)</span>
+curl<span class="w"> </span>http://localhost:8000/ops/schedules
+</code></pre></div>
+<p>Where archives land (env vars — see <code>.env.example</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BACKUP_DIR</code></td>
+<td><code>&lt;VAULT_PATH&gt;/.synapse/backups</code></td>
+<td>Absolute path override; put it on the SAME backup-friendly volume as <code>vault/</code> (e.g. a TrueNAS dataset with its own snapshot schedule) so one ZFS snapshot policy covers both.</td>
+</tr>
+<tr>
+<td><code>BACKUP_RETENTION_COUNT</code></td>
+<td><code>7</code></td>
+<td>Archives beyond the newest N (per vault) are deleted after each successful run — bounded disk growth (I7).</td>
+</tr>
+<tr>
+<td><code>BACKUP_TIMEOUT_SECONDS</code></td>
+<td><code>300</code></td>
+<td>Hard wall-clock cap on the <code>pg_dump</code> subprocess; a stuck dump is killed, not left hanging.</td>
+</tr>
+<tr>
+<td><code>PG_DUMP_PATH</code></td>
+<td><code>pg_dump</code></td>
+<td>Override only for non-standard installs; the shipped image already has <code>postgresql-client</code> installed.</td>
+</tr>
+</tbody>
+</table>
+<p>Archives are <code>pg_dump -Fc</code> (custom/compressed format) — restore with <code>pg_restore</code>, same as
+§20.3 below. <strong>A pre-update dump also runs automatically</strong>: <code>POST /ops/system-update</code> (the
+Home "Update system" button) runs one backup FIRST, before poking Watchtower, so an update
+that breaks the schema/app has a fresh rollback point. That pre-update dump is best-effort
+— a dump failure is logged (visible in <code>GET /ops/schedules</code>) but never blocks the update
+itself, since refusing an explicitly-requested update because the safety-net dump failed
+would be a worse outcome.</p>
+<h3 id="121-postgres-manual-still-works-now-optional">12.1 Postgres (manual — still works, now optional)<a class="headerlink" href="#121-postgres-manual-still-works-now-optional" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># Dump from inside the container</span>
 docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>postgres<span class="w"> </span>pg_dump<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-U<span class="w"> </span>synapse<span class="w"> </span>-d<span class="w"> </span>synapse<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span><span class="p">|</span><span class="w"> </span>gzip<span class="w"> </span>&gt;<span class="w"> </span>/mnt/pool/synapse/postgres-backups/synapse-db-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d-%H%M%S<span class="k">)</span>.sql.gz
 </code></pre></div>
-<p>Automate with a TrueNAS periodic task or cron job.</p>
+<p>Automate with a TrueNAS periodic task or cron job — or use §12.0's built-in scheduler
+instead, which needs no host-side cron entry.</p>
 <h3 id="122-vault-filesystem">12.2 Vault filesystem<a class="headerlink" href="#122-vault-filesystem" title="Permanent link">&para;</a></h3>
 <p>The <code>vault/</code> directory contains the raw documents and AI-generated wiki pages. Back
 it up with a ZFS snapshot:</p>
@@ -5599,11 +5703,12 @@ LLM assigns valid wiki types (entity, concept, synthesis, etc.) during the analy
 Forcing a type from the converter was tried and removed; it produced invalid page types
 that broke the wiki type system.</p>
 <hr />
-<h2 id="backup-restore">20. Backup &amp; restore (R8-4)<a class="headerlink" href="#backup-restore" title="Permanent link">&para;</a></h2>
-<p>Synapse provides two export artifacts that together constitute a full vault backup.
+<h2 id="backup-restore">20. Backup &amp; restore (R8-4, extended 1.9.1 W4)<a class="headerlink" href="#backup-restore" title="Permanent link">&para;</a></h2>
+<p>Synapse provides export artifacts that together constitute a full vault backup, PLUS a
+built-in scheduled Postgres dump (§12.0) for point-in-time database recovery.
 There is no import/restore endpoint in v0.8 — restore is a manual procedure documented
 below. A <code>/import</code> endpoint is planned for a future sprint.</p>
-<h3 id="201-downloading-the-two-artifacts">20.1 Downloading the two artifacts<a class="headerlink" href="#201-downloading-the-two-artifacts" title="Permanent link">&para;</a></h3>
+<h3 id="201-downloading-the-export-artifacts">20.1 Downloading the export artifacts<a class="headerlink" href="#201-downloading-the-export-artifacts" title="Permanent link">&para;</a></h3>
 <p>While Synapse is running:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># 1 — Vault filesystem snapshot (raw/ + wiki/ + purpose.md + schema.md + .obsidian/ JSON)</span>
 curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export<span class="w"> </span><span class="se">\</span>
@@ -5612,13 +5717,29 @@ curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/expo
 <span class="c1"># 2 — Database metadata snapshot (pages, links, edges, ingest_runs, review_items)</span>
 curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export/data.json<span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-o<span class="w"> </span>synapse-data-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.json
+
+<span class="c1"># 3 — Extended metadata snapshot (1.9.1 W4): everything in #2 PLUS conversations</span>
+<span class="c1">#     (with messages), provider_config, and vault_state</span>
+curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export/full<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-o<span class="w"> </span>synapse-data-full-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.json
 </code></pre></div>
 <p><code>GET /export</code> returns a streaming ZIP named <code>synapse-vault-{vault_id}-{date}.zip</code>.
 <code>GET /export/data.json</code> returns a JSON object with top-level keys:
-<code>pages</code>, <code>links</code>, <code>edges</code>, <code>runs</code>, <code>review_items</code>, <code>exported_at</code>, <code>data_version</code>.</p>
+<code>pages</code>, <code>links</code>, <code>edges</code>, <code>runs</code>, <code>review_items</code>, <code>exported_at</code>, <code>data_version</code>.
+<code>GET /export/full</code> (1.9.1 W4) adds <code>conversations</code> (each with its <code>messages</code>),
+<code>provider_config</code>, and <code>vault_state</code> to the same shape.</p>
+<p><strong>Secrets stay secret:</strong> <code>provider_config[].api_key_encrypted_b64</code> in <code>/export/full</code> is the
+Fernet ciphertext, base64-encoded for JSON transport — it is <strong>never decrypted</strong> by the
+export endpoint. Restoring those rows only works on a deployment configured with the
+<strong>same</strong> <code>SYNAPSE_SECRET_KEY</code> that encrypted them; after a key rotation, re-enter any
+UI-supplied provider API keys via Settings instead of restoring the old ciphertext.</p>
 <p>Bounds:
 - ZIP export is capped at 500 MB uncompressed (returns HTTP 413 if exceeded).
 - Only one export may run at a time per vault; a concurrent request returns HTTP 429.</p>
+<p>For the database itself, prefer the built-in scheduled <code>pg_dump</code> (§12.0) over
+<code>/export/data.json</code> / <code>/export/full</code> as your primary DB backup — the JSON exports are
+read-only audit snapshots (no content bodies, no restore tooling reads them directly),
+while the <code>pg_dump -Fc</code> archives from §12.0 are restorable with <code>pg_restore</code> (§20.3).</p>
 <h3 id="202-restore-path-a-vault-directory-only-watcher-re-ingest">20.2 Restore path A — vault directory only (watcher re-ingest)<a class="headerlink" href="#202-restore-path-a-vault-directory-only-watcher-re-ingest" title="Permanent link">&para;</a></h3>
 <p>Use this path when: the Postgres database was lost but the vault filesystem was preserved,
 OR when you want to restore to a new host without migrating the database.</p>
