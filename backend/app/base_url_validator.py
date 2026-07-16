@@ -50,9 +50,7 @@ def validate_base_url(base_url: str | None) -> None:
 
     # Require http or https
     if parsed.scheme not in ("http", "https"):
-        raise ValueError(
-            f"base_url scheme must be http or https, not {parsed.scheme!r}"
-        )
+        raise ValueError(f"base_url scheme must be http or https, not {parsed.scheme!r}")
 
     # Extract hostname (strip port)
     hostname = parsed.hostname

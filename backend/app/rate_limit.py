@@ -28,7 +28,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -171,6 +171,7 @@ async def rate_limit(request: Request) -> None:
 
 # ── Authentication failure rate limiter (SEC-RL-1) ────────────────────────────
 
+
 class _AuthFailureLimiter:
     """
     Rate limiter specifically for authentication failures (401 responses).
@@ -278,7 +279,6 @@ async def check_auth_failure_rate_limit(request: Request) -> None:
 # ── FastAPI middleware for auth failure rate limiting ────────────────────────
 
 
-
 class AuthFailureRateLimitMiddleware(BaseHTTPMiddleware):
     """
     Middleware to rate-limit authentication failures (401 responses) by IP (SEC-RL-1).
@@ -294,7 +294,9 @@ class AuthFailureRateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:  # type: ignore[no-untyped-def]
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
         """Wrap the request and check rate limit on 401 responses."""
         response = await call_next(request)
 
@@ -305,7 +307,7 @@ class AuthFailureRateLimitMiddleware(BaseHTTPMiddleware):
             except HTTPException as exc:
                 # Rate limit exceeded — return 429 instead of 401
                 return Response(
-                    content=exc.detail,
+                    content=str(exc.detail),
                     status_code=exc.status_code,
                     headers=dict(exc.headers) if exc.headers else {},
                 )
