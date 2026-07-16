@@ -93,11 +93,11 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0046** | [Live ingest activity queue with cancel / pause / retry (F9-adjacent, watcher, I1/I7)](0046-ingest-activity-queue-cancellation.md) | Accepted |
 | **0050** | [Retrieval scope restricted to wiki/ pages only](0050-retrieval-wiki-only-scope.md) | Accepted |
 | **0051** | [Pluggable PDF extractor seam: Marker over HTTP with pypdf fallback](0051-pluggable-pdf-extractor-seam.md) | Accepted |
-| **0058** | [Lint parity extension: broken-wikilink category, batch actions, review bridge, orphan delete (extends ADR-0037; B1)](ADR-0058-lint-parity-extension.md) | Accepted |
-| **0059** | [Chat composer parity: attach-image (capability-aware vision), web-search toggle (amends ADR-0050 — additive `[W]` namespace), frozen retrieval-mode presets, AnyTXT do-not-mirror (B2; I3/I6/I7/I9)](ADR-0059-chat-composer-parity.md) | Accepted |
-| **0060** | [Graph visual parity: render-only edge culling, hub labels, node density down-scale (F4, I2/I3; GL4 deferred, GL5/GL6 declined)](ADR-0060-graph-visual-parity.md) | Accepted |
-| **0061** | [MCP tool expansion (graph-neighborhood / list-reviews / read-source read tools; resolve-review / trigger-rescan write tools gated like write_page) + review bulk-resolve/PATCH REST + trigger-disciplined agent skill (extends ADR-0010/0029/0033/0044; B5/D2; I1/I5/I6/I7/I9)](ADR-0061-mcp-expansion-and-skill.md) | Accepted |
-| **0062** | [Cloudflare Access edge authentication + client service tokens (browser OTP cookie; iOS/clipper/frontend `CF-Access-Client-Id/Secret`; `/mcp/server` bypass path); interim before `user→vault` tenancy (v1.3.9; audit C1/C2)](ADR-0062-cloudflare-access-edge-auth.md) | Accepted |
+| **0058** | [Lint parity extension: broken-wikilink category, batch actions, review bridge, orphan delete (extends ADR-0037; B1)](0058-lint-parity-extension.md) | Accepted |
+| **0059** | [Chat composer parity: attach-image (capability-aware vision), web-search toggle (amends ADR-0050 — additive `[W]` namespace), frozen retrieval-mode presets, AnyTXT do-not-mirror (B2; I3/I6/I7/I9)](0059-chat-composer-parity.md) | Accepted |
+| **0060** | [Graph visual parity: render-only edge culling, hub labels, node density down-scale (F4, I2/I3; GL4 deferred, GL5/GL6 declined)](0060-graph-visual-parity.md) | Accepted |
+| **0061** | [MCP tool expansion (graph-neighborhood / list-reviews / read-source read tools; resolve-review / trigger-rescan write tools gated like write_page) + review bulk-resolve/PATCH REST + trigger-disciplined agent skill (extends ADR-0010/0029/0033/0044; B5/D2; I1/I5/I6/I7/I9)](0061-mcp-expansion-and-skill.md) | Accepted |
+| **0062** | [Cloudflare Access edge authentication + client service tokens (browser OTP cookie; iOS/clipper/frontend `CF-Access-Client-Id/Secret`; `/mcp/server` bypass path); interim before `user→vault` tenancy (v1.3.9; audit C1/C2)](0062-cloudflare-access-edge-auth.md) | Accepted |
 
 ---
 
@@ -110,24 +110,24 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0048** | [Dark mode, command palette, UI polish, and desktop pack (v0.6 frontend + Tauri)](0048-dark-mode-command-palette-ui-polish-desktop-pack.md) | Accepted |
 | **0049** | [Desktop auto-update over GitHub Releases (unified `v*` tag, minisign-verified)](0049-desktop-auto-update-github-releases.md) | Accepted |
 | **0052** | [Shared Bearer token auth (`SYNAPSE_AUTH_TOKEN`): env-only credential, FastAPI middleware, CORS-safe 401 (R10-1, v1.0)](0052-auth-token-model.md) | Accepted |
-| **0053** | [Runtime UI config-override layer (`app_config` key/value store; env baseline → DB override; GET/PUT/DELETE `/config/app`) (R11-2, v1.1)](ADR-0053-ui-config-overrides.md) | Accepted |
-| **0054** | [Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (`/stats/overview`, `/stats/sections`, `/ops/backfill-domains`) (F18, R12-1/R12-2, v1.2)](ADR-0054-domain-taxonomy-and-dashboard-stats.md) | Accepted |
-| **0055** | [Settings IA v2: two-level nav, focused pages, domain-co-located runtime config, S14–S18 loop-bound keys (v1.2)](ADR-0055-settings-ia-v2.md) | Accepted |
-| **0056** | [Bounded watcher ingest concurrency (`INGEST_MAX_CONCURRENCY`, default 3) — prevents bulk-drop flood of DB pool / embedding host / RAM (I7, v1.2)](ADR-0056-ingest-concurrency-cap.md) | Accepted |
-| **0057** | [Responsive strategy for iPhone/iPad: 3 viewport tiers (767/1023), `useViewport()` hook, PanelDrawer + `uiStore`, iOS safe-area/`100dvh` (R13-11, v1.3)](ADR-0057-responsive-mobile-tablet.md) | Accepted |
-| **0063** | [Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)](ADR-0063-ingest-quality-parity.md) | Accepted |
-| **0064** | [Missing-page fan-out (F9 review suggestions)](ADR-0064-missing-page-fanout.md) | Accepted |
-| **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](ADR-0065-marker-large-pdf-chunking.md) | Accepted |
-| **0066** | [LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope](ADR-0066-llmwiki-1to1-parity-program.md) | Accepted |
-| **0067** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change](ADR-0067-multi-vault-project-launcher.md) | Accepted |
-| **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](ADR-0068-source-watch-wider-types.md) | Accepted |
-| **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](ADR-0069-mineru-cloud-pdf-extractor.md) | Accepted |
-| **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](ADR-0070-multi-provider-web-search.md) | Accepted |
-| **0071** | [UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env](ADR-0071-web-search-provider-keys-ui.md) | Accepted |
-| **0072** | [Runtime toggle for remote MCP write tools (Settings UI)](ADR-0072-mcp-remote-write-runtime-toggle.md) | Accepted |
-| **0073** | [Source-grounded generation and review lifecycle parity (v1.6.0)](ADR-0073-generation-and-review-lifecycle-parity.md) | Accepted |
-| **0074** | [Idempotent corpus generation and operator-visible diagnostics (v1.6.0)](ADR-0074-idempotent-corpus-generation-and-operator-ux.md) | Accepted |
-| **0075** | [Explicit deployment trust mode and authenticated health diagnostics (v1.6.0; amends ADR-0052)](ADR-0075-deployment-mode-auth-health-boundary.md) | Accepted |
+| **0053** | [Runtime UI config-override layer (`app_config` key/value store; env baseline → DB override; GET/PUT/DELETE `/config/app`) (R11-2, v1.1)](0053-ui-config-overrides.md) | Accepted |
+| **0054** | [Domain taxonomy (controlled vocabulary + ingest auto-tag) and dashboard stats API (`/stats/overview`, `/stats/sections`, `/ops/backfill-domains`) (F18, R12-1/R12-2, v1.2)](0054-domain-taxonomy-and-dashboard-stats.md) | Accepted |
+| **0055** | [Settings IA v2: two-level nav, focused pages, domain-co-located runtime config, S14–S18 loop-bound keys (v1.2)](0055-settings-ia-v2.md) | Accepted |
+| **0056** | [Bounded watcher ingest concurrency (`INGEST_MAX_CONCURRENCY`, default 3) — prevents bulk-drop flood of DB pool / embedding host / RAM (I7, v1.2)](0056-ingest-concurrency-cap.md) | Accepted |
+| **0057** | [Responsive strategy for iPhone/iPad: 3 viewport tiers (767/1023), `useViewport()` hook, PanelDrawer + `uiStore`, iOS safe-area/`100dvh` (R13-11, v1.3)](0057-responsive-mobile-tablet.md) | Accepted |
+| **0063** | [Ingest-quality parity: long-source chunked analysis + checkpointing, LLM body-merge on re-ingest, wrong-language page drop (orchestrated route; provider-abstracted, bounded) (F3/I6/I7, R1, v1.3.13)](0063-ingest-quality-parity.md) | Accepted |
+| **0064** | [Missing-page fan-out (F9 review suggestions)](0064-missing-page-fanout.md) | Accepted |
+| **0065** | [Marker large-PDF conversion via page-range chunking — split in the service, shared models, dedicated `MARKER_MAX_UPLOAD_BYTES`, raised timeout (F12/I7/I1, v1.4.1)](0065-marker-large-pdf-chunking.md) | Accepted |
+| **0066** | [LLM Wiki 1:1 parity program (v1.5) — amends I9 (multi-provider web search opt-in) + Marker/MinerU posture; 6-phase scope](0066-llmwiki-1to1-parity-program.md) | Accepted |
+| **0067** | [LLM Wiki 1:1 generation-semantics parity (D1–D6: generation exclusivity, `related:` frontmatter, corpus synthesize, query normalization, overview meta)](0067-llmwiki-1to1-generation-parity.md) | Partially superseded (ADR-0073/0074) |
+| **0068** | [Source Watch imports wider file types (v1.5 P3-c) — scheduled scan extracts csv/html/mdx/rtf/odt/ods/odp + per-schedule allowed/excluded/max-size](0068-source-watch-wider-types.md) | Accepted |
+| **0069** | [MinerU cloud PDF extractor (v1.5 P3-d) — 3rd pdf_extractor value, opt-in/off-default, API key env-only (secret), pypdf fallback](0069-mineru-cloud-pdf-extractor.md) | Accepted |
+| **0070** | [Multi-provider web search behind a provider seam (v1.5 P3-e) — SearXNG default; Tavily/SerpApi/Firecrawl/Brave/Ollama-Web opt-in/off-default, cloud keys env-only (secret)](0070-multi-provider-web-search.md) | Accepted |
+| **0071** | [UI-settable web-search cloud provider API keys (v1.5 P3-e follow-up) — Fernet-encrypted at rest in vault_state, masked posture, SYNAPSE_SECRET_KEY required, DB wins over env](0071-web-search-provider-keys-ui.md) | Accepted |
+| **0072** | [Runtime toggle for remote MCP write tools (Settings UI)](0072-mcp-remote-write-runtime-toggle.md) | Accepted |
+| **0073** | [Source-grounded generation and review lifecycle parity (v1.6.0)](0073-generation-and-review-lifecycle-parity.md) | Accepted |
+| **0074** | [Idempotent corpus generation and operator-visible diagnostics (v1.6.0)](0074-idempotent-corpus-generation-and-operator-ux.md) | Accepted |
+| **0075** | [Explicit deployment trust mode and authenticated health diagnostics (v1.6.0; amends ADR-0052)](0075-deployment-mode-auth-health-boundary.md) | Accepted |
 
 ---
 
@@ -135,14 +135,15 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 | # | Title | Status |
 |---|-------|--------|
-| **0076** | [Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF](ADR-0076-block-based-ingest-pipeline.md) | Accepted |
-| **0077** | [Schema-driven page-type routing and an open page-type set (v1.7.0) — schema.md Page Types table is authoritative; custom types persist as raw page_type on the block path; enum untouched](ADR-0077-schema-driven-page-routing.md) | Accepted |
-| **0078** | [Aggregate file ownership: index.md "## Recently Updated" (hybrid K3+§1.8), log.md heading format, overview.md manual-op only — removes per-ingest _update_overview; adds POST /ops/overview/regenerate (v1.7.0)](ADR-0078-aggregate-ownership.md) | Accepted |
-| **0079** | [WS-C Review parity: drain-sweep, stub-create, block-review enqueue (v1.7.0) — `onQueueDrained` drain callback replaces per-run sweep; `create_page_from_review(mode="stub")` default; REVIEW blocks → review_items; `_detect_page_type` port](ADR-0079-review-parity.md) | Accepted |
-| **0080** | [Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, `proposal_origin="lint"` review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change](ADR-0080-lint-parity-assessment.md) | Accepted |
-| **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0067) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](ADR-0081-onboarding-wizard-and-output-language.md) | Accepted |
-| **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](ADR-0083-parity-e2e-harness.md) | Accepted |
-| **0084** | [Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079](ADR-0084-single-shot-complete-transport.md) | Accepted |
+| **0076** | [Block-based ingest pipeline and orchestrator decomposition (v1.7.0) — ports nashsu/llm_wiki markdown-analysis + FILE/REVIEW blocks; fixes the link regression at the prompt; enrich default OFF](0076-block-based-ingest-pipeline.md) | Accepted |
+| **0077** | [Schema-driven page-type routing and an open page-type set (v1.7.0) — schema.md Page Types table is authoritative; custom types persist as raw page_type on the block path; enum untouched](0077-schema-driven-page-routing.md) | Accepted |
+| **0078** | [Aggregate file ownership: index.md "## Recently Updated" (hybrid K3+§1.8), log.md heading format, overview.md manual-op only — removes per-ingest _update_overview; adds POST /ops/overview/regenerate (v1.7.0)](0078-aggregate-ownership.md) | Accepted |
+| **0079** | [WS-C Review parity: drain-sweep, stub-create, block-review enqueue (v1.7.0) — `onQueueDrained` drain callback replaces per-run sweep; `create_page_from_review(mode="stub")` default; REVIEW blocks → review_items; `_detect_page_type` port](0079-review-parity.md) | Accepted |
+| **0080** | [Lint parity assessment (v1.7.0) — already at parity (0.74 threshold, deterministic fixes, `proposal_origin="lint"` review routing); bounded semantic loop vs single-pass and on-demand vs auto-route are deliberate supersets; no code change](0080-lint-parity-assessment.md) | Accepted |
+| **0081** | [New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0; migration 0032; amends ADR-0082) — templates carry extra_dirs + custom types; scaffold applies scenario; wizard auto-activates](0081-onboarding-wizard-and-output-language.md) | Accepted |
+| **0082** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change; renumbered from 0067 in 1.9.0 (duplicate-number collision)](0082-multi-vault-project-launcher.md) | Accepted |
+| **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](0083-parity-e2e-harness.md) | Accepted |
+| **0084** | [Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079](0084-single-shot-complete-transport.md) | Accepted |
 
 ---
 

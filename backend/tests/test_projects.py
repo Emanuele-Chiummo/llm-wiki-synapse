@@ -1,5 +1,5 @@
 """
-Tests for GET /projects — multi-vault project registry (v1.5 P2, ADR-0067).
+Tests for GET /projects — multi-vault project registry (v1.5 P2, ADR-0082).
 
 Covered:
   - Seeds a one-entry registry from the boot vault when projects.json is absent (back-compat).

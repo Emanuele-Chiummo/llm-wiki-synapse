@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-03
-- **Amended by:** [ADR-0075](ADR-0075-deployment-mode-auth-health-boundary.md) — server-mode
+- **Amended by:** [ADR-0075](0075-deployment-mode-auth-health-boundary.md) — server-mode
   fail-closed validation and authenticated detailed health diagnostics
 - **Sprint:** v1.0 (M10 — Distribution & multi-user; R10-1 rescoped from OIDC to a shared token)
 - **Features:** F16 (Settings / config surface) · F15 (cross-platform security hardening) ·

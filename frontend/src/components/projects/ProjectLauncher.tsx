@@ -1,5 +1,5 @@
 /**
- * ProjectLauncher.tsx — multi-vault launcher (v1.5 P2 slice 4, ADR-0067).
+ * ProjectLauncher.tsx — multi-vault launcher (v1.5 P2 slice 4, ADR-0082).
  *
  * Mirrors LLM Wiki's ⇄ Project Launcher: title + New Project / Open Project + Recent Projects.
  * Each project is a vault folder. Activating one switches the running service's active vault

@@ -56,7 +56,7 @@ severity group headers (`⚠ Warnings (741)`); per-row `Open` + `Fix`; green
 **Invariants:** I1 (single-page edits, one bump), I4 (virtualized+headers), I5 (body-only
 wikilink writes), I6 (semantic pass stays provider-neutral), I7 (batch caps; L1 is free),
 K8 (delete = human double-confirm; fixes stay human-gated).
-**ADR:** ADR-0058 (accepted 2026-07-06) — extends ADR-0037; see `docs/adr/ADR-0058-lint-parity-extension.md`.
+**ADR:** ADR-0058 (accepted 2026-07-06) — extends ADR-0037; see `docs/adr/0058-lint-parity-extension.md`.
 
 **Live-preview findings (2026-07-06, 986-page real vault):**
 - ✅ **Fixed in-session:** deterministic findings were being crushed by the semantic cost-cap

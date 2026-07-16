@@ -1,7 +1,11 @@
-# ADR-0067 — Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2)
+# ADR-0082 — Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2)
 
 - **Status:** Accepted
 - **Date:** 2026-07-10
+- **Renumbered:** 2026-07-16 (1.9.0 W1) — originally issued as ADR-0067 on a parallel branch,
+  colliding with `0067-llmwiki-1to1-generation-parity.md`; moved to the free 0082 slot.
+  All launcher references (projects.py, vault.py, main.py, launcher UI, ADR-0081) now say
+  ADR-0082; any stray "ADR-0067" about the *launcher* in historical docs means this file.
 - **Sprint:** v1.5 — "LLM Wiki 1:1 parity", phase P2
 - **Extends:** ADR-0066 (parity program). Retires the v1.0 "single-vault single-owner" posture
   (`SYNAPSE-VS-LLMWIKI-PARITY.md`) — but incrementally, not by a rewrite.

@@ -10,6 +10,12 @@ permissions:
   contents: write
   packages: write
 
+# Never run two release builds for the same ref at once (tag push + manual
+# dispatch can overlap); queue instead of cancel — releases must complete.
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
   # R12-3: Build and push backend image to GHCR

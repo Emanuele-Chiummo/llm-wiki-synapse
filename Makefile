@@ -82,6 +82,10 @@ er:
 openapi:
 	cd backend && python scripts/generate_openapi.py
 
+# ADR corpus consistency (1.9.0 W1 — naming, index completeness, duplicate numbers)
+adr-check:
+	python3 scripts/check_adr_index.py
+
 # ──────────────────────────────────────────────────────────────────────────
 # Documentation site (MkDocs Material)
 # ──────────────────────────────────────────────────────────────────────────

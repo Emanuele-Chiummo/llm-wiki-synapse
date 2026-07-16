@@ -1110,9 +1110,9 @@ Both diagrams: CI mmdc render check must pass.
 
 **Scope:**
 Minimum required ADRs:
-- `docs/adr/ADR-0007-inference-provider-abc.md`: InferenceProvider ABC design — why ABC (not duck typing), why 3 backends, capability-aware routing approach, why chat() is stubbed not deferred.
-- `docs/adr/ADR-0008-provider-config-schema.md`: provider_config table scope model — why Postgres not a config file, why global/vault/operation hierarchy, resolution order.
-- `docs/adr/ADR-0009-bounded-loop-defaults.md`: max_iter=3 and token_budget defaults — rationale, how total_cost_usd is computed per provider type, anomaly threshold ($1.00/run), CLI cost = $0.00 convention.
+- `docs/adr/0007-inference-provider-abc.md`: InferenceProvider ABC design — why ABC (not duck typing), why 3 backends, capability-aware routing approach, why chat() is stubbed not deferred.
+- `docs/adr/0008-provider-config-schema.md`: provider_config table scope model — why Postgres not a config file, why global/vault/operation hierarchy, resolution order.
+- `docs/adr/0009-bounded-loop-defaults.md`: max_iter=3 and token_budget defaults — rationale, how total_cost_usd is computed per provider type, anomaly threshold ($1.00/run), CLI cost = $0.00 convention.
 
 Additional ADRs as needed for: FastMCP choice over raw MCP SDK, links table schema (K5), wikilink parser approach.
 
@@ -2483,7 +2483,7 @@ SPRINT-v1.0-SCOPE.md §0 Rule 2) — no proxy commands.
 | Owner | ai-agent-engineer (authors ADR); solution-architect (accepts) |
 | Priority | P0 — hard blocker for R10-1 and R10-2 |
 
-**Scope:** `docs/adr/ADR-0052-auth-token-model.md` — documents: why shared token not
+**Scope:** `docs/adr/0052-auth-token-model.md` — documents: why shared token not
 OIDC, why OIDC is deferred to post-1.0, single-vault scope for 1.0, WebSocket auth
 approach, HTTPS responsibility model, excluded endpoints (`/health`, `/status`,
 `/health/detailed`), token rotation procedure.

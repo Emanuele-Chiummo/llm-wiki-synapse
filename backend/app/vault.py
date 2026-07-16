@@ -237,7 +237,7 @@ def bootstrap_vault_at(
     Idempotent — creates only what is absent; existing files are NOT overwritten unless a
     *scenario_id* is given (see below). Used both for the boot vault (via
     :func:`bootstrap_vault`) and when creating a new project vault at an arbitrary path
-    (``POST /projects``, ADR-0067).
+    (``POST /projects``, ADR-0082).
 
     Parameters
     ----------

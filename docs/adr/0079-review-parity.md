@@ -128,4 +128,4 @@ ingest; surfacing them in the HITL queue (F9) closes the feedback loop.
 | `app/ingest/pipeline.py` | Remove per-run sweeps; add block review enqueue in `_run_orchestrated_blocks` |
 | `app/ops/review.py` | `_detect_page_type()`, `_create_stub_from_review()`, `create_page_from_review(mode=)` |
 | `app/routers/review.py` | `CreateReviewBody` model; `approve_review_item` + `create_review_item` accept optional body |
-| `docs/adr/ADR-0079-review-parity.md` | This document |
+| `docs/adr/0079-review-parity.md` | This document |

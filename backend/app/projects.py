@@ -1,5 +1,5 @@
 """
-Multi-vault Project registry + endpoints (v1.5 P2, ADR-0067).
+Multi-vault Project registry + endpoints (v1.5 P2, ADR-0082).
 
 A **project** = a vault folder. Synapse serves ONE active vault at a time (Model A); this module
 owns the persisted list of known projects and which one is active, so the frontend Project
@@ -11,7 +11,7 @@ clip/MCP token-config precedent). Each project's ``id`` doubles as its ``vault_i
 already-vault-scoped Postgres/Qdrant rows.
 
 This first slice is READ-ONLY: ``GET /projects``. Create / open / activate land in later P2
-slices (ADR-0067 §5). The registry is seeded from the boot vault (``settings.vault_id`` /
+slices (ADR-0082 §5). The registry is seeded from the boot vault (``settings.vault_id`` /
 ``vault_path``) on first read, so existing single-vault deploys keep working unchanged.
 """
 
@@ -157,7 +157,7 @@ def _resolved(path_str: str) -> str:
     return str(Path(path_str).expanduser().resolve())
 
 
-# ── Runtime active-vault switch (ADR-0067 §2c) ────────────────────────────────
+# ── Runtime active-vault switch (ADR-0082 §2c) ────────────────────────────────
 # Bumped on every successful activate; the frontend reads it to hard-reload its stores
 # against the new active vault.
 _active_vault_epoch: int = 0
@@ -172,7 +172,7 @@ async def _apply_active_vault(project: Project) -> None:
     """
     Re-point the running service at *project*'s vault (best-effort, each step guarded).
 
-    Order (ADR-0067 §2c): mutate runtime config → restart the watcher on the new root →
+    Order (ADR-0082 §2c): mutate runtime config → restart the watcher on the new root →
     drop the graph cache (re-created lazily for the new vault_id) → seed vault_state → bump the
     epoch. A failing step is logged and skipped, never aborting the switch — the registry has
     already recorded the new active_id, so the service must follow as far as it can.
@@ -227,7 +227,7 @@ async def _apply_active_vault(project: Project) -> None:
     response_model=ProjectsResponse,
     summary="List known projects (vaults) and the active one",
     description=(
-        "Returns the multi-vault project registry (ADR-0067): all known project vaults + which "
+        "Returns the multi-vault project registry (ADR-0082): all known project vaults + which "
         "is active. Seeded from the boot vault when the registry does not exist yet, so "
         "single-vault deploys always see exactly their one vault. Read-only; no DB, no Qdrant."
     ),
@@ -242,7 +242,7 @@ async def list_projects() -> ProjectsResponse:
     response_model=Project,
     summary="Register an existing vault folder as a project",
     description=(
-        "Adds an existing vault directory to the registry (ADR-0067). Does NOT switch the active "
+        "Adds an existing vault directory to the registry (ADR-0082). Does NOT switch the active "
         "vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered "
         "path returns the existing entry (touching last_opened_at). Path must be absolute and an "
         "existing directory. Server-side path (self-hosted)."
@@ -285,7 +285,7 @@ async def open_project(body: OpenProjectRequest) -> Project:
     summary="Create + scaffold a new project vault",
     description=(
         "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the "
-        "shared bootstrap — idempotent) and registers it (ADR-0067). Does NOT switch the active "
+        "shared bootstrap — idempotent) and registers it (ADR-0082). Does NOT switch the active "
         "vault. Path must be absolute; 409 if a project already exists at that path."
     ),
     responses={
@@ -415,7 +415,7 @@ async def _seed_vault_state_output_language(vault_id: str, output_language: str)
     response_model=ActivateResponse,
     summary="Switch the active vault to this project",
     description=(
-        "Makes *project_id* the active vault at runtime (ADR-0067 §2c): records it in the "
+        "Makes *project_id* the active vault at runtime (ADR-0082 §2c): records it in the "
         "registry, re-points settings, restarts the watcher on the new root, invalidates the "
         "graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its "
         "stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown."

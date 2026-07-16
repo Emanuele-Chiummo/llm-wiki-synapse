@@ -1,0 +1,23 @@
+# backend/.dockerignore — 1.9.0 W1 (QA-DEBT hygiene).
+# The Dockerfile COPYies explicit paths (app/, alembic/, tests/, scripts/), so this
+# file mostly shrinks the build-context upload: without it the local .venv (~hundreds
+# of MB) and tool caches are shipped to the daemon on every build.
+# NOTE: tests/ is still copied into the image on purpose (CI runs them in-container);
+# dropping tests + dev deps from the PROD image is the 1.9.1 multi-stage work (SEC-DEPS-1).
+
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.env
+*.log
+
+# iCloud sync duplicates (QA-DEBT-1)
+* [0-9]
+* [0-9].*
