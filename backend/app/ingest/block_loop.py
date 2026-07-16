@@ -65,6 +65,22 @@ class BlockLoopResult:
     converged: bool = False
     iterations: int = 0  # generate() attempts actually made (0..max_iter)
     stop_reason: str = "max_iter"  # "converged" | "max_iter" | "token_budget"
+    # 1.9.1 W5 (NC-1): the last batch's validation errors (empty when converged) + the token
+    # accounting at stop time, so the caller can persist ingest_runs.diagnostics without a
+    # parallel channel — see `diagnostics()` below.
+    last_errors: list[str] = field(default_factory=list)
+    tokens_used: int = 0
+    token_budget: int = 0
+
+    def diagnostics(self) -> dict[str, object]:
+        """Build the ``ingest_runs.diagnostics`` JSON payload (1.9.1 W5, NC-1)."""
+        return {
+            "stop_reason": self.stop_reason,
+            "iterations": self.iterations,
+            "last_errors": self.last_errors,
+            "tokens_used": self.tokens_used,
+            "token_budget": self.token_budget,
+        }
 
 
 def _generation_max_tokens(max_context_chars: int) -> int:
@@ -365,4 +381,7 @@ async def run_block_loop(
         converged=converged,
         iterations=iterations,
         stop_reason=stop_reason,
+        last_errors=errors,
+        tokens_used=accumulator.total_tokens,
+        token_budget=token_budget,
     )

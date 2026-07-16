@@ -11,6 +11,7 @@
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import type { CSSProperties, ReactNode } from "react";
+import type { IngestRunDiagnostics } from "../../api/types";
 import { useIngestStore, selectRuns, selectSelectedRunId } from "../../store/ingestStore";
 import { formatCost } from "./IngestRunList";
 
@@ -167,6 +168,9 @@ export function IngestRunDetail() {
             value={new Date(run.completed_at).toLocaleString()}
           />
         )}
+        {run.diagnostics && run.diagnostics.stop_reason !== "converged" && (
+          <NonConvergenceDiagnostics diagnostics={run.diagnostics} />
+        )}
         {run.error_message && (
           <div style={{ marginTop: 12 }}>
             <dt style={dtStyle}>{t("ingest.error")}</dt>
@@ -218,6 +222,60 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
         {value}
       </dd>
     </dl>
+  );
+}
+
+/**
+ * 1.9.1 W5 (NC-1): surfaces WHY a run didn't converge — the last iteration's validation
+ * errors + tokens-used-vs-budget — instead of a bare "Non convergito" label.
+ */
+function NonConvergenceDiagnostics({ diagnostics }: { diagnostics: IngestRunDiagnostics }) {
+  const { t } = useTranslation();
+  return (
+    <div data-testid="ingest-nonconvergence-diagnostics" style={{ marginTop: 12 }}>
+      <div style={dtStyle}>{t("ingest.diagnostics.heading")}</div>
+      <div
+        style={{
+          margin: "4px 0 0",
+          padding: 8,
+          background: "color-mix(in srgb, var(--syn-amber) 8%, var(--syn-mix-base) 92%)",
+          border: "1px solid color-mix(in srgb, var(--syn-amber) 30%, transparent 70%)",
+          borderRadius: 4,
+          fontSize: 11,
+          color: "var(--syn-text-muted)",
+          lineHeight: 1.5,
+        }}
+      >
+        <DetailRow
+          label={t("ingest.diagnostics.stopReason")}
+          value={t(`ingest.diagnostics.stopReasonValue.${diagnostics.stop_reason}`, {
+            defaultValue: diagnostics.stop_reason,
+          })}
+        />
+        <DetailRow
+          label={t("ingest.diagnostics.iterationsRun")}
+          value={String(diagnostics.iterations)}
+        />
+        <DetailRow
+          label={t("ingest.diagnostics.tokenBudget")}
+          value={`${diagnostics.tokens_used} / ${diagnostics.token_budget}`}
+        />
+        <div style={{ marginTop: 6 }}>
+          <div style={dtStyle}>{t("ingest.diagnostics.lastErrors")}</div>
+          {diagnostics.last_errors.length === 0 ? (
+            <div style={{ margin: "4px 0 0" }}>{t("ingest.diagnostics.noErrors")}</div>
+          ) : (
+            <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+              {diagnostics.last_errors.map((err, idx) => (
+                <li key={idx} style={{ wordBreak: "break-word" }}>
+                  {err}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -210,6 +210,19 @@ export interface StatusResponse {
 export type IngestStatus =
   "running" | "completed" | "failed" | "converged_false" | "cancelling" | "cancelled";
 
+/**
+ * Non-convergence diagnostics (1.9.1 W5, NC-1): populated by the orchestrated JSON loop
+ * and the block loop on every terminal outcome (converged or not); null for the
+ * delegated/CLI route (no bounded loop to report) and for legacy rows.
+ */
+export interface IngestRunDiagnostics {
+  stop_reason: "converged" | "max_iter" | "token_budget";
+  iterations: number;
+  last_errors: string[];
+  tokens_used: number;
+  token_budget: number;
+}
+
 export interface IngestRunItem {
   id: string;
   vault_id: string;
@@ -218,6 +231,8 @@ export interface IngestRunItem {
   pages_created: number;
   /** Per generated page type; absent/null for legacy or unsuccessful runs. */
   page_type_counts?: Partial<Record<PageType, number>> | null;
+  /** Non-convergence diagnostics (1.9.1 W5, NC-1); null on the delegated/CLI route or legacy rows. */
+  diagnostics?: IngestRunDiagnostics | null;
   iterations_used: number;
   total_cost_usd: number;
   started_at: string; // ISO-8601

@@ -429,6 +429,10 @@ async def run_ingest_pipeline(
     delegated_pages_written = 0
     converged = False
     route: Literal["orchestrated", "delegated"] = "orchestrated"
+    # 1.9.1 W5 (NC-1): last loop's non-convergence diagnostics ({stop_reason, iterations,
+    # last_errors, tokens_used, token_budget}); stays None on the delegated/CLI route (no bounded
+    # loop) and is persisted verbatim onto the ingest_runs row below.
+    diagnostics: dict[str, object] | None = None
 
     # ── ADR-0046 path-normalization fix: derive the absolute queue key ────────
     # The watcher passes absolute paths to admit/should_skip; the queue must use
@@ -661,7 +665,7 @@ async def run_ingest_pipeline(
                 _effective_str("ingest_pipeline_format", settings.ingest_pipeline_format) or "json"
             )
             if _pipeline_format == "blocks":
-                converged, iterations, written_pages = await _run_orchestrated_blocks(
+                converged, iterations, written_pages, diagnostics = await _run_orchestrated_blocks(
                     provider=provider,
                     accumulator=accumulator,
                     source_text=source_text,
@@ -695,6 +699,7 @@ async def run_ingest_pipeline(
                 analysis = loop_result.analysis
                 iterations = loop_result.iterations
                 converged = loop_result.converged
+                diagnostics = loop_result.diagnostics()
                 # ── Feature 3 (ADR-0063 §5): wrong-language page drop ────────────────────
                 # Drop pages whose body script-family contradicts the resolved target language
                 # BEFORE the source-summary guarantee (so a batch dropped to empty still gets a
@@ -990,6 +995,7 @@ async def run_ingest_pipeline(
         finished_at=finished_at,
         pages_created=pages_written,
         page_type_counts=page_type_counts,
+        diagnostics=diagnostics,
     )
 
     # ── ADR-0046: notify queue manager of terminal success ────────────────────
@@ -1196,7 +1202,7 @@ async def _run_orchestrated_blocks(
     config_row: object,
     run_id: uuid.UUID,
     cancel_event: asyncio.Event | None = None,
-) -> tuple[bool, int, list[Page]]:
+) -> tuple[bool, int, list[Page], dict[str, object]]:
     """Block-based orchestrated ingest (ADR-0076, nashsu/llm_wiki v0.6.3 parity).
 
     Loads schema.md / purpose.md / wiki index+overview, runs the bounded block loop
@@ -1204,7 +1210,9 @@ async def _run_orchestrated_blocks(
     :func:`app.ingest.block_writer.write_block_page` (custom page types persist as the raw
     ``pages.type`` string), and guarantees a source-summary page via the SAME
     :func:`_ensure_source_summary` fallback the JSON route uses. Returns
-    ``(converged, iterations, written_pages)``. REVIEW blocks are logged but NOT enqueued here —
+    ``(converged, iterations, written_pages, diagnostics)`` — ``diagnostics`` is
+    :meth:`app.ingest.block_loop.BlockLoopResult.diagnostics` (1.9.1 W5, NC-1), persisted verbatim
+    onto the ``ingest_runs`` row by the caller. REVIEW blocks are logged but NOT enqueued here —
     that is a later PR (WS-C). Bounds (max_iter + token_budget) and cost accounting (I7) are the
     block loop's; the ingest_runs lifecycle stays the caller's.
     """
@@ -1368,7 +1376,7 @@ async def _run_orchestrated_blocks(
         len(result.review_blocks),
         origin_source,
     )
-    return result.converged, result.iterations, written_pages
+    return result.converged, result.iterations, written_pages, result.diagnostics()
 
 
 async def _delegate_ingest(
@@ -1977,6 +1985,7 @@ async def _finalize_ingest_run(
     page_type_counts: dict[str, int] | None = None,
     error_message: str | None = None,
     status_override: str | None = None,
+    diagnostics: dict[str, object] | None = None,
 ) -> None:
     """
     UPDATE the ingest_runs row opened by _open_ingest_run (ADR-0046 §2).
@@ -1984,6 +1993,12 @@ async def _finalize_ingest_run(
     Sets all terminal fields — status, finished_at, cost, tokens, pages_created,
     converged, cost_anomaly, error_message.  status_override lets the cancel path
     write status="cancelled" directly without going through _derive_run_status.
+
+    ``diagnostics`` (1.9.1 W5, NC-1): the loop's stop_reason/last_errors/token accounting
+    (:meth:`app.ingest.loop.LoopResult.diagnostics` /
+    :meth:`app.ingest.block_loop.BlockLoopResult.diagnostics`), surfaced to the UI so a
+    ``converged_false`` run explains itself instead of a bare "not converged" label. ``None`` on
+    the delegated/CLI route (no bounded loop to report).
 
     Preserves the provider/cost accounting: the I7 cost ledger is truthful because
     accumulated cost (even partial, from before a cancel or failure) is recorded.
@@ -2014,6 +2029,7 @@ async def _finalize_ingest_run(
                 page_type_counts=page_type_counts,
                 status=status,
                 error_message=error_message,
+                diagnostics=diagnostics,
             )
         )
     logger.debug("_finalize_ingest_run: run_id=%s status=%s", run_id, status)

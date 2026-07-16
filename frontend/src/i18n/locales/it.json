@@ -88,6 +88,19 @@
     "costAnomaly": "Anomalia costo (> $1.00)",
     "noRunSelected": "Seleziona un'esecuzione per vedere i dettagli.",
     "zeroPagesHint": "0 pagine create — verifica la configurazione del provider e che il formato del file sia supportato.",
+    "diagnostics": {
+      "heading": "Perché non è convergito",
+      "stopReason": "Motivo dell'interruzione",
+      "stopReasonValue": {
+        "converged": "Convergito",
+        "max_iter": "Raggiunto il numero massimo di iterazioni",
+        "token_budget": "Budget di token esaurito"
+      },
+      "iterationsRun": "Iterazioni eseguite",
+      "tokenBudget": "Token utilizzati",
+      "lastErrors": "Ultimi errori di validazione",
+      "noErrors": "Nessun errore di validazione registrato per l'ultimo tentativo."
+    },
     "upload": {
       "label": "Carica documento",
       "drop": "Trascina un file qui, o clicca per scegliere",

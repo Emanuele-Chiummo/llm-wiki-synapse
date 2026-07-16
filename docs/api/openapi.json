@@ -8114,6 +8114,19 @@
             "title": "Page Type Counts",
             "description": "Per-PageType created-page counts; null for legacy/unavailable runs"
           },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diagnostics",
+            "description": "Non-convergence diagnostics (1.9.1 W5, NC-1): {stop_reason: 'converged'|'max_iter'|'token_budget', iterations, last_errors, tokens_used, token_budget}. Populated on the orchestrated/block routes for every terminal outcome; null for the delegated/CLI route (no bounded loop) and legacy rows."
+          },
           "iterations_used": {
             "type": "integer",
             "title": "Iterations Used",

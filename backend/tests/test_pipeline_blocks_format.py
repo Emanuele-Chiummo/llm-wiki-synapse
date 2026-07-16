@@ -436,6 +436,62 @@ async def test_blocks_format_writes_custom_type_and_wikilinks(
     assert {r.target_title for r in rows} == {"Acme Corp"}
 
 
+async def test_blocks_format_persists_diagnostics_on_convergence(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """1.9.1 W5 (NC-1): a converged block-route run persists diagnostics on ingest_runs."""
+    provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
+
+    result = await orch.run_ingest_pipeline(
+        provider_config_row=object(),
+        source_text="The Acme Corp report describes measurable market outcomes.",
+        origin_source=ORIGIN,
+        abs_source=ABS_SOURCE,
+    )
+    assert result.converged is True
+
+    finalize_kwargs = pipeline_env["runs"][-1]
+    diagnostics = finalize_kwargs["diagnostics"]
+    assert diagnostics is not None
+    assert diagnostics["stop_reason"] == "converged"
+    assert diagnostics["iterations"] == 1
+    assert diagnostics["last_errors"] == []
+    assert diagnostics["token_budget"] == 60_000  # default block-loop token_budget
+
+
+async def test_blocks_format_persists_diagnostics_on_nonconvergence(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """1.9.1 W5 (NC-1, live finding): a converged_false run's diagnostics carries the LAST
+    iteration's validation errors + stop_reason so the UI can explain itself instead of a bare
+    "Non convergito" label. Reproduces the observed scenario: max_iter exhausted because the
+    provider never emits a valid FILE block.
+    """
+    provider = _BlockProvider(
+        [ANALYSIS, "no file blocks", "still nothing", "prose only, no blocks"]
+    )
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
+    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
+
+    result = await orch.run_ingest_pipeline(
+        provider_config_row=object(),
+        source_text="The Acme Corp report describes measurable market outcomes.",
+        origin_source=ORIGIN,
+        abs_source=ABS_SOURCE,
+    )
+    assert result.converged is False
+
+    finalize_kwargs = pipeline_env["runs"][-1]
+    diagnostics = finalize_kwargs["diagnostics"]
+    assert diagnostics is not None
+    assert diagnostics["stop_reason"] == "max_iter"
+    assert diagnostics["iterations"] == 3  # default block-loop max_iter
+    assert diagnostics["last_errors"] != []
+    assert any("FILE blocks" in e for e in diagnostics["last_errors"])
+
+
 async def test_default_format_is_blocks_without_override(
     pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

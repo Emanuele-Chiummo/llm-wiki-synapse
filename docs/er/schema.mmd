@@ -166,6 +166,7 @@ erDiagram
         int pages_created "Number of wiki pages persisted during this run. 0 for historical rows, set by orchestrator on new runs (ADR-0018 §7)."
         string error_message "Human-readable error description for failed runs, NULL for completed/running/converged_false rows (ADR-0018 §7)."
         jsonb page_type_counts "Per-PageType pages created by this run for generation diagnostics, NULL for legacy rows (ADR-0073, migration 0031)."
+        jsonb diagnostics "Ingest-loop non-convergence diagnostics surfaced to the UI (1.9.1 W5, NC-1): (stop_reason: 'converged'|'max_iter'|'token_budget', iterations: int, last_errors: list[str], tokens_used: int, token_budget: int). Populated by the orchestrated JSON loop (app.ingest.loop) and the block loop (app.ingest.block_loop) on every terminal outcome (converged or not), NULL for the delegated/CLI route (no bounded loop to report) and for legacy rows (migration 0035)."
         string source_path "Relative raw source path (raw/sources/…) the run is ingesting. NULL for historical rows written before migration 0021 (ADR-0046 §1)."
         int retry_count "Times this source has been retried. Enforces MAX_INGEST_RETRIES=3 (I7, ADR-0046 §5). Incremented by the queue manager on each re-dispatch, 0 for the initial attempt."
     }

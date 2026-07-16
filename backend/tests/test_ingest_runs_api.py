@@ -128,6 +128,8 @@ def _build_sqlite_meta() -> MetaData:
         Column("pages_created", Integer, nullable=False, default=0),
         Column("error_message", Text, nullable=True),
         Column("page_type_counts", Text, nullable=True),
+        # migration 0035 field (1.9.1 W5, NC-1)
+        Column("diagnostics", Text, nullable=True),
         # migration 0021 fields (ADR-0046)
         Column("source_path", Text, nullable=True),
         Column("retry_count", Integer, nullable=False, server_default=sa_text("0")),
