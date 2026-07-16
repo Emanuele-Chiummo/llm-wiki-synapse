@@ -2253,7 +2253,7 @@ const StatusBar: React.FC<{ isRefetching?: boolean }> = ({ isRefetching = false 
         gap: 10,
         userSelect: "none",
       }}
-      aria-label="Graph statistics"
+      aria-label={t("graph.statsAriaLabel")}
     >
       <span>{nodes.length} nodes</span>
       <span>{edges.length} edges</span>
@@ -3375,7 +3375,7 @@ export const GraphViewer: React.FC = () => {
       id="graph-root"
       ref={graphRootRef}
       role="application"
-      aria-label="Knowledge graph"
+      aria-label={t("graph.title")}
       style={{
         position: "relative",
         width: "100%",

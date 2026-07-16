@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useGraphStore, selectSetActiveSection } from "../store/graphStore";
 import type { Section } from "../store/graphStore";
 import { createConversation } from "../api/chatClient";
@@ -66,6 +67,7 @@ export function useGlobalShortcuts({
   paletteOpen,
   onTogglePalette,
 }: UseGlobalShortcutsOptions): void {
+  const { t } = useTranslation();
   const setActiveSection = useGraphStore(selectSetActiveSection);
   const vaultId = _useGraphStore(selectVaultId);
   const addConversation = useChatStore(selectAddConversation);
@@ -83,9 +85,9 @@ export function useGlobalShortcuts({
     } catch (err) {
       console.error("[shortcuts] new conversation failed", err);
       // Use the same error toast path as ConversationList.
-      showToast("Failed to create conversation.", "error");
+      showToast(t("chat.newConvError"), "error");
     }
-  }, [vaultId, addConversation, setActiveConversationId, setMessages, setActiveSection]);
+  }, [t, vaultId, addConversation, setActiveConversationId, setMessages, setActiveSection]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

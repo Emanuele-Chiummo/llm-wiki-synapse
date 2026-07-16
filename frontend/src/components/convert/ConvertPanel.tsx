@@ -893,7 +893,7 @@ export function ConvertPanel() {
             flexDirection: "column",
             gap: 6,
           }}
-          aria-label="Files to convert"
+          aria-label={t("convert.filesAriaLabel")}
         >
           {rows.map((row) => (
             <li
@@ -1042,7 +1042,7 @@ export function ConvertPanel() {
                 flexDirection: "column",
                 gap: 4,
               }}
-              aria-label="File conversion status"
+              aria-label={t("convert.statusAriaLabel")}
             >
               {pollStatus.files.map((f) => (
                 <li
@@ -1105,7 +1105,7 @@ export function ConvertPanel() {
               gap: 6,
             }}
             data-testid="convert-file-list"
-            aria-label="Conversion results"
+            aria-label={t("convert.resultsAriaLabel")}
           >
             {pollStatus.files.map((f) => (
               <li

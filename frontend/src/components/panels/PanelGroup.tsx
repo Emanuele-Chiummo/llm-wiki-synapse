@@ -390,7 +390,7 @@ export function PanelGroup() {
 
         <Separator
           id="separator-left"
-          aria-label="Resize left panel"
+          aria-label={t("panels.resizeLeft")}
           className="panel-group__separator--left"
           style={SEPARATOR_STYLE}
         />
@@ -414,7 +414,7 @@ export function PanelGroup() {
 
         <Separator
           id="separator-right"
-          aria-label="Resize right panel"
+          aria-label={t("panels.resizeRight")}
           className="panel-group__separator--right"
           style={SEPARATOR_STYLE}
         />

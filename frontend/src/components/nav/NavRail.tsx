@@ -177,7 +177,7 @@ export function NavRail() {
   return (
     <nav
       className="nav-rail"
-      aria-label="Main navigation"
+      aria-label={t("nav.ariaLabel")}
       data-testid="nav-rail"
       onKeyDown={handleKeyDown}
       style={{

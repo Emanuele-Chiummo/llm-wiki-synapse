@@ -26,6 +26,7 @@
     "convert": "Convert",
     "settings": "Settings",
     "projects": "Projects",
+    "ariaLabel": "Main navigation",
     "settingsShort": "Settings",
     "chatComingSoon": "Phase 3",
     "comingSoon": "Coming soon",
@@ -1002,6 +1003,7 @@
   },
   "graph": {
     "loading": "Loading graph...",
+    "statsAriaLabel": "Graph statistics",
     "header": {
       "pages": "pages",
       "links": "links",
@@ -1188,6 +1190,7 @@
     "cta": "Open Settings"
   },
   "activity": {
+    "ariaLabel": "Activity bar",
     "queueStatus": "Queue",
     "processing": "Processing",
     "pending": "Pending",
@@ -1282,7 +1285,10 @@
     "batchSubmitted": "Conversion queued — processing in background",
     "error409": "A conversion is already running. Wait for it to complete.",
     "error413": "File too large.",
-    "error415": "Only PDF files are accepted."
+    "error415": "Only PDF files are accepted.",
+    "filesAriaLabel": "Files to convert",
+    "statusAriaLabel": "File conversion status",
+    "resultsAriaLabel": "Conversion results"
   },
   "panels": {
     "expandPanel": "Expand panel",
@@ -1291,7 +1297,9 @@
     "collapse": "Collapse",
     "openTree": "Open wiki tree",
     "openPreview": "Open page details",
-    "quickStart": "Quick Start"
+    "quickStart": "Quick Start",
+    "resizeLeft": "Resize left panel",
+    "resizeRight": "Resize right panel"
   },
   "common": {
     "loading": "Loading…",
@@ -1303,7 +1311,11 @@
     "unknown": "Unknown",
     "edit": "Edit",
     "save": "Save",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "loadingSection": "Loading section"
+  },
+  "scenarios": {
+    "ariaLabel": "Scenario templates"
   },
   "launcher": {
     "title": "Projects",
@@ -1738,6 +1750,7 @@
     }
   },
   "navTree": {
+    "ariaLabel": "Wiki pages",
     "filterBanner": "Filtered by: {{label}}",
     "clearFilter": "Clear filter"
   }
