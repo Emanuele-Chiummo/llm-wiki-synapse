@@ -223,7 +223,12 @@ async def test_lint_semantic_false_runs_no_exception() -> None:
         async with session_factory() as s:
             yield s
 
-    with patch("app.ops.lint.get_session", fake_get_session):
+    # BE-REFAC-2: app.ops.lint is now a package; get_session is imported independently
+    # by detectors.py and persistence.py — patch both.
+    with (
+        patch("app.ops.lint.detectors.get_session", fake_get_session),
+        patch("app.ops.lint.persistence.get_session", fake_get_session),
+    ):
         result = await run_lint_scan(vault_id="test-vault", semantic=False)
 
     assert result is not None
@@ -362,7 +367,12 @@ async def test_lint_orphan_detection_with_v135_updated_at() -> None:
         async with session_factory() as s:
             yield s
 
-    with patch("app.ops.lint.get_session", fake_get_session):
+    # BE-REFAC-2: app.ops.lint is now a package; get_session is imported independently
+    # by detectors.py and persistence.py — patch both.
+    with (
+        patch("app.ops.lint.detectors.get_session", fake_get_session),
+        patch("app.ops.lint.persistence.get_session", fake_get_session),
+    ):
         result = await run_lint_scan(vault_id="test-vault", semantic=False)
 
     assert result.status == "completed"
