@@ -704,16 +704,44 @@ async def run_ingest_pipeline(
                 # language guard dropped everything).
                 pages = orch._ensure_source_summary(pages, analysis, origin_source)
                 orch.ingest_queue.set_phase(run_id, "writing")
+                # BE-PERF-2: build the wikilink resolver maps ONCE for this document (one bulk
+                # query over all live pages) instead of once per generated page, and defer
+                # index.md regeneration + the data_version bump to a SINGLE call after the whole
+                # batch is written. write_wiki_page folds each page it writes into `_link_maps`
+                # in memory as it goes, so within-document forward links still resolve exactly as
+                # they did when the maps were re-queried from Postgres after every page (I1).
+                _link_maps = None
+                if pages:
+                    from app.wiki.links import build_resolver_maps as _build_link_maps
+
+                    async with orch.get_session() as _maps_sess:
+                        _link_maps = await _build_link_maps(_maps_sess, settings.vault_id)
                 for page in pages:
                     # Feature 2 (ADR-0063 §4): pass the run's provider so write_wiki_page can
                     # LLM-merge old+new bodies when the target page already exists (bounded,
                     # degrade-safe, I6/I7).
                     written_page = await orch.write_wiki_page(
-                        None, page, origin_source, provider=provider
+                        None,
+                        page,
+                        origin_source,
+                        provider=provider,
+                        resolver_maps=_link_maps,
+                        skip_index_update=True,
+                        skip_version_bump=True,
                     )
                     written_pages.append(written_page)
                     # ADR-0046: record the page_id so cancel can cascade-delete it
                     orch.ingest_queue.record_written(run_id, written_page.id)
+                if pages:
+                    # One index.md regeneration + one data_version bump for the whole document
+                    # (BE-PERF-2), matching the net effect of the prior per-page calls (index.md
+                    # ends up in the same final state either way; data_version still advances
+                    # exactly once per content-changing ingest run — I1).
+                    from app.wiki.index import update_index as _update_index_once
+
+                    async with orch.get_session() as _idx_sess:
+                        await _update_index_once(_idx_sess, settings.vault_root)
+                    await orch.bump_version()
                 # overview.md is not touched on the orchestrated path (ADR-0078 ownership change).
                 # ── D4 orchestrated-route index/log graph nodes (nashsu/llm_wiki parity) ─────
                 # write_wiki_page maintained index.md/log.md on disk (update_index / append_log);
@@ -1231,6 +1259,17 @@ async def _run_orchestrated_blocks(
 
     written_pages: list[Page] = []
     orch.ingest_queue.set_phase(run_id, "writing")
+    # BE-PERF-2: one resolver-maps bulk query for the WHOLE document (FILE blocks + the possible
+    # source-summary fallback below), instead of one per block. write_block_page/write_wiki_page
+    # fold each page they write into `_link_maps` in memory, so link resolution across this
+    # document's own pages is unaffected (see build_resolver_maps/add_page_to_resolver_maps docs).
+    # index.md regeneration + the data_version bump are likewise deferred to ONE call at the end.
+    _link_maps = None
+    if result.file_blocks:
+        from app.wiki.links import build_resolver_maps as _build_link_maps
+
+        async with orch.get_session() as _maps_sess:
+            _link_maps = await _build_link_maps(_maps_sess, settings.vault_id)
     for file_block in result.file_blocks:
         page = await block_writer.write_block_page(
             rel_path=file_block.path,
@@ -1238,6 +1277,9 @@ async def _run_orchestrated_blocks(
             origin_source=origin_source,
             routing=routing,
             provider=provider,
+            resolver_maps=_link_maps,
+            skip_index_update=True,
+            skip_version_bump=True,
         )
         if page is not None:
             written_pages.append(page)
@@ -1247,10 +1289,30 @@ async def _run_orchestrated_blocks(
     # omitted a source page traceable to this origin, synthesize one via the SHARED WikiPage
     # fallback + JSON writer (a source page is a base type, so write_wiki_page handles it).
     if not _block_has_source_summary(written_pages, origin_source):
+        if _link_maps is None:
+            from app.wiki.links import build_resolver_maps as _build_link_maps
+
+            async with orch.get_session() as _maps_sess:
+                _link_maps = await _build_link_maps(_maps_sess, settings.vault_id)
         for fallback_page in _ensure_source_summary([], None, origin_source):
-            written = await orch.write_wiki_page(None, fallback_page, origin_source)
+            written = await orch.write_wiki_page(
+                None,
+                fallback_page,
+                origin_source,
+                resolver_maps=_link_maps,
+                skip_index_update=True,
+                skip_version_bump=True,
+            )
             written_pages.append(written)
             orch.ingest_queue.record_written(run_id, written.id)
+
+    if written_pages:
+        # One index.md regeneration + one data_version bump for the whole document (BE-PERF-2).
+        from app.wiki.index import update_index as _update_index_once
+
+        async with orch.get_session() as _idx_sess:
+            await _update_index_once(_idx_sess, settings.vault_root)
+        await orch.bump_version()
 
     # ── WS-C (ADR-0079): enqueue REVIEW blocks from block loop (PR5c TODO closed) ──
     # Each ReviewBlock from run_block_loop is persisted as a ReviewItem via the same

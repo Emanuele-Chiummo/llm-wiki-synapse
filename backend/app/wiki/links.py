@@ -184,6 +184,43 @@ async def _build_resolver_maps(session: AsyncSession, vault_id: str) -> _Resolve
     )
 
 
+# Public alias — lets multi-page write loops (BE-PERF-2, e.g. app.ingest.pipeline) build the
+# resolver maps ONCE per document and pass the SAME object into every persist_links() call for
+# that document's pages, instead of persist_links querying Postgres again for every page.
+build_resolver_maps = _build_resolver_maps
+
+
+def add_page_to_resolver_maps(
+    maps: _ResolverMaps,
+    *,
+    page_id: uuid.UUID,
+    title: str | None,
+    file_path: str,
+) -> None:
+    """
+    Add ONE freshly-written page into *maps* IN MEMORY — no DB query (BE-PERF-2, I1).
+
+    Mirrors the per-row logic in :func:`_build_resolver_maps` exactly (same setdefault /
+    first-hit-wins precedence), so a document that writes N pages and calls this after each one
+    ends up with resolver maps IDENTICAL in content to what a fresh `_build_resolver_maps` query
+    would return once all N pages are committed. This lets a per-document write loop build the
+    maps once up front and keep them current across the loop without re-querying Postgres after
+    every page (the previous per-page behaviour): each page's own wikilinks could already resolve
+    to any page committed earlier in the SAME document, and this preserves that exactly.
+    """
+    if not title:
+        return
+    maps.by_title.setdefault(title, page_id)
+    maps.by_lower.setdefault(title.lower(), page_id)
+    maps.by_slug.setdefault(_slugify(title), page_id)
+    stem = file_path.rsplit("/", 1)[-1]
+    if stem.endswith(".md"):
+        stem = stem[:-3]
+    fileslug = _slugify(stem)
+    if fileslug:
+        maps.by_fileslug.setdefault(fileslug, page_id)
+
+
 def _resolve_target(target: str, maps: _ResolverMaps) -> uuid.UUID | None:
     """
     Resolve a [[Target]] to a live page id using a fixed, conservative precedence:
@@ -323,6 +360,8 @@ async def persist_links(
     session: AsyncSession,
     source_page_id: uuid.UUID,
     parsed_links: list[ParsedLink],
+    *,
+    maps: _ResolverMaps | None = None,
 ) -> None:
     """
     Upsert wikilink rows for *source_page_id* (incremental, I1).
@@ -335,6 +374,13 @@ async def persist_links(
     Dangling links are stored and logged at DEBUG level — they do NOT raise or invalidate
     (AQ-v0.2-7 / ADR-0007 §5). The session must be flushed/committed by the caller
     (write_wiki_page in orchestrator.py manages its own session).
+
+    ``maps`` (BE-PERF-2): pass a resolver-maps object already built by
+    :func:`build_resolver_maps` (optionally kept current via :func:`add_page_to_resolver_maps`)
+    to skip the per-call bulk query entirely — used by per-document write loops that write many
+    pages and would otherwise re-query all live pages after every single page. When omitted
+    (the default, and every existing single-page call site), the maps are built fresh here exactly
+    as before.
     """
     # 1. Delete previous link rows for this page (idempotent per write event).
     await session.execute(delete(Link).where(Link.source_page_id == source_page_id))
@@ -342,13 +388,15 @@ async def persist_links(
     if not parsed_links:
         return
 
-    # 2. Bulk-build the tolerant resolver maps in ONE query over live pages (F3/K3, no N+1).
+    # 2. Bulk-build the tolerant resolver maps in ONE query over live pages (F3/K3, no N+1),
+    #    UNLESS the caller already built/maintains one for this batch (BE-PERF-2).
     #    Resolution precedence is exact → case-insensitive → slug (see _resolve_target). This
     #    catches near-miss titles the ingest LLM invents so cross-ingest links form real edges
     #    instead of dangling — while staying conservative (exact-first, first-hit-wins).
     #    Scope to the ACTIVE vault (bugfix): a cross-vault slug collision must not steal the target
     #    and drop the graph edge. Ingest/reresolve always run for settings.vault_id.
-    maps = await _build_resolver_maps(session, settings.vault_id)
+    if maps is None:
+        maps = await _build_resolver_maps(session, settings.vault_id)
 
     now = datetime.now(UTC)
     dangling_count = 0
