@@ -69,11 +69,11 @@ import {
   selectLintSeverityTotals,
 } from "../../store/lintStore";
 import {
-  useGraphStore,
   selectVaultId,
   selectSelectPage,
   selectSetActiveSection,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import { EmptyState } from "../common/EmptyState";
 import { showToast } from "../common/Toast";
@@ -881,9 +881,9 @@ function FindingsList({ vaultId, onOpen, onDelete }: FindingsListProps) {
 
 export function LintView() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const selectPage = useGraphStore(selectSelectPage);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
+  const selectPage = useAppStore(selectSelectPage);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   // B1-L8: provider gate for semantic checkbox
   const { configured: providerConfigured, loading: providerLoading } = useProviderConfigured();

@@ -45,14 +45,14 @@ import {
   X,
 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
+import { useGraphStore, selectNodes } from "../../store/graphStore";
 import {
-  useGraphStore,
   useTreeCollapsed,
   selectSelectedNodeId,
   selectSelectPage,
   selectToggleGroup,
-  selectNodes,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import { useNavTreeData } from "./useNavTreeData";
 import type { TreeRow, KnownType } from "./useNavTreeData";
 import { createPage } from "../../api/pagesClient";
@@ -368,9 +368,9 @@ export function NavTree({ vaultId }: NavTreeProps) {
   const { t } = useTranslation();
 
   // Store subscriptions — typed selectors + shallow where needed (I3)
-  const selectedNodeId = useGraphStore(selectSelectedNodeId);
-  const selectPage = useGraphStore(selectSelectPage);
-  const toggleGroup = useGraphStore(selectToggleGroup);
+  const selectedNodeId = useAppStore(selectSelectedNodeId);
+  const selectPage = useAppStore(selectSelectPage);
+  const toggleGroup = useAppStore(selectToggleGroup);
   const collapsed = useTreeCollapsed(); // shallow equality
 
   // Graph node degree map — used to show connection counts in page rows (I3: shallow).

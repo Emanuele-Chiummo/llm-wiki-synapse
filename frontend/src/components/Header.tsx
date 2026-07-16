@@ -27,7 +27,7 @@ import {
   selectClearServerUrl,
   selectSetServerUrl,
 } from "../store/settingsStore";
-import { useGraphStore, selectActiveSection } from "../store/graphStore";
+import { selectActiveSection, useAppStore } from "../store/appStore";
 import { useDesktopZoom } from "../hooks/useDesktopZoom";
 import { PRODUCT_IDENTITY } from "../config/productIdentity";
 
@@ -36,7 +36,7 @@ export function Header() {
   const serverUrl = useSettingsStore(selectServerUrl);
   const clearServerUrl = useSettingsStore(selectClearServerUrl);
   const setServerUrl = useSettingsStore(selectSetServerUrl);
-  const activeSection = useGraphStore(selectActiveSection);
+  const activeSection = useAppStore(selectActiveSection);
   const inTauri = isTauri();
 
   // Register Cmd/Ctrl +/-/0 zoom shortcuts (Tauri-only, no-op in browser)

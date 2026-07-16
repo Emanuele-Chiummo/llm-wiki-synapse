@@ -41,7 +41,7 @@ import {
   CONTEXT_WINDOW_OPTIONS,
   formatTokenCount,
 } from "../../../store/settingsStore";
-import { useGraphStore, selectVaultId } from "../../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../../store/appStore";
 import { testProviderConnection, testProviderFunction } from "../../../api/providerClient";
 import type { ProviderConfigItem, VendorInfo } from "../../../api/types";
 
@@ -902,7 +902,7 @@ export function SectionLlmModels() {
   const vendorsError = useProviderStore(selectVendorsError);
   const fetchVendorCatalog = useProviderStore(selectFetchVendorCatalog);
 
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   // Scope selector
   const [scope, setScope] = useState<"global" | "vault">("global");

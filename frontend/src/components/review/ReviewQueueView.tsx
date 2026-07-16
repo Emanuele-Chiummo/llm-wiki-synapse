@@ -106,11 +106,11 @@ import { PanelDrawer } from "../panels/PanelDrawer";
 import { useViewport } from "../../hooks/useViewport";
 import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
 import {
-  useGraphStore,
   selectVaultId,
   selectSetActiveSection,
   selectSelectPage,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import { EmptyState } from "../common/EmptyState";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import type {
@@ -1388,9 +1388,9 @@ function TabButton({ label, active, onClick, testId }: TabButtonProps) {
 
 export function ReviewQueueView() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
-  const selectPage = useGraphStore(selectSelectPage);
+  const vaultId = useAppStore(selectVaultId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
+  const selectPage = useAppStore(selectSelectPage);
 
   const fetchFresh = useReviewStore(selectFetchFreshReview);
   const total = useReviewStore(selectReviewTotal);

@@ -146,19 +146,29 @@ const _mockSelectPage = vi.fn();
 const _mockSetActiveSection = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: {
-    selectedNodeId: string | null;
-    nodes: [];
-    edges: [];
-    selectPage: typeof _mockSelectPage;
-    setActiveSection: typeof _mockSetActiveSection;
-  }) => unknown) =>
-    selector({ selectedNodeId: _selectedNodeId, nodes: [], edges: [], selectPage: _mockSelectPage, setActiveSection: _mockSetActiveSection }),
-  selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
+  useGraphStore: (selector: (s: { nodes: []; edges: [] }) => unknown) =>
+    selector({ nodes: [], edges: [] }),
   selectNodes: (s: { nodes: [] }) => s.nodes,
   selectEdges: (s: { edges: [] }) => s.edges,
+}));
+
+vi.mock("../store/appStore", () => ({
+  useAppStore: (
+    selector: (s: {
+      selectedNodeId: string | null;
+      selectPage: typeof _mockSelectPage;
+      setActiveSection: typeof _mockSetActiveSection;
+    }) => unknown,
+  ) =>
+    selector({
+      selectedNodeId: _selectedNodeId,
+      selectPage: _mockSelectPage,
+      setActiveSection: _mockSetActiveSection,
+    }),
+  selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
-  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
+    s.setActiveSection,
   selectVaultId: () => "default",
 }));
 
@@ -270,8 +280,12 @@ describe("NoteView", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
-    act(() => { fireEvent.click(screen.getByTestId("note-cancel-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-cancel-btn"));
+    });
 
     // Back to read mode
     expect(screen.getByTestId("note-edit-btn")).toBeDefined();
@@ -290,7 +304,9 @@ describe("NoteView", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("note-save-btn"));
@@ -325,7 +341,9 @@ describe("NoteView", () => {
     render(<NoteView />);
     await waitFor(() => screen.getByTestId("note-edit-btn"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("note-save-btn"));
@@ -383,7 +401,9 @@ describe("NoteView", () => {
     // renderMarkdown called once on initial read-mode render
     expect(mockRenderMarkdown).toHaveBeenCalledTimes(1);
 
-    act(() => { fireEvent.click(screen.getByTestId("note-edit-btn")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-edit-btn"));
+    });
     // Still exactly 1 call after entering edit mode — no re-parse on mode switch (I3)
     expect(mockRenderMarkdown).toHaveBeenCalledTimes(1);
   });
@@ -479,7 +499,9 @@ describe("NoteView — R1 tag overflow", () => {
     await expandMeta();
     await waitFor(() => screen.getByTestId("note-tags-more"));
 
-    act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-tags-more"));
+    });
 
     await waitFor(() => {
       const chips = screen.getAllByTestId("note-tag-chip");
@@ -500,11 +522,15 @@ describe("NoteView — R1 tag overflow", () => {
     await waitFor(() => screen.getByTestId("note-tags-more"));
 
     // Expand TagOverflow
-    act(() => { fireEvent.click(screen.getByTestId("note-tags-more")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-tags-more"));
+    });
     await waitFor(() => screen.getByTestId("note-tags-collapse"));
 
     // Collapse TagOverflow
-    act(() => { fireEvent.click(screen.getByTestId("note-tags-collapse")); });
+    act(() => {
+      fireEvent.click(screen.getByTestId("note-tags-collapse"));
+    });
     await waitFor(() => {
       const chips = screen.getAllByTestId("note-tag-chip");
       expect(chips.length).toBe(24);

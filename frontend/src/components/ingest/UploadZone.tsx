@@ -20,7 +20,7 @@
 import { useRef, useState, useCallback, type DragEvent, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useIngestStore, selectFetchFresh } from "../../store/ingestStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { uploadDocument } from "../../api/ingestClient";
 import { showToast } from "../common/Toast";
 
@@ -29,8 +29,13 @@ import { showToast } from "../common/Toast";
 // F12: binary formats accepted on upload; backend extracts text synchronously (ADR-0025 §4.2).
 // Text formats are ingested directly by the watcher; binary companion .extracted.md is ingested.
 const ACCEPTED_EXTENSIONS = new Set([
-  ".md", ".txt", ".markdown",
-  ".pdf", ".docx", ".pptx", ".xlsx",
+  ".md",
+  ".txt",
+  ".markdown",
+  ".pdf",
+  ".docx",
+  ".pptx",
+  ".xlsx",
 ]);
 const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB client-side cap (mirrors ADR-0020 §2.4)
 const ACCEPT_ATTR = ".md,.txt,.markdown,.pdf,.docx,.pptx,.xlsx";
@@ -56,7 +61,7 @@ interface UploadZoneProps {
 export function UploadZone({ onSuccess }: UploadZoneProps) {
   const { t } = useTranslation();
   const fetchFresh = useIngestStore(selectFetchFresh);
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -176,7 +181,13 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
         height="20"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={uploading ? "var(--syn-text-dim)" : isActive ? "var(--syn-accent)" : "var(--syn-text-muted)"}
+        stroke={
+          uploading
+            ? "var(--syn-text-dim)"
+            : isActive
+              ? "var(--syn-accent)"
+              : "var(--syn-text-muted)"
+        }
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -188,7 +199,13 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
       </svg>
 
       {/* Primary label */}
-      <span style={{ fontSize: 12, fontWeight: 500, color: uploading ? "var(--syn-text-dim)" : "var(--syn-text-muted)" }}>
+      <span
+        style={{
+          fontSize: 12,
+          fontWeight: 500,
+          color: uploading ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
+        }}
+      >
         {uploading ? t("common.loading") : t("ingest.upload.drop")}
       </span>
 

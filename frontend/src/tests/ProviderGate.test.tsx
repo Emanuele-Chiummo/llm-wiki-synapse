@@ -36,10 +36,12 @@ vi.mock("react-i18next", () => ({
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 let mockActiveSection = "chat";
-const mockSetActiveSection = vi.fn((s: string) => { mockActiveSection = s; });
+const mockSetActiveSection = vi.fn((s: string) => {
+  mockActiveSection = s;
+});
 
-vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) =>
     selector({
       activeSection: mockActiveSection,
       setActiveSection: mockSetActiveSection,
@@ -127,12 +129,24 @@ vi.mock("../store/providerStore", () => ({
 }));
 
 // Mock heavy sub-components used by ChatSection / IngestView
-vi.mock("../components/chat/ConversationList", () => ({ ConversationList: () => <div data-testid="conversation-list" /> }));
-vi.mock("../components/chat/MessageList", () => ({ MessageList: (_p: unknown) => <div data-testid="message-list" /> }));
-vi.mock("../components/chat/MessageInput", () => ({ MessageInput: (_p: unknown) => <div data-testid="message-input" /> }));
-vi.mock("../components/chat/useChatStream", () => ({ useChatStream: () => ({ send: vi.fn(), abort: vi.fn() }) }));
-vi.mock("../components/ingest/IngestRunList", () => ({ IngestRunList: (_p: unknown) => <div data-testid="ingest-run-list" /> }));
-vi.mock("../components/ingest/UploadZone", () => ({ UploadZone: () => <div data-testid="upload-zone" /> }));
+vi.mock("../components/chat/ConversationList", () => ({
+  ConversationList: () => <div data-testid="conversation-list" />,
+}));
+vi.mock("../components/chat/MessageList", () => ({
+  MessageList: (_p: unknown) => <div data-testid="message-list" />,
+}));
+vi.mock("../components/chat/MessageInput", () => ({
+  MessageInput: (_p: unknown) => <div data-testid="message-input" />,
+}));
+vi.mock("../components/chat/useChatStream", () => ({
+  useChatStream: () => ({ send: vi.fn(), abort: vi.fn() }),
+}));
+vi.mock("../components/ingest/IngestRunList", () => ({
+  IngestRunList: (_p: unknown) => <div data-testid="ingest-run-list" />,
+}));
+vi.mock("../components/ingest/UploadZone", () => ({
+  UploadZone: () => <div data-testid="upload-zone" />,
+}));
 vi.mock("../components/common/Toast", () => ({ showToast: vi.fn(), ToastHost: () => null }));
 vi.mock("zustand/react/shallow", () => ({ useShallow: (fn: unknown) => fn }));
 
@@ -166,7 +180,22 @@ describe("useProviderConfigured hook", () => {
 
   it("returns configured=true when total > 0", async () => {
     vi.spyOn(providerClientModule, "fetchProviderConfigs").mockResolvedValue({
-      items: [{ id: "1", scope: "global", operation: null, vault_id: null, provider_type: "api", model_id: null, base_url: null, max_iter: null, token_budget: null, is_fallback: false, created_at: "", updated_at: "" }],
+      items: [
+        {
+          id: "1",
+          scope: "global",
+          operation: null,
+          vault_id: null,
+          provider_type: "api",
+          model_id: null,
+          base_url: null,
+          max_iter: null,
+          token_budget: null,
+          is_fallback: false,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
       total: 1,
     });
 
@@ -240,9 +269,7 @@ describe("ChatSection — provider gate", () => {
       render(<ChatSection />);
     });
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("provider-gate-chat")).not.toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("provider-gate-chat")).not.toBeNull());
 
     expect(screen.getByTestId("provider-gate-chat")).toBeTruthy();
     expect(screen.getByText("No provider configured")).toBeTruthy();
@@ -250,7 +277,22 @@ describe("ChatSection — provider gate", () => {
 
   it("renders normal chat UI when a provider is configured", async () => {
     vi.spyOn(providerClientModule, "fetchProviderConfigs").mockResolvedValue({
-      items: [{ id: "1", scope: "global", operation: null, vault_id: null, provider_type: "api", model_id: null, base_url: null, max_iter: null, token_budget: null, is_fallback: false, created_at: "", updated_at: "" }],
+      items: [
+        {
+          id: "1",
+          scope: "global",
+          operation: null,
+          vault_id: null,
+          provider_type: "api",
+          model_id: null,
+          base_url: null,
+          max_iter: null,
+          token_budget: null,
+          is_fallback: false,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
       total: 1,
     });
 
@@ -258,9 +300,7 @@ describe("ChatSection — provider gate", () => {
       render(<ChatSection />);
     });
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("conversation-list")).not.toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("conversation-list")).not.toBeNull());
 
     expect(screen.queryByTestId("provider-gate-chat")).toBeNull();
   });
@@ -305,9 +345,7 @@ describe("IngestView — provider gate", () => {
       render(<IngestView />);
     });
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("provider-gate-ingest")).not.toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("provider-gate-ingest")).not.toBeNull());
 
     expect(screen.getByTestId("provider-gate-ingest")).toBeTruthy();
     expect(screen.getByText("No provider configured")).toBeTruthy();
@@ -315,7 +353,22 @@ describe("IngestView — provider gate", () => {
 
   it("hides gate and renders normal ingest UI when provider is configured", async () => {
     vi.spyOn(providerClientModule, "fetchProviderConfigs").mockResolvedValue({
-      items: [{ id: "2", scope: "global", operation: null, vault_id: null, provider_type: "local", model_id: "llama3", base_url: null, max_iter: null, token_budget: null, is_fallback: false, created_at: "", updated_at: "" }],
+      items: [
+        {
+          id: "2",
+          scope: "global",
+          operation: null,
+          vault_id: null,
+          provider_type: "local",
+          model_id: "llama3",
+          base_url: null,
+          max_iter: null,
+          token_budget: null,
+          is_fallback: false,
+          created_at: "",
+          updated_at: "",
+        },
+      ],
       total: 1,
     });
 
@@ -323,9 +376,7 @@ describe("IngestView — provider gate", () => {
       render(<IngestView />);
     });
 
-    await waitFor(() =>
-      expect(screen.queryByTestId("ingest-run-list")).not.toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("ingest-run-list")).not.toBeNull());
 
     expect(screen.queryByTestId("provider-gate-ingest")).toBeNull();
   });

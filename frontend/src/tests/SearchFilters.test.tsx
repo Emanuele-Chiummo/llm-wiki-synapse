@@ -61,8 +61,8 @@ vi.mock("react-i18next", () => {
 const mockSelectPage = vi.fn();
 const mockSetActiveSection = vi.fn();
 
-vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) =>
     selector({
       vaultId: "vault-test",
       selectPage: mockSelectPage,
@@ -310,9 +310,7 @@ describe("SearchView — filter change re-fetches with correct params", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("type chip selection includes 'type' param in the search call", async () => {
-    const spy = vi
-      .spyOn(searchClientModule, "searchWiki")
-      .mockResolvedValue(MOCK_RESPONSE);
+    const spy = vi.spyOn(searchClientModule, "searchWiki").mockResolvedValue(MOCK_RESPONSE);
 
     render(<SearchView />);
 
@@ -336,9 +334,7 @@ describe("SearchView — filter change re-fetches with correct params", () => {
   });
 
   it("sort change includes 'sort' param in the search call", async () => {
-    const spy = vi
-      .spyOn(searchClientModule, "searchWiki")
-      .mockResolvedValue(MOCK_RESPONSE);
+    const spy = vi.spyOn(searchClientModule, "searchWiki").mockResolvedValue(MOCK_RESPONSE);
 
     render(<SearchView />);
 

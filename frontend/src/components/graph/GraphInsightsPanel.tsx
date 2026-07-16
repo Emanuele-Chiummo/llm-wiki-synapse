@@ -24,15 +24,13 @@ import { useState, useMemo, useCallback, useRef, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 import { Lightbulb, X, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { useGraphStore, selectNodes, selectEdges, selectCommunities } from "../../store/graphStore";
 import {
-  useGraphStore,
-  selectNodes,
-  selectEdges,
-  selectCommunities,
   selectSetSelectedNodeId,
   selectSetActiveSection,
   selectVaultId,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import {
   useResearchStore,
   selectStartRun,
@@ -40,9 +38,7 @@ import {
   selectClearStartError,
 } from "../../store/researchStore";
 import { ResearchTopicDialog } from "../research/ResearchTopicDialog";
-import {
-  computeGraphInsights,
-} from "./graphInsights";
+import { computeGraphInsights } from "./graphInsights";
 import type { InsightItem } from "./graphInsights";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -271,9 +267,9 @@ export function GraphInsightsPanel() {
   const nodes = useGraphStore(useShallow(selectNodes));
   const edges = useGraphStore(useShallow(selectEdges));
   const communities = useGraphStore(useShallow(selectCommunities));
-  const setSelectedNodeId = useGraphStore(selectSetSelectedNodeId);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
-  const vaultId = useGraphStore(selectVaultId);
+  const setSelectedNodeId = useAppStore(selectSetSelectedNodeId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
 
   // ── Research store actions (B5/D3) ────────────────────────────────────────
   const startRun = useResearchStore(selectStartRun);
@@ -321,10 +317,7 @@ export function GraphInsightsPanel() {
   );
 
   const visibleTotal =
-    visibleSurprising.length +
-    visibleIsolated.length +
-    visibleSparse.length +
-    visibleBridge.length;
+    visibleSurprising.length + visibleIsolated.length + visibleSparse.length + visibleBridge.length;
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleHighlight = useCallback(
@@ -346,12 +339,9 @@ export function GraphInsightsPanel() {
    * Open the ResearchTopicDialog seeded with the insight topic (B5/D3).
    * Previously: navigate-only. Now: dialog → optimize → editable confirm → start.
    */
-  const handleDeepResearch = useCallback(
-    (topic: string) => {
-      setDialogSeedTopic(topic);
-    },
-    [],
-  );
+  const handleDeepResearch = useCallback((topic: string) => {
+    setDialogSeedTopic(topic);
+  }, []);
 
   const handleDialogCancel = useCallback(() => {
     setDialogSeedTopic(null);
@@ -392,231 +382,234 @@ export function GraphInsightsPanel() {
 
   return (
     <>
-    {/* ResearchTopicDialog renders with position:fixed — escapes the panel stacking context */}
-    {dialogSeedTopic !== null && (
-      <ResearchTopicDialog
-        seedTopic={dialogSeedTopic}
-        onConfirm={(topic, queries) => { void handleDialogConfirm(topic, queries); }}
-        onCancel={handleDialogCancel}
-      />
-    )}
-    <div
-      data-testid="graph-insights-panel"
-      style={{
-        position: "absolute",
-        top: 12,
-        right: 12,
-        width: 300,
-        maxWidth: "calc(100% - 24px)",
-        maxHeight: collapsed ? "auto" : "60%",
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--syn-bg-soft)",
-        border: "1px solid var(--syn-border)",
-        borderRadius: 8,
-        boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
-        zIndex: 10,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
+      {/* ResearchTopicDialog renders with position:fixed — escapes the panel stacking context */}
+      {dialogSeedTopic !== null && (
+        <ResearchTopicDialog
+          seedTopic={dialogSeedTopic}
+          onConfirm={(topic, queries) => {
+            void handleDialogConfirm(topic, queries);
+          }}
+          onCancel={handleDialogCancel}
+        />
+      )}
       <div
+        data-testid="graph-insights-panel"
         style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          width: 300,
+          maxWidth: "calc(100% - 24px)",
+          maxHeight: collapsed ? "auto" : "60%",
           display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "8px 10px",
-          borderBottom: collapsed ? "none" : "1px solid var(--syn-border)",
-          flexShrink: 0,
+          flexDirection: "column",
+          background: "var(--syn-bg-soft)",
+          border: "1px solid var(--syn-border)",
+          borderRadius: 8,
+          boxShadow: "0 2px 12px rgba(0,0,0,0.18)",
+          zIndex: 10,
+          overflow: "hidden",
         }}
       >
-        <Lightbulb
-          size={14}
-          style={{ color: "var(--syn-text-dim)", flexShrink: 0 }}
-        />
-        <span
+        {/* Header */}
+        <div
           style={{
-            flex: 1,
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--syn-text)",
-            letterSpacing: "0.01em",
-          }}
-        >
-          {t("graph.insights.title")}
-          {visibleTotal > 0 && (
-            <span
-              style={{
-                marginLeft: 6,
-                fontSize: 10,
-                color: "var(--syn-text-muted)",
-                fontWeight: 400,
-              }}
-            >
-              ({visibleTotal})
-            </span>
-          )}
-        </span>
-
-        <button
-          type="button"
-          aria-label={collapsed ? t("graph.insights.expandAriaLabel") : t("graph.insights.collapseAriaLabel")}
-          onClick={toggleCollapsed}
-          style={{
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            width: 20,
-            height: 20,
-            borderRadius: 3,
-            border: "none",
-            background: "transparent",
-            color: "var(--syn-text-muted)",
-            cursor: "pointer",
-            padding: 0,
+            gap: 6,
+            padding: "8px 10px",
+            borderBottom: collapsed ? "none" : "1px solid var(--syn-border)",
             flexShrink: 0,
           }}
         >
-          {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
-        </button>
-      </div>
+          <Lightbulb size={14} style={{ color: "var(--syn-text-dim)", flexShrink: 0 }} />
+          <span
+            style={{
+              flex: 1,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--syn-text)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            {t("graph.insights.title")}
+            {visibleTotal > 0 && (
+              <span
+                style={{
+                  marginLeft: 6,
+                  fontSize: 10,
+                  color: "var(--syn-text-muted)",
+                  fontWeight: 400,
+                }}
+              >
+                ({visibleTotal})
+              </span>
+            )}
+          </span>
 
-      {/* Body — hidden when collapsed */}
-      {!collapsed && (
-        <div
-          style={{
-            overflowY: "auto",
-            flex: 1,
-            minHeight: 0,
-            paddingBottom: 6,
-          }}
-        >
-          {visibleTotal === 0 ? (
-            <div
-              data-testid="graph-insights-empty"
-              style={{
-                padding: "12px 12px",
-                fontSize: 12,
-                color: "var(--syn-text-muted)",
-                textAlign: "center",
-                lineHeight: 1.5,
-              }}
-            >
-              {t("graph.insights.empty")}
-            </div>
-          ) : (
-            <>
-              {/* Surprising connections */}
-              {visibleSurprising.length > 0 && (
-                <>
-                  <SectionHeader
-                    label={t("graph.insights.sectionSurprising")}
-                    count={visibleSurprising.length}
-                  />
-                  {visibleSurprising.map((item) => (
-                    <InsightRow
-                      key={item.id}
-                      item={item}
-                      onHighlight={handleHighlight}
-                      onDismiss={handleDismiss}
-                      onDeepResearch={handleDeepResearch}
-                      showDeepResearch={false}
-                    />
-                  ))}
-                </>
-              )}
-
-              {/* Knowledge gaps */}
-              {(visibleIsolated.length > 0 ||
-                visibleSparse.length > 0 ||
-                visibleBridge.length > 0) && (
-                <>
-                  <SectionHeader
-                    label={t("graph.insights.sectionGaps")}
-                    count={visibleIsolated.length + visibleSparse.length + visibleBridge.length}
-                  />
-
-                  {visibleIsolated.length > 0 && (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--syn-text-muted)",
-                          padding: "3px 8px 1px",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {t("graph.insights.subKindIsolated")}
-                      </div>
-                      {visibleIsolated.map((item) => (
-                        <InsightRow
-                          key={item.id}
-                          item={item}
-                          onHighlight={handleHighlight}
-                          onDismiss={handleDismiss}
-                          onDeepResearch={handleDeepResearch}
-                          showDeepResearch={true}
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {visibleSparse.length > 0 && (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--syn-text-muted)",
-                          padding: "3px 8px 1px",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {t("graph.insights.subKindSparse")}
-                      </div>
-                      {visibleSparse.map((item) => (
-                        <InsightRow
-                          key={item.id}
-                          item={item}
-                          onHighlight={handleHighlight}
-                          onDismiss={handleDismiss}
-                          onDeepResearch={handleDeepResearch}
-                          showDeepResearch={true}
-                        />
-                      ))}
-                    </>
-                  )}
-
-                  {visibleBridge.length > 0 && (
-                    <>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--syn-text-muted)",
-                          padding: "3px 8px 1px",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {t("graph.insights.subKindBridge")}
-                      </div>
-                      {visibleBridge.map((item) => (
-                        <InsightRow
-                          key={item.id}
-                          item={item}
-                          onHighlight={handleHighlight}
-                          onDismiss={handleDismiss}
-                          onDeepResearch={handleDeepResearch}
-                          showDeepResearch={true}
-                        />
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-            </>
-          )}
+          <button
+            type="button"
+            aria-label={
+              collapsed
+                ? t("graph.insights.expandAriaLabel")
+                : t("graph.insights.collapseAriaLabel")
+            }
+            onClick={toggleCollapsed}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              borderRadius: 3,
+              border: "none",
+              background: "transparent",
+              color: "var(--syn-text-muted)",
+              cursor: "pointer",
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+          </button>
         </div>
-      )}
-    </div>
+
+        {/* Body — hidden when collapsed */}
+        {!collapsed && (
+          <div
+            style={{
+              overflowY: "auto",
+              flex: 1,
+              minHeight: 0,
+              paddingBottom: 6,
+            }}
+          >
+            {visibleTotal === 0 ? (
+              <div
+                data-testid="graph-insights-empty"
+                style={{
+                  padding: "12px 12px",
+                  fontSize: 12,
+                  color: "var(--syn-text-muted)",
+                  textAlign: "center",
+                  lineHeight: 1.5,
+                }}
+              >
+                {t("graph.insights.empty")}
+              </div>
+            ) : (
+              <>
+                {/* Surprising connections */}
+                {visibleSurprising.length > 0 && (
+                  <>
+                    <SectionHeader
+                      label={t("graph.insights.sectionSurprising")}
+                      count={visibleSurprising.length}
+                    />
+                    {visibleSurprising.map((item) => (
+                      <InsightRow
+                        key={item.id}
+                        item={item}
+                        onHighlight={handleHighlight}
+                        onDismiss={handleDismiss}
+                        onDeepResearch={handleDeepResearch}
+                        showDeepResearch={false}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* Knowledge gaps */}
+                {(visibleIsolated.length > 0 ||
+                  visibleSparse.length > 0 ||
+                  visibleBridge.length > 0) && (
+                  <>
+                    <SectionHeader
+                      label={t("graph.insights.sectionGaps")}
+                      count={visibleIsolated.length + visibleSparse.length + visibleBridge.length}
+                    />
+
+                    {visibleIsolated.length > 0 && (
+                      <>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--syn-text-muted)",
+                            padding: "3px 8px 1px",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          {t("graph.insights.subKindIsolated")}
+                        </div>
+                        {visibleIsolated.map((item) => (
+                          <InsightRow
+                            key={item.id}
+                            item={item}
+                            onHighlight={handleHighlight}
+                            onDismiss={handleDismiss}
+                            onDeepResearch={handleDeepResearch}
+                            showDeepResearch={true}
+                          />
+                        ))}
+                      </>
+                    )}
+
+                    {visibleSparse.length > 0 && (
+                      <>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--syn-text-muted)",
+                            padding: "3px 8px 1px",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          {t("graph.insights.subKindSparse")}
+                        </div>
+                        {visibleSparse.map((item) => (
+                          <InsightRow
+                            key={item.id}
+                            item={item}
+                            onHighlight={handleHighlight}
+                            onDismiss={handleDismiss}
+                            onDeepResearch={handleDeepResearch}
+                            showDeepResearch={true}
+                          />
+                        ))}
+                      </>
+                    )}
+
+                    {visibleBridge.length > 0 && (
+                      <>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--syn-text-muted)",
+                            padding: "3px 8px 1px",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          {t("graph.insights.subKindBridge")}
+                        </div>
+                        {visibleBridge.map((item) => (
+                          <InsightRow
+                            key={item.id}
+                            item={item}
+                            onHighlight={handleHighlight}
+                            onDismiss={handleDismiss}
+                            onDeepResearch={handleDeepResearch}
+                            showDeepResearch={true}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }

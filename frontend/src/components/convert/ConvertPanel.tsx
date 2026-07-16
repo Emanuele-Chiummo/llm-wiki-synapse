@@ -53,7 +53,7 @@ import {
   type ConvertFileStatus,
 } from "../../api/convertClient";
 import { isTauri } from "../../api/base";
-import { useGraphStore, selectSetActiveSection } from "../../store/graphStore";
+import { selectSetActiveSection, useAppStore } from "../../store/appStore";
 import { usePollChain } from "../../hooks/usePollChain";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -207,7 +207,7 @@ export function ConvertPanel() {
   const { t } = useTranslation();
 
   // Navigation action (for "Apri" button — not ephemeral progress, I3 compliant)
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   // ── Pre-submit queue (component-local — I3) ─────────────────────────────────
   const [rows, setRows] = useState<FileRow[]>([]);

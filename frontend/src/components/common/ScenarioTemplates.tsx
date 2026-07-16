@@ -11,13 +11,13 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import { useGraphStore } from "../../store/graphStore";
-import { selectNodes, selectSelectPage } from "../../store/graphStore";
+import { useGraphStore, selectNodes } from "../../store/graphStore";
+import { useAppStore, selectSelectPage } from "../../store/appStore";
 
 export function ScenarioTemplates() {
   const { t } = useTranslation();
   const nodes = useGraphStore(useShallow(selectNodes));
-  const selectPage = useGraphStore(selectSelectPage);
+  const selectPage = useAppStore(selectSelectPage);
 
   /** Find the first node whose type matches, or null. */
   const findFirst = useCallback(

@@ -39,8 +39,8 @@ import {
   FileDown,
   ArrowLeftRight,
 } from "lucide-react";
-import { useGraphStore, selectActiveSection, selectSetActiveSection } from "../../store/graphStore";
-import type { Section } from "../../store/graphStore";
+import { selectActiveSection, selectSetActiveSection, useAppStore } from "../../store/appStore";
+import type { Section } from "../../store/appStore";
 import { useIngestRunningCount } from "../../store/ingestStore";
 import { useStatusStore, selectReviewPending } from "../../store/statusStore";
 
@@ -132,8 +132,8 @@ const BOTTOM_ITEMS: RailItem[] = [
 
 export function NavRail() {
   const { t } = useTranslation();
-  const activeSection = useGraphStore(selectActiveSection);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const activeSection = useAppStore(selectActiveSection);
+  const setActiveSection = useAppStore(selectSetActiveSection);
   const runningCount = useIngestRunningCount();
   // Pending review items — fed by the existing 30s /status poll via statusStore (I3).
   const reviewPending = useStatusStore(selectReviewPending);

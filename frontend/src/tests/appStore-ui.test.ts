@@ -1,5 +1,5 @@
 /**
- * graphStore-ui.test.ts
+ * appStore-ui.test.ts
  *
  * Unit tests for the UI slice added in v0.4 Phase 1 (ADR-0017 §4):
  * selectPage, setActiveTab, toggleGroup, and their selectors.
@@ -9,17 +9,17 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import {
-  useGraphStore,
+  useAppStore,
   selectActiveTab,
   selectTreeCollapsed,
   selectSelectedNodeId,
   selectSelectedSource,
-} from "../store/graphStore";
+} from "../store/appStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getStore() {
-  return useGraphStore.getState();
+  return useAppStore.getState();
 }
 
 beforeEach(() => {
@@ -32,7 +32,7 @@ describe("UI slice — selectPage", () => {
   it("sets selectedNodeId and selectedSource atomically", () => {
     getStore().selectPage("node-1", "tree");
 
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectSelectedNodeId(s)).toBe("node-1");
     expect(selectSelectedSource(s)).toBe("tree");
   });
@@ -40,7 +40,7 @@ describe("UI slice — selectPage", () => {
   it("distinguishes graph vs tree source", () => {
     getStore().selectPage("node-2", "graph");
 
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectSelectedNodeId(s)).toBe("node-2");
     expect(selectSelectedSource(s)).toBe("graph");
   });
@@ -49,7 +49,7 @@ describe("UI slice — selectPage", () => {
     getStore().selectPage("node-1", "tree");
     getStore().selectPage(null, "tree");
 
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectSelectedNodeId(s)).toBeNull();
   });
 
@@ -57,7 +57,7 @@ describe("UI slice — selectPage", () => {
     getStore().selectPage("node-1", "graph");
     getStore().selectPage("node-2", "tree");
 
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectSelectedNodeId(s)).toBe("node-2");
     expect(selectSelectedSource(s)).toBe("tree");
   });
@@ -67,25 +67,25 @@ describe("UI slice — selectPage", () => {
 
 describe("UI slice — setActiveTab", () => {
   it("starts with 'graph' tab active", () => {
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectActiveTab(s)).toBe("graph");
   });
 
   it("switches to chat tab", () => {
     getStore().setActiveTab("chat");
-    expect(selectActiveTab(useGraphStore.getState())).toBe("chat");
+    expect(selectActiveTab(useAppStore.getState())).toBe("chat");
   });
 
   it("switches back to graph tab", () => {
     getStore().setActiveTab("chat");
     getStore().setActiveTab("graph");
-    expect(selectActiveTab(useGraphStore.getState())).toBe("graph");
+    expect(selectActiveTab(useAppStore.getState())).toBe("graph");
   });
 
   it("idempotent — setting the same tab twice is safe", () => {
     getStore().setActiveTab("graph");
     getStore().setActiveTab("graph");
-    expect(selectActiveTab(useGraphStore.getState())).toBe("graph");
+    expect(selectActiveTab(useAppStore.getState())).toBe("graph");
   });
 });
 
@@ -93,26 +93,26 @@ describe("UI slice — setActiveTab", () => {
 
 describe("UI slice — toggleGroup", () => {
   it("starts with empty treeCollapsed", () => {
-    const s = useGraphStore.getState();
+    const s = useAppStore.getState();
     expect(selectTreeCollapsed(s)).toEqual({});
   });
 
   it("collapses a group on first toggle", () => {
     getStore().toggleGroup("concept");
-    expect(selectTreeCollapsed(useGraphStore.getState())["concept"]).toBe(true);
+    expect(selectTreeCollapsed(useAppStore.getState())["concept"]).toBe(true);
   });
 
   it("expands a group on second toggle", () => {
     getStore().toggleGroup("concept");
     getStore().toggleGroup("concept");
-    expect(selectTreeCollapsed(useGraphStore.getState())["concept"]).toBe(false);
+    expect(selectTreeCollapsed(useAppStore.getState())["concept"]).toBe(false);
   });
 
   it("toggles independently across group types", () => {
     getStore().toggleGroup("concept");
     getStore().toggleGroup("entity");
 
-    const collapsed = selectTreeCollapsed(useGraphStore.getState());
+    const collapsed = selectTreeCollapsed(useAppStore.getState());
     expect(collapsed["concept"]).toBe(true);
     expect(collapsed["entity"]).toBe(true);
     // Other types remain unset
@@ -124,7 +124,7 @@ describe("UI slice — toggleGroup", () => {
     getStore().toggleGroup("entity");
     getStore().toggleGroup("concept"); // un-collapse concept
 
-    const collapsed = selectTreeCollapsed(useGraphStore.getState());
+    const collapsed = selectTreeCollapsed(useAppStore.getState());
     expect(collapsed["concept"]).toBe(false);
     expect(collapsed["entity"]).toBe(true);
   });
@@ -132,7 +132,7 @@ describe("UI slice — toggleGroup", () => {
   it("reset clears treeCollapsed", () => {
     getStore().toggleGroup("concept");
     getStore().reset();
-    expect(selectTreeCollapsed(useGraphStore.getState())).toEqual({});
+    expect(selectTreeCollapsed(useAppStore.getState())).toEqual({});
   });
 });
 
@@ -140,18 +140,18 @@ describe("UI slice — toggleGroup", () => {
 
 describe("UI slice — selector isolation (I3)", () => {
   it("selectActiveTab does not reference treeCollapsed", () => {
-    const tab1 = selectActiveTab(useGraphStore.getState());
+    const tab1 = selectActiveTab(useAppStore.getState());
     getStore().toggleGroup("concept");
-    const tab2 = selectActiveTab(useGraphStore.getState());
+    const tab2 = selectActiveTab(useAppStore.getState());
     // Value should be unchanged; reference equality check via Object.is
     expect(tab1).toBe(tab2);
   });
 
   it("selectTreeCollapsed does not reference activeTab", () => {
     getStore().toggleGroup("entity");
-    const c1 = selectTreeCollapsed(useGraphStore.getState());
+    const c1 = selectTreeCollapsed(useAppStore.getState());
     getStore().setActiveTab("chat");
-    const c2 = selectTreeCollapsed(useGraphStore.getState());
+    const c2 = selectTreeCollapsed(useAppStore.getState());
     // Same reference — treeCollapsed not affected by tab change
     expect(c1).toBe(c2);
   });

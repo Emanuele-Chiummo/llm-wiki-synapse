@@ -19,8 +19,8 @@
 import { useMemo, useState, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { useTranslation } from "react-i18next";
-import { useGraphStore } from "../../store/graphStore";
-import { selectSelectedNodeId, selectNodes, selectEdges } from "../../store/graphStore";
+import { useGraphStore, selectNodes, selectEdges } from "../../store/graphStore";
+import { useAppStore, selectSelectedNodeId } from "../../store/appStore";
 import type { GraphNode, GraphEdge, CascadeDeleteResult } from "../../api/types";
 import { CascadeDeleteModal } from "../wiki/CascadeDeleteModal";
 import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
@@ -261,10 +261,10 @@ function ConnSectionHead({ label, count }: { label: string; count: number }) {
 
 export function PreviewPanel() {
   const { t } = useTranslation();
-  const selectedNodeId = useGraphStore(selectSelectedNodeId);
+  const selectedNodeId = useAppStore(selectSelectedNodeId);
   const nodes = useGraphStore(useShallow(selectNodes));
   const edges = useGraphStore(useShallow(selectEdges));
-  const setSelectedNodeId = useGraphStore((s) => s.setSelectedNodeId);
+  const setSelectedNodeId = useAppStore((s) => s.setSelectedNodeId);
 
   // ── Cascade-delete modal state ─────────────────────────────────────────────
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);

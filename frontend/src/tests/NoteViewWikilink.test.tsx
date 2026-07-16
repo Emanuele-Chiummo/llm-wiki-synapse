@@ -122,20 +122,26 @@ const _mockSetActiveSection = vi.fn();
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) => {
     // Replicate the store shape accessed by NoteView
+    const store = { nodes: _nodes, edges: [] };
+    return selector(store);
+  },
+  selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
+  selectEdges: (s: { edges: [] }) => s.edges,
+}));
+
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) => {
     const store = {
       selectedNodeId: _selectedNodeId,
-      nodes: _nodes,
-      edges: [],
       selectPage: _mockSelectPage,
       setActiveSection: _mockSetActiveSection,
     };
     return selector(store);
   },
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
-  selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
-  selectEdges: (s: { edges: [] }) => s.edges,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
-  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
+    s.setActiveSection,
   selectVaultId: () => "default",
 }));
 
@@ -165,7 +171,7 @@ const PAGE_CONTENT: PageContentResponse = {
 
 const GRAPH_NODES: GraphNode[] = [
   { id: "page-abc", title: "Temperature Scaling", type: "concept", x: 0, y: 0 },
-  { id: "page-def", title: "Softmax Function",    type: "concept", x: 1, y: 1 },
+  { id: "page-def", title: "Softmax Function", type: "concept", x: 1, y: 1 },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -217,9 +223,7 @@ describe("NoteView — wikilink click→select resolution (Task A)", () => {
   it("resolves wikilink title case-insensitively", async () => {
     // Override renderMarkdown mock to emit lowercase title
     // We'll inject a node whose title casing differs from the anchor text
-    _nodes = [
-      { id: "page-xyz", title: "TEMPERATURE SCALING", type: "entity", x: 0, y: 0 },
-    ];
+    _nodes = [{ id: "page-xyz", title: "TEMPERATURE SCALING", type: "entity", x: 0, y: 0 }];
 
     await renderAndWaitReady();
 
@@ -251,10 +255,7 @@ describe("NoteView — wikilink click→select resolution (Task A)", () => {
     });
 
     expect(_mockSelectPage).not.toHaveBeenCalled();
-    expect(mockShowToast).toHaveBeenCalledWith(
-      "Page not found: Temperature Scaling",
-      "error",
-    );
+    expect(mockShowToast).toHaveBeenCalledWith("Page not found: Temperature Scaling", "error");
   });
 
   // ── 4. Click on non-wikilink element → no selectPage ──────────────────────
@@ -287,9 +288,7 @@ describe("NoteView — type badge (Task C)", () => {
   });
 
   it("renders note-type-badge with the node's type text when node has a type", async () => {
-    _nodes = [
-      { id: "page-abc", title: "Temperature Scaling", type: "concept", x: 0, y: 0 },
-    ];
+    _nodes = [{ id: "page-abc", title: "Temperature Scaling", type: "concept", x: 0, y: 0 }];
 
     await renderAndWaitReady();
 
@@ -299,9 +298,7 @@ describe("NoteView — type badge (Task C)", () => {
   });
 
   it("does NOT render note-meta-row when selected node has type = null", async () => {
-    _nodes = [
-      { id: "page-abc", title: "Temperature Scaling", type: null, x: 0, y: 0 },
-    ];
+    _nodes = [{ id: "page-abc", title: "Temperature Scaling", type: null, x: 0, y: 0 }];
 
     await renderAndWaitReady();
 

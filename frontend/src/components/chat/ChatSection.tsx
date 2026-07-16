@@ -26,7 +26,7 @@ import {
   selectMessages,
 } from "../../store/chatStore";
 import type { ChatMessage } from "../../store/chatStore";
-import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
+import { selectVaultId, selectSetActiveSection, useAppStore } from "../../store/appStore";
 import {
   useSettingsStore,
   selectContextWindow,
@@ -50,8 +50,8 @@ import { safeRandomUUID } from "../../utils/uuid";
 
 export function ChatSection(): ReactNode {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
   const activeConversationId = useChatStore(selectActiveConversationId);
   const isStreaming = useChatStore(selectIsStreaming);
   const messages = useChatStore(selectMessages);
@@ -98,9 +98,10 @@ export function ChatSection(): ReactNode {
       // then trim to historyLength (I7 context-budget enforcement, AC-HARD-CONV-2).
       // Images are attached to the last (current) user message only (B2).
       const priorMessages = messages.map((m) => ({ role: m.role, content: m.content }));
-      const currentUserMsg = images.length > 0
-        ? { role: "user" as const, content: text, images }
-        : { role: "user" as const, content: text };
+      const currentUserMsg =
+        images.length > 0
+          ? { role: "user" as const, content: text, images }
+          : { role: "user" as const, content: text };
       const allMessages = [...priorMessages, currentUserMsg];
       const history = buildMessagePayload(allMessages, historyLength);
 
@@ -170,7 +171,19 @@ export function ChatSection(): ReactNode {
     };
 
     send(req);
-  }, [isStreaming, messages, activeConversationId, vaultId, contextWindow, historyLength, webSearchEnabled, retrievalMode, skillsEnabled, anytxtEnabled, send]);
+  }, [
+    isStreaming,
+    messages,
+    activeConversationId,
+    vaultId,
+    contextWindow,
+    historyLength,
+    webSearchEnabled,
+    retrievalMode,
+    skillsEnabled,
+    anytxtEnabled,
+    send,
+  ]);
 
   // While checking configuration, render nothing to avoid flicker (I3).
   if (providerLoading || configured === null) {

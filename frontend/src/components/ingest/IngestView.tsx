@@ -24,7 +24,7 @@ import {
   selectIngestError,
   selectIngestLoading,
 } from "../../store/ingestStore";
-import { useGraphStore, selectVaultId, selectSetActiveSection } from "../../store/graphStore";
+import { selectVaultId, selectSetActiveSection, useAppStore } from "../../store/appStore";
 import { triggerIngest } from "../../api/ingestClient";
 import { IngestRunList } from "./IngestRunList";
 import { UploadZone } from "./UploadZone";
@@ -34,8 +34,8 @@ import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 
 export function IngestView() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
   const fetchFresh = useIngestStore(selectFetchFresh);
   const startPolling = useIngestStore(selectStartPolling);
   const runningCount = useIngestStore(selectRunningCount);

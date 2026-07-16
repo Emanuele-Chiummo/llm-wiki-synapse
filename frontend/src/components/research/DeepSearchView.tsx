@@ -48,7 +48,7 @@ import {
   selectClearStartError,
   isTerminal,
 } from "../../store/researchStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { formatCost, formatRelativeTime } from "../ingest/IngestRunList";
 import type { ResearchRunSummary, ResearchRunDetail, ResearchSource } from "../../api/types";
 
@@ -585,7 +585,7 @@ function ResearchRunList({ vaultId }: RunListProps) {
 
 export function DeepSearchView() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   // Store actions
   const fetchFresh = useResearchStore(selectFetchFreshResearch);

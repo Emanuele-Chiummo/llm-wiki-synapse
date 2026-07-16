@@ -10,13 +10,12 @@
  * Insights button in GraphHeader (F17 toolbar reference layout).
  */
 
-import { useGraphStore } from "../../store/graphStore";
-import { selectShowInsightsPanel } from "../../store/graphStore";
+import { useAppStore, selectShowInsightsPanel } from "../../store/appStore";
 import { GraphViewer } from "../GraphViewer";
 import { GraphInsightsPanel } from "../graph/GraphInsightsPanel";
 
 export function GraphPanel() {
-  const showInsights = useGraphStore(selectShowInsightsPanel);
+  const showInsights = useAppStore(selectShowInsightsPanel);
 
   return (
     <div

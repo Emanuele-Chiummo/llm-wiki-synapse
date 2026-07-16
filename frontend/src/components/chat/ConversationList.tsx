@@ -55,7 +55,7 @@ import {
   renameConversation,
   fetchMessages,
 } from "../../api/chatClient";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { showToast } from "../common/Toast";
 
 // Virtualize when list exceeds this threshold (I4)
@@ -72,7 +72,7 @@ export function ConversationList({
   onConversationSelected?: () => void;
 } = {}): ReactNode {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   const conversations = useConversations();
   const activeId = useChatStore(selectActiveConversationId);

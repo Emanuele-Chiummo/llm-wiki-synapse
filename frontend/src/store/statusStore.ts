@@ -26,7 +26,7 @@ import { fetchStatus } from "../api/pagesClient";
 import type { StatusResponse } from "../api/types";
 import { createPollChain } from "./pollChain";
 import { useActivityStore } from "./activityStore";
-import { useGraphStore } from "./graphStore";
+import { useAppStore } from "./appStore";
 
 // ─── Adaptive /status cadence (RT-1) ───────────────────────────────────────────
 
@@ -149,8 +149,8 @@ export const useStatusStore = create<StatusStore>((set) => ({
           // graph, lint) queries the vault the backend is actually serving — not a
           // stale "default". Without this a non-default VAULT_ID makes the lists
           // query the wrong vault (13-badge / 2-list mismatch).
-          if (res.vault_id && res.vault_id !== useGraphStore.getState().vaultId) {
-            useGraphStore.getState().setVaultId(res.vault_id);
+          if (res.vault_id && res.vault_id !== useAppStore.getState().vaultId) {
+            useAppStore.getState().setVaultId(res.vault_id);
           }
         },
         intervalFor: () => statusPollDelayMs(useActivityStore.getState().snapshot),

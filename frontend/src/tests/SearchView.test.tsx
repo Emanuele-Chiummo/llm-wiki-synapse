@@ -63,8 +63,8 @@ vi.mock("react-i18next", () => {
 const mockSelectPage = vi.fn();
 const mockSetActiveSection = vi.fn();
 
-vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) =>
     selector({
       vaultId: "vault-test",
       selectPage: mockSelectPage,
@@ -174,9 +174,7 @@ describe("searchClient.searchWiki — shape and URL", () => {
       score: 0.9,
       phase: "vector",
     };
-    expect(Object.keys(item).sort()).toEqual(
-      ["id", "n", "phase", "score", "slug", "title"],
-    );
+    expect(Object.keys(item).sort()).toEqual(["id", "n", "phase", "score", "slug", "title"]);
   });
 });
 
@@ -216,9 +214,7 @@ describe("SearchView — query flow", () => {
   });
 
   it("does not fire search for a single-char query (below minLength)", async () => {
-    const spy = vi
-      .spyOn(searchClientModule, "searchWiki")
-      .mockResolvedValue(MOCK_RESPONSE);
+    const spy = vi.spyOn(searchClientModule, "searchWiki").mockResolvedValue(MOCK_RESPONSE);
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
@@ -230,19 +226,14 @@ describe("SearchView — query flow", () => {
   });
 
   it("fires search after debounce when query >= 2 chars", async () => {
-    const spy = vi
-      .spyOn(searchClientModule, "searchWiki")
-      .mockResolvedValue(MOCK_RESPONSE);
+    const spy = vi.spyOn(searchClientModule, "searchWiki").mockResolvedValue(MOCK_RESPONSE);
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
     fireEvent.change(input, { target: { value: "ho" } });
 
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(1), { timeout: 2000 });
-    expect(spy).toHaveBeenCalledWith(
-      "ho",
-      expect.objectContaining({ vault_id: "vault-test" }),
-    );
+    expect(spy).toHaveBeenCalledWith("ho", expect.objectContaining({ vault_id: "vault-test" }));
   });
 
   it("renders result rows after successful search", async () => {
@@ -273,9 +264,7 @@ describe("SearchView — query flow", () => {
   });
 
   it("renders ErrorState when search rejects", async () => {
-    vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(
-      new Error("Service unavailable"),
-    );
+    vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(new Error("Service unavailable"));
 
     render(<SearchView />);
     const input = screen.getByTestId("search-input");
@@ -286,9 +275,7 @@ describe("SearchView — query flow", () => {
   });
 
   it("ErrorState shows search.error title on failure", async () => {
-    vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(
-      new Error("timeout"),
-    );
+    vi.spyOn(searchClientModule, "searchWiki").mockRejectedValue(new Error("timeout"));
 
     render(<SearchView />);
     fireEvent.change(screen.getByTestId("search-input"), { target: { value: "query" } });
@@ -343,7 +330,9 @@ describe("SearchView — skeleton and slow-load (fake timers)", () => {
     fireEvent.change(input, { target: { value: "DORA" } });
 
     // Advance past debounce (300ms)
-    act(() => { vi.advanceTimersByTime(301); });
+    act(() => {
+      vi.advanceTimersByTime(301);
+    });
 
     const loadingEl = screen.getByTestId("search-loading");
     expect(loadingEl).toBeTruthy();
@@ -363,8 +352,12 @@ describe("SearchView — skeleton and slow-load (fake timers)", () => {
     fireEvent.change(screen.getByTestId("search-input"), { target: { value: "DORA" } });
 
     // Advance debounce then slow-load threshold
-    act(() => { vi.advanceTimersByTime(301); });
-    act(() => { vi.advanceTimersByTime(4001); });
+    act(() => {
+      vi.advanceTimersByTime(301);
+    });
+    act(() => {
+      vi.advanceTimersByTime(4001);
+    });
 
     expect(screen.getByTestId("search-slow-load")).toBeTruthy();
     // Cancel + Retry buttons present
@@ -379,8 +372,12 @@ describe("SearchView — skeleton and slow-load (fake timers)", () => {
 
     render(<SearchView />);
     fireEvent.change(screen.getByTestId("search-input"), { target: { value: "DORA" } });
-    act(() => { vi.advanceTimersByTime(301); });
-    act(() => { vi.advanceTimersByTime(4001); });
+    act(() => {
+      vi.advanceTimersByTime(301);
+    });
+    act(() => {
+      vi.advanceTimersByTime(4001);
+    });
 
     // Slow-load is visible; click Cancel
     fireEvent.click(screen.getByTestId("search-slow-cancel"));
@@ -397,7 +394,9 @@ describe("SearchView — skeleton and slow-load (fake timers)", () => {
     render(<SearchView />);
     fireEvent.change(screen.getByTestId("search-input"), { target: { value: "fast" } });
     // Advance debounce — the mock resolves synchronously within this act
-    act(() => { vi.advanceTimersByTime(301); });
+    act(() => {
+      vi.advanceTimersByTime(301);
+    });
 
     // Do NOT advance past SLOW_LOAD_MS
     expect(screen.queryByTestId("search-slow-load")).toBeNull();

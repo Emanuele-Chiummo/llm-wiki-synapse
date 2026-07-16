@@ -41,7 +41,7 @@ const reducedMotion: boolean =
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { useGraphMeta } from "../../store/graphStore";
 import {
   useStatusStore,
@@ -374,7 +374,7 @@ const iconButtonStyle: import("react").CSSProperties = {
 
 export function ActivityBar(): ReactNode {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
   const { dataVersion: storeVersion } = useGraphMeta();
   const activeProvider = useProviderStore(selectActiveProvider);
 

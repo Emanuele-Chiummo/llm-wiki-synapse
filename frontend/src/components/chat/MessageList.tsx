@@ -41,11 +41,11 @@ import {
 } from "../../store/chatStore";
 import type { ChatMessage, WebCitationRef } from "../../store/chatStore";
 import {
-  useGraphStore,
   selectVaultId,
   selectSelectPage,
   selectSetActiveSection,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import { saveToWikiV2 } from "../../api/chatClient";
 import { fetchPageBySlug } from "../../api/pagesClient";
 import { refreshDataVersion } from "../../store/statusStore";
@@ -66,10 +66,10 @@ export function MessageList({ onRegenerate, onSend }: MessageListProps): ReactNo
   const isStreaming = useChatStore(selectIsStreaming);
   const lastUsage = useChatStore(selectLastUsage);
   const activeConversationId = useChatStore(selectActiveConversationId);
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
   // R8-6: navigation actions for citation click-through (AC-R8-6-2)
-  const selectPage = useGraphStore(selectSelectPage);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const selectPage = useAppStore(selectSelectPage);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   // R8-6: stable citation navigation handler — opens the cited page in the preview panel.
   // Slug from the citation → match against page nodes, then navigate (AC-R8-6-2).

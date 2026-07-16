@@ -35,7 +35,7 @@ import {
   selectSetActiveProvider,
   selectSetWriteScope,
 } from "../../store/providerStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { showToast } from "../common/Toast";
 import type { ProviderConfigItem } from "../../api/types";
 
@@ -75,7 +75,7 @@ export function ProviderSelector() {
   const fetchList = useProviderStore(selectFetchProviderList);
   const setActive = useProviderStore(selectSetActiveProvider);
   const setWriteScope = useProviderStore(selectSetWriteScope);
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   // De-duplicate the list for display. Historically each activation POSTed a NEW row (no upsert),
   // so the raw list can contain many identical rows (and fallback rows). Show one entry per logical

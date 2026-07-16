@@ -101,12 +101,12 @@ import { fetchCostsSummary } from "../../api/costsClient";
 import type { ResearchRunSummary } from "../../api/types";
 import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import {
-  useGraphStore,
+  useAppStore,
   selectSetActiveSection,
   selectVaultId,
   selectSelectPage,
   type Section,
-} from "../../store/graphStore";
+} from "../../store/appStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import {
   useStatusStore,
@@ -2362,10 +2362,10 @@ function isStatsRequestAbort(err: unknown, signal: AbortSignal): boolean {
 
 export function HomeDashboard() {
   const { t } = useTranslation();
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const setActiveSection = useAppStore(selectSetActiveSection);
   // v1.5 additions [F18]: vault id + page-open action for new home sections
-  const vaultId = useGraphStore(selectVaultId);
-  const selectPageAction = useGraphStore(selectSelectPage);
+  const vaultId = useAppStore(selectVaultId);
+  const selectPageAction = useAppStore(selectSelectPage);
   const activeProvider = useProviderStore(selectActiveProvider);
   const connectionState = useStatusStore(selectBackendConnectionState);
   const backendVersion = useStatusStore(selectBackendVersion);

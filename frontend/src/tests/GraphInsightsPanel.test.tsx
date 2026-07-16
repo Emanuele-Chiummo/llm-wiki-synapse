@@ -23,6 +23,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import type { GraphNode, GraphEdge, GraphCommunity } from "../api/types";
 import { useGraphStore } from "../store/graphStore";
+import { useAppStore } from "../store/appStore";
 
 // ─── Mock react-i18next ───────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ const EDGES_LOW_WEIGHT: GraphEdge[] = [{ source: "a", target: "b", weight: 1 }];
 describe("GraphInsightsPanel", () => {
   beforeEach(() => {
     useGraphStore.getState().reset();
+    useAppStore.getState().reset();
   });
 
   /**
@@ -134,9 +136,7 @@ describe("GraphInsightsPanel", () => {
   });
 
   it("A2: renders isolated node in gap rows", () => {
-    useGraphStore
-      .getState()
-      .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
+    useGraphStore.getState().setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
     render(<GraphInsightsPanel />);
     // GI-1: panel starts expanded — rows are immediately visible
@@ -153,7 +153,7 @@ describe("GraphInsightsPanel", () => {
       .getState()
       .setGraph(NODES_SURPRISING, EDGES_SURPRISING, 1, "hit", COMMUNITIES_EMPTY);
 
-    const spy = vi.spyOn(useGraphStore.getState(), "setSelectedNodeId");
+    const spy = vi.spyOn(useAppStore.getState(), "setSelectedNodeId");
 
     render(<GraphInsightsPanel />);
     // GI-1: panel starts expanded — rows are immediately visible
@@ -186,11 +186,9 @@ describe("GraphInsightsPanel", () => {
   // ── D. (B5/D3) Deep Research button opens dialog — NOT navigate-only ──────
 
   it("D: deep-research button opens ResearchTopicDialog (not navigate-only)", async () => {
-    useGraphStore
-      .getState()
-      .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
+    useGraphStore.getState().setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
-    const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
+    const setActiveSectionSpy = vi.spyOn(useAppStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
     // GI-1: panel starts expanded — buttons are immediately visible
@@ -208,11 +206,9 @@ describe("GraphInsightsPanel", () => {
   // ── D2. Cancelling dialog closes it without navigating ─────────────────────
 
   it("D2: cancelling the dialog closes it without calling setActiveSection", async () => {
-    useGraphStore
-      .getState()
-      .setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
+    useGraphStore.getState().setGraph(NODES_ISOLATED, EDGES_ISOLATED, 1, "hit", COMMUNITIES_EMPTY);
 
-    const setActiveSectionSpy = vi.spyOn(useGraphStore.getState(), "setActiveSection");
+    const setActiveSectionSpy = vi.spyOn(useAppStore.getState(), "setActiveSection");
 
     render(<GraphInsightsPanel />);
     // GI-1: panel starts expanded — buttons are immediately visible
@@ -280,9 +276,7 @@ describe("GraphInsightsPanel", () => {
   // ── H. Sparse community shows rows ───────────────────────────────────────
 
   it("H: sparse community insight rendered as gap row", () => {
-    useGraphStore
-      .getState()
-      .setGraph(NODES_SPARSE, [], 1, "hit", COMMUNITIES_SPARSE);
+    useGraphStore.getState().setGraph(NODES_SPARSE, [], 1, "hit", COMMUNITIES_SPARSE);
 
     render(<GraphInsightsPanel />);
     // GI-1: panel starts expanded — rows are immediately visible
