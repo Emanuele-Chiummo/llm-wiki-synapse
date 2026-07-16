@@ -64,7 +64,10 @@ export function usePollChain<T>(opts: PollChainOptions<T>): UsePollChainHandle {
   return useMemo<UsePollChainHandle>(
     () => ({
       start: () => {
-        if (unsubRef.current) return; // already subscribed
+        // Guard on isRunning(), not just "do we hold a detach fn" — a chain
+        // that reached a terminal state (natural stop) must be restartable
+        // even though the previous subscribe()'s detach closure is still around.
+        if (chainRef.current?.isRunning()) return;
         unsubRef.current = chainRef.current?.subscribe() ?? null;
       },
       stop: () => {

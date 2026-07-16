@@ -73,6 +73,11 @@ export function createPollChain<T>(opts: PollChainOptions<T>): PollChainControll
     ctrl?.abort();
     ctrl = null;
     clearTimer();
+    // A chain that reaches a terminal state (natural stop) is fully done —
+    // reset the refcount so a later subscribe()/start() creates a fresh run
+    // instead of being treated as "still attached" to a dead chain. Any
+    // outstanding detach closures remain safe: they clamp refCount at 0.
+    refCount = 0;
   }
 
   async function tick(activeCtrl: AbortController): Promise<void> {

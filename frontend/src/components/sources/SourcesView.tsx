@@ -82,6 +82,8 @@ import { SourcePreview } from "./SourcePreview";
 import { UploadZone } from "../ingest/UploadZone";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import { showToast } from "../common/Toast";
+import { usePollChain } from "../../hooks/usePollChain";
+import type { IngestAllStatusResponse } from "../../api/sourcesClient";
 
 // ─── Category icon helper ─────────────────────────────────────────────────────
 
@@ -262,8 +264,6 @@ export function SourcesView() {
   const disarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Ingest-all progress state (null = not running / idle)
   const [ingestAllProgress, setIngestAllProgress] = useState<IngestAllProgress | null>(null);
-  // Single setTimeout poll chain ref (I3)
-  const ingestAllPollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // S1: folder upload (hidden directory input + sequential progress)
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -306,36 +306,23 @@ export function SourcesView() {
     return () => ctrl.abort();
   }, [fetchSources]);
 
-  // ── Ingest-all polling ───────────────────────────────────────────────────────
+  // ── Ingest-all polling (FE-ARCH-2: shared setTimeout-chain primitive) ────────
 
-  const stopIngestAllPoll = useCallback(() => {
-    if (ingestAllPollRef.current) {
-      clearTimeout(ingestAllPollRef.current);
-      ingestAllPollRef.current = null;
-    }
-  }, []);
-
-  const scheduleIngestAllPoll = useCallback(() => {
-    stopIngestAllPoll();
-    ingestAllPollRef.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const status = await getIngestAllStatus();
-          if (status.running) {
-            setIngestAllProgress({ running: true, done: status.done, total: status.total });
-            scheduleIngestAllPoll();
-          } else {
-            setIngestAllProgress(null);
-            // Refresh the tree once the scan finishes
-            void fetchSources();
-          }
-        } catch {
-          // Network error while polling — clear state, let user retry manually
-          setIngestAllProgress(null);
-        }
-      })();
-    }, INGEST_ALL_POLL_MS);
-  }, [stopIngestAllPoll, fetchSources]);
+  const ingestAllPoll = usePollChain<IngestAllStatusResponse>({
+    fetch: (signal) => getIngestAllStatus(signal),
+    onResult: (status) => {
+      if (status.running) {
+        setIngestAllProgress({ running: true, done: status.done, total: status.total });
+      } else {
+        setIngestAllProgress(null);
+        // Refresh the tree once the scan finishes
+        void fetchSources();
+      }
+    },
+    intervalFor: (status) => (status.running ? INGEST_ALL_POLL_MS : null),
+    onError: () => setIngestAllProgress(null),
+    initialDelayMs: INGEST_ALL_POLL_MS,
+  });
 
   // On mount: check if a scan is already running and start polling if so
   useEffect(() => {
@@ -344,16 +331,14 @@ export function SourcesView() {
         const status = await getIngestAllStatus();
         if (status.running) {
           setIngestAllProgress({ running: true, done: status.done, total: status.total });
-          scheduleIngestAllPoll();
+          ingestAllPoll.start();
         }
       } catch {
         // Backend unreachable — ignore, button will be in idle state
       }
     })();
-    return () => {
-      stopIngestAllPoll();
-    };
-  }, [scheduleIngestAllPoll, stopIngestAllPoll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleIngestAll = useCallback(async () => {
     try {
@@ -365,18 +350,18 @@ export function SourcesView() {
       showToast(t("sources.ingestAllStarted", { count: res.candidate_files }), "success");
       // Immediately mark running and start polling
       setIngestAllProgress({ running: true, done: 0, total: res.candidate_files });
-      scheduleIngestAllPoll();
+      ingestAllPoll.start();
     } catch (err: unknown) {
       if (err instanceof IngestAllRunningError) {
         showToast(t("sources.ingestAllAlready"), "success");
         // Start polling since it's already running
         setIngestAllProgress({ running: true, done: 0, total: 0 });
-        scheduleIngestAllPoll();
+        ingestAllPoll.start();
         return;
       }
       showToast(err instanceof Error ? err.message : String(err), "error");
     }
-  }, [t, scheduleIngestAllPoll]);
+  }, [t, ingestAllPoll]);
 
   // ── Two-stage delete helpers ─────────────────────────────────────────────────
 

@@ -120,6 +120,7 @@ import { HomeGettingStarted } from "./HomeGettingStarted";
 import { readSetupState } from "../setup/setupState";
 import { providerVerificationFingerprint } from "../setup/providerVerification";
 import { pageTypeCssColor } from "../../utils/pageTypeVisuals";
+import { usePollChain } from "../../hooks/usePollChain";
 
 // ─── Reduced-motion detection (UX-1) ─────────────────────────────────────────
 // Read once at module load (stable across renders). Used to disable the spin
@@ -2384,31 +2385,22 @@ export function HomeDashboard() {
   // Filter to processing tasks only — these carry phase/progress/eta (AC-WS-C-3).
   const ingestTasks = allTasks.filter((tk) => tk.status === "processing");
 
-  // v1.6: one shared synthesize status source. It polls only while the backend says
-  // a run is active, then stops immediately on the first terminal response (I3).
+  // v1.6: one shared synthesize status source (FE-ARCH-2: shared poll chain).
+  // It polls only while the backend says a run is active, then stops
+  // immediately on the first terminal response (I3). `synthesizePoll.start()`
+  // re-triggers a fresh fetch (and resumes polling if now running) — used both
+  // on mount and as the "onTriggered" callback after POST /ops/synthesize.
   const [synthesizeStatus, setSynthesizeStatus] = useState<SynthesizeStatus | null>(null);
-  const synthesizeAbortRef = useRef<AbortController | null>(null);
-  const fetchSynthesizeStatus = useCallback(async () => {
-    if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
-    const ac = new AbortController();
-    synthesizeAbortRef.current = ac;
-    const result = await getSynthesizeStatus(ac.signal).catch(() => null);
-    if (!ac.signal.aborted) setSynthesizeStatus(result);
+  const synthesizePoll = usePollChain<SynthesizeStatus | null>({
+    fetch: (signal) => getSynthesizeStatus(signal).catch(() => null),
+    onResult: (result) => setSynthesizeStatus(result),
+    intervalFor: (result) => (result?.running === true ? SYNTHESIZE_STATUS_POLL_MS : null),
+    initialDelayMs: 0,
+  });
+  useEffect(() => {
+    synthesizePoll.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => {
-    void fetchSynthesizeStatus();
-    return () => {
-      if (synthesizeAbortRef.current) synthesizeAbortRef.current.abort();
-    };
-  }, [fetchSynthesizeStatus]);
-
-  useEffect(() => {
-    if (synthesizeStatus?.running !== true) return undefined;
-    const timer = window.setTimeout(() => {
-      void fetchSynthesizeStatus();
-    }, SYNTHESIZE_STATUS_POLL_MS);
-    return () => window.clearTimeout(timer);
-  }, [synthesizeStatus, fetchSynthesizeStatus]);
 
   // A4 — expand/collapse state for GRUPPI AUTOMATICI (component-local, default collapsed).
   const [groupsExpanded, setGroupsExpanded] = useState(false);
@@ -2850,7 +2842,7 @@ export function HomeDashboard() {
       <SynthesizeNudge
         overview={overview}
         synthesizeStatus={synthesizeStatus}
-        onTriggered={fetchSynthesizeStatus}
+        onTriggered={synthesizePoll.start}
       />
 
       {/* ── 3b. Review preview + open questions — two-column block (v1.5, F18) ── */}

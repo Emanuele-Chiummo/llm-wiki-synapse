@@ -164,6 +164,35 @@ describe("createPollChain", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("resets refcount on natural termination so a later subscribe() starts a fresh chain", async () => {
+    let running = true;
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve({ running }));
+    const chain = createPollChain({
+      fetch,
+      onResult: () => {},
+      intervalFor: (r: { running: boolean }) => (r.running ? 100 : null),
+    });
+
+    const stopFirst = chain.subscribe();
+    await vi.advanceTimersByTimeAsync(0); // fetch #1: running=true → reschedule
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    running = false;
+    await vi.advanceTimersByTimeAsync(100); // fetch #2: running=false → terminal stop
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(chain.isRunning()).toBe(false);
+
+    // A stale detach closure from the first subscribe() is still callable —
+    // must not throw and must not corrupt a subsequent subscribe().
+    stopFirst();
+
+    running = true;
+    chain.subscribe();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetch).toHaveBeenCalledTimes(3); // fresh chain actually restarted
+    chain.stop();
+  });
+
   it("honours initialDelayMs before the first tick", async () => {
     const fetch = vi.fn().mockResolvedValue({ running: false });
     const chain = createPollChain({
