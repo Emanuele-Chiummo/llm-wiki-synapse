@@ -310,6 +310,67 @@ async def test_app_managed_index_block_is_dropped(block_env: dict[str, Any]) -> 
     assert await _load_page(block_env, "wiki/index.md") is None
 
 
+async def test_app_managed_log_block_is_dropped(block_env: dict[str, Any]) -> None:
+    """log.md is code-appended (append_log), never model-written. A log.md block is DROPPED so it
+    cannot overwrite the code-managed log (parity regression: it used to destroy the frontmatter and
+    mix a second, schema-described format into the file)."""
+    from app.ingest.block_writer import write_block_page
+
+    log_path = block_env["vault_root"] / "wiki" / "log.md"
+    before = log_path.read_text(encoding="utf-8")
+    content = (
+        "---\ntype: log\ntitle: Log\n---\n\n## 2026-07-15\n\n"
+        "- 12:00:00Z · indexed · concept · [[X]] — wiki/concepts/x.md\n"
+    )
+    page = await write_block_page(
+        rel_path="wiki/log.md", content=content, origin_source=ORIGIN, routing=ROUTING
+    )
+    assert page is None
+    # The code-managed log.md is untouched (frontmatter + scaffold preserved).
+    assert log_path.read_text(encoding="utf-8") == before
+
+
+async def test_source_page_appends_exactly_one_log_line(block_env: dict[str, Any]) -> None:
+    """The block path logs ONE '## [date] ingest | <title>' line — for the SOURCE page only, not
+    once per generated page (llm_wiki parity: one log entry per source ingest)."""
+    from app.ingest.block_writer import write_block_page
+
+    log_path = block_env["vault_root"] / "wiki" / "log.md"
+    before = log_path.read_text(encoding="utf-8")
+    content = (
+        "---\ntype: source\ntitle: My Source Doc\ncreated: 2026-07-15\n"
+        "updated: 2026-07-15\nsources: []\n---\n\n# My Source Doc\n\nBody.\n"
+    )
+    page = await write_block_page(
+        rel_path="wiki/sources/my-source.md", content=content, origin_source=ORIGIN, routing=ROUTING
+    )
+    assert page is not None and page.page_type == "source"
+    added = log_path.read_text(encoding="utf-8")[len(before) :]
+    entries = [ln for ln in added.splitlines() if ln.startswith("## [")]
+    assert len(entries) == 1
+    assert "ingest | My Source Doc" in entries[0]
+
+
+async def test_non_source_page_appends_no_log_line(block_env: dict[str, Any]) -> None:
+    """A generated (non-source) page must NOT add a log line — only the source page does."""
+    from app.ingest.block_writer import write_block_page
+
+    log_path = block_env["vault_root"] / "wiki" / "log.md"
+    before = log_path.read_text(encoding="utf-8")
+    content = (
+        "---\ntype: concept\ntitle: A Concept\ncreated: 2026-07-15\n"
+        "updated: 2026-07-15\nsources: []\n---\n\n# A Concept\n\nBody.\n"
+    )
+    page = await write_block_page(
+        rel_path="wiki/concepts/a-concept.md",
+        content=content,
+        origin_source=ORIGIN,
+        routing=ROUTING,
+    )
+    assert page is not None and page.page_type == "concept"
+    assert log_path.read_text(encoding="utf-8") == before  # no new log line
+
+
 async def test_page_history_backup_created_and_capped(
     block_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

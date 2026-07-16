@@ -481,6 +481,9 @@ async def write_wiki_page(
         title=page.title,
         page_type=page_type,
     )
+    # K4: log this indexed file. This seam is the WATCHER indexing a raw wiki page (one file → one
+    # page → one log line, correct). The multi-page LLM-generation paths (block_writer / pipeline)
+    # instead log only the source page — see their append_log gates.
     await orch.append_log(rel_path, page_type=page_type, title=page.title)
     await orch.bump_version()
 

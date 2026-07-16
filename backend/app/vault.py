@@ -127,12 +127,11 @@ venue: ""
 
 ## Log Format
 
-`wiki/log.md` is append-only, newest activity at the bottom, grouped by day:
+`wiki/log.md` is an append-only activity log **maintained automatically by Synapse — never
+generate, overwrite or edit it** (it is not a page you author). Each ingest appends one entry:
 
 ```
-## YYYY-MM-DD
-
-- HH:MM:SSZ · indexed · concept · [[Page Title]] — wiki/concepts/page-title.md
+## [YYYY-MM-DD] ingest | <source title>
 ```
 
 ## Cross-referencing Rules

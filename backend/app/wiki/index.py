@@ -34,6 +34,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models import Page
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,10 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
     result = await session.execute(
         select(Page.title, Page.page_type, Page.file_path, Page.updated_at)
         .where(
+            # VAULT-SCOPED (parity fix): count/list ONLY this vault's pages. Without the filter the
+            # catalogue counted EVERY vault (e.g. 278 across the DB vs 35) — the cross-vault leak
+            # class fixed for the graph resolver.
+            Page.vault_id == settings.vault_id,
             Page.deleted_at.is_(None),
         )
         .order_by(Page.updated_at.desc().nullslast(), Page.title.asc().nullslast())
