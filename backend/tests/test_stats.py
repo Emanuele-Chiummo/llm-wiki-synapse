@@ -33,224 +33,17 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-# ── SQLite schema (portable subset of Postgres schema) ────────────────────────
-# Only the tables referenced by stats.py queries are required.
-
-_CREATE_PAGES = """
-CREATE TABLE IF NOT EXISTS pages (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    file_path TEXT NOT NULL DEFAULT '',
-    title TEXT,
-    type TEXT,
-    sources TEXT,
-    tags TEXT,
-    content_hash TEXT NOT NULL DEFAULT '',
-    source_mtime_ns INTEGER,
-    qdrant_point_id TEXT,
-    x REAL,
-    y REAL,
-    community INTEGER,
-    pinned INTEGER NOT NULL DEFAULT 0,
-    deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-_CREATE_VAULT_STATE = """
-CREATE TABLE IF NOT EXISTS vault_state (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    data_version INTEGER NOT NULL DEFAULT 0,
-    remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-    remote_mcp_write_enabled INTEGER,
-    mcp_access_token_hash TEXT,
-    mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-    clip_enabled_db INTEGER,
-    clip_access_token TEXT,
-    clip_allowed_origins_db TEXT,
-    cli_oauth_token TEXT,
-    cli_oauth_token_encrypted BLOB,
-    web_search_api_keys_encrypted BLOB,
-    searxng_url_db TEXT,
-    searxng_categories_db TEXT,
-    searxng_max_queries_db INTEGER,
-    output_language TEXT,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-_CREATE_EDGES = """
-CREATE TABLE IF NOT EXISTS edges (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    source_page_id TEXT NOT NULL,
-    target_page_id TEXT NOT NULL,
-    weight REAL NOT NULL DEFAULT 1.0,
-    signals TEXT,
-    kind TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-_CREATE_REVIEW_ITEMS = """
-CREATE TABLE IF NOT EXISTS review_items (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    item_type TEXT NOT NULL DEFAULT 'missing-page',
-    status TEXT NOT NULL DEFAULT 'pending',
-    page_id TEXT,
-    source_page_id TEXT,
-    proposed_title TEXT,
-    proposed_page_type TEXT,
-    proposed_dir TEXT,
-    rationale TEXT,
-    content_key TEXT,
-    referenced_page_ids TEXT,
-    search_queries TEXT,
-    resolution TEXT,
-    created_page_id TEXT,
-    deep_research_run_id TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at TEXT,
-    reviewed_by TEXT
-)
-"""
-
-_CREATE_LINT_FINDINGS = """
-CREATE TABLE IF NOT EXISTS lint_findings (
-    id TEXT PRIMARY KEY,
-    lint_run_id TEXT NOT NULL,
-    vault_id TEXT NOT NULL,
-    category TEXT NOT NULL DEFAULT 'orphan-page',
-    severity TEXT NOT NULL DEFAULT 'warning',
-    target_page_id TEXT,
-    target_title TEXT,
-    description TEXT NOT NULL DEFAULT '',
-    proposed_action TEXT,
-    status TEXT NOT NULL DEFAULT 'open',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-# Cost tables needed by get_monthly_cost_usd (same schema subset as test_r9_costs.py)
-_CREATE_INGEST_RUNS = """
-CREATE TABLE IF NOT EXISTS ingest_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    page_id TEXT,
-    provider_name TEXT NOT NULL DEFAULT 'test',
-    provider_type TEXT NOT NULL DEFAULT 'api',
-    model_id TEXT NOT NULL DEFAULT 'test-model',
-    route TEXT NOT NULL DEFAULT 'orchestrated',
-    max_iter_used INTEGER NOT NULL DEFAULT 0,
-    total_tokens INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    converged INTEGER NOT NULL DEFAULT 0,
-    cost_anomaly INTEGER NOT NULL DEFAULT 0,
-    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    finished_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status TEXT NOT NULL DEFAULT 'completed',
-    pages_created INTEGER NOT NULL DEFAULT 0,
-    error_message TEXT,
-    source_path TEXT,
-    retry_count INTEGER NOT NULL DEFAULT 0
-)
-"""
-
-_CREATE_MESSAGES = """
-CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'assistant',
-    content TEXT NOT NULL DEFAULT '',
-    citations TEXT,
-    provider_type TEXT,
-    model_id TEXT,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-_CREATE_CONVERSATIONS = """
-CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    title TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TEXT
-)
-"""
-
-_CREATE_DEEP_RESEARCH_RUNS = """
-CREATE TABLE IF NOT EXISTS deep_research_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    topic TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'running',
-    max_iter INTEGER NOT NULL DEFAULT 3,
-    token_budget INTEGER NOT NULL DEFAULT 60000,
-    iterations_used INTEGER NOT NULL DEFAULT 0,
-    queries_used TEXT NOT NULL DEFAULT '[]',
-    sources_fetched INTEGER NOT NULL DEFAULT 0,
-    converged INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    synthesis_text TEXT,
-    synthesis_page_id TEXT,
-    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT,
-    error_message TEXT
-)
-"""
-
-_CREATE_LINT_RUNS = """
-CREATE TABLE IF NOT EXISTS lint_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'completed',
-    max_iter INTEGER NOT NULL DEFAULT 1,
-    token_budget INTEGER NOT NULL DEFAULT 10000,
-    iterations_used INTEGER NOT NULL DEFAULT 0,
-    findings_count INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at TEXT,
-    error_message TEXT,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-)
-"""
-
-_ALL_CREATES = [
-    _CREATE_PAGES,
-    _CREATE_VAULT_STATE,
-    _CREATE_EDGES,
-    _CREATE_REVIEW_ITEMS,
-    _CREATE_LINT_FINDINGS,
-    _CREATE_INGEST_RUNS,
-    _CREATE_MESSAGES,
-    _CREATE_CONVERSATIONS,
-    _CREATE_DEEP_RESEARCH_RUNS,
-    _CREATE_LINT_RUNS,
-]
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Engine + session factory helpers ──────────────────────────────────────────
 
 VAULT_ID = "test-vault"
 
 
-def _make_engine() -> Any:
-    return create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+async def _make_engine() -> Any:
+    return await make_sqlite_engine()
 
 
 def _make_session_factory(engine: Any) -> Any:
@@ -258,10 +51,8 @@ def _make_session_factory(engine: Any) -> Any:
 
 
 async def _setup_schema(engine: Any) -> None:
+    # Seed vault_state row (tables already created by make_sqlite_engine)
     async with engine.begin() as conn:
-        for ddl in _ALL_CREATES:
-            await conn.execute(sa_text(ddl))
-        # Seed vault_state row
         await conn.execute(
             sa_text("INSERT INTO vault_state (id, vault_id, data_version) VALUES (:id, :vid, :dv)"),
             {"id": str(uuid.uuid4()), "vid": VAULT_ID, "dv": 5},
@@ -311,7 +102,7 @@ def _month_start_iso() -> str:
 @pytest.mark.asyncio
 async def test_stats_overview_shape_and_counts() -> None:
     """T-STATS-001/002: shape is correct; counts match seeded data."""
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -340,14 +131,14 @@ async def test_stats_overview_shape_and_counts() -> None:
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
-                "VALUES (:id, :vid, :s, :t)"
+                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id, weight) "
+                "VALUES (:id, :vid, :s, :t, 1.0)"
             ),
             {"id": eid, "vid": VAULT_ID, "s": pid1, "t": pid2},
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO review_items (id, vault_id, status) VALUES (:id, :vid, 'pending')"
+                "INSERT INTO review_items (id, vault_id, item_type, status) VALUES (:id, :vid, 'missing-page', 'pending')"
             ),
             {"id": rid, "vid": VAULT_ID},
         )
@@ -361,8 +152,8 @@ async def test_stats_overview_shape_and_counts() -> None:
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO lint_findings (id, lint_run_id, vault_id, description, status) "
-                "VALUES (:id, :lid, :vid, 'x', 'open')"
+                "INSERT INTO lint_findings (id, lint_run_id, vault_id, category, severity, description, status) "
+                "VALUES (:id, :lid, :vid, 'orphan-page', 'warning', 'x', 'open')"
             ),
             {"id": fid, "lid": lid, "vid": VAULT_ID},
         )
@@ -450,7 +241,7 @@ async def test_stats_overview_shape_and_counts() -> None:
 @pytest.mark.asyncio
 async def test_stats_overview_monthly_cost_parity() -> None:
     """T-STATS-003: AC-R12-1-3 — identical monthly_total from /stats/overview and /costs/summary."""
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -459,8 +250,11 @@ async def test_stats_overview_monthly_cost_parity() -> None:
         # Seed an ingest run with a known cost in the current month
         await sess.execute(
             sa_text(
-                "INSERT INTO ingest_runs (id, vault_id, total_cost_usd, started_at, finished_at) "
-                "VALUES (:id, :vid, 1.2500, :ts, :ts)"
+                "INSERT INTO ingest_runs "
+                "(id, vault_id, total_cost_usd, started_at, finished_at,"
+                " provider_name, provider_type, model_id, route) "
+                "VALUES (:id, :vid, 1.2500, :ts, :ts,"
+                " 'TestProvider', 'api', 'test-model', 'orchestrated')"
             ),
             {"id": str(uuid.uuid4()), "vid": VAULT_ID, "ts": now},
         )
@@ -472,8 +266,8 @@ async def test_stats_overview_monthly_cost_parity() -> None:
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO messages (id, conversation_id, role, total_cost_usd, created_at) "
-                "VALUES (:id, :cid, 'assistant', 0.3300, :ts)"
+                "INSERT INTO messages (id, conversation_id, role, content, total_cost_usd, created_at) "
+                "VALUES (:id, :cid, 'assistant', '', 0.3300, :ts)"
             ),
             {"id": str(uuid.uuid4()), "cid": conv_id, "ts": now},
         )
@@ -539,7 +333,7 @@ async def test_stats_sections_dormant_vocabulary() -> None:
 
     stats_mod._sections_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -596,7 +390,7 @@ async def test_stats_sections_vocabulary_order_and_untagged() -> None:
 
     stats_mod._sections_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -960,7 +754,7 @@ async def test_stats_groups_grouping_ordering_and_cap() -> None:
 
     stats_mod._groups_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1053,7 +847,7 @@ async def test_stats_groups_label_from_top_degree_page_and_truncation() -> None:
 
     stats_mod._groups_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1098,16 +892,16 @@ async def test_stats_groups_label_from_top_degree_page_and_truncation() -> None:
         # hub → leaf1 (hub degree as source +1, leaf1 as target +1)
         await sess.execute(
             sa_text(
-                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
-                "VALUES (:id, :vid, :s, :t)"
+                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id, weight) "
+                "VALUES (:id, :vid, :s, :t, 1.0)"
             ),
             {"id": eid1, "vid": VAULT_ID, "s": pid_hub, "t": pid_leaf1},
         )
         # hub → leaf2 (hub degree as source +1, leaf2 as target +1)
         await sess.execute(
             sa_text(
-                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
-                "VALUES (:id, :vid, :s, :t)"
+                "INSERT INTO edges (id, vault_id, source_page_id, target_page_id, weight) "
+                "VALUES (:id, :vid, :s, :t, 1.0)"
             ),
             {"id": eid2, "vid": VAULT_ID, "s": pid_hub, "t": pid_leaf2},
         )
@@ -1161,7 +955,7 @@ async def test_stats_groups_meta_hub_excluded_from_label() -> None:
     import app.stats as stats_mod
 
     stats_mod._groups_cache = None
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1194,8 +988,8 @@ async def test_stats_groups_meta_hub_excluded_from_label() -> None:
         for s, t in ((pid_index, pid_c1), (pid_index, pid_c2)):
             await sess.execute(
                 sa_text(
-                    "INSERT INTO edges (id, vault_id, source_page_id, target_page_id) "
-                    "VALUES (:id, :vid, :s, :t)"
+                    "INSERT INTO edges (id, vault_id, source_page_id, target_page_id, weight) "
+                    "VALUES (:id, :vid, :s, :t, 1.0)"
                 ),
                 {"id": str(uuid.uuid4()), "vid": VAULT_ID, "s": s, "t": t},
             )
@@ -1239,7 +1033,7 @@ async def test_stats_groups_unassigned_excluded() -> None:
 
     stats_mod._groups_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1315,7 +1109,7 @@ async def test_stats_groups_no_groups_when_no_assigned_community() -> None:
 
     stats_mod._groups_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1365,7 +1159,7 @@ async def test_stats_groups_memo_invalidated_on_data_version_bump() -> None:
 
     stats_mod._groups_cache = None
 
-    engine = _make_engine()
+    engine = await _make_engine()
     await _setup_schema(engine)
     factory = _make_session_factory(engine)
 
@@ -1465,7 +1259,7 @@ async def test_stats_caches_invalidated_on_vault_switch() -> None:
     stats_mod._groups_cache = None
 
     # Vault A: 3 pages.
-    engine_a = _make_engine()
+    engine_a = await _make_engine()
     await _setup_schema(engine_a)
     factory_a = _make_session_factory(engine_a)
     async with factory_a() as sess:
@@ -1489,7 +1283,7 @@ async def test_stats_caches_invalidated_on_vault_switch() -> None:
         await sess.commit()
 
     # Vault B: 1 page.
-    engine_b = _make_engine()
+    engine_b = await _make_engine()
     await _setup_schema(engine_b)
     factory_b = _make_session_factory(engine_b)
     async with factory_b() as sess:

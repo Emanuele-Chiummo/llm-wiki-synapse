@@ -69,62 +69,15 @@ from typing import Any
 
 import pytest
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Fixture helpers ────────────────────────────────────────────────────────────
 
 
 def _uid() -> str:
     return str(uuid.uuid4())
-
-
-async def _setup_sqlite(engine: Any) -> None:
-    """Create the minimal pages + links + edges tables in SQLite for graph tests."""
-    async with engine.begin() as conn:
-        await conn.execute(sa_text("""
-            CREATE TABLE pages (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                title TEXT,
-                type TEXT,
-                sources TEXT,
-                content_hash TEXT NOT NULL DEFAULT '',
-                source_mtime_ns INTEGER,
-                qdrant_point_id TEXT,
-                deleted_at TEXT,
-                x REAL,
-                y REAL,
-                community INTEGER,
-                pinned INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE links (
-                id TEXT PRIMARY KEY,
-                source_page_id TEXT NOT NULL,
-                target_title TEXT NOT NULL,
-                target_page_id TEXT,
-                alias TEXT,
-                dangling INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE edges (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                source_page_id TEXT NOT NULL,
-                target_page_id TEXT NOT NULL,
-                weight REAL NOT NULL,
-                signals TEXT,
-                kind TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
 
 
 async def _insert_page(
@@ -183,12 +136,7 @@ async def graph_db(monkeypatch: pytest.MonkeyPatch) -> tuple[Any, dict[str, str]
 
     Returns (engine, page_ids dict, vault_id).
     """
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    await _setup_sqlite(engine)
+    engine = await make_sqlite_engine()
 
     vault_id = "test-vault"
 
@@ -1533,12 +1481,7 @@ async def test_resolver_maps_are_vault_scoped() -> None:
     """
     from app.wiki.links import _build_resolver_maps, _slugify
 
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    await _setup_sqlite(engine)
+    engine = await make_sqlite_engine()
     session_factory = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
     )

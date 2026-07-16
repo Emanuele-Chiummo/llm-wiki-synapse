@@ -28,8 +28,9 @@ from app.graph.engine import (
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Shared fake graph snapshot ─────────────────────────────────────────────────
 
@@ -94,70 +95,13 @@ async def graph_app(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncClie
     monkeypatch.setattr(type(cfg.settings), "log_md_path", property(lambda self: log_md))
 
     # SQLite engine
-    engine_db = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    engine_db = await make_sqlite_engine()
     # Page UUIDs seeded into pages table (used for GR1 total_nodes/total_edges assertions)
     _PAGE_ID_1 = str(uuid.uuid4())
     _PAGE_ID_2 = str(uuid.uuid4())
     _PAGE_ID_3 = str(uuid.uuid4())
 
     async with engine_db.begin() as conn:
-        await conn.execute(sa_text("""
-            CREATE TABLE pages (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                title TEXT,
-                type TEXT,
-                sources TEXT,
-                content_hash TEXT NOT NULL DEFAULT '',
-                source_mtime_ns INTEGER,
-                qdrant_point_id TEXT,
-                deleted_at TEXT,
-                x REAL,
-                y REAL,
-                community INTEGER,
-                pinned INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE links (
-                id TEXT PRIMARY KEY,
-                source_page_id TEXT NOT NULL REFERENCES pages(id),
-                target_title TEXT NOT NULL,
-                target_page_id TEXT,
-                alias TEXT,
-                dangling INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE vault_state (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL UNIQUE,
-                data_version INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_write_enabled INTEGER,
-                mcp_access_token_hash TEXT,
-                mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-                clip_enabled_db INTEGER,
-                clip_access_token TEXT,
-                clip_allowed_origins_db TEXT,
-                cli_oauth_token TEXT,
-                cli_oauth_token_encrypted BLOB,
-                web_search_api_keys_encrypted BLOB,
-                searxng_url_db TEXT,
-                searxng_categories_db TEXT,
-                searxng_max_queries_db INTEGER,
-                output_language TEXT,
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
         await conn.execute(
             sa_text(
                 "INSERT INTO vault_state (id, vault_id, data_version, updated_at) "

@@ -29,100 +29,9 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-# ── SQLite schema (portable subset of the Postgres schema) ────────────────────
-
-_CREATE_INGEST_RUNS = """
-CREATE TABLE IF NOT EXISTS ingest_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    page_id TEXT,
-    provider_name TEXT NOT NULL DEFAULT 'test',
-    provider_type TEXT NOT NULL DEFAULT 'api',
-    model_id TEXT NOT NULL DEFAULT 'test-model',
-    route TEXT NOT NULL DEFAULT 'orchestrated',
-    max_iter_used INTEGER NOT NULL DEFAULT 0,
-    total_tokens INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    converged INTEGER NOT NULL DEFAULT 0,
-    cost_anomaly INTEGER NOT NULL DEFAULT 0,
-    started_at TEXT NOT NULL,
-    finished_at TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'completed',
-    pages_created INTEGER NOT NULL DEFAULT 0,
-    error_message TEXT,
-    source_path TEXT,
-    retry_count INTEGER NOT NULL DEFAULT 0
-)
-"""
-
-_CREATE_CONVERSATIONS = """
-CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    title TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    deleted_at TEXT
-)
-"""
-
-_CREATE_MESSAGES = """
-CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    content TEXT NOT NULL DEFAULT '',
-    citations TEXT,
-    provider_type TEXT,
-    model_id TEXT,
-    input_tokens INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    created_at TEXT NOT NULL
-)
-"""
-
-_CREATE_DEEP_RESEARCH_RUNS = """
-CREATE TABLE IF NOT EXISTS deep_research_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    topic TEXT NOT NULL DEFAULT 'test',
-    status TEXT NOT NULL DEFAULT 'converged',
-    max_iter INTEGER NOT NULL DEFAULT 3,
-    token_budget INTEGER NOT NULL DEFAULT 10000,
-    iterations_used INTEGER NOT NULL DEFAULT 1,
-    queries_used TEXT NOT NULL DEFAULT '[]',
-    sources_fetched INTEGER NOT NULL DEFAULT 0,
-    converged INTEGER NOT NULL DEFAULT 1,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    synthesis_text TEXT,
-    synthesis_page_id TEXT,
-    started_at TEXT NOT NULL,
-    completed_at TEXT,
-    error_message TEXT
-)
-"""
-
-_CREATE_LINT_RUNS = """
-CREATE TABLE IF NOT EXISTS lint_runs (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'completed',
-    max_iter INTEGER NOT NULL DEFAULT 3,
-    token_budget INTEGER NOT NULL DEFAULT 20000,
-    iterations_used INTEGER NOT NULL DEFAULT 0,
-    findings_count INTEGER NOT NULL DEFAULT 0,
-    total_cost_usd REAL NOT NULL DEFAULT 0.0,
-    started_at TEXT NOT NULL,
-    completed_at TEXT,
-    error_message TEXT,
-    created_at TEXT NOT NULL
-)
-"""
-
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Fixture helpers ────────────────────────────────────────────────────────────
 
@@ -266,22 +175,7 @@ async def cost_env(monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[dict[str, A
     Build an in-memory SQLite DB, patch get_session and settings, and return an
     AsyncClient wired to the costs router.
     """
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-
-    # Create tables
-    async with engine.begin() as conn:
-        for ddl in [
-            _CREATE_INGEST_RUNS,
-            _CREATE_CONVERSATIONS,
-            _CREATE_MESSAGES,
-            _CREATE_DEEP_RESEARCH_RUNS,
-            _CREATE_LINT_RUNS,
-        ]:
-            await conn.execute(sa_text(ddl))
+    engine = await make_sqlite_engine()
 
     session_factory = async_sessionmaker(
         bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False

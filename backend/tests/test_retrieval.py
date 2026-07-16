@@ -29,8 +29,9 @@ import pytest
 from app.embeddings import FakeEmbeddingClient, set_embedding_client
 from app.rag.retrieval import RetrievalContext, retrieve, slugify
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ── Mocked Qdrant ───────────────────────────────────────────────────────────────
 
@@ -83,62 +84,6 @@ def _uid(tag: int) -> str:
     return f"00000000-0000-0000-0000-{tag:012d}"
 
 
-async def _setup_sqlite(engine: Any) -> None:
-    async with engine.begin() as conn:
-        await conn.execute(sa_text("""
-            CREATE TABLE pages (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                title TEXT,
-                type TEXT,
-                sources TEXT,
-                content_hash TEXT NOT NULL DEFAULT '',
-                deleted_at TEXT
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE links (
-                id TEXT PRIMARY KEY,
-                source_page_id TEXT NOT NULL,
-                target_title TEXT NOT NULL,
-                target_page_id TEXT,
-                dangling INTEGER NOT NULL DEFAULT 0
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE edges (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                source_page_id TEXT NOT NULL,
-                target_page_id TEXT NOT NULL,
-                weight REAL NOT NULL
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE vault_state (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                data_version INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_write_enabled INTEGER,
-                mcp_access_token_hash TEXT,
-                mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-                clip_enabled_db INTEGER,
-                clip_access_token TEXT,
-                clip_allowed_origins_db TEXT,
-                cli_oauth_token TEXT,
-                cli_oauth_token_encrypted BLOB,
-                web_search_api_keys_encrypted BLOB,
-                searxng_url_db TEXT,
-                searxng_categories_db TEXT,
-                searxng_max_queries_db INTEGER,
-                output_language TEXT,
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-
-
 async def _insert_page(
     sess: AsyncSession,
     *,
@@ -149,7 +94,8 @@ async def _insert_page(
 ) -> None:
     await sess.execute(
         sa_text(
-            "INSERT INTO pages (id, vault_id, file_path, title) " "VALUES (:id, :vid, :fp, :title)"
+            "INSERT INTO pages (id, vault_id, file_path, title, content_hash)"
+            " VALUES (:id, :vid, :fp, :title, '')"
         ).bindparams(id=page_id, vid=vault_id, fp=file_path, title=title)
     )
 
@@ -210,12 +156,7 @@ class _Env:
 @pytest.fixture()
 async def env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[_Env]:
     """In-memory SQLite + a tmp vault_root; patches retrieval's settings.vault_root."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    await _setup_sqlite(engine)
+    engine = await make_sqlite_engine()
     factory = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
     )
@@ -664,23 +605,7 @@ async def test_load_page_meta_excludes_query_stubs() -> None:
     """CG-A6: exclude_stub_pages drops type=query stubs (tags stub+lint), keeps real pages."""
     from app.rag.retrieval import _load_page_meta
 
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.execute(sa_text("""
-            CREATE TABLE pages (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                title TEXT,
-                type TEXT,
-                tags TEXT,
-                deleted_at TEXT
-            )
-        """))
+    engine = await make_sqlite_engine()
     factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     concept_id, stub_id, genuine_q_id = _uid(10), _uid(11), _uid(12)
@@ -688,8 +613,8 @@ async def test_load_page_meta_excludes_query_stubs() -> None:
     async def _insert(sess: AsyncSession, pid: str, fp: str, ty: str, tags: str | None) -> None:
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title, type, tags) "
-                "VALUES (:id, :v, :fp, :t, :ty, :tags)"
+                "INSERT INTO pages (id, vault_id, file_path, title, type, tags, content_hash) "
+                "VALUES (:id, :v, :fp, :t, :ty, :tags, '')"
             ).bindparams(id=pid, v=VAULT, fp=fp, t="X", ty=ty, tags=tags)
         )
 

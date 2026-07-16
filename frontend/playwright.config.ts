@@ -45,6 +45,9 @@ export default defineConfig({
   // Expect timeout for individual assertions
   expect: { timeout: 10_000 },
 
+  // Retry once in CI to absorb transient flakes; no retry locally (fail fast)
+  retries: process.env["CI"] ? 1 : 0,
+
   // Fail immediately on first failure in CI (don't waste time)
   fullyParallel: false,
   workers: 1,

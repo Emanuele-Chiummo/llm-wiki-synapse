@@ -25,77 +25,11 @@ from typing import Any
 
 import pytest
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ── SQLite schema helpers (mirrors test_retrieval.py) ───────────────────────────
-
-
-async def _setup_sqlite_full(engine: Any) -> None:
-    """Create the minimal schema needed by both retrieval and conversation tests."""
-    async with engine.begin() as conn:
-        await conn.execute(sa_text("""
-            CREATE TABLE IF NOT EXISTS pages (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                file_path TEXT NOT NULL,
-                title TEXT,
-                type TEXT,
-                sources TEXT,
-                content_hash TEXT NOT NULL DEFAULT '',
-                deleted_at TEXT
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE IF NOT EXISTS links (
-                id TEXT PRIMARY KEY,
-                source_page_id TEXT NOT NULL,
-                target_title TEXT NOT NULL,
-                target_page_id TEXT,
-                dangling INTEGER NOT NULL DEFAULT 0
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE IF NOT EXISTS edges (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                source_page_id TEXT NOT NULL,
-                target_page_id TEXT NOT NULL,
-                weight REAL NOT NULL
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE IF NOT EXISTS vault_state (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                data_version INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-                remote_mcp_write_enabled INTEGER,
-                mcp_access_token_hash TEXT,
-                mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-                clip_enabled_db INTEGER,
-                clip_access_token TEXT,
-                clip_allowed_origins_db TEXT,
-                cli_oauth_token TEXT,
-                cli_oauth_token_encrypted BLOB,
-                web_search_api_keys_encrypted BLOB,
-                searxng_url_db TEXT,
-                searxng_categories_db TEXT,
-                searxng_max_queries_db INTEGER,
-                output_language TEXT,
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """))
-        await conn.execute(sa_text("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                vault_id TEXT NOT NULL,
-                title TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                deleted_at TEXT
-            )
-        """))
 
 
 def _uid(tag: int) -> str:
@@ -144,12 +78,7 @@ from app.rag.retrieval import retrieve  # noqa: E402
 @pytest.fixture()
 async def retrieval_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Any]:
     """In-memory SQLite + tmp vault root, wired for retrieval tests."""
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    await _setup_sqlite_full(engine)
+    engine = await make_sqlite_engine()
     factory = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False, autoflush=False
     )
@@ -198,13 +127,13 @@ async def test_ac_r7_8_raw_excluded(retrieval_env: Any) -> None:
         # raw/ page — should be EXCLUDED from citations
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
+                "INSERT INTO pages (id, vault_id, file_path, title, content_hash) VALUES (:id, :vid, :fp, :t, '')"
             ).bindparams(id=raw_id, vid=VAULT, fp="raw/sources/source-doc.md", t="Raw Source")
         )
         # wiki/ page — should be INCLUDED in citations
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
+                "INSERT INTO pages (id, vault_id, file_path, title, content_hash) VALUES (:id, :vid, :fp, :t, '')"
             ).bindparams(id=wiki_id, vid=VAULT, fp="wiki/entities/my-entity.md", t="My Entity")
         )
         await sess.commit()
@@ -237,7 +166,7 @@ async def test_ac_r7_8_wiki_included(retrieval_env: Any) -> None:
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
+                "INSERT INTO pages (id, vault_id, file_path, title, content_hash) VALUES (:id, :vid, :fp, :t, '')"
             ).bindparams(
                 id=wiki_id, vid=VAULT, fp="wiki/concepts/machine-learning.md", t="Machine Learning"
             )
@@ -442,14 +371,14 @@ async def test_ac_r7_8_lexical_excludes_raw(
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
+                "INSERT INTO pages (id, vault_id, file_path, title, content_hash) VALUES (:id, :vid, :fp, :t, '')"
             ).bindparams(
                 id=raw_id, vid=VAULT, fp="raw/sources/lexical-raw.md", t="Lexical Raw Source"
             )
         )
         await sess.execute(
             sa_text(
-                "INSERT INTO pages (id, vault_id, file_path, title) VALUES (:id, :vid, :fp, :t)"
+                "INSERT INTO pages (id, vault_id, file_path, title, content_hash) VALUES (:id, :vid, :fp, :t, '')"
             ).bindparams(
                 id=wiki_id, vid=VAULT, fp="wiki/concepts/lexical-concept.md", t="Lexical Concept"
             )

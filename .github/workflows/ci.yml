@@ -143,6 +143,25 @@ jobs:
           pip install -e .
           pip install -e ".[dev]"
 
+      - name: Alembic single-head check
+        # Ensures the migration graph has exactly one head (no divergent branches).
+        # `alembic heads` reads migration files only — no live DB required.
+        # Fail-fast: a split head means a merge conflict was resolved incorrectly.
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://dummy:dummy@localhost/dummy
+          QDRANT_URL: http://localhost:6333
+          EMBEDDING_URL: http://localhost:11434/api/embeddings
+          EMBEDDING_DIM: "1024"
+        run: |
+          head_count=$(python -m alembic heads 2>/dev/null | grep -c "(head)" || true)
+          if [ "$head_count" -ne 1 ]; then
+            echo "::error::Alembic has ${head_count} heads — exactly 1 required. Run 'alembic heads' locally to inspect."
+            python -m alembic heads 2>/dev/null || true
+            exit 1
+          fi
+          echo "Alembic single-head check passed (${head_count} head)."
+
       - name: pytest (infra-free tests)
         working-directory: backend
         run: python -m pytest -q

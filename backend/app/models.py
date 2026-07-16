@@ -184,13 +184,13 @@ class Page(Base):
     )
 
     sources: Mapped[list[str] | None] = mapped_column(
-        JSONB,
+        JSONB().with_variant(JSON(), "sqlite"),
         nullable=True,
         comment="YAML frontmatter 'sources[]' as JSONB array; NULL if absent (K6)",
     )
 
     tags: Mapped[list[str] | None] = mapped_column(
-        JSONB,
+        JSONB().with_variant(JSON(), "sqlite"),
         nullable=True,
         comment=(
             "YAML frontmatter 'tags[]' as JSONB array; NULL if absent (K6 navigation, "
@@ -295,6 +295,7 @@ class Page(Base):
             "file_path",
             unique=True,
             postgresql_where=sa_text("deleted_at IS NULL"),
+            sqlite_where=sa_text("deleted_at IS NULL"),
         ),
         Index(
             "uix_pages_vault_generation_key_live",
@@ -942,6 +943,7 @@ class Conversation(Base):
             "vault_id",
             "updated_at",
             postgresql_where=sa_text("deleted_at IS NULL"),
+            sqlite_where=sa_text("deleted_at IS NULL"),
         ),
     )
 
@@ -1199,7 +1201,7 @@ class Edge(Base):
     )
 
     signals: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB,
+        JSONB().with_variant(JSON(), "sqlite"),
         nullable=True,
         comment='Per-signal breakdown {"direct","source","aa","type"} for audit (AC-F4-1(e))',
     )
