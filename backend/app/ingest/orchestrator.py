@@ -1361,13 +1361,27 @@ def _parse_frontmatter(raw_bytes: bytes, rel_path: str) -> dict[str, object]:
         )
         return {}
 
+    # K6 (YAML frontmatter: type/title/sources) applies only to wiki/ pages.
+    # Raw sources under raw/ are plain documents and need not carry frontmatter —
+    # emitting a WARNING for each missing field there is spurious noise (NC-2).
+    # Relative paths from vault_root: wiki pages start with "wiki/" or "wiki\";
+    # raw sources start with "raw/". Only warn for wiki paths; log DEBUG for raw.
+    _is_wiki_path = rel_path.startswith("wiki/") or rel_path.startswith("wiki\\")
     for required in ("type", "title", "sources"):
         if required not in meta:
-            logger.warning(
-                "ingest_file: missing frontmatter field %r in %s (AC-K6-2/3)",
-                required,
-                rel_path,
-            )
+            if _is_wiki_path:
+                logger.warning(
+                    "ingest_file: missing frontmatter field %r in %s (AC-K6-2/3)",
+                    required,
+                    rel_path,
+                )
+            else:
+                logger.debug(
+                    "ingest_file: frontmatter field %r absent in raw file %s "
+                    "(K6 not required for raw sources — NC-2)",
+                    required,
+                    rel_path,
+                )
 
     return meta
 
