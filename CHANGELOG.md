@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [1.8.0] — 2026-07-16 — "one-click system update"
 
 ### Added
 - **One-click system update (Settings → Info).** When a newer GitHub Release exists, Settings → Info
@@ -19,6 +19,31 @@ the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/relea
   unset the button is hidden and the availability line still shows. No download percentage —
   Watchtower's API is fire-and-forget, a deliberate trade-off (B1) that keeps Docker privileges out
   of the backend. See `docs/DEPLOY.md` §9.2b. [R12-3]
+
+## [1.7.4] — 2026-07-16 — "log/index parity fixes"
+
+### Fixed
+- **`wiki/log.md` was corrupted by the block-ingest path.** Three issues compounded: the model's
+  `log.md` block was not dropped (only `index.md`/`overview.md` were), so it overwrote the
+  code-managed log and destroyed its frontmatter; `schema.md` described a second, conflicting
+  "Log Format" the model then emitted; and `append_log` fired **once per generated page** (plus
+  bogus `## [date] ingest | wiki/log.md` / `| raw/sources/…` entries). Now `log.md` is app-managed
+  (its block is dropped), `schema.md` marks it auto-maintained, and the block path appends exactly
+  **one `## [YYYY-MM-DD] ingest | <source title>` entry per source** (llm_wiki parity). The
+  watcher's raw-wiki-page indexing still logs one line per file (unchanged).
+- **`index.md` counted and listed EVERY vault's pages, not the active vault's.** `update_index` ran
+  its page query without a `vault_id` filter (e.g. "Total pages: 278" on a 35-page vault) — the same
+  cross-vault leak class fixed for the graph resolver. The query is now vault-scoped.
+
+## [1.7.3] — 2026-07-16 — "cleanup: drop personal deployment references from the UI"
+
+### Changed
+- **Genericized user-facing text that leaked a homelab-specific detail.** The Ollama row in
+  Settings → AI & Providers described the local server as "Local Ollama server **(RTX 3060)**" — a
+  personal-config leftover that shouldn't ship in the product. It now reads simply "Local Ollama
+  server". Incidental hardware/IP references in code comments were genericized too (the Ollama
+  provider docstring and a specific LAN IP in a frontend comment). Deployment docs (compose /
+  `DEPLOY.md`) intentionally keep their TrueNAS references — they document the target platform.
 
 ## [1.7.2] — 2026-07-16 — "knowledge-graph fixes: file-slug links, hidden aggregates, node click-to-open"
 
@@ -1111,6 +1136,9 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.8.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.4...v1.8.0
+[1.7.4]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.3...v1.7.4
+[1.7.3]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.2...v1.7.3
 [1.7.2]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0

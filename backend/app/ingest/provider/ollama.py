@@ -1,5 +1,5 @@
 """
-OllamaProvider — Local backend (F17, I9). Reuses the already-running Ollama on the RTX 3060
+OllamaProvider — Local backend (F17, I9). Reuses an already-running Ollama server
 via its `/api/chat` endpoint with `format=json` for structured output.
 
 Invariants:
@@ -77,7 +77,7 @@ def _model_supports_vision(model_id: str) -> bool:
 #
 #   _NUM_CTX_FLOOR   — never request less than this (keeps room for source + context + retries).
 #   _NUM_CTX_DEFAULT — used when the provider_config gives no usable context/budget hint.
-#   _NUM_CTX_CEILING — clamp so a misconfigured huge budget cannot blow out VRAM (RTX 3060, 12GB).
+#   _NUM_CTX_CEILING — clamp so a misconfigured huge budget cannot blow out GPU VRAM (e.g. 12 GB).
 _NUM_CTX_FLOOR = 8192
 _NUM_CTX_DEFAULT = 32768
 _NUM_CTX_CEILING = 131072

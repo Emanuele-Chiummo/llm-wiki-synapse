@@ -2,8 +2,8 @@
  * safeRandomUUID — a UUID v4 generator that also works in NON-secure contexts.
  *
  * `crypto.randomUUID()` is only exposed in a *secure context* (HTTPS or
- * `localhost`). When Synapse is served over `http://<lan-ip>` — e.g. a TrueNAS
- * deployment reached at http://192.168.1.107:5173 — the page is NOT a secure
+ * `localhost`). When Synapse is served over `http://<lan-ip>` — e.g. a self-hosted
+ * deployment reached at http://<lan-ip>:5173 — the page is NOT a secure
  * context, so `crypto.randomUUID` is `undefined` and calling it throws
  * "crypto.randomUUID is not a function", crashing the chat.
  *

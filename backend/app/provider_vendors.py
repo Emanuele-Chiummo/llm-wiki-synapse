@@ -208,7 +208,7 @@ VENDORS: list[VendorInfo] = [
         default_base_url=None,  # resolved from OLLAMA_URL env / provider_config base_url
         needs_api_key=False,
         model_presets=["llama3.1", "qwen2.5", "mistral", "gemma2"],
-        notes="Local Ollama server (RTX 3060). Base URL from OLLAMA_URL env or the row; no key.",
+        notes="Local Ollama server. Base URL from OLLAMA_URL env or the row; no key.",
     ),
 ]
 
