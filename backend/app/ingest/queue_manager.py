@@ -41,6 +41,9 @@ MAX_INGEST_RETRIES: int = 3  # I7 hard cap (ADR-0046 §5)
 _DEBOUNCE_SECONDS: float = float(os.environ.get("WATCH_DEBOUNCE_SECONDS", "1.5"))
 _SUPPRESS_WINDOW: float = 2.0 * _DEBOUNCE_SECONDS
 
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[asyncio.Task[Any]] = set()
+
 
 # ── Data classes ──────────────────────────────────────────────────────────────
 
@@ -297,7 +300,9 @@ class IngestQueueManager:
 
                 self._drain_in_flight = True
                 try:
-                    asyncio.create_task(_fire_drain())
+                    _t = asyncio.create_task(_fire_drain())
+                    _bg_tasks.add(_t)
+                    _t.add_done_callback(_bg_tasks.discard)
                 except RuntimeError:
                     # No running event loop (test env without asyncio.run) — skip silently.
                     self._drain_in_flight = False

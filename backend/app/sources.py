@@ -38,7 +38,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
@@ -163,6 +163,9 @@ SOURCES_INGEST_ALL_CONCURRENCY: int = max(
 _ingest_all_running: bool = False
 _ingest_all_done: int = 0
 _ingest_all_total: int = 0
+
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[asyncio.Task[Any]] = set()
 
 
 def get_ingest_all_progress() -> dict[str, int | bool]:
@@ -1221,7 +1224,9 @@ async def ingest_all() -> IngestAllResponse:
     _ingest_all_total = len(candidates)
 
     # Start the serial driver as a single fire-and-forget asyncio.Task.
-    asyncio.create_task(_ingest_all_driver(candidates))
+    _t = asyncio.create_task(_ingest_all_driver(candidates))
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
 
     return IngestAllResponse(started=True, candidate_files=len(candidates))
 

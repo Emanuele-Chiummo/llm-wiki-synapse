@@ -43,6 +43,9 @@ class _LazyMain:
 
 _m = _LazyMain()
 
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[asyncio.Task[Any]] = set()
+
 # ── Deep Research REST (F10, ADR-0024 §8) ─────────────────────────────────────
 
 
@@ -342,7 +345,7 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
     # Schedule the bounded loop as a background task (ADR-0020 fire-and-poll pattern).
     # Pass the SAME run_id so the loop updates the row we just inserted — not a new one
     # (C1: without this the client polls a row the loop never touches → stuck "running").
-    asyncio.create_task(
+    _t = asyncio.create_task(
         run_deep_research(
             vault_id=body.vault_id,
             topic=body.topic,
@@ -354,6 +357,8 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
             seed_queries=body.queries,
         )
     )
+    _bg_tasks.add(_t)
+    _t.add_done_callback(_bg_tasks.discard)
 
     logger.info(
         "research_start: run_id=%s vault=%s topic=%r max_iter=%d budget=%d",

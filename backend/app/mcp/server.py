@@ -34,6 +34,7 @@ Synapse-managed write path rather than raw filesystem writes (I1/I5, ADR-0010).
 
 from __future__ import annotations
 
+import asyncio as _asyncio
 import contextvars
 import logging
 from collections.abc import Callable
@@ -48,6 +49,9 @@ from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
 from app.rag.retrieval import retrieve
 
 logger = logging.getLogger(__name__)
+
+# Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
+_bg_tasks: set[_asyncio.Task[Any]] = set()
 
 # ── FastMCP server instance ────────────────────────────────────────────────────
 # stdio transport (ADR-0010 §1). NEVER modify tool registrations here — the stdio
@@ -905,7 +909,9 @@ async def _trigger_source_rescan_body() -> dict[str, Any]:
         _sources._ingest_all_total = len(candidates)
 
         # Fire-and-forget (identical to POST /sources/ingest-all)
-        _asyncio.create_task(_sources._ingest_all_driver(candidates))
+        _t = _asyncio.create_task(_sources._ingest_all_driver(candidates))
+        _bg_tasks.add(_t)
+        _t.add_done_callback(_bg_tasks.discard)
 
         return {"started": True, "candidate_files": len(candidates)}
     except Exception as exc:  # noqa: BLE001
