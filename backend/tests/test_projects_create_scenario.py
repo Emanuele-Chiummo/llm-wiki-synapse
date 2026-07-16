@@ -32,33 +32,10 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-# ── Vault-state SQLite schema (matches test_graph_api.py / test_stats.py DDL) ─
-
-_VAULT_STATE_DDL = """
-CREATE TABLE IF NOT EXISTS vault_state (
-    id TEXT PRIMARY KEY,
-    vault_id TEXT NOT NULL UNIQUE,
-    data_version INTEGER NOT NULL DEFAULT 0,
-    remote_mcp_enabled INTEGER NOT NULL DEFAULT 0,
-    remote_mcp_write_enabled INTEGER,
-    mcp_access_token_hash TEXT,
-    mcp_allow_without_token INTEGER NOT NULL DEFAULT 0,
-    clip_enabled_db INTEGER,
-    clip_access_token TEXT,
-    clip_allowed_origins_db TEXT,
-    cli_oauth_token TEXT,
-    cli_oauth_token_encrypted BLOB,
-    web_search_api_keys_encrypted BLOB,
-    searxng_url_db TEXT,
-    searxng_categories_db TEXT,
-    searxng_max_queries_db INTEGER,
-    output_language TEXT,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-)
-"""
+from tests._db_fixtures import make_session_factory as _make_session_factory_shared
+from tests._db_fixtures import make_sqlite_engine as _make_sqlite_engine_shared
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -87,21 +64,12 @@ def _seed_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return state
 
 
-def _make_sqlite_engine() -> Any:
-    return create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+async def _make_sqlite_engine() -> Any:  # type: ignore[return]
+    return await _make_sqlite_engine_shared()
 
 
 def _make_session_factory(engine: Any) -> Any:
-    return async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-
-
-async def _setup_vault_state_schema(engine: Any) -> None:
-    async with engine.begin() as conn:
-        await conn.execute(sa_text(_VAULT_STATE_DDL))
+    return _make_session_factory_shared(engine)
 
 
 # ── T-SC-014: scenarios_data unit tests (no HTTP, no FS) ──────────────────────
@@ -510,8 +478,7 @@ async def test_create_project_persists_output_language(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """T-SC-006: creating a project with output_language persists it to vault_state."""
-    engine = _make_sqlite_engine()
-    await _setup_vault_state_schema(engine)
+    engine = await _make_sqlite_engine()
     factory = _make_session_factory(engine)
 
     # Patch app.db.get_session to use the in-memory SQLite session
@@ -567,8 +534,7 @@ async def test_output_language_get_put_roundtrip(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """T-SC-010: GET /vault/meta/output-language round-trips with PUT."""
-    engine = _make_sqlite_engine()
-    await _setup_vault_state_schema(engine)
+    engine = await _make_sqlite_engine()
     factory = _make_session_factory(engine)
 
     vid = "roundtrip-vault"
@@ -626,8 +592,7 @@ async def test_output_language_put_null_clears_value(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """T-SC-011: PUT /vault/meta/output-language with language=null clears the value."""
-    engine = _make_sqlite_engine()
-    await _setup_vault_state_schema(engine)
+    engine = await _make_sqlite_engine()
     factory = _make_session_factory(engine)
 
     vid = "clear-vault"
@@ -676,8 +641,7 @@ async def test_output_language_get_404_when_no_vault_state(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """T-SC-012: GET /vault/meta/output-language returns 404 when vault_state has no row."""
-    engine = _make_sqlite_engine()
-    await _setup_vault_state_schema(engine)
+    engine = await _make_sqlite_engine()
     factory = _make_session_factory(engine)
 
     vid = "no-state-vault"
