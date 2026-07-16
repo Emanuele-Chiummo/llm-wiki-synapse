@@ -37,9 +37,13 @@ from typing import Any
 
 from app.config import settings
 from app.db import get_session
-from app.ingest.provider import resolve_provider
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import INDEX_TYPE, OVERVIEW_TYPE, PageType
+from app.ops._llm import (
+    bounded_chat_collect,
+    loads_json_lenient,
+    resolve_operation_provider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +172,7 @@ async def run_reclassify(
     _state.is_running = True
     _state.current = {"max_pages": mp, "token_budget": tb, "force": force}
     try:
-        resolved = await _resolve_provider(vault_id)
+        resolved = await resolve_operation_provider(vault_id)
         if resolved is None:
             summary.stopped_reason = "error"
             logger.warning(
@@ -334,7 +338,7 @@ async def classify_page_type(
         page_content=page_content,
         vault_context=vault_context,
     )
-    raw = await _chat_collect(provider, instruction)
+    raw = await bounded_chat_collect(provider, instruction)
     return _parse_type(raw)
 
 
@@ -346,7 +350,7 @@ def _parse_type(raw: str) -> str | None:
     case-insensitively to the canonical lowercase type value; anything else → ``None``. Never
     raises.
     """
-    obj = _loads_json_lenient(raw)
+    obj = loads_json_lenient(raw)
     value: Any
     if isinstance(obj, dict):
         value = obj.get("type", obj.get("page_type"))
@@ -358,34 +362,6 @@ def _parse_type(raw: str) -> str | None:
         return None
     key = value.strip().casefold()
     return key if key in _VALID_TYPES else None
-
-
-def _loads_json_lenient(raw: str) -> Any | None:
-    """Best-effort JSON parse tolerant of ```json fences / surrounding prose. None on failure."""
-    import json  # noqa: PLC0415
-
-    if not raw:
-        return None
-    text = raw.strip()
-    if text.startswith("```"):
-        parts = text.split("```")
-        if len(parts) >= 2:
-            text = parts[1]
-            if text.startswith("json"):
-                text = text[4:]
-            text = text.strip()
-    try:
-        return json.loads(text)
-    except (json.JSONDecodeError, ValueError):
-        pass
-    for open_ch, close_ch in (("{", "}"), ("[", "]")):
-        start, end = text.find(open_ch), text.rfind(close_ch)
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
-                continue
-    return None
 
 
 # ── Prompt + provider surface ─────────────────────────────────────────────────
@@ -415,25 +391,6 @@ def _build_instruction(*, page_title: str, page_content: str, vault_context: str
         'Return ONLY a JSON object with a single key "type" whose value is the chosen type name '
         "(exactly one of the valid types). Return no prose, only the JSON object."
     )
-
-
-async def _chat_collect(provider: InferenceProvider, instruction: str) -> str:
-    """
-    ONE capability-agnostic ``provider.chat()`` turn, collecting the full text (I6/I7).
-
-    Same backend-neutral surface the domain tagger uses — no new ABC method, no isinstance branch.
-    Cost is recorded by the provider onto the bound accumulator during the call.
-    """
-    from app.ingest.schemas import Message  # noqa: PLC0415
-
-    chunks: list[str] = []
-    stream = await provider.chat(
-        messages=[Message(role="user", content=instruction)],
-        retrieval_context="",
-    )
-    async for chunk in stream:
-        chunks.append(chunk)
-    return "".join(chunks).strip()
 
 
 # ── Candidate query + provider resolution ─────────────────────────────────────
@@ -484,29 +441,3 @@ async def _load_candidate_pages(vault_id: str, max_pages: int, force: bool) -> l
         for r in rows:
             session.expunge(r)
     return rows
-
-
-async def _resolve_provider(vault_id: str) -> tuple[InferenceProvider, Any] | None:
-    """
-    Resolve the InferenceProvider for operation='ingest' (I6 — no hardcoded backend; "no
-    provider" → None). Mirrors ops/backfill_domains.py::_resolve_provider.
-    """
-    from app.provider_config_service import (  # noqa: PLC0415
-        ConfigNotFoundError,
-        resolve_provider_config,
-    )
-
-    try:
-        config_row = await resolve_provider_config("ingest", vault_id)
-    except ConfigNotFoundError:
-        return None
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("reclassify-types: provider resolution failed (vault=%s): %s", vault_id, exc)
-        return None
-
-    try:
-        provider = resolve_provider(config_row)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("reclassify-types: provider build failed (vault=%s): %s", vault_id, exc)
-        return None
-    return provider, config_row
