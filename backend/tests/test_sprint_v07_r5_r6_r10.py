@@ -31,8 +31,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from tests._db_fixtures import make_sqlite_engine
 
 # ══════════════════════════════════════════════════════════════════════════════
 # R7-5 — migration applies + search_queries → deep_research seed_queries
@@ -58,21 +59,9 @@ class TestR75MigrationAppliesSqlite:
 
     @pytest.mark.asyncio
     async def test_search_queries_roundtrips_on_sqlite(self, tmp_path: Path) -> None:
-        """A minimal review_items table with search_queries (JSON→TEXT) round-trips on SQLite."""
-        engine = create_async_engine(
-            "sqlite+aiosqlite:///:memory:",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
+        """review_items.search_queries (JSON→TEXT) round-trips on SQLite using shared schema."""
+        engine = await make_sqlite_engine()
         async with engine.begin() as conn:
-            # Mirror the migration's ADD COLUMN in a SQLite-portable form (JSONB → TEXT).
-            await conn.execute(
-                sa_text(
-                    "CREATE TABLE review_items ("
-                    "id TEXT PRIMARY KEY, vault_id TEXT NOT NULL, item_type TEXT NOT NULL, "
-                    "status TEXT NOT NULL DEFAULT 'pending', search_queries TEXT NULL)"
-                )
-            )
             await conn.execute(
                 sa_text(
                     "INSERT INTO review_items (id, vault_id, item_type, search_queries) "
@@ -129,37 +118,7 @@ class TestR75SeedQueriesEndToEnd:
         monkeypatch.setattr(cfg.settings, "searxng_url", "http://searxng.local")
         monkeypatch.setattr(cfg.settings, "vault_id", "test-vault")
 
-        engine = create_async_engine(
-            "sqlite+aiosqlite:///:memory:",
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-        async with engine.begin() as conn:
-            await conn.execute(
-                sa_text(
-                    "CREATE TABLE review_items ("
-                    "id TEXT PRIMARY KEY, vault_id TEXT NOT NULL, item_type TEXT NOT NULL, "
-                    "status TEXT NOT NULL DEFAULT 'pending', "
-                    "proposal_origin TEXT NOT NULL DEFAULT 'legacy', "
-                    "page_id TEXT, source_page_id TEXT, "
-                    "proposed_title TEXT, proposed_page_type TEXT, proposed_dir TEXT, "
-                    "rationale TEXT, content_key TEXT, referenced_page_ids TEXT, "
-                    "search_queries TEXT, resolution TEXT, created_page_id TEXT, "
-                    "deep_research_run_id TEXT, "
-                    "created_at TEXT NOT NULL DEFAULT (datetime('now')), "
-                    "reviewed_at TEXT, reviewed_by TEXT)"
-                )
-            )
-            await conn.execute(
-                sa_text(
-                    "CREATE TABLE deep_research_runs ("
-                    "id TEXT PRIMARY KEY, vault_id TEXT, topic TEXT, status TEXT, "
-                    "max_iter INTEGER, token_budget INTEGER, iterations_used INTEGER, "
-                    "queries_used TEXT, sources_fetched INTEGER, converged INTEGER, "
-                    "total_cost_usd REAL, synthesis_text TEXT, synthesis_page_id TEXT, "
-                    "started_at TEXT, completed_at TEXT, error_message TEXT)"
-                )
-            )
+        engine = await make_sqlite_engine()
         factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
         @asynccontextmanager
