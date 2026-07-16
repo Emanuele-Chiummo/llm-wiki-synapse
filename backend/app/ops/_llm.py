@@ -42,6 +42,7 @@ import logging
 from typing import Any
 
 from app.ingest.provider.base import InferenceProvider
+from app.provider_config_service import OperationT
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ _DEFAULT_COMPLETE_MAX_TOKENS = 2048
 
 async def resolve_operation_provider(
     vault_id: str,
-    operation: str = "ingest",
+    operation: OperationT = "ingest",
 ) -> tuple[InferenceProvider, Any] | None:
     """
     Resolve the InferenceProvider for *operation* (I6).
