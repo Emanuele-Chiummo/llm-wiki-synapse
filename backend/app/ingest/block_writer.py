@@ -27,6 +27,7 @@ import shutil
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Any
 
 import frontmatter
 
@@ -58,6 +59,9 @@ async def write_block_page(
     origin_source: str,
     routing: dict[str, str],
     provider: InferenceProvider | None = None,
+    resolver_maps: Any | None = None,
+    skip_index_update: bool = False,
+    skip_version_bump: bool = False,
 ) -> Page | None:
     """Write ONE sanitized FILE block to ``<vault>/rel_path`` and index it (ADR-0076).
 
@@ -70,6 +74,17 @@ async def write_block_page(
     (llm_wiki parity): an app-managed aggregate, an unsafe path, or a schema-routing mismatch.
     ``provider`` is accepted for signature parity with the JSON writer but is unused here (the
     block path never LLM-merges — it writes the model's block verbatim).
+
+    BE-PERF-2 per-document coalescing (all optional, default-off — a standalone call, e.g. in
+    tests, behaves exactly as before):
+      * ``resolver_maps`` — an ``app.wiki.links._ResolverMaps`` built once per document by the
+        caller (``build_resolver_maps``) and kept current via ``add_page_to_resolver_maps``.
+        When given, folds this page in and reuses it for ``persist_links`` instead of a fresh
+        bulk query over every live page.
+      * ``skip_index_update`` — when True, skip the ``index.md`` regeneration here; the caller
+        runs ``update_index`` once after the whole document's FILE blocks are written.
+      * ``skip_version_bump`` — when True, skip the ``data_version`` bump here; the caller bumps
+        once after the whole document (or block batch) completes.
     """
     del provider  # signature parity with write_wiki_page; the block path writes verbatim.
 
@@ -153,20 +168,26 @@ async def write_block_page(
     # "## [date] ingest | <source title>" once per source, not once per generated page.
     if page_type == "source":
         await orch.append_log(normalized, title=title)
-    await orch.bump_version()
+    if not skip_version_bump:
+        await orch.bump_version()
 
     # K5: parse + persist wikilinks from the body (incremental, I1 — F4 direct-link ×3 edges).
-    from app.wiki.links import parse_wikilinks, persist_links
+    from app.wiki.links import add_page_to_resolver_maps, parse_wikilinks, persist_links
 
     parsed = parse_wikilinks(body_for_embedding)
+    # BE-PERF-2: fold this page into the caller's shared resolver maps (if any) IN MEMORY —
+    # no query — before resolving its own links (see write_wiki_page for the full rationale).
+    if resolver_maps is not None:
+        add_page_to_resolver_maps(resolver_maps, page_id=page_id, title=title, file_path=normalized)
     async with orch.get_session() as wl_sess:
-        await persist_links(wl_sess, page_id, parsed)
+        await persist_links(wl_sess, page_id, parsed, maps=resolver_maps)
 
     # K3: regenerate the index.md catalogue (idempotent, I1).
-    from app.wiki.index import update_index
+    if not skip_index_update:
+        from app.wiki.index import update_index
 
-    async with orch.get_session() as idx_sess:
-        await update_index(idx_sess, settings.vault_root)
+        async with orch.get_session() as idx_sess:
+            await update_index(idx_sess, settings.vault_root)
 
     logger.info("write_block_page: wrote %s page_id=%s type=%r", normalized, page_id, page_type)
 

@@ -11,6 +11,7 @@ orchestrated loop. No live providers.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock
 
 import app.config_overrides as config_overrides
 import app.ingest.orchestrator as orch
@@ -149,7 +150,7 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     written: list = []
     runs: list = []
 
-    async def fake_write_wiki_page(session, page, origin, *, provider=None):  # type: ignore[no-untyped-def]
+    async def fake_write_wiki_page(session, page, origin, **kwargs):  # type: ignore[no-untyped-def]
         written.append(page)
 
         # Return a stub with .id so record_written() doesn't fail (ADR-0046)
@@ -159,6 +160,22 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
         return _PageStub()
 
     async def fake_update_overview(analysis, origin):  # type: ignore[no-untyped-def]
+        return None
+
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def fake_get_session():  # type: ignore[no-untyped-def]
+        # BE-PERF-2: run_ingest_pipeline builds the wikilink resolver maps + calls
+        # update_index/bump_version ONCE per document directly (not through the mocked
+        # write_wiki_page above); those calls are stubbed below, but the
+        # `async with orch.get_session()` wrapper around the resolver-maps query still runs.
+        yield None
+
+    async def fake_build_resolver_maps(session, vault_id):  # type: ignore[no-untyped-def]
+        return None
+
+    async def fake_update_index_once(session, vault_path):  # type: ignore[no-untyped-def]
         return None
 
     async def fake_open_ingest_run(**kwargs):  # type: ignore[no-untyped-def]
@@ -201,6 +218,10 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     monkeypatch.setattr(orch, "_open_ingest_run", fake_open_ingest_run)
     monkeypatch.setattr(orch, "_finalize_ingest_run", fake_finalize_ingest_run)
     monkeypatch.setattr(orch, "_load_vault_context", fake_vault_context)
+    monkeypatch.setattr(orch, "get_session", fake_get_session)
+    monkeypatch.setattr(orch, "bump_version", AsyncMock())
+    monkeypatch.setattr("app.wiki.links.build_resolver_maps", fake_build_resolver_maps)
+    monkeypatch.setattr("app.wiki.index.update_index", fake_update_index_once)
     return {"written": written, "runs": runs}
 
 

@@ -267,6 +267,9 @@ async def write_wiki_page(
     origin_source: str,
     *,
     provider: InferenceProvider | None = None,
+    resolver_maps: Any | None = None,
+    skip_index_update: bool = False,
+    skip_version_bump: bool = False,
 ) -> Page:
     """
     Serialize *page* to vault/wiki/<type-plural>/<slug>.md with valid frontmatter (I5) and
@@ -281,6 +284,17 @@ async def write_wiki_page(
     `session` is accepted for the MCP-tool call convention (the tool may hold a session); the
     underlying primitives manage their own sessions, so it may be None. The returned Page is
     re-loaded post-commit so the caller gets the live row.
+
+    BE-PERF-2 per-document coalescing (all optional, default-off — every existing single-page
+    call site is unaffected):
+      * ``resolver_maps`` — an ``app.wiki.links._ResolverMaps`` built once per document by the
+        caller (``build_resolver_maps``) and kept current via ``add_page_to_resolver_maps``. When
+        given, this call updates it with the page just written and passes it straight into
+        ``persist_links`` instead of re-querying Postgres for every page in the document.
+      * ``skip_index_update`` — when True, do NOT regenerate ``index.md`` here; the caller will
+        call ``update_index`` itself once after the whole document's pages are written.
+      * ``skip_version_bump`` — when True, do NOT bump ``data_version`` here; the caller bumps
+        once after the whole document (or block batch) completes.
     """
     from sqlalchemy import select
 
@@ -486,20 +500,30 @@ async def write_wiki_page(
     # page → one log line, correct). The multi-page LLM-generation paths (block_writer / pipeline)
     # instead log only the source page — see their append_log gates.
     await orch.append_log(rel_path, page_type=page_type, title=page.title)
-    await orch.bump_version()
+    if not skip_version_bump:
+        await orch.bump_version()
 
     # ── K5: parse + persist wikilinks (incremental, I1) ──────────────────────
-    from app.wiki.links import parse_wikilinks, persist_links
+    from app.wiki.links import add_page_to_resolver_maps, parse_wikilinks, persist_links
 
     parsed = parse_wikilinks(body)
+    # BE-PERF-2: when the caller shares one resolver-maps object across a whole document's
+    # pages, fold this page into it IN MEMORY (no query) before resolving its own links, so
+    # forward references within the same document resolve exactly as they would if the maps
+    # had been re-queried from Postgres after this page's commit above.
+    if resolver_maps is not None:
+        add_page_to_resolver_maps(
+            resolver_maps, page_id=page_id, title=page.title, file_path=rel_path
+        )
     async with orch.get_session() as wl_sess:
-        await persist_links(wl_sess, page_id, parsed)
+        await persist_links(wl_sess, page_id, parsed, maps=resolver_maps)
 
     # ── K3: regenerate index.md catalogue (idempotent, I1) ───────────────────
-    from app.wiki.index import update_index
+    if not skip_index_update:
+        from app.wiki.index import update_index
 
-    async with orch.get_session() as idx_sess:
-        await update_index(idx_sess, settings.vault_root)
+        async with orch.get_session() as idx_sess:
+            await update_index(idx_sess, settings.vault_root)
 
     logger.info("write_wiki_page: wrote %s page_id=%s", rel_path, page_id)
 

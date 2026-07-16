@@ -157,6 +157,54 @@ class TestBurstCollapse:
         assert engine.call_count == 1
 
 
+# ── BE-PERF-9: debounce max-wait ────────────────────────────────────────────────
+
+
+class TestDebounceMaxWait:
+    """BE-PERF-9: a CONTINUOUS burst of bumps must not push the recompute back forever —
+    it fires at most debounce_max_wait_seconds after the burst's first bump."""
+
+    async def test_continuous_bumps_force_recompute_at_max_wait(self) -> None:
+        engine = FakeEngine()
+        clock = FakeClock()
+        cache = GraphCache(
+            engine=engine,  # type: ignore[arg-type]
+            vault_id="test",
+            debounce_seconds=5.0,
+            clock=clock,
+            debounce_max_wait_seconds=12.0,
+        )
+        cache._read_data_version = AsyncMock(return_value=99)  # type: ignore[method-assign]
+
+        # A bump every 3s (well under the 5s debounce window) would, WITHOUT the max-wait
+        # ceiling, keep resetting fire_at forever. With it, fire_at is capped at
+        # first_bump_at (t=0) + 12.0 = 12.0, regardless of how many more bumps arrive.
+        cache.notify_bump(1)
+        assert cache._fire_at == 5.0  # first bump: candidate = 0+5, cap = 0+12 → 5.0
+        clock.advance(3.0)
+        cache.notify_bump(2)
+        assert cache._fire_at == 8.0  # candidate = 3+5=8, cap = 0+12=12 → 8.0
+        clock.advance(3.0)  # t=6
+        cache.notify_bump(3)
+        assert cache._fire_at == 11.0  # candidate = 6+5=11, cap=12 → 11.0
+        clock.advance(3.0)  # t=9
+        cache.notify_bump(4)
+        assert cache._fire_at == 12.0, "capped at burst_start + max_wait, not 9+5=14"
+
+        # tick() at t=9 does not fire yet (fire_at=12 > 9).
+        await cache.tick()
+        assert engine.call_count == 0
+
+        # More bumps keep arriving, but the ceiling holds.
+        clock.advance(2.0)  # t=11
+        cache.notify_bump(5)
+        assert cache._fire_at == 12.0, "still capped even though a bump just arrived"
+
+        clock.advance(1.0)  # t=12 → fire_at reached
+        await cache.tick()
+        assert engine.call_count == 1, "recompute must fire at the max-wait ceiling"
+
+
 # ── AC-F16db-3: bump during in-flight → one follow-up ─────────────────────────
 
 
@@ -273,17 +321,89 @@ class TestHitMiss:
         assert engine.call_count == 1, "HIT must NOT trigger a second recompute"
 
     async def test_miss_on_version_advance(self) -> None:
-        """After data_version advances, the next get_graph() is a MISS."""
+        """
+        After data_version advances, the next get_graph() is still reported as a MISS, but
+        (BE-PERF-9) it now serves the last good snapshot immediately — stale-while-revalidate
+        — instead of blocking on a synchronous recompute. The recompute happens in the
+        background; once it's awaited, the marker catches up and the FOLLOWING get_graph() at
+        the same version is a HIT.
+        """
         cache, engine, clock = _make_cache()
 
-        # Seed with version=3
+        # Seed with version=3 (no prior snapshot yet → this one DOES block inline).
         await cache.get_graph(current_version=3)
         assert engine.call_count == 1
 
-        # Version advances to 4 → miss
+        # Version advances to 4 → miss, served from the (fresh, age=0) stale snapshot
+        # immediately; the recompute is only KICKED, not yet run.
         snapshot2, cached2 = await cache.get_graph(current_version=4)
         assert cached2 is False, "Advanced data_version → MISS"
+        assert snapshot2 is not None
+        assert engine.call_count == 1, (
+            "BE-PERF-9: a MISS with a usable (non-stale) snapshot must NOT block this "
+            "request on a synchronous recompute — the recompute is only kicked in the "
+            "background"
+        )
+        assert cache._revalidate_task is not None
+
+        # The live data_version is now 4 (mirrors what _read_data_version would see for real).
+        cache._read_data_version = AsyncMock(return_value=4)  # type: ignore[method-assign]
+
+        # Let the background revalidate actually run.
+        await cache._revalidate_task
+        assert engine.call_count == 2, "The background revalidate must still run exactly once"
+        assert cache._marker == 4
+
+        # A subsequent get_graph() at the now-current version is a HIT — no further recompute.
+        snapshot3, cached3 = await cache.get_graph(current_version=4)
+        assert cached3 is True
         assert engine.call_count == 2
+
+    async def test_miss_beyond_stale_bound_blocks_inline(self) -> None:
+        """
+        BE-PERF-9: when the last good snapshot is OLDER than stale_max_seconds, a MISS falls
+        back to the original blocking behaviour (one inline synchronous recompute) rather than
+        serving arbitrarily old data forever.
+        """
+        engine = FakeEngine()
+        clock = FakeClock()
+        cache = GraphCache(
+            engine=engine,  # type: ignore[arg-type]
+            vault_id="test",
+            debounce_seconds=5.0,
+            clock=clock,
+            stale_max_seconds=10.0,
+        )
+        cache._read_data_version = AsyncMock(return_value=1)  # type: ignore[method-assign]
+
+        # Seed a snapshot at t=0 (no prior snapshot → blocks inline, as always).
+        await cache.get_graph(current_version=1)
+        assert engine.call_count == 1
+
+        # Advance well past the staleness bound, then bump the version → MISS.
+        clock.advance(50.0)
+        snapshot, cached = await cache.get_graph(current_version=2)
+        assert cached is False
+        assert snapshot is not None
+        assert engine.call_count == 2, (
+            "A snapshot older than stale_max_seconds must NOT be served — the request "
+            "blocks on a fresh inline recompute instead"
+        )
+        assert cache._revalidate_task is None, "The stale path must not have been taken"
+
+    async def test_force_recompute_never_serves_stale(self) -> None:
+        """force_recompute() (the 'Regenerate graph' button) always blocks for a fresh
+        synchronous recompute — BE-PERF-9's stale-while-revalidate path must never apply."""
+        cache, engine, clock = _make_cache()
+
+        await cache.get_graph(current_version=1)
+        assert engine.call_count == 1
+
+        # Even though the snapshot is fresh (age=0, well within the default stale bound),
+        # force_recompute() must still trigger an actual new recompute inline.
+        await cache.force_recompute(current_version=1)
+        assert engine.call_count == 2
+        assert cache._revalidate_task is None, "force_recompute must not take the SWR path"
 
     async def test_background_tick_hit_on_next_get(self) -> None:
         """Background tick fires recompute; subsequent get_graph is a HIT."""
