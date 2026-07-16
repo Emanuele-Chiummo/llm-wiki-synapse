@@ -37,12 +37,22 @@ from app.ingest import prompts as _prompts
 from app.ingest import sanitize as _sanitize
 from app.ingest.blocks import FileBlock, ReviewBlock
 from app.ingest.loop import IngestCancelled
-from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.provider.base import (
+    InferenceProvider,
+    ProviderEmptyOutput,
+    ProviderTransientError,
+    UsageAccumulator,
+)
 from app.wiki.schema import parse_page_type_routing, validate_page_routing
 
 logger = logging.getLogger(__name__)
 
 _ANALYSIS_MAX_TOKENS = 4096
+
+# Bounded retry for TRANSIENT provider failures (I7): a rate-limit / overloaded / execution error
+# on a complete() call is retried with exponential backoff instead of aborting the whole document.
+_COMPLETE_MAX_ATTEMPTS = 3
+_COMPLETE_BACKOFF_BASE_S = 2.0
 
 
 @dataclass
@@ -76,6 +86,53 @@ def _augment_generation_user(user: str, errors: list[str]) -> str:
         "# Validation errors from the previous attempt — FIX ALL of these:\n"
         f"{block}\n"
     )
+
+
+async def _complete_with_retry(
+    provider: InferenceProvider,
+    system: str,
+    user: str,
+    *,
+    max_tokens: int,
+    accumulator: UsageAccumulator,
+    token_budget: int,
+    label: str,
+    empty_ok: bool,
+) -> str:
+    """Call ``provider.complete()`` with bounded retry-with-backoff on a TRANSIENT failure (I7).
+
+    - ``ProviderTransientError`` (rate-limit / overloaded / execution error) → retry up to
+      ``_COMPLETE_MAX_ATTEMPTS`` with exponential backoff, but never past the run ``token_budget``.
+    - ``ProviderEmptyOutput`` → if *empty_ok* (generation / review), return ``""`` so the loop's own
+      zero-block augment-and-retry handles it; otherwise (analysis) re-raise.
+
+    Retry/backoff orchestration lives in the loop, NOT in the provider (I6): providers only TYPE
+    the failure. Previously a single empty/transient ``complete()`` aborted the whole document.
+    """
+    last_exc: ProviderTransientError | None = None
+    for attempt in range(1, _COMPLETE_MAX_ATTEMPTS + 1):
+        try:
+            return await provider.complete(system, user, max_tokens=max_tokens)
+        except ProviderEmptyOutput:
+            if empty_ok:
+                return ""
+            raise
+        except ProviderTransientError as exc:
+            last_exc = exc
+            if attempt >= _COMPLETE_MAX_ATTEMPTS or accumulator.total_tokens >= token_budget:
+                raise
+            delay = _COMPLETE_BACKOFF_BASE_S * (2 ** (attempt - 1))
+            logger.warning(
+                "block loop: %s transient provider error (attempt %d/%d) — backoff %.1fs: %s",
+                label,
+                attempt,
+                _COMPLETE_MAX_ATTEMPTS,
+                delay,
+                exc,
+            )
+            await asyncio.sleep(delay)
+    assert last_exc is not None  # loop returns or raises; guard for type-checkers
+    raise last_exc
 
 
 def _validate_block_batch(file_blocks: list[FileBlock], routing: dict[str, str]) -> list[str]:
@@ -175,8 +232,15 @@ async def run_block_loop(
     analysis_user = _prompts.build_analysis_user(
         source_identity=origin_source, source_context=source_text
     )
-    analysis_text = await provider.complete(
-        analysis_system, analysis_user, max_tokens=_ANALYSIS_MAX_TOKENS
+    analysis_text = await _complete_with_retry(
+        provider,
+        analysis_system,
+        analysis_user,
+        max_tokens=_ANALYSIS_MAX_TOKENS,
+        accumulator=accumulator,
+        token_budget=token_budget,
+        label="analysis",
+        empty_ok=False,
     )
 
     # ── Stage 2: bounded generation loop ──────────────────────────────────────────────
@@ -225,8 +289,15 @@ async def run_block_loop(
         if errors:
             generation_user = _augment_generation_user(generation_user, errors)
 
-        generation_text = await provider.complete(
-            generation_system, generation_user, max_tokens=gen_max_tokens
+        generation_text = await _complete_with_retry(
+            provider,
+            generation_system,
+            generation_user,
+            max_tokens=gen_max_tokens,
+            accumulator=accumulator,
+            token_budget=token_budget,
+            label=f"generation({i}/{max_iter})",
+            empty_ok=True,
         )
 
         parsed = _blocks.parse_file_blocks(generation_text)
