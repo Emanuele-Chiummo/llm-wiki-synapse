@@ -84,6 +84,45 @@ async def test_run_releases_inflight_after_completion(
     assert path not in handler._inflight
 
 
+@pytest.mark.asyncio
+async def test_fire_keeps_strong_ref_to_task(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    _fire must hold a strong reference to the created task so the GC cannot cancel it
+    before it completes (BE-BUG-1 — mirrors queue_manager.py _bg_tasks pattern).
+
+    Strategy: patch _run to record whether the task is present in watcher._bg_tasks
+    at the moment it starts executing, then verify the set is empty after the task
+    finishes (done-callback removes the reference).
+    """
+    import app.watcher as watcher_mod
+
+    found_in_bg: list[bool] = []
+
+    async def _spy_run(path: str, action: str) -> None:
+        # At the start of _run, _bg_tasks must contain this task.
+        current = asyncio.current_task()
+        found_in_bg.append(current in watcher_mod._bg_tasks)
+
+    loop = asyncio.get_running_loop()
+    handler = _MarkdownHandler(loop)
+    monkeypatch.setattr(handler, "_run", _spy_run)
+
+    # Also stub ingest_queue so _fire's admit/should_skip guards don't interfere.
+    monkeypatch.setattr("app.watcher.ingest_queue.should_skip", lambda _: False)
+    monkeypatch.setattr("app.watcher.ingest_queue.admit", lambda _path, _action: True)
+
+    path = "/vault/raw/sources/x.md"
+    # _inflight is empty → _fire will create the task (no early-return branch).
+    handler._fire(path, "ingest")
+    # Allow the task to execute and its done-callback to fire.
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+
+    assert found_in_bg == [True], "task was not in _bg_tasks when _run started"
+    # After completion the done-callback must have discarded the ref.
+    assert len(watcher_mod._bg_tasks) == 0, "_bg_tasks not cleaned up after task finished"
+
+
 def test_semaphore_coerced_to_at_least_one(monkeypatch: pytest.MonkeyPatch) -> None:
     """A misconfigured cap of 0/negative is coerced to a usable value (>= 1)."""
     from app import watcher as watcher_mod

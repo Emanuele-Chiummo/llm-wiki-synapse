@@ -42,6 +42,12 @@ from app.ingest.queue_manager import ingest_queue
 # Import lazily to avoid circular imports at module load; accessed only in _is_text_file().
 logger = logging.getLogger(__name__)
 
+# ── Strong-reference set for fire-and-forget tasks (BE-BUG-1) ─────────────────
+# asyncio.create_task() only keeps a *weak* reference; the GC may cancel a task
+# that has no other referent before it completes (same pattern as queue_manager.py:45).
+# This set holds strong refs; each task removes itself via add_done_callback.
+_bg_tasks: set[asyncio.Task[Any]] = set()
+
 # Per-path debounce window. A single save commonly emits a burst of FS events
 # (create + several modifies; Docker bind-mounts on macOS amplify this), and an
 # atomic-rename save adds a moved event. Without coalescing, each event launched a
@@ -160,7 +166,11 @@ class _MarkdownHandler(FileSystemEventHandler):
             self._dirty[path] = action
             return
         self._inflight.add(path)
-        self._loop.create_task(self._run(path, action))
+        # Keep a strong reference so the GC cannot cancel the task before it
+        # finishes (BE-BUG-1 — mirrors queue_manager.py:303-305 pattern).
+        _t = self._loop.create_task(self._run(path, action))
+        _bg_tasks.add(_t)
+        _t.add_done_callback(_bg_tasks.discard)
 
     async def _run(self, path: str, action: str) -> None:
         """Execute one action, then replay a single trailing action if one queued.
