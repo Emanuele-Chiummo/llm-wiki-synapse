@@ -52,7 +52,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -92,26 +92,31 @@ async def get_monthly_cost_usd(
     so GET /stats/overview.monthly_cost_usd is ALWAYS identical to the current-month
     total returned by GET /costs/summary (AC-R12-1-3 — no duplicate SQL, I9 no reinvent).
 
-    Portable: Python-side sum over bounded SELECTs (SQLite unit tests + Postgres runtime).
+    BE-PERF-6: aggregated with SQL-side SUM/COALESCE per table (one scalar row each,
+    never every underlying run/message row fetched into Python) instead of the previous
+    4 row-per-row SELECTs summed in Python. ``SUM(...)`` and ``COALESCE`` are ordinary
+    portable SQL (no dialect-specific date/grouping syntax involved — unlike the by_day
+    bucketing in GET /costs/summary, which stays Python-side on purpose, see module
+    docstring), so this keeps SQLite (tests) and Postgres (runtime) identical.
     Pure I/O — no InferenceProvider call (I1/I6).
     """
     from app.models import Conversation  # noqa: PLC0415
 
     # ── ingest_runs ──────────────────────────────────────────────────────────
-    ingest_rows = (
+    ingest_total = (
         await session.execute(
-            select(IngestRun.total_cost_usd).where(
+            select(func.coalesce(func.sum(IngestRun.total_cost_usd), 0)).where(
                 IngestRun.vault_id == vault_id,
                 IngestRun.started_at >= month_start,
                 IngestRun.started_at < month_end,
             )
         )
-    ).all()
+    ).scalar_one()
 
     # ── messages ─────────────────────────────────────────────────────────────
-    msg_rows = (
+    msg_total = (
         await session.execute(
-            select(ChatMessage.total_cost_usd).where(
+            select(func.coalesce(func.sum(ChatMessage.total_cost_usd), 0)).where(
                 ChatMessage.conversation_id.in_(
                     select(Conversation.id).where(
                         Conversation.vault_id == vault_id,
@@ -123,33 +128,31 @@ async def get_monthly_cost_usd(
                 ChatMessage.created_at < month_end,
             )
         )
-    ).all()
+    ).scalar_one()
 
     # ── deep_research_runs ────────────────────────────────────────────────────
-    dr_rows = (
+    dr_total = (
         await session.execute(
-            select(DeepResearchRun.total_cost_usd).where(
+            select(func.coalesce(func.sum(DeepResearchRun.total_cost_usd), 0)).where(
                 DeepResearchRun.vault_id == vault_id,
                 DeepResearchRun.started_at >= month_start,
                 DeepResearchRun.started_at < month_end,
             )
         )
-    ).all()
+    ).scalar_one()
 
     # ── lint_runs ─────────────────────────────────────────────────────────────
-    lint_rows = (
+    lint_total = (
         await session.execute(
-            select(LintRun.total_cost_usd).where(
+            select(func.coalesce(func.sum(LintRun.total_cost_usd), 0)).where(
                 LintRun.vault_id == vault_id,
                 LintRun.started_at >= month_start,
                 LintRun.started_at < month_end,
             )
         )
-    ).all()
+    ).scalar_one()
 
-    total = sum(
-        _safe_float(r[0]) for rows in (ingest_rows, msg_rows, dr_rows, lint_rows) for r in rows
-    )
+    total = sum(_safe_float(t) for t in (ingest_total, msg_total, dr_total, lint_total))
     return round(total, 4)
 
 
