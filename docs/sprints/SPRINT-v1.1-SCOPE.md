@@ -130,7 +130,7 @@ key. This pattern mirrors the existing `clip_config` / GET-PUT pattern in `main.
 No migration changes the existing env-var contract. Existing deployments that rely solely
 on env vars are unchanged.
 
-ADR required: ADR-0053 (`docs/adr/ADR-0053-ui-config-overrides.md`) to document the
+ADR required: ADR-0053 (`docs/adr/0053-ui-config-overrides.md`) to document the
 override model, table design, and the explicit list of MIGRATED vs EXCLUDED settings.
 Must be accepted by solution-architect BEFORE any backend code is written for R11-2.
 
@@ -282,7 +282,7 @@ PM re-approval before any token is spent on it.
 
 **Acceptance criteria:**
 
-- AC-R11-2-0: ADR-0053 committed to `docs/adr/ADR-0053-ui-config-overrides.md` and
+- AC-R11-2-0: ADR-0053 committed to `docs/adr/0053-ui-config-overrides.md` and
   accepted by solution-architect BEFORE any backend code is written. ADR covers: the
   override model, the exact 8 migrated keys (matching the table in §2 R11-2), the
   `app_config` table design, the startup merge order (env → DB override), the explicit
@@ -413,7 +413,7 @@ rail's top padding to the first nav item) or replaced with a small top padding o
 ### Wave 1 — ADR + backend foundation (days 1–4)
 
 **Day 1 (PM-mandated blocker for R11-2):** solution-architect writes and commits ADR-0053
-(`docs/adr/ADR-0053-ui-config-overrides.md`). No backend code for R11-2 written until
+(`docs/adr/0053-ui-config-overrides.md`). No backend code for R11-2 written until
 ADR-0053 is accepted. R11-3 (logo dedup — no ADR needed) and R11-4 (bugfixes) can start
 immediately in parallel.
 
@@ -538,7 +538,7 @@ QA-test-engineer + Solution-architect + Tech-writer + Product-manager.
 | EC-M11-6 | `mkdocs build --strict` exits 0 (R10-6 CI job continues to pass; no regressions from new doc edits). |
 | EC-M11-7 | D5 screenshot `docs/screens/layout-no-logo-dupe.png` captured at 1280×800 (R11-3 AC-R11-3-3). All v1.0 screenshots remain valid (no regressions). |
 | EC-M11-8 | `docs/USER.md` updated: "Ingesting PDFs" section (R11-1-7) and "Runtime Settings" section (R11-2-10) present and tech-writer approved. |
-| EC-M11-9 | `docs/adr/ADR-0053-ui-config-overrides.md` committed and in Accepted status. Present in the ADR index. |
+| EC-M11-9 | `docs/adr/0053-ui-config-overrides.md` committed and in Accepted status. Present in the ADR index. |
 | EC-M11-10 | `vault/wiki/` remains a valid Obsidian vault (I5/K7). Manual spot-check by owner. |
 | EC-M11-11 | Marker offline degradation verified: with Marker microservice stopped, the "Convert with Marker" button is disabled in the UI and shows the offline badge. No unhandled errors. Verified by QA-test-engineer (mocked backend or real offline Marker). |
 | EC-M11-12 | Settings override persistence verified: changing S1 (PDF_EXTRACTOR) via UI to "marker", restarting the backend, confirms the setting is still "marker" (persisted in `app_config` table) and the effective value returned by `GET /config/app` has `source: "override"`. |

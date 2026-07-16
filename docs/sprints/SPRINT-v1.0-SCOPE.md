@@ -172,7 +172,7 @@ but routing remains single-vault. Document this explicitly in ADR-0052.
 
 **Acceptance criteria:**
 
-- AC-R10-1-0: ADR-0052 committed to `docs/adr/ADR-0052-auth-token-model.md` and accepted
+- AC-R10-1-0: ADR-0052 committed to `docs/adr/0052-auth-token-model.md` and accepted
   by solution-architect BEFORE any implementation code is written. ADR covers: why shared
   token not OIDC, why OIDC is deferred, single-vault scope for 1.0, HTTPS responsibility
   model, rotation procedure, excluded endpoints.
@@ -538,7 +538,7 @@ PR run on the same branch).
 ### Wave 1 — ADR first, then auth backend (days 1–4)
 
 **Day 1 (PM-mandated blocker):** solution-architect writes and commits ADR-0052
-(`docs/adr/ADR-0052-auth-token-model.md`). No backend code written until ADR-0052 is
+(`docs/adr/0052-auth-token-model.md`). No backend code written until ADR-0052 is
 accepted. QA-v0.9-leftovers (AC-QA-LO-1 and AC-QA-LO-2) start in parallel (no shared
 files with auth).
 
@@ -672,7 +672,7 @@ QA-test-engineer + Solution-architect + Tech-writer + Product-manager.
 | EC-M10-9 | `docs/USER.md` complete and v1.0-accurate: all features documented through v1.0, "Mobile / PWA" section present (R10-5), auth token usage documented from end-user perspective. Tech-writer sign-off. |
 | EC-M10-10 | `vault/wiki/` remains a valid Obsidian vault (I5/K7). Manual spot-check by owner. |
 | EC-M10-11 | Auth backward compatibility verified: deploying v1.0.0 with `SYNAPSE_AUTH_TOKEN=""` (or unset) produces identical behaviour to v0.9.0 — no 401s, no behaviour change. QA-test-engineer runs existing v0.9 E2E suite against v1.0 with auth disabled and confirms all specs still pass. |
-| EC-M10-12 | `docs/adr/ADR-0052-auth-token-model.md` committed and in Accepted status. ADR-0052 linked from the ADR index (R10-6 AC-R10-6-6). |
+| EC-M10-12 | `docs/adr/0052-auth-token-model.md` committed and in Accepted status. ADR-0052 linked from the ADR index (R10-6 AC-R10-6-6). |
 | EC-M10-13 | GitHub release `v1.0.0` created with desktop artifacts (macOS `.dmg`, Windows `.msi`, Linux `.AppImage`) from the Tauri v2 build pipeline. Release notes list all items in §3. |
 | EC-M10-HCP | Human checkpoint: Emanuele verifies in a live session: (a) with `SYNAPSE_AUTH_TOKEN` unset, the app behaves identically to v0.9.0 (no 401 anywhere); (b) with `SYNAPSE_AUTH_TOKEN="test-token"`, a raw `curl GET /pages` without the header returns 401; the frontend shows ConnectScreen token field and connects successfully with the correct token; (c) the ConnectScreen token field is present and functional; (d) Settings > Security shows the token rotation UI; (e) the docs site builds locally via `make docs-serve`; (f) the app is usable on a 375px-wide browser window (panels stack, nav accessible). |
 

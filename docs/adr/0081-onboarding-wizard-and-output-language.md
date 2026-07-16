@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-14
-- **Amends:** ADR-0067 (multi-vault Project Launcher)
+- **Amends:** ADR-0082 (multi-vault Project Launcher)
 - **Migration:** 0032 (`vault_state.output_language`, nullable)
 - **Invariants touched:** I5, I6, I8
 - **Reference:** `docs/reference/LLMWIKI-CORE-LOGIC-v0.6.3.md` §4

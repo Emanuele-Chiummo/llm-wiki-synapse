@@ -1086,7 +1086,7 @@ app.include_router(lint_router)
 app.include_router(clip_router)
 app.include_router(scenarios_router)
 app.include_router(vault_meta_router)  # WS-D8: vault-root meta files (schema.md, purpose.md)
-app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (ADR-0067)
+app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (ADR-0082)
 
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares

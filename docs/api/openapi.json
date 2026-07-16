@@ -5528,7 +5528,7 @@
           "projects"
         ],
         "summary": "List known projects (vaults) and the active one",
-        "description": "Returns the multi-vault project registry (ADR-0067): all known project vaults + which is active. Seeded from the boot vault when the registry does not exist yet, so single-vault deploys always see exactly their one vault. Read-only; no DB, no Qdrant.",
+        "description": "Returns the multi-vault project registry (ADR-0082): all known project vaults + which is active. Seeded from the boot vault when the registry does not exist yet, so single-vault deploys always see exactly their one vault. Read-only; no DB, no Qdrant.",
         "operationId": "list_projects_projects_get",
         "responses": {
           "200": {
@@ -5553,7 +5553,7 @@
           "projects"
         ],
         "summary": "Create + scaffold a new project vault",
-        "description": "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the shared bootstrap \u2014 idempotent) and registers it (ADR-0067). Does NOT switch the active vault. Path must be absolute; 409 if a project already exists at that path.",
+        "description": "Creates a new vault at *path* (scaffolds raw/, wiki/, purpose.md, schema.md via the shared bootstrap \u2014 idempotent) and registers it (ADR-0082). Does NOT switch the active vault. Path must be absolute; 409 if a project already exists at that path.",
         "operationId": "create_project_projects_post",
         "requestBody": {
           "content": {
@@ -5609,7 +5609,7 @@
           "projects"
         ],
         "summary": "Register an existing vault folder as a project",
-        "description": "Adds an existing vault directory to the registry (ADR-0067). Does NOT switch the active vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered path returns the existing entry (touching last_opened_at). Path must be absolute and an existing directory. Server-side path (self-hosted).",
+        "description": "Adds an existing vault directory to the registry (ADR-0082). Does NOT switch the active vault (that is POST /projects/{id}/activate). Idempotent: opening an already-registered path returns the existing entry (touching last_opened_at). Path must be absolute and an existing directory. Server-side path (self-hosted).",
         "operationId": "open_project_projects_open_post",
         "requestBody": {
           "content": {
@@ -5662,7 +5662,7 @@
           "projects"
         ],
         "summary": "Switch the active vault to this project",
-        "description": "Makes *project_id* the active vault at runtime (ADR-0067 \u00a72c): records it in the registry, re-points settings, restarts the watcher on the new root, invalidates the graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown.",
+        "description": "Makes *project_id* the active vault at runtime (ADR-0082 \u00a72c): records it in the registry, re-points settings, restarts the watcher on the new root, invalidates the graph cache, seeds vault_state, and bumps active_vault_epoch (the frontend reloads its stores on epoch change). Runtime side effects are best-effort + logged. 404 if unknown.",
         "operationId": "activate_project_projects__project_id__activate_post",
         "parameters": [
           {

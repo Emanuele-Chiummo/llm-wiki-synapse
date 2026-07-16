@@ -70,4 +70,4 @@ single-machine trust boundary. Authentication bypasses in `server` mode, disclos
 protected diagnostics, or a way to start `server` mode with a missing/weak token are in scope for
 security reports. Deployment and migration instructions are in
 [`docs/DEPLOY.md`](docs/DEPLOY.md#security); the rationale is recorded in
-[`ADR-0075`](docs/adr/ADR-0075-deployment-mode-auth-health-boundary.md).
+[`ADR-0075`](docs/adr/0075-deployment-mode-auth-health-boundary.md).

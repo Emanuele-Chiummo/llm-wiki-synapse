@@ -340,7 +340,7 @@ entry) as a Wave 1 deliverable.
 
 **Acceptance criteria:**
 
-- AC-R12-2-0: ADR-0054 committed to `docs/adr/ADR-0054-domain-vocabulary.md` and
+- AC-R12-2-0: ADR-0054 committed to `docs/adr/0054-domain-vocabulary.md` and
   accepted by solution-architect BEFORE any R12-2 backend code is written. ADR covers:
   storage format for `domain_vocabulary` in `app_config` (comma-separated or JSON array;
   architect decides and documents the canonical form), the `"domain/"` prefix
@@ -526,7 +526,7 @@ R12-4 (frontend-engineer; earliest possible — no deps)
 ### Wave 1 — ADR + backend foundation (days 1–4)
 
 **Day 1 (PM-mandated blocker for R12-2):** solution-architect writes and commits ADR-0054
-(`docs/adr/ADR-0054-domain-vocabulary.md`). No R12-2 backend code written until accepted.
+(`docs/adr/0054-domain-vocabulary.md`). No R12-2 backend code written until accepted.
 Also Day 1: tech-writer adds F18 to CLAUDE.md §4 and BACKLOG.md. R12-4 (if needed) and
 R12-3 backend (StatusResponse.backend_version) can start immediately — no dependencies.
 
@@ -641,7 +641,7 @@ QA-test-engineer + Solution-architect + Tech-writer + Product-manager.
 | EC-M12-7 | D5 screenshot `docs/screens/home-dashboard.png` captured at 1280×800 (R12-1 AC-R12-1-9). All prior screenshots remain valid (no regressions). |
 | EC-M12-8 | `docs/USER.md` updated: "Home Dashboard" section (R12-1-10) and "Domain Vocabulary" section (R12-2-8) present and tech-writer approved. |
 | EC-M12-9 | `docs/DEPLOY.md` updated: "Updating Synapse on TrueNAS" section (R12-3-6) present and tech-writer approved. |
-| EC-M12-10 | `docs/adr/ADR-0054-domain-vocabulary.md` committed and in Accepted status. Present in the ADR index. |
+| EC-M12-10 | `docs/adr/0054-domain-vocabulary.md` committed and in Accepted status. Present in the ADR index. |
 | EC-M12-11 | CLAUDE.md §4 includes F18 entry ("Home dashboard + per-section domain insights"). BACKLOG.md Sprint 12 section includes all four R12 items with correct feature IDs. Tech-writer confirms both files updated. |
 | EC-M12-12 | Empty vocabulary = feature dormant verified: with `domain_vocabulary` unset or empty, ingest of a fixture page makes zero provider calls for domain classification. `GET /stats/sections` returns `[]`. QA-test-engineer confirms by running the ingest E2E with a mocked empty vocabulary. |
 | EC-M12-13 | I7 backfill log verified: `POST /ops/backfill-domains` with a fixture vault returns a response body with `total_cost_usd` and `pages_tagged` populated; the backend log contains a line with `total_cost_usd`. QA confirms by inspection of the test output. |

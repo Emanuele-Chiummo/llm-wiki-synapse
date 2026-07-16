@@ -10,6 +10,13 @@ on:
       - sprint/**
       - main
 
+# Cancel superseded runs on the same ref (QA-CI-2, 1.9.0 W1): a force-push or a
+# rapid follow-up commit obsoletes the previous run. main is never cancelled
+# (docs-deploy must complete).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   # ──────────────────────────────────────────────────────────────────────
   # Stage 1: Lint & Format checks (ruff, black, eslint)
@@ -20,6 +27,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+
+      # QA-DEBT-1 guard (1.9.0 W1): the repo lives in an iCloud-synced folder that
+      # keeps spawning "name 2.ext" conflict duplicates. .gitignore blocks them from
+      # being ADDED, but a `git add --force` / rename slip would still land one —
+      # this step keeps the class extinct in the tracked tree.
+      - name: Junk-file guard (iCloud "name N.ext" duplicates)
+        run: |
+          if git ls-files | grep -E ' [0-9]+(\.[^/]*)?(/|$)'; then
+            echo "::error::iCloud duplicate junk files are tracked (pattern 'name N.ext'). Delete them."
+            exit 1
+          fi
+          echo "No junk duplicates tracked."
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -427,6 +446,11 @@ jobs:
             { echo "ER diagram out of date (docs/er/schema.mmd). Run 'make er' and commit."; exit 1; }
           git diff --exit-code docs/api/openapi.json || \
             { echo "OpenAPI spec out of date (docs/api/openapi.json). Run 'make openapi' and commit."; exit 1; }
+
+      # ADR corpus gate (1.9.0 W1, QA-DEBT-2): naming convention, index completeness,
+      # dead links, duplicate numbers (the 0067 collision class), missing Status lines.
+      - name: Check ADR corpus consistency
+        run: python3 scripts/check_adr_index.py
 
       - name: Install mermaid-cli for diagram validation
         run: npm install -g @mermaid-js/mermaid-cli@11

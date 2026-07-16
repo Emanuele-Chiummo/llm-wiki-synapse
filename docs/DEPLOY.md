@@ -2121,7 +2121,7 @@ a live Postgres connection.
 - `docs/adr/0049-desktop-auto-update-github-releases.md` — unified v* release channel, minisign auto-update, key-loss caveat (§7.7 of this guide)
 - `docs/adr/0052-auth-token-model.md` — shared Bearer token (`SYNAPSE_AUTH_TOKEN`), middleware
   ordering and client contract (§15 of this guide)
-- `docs/adr/ADR-0075-deployment-mode-auth-health-boundary.md` — `local`/`server` trust boundary,
+- `docs/adr/0075-deployment-mode-auth-health-boundary.md` — `local`/`server` trust boundary,
   fail-closed server validation and protected detailed diagnostics (§3.4 and §15 of this guide)
 - `tools/marker-converter/README.md` — Marker PDF microservice + ServiceNow doc connector full setup and scheduler daemon
 - `tools/whisper-service/README.md` — Whisper AV transcription microservice setup (required when `AV_TRANSCRIPTION_ENABLED=true`)

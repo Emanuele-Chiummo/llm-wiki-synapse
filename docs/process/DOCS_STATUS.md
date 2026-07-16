@@ -28,19 +28,19 @@
 | D5 | `docs/screens/` | PENDING-LIVE (delegated to orchestrator) | f67c785 Home dashboard second pass changes UI affordances: composition hero, semantic KPI zero-states, review-type chips, graph legend zero-count filter. Screenshots not captured by tech-writer (no browser access per task scope). Orchestrator must confirm Playwright refresh. Non-blocking for code gate; blocking for human-checkpoint milestone. |
 | D6a | `docs/USER.md` | UP-TO-DATE (no change required this gate) | v1.7.0 changes are internal pipeline mechanics. Home dashboard improvements (f67c785) are incremental within the existing documented dashboard workflow. A focused USER.md update is recommended at the next major UI gate when screenshots are refreshed. Non-blocking. |
 | D6b | `docs/DEPLOY.md` | UP-TO-DATE (no new env vars) | v1.7.0 introduces no new operator-settable env vars. Timeout config keys are internal code defaults, not env-var overrides. ingest_pipeline_format is an existing key. No DEPLOY.md update required. |
-| D7 | `docs/adr/ADR-0076-block-based-ingest-pipeline.md` | AMENDED (this gate) | Implementation history section added: clarifies that ADR was authored with blocks-as-default; code ran "json" during development; commit 2c5762e on release branch activated blocks as designed. ADR §6 already stated default "blocks" — no design change, only timeline documentation. |
-| D7 | `docs/adr/ADR-0078-aggregate-ownership.md` | AMENDED (this gate) | "Refinement (v1.7.0)" section added after Implementation notes. Documents shift from manual-only to once-per-queue-drain: on_drained callback in main.py; complete() transport (ADR-0084); degrade-safe; POST /ops/overview/regenerate endpoint retained. Three-option rationale table. Commit 446e66f. |
-| D7 | `docs/adr/ADR-0084-single-shot-complete-transport.md` | CREATED (this gate) | New ADR: complete() transport for all one-shot LLM seams (overview regen, review sweep Pass-2 judge, propose-reviews, purpose/schema drift suggestions) + raise three single-call timeouts to 120 s. Problem: CliAgentProvider.chat() hangs on seams without MCP write tools; 30 s expires before cold-start. Decision: provider.complete() (I6-preserving) + 120 s bounds (I7). |
+| D7 | `docs/adr/0076-block-based-ingest-pipeline.md` | AMENDED (this gate) | Implementation history section added: clarifies that ADR was authored with blocks-as-default; code ran "json" during development; commit 2c5762e on release branch activated blocks as designed. ADR §6 already stated default "blocks" — no design change, only timeline documentation. |
+| D7 | `docs/adr/0078-aggregate-ownership.md` | AMENDED (this gate) | "Refinement (v1.7.0)" section added after Implementation notes. Documents shift from manual-only to once-per-queue-drain: on_drained callback in main.py; complete() transport (ADR-0084); degrade-safe; POST /ops/overview/regenerate endpoint retained. Three-option rationale table. Commit 446e66f. |
+| D7 | `docs/adr/0084-single-shot-complete-transport.md` | CREATED (this gate) | New ADR: complete() transport for all one-shot LLM seams (overview regen, review sweep Pass-2 judge, propose-reviews, purpose/schema drift suggestions) + raise three single-call timeouts to 120 s. Problem: CliAgentProvider.chat() hangs on seams without MCP write tools; 30 s expires before cold-start. Decision: provider.complete() (I6-preserving) + 120 s bounds (I7). |
 | D7 | `docs/adr/index.md` | UPDATED (this gate) | ADR-0084 row added to "LLM Wiki behavioral parity" section (after ADR-0083). |
 
 ### ADR verification (v1.7.0 gate)
 
 | ADR | File | Status | Notes |
 |-----|------|--------|-------|
-| ADR-0076 | `ADR-0076-block-based-ingest-pipeline.md` | Verified + amended | §6 already stated default `"blocks"`. Implementation history section added for timeline clarity. No design change. |
-| ADR-0078 | `ADR-0078-aggregate-ownership.md` | Amended | Queue-drain refinement section added. Original Decision §3 ("manual-only") refined to "once per queue-drain batch". |
-| ADR-0083 | `ADR-0083-parity-e2e-harness.md` | UP-TO-DATE (no change) | Parity harness ADR is current. Unaffected by 1.7.0 pipeline fixes. |
-| ADR-0084 | `ADR-0084-single-shot-complete-transport.md` | Created | Covers complete() transport + 120 s timeouts for all one-shot LLM seams. |
+| ADR-0076 | `0076-block-based-ingest-pipeline.md` | Verified + amended | §6 already stated default `"blocks"`. Implementation history section added for timeline clarity. No design change. |
+| ADR-0078 | `0078-aggregate-ownership.md` | Amended | Queue-drain refinement section added. Original Decision §3 ("manual-only") refined to "once per queue-drain batch". |
+| ADR-0083 | `0083-parity-e2e-harness.md` | UP-TO-DATE (no change) | Parity harness ADR is current. Unaffected by 1.7.0 pipeline fixes. |
+| ADR-0084 | `0084-single-shot-complete-transport.md` | Created | Covers complete() transport + 120 s timeouts for all one-shot LLM seams. |
 
 ### D3 — Sequence diagram changes (v1.7.0 gate)
 
@@ -199,7 +199,7 @@ WS-E and WS-F explicitly deferred to v1.3.7 — no documentation debt from defer
 | D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | B1 adds new LintView affordances (batch bar, severity groups, `Suggested target:` strip, `Open`/`Delete` buttons, `Semantic` checkbox). Screenshots require a live-stack Playwright session. Non-blocking for code gate per established policy; blocking for EC-M13-HCP. |
 | D6a | `docs/USER.md` | UP-TO-DATE (no change required this gate) | USER.md already covers the Lint section as part of the M5 feature set. B1 UI-affordance additions (batch bar, severity groups, green strip, Open/Delete) are implementation details of the existing lint workflow. A dedicated sub-section update is recommended at the next sprint gate when screenshots are refreshed. Non-blocking. |
 | D6b | `docs/DEPLOY.md` | UP-TO-DATE (no change required) | B1 introduces no new env vars. `LINT_MAX_FINDINGS` (already documented) covers the broken-wikilink scan cap. The batch cap (ids ≤ 200) is a structural constant (ADR-0058 §4), not a configurable env var. No DEPLOY.md update needed. |
-| D7 | `docs/adr/index.md` | UP-TO-DATE (ADR-0058 already indexed) | ADR-0058 row confirmed present in `docs/adr/index.md`. File `docs/adr/ADR-0058-lint-parity-extension.md` present and complete. |
+| D7 | `docs/adr/index.md` | UP-TO-DATE (ADR-0058 already indexed) | ADR-0058 row confirmed present in `docs/adr/index.md`. File `docs/adr/0058-lint-parity-extension.md` present and complete. |
 | R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | New section 19b "B1 — Lint UI parity" added with 10 rows (L1–L10), each marked ✅ with code refs (`backend/app/ops/lint.py`, `backend/app/routers/lint.py`, `backend/app/routers/pages.py`, `frontend/src/components/lint/LintView.tsx`) and ADR-0058 subsection citations. Invariants footer added. |
 | R (ui-plan) | `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` | UPDATED (this gate) | §B1 header updated to "STATUS: ✅ SHIPPED feat/b1-lint-parity"; L1–L10 table columns reframed with closure column; each row has ✅ closure note with file refs and ADR-0058 subsection. ADR reference updated to "ADR-0058 (accepted 2026-07-06)". |
 
@@ -275,7 +275,7 @@ D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M13-HCP
 > Gate run: 2026-07-06
 > Branch: `feat/b2-chat-composer`
 > Batch: B2 — Chat composer (C1 attach-image, C2 web-search, C3 retrieval modes, C4 AnyTXT do-not-mirror)
-> ADR: ADR-0059 (`docs/adr/ADR-0059-chat-composer-parity.md`)
+> ADR: ADR-0059 (`docs/adr/0059-chat-composer-parity.md`)
 > Amends: ADR-0050 (additive — wiki-only retrieval stands)
 
 | ID | Artifact | Status | Notes |
@@ -287,7 +287,7 @@ D5 screenshots PENDING-LIVE (non-blocking for code gate; blocking for EC-M13-HCP
 | D5 | `docs/screens/` | PENDING-LIVE (carry-forward) | Chat composer with Attach/web-search/mode-selector controls requires Playwright screenshot refresh. Carries forward from v1.3 gate. Non-blocking for code gate per established policy. |
 | D6a | `docs/USER.md` | UP-TO-DATE (no update required this gate) | B2 is a composer UI extension; no new top-level user workflow was introduced (attach, web-search, and mode selection are incremental controls in the existing chat surface). USER.md §Chat section covers the base flow. A focused sub-section for the three new controls is recommended for the next USER.md update pass (v1.4 gate). |
 | D6b | `docs/DEPLOY.md` | UP-TO-DATE (no update required this gate) | All new B2 env vars (`CHAT_MAX_IMAGES`, `CHAT_MAX_IMAGE_BYTES`, `CHAT_WEB_MAX_RESULTS`, `CHAT_WEB_FETCH_MAX_CHARS`, `LOCAL_FIRST_MIN_HITS`) should be added to DEPLOY.md §2.1 env var table. Flagged as a carry-forward: backend-engineer to confirm the env var set; tech-writer to add the rows at the next DEPLOY.md pass. Non-blocking for this gate given the defaults match ADR-0059 §4. |
-| D7 | `docs/adr/ADR-0059-chat-composer-parity.md` | UP-TO-DATE (pre-existing) | File confirmed present (`docs/adr/ADR-0059-chat-composer-parity.md`). Status: Accepted. Content covers C1–C4, invariant compliance, Do-NOT list. ADR index (`docs/adr/index.md`) must have ADR-0059 row — see verification below. |
+| D7 | `docs/adr/0059-chat-composer-parity.md` | UP-TO-DATE (pre-existing) | File confirmed present (`docs/adr/0059-chat-composer-parity.md`). Status: Accepted. Content covers C1–C4, invariant compliance, Do-NOT list. ADR index (`docs/adr/index.md`) must have ADR-0059 row — see verification below. |
 | D7 | `docs/adr/index.md` | UP-TO-DATE (verified this gate) | ADR-0059 row confirmed present in `docs/adr/index.md` (line 96, "Advanced Features & Workflows" section). Title, link, and Accepted status present. |
 | R (UI-align) | `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` | CREATED (this gate) | New reference doc created. §B1 (v1.3 shipped), §B2 (feat/b2-chat-composer shipped) with closure notes and code refs for C1–C4, live-preview verified note, and do-not-mirror decisions table. §B3 planned (v1.5/R15-6). |
 | R (parity) | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` | UPDATED (this gate) | New section **§19c — B2 Chat composer UI parity** added. Rows for C1 (attach-image, capability-gated), C2 (web-search, SearXNG, [W] namespace, amends ADR-0050), C3 (retrieval modes, frozen preset table), C4 (AnyTXT ⛔ do-not-mirror). Verdicts ✅/⛔ with code refs and ADR-0059 citations. Invariant compliance table (I3/I6/I7/I9). Matches existing table format. |
@@ -318,7 +318,7 @@ and ADR refs inline. Valid `sequenceDiagram` syntax; no `-->` vs `-->>` inconsis
 
 | Check | Result |
 |-------|--------|
-| `docs/adr/ADR-0059-chat-composer-parity.md` present | YES (confirmed) |
+| `docs/adr/0059-chat-composer-parity.md` present | YES (confirmed) |
 | ADR-0059 row in `docs/adr/index.md` | YES — line 96, "Advanced Features & Workflows" section, Accepted status |
 | `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` created | YES (this gate) |
 | `docs/reference/SYNAPSE-VS-LLMWIKI-PARITY.md` §19c added | YES (this gate) |

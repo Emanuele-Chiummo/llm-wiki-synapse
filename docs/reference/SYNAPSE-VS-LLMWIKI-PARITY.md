@@ -487,7 +487,7 @@ the table summary follows.
 
 > **Sprint:** v1.3 UI-alignment batch **B2 — Chat composer**.
 > **Branch:** `feat/b2-chat-composer`.
-> **ADR:** ADR-0059 (`docs/adr/ADR-0059-chat-composer-parity.md`).
+> **ADR:** ADR-0059 (`docs/adr/0059-chat-composer-parity.md`).
 > **Amends:** ADR-0050 (additive, non-superseding — wiki-only retrieval stands).
 > **UI-alignment plan:** `docs/reference/UI-ALIGNMENT-PLAN-2026-07.md` §B2.
 

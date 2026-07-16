@@ -1,5 +1,5 @@
 /**
- * projectsClient.ts — API client for the multi-vault Project registry (v1.5 P2, ADR-0067).
+ * projectsClient.ts — API client for the multi-vault Project registry (v1.5 P2, ADR-0082).
  *
  *   GET  /projects                      → { projects, active_id }
  *   POST /projects/open      { path }    → Project (register existing vault)

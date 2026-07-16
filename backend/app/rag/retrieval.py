@@ -50,7 +50,7 @@ the ingest pipeline; they are not citable wiki knowledge pages. Only ``wiki/`` p
 surfaced in citations returned to the caller. The vector Phase-1 path (Qdrant) may return
 raw/ point ids — these are silently dropped by the ``_load_page_meta`` filter in Phase 4.
 This filter is portable SQL: ``LIKE 'raw/%'`` works identically on Postgres (production) and
-SQLite (tests). See ``docs/adr/ADR-0049-retrieval-wiki-only-scope.md`` for the full rationale.
+SQLite (tests). See ``docs/adr/0049-retrieval-wiki-only-scope.md`` for the full rationale.
 
 R8-5 — type filter + date sort (AC-R8-5-1, AC-R8-5-2, F5):
 ``retrieve()`` accepts two optional presentation-layer parameters:
@@ -902,7 +902,7 @@ async def _load_page_meta(
         # feed the ingest pipeline and should not be surfaced in chat context or search
         # results alongside synthesized wiki pages. The filter `file_path NOT LIKE 'raw/%'`
         # is portable SQL (works on both Postgres production and SQLite test engine).
-        # See docs/adr/ADR-0049-retrieval-wiki-only-scope.md for the full rationale.
+        # See docs/adr/0049-retrieval-wiki-only-scope.md for the full rationale.
         page_sql = (
             f"SELECT id, title, file_path FROM pages "  # noqa: S608
             f"WHERE deleted_at IS NULL "
