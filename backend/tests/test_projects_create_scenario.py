@@ -32,11 +32,10 @@ from typing import Any
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests._db_fixtures import make_session_factory as _make_session_factory_shared
 from tests._db_fixtures import make_sqlite_engine as _make_sqlite_engine_shared
-
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
 
