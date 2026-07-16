@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [1.7.2] — 2026-07-16 — "knowledge-graph fixes: file-slug links, hidden aggregates, node click-to-open"
+
+Patch release: three real knowledge-graph defects found while validating a clean re-ingest of a
+localized (Italian) vault. No migration, no API change.
 
 ### Fixed
 - **The knowledge graph stayed near-empty on localized (non-English) vaults.** The wikilink resolver
@@ -1095,6 +1098,7 @@ milestone M2.
 
 Walking skeleton: watcher + Postgres + Qdrant + REST — milestone M1.
 
+[1.7.2]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.1...v1.7.2
 [1.7.1]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.6.1...v1.7.0
 [1.4.0]: https://github.com/Emanuele-Chiummo/llm-wiki-synapse/compare/v1.3.16...v1.4.0
