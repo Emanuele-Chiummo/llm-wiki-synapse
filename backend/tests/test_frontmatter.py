@@ -13,6 +13,7 @@ Coverage:
 
 from __future__ import annotations
 
+import pytest
 from app.ingest.orchestrator import _parse_frontmatter
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -227,3 +228,74 @@ class TestEdgeCases:
         meta = _parse_frontmatter(raw, "numeric.md")
         # Just must not raise; value may be int 42 or str "42" depending on YAML parser
         assert meta.get("type") is not None
+
+
+# ── NC-2: K6 warnings suppressed for raw sources ──────────────────────────────
+
+
+class TestK6WarningPathAware:
+    """
+    NC-2 — K6 frontmatter warnings must only fire for wiki/ paths.
+
+    Raw sources under raw/sources/ are plain documents; missing type/title/sources
+    frontmatter is expected and must not pollute logs with WARNING-level noise.
+    """
+
+    def test_wiki_path_emits_warning_for_missing_fields(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A wiki/ path with missing required fields must log at WARNING level."""
+        import logging
+
+        raw = _encode("---\ncustom: only\n---\n")
+        with caplog.at_level(logging.WARNING, logger="app.ingest.orchestrator"):
+            _parse_frontmatter(raw, "wiki/entities/my-entity.md")
+
+        warned_fields = {
+            r.message
+            for r in caplog.records
+            if r.levelno == logging.WARNING and "missing frontmatter field" in r.message
+        }
+        # At least one of the three required fields should have triggered a WARNING.
+        assert warned_fields, (
+            "expected WARNING for missing K6 fields on wiki path, got none; "
+            f"records={[r.message for r in caplog.records]}"
+        )
+
+    def test_raw_path_does_not_emit_warning_for_missing_fields(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A raw/sources/ path with missing required fields must NOT log at WARNING level."""
+        import logging
+
+        raw = _encode("# Just a plain document\n\nNo frontmatter at all.\n")
+        with caplog.at_level(logging.DEBUG, logger="app.ingest.orchestrator"):
+            _parse_frontmatter(raw, "raw/sources/my-source.txt")
+
+        warning_msgs = [
+            r.message
+            for r in caplog.records
+            if r.levelno == logging.WARNING and "missing frontmatter field" in r.message
+        ]
+        assert not warning_msgs, f"raw source path triggered spurious K6 WARNINGs: {warning_msgs}"
+
+    def test_raw_path_logs_at_debug_for_missing_fields(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A raw/sources/ path with no frontmatter should log at DEBUG, not WARNING."""
+        import logging
+
+        raw = _encode("Plain text, no frontmatter.\n")
+        with caplog.at_level(logging.DEBUG, logger="app.ingest.orchestrator"):
+            _parse_frontmatter(raw, "raw/sources/document.md")
+
+        debug_msgs = [
+            r.message
+            for r in caplog.records
+            if r.levelno == logging.DEBUG and "K6 not required for raw sources" in r.message
+        ]
+        # At least one debug message for one of the three absent required fields.
+        assert debug_msgs, (
+            "expected DEBUG messages for absent K6 fields on raw path, "
+            f"records={[r.message for r in caplog.records]}"
+        )

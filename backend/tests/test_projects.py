@@ -206,6 +206,41 @@ async def test_create_scaffolds_vault(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 @pytest.mark.asyncio
+async def test_create_project_calls_bootstrap_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    NC-3 regression: POST /projects must call index_bootstrap_meta_files for the
+    new vault so GET /pages returns overview/index/log immediately without waiting
+    for the first watcher modification event.
+
+    The indexing function itself is stubbed (no DB / Qdrant needed for this test).
+    We verify: (a) it was called, (b) with the correct vault_id and vault_root.
+    """
+    _seed_env(tmp_path, monkeypatch)
+
+    calls: list[dict] = []
+
+    async def _fake_index(*, vault_root: Path, vault_id: str) -> None:
+        calls.append({"vault_root": vault_root, "vault_id": vault_id})
+
+    from app import projects as proj_mod
+
+    monkeypatch.setattr(proj_mod, "_index_new_vault_meta_files", _fake_index)
+
+    target = tmp_path / "bootstrap-vault"
+    async with _client() as c:
+        resp = await c.post("/projects", json={"name": "Bootstrap Vault", "path": str(target)})
+
+    assert resp.status_code == 201, resp.text
+    proj = resp.json()
+
+    assert len(calls) == 1, f"expected exactly one index call, got {calls}"
+    assert calls[0]["vault_id"] == proj["id"]
+    assert calls[0]["vault_root"] == target.resolve()
+
+
+@pytest.mark.asyncio
 async def test_create_409_on_duplicate_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

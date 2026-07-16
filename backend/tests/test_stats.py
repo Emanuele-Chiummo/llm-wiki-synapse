@@ -1403,10 +1403,10 @@ async def test_stats_groups_memo_invalidated_on_data_version_bump() -> None:
 
     assert resp1.status_code == 200
     assert len(resp1.json()["groups"]) == 1
-    # Cache is populated
+    # Cache is populated — key is now (vault_id, data_version) tuple (BE-PERF-7).
     assert stats_mod._groups_cache is not None
     old_key = stats_mod._groups_cache[0]
-    assert old_key == 5  # data_version seeded as 5 in _setup_schema
+    assert old_key == (VAULT_ID, 5), f"Unexpected cache key: {old_key!r}"
 
     # Simulate a data_version bump (direct DB update)
     async with factory() as sess:
@@ -1439,4 +1439,130 @@ async def test_stats_groups_memo_invalidated_on_data_version_bump() -> None:
     assert resp2.status_code == 200
     assert stats_mod._groups_cache is not None
     new_key = stats_mod._groups_cache[0]
-    assert new_key == 6, f"Expected cache key 6 after version bump, got {new_key}"
+    assert new_key == (
+        VAULT_ID,
+        6,
+    ), f"Expected ('{VAULT_ID}', 6) after version bump, got {new_key!r}"
+
+
+# ── T-STATS-018: vault-switch invalidates overview/sections/groups caches (BE-PERF-7) ─
+
+
+@pytest.mark.asyncio
+async def test_stats_caches_invalidated_on_vault_switch() -> None:
+    """
+    T-STATS-018: after switching vault_id the in-process caches must not serve stale data.
+
+    Both vault A and vault B start with data_version=0. Without vault_id in the cache key
+    (pre-BE-PERF-7) the second request would hit vault A's cached payload even though the
+    active vault changed. The fix embeds vault_id in all three cache keys.
+    """
+    import app.stats as stats_mod
+
+    # Reset all caches.
+    stats_mod._overview_cache = None
+    stats_mod._sections_cache = None
+    stats_mod._groups_cache = None
+
+    # Vault A: 3 pages.
+    engine_a = _make_engine()
+    await _setup_schema(engine_a)
+    factory_a = _make_session_factory(engine_a)
+    async with factory_a() as sess:
+        now = _now_iso()
+        for i in range(3):
+            await sess.execute(
+                sa_text(
+                    "INSERT INTO pages (id, vault_id, file_path, title, type, tags, "
+                    "content_hash, updated_at, created_at) "
+                    "VALUES (:id, :vid, :fp, :t, 'concept', '[]', :h, :ts, :ts)"
+                ),
+                {
+                    "id": str(uuid.uuid4()),
+                    "vid": "vault-a",
+                    "fp": f"p{i}.md",
+                    "t": f"Page {i}",
+                    "h": f"h{i}",
+                    "ts": now,
+                },
+            )
+        await sess.commit()
+
+    # Vault B: 1 page.
+    engine_b = _make_engine()
+    await _setup_schema(engine_b)
+    factory_b = _make_session_factory(engine_b)
+    async with factory_b() as sess:
+        now = _now_iso()
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, title, type, tags, "
+                "content_hash, updated_at, created_at) "
+                "VALUES (:id, :vid, 'only.md', 'Only Page', 'entity', '[]', 'hB', :ts, :ts)"
+            ),
+            {"id": str(uuid.uuid4()), "vid": "vault-b", "ts": now},
+        )
+        await sess.commit()
+
+    # Also update vault_state data_version to 0 for both (same version — the scenario
+    # that caused the cache to be stale without vault_id in the key).
+    async with engine_a.begin() as conn:
+        await conn.execute(
+            sa_text("UPDATE vault_state SET data_version = 0 WHERE vault_id = :vid"),
+            {"vid": "vault-a"},
+        )
+    async with engine_b.begin() as conn:
+        await conn.execute(
+            sa_text("UPDATE vault_state SET data_version = 0 WHERE vault_id = :vid"),
+            {"vid": "vault-b"},
+        )
+
+    def _ctx_for(factory: Any) -> Any:
+        @asynccontextmanager
+        async def _ctx() -> AsyncIterator[AsyncSession]:
+            async with factory() as s:
+                yield s
+
+        return _ctx()
+
+    # First request: vault-a, 3 pages.
+    with (
+        patch("app.stats.settings") as mock_a,
+        patch("app.stats.get_session", side_effect=lambda: _ctx_for(factory_a)),
+        patch("app.costs.get_session", side_effect=lambda: _ctx_for(factory_a)),
+        patch("app.costs.settings") as mock_costs_a,
+    ):
+        mock_a.vault_id = "vault-a"
+        mock_costs_a.vault_id = "vault-a"
+        mock_costs_a.cost_alert_threshold_usd = 5.0
+        test_app_a = _make_test_app(engine_a)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app_a), base_url="http://test"
+        ) as client:
+            resp_a = await client.get("/stats/overview")
+
+    assert resp_a.status_code == 200
+    assert resp_a.json()["pages_total"] == 3, "vault-a should have 3 pages"
+
+    # Second request: vault-b, same data_version (0). Must return vault-b data, NOT cached vault-a.
+    with (
+        patch("app.stats.settings") as mock_b,
+        patch("app.stats.get_session", side_effect=lambda: _ctx_for(factory_b)),
+        patch("app.costs.get_session", side_effect=lambda: _ctx_for(factory_b)),
+        patch("app.costs.settings") as mock_costs_b,
+    ):
+        mock_b.vault_id = "vault-b"
+        mock_costs_b.vault_id = "vault-b"
+        mock_costs_b.cost_alert_threshold_usd = 5.0
+        test_app_b = _make_test_app(engine_b)
+        async with AsyncClient(
+            transport=ASGITransport(app=test_app_b), base_url="http://test"
+        ) as client:
+            resp_b = await client.get("/stats/overview")
+
+    assert resp_b.status_code == 200
+    body_b = resp_b.json()
+    assert body_b["pages_total"] == 1, (
+        f"vault-b should have 1 page (got {body_b['pages_total']}); "
+        "stale cache from vault-a would return 3"
+    )

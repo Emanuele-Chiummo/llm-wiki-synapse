@@ -1077,6 +1077,107 @@ async def _index_existing_overview_if_present() -> None:
         logger.debug("_index_existing_overview_if_present: skipped (non-fatal): %s", exc)
 
 
+async def _index_bootstrap_file(
+    *,
+    vault_root: Path,
+    vault_id: str,
+    rel_path: str,
+    page_type: str,
+) -> None:
+    """
+    Upsert a Page row for one bootstrap meta-file (overview.md / index.md / log.md)
+    for an EXPLICIT vault, reading the file from *vault_root*/*rel_path* on disk.
+
+    Mirrors _index_aggregate_file but accepts vault_root/vault_id explicitly so the
+    caller (bootstrap at project-creation time) can index files for a newly-created
+    vault without touching settings.vault_id (which still points at the active vault).
+
+    I1-compliant: targeted write of one known file, no directory scan.
+    Idempotent: upserts by (vault_id, file_path) — safe to re-run.
+    Best-effort: a missing file is a no-op; caller wraps in try/except.
+    """
+    from sqlalchemy import select
+
+    abs_path = vault_root / rel_path
+    if not abs_path.exists():
+        return
+    file_text = abs_path.read_text(encoding="utf-8")
+    try:
+        meta = frontmatter.loads(file_text).metadata
+        title = str(meta.get("title") or Path(rel_path).stem)
+    except Exception:  # noqa: BLE001 — malformed frontmatter → fall back to filename stem
+        title = Path(rel_path).stem
+
+    async with get_session() as _id_sess:
+        existing = (
+            await _id_sess.execute(
+                select(Page).where(
+                    Page.vault_id == vault_id,
+                    Page.file_path == rel_path,
+                    Page.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+    page_id = existing.id if existing is not None else uuid.uuid4()
+
+    file_bytes = file_text.encode("utf-8")
+    await persist_metadata(
+        page_id=page_id,
+        vault_id=vault_id,
+        file_path=rel_path,
+        title=title,
+        page_type=page_type,
+        sources=None,
+        tags=None,
+        content_hash=_sha256(file_bytes),
+        source_mtime_ns=0,
+    )
+    await upsert_vector(
+        page_id=page_id,
+        text=_strip_leading_frontmatter(file_text),
+        file_path=rel_path,
+        title=title,
+        page_type=page_type,
+    )
+
+
+async def index_bootstrap_meta_files(*, vault_root: Path, vault_id: str) -> None:
+    """
+    Index wiki/overview.md, wiki/index.md, and wiki/log.md for a newly-created vault (NC-3).
+
+    I1-compliant: targeted index of 3 known files, no vault scan. Idempotent (upsert by
+    (vault_id, file_path)). Best-effort: each file is indexed independently; a failure on
+    one logs a WARNING without blocking the others or the project-creation response.
+
+    Called from POST /projects immediately after bootstrap_vault_at() writes the scaffold
+    files so GET /pages returns the meta rows without waiting for the first watcher event.
+
+    vault_root: absolute path to the new vault (the project directory).
+    vault_id:   the new project's id (e.g. "my-vault") — NOT settings.vault_id.
+    """
+    from app.ingest.schemas import INDEX_TYPE, LOG_TYPE  # noqa: PLC0415 — avoid top-level cycle
+
+    for rel_path, page_type in (
+        (OVERVIEW_REL_PATH, "overview"),
+        (INDEX_REL_PATH, INDEX_TYPE),
+        (LOG_REL_PATH, LOG_TYPE),
+    ):
+        try:
+            await _index_bootstrap_file(
+                vault_root=vault_root,
+                vault_id=vault_id,
+                rel_path=rel_path,
+                page_type=page_type,
+            )
+        except Exception as exc:  # noqa: BLE001 — additive graph node; never fail bootstrap (I7)
+            logger.warning(
+                "index_bootstrap_meta_files: failed to index %s for vault %s (non-fatal): %s",
+                rel_path,
+                vault_id,
+                exc,
+            )
+
+
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 
@@ -1361,13 +1462,27 @@ def _parse_frontmatter(raw_bytes: bytes, rel_path: str) -> dict[str, object]:
         )
         return {}
 
+    # K6 (YAML frontmatter: type/title/sources) applies only to wiki/ pages.
+    # Raw sources under raw/ are plain documents and need not carry frontmatter —
+    # emitting a WARNING for each missing field there is spurious noise (NC-2).
+    # Relative paths from vault_root: wiki pages start with "wiki/" or "wiki\";
+    # raw sources start with "raw/". Only warn for wiki paths; log DEBUG for raw.
+    _is_wiki_path = rel_path.startswith("wiki/") or rel_path.startswith("wiki\\")
     for required in ("type", "title", "sources"):
         if required not in meta:
-            logger.warning(
-                "ingest_file: missing frontmatter field %r in %s (AC-K6-2/3)",
-                required,
-                rel_path,
-            )
+            if _is_wiki_path:
+                logger.warning(
+                    "ingest_file: missing frontmatter field %r in %s (AC-K6-2/3)",
+                    required,
+                    rel_path,
+                )
+            else:
+                logger.debug(
+                    "ingest_file: frontmatter field %r absent in raw file %s "
+                    "(K6 not required for raw sources — NC-2)",
+                    required,
+                    rel_path,
+                )
 
     return meta
 

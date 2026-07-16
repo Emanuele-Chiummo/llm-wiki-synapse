@@ -68,14 +68,17 @@ def _slugify(title: str) -> str:
     return _NON_SLUG_RE.sub("-", title.lower()).strip("-")
 
 
-# ── In-process memo cache (data_version keyed) ────────────────────────────────
+# ── In-process memo cache (vault_id + data_version keyed) ────────────────────
 # Each cache entry is a tuple: (key, payload_dict).
-# "key" for overview is data_version (int); for sections it is (data_version, vocab_hash).
-# Cache is invalidated on mismatch — a bump or vocabulary change causes one recompute.
+# Keys include vault_id so switching the active vault always invalidates the cache
+# (BE-PERF-7 — a new vault may start with data_version=0, same as the previous one).
+# "key" for overview is (vault_id, cache_int); for sections (vault_id, version, vocab_hash);
+# for groups (vault_id, version).
+# Cache is invalidated on mismatch — a bump, vault switch or vocabulary change causes one recompute.
 
-_overview_cache: tuple[int, dict[str, Any]] | None = None
-_sections_cache: tuple[tuple[int, str], dict[str, Any]] | None = None
-_groups_cache: tuple[int, dict[str, Any]] | None = None
+_overview_cache: tuple[tuple[str, int], dict[str, Any]] | None = None
+_sections_cache: tuple[tuple[str, int, str], dict[str, Any]] | None = None
+_groups_cache: tuple[tuple[str, int], dict[str, Any]] | None = None
 
 
 def _vocab_hash(vocab: list[str]) -> str:
@@ -131,11 +134,15 @@ async def get_stats_overview() -> JSONResponse:
         vs_result = vs_row.scalar_one_or_none()
         current_version: int = vs_result if vs_result is not None else 0
 
-    # ── Cache check (data_version key + current month) ────────────────────────
-    # Include month so the cost slice auto-updates on month rollover without a version bump.
+    # ── Cache check (vault_id + data_version + current month) ────────────────
+    # vault_id is part of the key so switching the active vault always invalidates
+    # (BE-PERF-7). Month is included so the cost slice auto-updates on rollover.
     now_utc = datetime.now(tz=UTC)
     month_key = now_utc.strftime("%Y-%m")
-    cache_key = current_version * 1000 + hash(month_key) % 1000  # compact int cache key
+    cache_key: tuple[str, int] = (
+        vault_id,
+        current_version * 1000 + hash(month_key) % 1000,
+    )
     if _overview_cache is not None and _overview_cache[0] == cache_key:
         logger.debug(
             "stats/overview: cache HIT (data_version=%d month=%s)", current_version, month_key
@@ -283,7 +290,8 @@ async def get_stats_sections() -> JSONResponse:
         vs_result = vs_row.scalar_one_or_none()
         current_version = vs_result if vs_result is not None else 0
 
-    cache_key: tuple[int, str] = (current_version, v_hash)
+    # vault_id added to prevent stale hits after vault switch (BE-PERF-7).
+    cache_key: tuple[str, int, str] = (vault_id, current_version, v_hash)
     if _sections_cache is not None and _sections_cache[0] == cache_key:
         logger.debug(
             "stats/sections: cache HIT (data_version=%d vocab_hash=%s)", current_version, v_hash
@@ -471,7 +479,9 @@ async def get_stats_groups() -> JSONResponse:
         vs_result = vs_row.scalar_one_or_none()
         current_version: int = vs_result if vs_result is not None else 0
 
-    if _groups_cache is not None and _groups_cache[0] == current_version:
+    # vault_id added to prevent stale hits after vault switch (BE-PERF-7).
+    groups_cache_key: tuple[str, int] = (vault_id, current_version)
+    if _groups_cache is not None and _groups_cache[0] == groups_cache_key:
         logger.debug("stats/groups: cache HIT (data_version=%d)", current_version)
         return JSONResponse(content=_groups_cache[1])
 
@@ -602,5 +612,5 @@ async def get_stats_groups() -> JSONResponse:
     groups = groups[:_MAX_GROUPS]
 
     payload: dict[str, Any] = {"groups": groups}
-    _groups_cache = (current_version, payload)
+    _groups_cache = (groups_cache_key, payload)
     return JSONResponse(content=payload)
