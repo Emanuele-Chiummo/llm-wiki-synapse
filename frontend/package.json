@@ -17,6 +17,7 @@
     "format": "prettier --write src",
     "format:check": "prettier --check src",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "e2e:v09": "playwright test e2e/v09-happy-paths.spec.ts"
   },
