@@ -1035,7 +1035,7 @@ class TestIngestAll:
             resp = await client.post("/sources/ingest-all")
 
         assert resp.status_code == 409
-        assert "already running" in resp.json()["detail"]
+        assert "already running" in resp.json()["error"]["message"]
 
     async def test_empty_directory_returns_started_false(
         self,
@@ -1475,7 +1475,7 @@ class TestDeleteSourceDirectory:
             resp = await client.delete("/sources", params={"path": "many_files"})
 
         assert resp.status_code == 409, f"Expected 409, got {resp.status_code}: {resp.text}"
-        detail = resp.json()["detail"]
+        detail = resp.json()["error"]["message"]
         assert "SOURCES_DELETE_MAX_FILES" in detail or "files" in detail.lower()
 
         # Directory must still exist (no partial deletion before the cap check)

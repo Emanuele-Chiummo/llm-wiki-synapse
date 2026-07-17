@@ -527,7 +527,7 @@ class TestExportZip:
             async with lock:
                 resp = await client.get("/export")
                 assert resp.status_code == 429
-                assert "already running" in resp.json()["detail"].lower()
+                assert "already running" in resp.json()["error"]["message"].lower()
 
     @pytest.mark.asyncio
     async def test_413_on_oversized_vault(
@@ -547,7 +547,7 @@ class TestExportZip:
             resp = await client.get("/export")
 
         assert resp.status_code == 413
-        detail = resp.json()["detail"]
+        detail = resp.json()["error"]["message"]
         assert "MB" in detail or "size" in detail.lower()
 
 

@@ -305,12 +305,11 @@ async def test_put_config_app_invalid_key_returns_400() -> None:
 
     assert resp.status_code == 400
     body = resp.json()
-    # FastAPI may wrap in 'detail' or return directly; handle both
-    if "detail" in body:
-        content = body["detail"]
-    else:
-        content = body
-    assert "invalid_key" in str(content)
+    # Stable error envelope (ADR-0086): machine-readable code + allowed list under details.
+    err = body["error"]
+    assert err["code"] == "invalid_key"
+    assert err["status"] == 400
+    assert isinstance(err["details"]["allowed"], list) and err["details"]["allowed"]
 
 
 @pytest.mark.asyncio

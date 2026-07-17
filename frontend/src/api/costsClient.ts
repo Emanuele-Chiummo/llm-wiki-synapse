@@ -6,6 +6,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 // ─── Response shape (mirrors backend GET /costs/summary) ─────────────────────
 
@@ -22,12 +23,12 @@ export interface CostsByOperation {
 }
 
 export interface CostsByDay {
-  date: string;   // "YYYY-MM-DD"
+  date: string; // "YYYY-MM-DD"
   total_usd: number;
 }
 
 export interface CostsSummary {
-  period: string;           // "YYYY-MM"
+  period: string; // "YYYY-MM"
   by_provider: CostsByProvider[];
   /** Explanatory note when providers cannot be fully disambiguated (optional). */
   by_provider_note?: string | null;
@@ -56,8 +57,8 @@ export async function fetchCostsSummary(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore
     }

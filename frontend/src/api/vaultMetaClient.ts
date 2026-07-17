@@ -16,7 +16,7 @@
 
 import { apiBase } from "./base";
 import { fetchWithTimeout } from "./http";
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,16 +60,7 @@ export async function fetchVaultMeta(
     return { files: [] };
   }
 
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
+  await checkResponse(res);
 
   try {
     return (await res.json()) as VaultMetaResponse;
@@ -102,16 +93,7 @@ export async function saveVaultMeta(
     ...(signal !== undefined ? { signal } : {}),
   });
 
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
+  await checkResponse(res);
 
   return (await res.json()) as VaultMetaFile;
 }
@@ -155,14 +137,5 @@ export async function setVaultOutputLanguage(
     body: JSON.stringify({ language }),
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
+  await checkResponse(res);
 }

@@ -155,7 +155,9 @@ describe("fetchCostsSummary — URL construction", () => {
 
 describe("fetchCostsSummary — HTTP error handling", () => {
   it("throws an Error on 404", async () => {
-    const errBody = { detail: "No cost data for period" };
+    const errBody = {
+      error: { code: "not_found", message: "No cost data for period", status: 404, details: null },
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -166,17 +168,13 @@ describe("fetchCostsSummary — HTTP error handling", () => {
       ),
     );
 
-    await expect(fetchCostsSummary("2026-07")).rejects.toThrow(
-      "No cost data for period",
-    );
+    await expect(fetchCostsSummary("2026-07")).rejects.toThrow("No cost data for period");
   });
 
   it("throws an Error on 500 (fallback to status code)", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response("Internal Server Error", { status: 500 }),
-      ),
+      vi.fn().mockResolvedValue(new Response("Internal Server Error", { status: 500 })),
     );
 
     await expect(fetchCostsSummary()).rejects.toThrow(/500/);
@@ -204,7 +202,8 @@ describe("fetchCostsSummary — AbortSignal forwarded to fetch", () => {
     await fetchCostsSummary();
 
     // When no signal: second arg has no signal property (apiFetch always passes headers)
-    const callOpts = mockFetch.mock.calls[0]![1] as { signal?: AbortSignal; headers?: unknown } | undefined;
+    const callOpts = mockFetch.mock.calls[0]![1] as
+      { signal?: AbortSignal; headers?: unknown } | undefined;
     expect(callOpts?.signal).toBeUndefined();
   });
 });

@@ -17,6 +17,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 // ─── Batch-submit response (POST 202) ─────────────────────────────────────────
 
@@ -146,8 +147,8 @@ export async function startConvert(
   if (!res.ok) {
     let detail = res.statusText;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore parse error — use status text
     }
@@ -174,8 +175,8 @@ export async function getConvertStatus(signal?: AbortSignal): Promise<ConvertSta
   if (!res.ok) {
     let detail = res.statusText;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore
     }

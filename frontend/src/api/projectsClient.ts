@@ -12,7 +12,7 @@
 
 import { apiBase } from "./base";
 import { fetchWithTimeout } from "./http";
-import { ApiError } from "./graphClient";
+import { checkResponse } from "./errors";
 
 export interface Project {
   id: string;
@@ -33,16 +33,7 @@ export interface ActivateResponse {
 }
 
 async function _json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
-  }
+  await checkResponse(res);
   return (await res.json()) as T;
 }
 

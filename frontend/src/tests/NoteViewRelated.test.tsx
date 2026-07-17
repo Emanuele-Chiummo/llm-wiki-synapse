@@ -250,7 +250,9 @@ describe("fetchRelatedPages client (Task A)", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 404,
-      json: async () => ({ detail: "Page not found" }),
+      json: async () => ({
+        error: { code: "not_found", message: "Page not found", status: 404, details: null },
+      }),
     } as Response);
 
     const { fetchRelatedPages: realFn } =

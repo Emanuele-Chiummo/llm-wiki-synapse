@@ -95,7 +95,10 @@ function mockFetchError(status: number, statusText = "Internal Server Error"): v
       ok: false,
       status,
       statusText,
-      json: () => Promise.resolve({ detail: statusText }),
+      json: () =>
+        Promise.resolve({
+          error: { code: "http_error", message: statusText, status, details: null },
+        }),
     }),
   );
 }
@@ -103,8 +106,12 @@ function mockFetchError(status: number, statusText = "Internal Server Error"): v
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("fetchMcpInfo — success path (AC-F1-MCP-UI-1/6)", () => {
-  beforeEach(() => { mockFetchOk(MOCK_RESPONSE); });
-  afterEach(() => { vi.unstubAllGlobals(); });
+  beforeEach(() => {
+    mockFetchOk(MOCK_RESPONSE);
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("resolves to a typed McpInfoResponse", async () => {
     const result = await fetchMcpInfo();
@@ -202,7 +209,9 @@ describe("fetchMcpInfo — success path (AC-F1-MCP-UI-1/6)", () => {
 });
 
 describe("fetchMcpInfo — error path (AC-F1-MCP-UI-3 degraded)", () => {
-  afterEach(() => { vi.unstubAllGlobals(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it("rejects with an ApiError on 500", async () => {
     mockFetchError(500);

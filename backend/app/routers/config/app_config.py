@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app import runtime_state
 from app.config import settings
@@ -21,6 +21,7 @@ from app.config_overrides import (
     source_of,
     validate_value,
 )
+from app.errors import error_envelope
 from app.schemas.config import (
     AppConfigListResponse,
     AppConfigPutBody,
@@ -111,6 +112,24 @@ async def get_app_config() -> AppConfigListResponse:
     return _build_app_config_response()
 
 
+def _invalid_key_response(key: str) -> JSONResponse:
+    """400 for a key outside the allow-list, in the stable error envelope (ADR-0086).
+
+    Preserves the machine-readable ``invalid_key`` code and the ``allowed`` list (now under
+    ``details``) that this endpoint has always returned — only the wrapping changed from the
+    legacy ``{"error": "invalid_key", "allowed": [...]}`` to the envelope shape.
+    """
+    return JSONResponse(
+        status_code=400,
+        content=error_envelope(
+            code="invalid_key",
+            message=f"{key!r} is not an allowed config key.",
+            status=400,
+            details={"allowed": sorted(ALLOWED_CONFIG_KEYS)},
+        ),
+    )
+
+
 @router.put(
     "/config/app/{key}",
     status_code=204,
@@ -118,7 +137,8 @@ async def get_app_config() -> AppConfigListResponse:
     description=(
         "Sets or updates the DB override for one of the 13 allowed keys. "
         "Returns 204 on success. "
-        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Returns 400 with the stable error envelope (code='invalid_key', "
+        "details.allowed=[...]) for a non-allowed key (ADR-0086). "
         "Returns 422 on value validation failure (per-key rules — ADR-0053 §2.3). "
         "Auth: SynapseAuthMiddleware (ADR-0052). "
         "After write, the in-process cache is refreshed immediately so a subsequent "
@@ -133,13 +153,7 @@ async def get_app_config() -> AppConfigListResponse:
 async def put_app_config(key: str, body: AppConfigPutBody) -> Response:
     """PUT /config/app/{key} — upsert one config override (ADR-0053 §3.2)."""
     if key not in ALLOWED_CONFIG_KEYS:
-        import json as _json  # noqa: PLC0415
-
-        return Response(
-            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
-            status_code=400,
-            media_type="application/json",
-        )
+        return _invalid_key_response(key)
 
     # S7 "(auto)" sentinel → redirect to DELETE (ADR-0053 §2.3)
     if key == "overview_language" and body.value.strip() == "(auto)":
@@ -166,7 +180,8 @@ async def put_app_config(key: str, body: AppConfigPutBody) -> Response:
     description=(
         "Deletes the app_config row for *key*, reverting the setting to its env baseline. "
         "Returns 204 (idempotent — no-op if no row existed). "
-        "Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. "
+        "Returns 400 with the stable error envelope (code='invalid_key', "
+        "details.allowed=[...]) for a non-allowed key (ADR-0086). "
         "Auth: SynapseAuthMiddleware (ADR-0052). "
         "Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 §3.3). "
         "S7 overview_language: frontend sends DELETE for the '(auto)' choice (§2.3)."
@@ -179,13 +194,7 @@ async def put_app_config(key: str, body: AppConfigPutBody) -> Response:
 async def delete_app_config(key: str) -> Response:
     """DELETE /config/app/{key} — remove override, revert to env default (ADR-0053 §3.3)."""
     if key not in ALLOWED_CONFIG_KEYS:
-        import json as _json  # noqa: PLC0415
-
-        return Response(
-            content=_json.dumps({"error": "invalid_key", "allowed": sorted(ALLOWED_CONFIG_KEYS)}),
-            status_code=400,
-            media_type="application/json",
-        )
+        return _invalid_key_response(key)
 
     async with runtime_state.get_session() as session:
         await clear_override(session, key)

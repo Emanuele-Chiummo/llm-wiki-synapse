@@ -21,6 +21,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,9 +80,7 @@ export class RunOpNowError extends Error {
  * expose this endpoint (404 → older backend → card should be hidden).
  * Throws on unexpected network or server errors (5xx, etc.).
  */
-export async function getOpsSchedules(
-  signal?: AbortSignal,
-): Promise<OpsSchedulesResponse | null> {
+export async function getOpsSchedules(signal?: AbortSignal): Promise<OpsSchedulesResponse | null> {
   const url = `${apiBase()}/ops/schedules`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
 
@@ -93,8 +92,8 @@ export async function getOpsSchedules(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore parse error
     }
@@ -121,8 +120,8 @@ export async function runOpNow(op: OpsScheduleOp): Promise<RunOpNowResponse> {
 
   let detail = `${res.status}`;
   try {
-    const body = (await res.json()) as { detail?: string };
-    if (body.detail) detail = body.detail;
+    const body = await res.json();
+    detail = errorMessageFromBody(body) ?? detail;
   } catch {
     // ignore parse error
   }

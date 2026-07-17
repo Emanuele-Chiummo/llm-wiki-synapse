@@ -252,7 +252,7 @@ class TestCreateProviderConfig:
             client = TestClient(app, raise_server_exceptions=False)
             resp = client.post("/provider/config", json=body)
         assert resp.status_code == 400
-        assert "SYNAPSE_SECRET_KEY" in resp.json()["detail"]
+        assert "SYNAPSE_SECRET_KEY" in resp.json()["error"]["message"]
 
     def test_api_key_encrypted_and_never_echoed(self, monkeypatch: Any) -> None:
         """

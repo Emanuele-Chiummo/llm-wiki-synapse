@@ -20,6 +20,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 // ─── Response types (ADR-0054 §5.1) ───────────────────────────────────────────
 
@@ -197,8 +198,8 @@ export async function getStatsOverview(signal?: AbortSignal): Promise<StatsOverv
     if (!res.ok) {
       let detail = `${res.status}`;
       try {
-        const body = (await res.json()) as { detail?: string };
-        if (body.detail) detail = body.detail;
+        const body = await res.json();
+        detail = errorMessageFromBody(body) ?? detail;
       } catch {
         // ignore parse error
       }
@@ -229,8 +230,8 @@ export async function getStatsSections(signal?: AbortSignal): Promise<StatsSecti
     if (!res.ok) {
       let detail = `${res.status}`;
       try {
-        const body = (await res.json()) as { detail?: string };
-        if (body.detail) detail = body.detail;
+        const body = await res.json();
+        detail = errorMessageFromBody(body) ?? detail;
       } catch {
         // ignore parse error
       }
@@ -282,9 +283,7 @@ export async function getBackfillDomainStatus(
  *
  * [F18][ADR-0067 D3]
  */
-export async function getSynthesizeStatus(
-  signal?: AbortSignal,
-): Promise<SynthesizeStatus | null> {
+export async function getSynthesizeStatus(signal?: AbortSignal): Promise<SynthesizeStatus | null> {
   try {
     const url = `${apiBase()}/ops/synthesize`;
     const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);

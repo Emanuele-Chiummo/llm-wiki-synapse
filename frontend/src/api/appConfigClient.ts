@@ -20,6 +20,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,8 +91,8 @@ export async function getAppConfig(signal?: AbortSignal): Promise<AppConfigRespo
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore
     }
@@ -118,9 +119,8 @@ export async function putAppConfig(key: AppConfigKey, value: string): Promise<vo
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string; error?: string };
-      if (body.error) detail = body.error;
-      else if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore
     }
@@ -140,9 +140,8 @@ export async function resetAppConfig(key: AppConfigKey): Promise<void> {
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string; error?: string };
-      if (body.error) detail = body.error;
-      else if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       // ignore
     }

@@ -293,7 +293,7 @@ class TestColdCache409:
     async def test_cold_cache_409_message(self, cold_cache_app: AsyncClient) -> None:
         """409 response must carry a clear message about running recompute first."""
         resp = await cold_cache_app.get("/graph/communities/0")
-        detail = resp.json().get("detail", "")
+        detail = resp.json().get("error", {}).get("message", "")
         assert (
             "recompute" in detail.lower() or "graph" in detail.lower()
         ), f"409 detail must mention recompute/graph: {detail!r}"
