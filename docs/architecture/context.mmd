@@ -1,18 +1,24 @@
 C4Context
-    %% <!-- Generated: v0.2 sprint 2 | 2026-06-28 -->
-    title System Context — Synapse v0.2 (M2 "Agentic loop closed, 3 providers")
+    %% <!-- Generated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+    %% Breaking changes landed in 2.0.0:
+    %%   1. Legacy JSON ingest pipeline removed — only the block-based pipeline exists.
+    %%   2. orchestrator/app.main compatibility facades dissolved — importers pull from
+    %%      ingest.pipeline / ingest.writer / ingest.context directly (no re-export facade).
+    %%   3. Stable JSON error envelope: every HTTP error is {"error": {code, message, status, details}}.
+    title System Context — Synapse 2.0.0
 
-    Person(emanuele, "Emanuele", "Vault owner. Drops .md files, selects the inference provider per vault/operation, reads generated wiki pages. No web UI yet (v0.4).")
+    Person(emanuele, "Emanuele", "Vault owner / operator. Drops source files, selects the inference provider per vault/operation, reads generated wiki pages. Interacts via the web UI (PWA or Tauri v2 desktop), the Chrome clipper, or direct MCP calls.")
 
-    System(synapse, "Synapse", "Self-hosted FastAPI service + FastMCP server. Watches the vault, runs the capability-aware ingest loop (analyze→generate→validate, bounded I7), generates wiki pages via a user-selectable InferenceProvider (I6), and indexes into Postgres + Qdrant.")
+    System(synapse, "Synapse", "Self-hosted FastAPI service + FastMCP server. Watches the vault; ingests sources via a single capability-aware block-based pipeline (no legacy JSON path); generates wiki pages via a user-selectable InferenceProvider (I6); indexes into Postgres + Qdrant. All HTTP errors use the stable {error: {code, message, status, details}} envelope (ADR-0086). Multi-vault: multiple project vaults share one backend instance.")
 
     System_Ext(ollamasvc, "Ollama", "Local inference (RTX 3060, already running, I9). Local provider backend — zero marginal cost.")
-    System_Ext(anthropic, "Anthropic API / OpenAI-compatible endpoint", "Cloud inference for the API provider and the CLI provider (claude-agent-sdk). API key supplied via environment only (§12).")
+    System_Ext(anthropic, "Anthropic API / OpenAI-compatible endpoint", "Cloud inference for the API provider and the CLI provider (claude-agent-sdk). API key supplied via environment or UI-encrypted DB storage only (ADR-0071).")
     System_Ext(qdrant, "Qdrant", "Vector database (already running on TrueNAS). Stores bge-m3 embeddings in the synapse_pages collection.")
     System_Ext(bgem3, "bge-m3 embedding service", "Embedding endpoint (already running on TrueNAS, reached via EMBEDDING_URL). No local model loaded by Synapse (I9).")
-    System_Ext(vaultfs, "Vault filesystem", "raw/ (immutable sources, read-only to Synapse), wiki/ (service-written, valid Obsidian vault), schema.md, purpose.md. On TrueNAS via Obsidian LiveSync.")
+    System_Ext(searxng, "SearXNG", "Default bundled web-search backend (already running). Used by Deep Research (F10). Tavily / SerpApi / Firecrawl / Brave / Ollama Web are opt-in, off-by-default alternatives (ADR-0066, ADR-0070, I9).")
+    System_Ext(vaultfs, "Vault filesystem", "raw/ (immutable sources, read-only to Synapse), wiki/ (service-written, valid Obsidian vault), schema.md, purpose.md. Supports multiple project directories on TrueNAS (multi-vault, ADR-0082).")
 
-    Rel(emanuele, synapse, "Drops sources; selects provider; reads generated wiki", "filesystem / REST + JSON")
+    Rel(emanuele, synapse, "Drops sources; selects provider; reads/chats wiki; manages review queue", "REST+JSON / MCP / Web Clipper")
     Rel(emanuele, vaultfs, "Edits sources, opens wiki/ in Obsidian", "filesystem / Obsidian")
 
     Rel(synapse, ollamasvc, "Local analyze/generate (Local provider)", "HTTP /api/chat")
@@ -20,5 +26,6 @@ C4Context
     Rel(synapse, vaultfs, "Reads raw/sources/; writes wiki/ pages, index.md, overview.md, log.md", "watchdog / file I/O")
     Rel(synapse, bgem3, "Requests embeddings per generated page", "HTTP / JSON")
     Rel(synapse, qdrant, "Upserts / deletes / searches page vectors", "HTTP / gRPC")
+    Rel(synapse, searxng, "Multi-query web search (Deep Research F10)", "HTTP / JSON")
 
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

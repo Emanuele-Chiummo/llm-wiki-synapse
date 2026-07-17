@@ -1,9 +1,14 @@
 # Synapse User Guide
 
-<!-- Updated: v1.6.0 generation lifecycle parity | 2026-07-13 -->
+<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
 
-> Version: v1.6.0
+> Version: v2.0.0
 > Language toggle: English / Italian available in Settings.
+>
+> **2.0.0 note:** The JSON ingest pipeline ("json" mode) has been removed. Ingest always uses the
+> block-based engine. API error responses now use the stable envelope `{"error": {"code": "...",
+> "message": "...", "status": N, "details": null}}` — if you have scripts that parsed `{"detail":
+> "..."}`, update them to read `error.message` instead.
 
 ---
 
