@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.9.4] — 2026-07-17 — "completion pack"
+
+Fifth release of the v2.0 train — the last of the refactor/feature "completion" set before
+2.0.0's breaking changes. Long-source chunking finally reaches the default block-loop pipeline
+(closing the last blocker to deleting the legacy JSON path), review-create moves onto the same
+engine, ingest gets a self-healing 429 queue, per-device scoped API tokens land, MCP/clipper
+go multi-vault-aware, pages get a one-line gloss in the index catalogue, and the deprecations
+that 2.0.0 will act on start warning now. Five workstreams (some bundled), two migrations.
+
+### Added
+- **Chunked-analysis long-source support in the block loop** (flagship, PF-LONGSRC-1):
+  `run_block_loop`'s Stage 1 now chunks sources past `ingest_long_source_char_threshold`
+  (48K chars, the existing config) via the same bounded chunker `long_source.py` already used
+  for the legacy JSON path, then merges per-chunk analyses under `## Source section i/N analysis`
+  headers (`merge_analysis_texts()`, a markdown-prose sibling of the existing
+  `merge_analyses()`). This fixes the silent truncation of long regulatory PDFs and is the
+  probable root cause, confirmed by 1.9.1's non-convergence diagnostics, behind opaque
+  "Non convergito" runs on long documents. Sources below the threshold take the exact same
+  single-call path as before (byte-identical, verified by test). The on-disk JSON-loop
+  checkpoint mechanism is deliberately not reused here — the two paths produce different
+  analysis shapes (structured objects vs. free markdown) — an accepted, documented trade-off.
+- **Smart ingest queue** (PF-QUEUE-429-1): the queue now auto-pauses on a 429 from any provider
+  (`ProviderTransientError` for CLI, `httpx.HTTPStatusError` status 429 for API/Ollama) with a
+  decaying backoff ladder (30s → 60s →120s → 300s, hard-capped per I7) instead of failing the
+  run outright; a subsequent successful call resets the backoff. A manual `pause()` always takes
+  priority and cancels any pending auto-resume. New per-capability concurrency caps
+  (`ingest_concurrency_cli`/`_api`/`_local`, default 1/3/1) sit alongside the existing flat
+  `INGEST_MAX_CONCURRENCY` limit, so a slow local model no longer starves API-backed runs of
+  their own slots.
+- **Scoped, revocable API tokens** (PF-AUTH-1): new `api_tokens` table (migration) — label,
+  PBKDF2-hashed secret (plaintext returned once, at creation, never again), optional vault
+  scope, read-only flag, `last_used_at`. `POST/GET/DELETE /config/api-tokens` + a Settings →
+  Security UI card. The bootstrap `SYNAPSE_AUTH_TOKEN` env var is unchanged and checked first —
+  this is additive, not a replacement — and unblocks per-device credentials (iOS, clipper) that
+  can be revoked individually instead of sharing the one bootstrap secret.
+- **Multi-vault MCP and clipper** (PF-MCP-VAULT-1, PF-F11-PICKER-1): every MCP tool gains an
+  optional `vault` parameter (falls back to the active vault when omitted or unknown); a new
+  write guard rejects cross-vault writes. The Chrome clipper's `ClipRequest` gains `vault_id`
+  and its popup UI gets a vault picker populated from `GET /projects`, so clipping to a
+  non-active vault no longer silently lands in the wrong place.
+- **Gloss catalogue** (PF-INDEX-GLOSS-1): a new nullable `Page.summary` column (migration),
+  populated from each page's first paragraph at write time (`extract_first_paragraph_summary`,
+  pure — no LLM call) and rendered as an em-dash gloss next to every `index.md` entry
+  (`- [[Title]] — gloss…`, capped at 120 chars). A one-time, idempotent `--dry-run`-capable
+  backfill script covers pages written before this release.
+- **Deprecation warnings for 2.0.0's planned removals**: a startup warning fires when
+  `ingest_pipeline_format` is set to the legacy `"json"` value, and importing from the
+  orchestrator compatibility facade or the `app.main.*` aliases now raises `DeprecationWarning`
+  — both scheduled for deletion in 2.0.0.
+
+### Changed
+- **Review-create migrated onto the block loop** (BE-DEBT-1, step 1 of 2 toward deleting the
+  legacy JSON generation path): the single-page generation route now calls
+  `ingest.block_loop.run_block_loop` instead of `ingest.loop.run_orchestrated_loop`, parsing the
+  block loop's FILE-block output into a `WikiPage` (`_wiki_page_from_file_block`) while
+  preserving every non-`source` page type and guaranteeing `origin_source` stays in `sources[]`.
+
+### Fixed
+- **A real import-linter layering violation, found during this release's own verification, not
+  by CI**: the new MCP vault-parameter code (`app.mcp.server`) picked up a transitive import of
+  `app.main` through `app.projects`'s existing write-path helpers — a violation of the
+  "Routers/MCP must not import main" contract from 1.9.2. Root-caused (import-linter counts
+  lazy/deferred imports as graph edges too) and fixed with a clean extraction rather than an
+  allowlist: the pure, read-only registry model (`Project`, `ProjectsResponse`, `read_registry`)
+  moved into a new `app/project_registry.py` with zero `app.main` dependency; `app/projects.py`
+  now re-exports it for backward compatibility. `lint-imports` reports all 4 contracts kept.
+- Two rounds of docs-gate drift caught before merge (ER diagram missing the new `api_tokens`
+  table, then missing `pages.summary`; OpenAPI missing the new MCP `vault` parameters) —
+  regenerated and committed rather than left for CI to fail on (I8).
+- A migration-number collision between this release's two independently-developed branches
+  (W4's `api_tokens` and W6's `page_summary_gloss` both claimed `0036`) — anticipated in both
+  PRs' descriptions and resolved at merge time by renumbering the second-merged migration to
+  `0037`.
+
+### Known follow-ups (not in this release)
+- The legacy JSON ingest pipeline itself is still present — this release only ports its one
+  missing capability (chunking) to the block loop and starts warning on its use. Deletion is
+  2.0.0's first breaking change.
+- ADR-0083's parity harness (manual, live-stack only) was not re-run against the review-create
+  migration in this pass — a human/QA call before 2.0.0, not an automated gate yet.
+
 ## [1.9.3] — 2026-07-17 — "live wire"
 
 Fourth release of the v2.0 train, and the flagship of the refactor half: a real-time push
