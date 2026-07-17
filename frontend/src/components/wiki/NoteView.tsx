@@ -76,15 +76,14 @@ import {
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
+import { useGraphStore, selectNodes, selectEdges } from "../../store/graphStore";
 import {
-  useGraphStore,
   selectSelectedNodeId,
-  selectNodes,
-  selectEdges,
   selectSelectPage,
   selectSetActiveSection,
   selectVaultId,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import type { RelatedPageItem, PageContentResponse } from "../../api/types";
 import {
   fetchPageContent,
@@ -279,12 +278,12 @@ type PendingNavIntent = { kind: "cancel" } | { kind: "selectPage"; pageId: strin
 
 export function NoteView() {
   const { t } = useTranslation();
-  const selectedNodeId = useGraphStore(selectSelectedNodeId);
+  const selectedNodeId = useAppStore(selectSelectedNodeId);
   // Shallow-compared nodes array for wikilink resolution + type badge fallback (I3).
   const nodes = useGraphStore(useShallow(selectNodes));
-  const selectPage = useGraphStore(selectSelectPage);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
-  const vaultId = useGraphStore(selectVaultId);
+  const selectPage = useAppStore(selectSelectPage);
+  const setActiveSection = useAppStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
 
   // Shallow-compared edges for link in/out count in the metadata row (I3).
   const edges = useGraphStore(useShallow(selectEdges));

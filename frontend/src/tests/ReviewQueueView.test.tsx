@@ -193,8 +193,8 @@ vi.mock("react-i18next", () => ({
 const mockSetActiveSection = vi.fn();
 const mockSelectPage = vi.fn();
 
-vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) =>
     selector({
       vaultId: "default",
       setActiveSection: mockSetActiveSection,

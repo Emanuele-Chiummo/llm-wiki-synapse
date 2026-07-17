@@ -128,20 +128,26 @@ const _mockSetActiveSection = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) => {
+    const store = { nodes: _nodes, edges: [] };
+    return selector(store);
+  },
+  selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
+  selectEdges: (s: { edges: [] }) => s.edges,
+}));
+
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) => {
     const store = {
       selectedNodeId: _selectedNodeId,
-      nodes: _nodes,
-      edges: [],
       selectPage: _mockSelectPage,
       setActiveSection: _mockSetActiveSection,
     };
     return selector(store);
   },
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
-  selectNodes: (s: { nodes: GraphNode[] }) => s.nodes,
-  selectEdges: (s: { edges: [] }) => s.edges,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
-  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) => s.setActiveSection,
+  selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
+    s.setActiveSection,
   selectVaultId: () => "default",
 }));
 
@@ -173,9 +179,9 @@ const PAGE_CONTENT_BASE: PageContentResponse = {
 
 const RELATED_RESPONSE: RelatedPagesResponse = {
   items: [
-    { page_id: "page-def", title: "Softmax Function",  type: "concept", score: 8.5 },
+    { page_id: "page-def", title: "Softmax Function", type: "concept", score: 8.5 },
     { page_id: "page-ghi", title: "Cross Entropy Loss", type: "concept", score: 6.0 },
-    { page_id: "page-jkl", title: "Paper: Hinton 2015", type: null,     score: 3.0 },
+    { page_id: "page-jkl", title: "Paper: Hinton 2015", type: null, score: 3.0 },
   ],
   total: 3,
 };

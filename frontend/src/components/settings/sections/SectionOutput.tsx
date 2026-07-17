@@ -17,7 +17,7 @@ import {
   CONV_HISTORY_OPTIONS,
   type ConvHistoryLength,
 } from "../../../store/settingsStore";
-import { useGraphStore, selectVaultId } from "../../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../../store/appStore";
 import { fetchVaultOutputLanguage, setVaultOutputLanguage } from "../../../api/vaultMetaClient";
 
 // The vault's AI OUTPUT language (F3/ADR-0081) — the language the model writes pages, queries and
@@ -41,7 +41,7 @@ export function SectionOutput() {
   const setDraftLanguage = useSettingsStore(selectSetDraftLanguage);
   const draftConvHistory = useSettingsStore(selectDraftConversationHistoryLength);
   const setDraftConvHistory = useSettingsStore(selectSetDraftConversationHistoryLength);
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
 
   // Per-vault AI output language — saved immediately (not via the draft/Save footer) since it is a
   // vault-scoped setting, not an app preference.

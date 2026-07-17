@@ -14,9 +14,8 @@ import {
   selectEdges,
   selectStatus,
   selectMeta,
-  selectSelectedNodeId,
-  selectVaultId,
 } from "../store/graphStore";
+import { useAppStore, selectSelectedNodeId, selectVaultId } from "../store/appStore";
 import type { GraphNode, GraphEdge } from "../api/types";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -34,9 +33,10 @@ function getStore() {
   return useGraphStore.getState();
 }
 
-// Reset store to initial state before each test
+// Reset stores to initial state before each test
 beforeEach(() => {
   useGraphStore.getState().reset();
+  useAppStore.getState().reset();
 });
 
 // ─── Action: setGraph ─────────────────────────────────────────────────────────
@@ -112,27 +112,27 @@ describe("graphStore — setError action", () => {
   });
 });
 
-// ─── Action: setSelectedNodeId ────────────────────────────────────────────────
+// ─── Action: setSelectedNodeId (appStore, FE-ARCH-6) ──────────────────────────
 
-describe("graphStore — setSelectedNodeId action", () => {
+describe("appStore — setSelectedNodeId action", () => {
   it("sets selected node id", () => {
-    getStore().setSelectedNodeId("node-abc");
-    expect(selectSelectedNodeId(useGraphStore.getState())).toBe("node-abc");
+    useAppStore.getState().setSelectedNodeId("node-abc");
+    expect(selectSelectedNodeId(useAppStore.getState())).toBe("node-abc");
   });
 
   it("clears selected node id when set to null", () => {
-    getStore().setSelectedNodeId("node-abc");
-    getStore().setSelectedNodeId(null);
-    expect(selectSelectedNodeId(useGraphStore.getState())).toBeNull();
+    useAppStore.getState().setSelectedNodeId("node-abc");
+    useAppStore.getState().setSelectedNodeId(null);
+    expect(selectSelectedNodeId(useAppStore.getState())).toBeNull();
   });
 });
 
-// ─── Action: setVaultId ───────────────────────────────────────────────────────
+// ─── Action: setVaultId (appStore, FE-ARCH-6) ─────────────────────────────────
 
-describe("graphStore — setVaultId action", () => {
+describe("appStore — setVaultId action", () => {
   it("updates vault id", () => {
-    getStore().setVaultId("my-vault");
-    expect(selectVaultId(useGraphStore.getState())).toBe("my-vault");
+    useAppStore.getState().setVaultId("my-vault");
+    expect(selectVaultId(useAppStore.getState())).toBe("my-vault");
   });
 });
 
@@ -141,7 +141,7 @@ describe("graphStore — setVaultId action", () => {
 describe("graphStore — reset action", () => {
   it("resets all state to initial values", () => {
     getStore().setGraph(NODES, EDGES, 10, "hit");
-    getStore().setSelectedNodeId("some-id");
+    useAppStore.getState().setSelectedNodeId("some-id");
     getStore().setError("oops");
 
     getStore().reset();
@@ -153,7 +153,8 @@ describe("graphStore — reset action", () => {
     expect(selectMeta(state).cacheStatus).toBe("unknown");
     expect(selectStatus(state).loading).toBe(false);
     expect(selectStatus(state).error).toBeNull();
-    expect(selectSelectedNodeId(state)).toBeNull();
+    // selectedNodeId lives in appStore now — graphStore.reset() does not touch it.
+    expect(selectSelectedNodeId(useAppStore.getState())).toBe("some-id");
   });
 });
 

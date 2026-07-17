@@ -51,6 +51,7 @@ import {
   selectProviderList,
   selectFetchProviderList,
 } from "../store/providerStore";
+import { useStatusStore, selectStartStatusPolling } from "../store/statusStore";
 import { useShallow } from "zustand/react/shallow";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
@@ -89,6 +90,16 @@ export function AppShell() {
 
   // ADR-0049 §U4: startup update check — once, non-blocking, Tauri-only.
   const updaterState = useDesktopUpdater();
+
+  // FE-ARCH-3: statusStore OWNS the /status poll — started once here so the
+  // real-time stream (backend version, review-pending badge, data_version
+  // freshness, connectivity) survives regardless of which section/panel is
+  // mounted. ActivityBar (and any other consumer) is a pure subscriber.
+  const startStatusPolling = useStatusStore(selectStartStatusPolling);
+  useEffect(() => {
+    const stop = startStatusPolling();
+    return stop;
+  }, [startStatusPolling]);
 
   // ── First-run wizard (A2.2) ────────────────────────────────────────────────
   // Prime the shared provider store for the shell. The wizard no longer treats

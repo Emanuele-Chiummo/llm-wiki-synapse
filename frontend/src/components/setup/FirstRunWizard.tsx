@@ -59,7 +59,7 @@ import { completeSetup, deferSetup, readSetupState, type SetupStep } from "./set
 import { providerVerificationFingerprint } from "./providerVerification";
 import { useStatusStore } from "../../store/statusStore";
 import { useProviderStore } from "../../store/providerStore";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 
 // ─── Backwards-compatible setup helpers ─────────────────────────────────────
 
@@ -425,7 +425,7 @@ function Step2Provider({
   onVerified: (fingerprint: string) => void;
 }) {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
   const [providerType, setProviderType] = useState<"api" | "local" | "cli">("api");
   const [modelId, setModelId] = useState("");
   const [baseUrl, setBaseUrl] = useState("");

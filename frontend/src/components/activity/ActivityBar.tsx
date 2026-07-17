@@ -10,8 +10,10 @@
  *   Per-task rows grouped processing → pending → failed.
  *   Each processing row shows: phase label · per-task progress bar · ETA.
  *
- * Polling strategy: delegates to activityStore.startPolling() — single
- * setTimeout chain, fast (1500ms) while active, slow (5000ms) when idle (I3).
+ * Polling strategy: delegates to activityStore.startPolling() (queue) and
+ * statusStore.startPolling() (/status, started once by AppShell — FE-ARCH-3) —
+ * both single setTimeout chains via the shared pollChain primitive (I3/I7).
+ * ActivityBar itself is a PURE SUBSCRIBER of both stores; it never owns a poll.
  *
  * INVARIANT I3: subscribes via typed selectors + useShallow.
  * INVARIANT I2: never runs any layout; no graph-store coupling here.
@@ -39,10 +41,14 @@ const reducedMotion: boolean =
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { useGraphStore, selectVaultId } from "../../store/graphStore";
+import { selectVaultId, useAppStore } from "../../store/appStore";
 import { useGraphMeta } from "../../store/graphStore";
-import { fetchStatus } from "../../api/pagesClient";
-import { useStatusStore } from "../../store/statusStore";
+import {
+  useStatusStore,
+  selectStatusDataVersion,
+  selectUptimeSeconds,
+  selectBackendConnectionState,
+} from "../../store/statusStore";
 import { useProviderStore, selectActiveProvider } from "../../store/providerStore";
 import {
   useActivityStore,
@@ -56,26 +62,7 @@ import {
   MAX_VISIBLE_FAILED,
 } from "../../store/activityStore";
 import { MaxRetriesExceededError } from "../../api/ingestClient";
-import type { IngestQueueSnapshot, QueueTask } from "../../api/types";
-
-// ─── Status-poll constants ─────────────────────────────────────────────────────
-
-const STATUS_POLL_MS = 30_000;
-// RT-1: while an ingest / queue is active, poll fast so data_version — and the dashboard KPIs +
-// graph that re-fetch on data_version change — stay live within a few seconds instead of lagging
-// up to STATUS_POLL_MS. Self-throttles back to 30s when idle. I3: no new poller (same setTimeout
-// chain); I7: bounded, aborted on cleanup.
-const STATUS_POLL_ACTIVE_MS = 3_000;
-
-/**
- * RT-1: adaptive /status cadence. Fast (3s) while the queue is doing work — every write bumps
- * data_version and the dashboard KPIs + graph re-fetch on that change — else the idle 30s.
- * `paused` is intentionally NOT "active": a paused queue produces no writes.
- */
-export function statusPollDelayMs(snap: IngestQueueSnapshot | null): number {
-  const active = (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0;
-  return active ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_MS;
-}
+import type { QueueTask } from "../../api/types";
 
 // ─── Known phase keys — maps backend phase string to i18n key ─────────────────
 
@@ -387,66 +374,17 @@ const iconButtonStyle: import("react").CSSProperties = {
 
 export function ActivityBar(): ReactNode {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
+  const vaultId = useAppStore(selectVaultId);
   const { dataVersion: storeVersion } = useGraphMeta();
   const activeProvider = useProviderStore(selectActiveProvider);
 
-  // Status-bar polling (GET /status every 30s)
-  const [status, setStatus] = useState<{
-    dataVersion: number | null;
-    uptimeSeconds: number | null;
-  }>({
-    dataVersion: null,
-    uptimeSeconds: null,
-  });
-  const [pollError, setPollError] = useState(false);
-  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    async function pollStatus() {
-      try {
-        const res = await fetchStatus(ctrl.signal);
-        if (!ctrl.signal.aborted) {
-          setStatus({ dataVersion: res.data_version, uptimeSeconds: res.uptime_seconds });
-          // Surface backend version to statusStore (R12-3/ADR-0054 §6 — no new poller).
-          useStatusStore.getState().setBackendVersion(res.version);
-          // Pending review count → NavRail badge (owner request; absent on old backends).
-          useStatusStore.getState().setReviewPending(res.review_pending);
-          // Sync the active vault from the backend so every data list (review, pages, graph,
-          // lint) queries the vault the backend is actually serving — not a stale "default".
-          // The badges read /status directly (active vault); without this a non-default
-          // VAULT_ID makes the lists query the wrong vault (13-badge / 2-list mismatch).
-          if (res.vault_id && res.vault_id !== useGraphStore.getState().vaultId) {
-            useGraphStore.getState().setVaultId(res.vault_id);
-          }
-          // Vision capability → MessageInput attach-image gate (B2 — absent = false).
-          useStatusStore.getState().setSupportsVision(res.supports_vision ?? false);
-          // WS-A [F16/F4/F18]: surface data_version for HomeDashboard + GraphViewer freshness.
-          // No new poller — this is the existing ActivityBar STATUS_POLL_MS tick.
-          // INVARIANT I3: only triggers re-fetch in subscribers when value changes.
-          useStatusStore.getState().setDataVersion(res.data_version ?? null);
-          useStatusStore.getState().setConnectionState("online");
-          setPollError(false);
-        }
-      } catch {
-        if (!ctrl.signal.aborted) {
-          useStatusStore.getState().setConnectionState("offline");
-          setPollError(true);
-        }
-      }
-      if (!ctrl.signal.aborted) {
-        // RT-1: adaptive cadence. Reads the snapshot without subscribing (no extra re-render, I3).
-        const delay = statusPollDelayMs(useActivityStore.getState().snapshot);
-        statusTimerRef.current = setTimeout(pollStatus, delay);
-      }
-    }
-    void pollStatus();
-    return () => {
-      ctrl.abort();
-      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
-    };
-  }, []);
+  // Pure subscriber (FE-ARCH-3): the /status poll is owned by statusStore and
+  // started once by AppShell — ActivityBar only reads the resulting fields.
+  const statusDataVersion = useStatusStore(selectStatusDataVersion);
+  const uptimeSeconds = useStatusStore(selectUptimeSeconds);
+  const connectionState = useStatusStore(selectBackendConnectionState);
+  const pollError = connectionState === "offline";
+  const status = { dataVersion: statusDataVersion, uptimeSeconds };
 
   // Queue store
   const counts = useActivityCounts();

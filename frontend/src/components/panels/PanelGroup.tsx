@@ -31,7 +31,8 @@ import { NoteView } from "../wiki/NoteView";
 import { PreviewPanel } from "../preview/PreviewPanel";
 import { ScenarioTemplates } from "../common/ScenarioTemplates";
 import { PanelDrawer } from "./PanelDrawer";
-import { useGraphStore, selectVaultId, selectSelectedNodeId } from "../../store/graphStore";
+import { useGraphStore } from "../../store/graphStore";
+import { selectVaultId, selectSelectedNodeId, useAppStore } from "../../store/appStore";
 import {
   useUiStore,
   selectLeftPanelOpen,
@@ -238,8 +239,8 @@ function MobileToolbar({
 
 export function PanelGroup() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const selectedNodeId = useGraphStore(selectSelectedNodeId);
+  const vaultId = useAppStore(selectVaultId);
+  const selectedNodeId = useAppStore(selectSelectedNodeId);
   const initialLayout = loadLayout();
 
   // E2E defect fix (R9-6 finding): PreviewPanel reads node metadata from

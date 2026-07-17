@@ -30,7 +30,7 @@
 
 import React, { Suspense } from "react";
 import { useTranslation } from "react-i18next";
-import { useGraphStore, selectActiveSection } from "../store/graphStore";
+import { selectActiveSection, useAppStore } from "../store/appStore";
 import { SectionErrorBoundary } from "./common/SectionErrorBoundary";
 // HomeDashboard is EAGER — it is the default landing view; lazy would add a flash.
 import { HomeDashboard } from "./home/HomeDashboard";
@@ -72,9 +72,7 @@ const ReviewQueueView = React.lazy(() =>
   import("./review/ReviewQueueView").then((m) => ({ default: m.ReviewQueueView })),
 );
 
-const LintView = React.lazy(() =>
-  import("./lint/LintView").then((m) => ({ default: m.LintView })),
-);
+const LintView = React.lazy(() => import("./lint/LintView").then((m) => ({ default: m.LintView })));
 
 const SearchView = React.lazy(() =>
   import("./search/SearchView").then((m) => ({ default: m.SearchView })),
@@ -129,7 +127,7 @@ function SectionSkeleton(): React.JSX.Element {
 // ─── SectionRouter ────────────────────────────────────────────────────────────
 
 export function SectionRouter() {
-  const activeSection = useGraphStore(selectActiveSection);
+  const activeSection = useAppStore(selectActiveSection);
   return (
     <SectionErrorBoundary sectionId={activeSection}>
       {/* Suspense catches async chunk loading (P1). SectionErrorBoundary above
@@ -142,12 +140,21 @@ export function SectionRouter() {
   );
 }
 
-function SectionContent({ activeSection }: { activeSection: ReturnType<typeof selectActiveSection> }) {
-
+function SectionContent({
+  activeSection,
+}: {
+  activeSection: ReturnType<typeof selectActiveSection>;
+}) {
   if (activeSection === "home") {
     return (
       <div
-        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-home"
       >
         <HomeDashboard />
@@ -214,7 +221,13 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
   if (activeSection === "settings") {
     return (
       <div
-        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-settings"
       >
         <SettingsPanel />
@@ -224,7 +237,10 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
 
   if (activeSection === "search") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-search">
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }}
+        data-testid="section-search"
+      >
         <SearchView />
       </div>
     );
@@ -232,7 +248,10 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
 
   if (activeSection === "lint") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-lint">
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }}
+        data-testid="section-lint"
+      >
         <LintView />
       </div>
     );
@@ -240,7 +259,10 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
 
   if (activeSection === "review") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-review">
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }}
+        data-testid="section-review"
+      >
         <ReviewQueueView />
       </div>
     );
@@ -248,7 +270,10 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
 
   if (activeSection === "deep-search") {
     return (
-      <div style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }} data-testid="section-deep-search">
+      <div
+        style={{ flex: 1, display: "flex", overflow: "hidden", background: "var(--syn-bg)" }}
+        data-testid="section-deep-search"
+      >
         <DeepSearchView />
       </div>
     );
@@ -257,7 +282,13 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
   if (activeSection === "convert") {
     return (
       <div
-        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-convert"
       >
         <ConvertPanel />
@@ -268,7 +299,13 @@ function SectionContent({ activeSection }: { activeSection: ReturnType<typeof se
   if (activeSection === "projects") {
     return (
       <div
-        style={{ flex: 1, overflow: "auto", width: "100%", height: "100%", background: "var(--syn-bg)" }}
+        style={{
+          flex: 1,
+          overflow: "auto",
+          width: "100%",
+          height: "100%",
+          background: "var(--syn-bg)",
+        }}
         data-testid="section-projects"
       >
         <ProjectLauncher />

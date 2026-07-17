@@ -85,20 +85,13 @@ import {
   selectCommunities,
   selectEdges,
   selectNodes,
-  selectSelectedNodeId,
   selectSetError,
   selectSetGraph,
   selectSetLoading,
-  selectSetSelectedNodeId,
-  selectVaultId,
   selectFilterNodeTypes,
   selectToggleFilterNodeType,
   selectClearFilterNodeTypes,
   selectTotalNodes,
-  selectSelectPage,
-  selectSetActiveSection,
-  selectShowInsightsPanel,
-  selectSetShowInsightsPanel,
   selectHideMetaTypes,
   selectHideIsolated,
   selectMinLinks,
@@ -116,6 +109,16 @@ import {
   useGraphStatus,
   useGraphStore,
 } from "../store/graphStore";
+import {
+  selectSelectedNodeId,
+  selectSetSelectedNodeId,
+  selectVaultId,
+  selectSelectPage,
+  selectSetActiveSection,
+  selectShowInsightsPanel,
+  selectSetShowInsightsPanel,
+  useAppStore,
+} from "../store/appStore";
 import { useStatusStore, selectStatusDataVersion } from "../store/statusStore";
 import {
   GRAPH_PAGE_TYPE_ORDER,
@@ -2359,12 +2362,12 @@ export const GraphViewer: React.FC = () => {
   const nodes = useGraphStore(selectNodes);
   const edges = useGraphStore(selectEdges);
   const communities = useGraphStore(selectCommunities);
-  const vaultId = useGraphStore(selectVaultId);
-  const selectedNodeId = useGraphStore(selectSelectedNodeId);
+  const vaultId = useAppStore(selectVaultId);
+  const selectedNodeId = useAppStore(selectSelectedNodeId);
   const setGraph = useGraphStore(selectSetGraph);
   const setLoading = useGraphStore(selectSetLoading);
   const setError = useGraphStore(selectSetError);
-  const setSelectedNodeId = useGraphStore(selectSetSelectedNodeId);
+  const setSelectedNodeId = useAppStore(selectSetSelectedNodeId);
   // GR3: node-type filter from store (I2-safe: visibility only, never re-layout)
   // Use a ref so the sigma reducers always read the latest filter without rebuilding sigma.
   const filterNodeTypes = useGraphStore(selectFilterNodeTypes);
@@ -2401,9 +2404,9 @@ export const GraphViewer: React.FC = () => {
   // GR1: total vault pages from backend (null = old server)
   const totalNodes = useGraphStore(selectTotalNodes);
   // GR2: selectPage action for search-triggered navigation
-  const selectPage = useGraphStore(selectSelectPage);
+  const selectPage = useAppStore(selectSelectPage);
   // Click-to-open: navigate to the wiki pages section for the clicked node (Obsidian-style).
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   // WS-A [F4/F16]: subscribe to data_version from the ActivityBar's existing GET /status poll.
   // When the version bumps, we re-fetch GET /graph (precomputed coords from server — I2).
@@ -3328,8 +3331,8 @@ export const GraphViewer: React.FC = () => {
   }, []);
 
   // ── Insights panel toggle — shared via graphStore (sibling GraphInsightsPanel reads it)
-  const showInsightsPanel = useGraphStore(selectShowInsightsPanel);
-  const setShowInsightsPanel = useGraphStore(selectSetShowInsightsPanel);
+  const showInsightsPanel = useAppStore(selectShowInsightsPanel);
+  const setShowInsightsPanel = useAppStore(selectSetShowInsightsPanel);
 
   const handleToggleInsights = useCallback(() => {
     setShowInsightsPanel(!showInsightsPanel);

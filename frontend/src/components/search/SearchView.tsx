@@ -49,11 +49,11 @@ import { Search, X, RefreshCw, XCircle, FileSearch } from "lucide-react";
 import { searchWiki } from "../../api/searchClient";
 import type { SearchResultItem, PageTypeFilter, SearchSortOption } from "../../api/searchClient";
 import {
-  useGraphStore,
   selectVaultId,
   selectSelectPage,
   selectSetActiveSection,
-} from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
 import { ErrorState } from "../common/ErrorState";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -374,9 +374,9 @@ function ResultRow({ item, onSelect }: ResultRowProps) {
 
 export function SearchView() {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const selectPage = useGraphStore(selectSelectPage);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
+  const selectPage = useAppStore(selectSelectPage);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResultItem[]>([]);

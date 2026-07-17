@@ -15,8 +15,12 @@
 
 import { useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useGraphStore, selectSetActiveSection } from "../store/graphStore";
-import type { Section } from "../store/graphStore";
+import {
+  useAppStore,
+  selectSetActiveSection,
+  selectVaultId,
+  type Section,
+} from "../store/appStore";
 import { createConversation } from "../api/chatClient";
 import {
   useChatStore,
@@ -24,7 +28,6 @@ import {
   selectSetActiveConversationId,
   selectSetMessages,
 } from "../store/chatStore";
-import { useGraphStore as _useGraphStore, selectVaultId } from "../store/graphStore";
 import { showToast } from "../components/common/Toast";
 
 // First 5 sections in NavRail order (Cmd+1..5 mapping).
@@ -70,8 +73,8 @@ export function useGlobalShortcuts({
   onTogglePalette,
 }: UseGlobalShortcutsOptions): void {
   const { t } = useTranslation();
-  const setActiveSection = useGraphStore(selectSetActiveSection);
-  const vaultId = _useGraphStore(selectVaultId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
+  const vaultId = useAppStore(selectVaultId);
   const addConversation = useChatStore(selectAddConversation);
   const setActiveConversationId = useChatStore(selectSetActiveConversationId);
   const setMessages = useChatStore(selectSetMessages);

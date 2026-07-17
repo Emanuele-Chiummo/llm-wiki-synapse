@@ -26,7 +26,7 @@ import type {
   SourceCategory,
   SourceRoot,
 } from "../../api/sourcesClient";
-import { useGraphStore, selectSelectPage, selectSetActiveSection } from "../../store/graphStore";
+import { selectSelectPage, selectSetActiveSection, useAppStore } from "../../store/appStore";
 import { renderMarkdown } from "../chat/renderMarkdown";
 
 // ─── Category icon + label helpers ───────────────────────────────────────────
@@ -78,8 +78,8 @@ interface SourcePreviewProps {
 export function SourcePreview({ path, root = "sources" }: SourcePreviewProps) {
   const { t } = useTranslation();
 
-  const selectPage = useGraphStore(selectSelectPage);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const selectPage = useAppStore(selectSelectPage);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   const [content, setContent] = useState<SourceContentResponse | null>(null);
   const [derivedPages, setDerivedPages] = useState<SourceDerivedPage[]>([]);

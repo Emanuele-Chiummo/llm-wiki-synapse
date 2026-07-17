@@ -30,7 +30,7 @@ import type {
   CliAuthConfig,
   CliAuthUpdateRequest,
 } from "./types";
-import { ApiError } from "./graphClient";
+import { ApiError } from "./errors";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 

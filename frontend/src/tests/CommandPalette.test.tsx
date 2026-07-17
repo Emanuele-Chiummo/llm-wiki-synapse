@@ -51,8 +51,8 @@ vi.mock("react-i18next", () => ({
 const mockSetActiveSection = vi.fn();
 const mockSelectPage = vi.fn();
 
-vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
+vi.mock("../store/appStore", () => ({
+  useAppStore: (selector: (s: unknown) => unknown) =>
     selector({
       vaultId: "default",
       setActiveSection: mockSetActiveSection,
@@ -432,14 +432,11 @@ describe("useGlobalShortcuts — Cmd+1..5 section switch", () => {
     [3, "chat"],
     [4, "convert"],
     [5, "pages"],
-  ] as [number, string][])(
-    "Cmd+%i switches to section '%s'",
-    (digit, section) => {
-      render(<ShortcutHarness paletteOpen={false} onTogglePalette={vi.fn()} />);
-      fireEvent.keyDown(window, { key: String(digit), metaKey: true });
-      expect(mockSetActiveSection).toHaveBeenCalledWith(section);
-    },
-  );
+  ] as [number, string][])("Cmd+%i switches to section '%s'", (digit, section) => {
+    render(<ShortcutHarness paletteOpen={false} onTogglePalette={vi.fn()} />);
+    fireEvent.keyDown(window, { key: String(digit), metaKey: true });
+    expect(mockSetActiveSection).toHaveBeenCalledWith(section);
+  });
 
   it("ignores Cmd+1 when focus is inside an INPUT", () => {
     render(

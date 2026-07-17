@@ -138,25 +138,26 @@ const _mockSelectPage = vi.fn();
 const _mockSetActiveSection = vi.fn();
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (
+  useGraphStore: (selector: (s: { nodes: []; edges: [] }) => unknown) =>
+    selector({ nodes: [], edges: [] }),
+  selectNodes: (s: { nodes: [] }) => s.nodes,
+  selectEdges: (s: { edges: [] }) => s.edges,
+}));
+
+vi.mock("../store/appStore", () => ({
+  useAppStore: (
     selector: (s: {
       selectedNodeId: string | null;
-      nodes: [];
-      edges: [];
       selectPage: typeof _mockSelectPage;
       setActiveSection: typeof _mockSetActiveSection;
     }) => unknown,
   ) =>
     selector({
       selectedNodeId: _selectedNodeId,
-      nodes: [],
-      edges: [],
       selectPage: _mockSelectPage,
       setActiveSection: _mockSetActiveSection,
     }),
   selectSelectedNodeId: (s: { selectedNodeId: string | null }) => s.selectedNodeId,
-  selectNodes: (s: { nodes: [] }) => s.nodes,
-  selectEdges: (s: { edges: [] }) => s.edges,
   selectSelectPage: (s: { selectPage: typeof _mockSelectPage }) => s.selectPage,
   selectSetActiveSection: (s: { setActiveSection: typeof _mockSetActiveSection }) =>
     s.setActiveSection,

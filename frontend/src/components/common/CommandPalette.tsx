@@ -34,12 +34,12 @@ import { useTranslation } from "react-i18next";
 import { fetchAllPages } from "../../api/pagesClient";
 import type { PageListItem } from "../../api/types";
 import {
-  useGraphStore,
   selectVaultId,
   selectSetActiveSection,
   selectSelectPage,
-} from "../../store/graphStore";
-import type { Section } from "../../store/graphStore";
+  useAppStore,
+} from "../../store/appStore";
+import type { Section } from "../../store/appStore";
 
 // ─── Section definitions (mirrors NavRail order) ──────────────────────────────
 
@@ -53,19 +53,19 @@ interface SectionEntry {
 // All 13 navigable sections are listed so the palette covers Home, Convert and Projects
 // (previously missing). [FE-NAV-1]
 const ALL_SECTIONS: SectionEntry[] = [
-  { kind: "section", id: "home",        labelKey: "nav.home" },
-  { kind: "section", id: "sources",     labelKey: "nav.sources" },
-  { kind: "section", id: "chat",        labelKey: "nav.chat" },
-  { kind: "section", id: "convert",     labelKey: "nav.convert" },
-  { kind: "section", id: "pages",       labelKey: "nav.wiki" },
-  { kind: "section", id: "graph",       labelKey: "nav.graph" },
-  { kind: "section", id: "search",      labelKey: "nav.search" },
+  { kind: "section", id: "home", labelKey: "nav.home" },
+  { kind: "section", id: "sources", labelKey: "nav.sources" },
+  { kind: "section", id: "chat", labelKey: "nav.chat" },
+  { kind: "section", id: "convert", labelKey: "nav.convert" },
+  { kind: "section", id: "pages", labelKey: "nav.wiki" },
+  { kind: "section", id: "graph", labelKey: "nav.graph" },
+  { kind: "section", id: "search", labelKey: "nav.search" },
   { kind: "section", id: "deep-search", labelKey: "nav.deepSearch" },
-  { kind: "section", id: "review",      labelKey: "nav.review" },
-  { kind: "section", id: "lint",        labelKey: "nav.lint" },
-  { kind: "section", id: "ingest",      labelKey: "nav.ingest" },
-  { kind: "section", id: "settings",    labelKey: "nav.settings" },
-  { kind: "section", id: "projects",    labelKey: "nav.projects" },
+  { kind: "section", id: "review", labelKey: "nav.review" },
+  { kind: "section", id: "lint", labelKey: "nav.lint" },
+  { kind: "section", id: "ingest", labelKey: "nav.ingest" },
+  { kind: "section", id: "settings", labelKey: "nav.settings" },
+  { kind: "section", id: "projects", labelKey: "nav.projects" },
 ];
 
 // ─── Result union ─────────────────────────────────────────────────────────────
@@ -92,9 +92,9 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNode {
   const { t } = useTranslation();
-  const vaultId = useGraphStore(selectVaultId);
-  const setActiveSection = useGraphStore(selectSetActiveSection);
-  const selectPage = useGraphStore(selectSelectPage);
+  const vaultId = useAppStore(selectVaultId);
+  const setActiveSection = useAppStore(selectSetActiveSection);
+  const selectPage = useAppStore(selectSelectPage);
 
   const [query, setQuery] = useState("");
   const [pages, setPages] = useState<PageListItem[]>([]);
@@ -337,12 +337,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
           )}
 
           {results.length > 0 && (
-            <ResultList
-              results={results}
-              selectedIdx={clampedIdx}
-              t={t}
-              onSelect={openEntry}
-            />
+            <ResultList results={results} selectedIdx={clampedIdx} t={t} onSelect={openEntry} />
           )}
         </div>
 
@@ -380,9 +375,7 @@ function ResultList({ results, selectedIdx, t, onSelect }: ResultListProps): Rea
 
   return (
     <>
-      {hasSections && (
-        <GroupLabel label={t("palette.sections")} />
-      )}
+      {hasSections && <GroupLabel label={t("palette.sections")} />}
       {results.map((entry, idx) => {
         const isFirstPage = idx === firstPageIdx && hasSections && hasPages;
         return (
@@ -446,9 +439,7 @@ function ResultItem({ entry, isSelected, t, onSelect, idx }: ResultItemProps): R
         background: isSelected ? "var(--syn-accent-soft)" : "transparent",
         color: isSelected ? "var(--syn-accent)" : "var(--syn-text)",
         fontSize: 13,
-        borderLeft: isSelected
-          ? "2px solid var(--syn-accent)"
-          : "2px solid transparent",
+        borderLeft: isSelected ? "2px solid var(--syn-accent)" : "2px solid transparent",
         transition: "background 0.08s ease",
       }}
     >

@@ -53,7 +53,8 @@ import {
   type ConvertFileStatus,
 } from "../../api/convertClient";
 import { isTauri } from "../../api/base";
-import { useGraphStore, selectSetActiveSection } from "../../store/graphStore";
+import { selectSetActiveSection, useAppStore } from "../../store/appStore";
+import { usePollChain } from "../../hooks/usePollChain";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ export function ConvertPanel() {
   const { t } = useTranslation();
 
   // Navigation action (for "Apri" button — not ephemeral progress, I3 compliant)
-  const setActiveSection = useGraphStore(selectSetActiveSection);
+  const setActiveSection = useAppStore(selectSetActiveSection);
 
   // ── Pre-submit queue (component-local — I3) ─────────────────────────────────
   const [rows, setRows] = useState<FileRow[]>([]);
@@ -237,7 +238,6 @@ export function ConvertPanel() {
   const [markerStartError, setMarkerStartError] = useState<string | null>(null);
   const [showCmdField, setShowCmdField] = useState(false);
   const [cmdFieldValue, setCmdFieldValue] = useState("");
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollDeadlineRef = useRef<number>(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -245,65 +245,47 @@ export function ConvertPanel() {
   // Detect desktop context once (stable across renders)
   const isDesktop = isTauri();
 
-  // ── Polling effect — runs while `converting` is true ────────────────────────
+  // ── Polling — runs while `converting` is true (FE-ARCH-2: shared poll chain) ─
   //
-  // rt-4: setTimeout-chain pattern (I7 — no setInterval).
-  // Each next poll is scheduled only in the resolved callback of the current one,
-  // preventing concurrent in-flight requests. Immediate first call avoids the
-  // 2.5 s blank state after submit. The chain stops when the backend reports
-  // running = false (setConverting(false) → effect re-runs and returns early).
+  // Immediate first fetch avoids the 2.5 s blank state after submit. Continues
+  // on transient network errors (schedule next anyway). Stops as soon as the
+  // backend reports running = false (also updates history at that point).
+
+  const convertPoll = usePollChain<ConvertStatusResponse>({
+    fetch: (signal) => getConvertStatus(signal),
+    onResult: (status) => {
+      setPollStatus(status);
+      if (!status.running) {
+        // Batch finished — update history and stop (do NOT schedule next)
+        setConverting(false);
+        const newEntries: HistoryEntry[] = status.files.map((f) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${f.safe_stem}`,
+          filename: f.file,
+          safe_stem: f.safe_stem,
+          timestamp: Date.now(),
+          status: f.status === "ok" ? "ok" : "failed",
+          companion_path: f.companion_path,
+        }));
+        setHistory((prev) => {
+          const next = [...newEntries, ...prev].slice(0, MAX_HISTORY);
+          saveHistory(next);
+          return next;
+        });
+      }
+    },
+    intervalFor: (status) => (status.running ? POLL_INTERVAL_MS : null),
+    // Network hiccup — keep retrying at the same cadence rather than giving up.
+    errorIntervalFor: () => POLL_INTERVAL_MS,
+    initialDelayMs: 0,
+  });
 
   useEffect(() => {
-    if (!converting) return;
-
-    let mounted = true;
-    let timerId: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleNext = () => {
-      if (!mounted) return;
-      timerId = setTimeout(() => {
-        void doPoll();
-      }, POLL_INTERVAL_MS);
-    };
-
-    const doPoll = async () => {
-      if (!mounted) return;
-      try {
-        const status = await getConvertStatus();
-        if (!mounted) return;
-        setPollStatus(status);
-
-        if (!status.running) {
-          // Batch finished — update history and stop (do NOT schedule next)
-          setConverting(false);
-          const newEntries: HistoryEntry[] = status.files.map((f) => ({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${f.safe_stem}`,
-            filename: f.file,
-            safe_stem: f.safe_stem,
-            timestamp: Date.now(),
-            status: f.status === "ok" ? "ok" : "failed",
-            companion_path: f.companion_path,
-          }));
-          setHistory((prev) => {
-            const next = [...newEntries, ...prev].slice(0, MAX_HISTORY);
-            saveHistory(next);
-            return next;
-          });
-          return; // chain ends here
-        }
-      } catch {
-        // Network hiccup — schedule next anyway so we keep retrying
-      }
-      scheduleNext();
-    };
-
-    // Immediate first poll (avoids 2.5 s blank state after submit)
-    void doPoll();
-
-    return () => {
-      mounted = false;
-      if (timerId !== null) clearTimeout(timerId);
-    };
+    if (converting) {
+      convertPoll.start();
+    } else {
+      convertPoll.stop();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [converting]);
 
   // ── Marker health poll on mount ──────────────────────────────────────────────
@@ -320,20 +302,28 @@ export function ConvertPanel() {
     void fetchHealth();
   }, [fetchHealth]);
 
-  // ── Stop Marker spawn poll helper ────────────────────────────────────────────
+  // ── Marker spawn poll (FE-ARCH-2: shared setTimeout-chain primitive) [R12-6] ─
+  // Polls health every MARKER_POLL_INTERVAL_MS up to MARKER_POLL_TIMEOUT_MS
+  // (wall-clock deadline checked before every tick via `shouldContinue`).
 
-  const stopMarkerPoll = useCallback(() => {
-    if (pollTimerRef.current !== null) {
-      clearTimeout(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      stopMarkerPoll();
-    };
-  }, [stopMarkerPoll]);
+  const markerPoll = usePollChain<MarkerHealthResponse>({
+    fetch: (signal) => getMarkerHealth(signal),
+    onResult: (h) => {
+      if (h.status === "ok") {
+        setHealth(h);
+        setHealthLoading(false);
+        setMarkerStarting(false);
+        setMarkerStartError(null);
+      }
+    },
+    intervalFor: (h) => (h.status === "ok" ? null : MARKER_POLL_INTERVAL_MS),
+    shouldContinue: () => Date.now() <= pollDeadlineRef.current,
+    onGiveUp: () => {
+      setMarkerStarting(false);
+      setMarkerStartError(t("convert.startMarkerError"));
+    },
+    initialDelayMs: MARKER_POLL_INTERVAL_MS,
+  });
 
   // ── Spawn + poll logic [R12-6] ───────────────────────────────────────────────
 
@@ -354,35 +344,9 @@ export function ConvertPanel() {
       }
 
       pollDeadlineRef.current = Date.now() + MARKER_POLL_TIMEOUT_MS;
-
-      // rt-4: setTimeout-chain pattern (I7 — no setInterval).
-      // Next poll is scheduled only after the current one resolves.
-      const schedulePoll = () => {
-        pollTimerRef.current = setTimeout(() => {
-          if (Date.now() > pollDeadlineRef.current) {
-            stopMarkerPoll();
-            setMarkerStarting(false);
-            setMarkerStartError(t("convert.startMarkerError"));
-            return; // chain ends — deadline expired
-          }
-
-          void getMarkerHealth().then((h) => {
-            if (h.status === "ok") {
-              stopMarkerPoll();
-              setHealth(h);
-              setHealthLoading(false);
-              setMarkerStarting(false);
-              setMarkerStartError(null);
-              // chain ends — Marker is online
-            } else {
-              schedulePoll(); // schedule next only on still-offline response
-            }
-          });
-        }, MARKER_POLL_INTERVAL_MS);
-      };
-      schedulePoll();
+      markerPoll.start();
     },
-    [stopMarkerPoll, t],
+    [markerPoll],
   );
 
   // ── "Avvia Marker" button handler [R12-6] ────────────────────────────────────

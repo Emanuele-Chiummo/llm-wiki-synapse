@@ -2,11 +2,13 @@
  * status-poll-cadence.test.ts — 1.8.1 (RT-1): the /status poll cadence must be fast while the
  * queue is doing work (so data_version, and thus the dashboard KPIs + graph, stay live) and fall
  * back to the idle interval otherwise.
+ *
+ * FE-ARCH-3: statusPollDelayMs now lives in statusStore.ts (the poll's new owner).
  */
 
 import { describe, it, expect } from "vitest";
 import type { IngestQueueSnapshot } from "../api/types";
-import { statusPollDelayMs } from "../components/activity/ActivityBar";
+import { statusPollDelayMs } from "../store/statusStore";
 
 function snap(overrides: Partial<IngestQueueSnapshot>): IngestQueueSnapshot {
   return { processing: 0, pending: 0, paused: false, tasks: [], ...overrides } as IngestQueueSnapshot;
