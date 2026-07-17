@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   type CSSProperties,
@@ -392,6 +393,14 @@ export function NavTree({ vaultId }: NavTreeProps) {
 
   // New page modal state (R7-2)
   const [showNewPageModal, setShowNewPageModal] = useState(false);
+
+  // Listen for the synapse:newPage event dispatched by CommandPalette's "New page"
+  // action — same pattern as synapse:openPalette / synapse:openWizard.
+  useEffect(() => {
+    const handler = () => setShowNewPageModal(true);
+    window.addEventListener("synapse:newPage", handler);
+    return () => window.removeEventListener("synapse:newPage", handler);
+  }, []);
 
   // WS-D8: meta file drawer state — null = closed
   const [openMetaFile, setOpenMetaFile] = useState<VaultMetaFile | null>(null);
