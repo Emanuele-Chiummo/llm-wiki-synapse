@@ -1346,6 +1346,11 @@
 <td><a href="0084-single-shot-complete-transport/">Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079</a></td>
 <td>Accepted</td>
 </tr>
+<tr>
+<td><strong>0085</strong></td>
+<td><a href="0085-ingest-nonconvergence-diagnostics/">Ingest non-convergence diagnostics + on-demand live-smoke lane (v1.9.1 W5, NC-1) — <code>ingest_runs.diagnostics</code> (migration 0035) persists stop_reason/last_errors/tokens; UI surfaces "why it didn't converge"; <code>live</code> pytest marker excluded by default (addopts), run via new workflow_dispatch-only <code>live-smoke.yml</code>; retry-with-injected-context deferred (no seam exists yet)</a></td>
+<td>Accepted</td>
+</tr>
 </tbody>
 </table>
 <hr />
