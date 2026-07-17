@@ -142,8 +142,7 @@ async def _run(args: argparse.Namespace) -> None:  # noqa: PLR0912, PLR0915
         )
     if not args.vault_root:
         raise SystemExit(
-            "ERROR: provide --vault-root or set VAULT_ROOT.\n"
-            "Example: VAULT_ROOT=/path/to/vault"
+            "ERROR: provide --vault-root or set VAULT_ROOT.\n" "Example: VAULT_ROOT=/path/to/vault"
         )
 
     vault_root = Path(args.vault_root).resolve()
@@ -207,9 +206,7 @@ async def _run(args: argparse.Namespace) -> None:  # noqa: PLR0912, PLR0915
     async with engine.connect() as conn:
         while True:
             if max_pages and total_scanned >= max_pages:
-                print(
-                    f"[backfill] reached --max-pages={max_pages}; stopping early."
-                )
+                print(f"[backfill] reached --max-pages={max_pages}; stopping early.")
                 break
 
             # Build query
@@ -259,10 +256,7 @@ async def _run(args: argparse.Namespace) -> None:  # noqa: PLR0912, PLR0915
                 abs_path = vault_root / file_path_rel
                 if not abs_path.is_file():
                     total_skipped_missing += 1
-                    print(
-                        f"[backfill] SKIP (file missing): {file_path_rel!r} "
-                        f"(id={page_id})"
-                    )
+                    print(f"[backfill] SKIP (file missing): {file_path_rel!r} " f"(id={page_id})")
                     continue
 
                 try:
