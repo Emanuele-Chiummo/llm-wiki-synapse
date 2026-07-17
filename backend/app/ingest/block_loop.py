@@ -19,8 +19,12 @@ Provider- and persistence-agnostic: it takes a bound provider + a run-scoped ``U
 and returns a :class:`BlockLoopResult`. Writing pages is the pipeline's job (via
 ``app.ingest.block_writer``).
 
-TODO(ADR-0076 follow-up): long-source chunked analysis (llm_wiki §1.6 ``analyzeLongSourceInChunks``)
-is OUT OF SCOPE for this PR — the analysis is a single whole-source pass.
+Stage 1 (analysis) is CHUNKED for long sources (1.9.4 W1, PF-LONGSRC-1): above
+``ingest_long_source_char_threshold`` characters, the source is split (reusing
+``app.ingest.long_source.split_into_chunks``/``bounded_chunks``) and analyzed per bounded chunk,
+then the free-markdown analyses are merged (``app.ingest.long_source.merge_analysis_texts``) before
+Stage 2 runs — see :func:`_analyze_block_source`. Below the threshold this is IDENTICAL to the
+pre-1.9.4 single-call path (no code path change, no overhead) — the common case.
 """
 
 from __future__ import annotations
@@ -32,10 +36,17 @@ from dataclasses import dataclass, field
 
 import frontmatter
 
+from app.config import settings
 from app.ingest import blocks as _blocks
 from app.ingest import prompts as _prompts
 from app.ingest import sanitize as _sanitize
 from app.ingest.blocks import FileBlock, ReviewBlock
+from app.ingest.long_source import (
+    bounded_chunks,
+    chunk_overlap_chars,
+    merge_analysis_texts,
+    split_into_chunks,
+)
 from app.ingest.loop import IngestCancelled
 from app.ingest.provider.base import (
     InferenceProvider,
@@ -191,6 +202,124 @@ def _validate_block_batch(file_blocks: list[FileBlock], routing: dict[str, str])
     return errors
 
 
+async def _analyze_block_source(
+    *,
+    provider: InferenceProvider,
+    accumulator: UsageAccumulator,
+    source_text: str,
+    origin_source: str,
+    analysis_system: str,
+    token_budget: int,
+) -> str:
+    """Stage 1 analysis, chunked for long sources (1.9.4 W1, PF-LONGSRC-1 — block twin of
+    ``app.ingest.long_source.analyze_source``).
+
+    Below ``ingest_long_source_char_threshold`` this is IDENTICAL to the single-call path (one
+    ``complete()`` call over the whole source) — the common case, unchanged. Above threshold, the
+    source is split into bounded chunks (reusing ``split_into_chunks``/``bounded_chunks`` — same
+    I7 hard-cap on chunk count as the JSON loop), each chunk is analyzed with its own
+    ``complete()`` call THROUGH THE SAME RETRY SEAM (``_complete_with_retry``) as the whole-source
+    path, and the resulting free-markdown analyses are merged
+    (``app.ingest.long_source.merge_analysis_texts``) into one text Stage 2 consumes exactly like
+    a single-call analysis.
+
+    Bounded (I7): capped chunk count (``ingest_long_source_max_chunks``) AND a pre-call
+    ``token_budget`` check before every chunk — once the budget is exhausted, no further chunk
+    calls are made and whatever was analyzed so far is merged (a partial-but-bounded analysis
+    beats an unbounded one). A single transient failure on a chunk keeps the prior chunks'
+    results (degrade-safe, mirroring the JSON loop); if NO chunk produces output, falls back to
+    one whole-source ``complete()`` call.
+
+    No on-disk checkpoint here (unlike the JSON loop's ``analyze_source``): that checkpoint
+    persists a list of STRUCTURED ``Analysis`` objects (topics/entities/summary fields) keyed by
+    source hash. The block loop's analysis is free markdown text with a different shape entirely
+    — reusing the same checkpoint file/format would let a mid-project ingest-pipeline-format
+    switch (json <-> block) silently misparse a stale checkpoint (the loader would just discard it
+    on shape mismatch, but it is cleaner not to share the file at all). The block loop's
+    generation stage already has its own bounded retry-with-augment loop for the far more
+    expensive generation calls, and the analysis chunk count is hard-capped, so an interrupted run
+    simply re-analyzes on the next attempt rather than resuming — an acceptable, documented
+    trade-off given how much smaller/cheaper analysis chunk calls are than generation calls.
+    """
+    threshold = int(settings.ingest_long_source_char_threshold)
+
+    async def _single_call() -> str:
+        return await _complete_with_retry(
+            provider,
+            analysis_system,
+            _prompts.build_analysis_user(source_identity=origin_source, source_context=source_text),
+            max_tokens=_ANALYSIS_MAX_TOKENS,
+            accumulator=accumulator,
+            token_budget=token_budget,
+            label="analysis",
+            empty_ok=False,
+        )
+
+    if threshold <= 0 or len(source_text) <= threshold:
+        return await _single_call()
+
+    target_chars = int(settings.ingest_long_source_chunk_chars)
+    raw_chunks = split_into_chunks(source_text, target_chars, chunk_overlap_chars(target_chars))
+    if len(raw_chunks) <= 1:
+        # Below the paragraph structure needed to chunk meaningfully → single-call path.
+        return await _single_call()
+
+    max_chunks = max(1, int(settings.ingest_long_source_max_chunks))
+    chunks = bounded_chunks(source_text, target_chars, max_chunks, label="block loop analysis")
+    chunk_total = len(chunks)
+
+    analyses: list[str] = []
+    for idx, chunk in enumerate(chunks):
+        if accumulator.total_tokens >= token_budget:
+            logger.info(
+                "block loop: token_budget %d reached before analysis chunk %d/%d — stop",
+                token_budget,
+                idx + 1,
+                chunk_total,
+            )
+            break
+        chunk_identity = f"{origin_source} (section {idx + 1}/{chunk_total})"
+        try:
+            chunk_text = await _complete_with_retry(
+                provider,
+                analysis_system,
+                _prompts.build_analysis_user(source_identity=chunk_identity, source_context=chunk),
+                max_tokens=_ANALYSIS_MAX_TOKENS,
+                accumulator=accumulator,
+                token_budget=token_budget,
+                label=f"analysis chunk {idx + 1}/{chunk_total}",
+                empty_ok=True,
+            )
+        except ProviderTransientError as exc:  # noqa: PERF203 — degrade: keep prior chunks.
+            logger.warning(
+                "block loop: analysis chunk %d/%d failed (%s) — merging %d prior chunk(s)",
+                idx + 1,
+                chunk_total,
+                exc,
+                len(analyses),
+            )
+            break
+        if chunk_text.strip():
+            analyses.append(chunk_text.strip())
+
+    if not analyses:
+        logger.warning(
+            "block loop: no analysis chunk produced output — falling back to single whole-source "
+            "call"
+        )
+        return await _single_call()
+
+    merged = merge_analysis_texts(analyses)
+    logger.info(
+        "block loop: merged %d/%d analysis chunk(s) (%d chars) for %s",
+        len(analyses),
+        chunk_total,
+        len(merged),
+        origin_source,
+    )
+    return merged
+
+
 def _dedupe_reviews(reviews: list[ReviewBlock]) -> list[ReviewBlock]:
     """De-duplicate REVIEW blocks by ``(type, title)`` (order-preserving)."""
     seen: set[tuple[str, str]] = set()
@@ -235,7 +364,7 @@ async def run_block_loop(
     provider.bind_accumulator(accumulator)
     routing = parse_page_type_routing(schema)
 
-    # ── Stage 1: markdown analysis (single whole-source pass; chunking is a TODO) ──────
+    # ── Stage 1: markdown analysis (chunked for long sources — 1.9.4 W1, PF-LONGSRC-1) ──
     if on_phase is not None:
         on_phase("analyzing")
     analysis_system = _prompts.build_analysis_prompt(
@@ -245,18 +374,13 @@ async def run_block_loop(
         schema=schema,
         language_name=language_name,
     )
-    analysis_user = _prompts.build_analysis_user(
-        source_identity=origin_source, source_context=source_text
-    )
-    analysis_text = await _complete_with_retry(
-        provider,
-        analysis_system,
-        analysis_user,
-        max_tokens=_ANALYSIS_MAX_TOKENS,
+    analysis_text = await _analyze_block_source(
+        provider=provider,
         accumulator=accumulator,
+        source_text=source_text,
+        origin_source=origin_source,
+        analysis_system=analysis_system,
         token_budget=token_budget,
-        label="analysis",
-        empty_ok=False,
     )
 
     # ── Stage 2: bounded generation loop ──────────────────────────────────────────────
