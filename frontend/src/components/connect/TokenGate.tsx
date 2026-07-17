@@ -139,7 +139,8 @@ export function TokenGate({ onSuccess }: TokenGateProps) {
               right: 0,
               height: 3,
               borderRadius: "16px 16px 0 0",
-              background: "linear-gradient(90deg, #2563eb 0%, #8250df 100%)",
+              background:
+                "linear-gradient(90deg, var(--syn-accent, #2563eb) 0%, var(--syn-accent2, #7c3aed) 100%)",
               pointerEvents: "none",
             }}
           />
