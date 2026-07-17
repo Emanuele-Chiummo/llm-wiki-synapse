@@ -52,6 +52,7 @@ import {
   selectFetchProviderList,
 } from "../store/providerStore";
 import { useStatusStore, selectStartStatusPolling } from "../store/statusStore";
+import { useEventsStore, selectStartEventsStream } from "../store/eventsStore";
 import { useShallow } from "zustand/react/shallow";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
@@ -100,6 +101,16 @@ export function AppShell() {
     const stop = startStatusPolling();
     return stop;
   }, [startStatusPolling]);
+
+  // 1.9.3 W1 (FE-RT-2): GET /events SSE push channel — ADDITIVE, runs alongside every
+  // REST poller above (never a replacement). Started once here, same lifecycle as the
+  // /status poll; statusStore/activityStore relax their own cadence while this stream
+  // is healthy (see eventsStore.ts docstring) but keep polling forever regardless.
+  const startEventsStream = useEventsStore(selectStartEventsStream);
+  useEffect(() => {
+    const stop = startEventsStream();
+    return stop;
+  }, [startEventsStream]);
 
   // ── First-run wizard (A2.2) ────────────────────────────────────────────────
   // Prime the shared provider store for the shell. The wizard no longer treats
