@@ -7,6 +7,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.0.0] — 2026-07-17 — "one engine"
+
+The v2.0 train's destination release — three intentional, SemVer-major breaking changes that
+1.9.x spent five releases preparing the ground for, plus a security hardening pass, a
+documentation-truth pass, and an open-source-readiness pass ahead of wider publication. No
+schema migrations this release, deliberately: all schema work landed in 1.9.x with backups
+already active, so rollback is simply redeploying the 1.9.4 images.
+
+### Breaking changes
+
+- **Legacy JSON ingest pipeline removed** (`app/ingest/loop.py` deleted, `ingest_pipeline_format`
+  config key gone). The block-based pipeline — the only path since 1.9.4 gained chunked-analysis
+  support for long sources — is now the sole ingest engine; there is no rollback lever left to
+  flip. `enrich_wikilinks` (already dead per ADR-0076) removed alongside it. Anyone who had
+  `ingest_pipeline_format="json"` set must remove it; the block engine is a strict superset of
+  what the JSON path did.
+- **Compatibility facades dissolved**: the `app.ingest.orchestrator` module's ~40-symbol
+  re-export surface (kept since 1.7.0 so the test suite's monkeypatches and any external importer
+  kept resolving through one module) and the `app.main.<name>` aliases (kept since 1.9.2) are
+  both gone. Production code and the full test suite (3107 tests, same count as before —
+  patches were relocated, not deleted) now import every symbol from its real home:
+  `app.ingest.pipeline` / `app.ingest.writer` / `app.ingest.context` for the ingest siblings,
+  `app.runtime_state` for the former `app.main.*` aliases. External integrators who imported
+  through either facade must update their import paths.
+- **Stable JSON error envelope** (ADR-0086): every error response — from a raised `SynapseError`,
+  a Pydantic `RequestValidationError`, or a raw `HTTPException` — now returns
+  `{"error": {"code", "message", "status", "details"}}` instead of the ad-hoc `{"detail": ...}`
+  FastAPI produces by default. `code` is a stable, mechanically-derived snake_case slug
+  (`NotFoundError` → `not_found`) that is now a public contract for the frontend, MCP clients,
+  and any external API consumer. The frontend's single `checkResponse()` choke point (extracted
+  in 1.9.2 for exactly this kind of change) and ~13 API clients were migrated to parse the new
+  shape; `ApiError` gained a `code` field so callers can branch on stable codes instead of
+  parsing message strings.
+
+### Added
+
+- **W-FE — 11 curated frontend-audit findings**: a semantic `<main>` landmark + skip-to-content
+  link; keyboard access for the vault-switch and provider-accordion controls (previously
+  click-only); a "New page" command-palette action; a frontend import-layering ESLint rule
+  (`api/*` may not import `store/*`) mirroring the backend's import-linter contracts; `prettier
+  format:check` wired into CI (repo was already 100% compliant — zero reformat diff).
+- **Content-Security-Policy** (ADR-0087, SEC-CSP-1): `script-src 'self'` with no `unsafe-inline`/
+  `unsafe-eval` — verified by a new Playwright suite asserting zero CSP violations across Home,
+  Chat (including live KaTeX math rendering), Graph, Wiki, and Settings, in both themes.
+  `style-src 'unsafe-inline'` is required and documented as a genuine constraint (KaTeX's
+  `htmlAndMathml` output mode, React's `style={{}}` props, and `index.html`'s inline reset all
+  depend on it) — not a shortcut; `script-src` stays fully locked down since the production
+  build emits no inline scripts.
+
+### Fixed
+
+- **Two real bugs from the W-FE audit**: `GraphViewer`'s diff-in-place refresh no longer leaves
+  stale nodes on screen when a background `/graph` refetch legitimately returns zero nodes (e.g.
+  after a cascade-delete emptied the vault); `statusStore.setDataVersion` now has a monotonic
+  guard so an in-flight REST response can no longer overwrite a more recent value SSE already
+  pushed. Both shipped with regression tests that were verified to actually fail against the
+  pre-fix code.
+- **Personal paths and a stale placeholder repo URL** found and redacted during the
+  open-source-readiness pass, ahead of wider publication.
+
+### Documentation
+
+- **C4 architecture diagrams (D1)** rewritten from a ~20-release-stale v0.4 baseline to reflect
+  the current module boundaries (the dissolved facades, the single block-loop engine, the error
+  envelope).
+- **USER.md / DEPLOY.md** updated to 2.0.0 with explicit migration notes for all three breaking
+  changes.
+- **`test_docs.py`** strengthened from a shallow existence check into a real freshness harness:
+  12 new assertions that fail if a doc references a deleted module, an old error shape, or a
+  stale version header — so the next major release's doc-truth pass starts from a real gate,
+  not a fresh audit.
+- **ADR-0086** (stable error envelope) and **ADR-0087** (CSP policy) added to the index.
+
+### Known follow-ups (not in this release)
+
+- **iOS 2.0 GA deferred to 2.0.1.** The parallel iOS redesign track's Fase A (design foundation)
+  and Fase B (core surfaces) — planned to run alongside 1.9.3/1.9.4 — never started this train;
+  there is no foundation yet for a GA flagship. Per the plan's own risk mitigation for exactly
+  this scenario, 2.0.0 ships without it rather than block the core breaking changes; the existing
+  native iOS client on `main` continues to work unchanged against the 2.0.0 API. iOS work resumes
+  as its own dedicated track.
+- **`_resolve_fallback_provider_config()` in `app/ingest/pipeline.py` is now dead code** — its
+  only call site (the JSON loop's provider-fallback branch) was removed in this release's
+  pipeline deletion, but the function definition itself was not caught by that pass since it
+  still has other superficial references. Confirmed unreachable; scheduled for cleanup, not a
+  behavior risk.
+- **Ollama provider doesn't handle "thinking"-capable local models' empty-content responses**
+  (found live during the 1.9.4 release-test, not introduced this release) — flagged as a
+  separate follow-up task, not fixed here.
+
 ## [1.9.4] — 2026-07-17 — "completion pack"
 
 Fifth release of the v2.0 train — the last of the refactor/feature "completion" set before
