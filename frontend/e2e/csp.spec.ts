@@ -318,7 +318,10 @@ test.describe("CSP violations — LIGHT theme (AC-CSP-5)", () => {
 
     await navTo(page, "pages");
     const navTree = page.getByTestId("nav-tree").first();
-    await expect(navTree).toBeVisible({ timeout: 10_000 });
+    // 20s (not 10s): CI runners under concurrent-worker load have shown this element
+    // taking longer than 10s to mount — matches the timeout budget already used for
+    // the graph-canvas wait elsewhere in this same suite (AC-CSP-8).
+    await expect(navTree).toBeVisible({ timeout: 20_000 });
     await page.waitForTimeout(500);
 
     // Click first page row to exercise the preview panel and note rendering.
@@ -517,7 +520,10 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // Navigate to the wiki/pages section.
     await navTo(page, "pages");
     const navTree = page.getByTestId("nav-tree").first();
-    await expect(navTree).toBeVisible({ timeout: 10_000 });
+    // 20s (not 10s): CI runners under concurrent-worker load have shown this element
+    // taking longer than 10s to mount — matches the timeout budget already used for
+    // the graph-canvas wait elsewhere in this same suite (AC-CSP-8).
+    await expect(navTree).toBeVisible({ timeout: 20_000 });
 
     // Click the math test page row.
     const mathRow = page.locator(".nav-tree__page-row").first();
@@ -591,7 +597,7 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     await setTheme(page, "dark");
 
     await navTo(page, "pages");
-    await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
 
     const mathRow = page.locator(".nav-tree__page-row").first();
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
