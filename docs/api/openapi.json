@@ -7127,6 +7127,18 @@
             ],
             "title": "Source",
             "description": "Optional source hint for the YAML frontmatter sources[] field. Defaults to the url when omitted."
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "Target vault identifier (W5 / PF-MCP-VAULT-1). Defaults to the active vault when omitted. Clips to a non-active vault are rejected (400) \u2014 activate the vault first."
           }
         },
         "type": "object",
