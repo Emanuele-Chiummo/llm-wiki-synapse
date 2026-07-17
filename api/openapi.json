@@ -3366,6 +3366,111 @@
         ]
       }
     },
+    "/config/api-tokens": {
+      "get": {
+        "summary": "List active API tokens",
+        "description": "Lists non-revoked api_tokens rows \u2014 label, scope, read_only, last_used_at, created_at. NEVER includes the secret or its hash. PF-AUTH-1 (1.9.4 W4).",
+        "operationId": "list_api_tokens_config_api_tokens_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create a scoped API token",
+        "description": "Generates a new bearer secret (secrets.token_urlsafe), persists only its PBKDF2-SHA256 hash (app.runtime_state.hash_token), and returns the PLAINTEXT secret exactly once in this response. It is unrecoverable after that \u2014 losing it means creating a new token and revoking this one. vault_id=null (default) creates a global token; a non-null vault_id scopes the token to that vault (rejected as an invalid token on any other vault_id). read_only=true restricts the token to GET/HEAD/OPTIONS requests. PF-AUTH-1 (1.9.4 W4).",
+        "operationId": "create_api_token_config_api_tokens_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiTokenCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiTokenCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/config/api-tokens/{token_id}": {
+      "delete": {
+        "summary": "Revoke an API token",
+        "description": "Soft-deletes the row (revoked_at = now()) and removes it from the in-process ApiTokenCache immediately \u2014 the token stops working on the very next request. 404 if the id does not exist or is already revoked. PF-AUTH-1 (1.9.4 W4).",
+        "operationId": "revoke_api_token_config_api_tokens__token_id__delete",
+        "parameters": [
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Token Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/conversations": {
       "get": {
         "summary": "List chat conversations for a vault",
@@ -5793,6 +5898,164 @@
         ],
         "title": "ActivateResponse",
         "description": "Response for POST /projects/{id}/activate \u2014 the now-active project + reload epoch."
+      },
+      "ApiTokenCreateRequest": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "description": "Human-readable description of what this token is used for."
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id",
+            "description": "NULL (default) = global token, valid for any vault this backend serves. Non-NULL = the token is only accepted when it equals this backend instance's settings.vault_id at request time; a mismatch is rejected as an invalid token."
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only",
+            "description": "True = the token may only be used for GET/HEAD/OPTIONS requests; any other HTTP method is rejected with 403.",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "title": "ApiTokenCreateRequest",
+        "description": "Request body for POST /config/api-tokens (PF-AUTH-1)."
+      },
+      "ApiTokenCreateResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Row id \u2014 pass this to DELETE /config/api-tokens/{id}."
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id"
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "The plaintext bearer secret. Shown ONE TIME ONLY \u2014 copy it now. NEVER returned again by any endpoint, NEVER logged."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "vault_id",
+          "read_only",
+          "created_at",
+          "token"
+        ],
+        "title": "ApiTokenCreateResponse",
+        "description": "Response body for POST /config/api-tokens (PF-AUTH-1).\n\n``token`` is the PLAINTEXT secret \u2014 shown exactly once, here, and never again. The\ncaller MUST copy it now; only its PBKDF2 hash is persisted (app.models.ApiToken)."
+      },
+      "ApiTokenListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "vault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vault Id"
+          },
+          "read_only": {
+            "type": "boolean",
+            "title": "Read Only"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "vault_id",
+          "read_only",
+          "created_at",
+          "last_used_at"
+        ],
+        "title": "ApiTokenListItem",
+        "description": "One row in GET /config/api-tokens (PF-AUTH-1). NEVER includes the secret/hash."
+      },
+      "ApiTokenListResponse": {
+        "properties": {
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/ApiTokenListItem"
+            },
+            "type": "array",
+            "title": "Tokens"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tokens"
+        ],
+        "title": "ApiTokenListResponse",
+        "description": "Response body for GET /config/api-tokens (PF-AUTH-1)."
       },
       "AppConfigListResponse": {
         "properties": {
