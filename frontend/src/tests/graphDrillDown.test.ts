@@ -99,7 +99,11 @@ describe("CommunityDetail shape contract (R9-5 wire format)", () => {
   });
 
   it("cohesion_warning=true when cohesion is below threshold (< 0.1)", () => {
-    const lowCohesion: CommunityDetail = { ...COMMUNITY_DETAIL, cohesion: 0.05, cohesion_warning: true };
+    const lowCohesion: CommunityDetail = {
+      ...COMMUNITY_DETAIL,
+      cohesion: 0.05,
+      cohesion_warning: true,
+    };
     expect(lowCohesion.cohesion_warning).toBe(true);
   });
 });
@@ -110,9 +114,21 @@ describe("fetchCommunityDetail — 409 graph cache cold (AC-R9-5-409)", () => {
   it("throws ApiError(409) when server returns 409", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse({ detail: "Graph cache cold — regenerate first" }, 409),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            {
+              error: {
+                code: "conflict",
+                message: "Graph cache cold — regenerate first",
+                status: 409,
+                details: null,
+              },
+            },
+            409,
+          ),
+        ),
     );
 
     const err = await fetchCommunityDetail(2).catch((e: unknown) => e);
@@ -123,9 +139,16 @@ describe("fetchCommunityDetail — 409 graph cache cold (AC-R9-5-409)", () => {
   it("error message contains 409", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse({ detail: "Graph cache cold" }, 409),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            {
+              error: { code: "conflict", message: "Graph cache cold", status: 409, details: null },
+            },
+            409,
+          ),
+        ),
     );
 
     try {
@@ -201,9 +224,14 @@ describe("fetchEdgeDetail — 404 edge not found", () => {
   it("throws ApiError(404) when edge does not exist", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        jsonResponse({ detail: "Edge not found" }, 404),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            { error: { code: "not_found", message: "Edge not found", status: 404, details: null } },
+            404,
+          ),
+        ),
     );
 
     const err = await fetchEdgeDetail("src-1", "tgt-2").catch((e: unknown) => e);

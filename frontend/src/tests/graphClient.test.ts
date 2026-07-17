@@ -126,10 +126,7 @@ describe("fetchGraph — X-Graph-Cache header parsing", () => {
   });
 
   it("records cacheStatus = 'unknown' when header is absent", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(makeMockResponse(GRAPH_RESPONSE, 200, null)),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(makeMockResponse(GRAPH_RESPONSE, 200, null)));
 
     const result = await fetchGraph("v");
     expect(result.cacheStatus).toBe("unknown");
@@ -140,10 +137,15 @@ describe("fetchGraph — X-Graph-Cache header parsing", () => {
 
 describe("fetchGraph — error handling", () => {
   it("throws ApiError with status 404 for not-found responses", async () => {
-    const errorResponse = new Response(JSON.stringify({ detail: "Vault not found" }), {
-      status: 404,
-      headers: { "Content-Type": "application/json" },
-    });
+    const errorResponse = new Response(
+      JSON.stringify({
+        error: { code: "not_found", message: "Vault not found", status: 404, details: null },
+      }),
+      {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(errorResponse));
 
     await expect(fetchGraph("missing")).rejects.toThrow(ApiError);

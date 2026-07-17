@@ -24,10 +24,7 @@ import {
   IngestAllRunningError,
   ingestAllSources,
 } from "../api/sourcesClient";
-import type {
-  SourceDeleteResponse,
-  SourceDeleteFolderResponse,
-} from "../api/sourcesClient";
+import type { SourceDeleteResponse, SourceDeleteFolderResponse } from "../api/sourcesClient";
 import { ApiError } from "../api/graphClient";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -79,7 +76,10 @@ describe("sourcesClient — SourceDeleteResponse type [Fix #4]", () => {
   });
 
   it("deleteSource throws ApiError on non-ok response", async () => {
-    const fetchMock = mockFetch({ detail: "File not found" }, 404);
+    const fetchMock = mockFetch(
+      { error: { code: "not_found", message: "File not found", status: 404, details: null } },
+      404,
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(deleteSource("missing.md")).rejects.toBeInstanceOf(ApiError);
@@ -119,7 +119,10 @@ describe("sourcesClient — SourceDeleteFolderResponse type [Fix #4]", () => {
   });
 
   it("deleteFolderSource throws ApiError on 409 (exceeds max-files cap)", async () => {
-    const fetchMock = mockFetch({ detail: "Too many files" }, 409);
+    const fetchMock = mockFetch(
+      { error: { code: "conflict", message: "Too many files", status: 409, details: null } },
+      409,
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(deleteFolderSource("huge-dir/")).rejects.toBeInstanceOf(ApiError);
@@ -131,9 +134,7 @@ describe("sourcesClient — SourceDeleteFolderResponse type [Fix #4]", () => {
 describe("sourcesClient — listSources", () => {
   it("GETs /sources and returns SourceListResponse", async () => {
     const fetchMock = mockFetch({
-      entries: [
-        { path: "doc.md", name: "doc.md", is_dir: false, ext: ".md", size_bytes: 1024 },
-      ],
+      entries: [{ path: "doc.md", name: "doc.md", is_dir: false, ext: ".md", size_bytes: 1024 }],
       total: 1,
       truncated: false,
     });
@@ -149,7 +150,10 @@ describe("sourcesClient — listSources", () => {
   });
 
   it("throws ApiError on non-ok response", async () => {
-    const fetchMock = mockFetch({ detail: "Server error" }, 500);
+    const fetchMock = mockFetch(
+      { error: { code: "internal_error", message: "Server error", status: 500, details: null } },
+      500,
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(listSources()).rejects.toBeInstanceOf(ApiError);

@@ -158,7 +158,12 @@ describe("searchClient.searchWiki — shape and URL", () => {
 
   it("throws ApiError on non-200 response", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ detail: "Not Found" }), { status: 404 }),
+      new Response(
+        JSON.stringify({
+          error: { code: "not_found", message: "Not Found", status: 404, details: null },
+        }),
+        { status: 404 },
+      ),
     );
 
     await expect(searchClientModule.searchWiki("nonexistent")).rejects.toThrow();

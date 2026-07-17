@@ -125,9 +125,7 @@ describe("fetchVaultMeta — success", () => {
 
 describe("fetchVaultMeta — graceful degradation", () => {
   it("returns { files: [] } on 404 (endpoint not yet deployed)", async () => {
-    mockFetch.mockResolvedValueOnce(
-      new Response("Not Found", { status: 404 }),
-    );
+    mockFetch.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 
     const result = await fetchVaultMeta("default");
     expect(result.files).toEqual([]);
@@ -151,7 +149,12 @@ describe("fetchVaultMeta — graceful degradation", () => {
 describe("fetchVaultMeta — error propagation", () => {
   it("throws ApiError on 500 server error", async () => {
     mockFetch.mockResolvedValueOnce(
-      new Response(JSON.stringify({ detail: "internal error" }), { status: 500 }),
+      new Response(
+        JSON.stringify({
+          error: { code: "internal_error", message: "internal error", status: 500, details: null },
+        }),
+        { status: 500 },
+      ),
     );
 
     await expect(fetchVaultMeta("default")).rejects.toMatchObject({

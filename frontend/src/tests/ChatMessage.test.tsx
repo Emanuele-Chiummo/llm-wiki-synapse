@@ -26,7 +26,7 @@ import type { SaveToWikiV2Request } from "../api/chatClient";
 describe("decorateCitations — [n] → <sup> (AC-F6-3)", () => {
   const citations: CitationRef[] = [
     { n: 1, id: "uuid-1", title: "Alpha Source", slug: "alpha-source" },
-    { n: 2, id: "uuid-2", title: "Beta & \"Doc\"", slug: "beta-doc" },
+    { n: 2, id: "uuid-2", title: 'Beta & "Doc"', slug: "beta-doc" },
   ];
 
   it("wraps [1] in <sup role='link' title='...' data-slug='...'>[1]</sup>", () => {
@@ -212,9 +212,9 @@ describe("chatStore — citations from finalizeTurn (ADR-0022 §2.4)", () => {
       citations: [],
     };
     useChatStore.getState().appendMessage(msg);
-    useChatStore.getState().updateMessageCitations("unknown-id", [
-      { n: 1, id: "x", title: "X", slug: "x" },
-    ]);
+    useChatStore
+      .getState()
+      .updateMessageCitations("unknown-id", [{ n: 1, id: "x", title: "X", slug: "x" }]);
     // Original message unchanged
     expect(useChatStore.getState().messages[0]?.citations).toEqual([]);
   });
@@ -297,12 +297,17 @@ describe("saveToWiki client — POST /ingest/from-text (AC-F6-5)", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 500,
-      json: async () => ({ detail: "Internal server error" }),
+      json: async () => ({
+        error: {
+          code: "internal_error",
+          message: "Internal server error",
+          status: 500,
+          details: null,
+        },
+      }),
     } as Response);
 
-    await expect(chatClientModule.saveToWiki("text")).rejects.toThrow(
-      "Internal server error",
-    );
+    await expect(chatClientModule.saveToWiki("text")).rejects.toThrow("Internal server error");
   });
 
   it("throws an error with status code when server returns no detail", async () => {
@@ -376,7 +381,9 @@ describe("saveToWikiV2 client — POST /chat/save-to-wiki (F6 v0.6)", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: false,
       status: 422,
-      json: async () => ({ detail: "title too long" }),
+      json: async () => ({
+        error: { code: "validation", message: "title too long", status: 422, details: null },
+      }),
     } as Response);
 
     await expect(chatClientModule.saveToWikiV2({ title: "T", content: "C" })).rejects.toThrow(
@@ -391,7 +398,9 @@ describe("saveToWikiV2 client — POST /chat/save-to-wiki (F6 v0.6)", () => {
       json: async () => ({}),
     } as Response);
 
-    await expect(chatClientModule.saveToWikiV2({ title: "T", content: "C" })).rejects.toThrow("503");
+    await expect(chatClientModule.saveToWikiV2({ title: "T", content: "C" })).rejects.toThrow(
+      "503",
+    );
   });
 });
 
@@ -458,9 +467,7 @@ function SaveToWikiButton({
           Saved: {state.filePath}
         </span>
       )}
-      {state.kind === "error" && (
-        <span data-testid="save-to-wiki-error">{state.message}</span>
-      )}
+      {state.kind === "error" && <span data-testid="save-to-wiki-error">{state.message}</span>}
     </div>
   );
 }
@@ -482,7 +489,9 @@ describe("save-to-wiki button state machine (AC-F6-5 v0.6 — POST /chat/save-to
       .spyOn(chatClientModule, "saveToWikiV2")
       .mockResolvedValueOnce({ page_id: "uuid-1", file_path: "wiki/queries/test-title.md" });
 
-    render(<SaveToWikiButton content="Assistant answer here" title="Test title" vaultId="vault-42" />);
+    render(
+      <SaveToWikiButton content="Assistant answer here" title="Test title" vaultId="vault-42" />,
+    );
     fireEvent.click(screen.getByTestId("save-to-wiki-btn"));
 
     await waitFor(() => {
@@ -512,9 +521,7 @@ describe("save-to-wiki button state machine (AC-F6-5 v0.6 — POST /chat/save-to
     fireEvent.click(screen.getByTestId("save-to-wiki-btn"));
 
     await waitFor(() => {
-      expect(saveSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ conversation_id: "conv-99" }),
-      );
+      expect(saveSpy).toHaveBeenCalledWith(expect.objectContaining({ conversation_id: "conv-99" }));
     });
   });
 
@@ -549,9 +556,7 @@ describe("save-to-wiki button state machine (AC-F6-5 v0.6 — POST /chat/save-to
     await waitFor(() => {
       expect(screen.queryByTestId("save-to-wiki-error")).toBeTruthy();
     });
-    expect(screen.getByTestId("save-to-wiki-error").textContent).toContain(
-      "Backend unavailable",
-    );
+    expect(screen.getByTestId("save-to-wiki-error").textContent).toContain("Backend unavailable");
   });
 
   it("chat store messages are unchanged on error — AC-F6-5(d)", async () => {
