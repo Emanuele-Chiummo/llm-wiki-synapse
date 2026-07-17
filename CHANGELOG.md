@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.9.1] — 2026-07-17 — "fast paths"
+
+Second release of the v2.0 train. Theme: backend query/index performance, ingest-tail write
+coalescing, a cross-vault citation-leak fix, automated backups + supply-chain hardening, and
+non-convergence diagnostics for a bug reported live during 1.9.0's rollout. Five workstreams,
+three serialized Alembic migrations (0033→0034→0035).
+
+### Fixed
+- **Lint's broken-wikilink scan re-ran a full resolver-map build and event-loop-blocking fuzzy
+  matching per dangling link**, despite a comment claiming otherwise — on a large vault this meant
+  up to 1000 full-table scans and ~2M synchronous Levenshtein comparisons per scan, stalling chat
+  and `/status` while it ran. Resolver maps now build once per scan; the fuzzy-suggestion loop runs
+  in `asyncio.to_thread`.
+- **UUID-column casts in retrieval/graph queries defeated the primary-key index** —
+  `CAST(id AS TEXT) = :param` forced a sequential scan. Casting the bind *parameter* to `uuid`
+  instead restores index use: measured **~650×** faster on `_load_page_meta` (18.7ms → 0.03ms) and
+  **~330×** on `_expand_frontier` (22.6ms → 0.07ms) against a 200k-row table.
+- **`reresolve_dangling_links` resolved dangling links from *every* vault against the active
+  vault's map** — a correctness bug, not just a performance one. Now scoped to the requesting vault,
+  backed by a new partial index (migration 0033).
+- **`ingest_runs` had no index at all** — the run-list poll and monthly cost scans paid a
+  sequential scan + sort on every call. New composite `vault_id, started_at` index (migration 0034).
+- **The per-page ingest tail did 2 full table scans and rewrote `index.md` after every single
+  generated page** — a 20-page document on a 5,000-page vault meant 40 scans + 20 rewrites + 20
+  `data_version` bumps (each invalidating the stats caches the 1.8.1 adaptive poll checks every 3s).
+  Resolver maps now build once per document, updated in memory as pages are written; `index.md` and
+  `data_version` update once per document instead of once per page.
+- **A cross-vault citation leak in retrieval.** Qdrant points carried no `vault_id`, so Phase-1
+  vector search queried across all vaults unfiltered, and — more seriously — `_load_page_meta`
+  filtered `deleted_at`/`raw/` but never `vault_id`, meaning a page from another vault could
+  actually be cited in chat or search on a multi-vault deployment. Points now carry `vault_id` (with
+  a payload index); a one-shot backfill script is provided for pre-existing points
+  (`scripts/backfill_qdrant_vault_id.py`).
+- **"Non convergito" gave no indication of why.** A block-loop run that exhausted `max_iter` without
+  converging logged its stop reason and per-iteration validation errors, but never persisted them —
+  `error_message` is NULL by design on `converged_false` rows. The run detail view now shows the
+  actual stop reason, iteration count, last validation errors, and token budget spent vs. cap
+  (new `ingest_runs.diagnostics` column, migration 0035).
+- **Marker and Whisper (already fixed in 1.9.0) plus other perf paths**: `GraphCache`'s HIT path
+  paid 3 queries (including a JOIN-based COUNT) and a full Pydantic re-serialization on every
+  request even when nothing changed — now caches pre-computed totals and the serialized body
+  alongside the snapshot marker. `/stats/overview`'s ~11 sequential cache-miss queries consolidated
+  and parallelized. `/status` no longer re-resolves the provider config on every poll just to read
+  `supports_vision`.
+- **`GraphCache`'s debounce had no maximum wait** — a continuous ingest burst could defer the
+  background FA2 recompute indefinitely, pushing the layout inline onto `GET /graph` (blocking).
+  Added a debounce max-wait plus a stale-while-revalidate path: a MISS with a usable snapshot no
+  older than a bound now serves it immediately and kicks one background recompute (same in-flight
+  guard, never two concurrent FA2 runs — I2 untouched).
+
+### Added
+- **Automated Postgres backups.** A new `backup` operation in the existing `OpsScheduler`
+  (off/hourly/daily/weekly, same pattern as lint/backfill/reclassify) runs `pg_dump -Fc` with
+  retention pruning; `POST /ops/system-update` now dumps before poking Watchtower, giving every
+  auto-update a fresh rollback point. `GET /export/full` extends the existing export to also cover
+  conversations, `provider_config` (ciphertext as-is, never decrypted), and `vault_state`.
+- **Supply-chain hardening**: `backend/requirements-lock.txt` / `requirements-prod-lock.txt` via
+  `uv pip compile`; a new Dockerfile `production` target (prod-only deps, no tests) that the
+  default build path is unaffected by; a non-blocking `pip-audit`/`npm audit` CI job;
+  `.github/dependabot.yml` (weekly pip/npm/actions); `contents: read` added to `ci.yml`'s
+  top-level permissions.
+- **A `workflow_dispatch`-only live-smoke lane** (`live-smoke.yml`): runs `pytest -m live` plus the
+  ADR-0083 parity harness against a manually-supplied llm_wiki gold snapshot — an on-demand
+  pre-release gate, not part of every-push CI.
+
+### Known follow-ups (not in this release)
+- **BE-ARCH-1 (orchestrator facade dissolution) is parked.** A 1.9.2 attempt found the test suite's
+  coupling to `app.ingest.orchestrator` is far deeper than a prior estimate (169 patch references
+  across 18 files, not 23/13) and the `orch.<name>` mirror is *deliberately* load-bearing by 1.7.0
+  design. The extraction is not a pure refactor under the current suite; it needs a dedicated
+  test-decoupling pass first. Only a stale-docstring fix landed from that attempt.
+- Retry-with-context for a non-converged run (feeding the last validation errors back into a retry)
+  was scoped and explicitly skipped — no seam exists today to inject prior context into a retry;
+  documented in ADR-0085 rather than bolted on.
+
 ## [1.9.0] — 2026-07-16 — "clean room"
 
 First release of the v2.0 train (1.9.x → 2.0.0, plan set 2026-07-16 from an 8-dimension multi-agent
