@@ -9,7 +9,7 @@ never mutates a vault. Run after every alignment wave / KB reload.
 Usage:
     python scripts/parity_report.py \
         --synapse "/Volumes/synapse/vault" \
-        --gold    "/Users/emanuelechiummo/Documents/00_Personal/01_Wiki/LLM Wiki"
+        --gold    "/path/to/llm-wiki-reference"
 """
 
 from __future__ import annotations
