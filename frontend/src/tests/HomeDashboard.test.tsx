@@ -2303,11 +2303,13 @@ describe("HomeDashboard v1.5.3 — SynthesizeNudge (synthesize)", () => {
 
     await renderDashboard();
 
-    const diagnostics = screen.getByTestId("home-synthesize-diagnostics");
-    expect(diagnostics.textContent).toContain("3");
-    expect(diagnostics.textContent).toContain("4");
-    expect(diagnostics.textContent).toContain("20");
-    expect(diagnostics.textContent).toContain("auto-write");
+    await waitFor(() => {
+      const diagnostics = screen.getByTestId("home-synthesize-diagnostics");
+      expect(diagnostics.textContent).toContain("3");
+      expect(diagnostics.textContent).toContain("4");
+      expect(diagnostics.textContent).toContain("20");
+      expect(diagnostics.textContent).toContain("auto-write");
+    });
   });
 
   it("polls corpus status only while a run is active and stops after completion", async () => {
