@@ -3442,12 +3442,32 @@
 
 
 <h1 id="synapse-deployment-guide">Synapse Deployment Guide<a class="headerlink" href="#synapse-deployment-guide" title="Permanent link">&para;</a></h1>
-<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
+<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
 
 <blockquote>
 <p>Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-Version: v1.0 — covers v1.0.0 release (M10 — Distribution: shared-token auth, mobile/PWA polish, MkDocs site, code-signing guide)
-Status: CURRENT — updated for v1.0.0 release</p>
+Version: v2.0.0
+Status: CURRENT — updated for 2.0.0 release</p>
+<p><strong>2.0.0 breaking changes for operators:</strong></p>
+<ol>
+<li>
+<p><strong><code>ingest_pipeline_format</code> env var removed.</strong> If you had this set to <code>"json"</code> as a rollback
+   lever, remove the env var. There is only one pipeline now (block-based, ADR-0076). The JSON
+   generation path (<code>app.ingest.loop</code>) is deleted.</p>
+</li>
+<li>
+<p><strong><code>orchestrator</code> import aliases removed.</strong> If you have internal scripts or integrations that
+   <code>import app.ingest.orchestrator</code> for <code>IngestResult</code>, <code>run_ingest_pipeline</code>, or <code>write_wiki_page</code>,
+   update them: <code>IngestResult</code> and <code>run_ingest_pipeline</code> are in <code>app.ingest.pipeline</code>;
+   <code>write_wiki_page</code> is in <code>app.ingest.writer</code>.</p>
+</li>
+<li>
+<p><strong>HTTP error body changed.</strong> Every error response now uses
+   <code>{"error": {"code": "&lt;slug&gt;", "message": "...", "status": N, "details": null|[...]}}</code>.
+   The old <code>{"detail": "..."}</code> shape is gone (ADR-0086). Update any monitoring scripts or
+   client code that parsed <code>response.detail</code> to read <code>response.error.message</code> instead.</p>
+</li>
+</ol>
 </blockquote>
 <hr />
 <h2 id="1-prerequisites">1. Prerequisites<a class="headerlink" href="#1-prerequisites" title="Permanent link">&para;</a></h2>

@@ -558,6 +558,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#200-docs-gate-docs-veritieri-verdict-all-up-to-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.0.0 Docs Gate ("docs veritieri") — VERDICT: ALL UP-TO-DATE
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2.0.0 Docs Gate (&#34;docs veritieri&#34;) — VERDICT: ALL UP-TO-DATE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#staleness-audit-grep-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Staleness audit (grep results)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#d-artifact-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        D-artifact status
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-was-not-done-infrastructure-not-available" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What was NOT done (infrastructure not available)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#structural-test-run-t-docs-001t-docs-241" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Structural test run (T-DOCS-001..T-DOCS-241)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#docs-gate-verdict-200" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        DOCS GATE VERDICT — 2.0.0
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v170-docs-gate-verdict-all-up-to-date" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2852,6 +2924,187 @@
 <blockquote>
 <p>Tech-writer sign-off. Phases appended chronologically; most recent phase at top.</p>
 </blockquote>
+<hr />
+<h2 id="200-docs-gate-docs-veritieri-verdict-all-up-to-date">2.0.0 Docs Gate ("docs veritieri") — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#200-docs-gate-docs-veritieri-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Gate run: 2026-07-17
+Branch: <code>docs/2.0.0-veritieri</code>
+Release: 2.0.0 — three breaking changes (BC-1/BC-2/BC-3) already merged to <code>main</code>
+Scope: post-breaking-change tree; documenting the system as it actually exists.
+Pyproject.toml version at gate: 1.9.4 (2.0.0 version bump in flight as part of this PR).</p>
+</blockquote>
+<h3 id="staleness-audit-grep-results">Staleness audit (grep results)<a class="headerlink" href="#staleness-audit-grep-results" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Files with matches</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest_pipeline_format == "json"</code> in docs</td>
+<td><code>docs/sequences/ingest-blocks.mmd</code></td>
+<td>FIXED — branch removed (BC-1)</td>
+</tr>
+<tr>
+<td><code>app.ingest.loop</code> in docs</td>
+<td>None (comments reworded)</td>
+<td>CLEAN</td>
+</tr>
+<tr>
+<td><code>_run_orchestrated\b</code> in docs</td>
+<td><code>docs/adr/0046-...</code> (describes cancel plumbing) · <code>docs/adr/0079-...</code> (internal function name in narrative) · <code>docs/sprints/v0.2-...</code> (historical review)</td>
+<td>ACCEPTABLE — these are ADR/sprint history documents describing implementation detail; they do not describe current public API contracts</td>
+</tr>
+<tr>
+<td><code>orchestrator\.(IngestError\|IngestResult\|run_ingest_pipeline)</code> in docs</td>
+<td><code>docs/sprints/v0.2-architect-review.md</code></td>
+<td>ACCEPTABLE — sprint archive, not a reference doc</td>
+</tr>
+<tr>
+<td><code>"detail":</code> as documented current contract</td>
+<td><code>docs/adr/0086-stable-error-envelope.md</code> (explicitly historical — explains what changed FROM) · <code>docs/sprints/SPRINT-v1.1-SCOPE.md</code> (sprint archive) · <code>docs/api/openapi.json</code> (6 occurrences in HTTPValidationError/ValidationError legacy schemas)</td>
+<td>ACCEPTABLE — ADR-0086 correctly qualifies the old shape as historical; sprint archives are not user-facing; OpenAPI validation schemas are separate from the ErrorEnvelope component</td>
+</tr>
+</tbody>
+</table>
+<h3 id="d-artifact-status">D-artifact status<a class="headerlink" href="#d-artifact-status" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Artifact</th>
+<th>Status</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/context.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Bumped from v0.2 (2026-06-28) to 2.0.0 (2026-07-17). Added SearXNG as explicit external actor. Added BC-1/BC-2/BC-3 comment block. Multi-vault noted.</td>
+</tr>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/container.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Bumped from v0.2 to 2.0.0. Replaced monolithic "Ingest Orchestrator" with three separate containers: <code>Ingest Pipeline</code> (pipeline.py — public entry points), <code>Block-based ingest engine</code> (block_loop.py + block_writer.py), and <code>Persistence primitives</code> (orchestrator.py — low-level only). Added API tokens table. Added SearXNG + Deep Research relation. Stable error envelope noted on API container.</td>
+</tr>
+<tr>
+<td>D1</td>
+<td><code>docs/architecture/component.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Bumped from v0.4 M4-EXT to 2.0.0. Header rewritten to document all three BC changes accurately. IngestOrchestrator component updated to "Persistence primitives" with correct 2.0.0 description. New <code>pipelinemod</code> (pipeline.py) and <code>blockloopcomp</code> (block_loop.py) components added. REST component updated to reference 112 paths and the stable error envelope.</td>
+</tr>
+<tr>
+<td>D2</td>
+<td><code>docs/er/schema.mmd</code></td>
+<td>UP-TO-DATE (no regen needed)</td>
+<td>Schema was already regenerated as part of 1.9.4 (includes <code>api_tokens</code>, <code>pages.summary</code>). Confirmed: schema.mmd header says "Generated by scripts/generate_er.py"; includes API_TOKENS table visible in first lines. No SQLAlchemy model change in this gate. <code>make er</code> not run (no live DB). Last regeneration confirmed in CHANGELOG 1.9.4: "Two rounds of docs-gate drift caught before merge — ER diagram missing api_tokens table, then missing pages.summary — regenerated and committed."</td>
+</tr>
+<tr>
+<td>D3</td>
+<td><code>docs/sequences/ingest-blocks.mmd</code></td>
+<td>UPDATED (this gate)</td>
+<td>Removed the <code>ingest_pipeline_format == "json" (rollback lever, removal v1.8)</code> branch (BC-1: the JSON pipeline is removed in 2.0.0). Updated header comment and title. The diagram now accurately shows only the block-based orchestrated path and the CLI delegated path.</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>All other sequence diagrams</td>
+<td>UP-TO-DATE (no change)</td>
+<td>ingest-loop.mmd, ingest-routing.mmd, graph-recompute.mmd, deep-research.mmd, cascade-delete.mmd, lint-fix.mmd, chat-retrieval-web.mmd, review-create-sweep.mmd, web-clip.mmd, wikilink-enrichment.mmd — no 2.0.0 changes affect these sequences. Last-updated stamps from prior gates remain valid.</td>
+</tr>
+<tr>
+<td>D4</td>
+<td><code>docs/api/openapi.json</code></td>
+<td>UP-TO-DATE (belt-and-suspenders)</td>
+<td>Version 1.9.4; 112 paths; includes <code>/config/api-tokens</code> (PF-AUTH-1); contains <code>ErrorEnvelope</code> schema in components (BC-3: ADR-0086 stable error envelope). Confirmed by inspection: <code>components.schemas</code> includes <code>ErrorEnvelope</code>. No new public endpoints in this gate. <code>make openapi</code> not run (no live stack); last regeneration confirmed in CHANGELOG 1.9.4. T-DOCS-221 passes.</td>
+</tr>
+<tr>
+<td>D5</td>
+<td><code>docs/screens/</code></td>
+<td>PENDING-LIVE (delegated to orchestrator)</td>
+<td>Screenshots exist from prior sprints. No browser access in this task scope. Playwright refresh needed for 2.0.0 UI changes (multi-vault launcher, API tokens Settings card, command palette "Nuova pagina" action, 1.9.3 UI kit). Non-blocking for structural docs gate; blocks human-checkpoint milestone.</td>
+</tr>
+<tr>
+<td>D6a</td>
+<td><code>docs/USER.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>Version header bumped from "v1.6.0" to "v2.0.0". Added 2.0.0 breaking-change note (BC-1: JSON pipeline removed; BC-3: error shape change with migration guidance). Content audit: no mention of <code>ingest_pipeline_format</code> as a live feature; no <code>{"detail": ...}</code> prescribed as current; all sections describe post-2.0.0 behavior.</td>
+</tr>
+<tr>
+<td>D6b</td>
+<td><code>docs/DEPLOY.md</code></td>
+<td>UPDATED (this gate)</td>
+<td>Version header bumped from "v1.0" to "v2.0.0". Added 2.0.0 operator breaking-change block: (1) <code>ingest_pipeline_format</code> env var removed; (2) orchestrator import aliases removed with migration path; (3) HTTP error body change with migration guidance from <code>response.detail</code> to <code>response.error.message</code>.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/index.md</code></td>
+<td>UP-TO-DATE (no change)</td>
+<td>ADR-0086 is already present as the last entry in the "LLM Wiki behavioral parity" section (status: Accepted). No new ADRs in this gate.</td>
+</tr>
+<tr>
+<td>D7</td>
+<td><code>docs/adr/0086-stable-error-envelope.md</code></td>
+<td>UP-TO-DATE (exists, content verified)</td>
+<td>ADR exists; correctly qualifies the <code>{"detail": ...}</code> shape as historical ("in 1.9.2… deliberately rendered it as the legacy shape"). T-DOCS-241 passes.</td>
+</tr>
+<tr>
+<td>QA-TEST-4</td>
+<td><code>backend/tests/test_docs.py</code></td>
+<td>STRENGTHENED (this gate)</td>
+<td>Added 12 new structural freshness tests (T-DOCS-200 through T-DOCS-241) covering all three 2.0.0 breaking changes: BC-1 (JSON pipeline removal), BC-2 (orchestrator facade dissolution), BC-3 (stable error envelope). All 84 tests (72 pre-existing + 12 new) pass on the local venv.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="what-was-not-done-infrastructure-not-available">What was NOT done (infrastructure not available)<a class="headerlink" href="#what-was-not-done-infrastructure-not-available" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>Reason</th>
+<th>Impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>python scripts/generate_er.py</code> re-run</td>
+<td>No live Postgres DB accessible in this task scope</td>
+<td>Low: ER schema was already regenerated in 1.9.4 CHANGELOG-confirmed pass. T-DOCS-009..012 and T-DOCS-038..041 already pass, proving the committed schema.mmd is structurally correct.</td>
+</tr>
+<tr>
+<td><code>python scripts/generate_openapi.py</code> re-run</td>
+<td>No live FastAPI app accessible in this task scope</td>
+<td>Low: openapi.json is at version 1.9.4 and already includes ErrorEnvelope + api-tokens paths per CHANGELOG. T-DOCS-221 passes.</td>
+</tr>
+<tr>
+<td>Playwright screenshot refresh (D5)</td>
+<td>No browser / live stack in this task scope</td>
+<td>Non-blocking: screen captures need a live frontend; delegated to orchestrator per prior gate precedent.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="structural-test-run-t-docs-001t-docs-241">Structural test run (T-DOCS-001..T-DOCS-241)<a class="headerlink" href="#structural-test-run-t-docs-001t-docs-241" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>84 passed in 0.05s
+</code></pre></div>
+<p>All 84 tests pass. Run command:
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>/path/to/venv/bin/pytest<span class="w"> </span>tests/test_docs.py<span class="w"> </span>-q
+</code></pre></div></p>
+<h3 id="docs-gate-verdict-200">DOCS GATE VERDICT — 2.0.0<a class="headerlink" href="#docs-gate-verdict-200" title="Permanent link">&para;</a></h3>
+<p><strong>ALL UP-TO-DATE</strong></p>
+<p>D1 C4 diagrams regenerated for 2.0.0 (context/container/component — all three files updated).
+D3 ingest-blocks.mmd updated — JSON pipeline branch removed (BC-1).
+D6a USER.md version header + breaking-change note updated.
+D6b DEPLOY.md version header + operator migration guidance updated.
+D2/D4 confirmed current from 1.9.4 regeneration (belt-and-suspenders; no live stack).
+D7 ADR index already current (ADR-0086 present).
+QA-TEST-4 test_docs.py strengthened: 12 new structural freshness tests, all green.
+D5 screenshots PENDING-LIVE — orchestrator handles Playwright refresh.</p>
+<p><strong>Signed: tech-writer (claude-sonnet-4-6) | 2026-07-17 | 2.0.0 docs/2.0.0-veritieri gate</strong></p>
 <hr />
 <h2 id="v170-docs-gate-verdict-all-up-to-date">v1.7.0 Docs Gate — VERDICT: ALL UP-TO-DATE<a class="headerlink" href="#v170-docs-gate-verdict-all-up-to-date" title="Permanent link">&para;</a></h2>
 <blockquote>

@@ -1,6 +1,8 @@
 sequenceDiagram
-    %% Generated: v1.7.0 | 2026-07-14 | ADR-0076 block-based ingest pipeline · ADR-0078 refinement · ADR-0084
-    title Ingest - block-based pipeline ADR-0076 - orchestrated and delegated CLI routes - on_drained overview and sweep ADR-0078 ADR-0084
+    %% Generated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 | ADR-0076 block-based ingest pipeline · ADR-0078 refinement · ADR-0084
+    %% 2.0.0 BC-1: legacy JSON pipeline path (app.ingest.loop / ingest_pipeline_format="json") REMOVED.
+    %% Only the block-based orchestrated path and the CLI delegated path remain.
+    title Ingest — 2.0.0 — block-based pipeline (ADR-0076) + delegated CLI route — overview/sweep on_drained (ADR-0078/0084)
     autonumber
 
     participant PL as pipeline.py
@@ -20,7 +22,7 @@ sequenceDiagram
     CTX-->>PL: ingest_context and schema_md
     Note over PL: route on caps.supports_agentic_loop (I6)
 
-    alt ORCHESTRATED (Ollama / API) AND ingest_pipeline_format == "blocks"
+    alt ORCHESTRATED (Ollama / API) — block-based pipeline only (2.0.0)
         PL->>SC: parse_page_type_routing(schema_md)
         SC-->>PL: {type: subdir} (base and custom)
         PL->>BL: run_block_loop(source, purpose, schema, index, lang, max_iter, token_budget)
@@ -58,8 +60,6 @@ sequenceDiagram
         Note over PL: system_prompt = ingest_context and guidance
         PL->>P: delegate_ingest(system_prompt) - agent writes pages via MCP write_page
         P-->>PL: pages written (converged, count)
-    else ORCHESTRATED AND ingest_pipeline_format == "json" (rollback lever, removal v1.8)
-        Note over PL: legacy analyze()/generate() JSON loop (loop.py) - unchanged
     end
     PL->>PG: finalize ingest_runs (I7 cost · log total_cost_usd)
     Note over PL,RS: on_drained hook in main.py fires once when ingest queue depth reaches 0 (once per batch, not per source)

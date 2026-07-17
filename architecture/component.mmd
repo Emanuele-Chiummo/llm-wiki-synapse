@@ -1,43 +1,38 @@
 C4Component
-    %% <!-- Generated: v0.4 sprint 4 M4-EXT | 2026-06-28 -->
-    %% v0.3: F4 graph engine + I2 cache + GET /graph + thin sigma viewer (ADR-0013/14/15/16).
-    %% v0.4 Phase 1: F1 three-panel shell (ADR-0017). AppShell wraps all panels; GraphPanel
-    %% wraps the UNCHANGED GraphViewer (T-NCL-001..022 intact, I2); NavTree + PreviewPanel
-    %% share the single selectedNodeId key via graphStore UI slice (I3); all long lists
-    %% virtualized (TanStack Virtual, I4); no client-side layout code added (I2).
-    %% v0.4 Phase 2 (ADR-0018): NavRail top-level mode switcher + SectionRouter; IngestView
-    %% + IngestRunList + IngestRunDetail (GET /ingest/runs + POST /ingest/trigger);
-    %% ProviderSelector (F17-UI); SettingsPanel (F14+F16); Toast; i18n module;
-    %% providerStore + settingsStore + ingestStore (separate from graphStore — I3).
-    %% Backend: migration 0006 adds status/pages_created/error_message to ingest_runs.
-    %% v0.4 Phase 3 (ADR-0019): Chat section enabled. Backend: chat/ module (context.py +
-    %% think.py + stream.py); POST /chat/stream (NDJSON StreamingResponse); GET|POST
-    %% /conversations + GET /conversations/{id}/messages + DELETE /conversations/{id};
-    %% Alembic 0007 adds conversations+messages tables (I7 per-message cost cols). OllamaProvider
-    %% and ApiProvider chat() bodies implemented (OllamaProvider is the live dev path).
-    %% CliAgentProvider.chat() remains NotImplementedError (documented, not faked — ADR-0019 §5).
-    %% Frontend: ChatSection (SectionRouter activeSection=chat), ConversationList, MessageList
-    %% (TanStack Virtual ≤30 DOM I4), StreamingMessage (raw pre-wrap NO parser I3),
-    %% MarkdownView (parse-once on done — I3/G3), ThinkBlock (collapsed F7), MessageInput
-    %% (plain textarea I4), latexToUnicode (F8), chatStore (SEPARATE from graphStore — I3),
-    %% useChatStream hook (fetch POST /chat/stream NDJSON ReadableStream). NavRail chat item
-    %% ENABLED; Section type gains "chat"; graphStore.activeSection can now = "chat".
-    %% v0.4 M4-EXT (ADR-0020): Feature U + Feature S. Backend: POST /ingest/upload (multipart,
-    %% 202, basename-only sanitizer, text/markdown only v0.4, 413/415/422 gates — upload.py);
-    %% import_schedules table (Alembic 0008: enabled/source_dir/frequency/last_run_at/
-    %% last_status/last_imported_count/last_error); ImportScheduler (asyncio lifespan task,
-    %% NOT APScheduler — I9; single in-flight, MAX_FILES+MAX_SECONDS — I7; copy→watcher ingest
-    %% — I1/I9); GET/PUT /import-schedule + POST /import-schedule/run-now.
-    %% Frontend: UploadZone in IngestView (drag-drop + browse; 415/413/422 toasts; run-list
-    %% refresh); ImportScheduleCard in SettingsPanel (enabled toggle, source_dir container-path
-    %% input + dir_ok warning, frequency select, last-run status, Run-now button). i18n en/it
-    %% parity (ingest.upload* + settings.import.* namespaces).
-    title Component Diagram — Synapse v0.4 M4-EXT (Feature U: upload + Feature S: scheduled import — ADR-0020)
+    %% <!-- Generated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+    %% 2.0.0 BREAKING CHANGES (all three landed before this gate):
+    %%   1. Legacy JSON ingest pipeline REMOVED. The legacy loop module is deleted.
+    %%      ingest_pipeline_format config key removed. Only the block-based pipeline
+    %%      (block_loop.py) exists. The ingest-blocks.mmd sequence diagram reflects this.
+    %%   2. orchestrator.py / app.main compatibility facades DISSOLVED. orchestrator.py
+    %%      now owns ONLY persistence primitives (persist_metadata / upsert_vector /
+    %%      bump_version / append_log / reindex_wiki_page_body / apply_domain_tags /
+    %%      apply_page_type / _update_overview). The public ingest API (ingest_file /
+    %%      delete_file / run_ingest_pipeline / IngestResult) lives in pipeline.py;
+    %%      write_wiki_page lives in writer.py; context assembly in context.py.
+    %%      Importers pull from those modules directly — no re-export facade in orchestrator.py.
+    %%   3. Stable JSON error envelope (ADR-0086): ALL HTTP errors emit
+    %%      {"error": {"code": "<snake>", "message": "...", "status": <N>, "details": null}}
+    %%      via three registered FastAPI exception handlers (SynapseError / RequestValidationError /
+    %%      HTTPException). The legacy {"detail": ...} wire shape is gone. frontend providerClient
+    %%      formatDetail() helper removed.
+    %%
+    %% History carried forward from v0.4 and v0.5:
+    %%   v0.3: F4 graph engine + I2 cache + GET /graph + sigma viewer (ADR-0013/14/15/16).
+    %%   v0.4 Phase 1-3: 3-panel shell + NavRail + chat (ADR-0017/0018/0019/0020).
+    %%   v0.5+: Deep Research / Review Queue / Multi-format / Cascade Delete / MCP expansion /
+    %%          Lint parity / Web-search toggle / Multi-vault (ADR-0022..0086).
+    %%   v1.7.0-1.9.4: Block-based pipeline active as default (ADR-0076); overview regen on
+    %%          queue-drain via complete() (ADR-0078/0084); per-capability concurrency (PF-QUEUE);
+    %%          scoped API tokens + api_tokens table (PF-AUTH-1); gloss catalogue (PF-INDEX-GLOSS-1).
+    title Component Diagram — Synapse 2.0.0 (post-breaking-change: single block-loop engine, dissolved facades, stable error envelope)
 
     Container_Boundary(api, "FastAPI service") {
-        Component(rest, "REST + provider + graph + ingest/runs + chat + upload + schedule endpoints", "FastAPI routers", "GET/POST /provider/config, POST /ingest/trigger (202), GET /ingest/runs (ADR-0018 §7), GET /graph (200, X-Graph-Cache: hit|miss, ADR-0014), POST /chat/stream (NDJSON 200, ADR-0019 §2.2), GET|POST /conversations, GET /conversations/{id}/messages, DELETE /conversations/{id}, POST /ingest/upload (202 — Feature U ADR-0020 §2), GET/PUT /import-schedule (Feature S ADR-0020 §4.6), POST /import-schedule/run-now (202 ADR-0020 §4.6). Auto OpenAPI → D4.")
+        Component(rest, "REST endpoints (112 paths)", "FastAPI routers", "All errors use the stable envelope {error: {code, message, status, details}} (ADR-0086, 2.0.0 BC-3). Routes include: GET/POST /provider/config, POST /ingest/trigger (202), GET /ingest/runs, GET /graph (X-Graph-Cache: hit|miss, ADR-0014), POST /chat/stream (NDJSON), GET|POST /conversations, POST /ingest/upload (202), GET/PUT /import-schedule, GET/POST/DELETE /config/api-tokens (PF-AUTH-1), GET/POST /projects (multi-vault ADR-0082), GET /vault/meta, POST /ops/overview/regenerate, POST /ops/deep-research, GET/POST /review, GET /lint, GET /stats/*, GET /search, /clip, /web-search. Auto OpenAPI → D4.")
         Component(watcher, "Watcher", "watchdog", "raw/sources/ events; mtime-then-hash gate (I1). Calls the seam only.")
-        Component(orch, "IngestOrchestrator", "ingest/orchestrator.py", "Resolves provider from provider_config; reads capabilities(); ROUTES on supports_agentic_loop (I6 — never isinstance/class). Runs the orchestrated loop (analyze→generate→validate→retry, max_iter+token_budget, I7) OR delegates to CLI. Owns the Usage accumulator + cost-anomaly check. Sets status/pages_created/error_message on ingest_runs rows (migration 0006).")
+        Component(orch, "Persistence primitives", "ingest/orchestrator.py", "2.0.0: owns ONLY low-level persistence primitives — persist_metadata, upsert_vector, append_log, bump_version, reindex_wiki_page_body, apply_domain_tags, apply_page_type, _update_overview, overview helpers. The public ingest API (ingest_file / delete_file / run_ingest_pipeline / IngestResult) now lives in pipeline.py. Wiki-page write seam lives in writer.py. Context assembly in context.py. No compatibility re-exports remain (facade dissolved — 2.0.0 BC-2).")
+        Component(pipelinemod, "Ingest Pipeline", "ingest/pipeline.py", "2.0.0 public entry points: ingest_file / delete_file / run_ingest_pipeline / IngestResult. mtime-then-hash change gate (I1). Capability-aware routing on supports_agentic_loop (I6 — never isinstance). ORCHESTRATED: calls block_loop.run_block_loop (no JSON path — 2.0.0 BC-1). DELEGATED: calls provider.delegate_ingest. Owns ingest_runs lifecycle (opened/finalized/cost), Usage accumulator, cost-anomaly check, per-capability concurrency slots (PF-QUEUE-429-1). Smart queue: auto-pause on 429 with decaying backoff (PF-QUEUE-429-1, I7).")
+        Component(blockloopcomp, "Block-based ingest engine", "ingest/block_loop.py + blocks.py + sanitize.py + block_writer.py", "The ONLY generation engine (2.0.0 BC-1: JSON loop removed). Stage 1: bounded analysis call (complete(), single-turn, ADR-0084). Stage 2: bounded FILE/REVIEW block-generation loop (max_iter+token_budget, I7). Long-source chunking via long_source.py (PF-LONGSRC-1). Sanitizes 4 rules (fence-aware). Block writer (block_writer.py) persists FILE blocks via orch primitives (persist_metadata/links/log/bump). REVIEW blocks enqueued as review_items (F9). Provider-agnostic (I6).")
         Component(resolver, "ConfigResolver", "provider_config_service.py", "operation+vault > vault > global precedence over provider_config.")
         Component(validator, "WikiPage validator", "in orchestrator", "type∈enum, title, non-empty sources[], lang, content (ADR-0007 §5).")
         Component(k5, "Wikilink parser", "wiki/links.py", "K5: [[Target|alias]] → links rows; dangling=True warn-not-error.")
