@@ -1947,7 +1947,8 @@ interface OpenQuestionsBlockProps {
  * OpenQuestionsBlock — fetches pages of type "query" and lists up to 5 titles.
  * Clicking a title calls onOpenPage(page.id) which selects the page in the Wiki section.
  *
- * Fetches ONCE on mount with limit=100; client-side filtered to type=query (I3).
+ * Fetches ONCE on mount with a server-side type=query&limit=5 filter (FE-PERF-2) —
+ * avoids fetching 100 rows just to show 5.
  * Renders null when no query pages exist.
  * [F18][v1.5]
  */
@@ -1965,8 +1966,11 @@ function OpenQuestionsBlock({ vaultId, onOpenPage }: OpenQuestionsBlockProps) {
 
     void (async () => {
       try {
-        const result = await fetchPages(vaultId, { limit: 100 }, ac.signal);
+        const result = await fetchPages(vaultId, { limit: 5, type: "query" }, ac.signal);
         if (ac.signal.aborted) return;
+        // Defensive client-side filter kept as a belt-and-suspenders guard for backends
+        // that predate the `type` query param (FE-PERF-2) and silently ignore it — the
+        // server-side filter is what removes the 100-row over-fetch, this is just safety.
         const queries = (result?.items ?? []).filter((p) => p.type === "query").slice(0, 5);
         setQueryPages(queries);
       } catch {
@@ -2399,6 +2403,30 @@ export function HomeDashboard() {
   const [costByDay, setCostByDay] = useState<number[] | null>(null);
   const statsAbortRef = useRef<AbortController | null>(null);
 
+  // FE-PERF-2: below-the-fold sections (active jobs, review preview, open questions,
+  // cost sparkline) are deferred to idle time instead of fetching at mount alongside
+  // the above-the-fold hero/status/KPI blocks. Cuts the initial fan-out burst without
+  // delaying anything the user sees without scrolling. Uses requestIdleCallback where
+  // available (real browsers); falls back to a same-tick setTimeout(0) (jsdom/tests) —
+  // same pattern as GraphViewer's insight-count defer.
+  const [deferredReady, setDeferredReady] = useState(false);
+  useEffect(() => {
+    const w = window as typeof window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (h: number) => void;
+    };
+    let handle: number;
+    if (typeof w.requestIdleCallback === "function") {
+      handle = w.requestIdleCallback(() => setDeferredReady(true), { timeout: 500 });
+    } else {
+      handle = window.setTimeout(() => setDeferredReady(true), 0);
+    }
+    return () => {
+      if (typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(handle);
+      else window.clearTimeout(handle);
+    };
+  }, []);
+
   // UX-1: true ONLY while a version-bump-triggered stats re-fetch is in-flight.
   // Never set on the initial mount fetch (which already shows the main skeleton).
   const [isRefetching, setIsRefetching] = useState(false);
@@ -2461,8 +2489,11 @@ export function HomeDashboard() {
     return () => statsAbortRef.current?.abort();
   }, [reloadStats]);
 
-  // Daily cost series for the sparkline — fetch once on mount, best-effort.
+  // Daily cost series for the sparkline — below-the-fold decoration on the monthly-cost
+  // KPI card (the card's headline value comes from `overview`, fetched immediately).
+  // Deferred (FE-PERF-2): fetch once deferredReady flips, not at initial mount.
   useEffect(() => {
+    if (!deferredReady) return;
     const ac = new AbortController();
     void (async () => {
       try {
@@ -2474,7 +2505,7 @@ export function HomeDashboard() {
       }
     })();
     return () => ac.abort();
-  }, []);
+  }, [deferredReady]);
 
   // WS-A [AC-WS-A-1, AC-WS-A-3]: re-fetch stats when data_version bumps.
   // Guard: skip if version hasn't changed from last fetch, skip initial null.
@@ -2737,18 +2768,22 @@ export function HomeDashboard() {
         dataVersion={overview.data_version}
       />
 
-      {/* ── 2. Active Jobs block (A4 + WS-C) — only rendered when something is running ── */}
-      <ActiveJobsBlock
-        ingestProcessing={ingestProcessing}
-        ingestPending={ingestPending}
-        ingestBatch={ingestBatch}
-        ingestTasks={ingestTasks}
-        synthesizeRunning={synthesizeStatus?.running === true}
-        onNavigateIngest={() => setActiveSection("ingest")}
-        onNavigateResearch={() => setActiveSection("deep-search")}
-        onNavigateBackfill={() => setActiveSection("settings")}
-        onNavigateSynthesize={() => setActiveSection("pages")}
-      />
+      {/* ── 2. Active Jobs block (A4 + WS-C) — only rendered when something is running ──
+          FE-PERF-2: mount deferred to idle time — its own fetches (research runs +
+          backfill status) are below-the-fold work, not needed for first paint. */}
+      {deferredReady && (
+        <ActiveJobsBlock
+          ingestProcessing={ingestProcessing}
+          ingestPending={ingestPending}
+          ingestBatch={ingestBatch}
+          ingestTasks={ingestTasks}
+          synthesizeRunning={synthesizeStatus?.running === true}
+          onNavigateIngest={() => setActiveSection("ingest")}
+          onNavigateResearch={() => setActiveSection("deep-search")}
+          onNavigateBackfill={() => setActiveSection("settings")}
+          onNavigateSynthesize={() => setActiveSection("pages")}
+        />
+      )}
 
       {/* ── 3. KPI row — composition hero (#1/#4) + secondary metric grid ── */}
       <section
@@ -2825,27 +2860,31 @@ export function HomeDashboard() {
         onTriggered={synthesizePoll.start}
       />
 
-      {/* ── 3b. Review preview + open questions — two-column block (v1.5, F18) ── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 16,
-        }}
-      >
-        <ReviewPreviewBlock
-          vaultId={vaultId}
-          reviewTotal={overview.review_pending}
-          setActiveSection={setActiveSection}
-        />
-        <OpenQuestionsBlock
-          vaultId={vaultId}
-          onOpenPage={(pageId) => {
-            selectPageAction(pageId, "tree");
-            setActiveSection("pages");
+      {/* ── 3b. Review preview + open questions — two-column block (v1.5, F18) ──
+          FE-PERF-2: both blocks fetch their own data on mount; deferred to idle time
+          since this row sits below the KPI hero (below-the-fold on first paint). */}
+      {deferredReady && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: 16,
           }}
-        />
-      </div>
+        >
+          <ReviewPreviewBlock
+            vaultId={vaultId}
+            reviewTotal={overview.review_pending}
+            setActiveSection={setActiveSection}
+          />
+          <OpenQuestionsBlock
+            vaultId={vaultId}
+            onOpenPage={(pageId) => {
+              selectPageAction(pageId, "tree");
+              setActiveSection("pages");
+            }}
+          />
+        </div>
+      )}
 
       {/* ── 4. Curated domain sections "SEZIONI" ── */}
       {sections !== null && (

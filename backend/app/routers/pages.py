@@ -203,24 +203,27 @@ def _page_to_response(
 async def list_pages(
     limit: int = Query(default=50, ge=1, le=500, description="Max rows to return"),
     offset: int = Query(default=0, ge=0, description="Row offset for pagination"),
+    page_type: str | None = Query(
+        default=None,
+        alias="type",
+        description="Optional frontmatter type filter (e.g. 'query'); server-side, avoids "
+        "over-fetching + client-side filtering (FE-PERF-2).",
+    ),
 ) -> PageListResponse:
     async with runtime_state.get_session() as session:
-        total_row = await session.execute(
-            select(func.count())
-            .select_from(Page)
-            .where(
-                Page.vault_id == settings.vault_id,
-                Page.deleted_at.is_(None),
-            )
-        )
+        filters = [
+            Page.vault_id == settings.vault_id,
+            Page.deleted_at.is_(None),
+        ]
+        if page_type is not None:
+            filters.append(Page.page_type == page_type)
+
+        total_row = await session.execute(select(func.count()).select_from(Page).where(*filters))
         total: int = total_row.scalar_one()
 
         rows = await session.execute(
             select(Page)
-            .where(
-                Page.vault_id == settings.vault_id,
-                Page.deleted_at.is_(None),
-            )
+            .where(*filters)
             .order_by(Page.created_at.desc())
             .offset(offset)
             .limit(limit)

@@ -27,13 +27,16 @@ import { apiBase } from "./base";
  */
 export async function fetchPages(
   vaultId: string = "default",
-  options: { limit?: number; offset?: number } = {},
+  options: { limit?: number; offset?: number; type?: string } = {},
   signal?: AbortSignal,
 ): Promise<PageListResponse> {
-  const { limit = 500, offset = 0 } = options;
-  const url =
+  const { limit = 500, offset = 0, type } = options;
+  let url =
     `${apiBase()}/pages?vault_id=${encodeURIComponent(vaultId)}` +
     `&limit=${limit}&offset=${offset}`;
+  if (type !== undefined) {
+    url += `&type=${encodeURIComponent(type)}`;
+  }
   const res = await fetchWithTimeout(url, signal !== undefined ? { signal } : undefined);
   await checkResponse(res);
   return (await res.json()) as PageListResponse;
