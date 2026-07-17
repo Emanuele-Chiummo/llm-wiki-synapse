@@ -1015,10 +1015,10 @@ class Test200BreakingChange3_StableErrorEnvelope:
                 # "body" or "error" or a code-fence context), not a casual mention.
                 if any(kw in low for kw in ("response", "error body", "returns", "will return")):
                     raise AssertionError(
-                        f"USER.md appears to describe {{\"detail\": ...}} as the current error "
+                        f'USER.md appears to describe {{"detail": ...}} as the current error '
                         f"contract (line: {line!r}). Post-2.0.0 the shape is "
-                        f'{{\"error\": {{\"code\": ..., \"message\": ..., \"status\": ..., '
-                        f'\"details\": ...}}}} (ADR-0086, BC-3).'
+                        f'{{"error": {{"code": ..., "message": ..., "status": ..., '
+                        f'"details": ...}}}} (ADR-0086, BC-3).'
                     )
 
     def test_openapi_has_error_envelope_schema_component(self) -> None:
@@ -1063,8 +1063,8 @@ class Test200BreakingChange3_StableErrorEnvelope:
         ]
         assert any(s in text for s in signals), (
             "DEPLOY.md does not mention the 2.0.0 stable error envelope (ADR-0086, BC-3). "
-            "Add a note for operators who script against the API: the old {\"detail\": ...} "
-            "shape is replaced by {\"error\": {\"code\": ..., \"message\": ..., ...}}."
+            'Add a note for operators who script against the API: the old {"detail": ...} '
+            'shape is replaced by {"error": {"code": ..., "message": ..., ...}}.'
         )
 
 
