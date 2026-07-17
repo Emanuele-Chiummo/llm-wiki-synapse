@@ -15,7 +15,7 @@
  */
 
 import type { GraphNode, GraphCommunity } from "../api/types";
-import { colorForCommunity, colorForDomain } from "./graphPalette";
+import { colorForCommunity, colorForDomain, type GraphTheme } from "./graphPalette";
 
 // ─── communityDisplayName ────────────────────────────────────────────────────
 
@@ -110,6 +110,7 @@ export interface CommunityCentroid {
 export function computeCommunityCentroids(
   nodes: GraphNode[],
   communities: GraphCommunity[],
+  theme: GraphTheme = "light",
 ): Map<number, CommunityCentroid> {
   // Build a Set of community ids whose size > 1 (skip singletons for cleaner overlay)
   const multiMemberIds = new Set<number>();
@@ -146,7 +147,7 @@ export function computeCommunityCentroids(
       x: acc.sumX / acc.count,
       y: acc.sumY / acc.count,
       label,
-      color: colorForCommunity(cid),
+      color: colorForCommunity(cid, theme),
     });
   }
   return result;
@@ -173,7 +174,10 @@ export type DomainCentroid = CommunityCentroid;
  * @param nodes  GraphNode[] from the store (server-provided coords + domain field).
  * @returns Map from domain name → DomainCentroid.
  */
-export function computeDomainCentroids(nodes: GraphNode[]): Map<string, DomainCentroid> {
+export function computeDomainCentroids(
+  nodes: GraphNode[],
+  theme: GraphTheme = "light",
+): Map<string, DomainCentroid> {
   // First pass: count nodes per domain to determine multi-member domains
   const countPerDomain = new Map<string, number>();
   for (const n of nodes) {
@@ -204,7 +208,7 @@ export function computeDomainCentroids(nodes: GraphNode[]): Map<string, DomainCe
       x: acc.sumX / acc.count,
       y: acc.sumY / acc.count,
       label: domain,
-      color: colorForDomain(domain),
+      color: colorForDomain(domain, theme),
     });
   }
   return result;

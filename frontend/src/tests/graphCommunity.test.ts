@@ -520,7 +520,9 @@ describe("colorForDomain — domain color palette (I2/I3)", () => {
 
   it("different domain names return different colors in most cases", () => {
     // With 16 colors and well-known domains we should see at least some variation
-    const colors = ["SAM", "Procurement", "TPRM", "Regolamentazioni", "Finance"].map(colorForDomain);
+    const colors = ["SAM", "Procurement", "TPRM", "Regolamentazioni", "Finance"].map((d) =>
+      colorForDomain(d),
+    );
     const unique = new Set(colors);
     expect(unique.size).toBeGreaterThan(1);
   });
