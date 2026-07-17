@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Synapse Web Clipper",
-  "version": "1.9.4",
+  "version": "2.0.0",
   "description": "Clip web articles to Synapse. The self-hosted LLM wiki that turns your sources into connected knowledge.",
   "permissions": [
     "activeTab",
