@@ -6,7 +6,9 @@
  */
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, BTN_PRIMARY } from "../ui";
+import { Wrench } from "lucide-react";
+import { SectionHeader } from "../ui";
+import { Button } from "../../ui/Button";
 import {
   useSettingsStore,
   selectResetSettings,
@@ -40,9 +42,7 @@ export function SectionMaintenance() {
       <div style={{ padding: 16, border: "1px solid var(--syn-border)", borderRadius: 8, background: "var(--syn-bg-soft)", marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span style={{ marginTop: 1, opacity: 0.6 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
+            <Wrench size={16} strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div style={{ flex: 1 }}>
             <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
@@ -51,9 +51,9 @@ export function SectionMaintenance() {
             <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
               {t("settings.maintenance.duplicatesDesc")}
             </p>
-            <button disabled style={{ ...BTN_PRIMARY, opacity: 0.4, cursor: "not-allowed" }}>
+            <Button variant="accent-ghost" disabled>
               {t("settings.maintenance.duplicatesScan")}
-            </button>
+            </Button>
             <span style={{ marginLeft: 8, fontSize: 11, color: "var(--syn-text-dim)" }}>
               {t("settings.maintenance.duplicatesComingSoon")}
             </span>

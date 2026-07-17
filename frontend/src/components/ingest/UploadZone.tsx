@@ -19,6 +19,7 @@
 
 import { useRef, useState, useCallback, type DragEvent, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { Upload } from "lucide-react";
 import { useIngestStore, selectFetchFresh } from "../../store/ingestStore";
 import { selectVaultId, useAppStore } from "../../store/appStore";
 import { uploadDocument } from "../../api/ingestClient";
@@ -176,27 +177,18 @@ export function UploadZone({ onSuccess }: UploadZoneProps) {
       />
 
       {/* Upload icon */}
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={
+      <Upload
+        size={20}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        color={
           uploading
             ? "var(--syn-text-dim)"
             : isActive
               ? "var(--syn-accent)"
               : "var(--syn-text-muted)"
         }
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="17 8 12 3 7 8" />
-        <line x1="12" y1="3" x2="12" y2="15" />
-      </svg>
+      />
 
       {/* Primary label */}
       <span

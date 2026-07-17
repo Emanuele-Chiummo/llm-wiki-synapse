@@ -6,7 +6,8 @@
  */
 import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, Field, EmbedRow, INPUT_STYLE, BTN_PRIMARY } from "../ui";
+import { SectionHeader, Field, EmbedRow } from "../ui";
+import { Button } from "../../ui/Button";
 
 // Match this section's existing soft-panel blocks (brand colors only, never black).
 const WC_PANEL: CSSProperties = {
@@ -320,24 +321,20 @@ export function SectionWebClipper() {
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="clip-generate-token-btn"
                   onClick={() => {
                     void handleGenerateToken();
                   }}
                   disabled={authBusy}
-                  style={{
-                    ...BTN_PRIMARY,
-                    opacity: authBusy ? 0.4 : 1,
-                    cursor: authBusy ? "not-allowed" : "pointer",
-                  }}
                 >
                   {authBusy
                     ? "…"
                     : tokenConfigured
                       ? t("settings.webClipper.rotateToken")
                       : t("settings.webClipper.generateToken")}
-                </button>
+                </Button>
                 {tokenConfigured && (
                   <button
                     data-testid="clip-clear-token-btn"
@@ -462,23 +459,20 @@ export function SectionWebClipper() {
                   value={originsInput}
                   onChange={(e) => setOriginsInput(e.target.value)}
                   placeholder={t("settings.webClipper.originsPlaceholder")}
-                  style={{ ...INPUT_STYLE, flex: 1 }}
+                  className="syn-input"
+                  style={{ flex: 1 }}
                 />
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="clip-origins-save"
                   onClick={() => {
                     void handleSaveOrigins();
                   }}
                   disabled={originsBusy}
-                  style={{
-                    ...BTN_PRIMARY,
-                    opacity: originsBusy ? 0.4 : 1,
-                    cursor: originsBusy ? "not-allowed" : "pointer",
-                    flexShrink: 0,
-                  }}
+                  style={{ flexShrink: 0 }}
                 >
                   {originsBusy ? "…" : t("settings.webClipper.originsSave")}
-                </button>
+                </Button>
               </div>
               {allowedOrigins.length > 0 && (
                 <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>

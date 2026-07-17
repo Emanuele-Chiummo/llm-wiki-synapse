@@ -81,6 +81,8 @@ import { uploadDocument } from "../../api/ingestClient";
 import { SourcePreview } from "./SourcePreview";
 import { UploadZone } from "../ingest/UploadZone";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { ErrorState } from "../common/ErrorState";
+import { Skeleton } from "../ui/Skeleton";
 import { showToast } from "../common/Toast";
 import { usePollChain } from "../../hooks/usePollChain";
 import type { IngestAllStatusResponse } from "../../api/sourcesClient";
@@ -884,15 +886,15 @@ export function SourcesView() {
         {/* ─ Tree ─ */}
         <div style={TREE_PANEL_STYLE}>
           {loading && (
-            <div style={CENTER_STYLE}>
-              <span style={{ color: "var(--syn-text-dim)", fontSize: 12 }}>
-                {t("common.loading")}
-              </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12 }}>
+              {Array.from({ length: 8 }, (_, i) => (
+                <Skeleton key={i} height={20} radius={4} />
+              ))}
             </div>
           )}
           {error && (
-            <div style={CENTER_STYLE}>
-              <span style={{ color: "var(--syn-red)", fontSize: 12 }}>{error}</span>
+            <div style={{ padding: 12 }}>
+              <ErrorState error={error} onRetry={() => void fetchSources()} />
             </div>
           )}
           {isEmpty && (
@@ -1418,13 +1420,6 @@ const PREVIEW_PANEL_STYLE: CSSProperties = {
   overflow: "hidden",
   display: "flex",
   flexDirection: "column",
-};
-
-const CENTER_STYLE: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  height: "100%",
 };
 
 const EMPTY_STYLE: CSSProperties = {

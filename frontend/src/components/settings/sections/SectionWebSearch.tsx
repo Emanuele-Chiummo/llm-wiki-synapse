@@ -10,7 +10,9 @@
  */
 import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, Field, INPUT_STYLE, BTN_PRIMARY } from "../ui";
+import { Eye, EyeOff } from "lucide-react";
+import { SectionHeader, Field } from "../ui";
+import { Button } from "../../ui/Button";
 import {
   fetchWebSearchConfig,
   setWebSearchConfig,
@@ -332,25 +334,27 @@ export function SectionWebSearch() {
                           placeholder={t("settings.webSearch.apiKeyPlaceholder")}
                           autoComplete="new-password"
                           disabled={keyBusy || !secretsOk}
-                          style={{ ...INPUT_STYLE, width: "100%", paddingRight: 34, fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}
+                          className="syn-input"
+                          style={{ width: "100%", paddingRight: 34, fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12 }}
                         />
                         <button
                           type="button"
                           onClick={() => setShowKey((v) => !v)}
                           aria-label={showKey ? t("connect.hideToken") : t("connect.showToken")}
-                          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: 2, fontSize: 11 }}
+                          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--syn-text-dim)", padding: 2, display: "flex", alignItems: "center" }}
                         >
-                          {showKey ? "🙈" : "👁"}
+                          {showKey ? <EyeOff size={13} aria-hidden="true" /> : <Eye size={13} aria-hidden="true" />}
                         </button>
                       </div>
-                      <button
+                      <Button
+                        variant="accent-ghost"
                         data-testid="web-search-key-save"
                         onClick={() => { void handleSaveKey(); }}
                         disabled={keyBusy || !keyInput.trim() || !secretsOk}
-                        style={{ ...BTN_PRIMARY, flexShrink: 0, opacity: keyBusy || !keyInput.trim() || !secretsOk ? 0.4 : 1, cursor: keyBusy || !keyInput.trim() || !secretsOk ? "not-allowed" : "pointer" }}
+                        style={{ flexShrink: 0 }}
                       >
                         {t("settings.webSearch.apiKeySave")}
-                      </button>
+                      </Button>
                       {posture?.source === "db" && (
                         <button
                           data-testid="web-search-key-clear"
@@ -417,16 +421,18 @@ export function SectionWebSearch() {
                   value={urlInput}
                   onChange={(e) => { setUrlInput(e.target.value); setUrlError(null); }}
                   placeholder={t("settings.webSearch.urlPlaceholder")}
-                  style={{ ...INPUT_STYLE, flex: 1 }}
+                  className="syn-input"
+                  style={{ flex: 1 }}
                 />
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="web-search-url-save"
                   onClick={() => { void handleSaveUrl(); }}
                   disabled={busy}
-                  style={{ ...BTN_PRIMARY, opacity: busy ? 0.4 : 1, cursor: busy ? "not-allowed" : "pointer", flexShrink: 0 }}
+                  style={{ flexShrink: 0 }}
                 >
                   {busy ? "…" : t("settings.webSearch.urlSave")}
-                </button>
+                </Button>
               </div>
               {urlError && (
                 <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>{urlError}</p>
@@ -446,16 +452,18 @@ export function SectionWebSearch() {
                   value={categoriesInput}
                   onChange={(e) => setCategoriesInput(e.target.value)}
                   placeholder={t("settings.webSearch.categoriesPlaceholder")}
-                  style={{ ...INPUT_STYLE, flex: 1 }}
+                  className="syn-input"
+                  style={{ flex: 1 }}
                 />
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="web-search-categories-save"
                   onClick={() => { void handleSaveCategories(); }}
                   disabled={busy}
-                  style={{ ...BTN_PRIMARY, opacity: busy ? 0.4 : 1, cursor: busy ? "not-allowed" : "pointer", flexShrink: 0 }}
+                  style={{ flexShrink: 0 }}
                 >
                   {busy ? "…" : t("settings.webSearch.categoriesSave")}
-                </button>
+                </Button>
               </div>
             </Field>
           </div>
@@ -473,16 +481,17 @@ export function SectionWebSearch() {
                   min={1}
                   max={50}
                   onChange={(e) => setMaxQueriesInput(Number(e.target.value))}
-                  style={{ ...INPUT_STYLE, width: 80 }}
+                  className="syn-input"
+                  style={{ width: 80 }}
                 />
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="web-search-max-queries-save"
                   onClick={() => { void handleSaveMaxQueries(); }}
                   disabled={busy}
-                  style={{ ...BTN_PRIMARY, opacity: busy ? 0.4 : 1, cursor: busy ? "not-allowed" : "pointer" }}
                 >
                   {busy ? "…" : t("settings.webSearch.maxQueriesSave")}
-                </button>
+                </Button>
               </div>
             </Field>
           </div>

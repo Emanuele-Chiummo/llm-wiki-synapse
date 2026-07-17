@@ -5,7 +5,8 @@
  */
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, INPUT_STYLE, BTN_PRIMARY } from "../ui";
+import { SectionHeader } from "../ui";
+import { Button } from "../../ui/Button";
 import { fetchCostsSummary, type CostsSummary } from "../../../api/costsClient";
 
 // LLM Wiki card style — bordered surface card (brand colors only, never black).
@@ -102,22 +103,19 @@ export function SectionCosts() {
           data-testid="costs-month-selector"
           value={month}
           onChange={handleMonthChange}
-          style={{ ...INPUT_STYLE, width: 160 }}
+          className="syn-input"
+          style={{ width: 160 }}
         />
-        <button
+        <Button
+          variant="accent-ghost"
           data-testid="costs-refresh-btn"
           onClick={() => {
             void load(month);
           }}
           disabled={loading}
-          style={{
-            ...BTN_PRIMARY,
-            opacity: loading ? 0.4 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
         >
           {loading ? "…" : t("settings.costs.refresh")}
-        </button>
+        </Button>
       </div>
 
       {err && (

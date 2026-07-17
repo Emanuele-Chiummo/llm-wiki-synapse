@@ -52,10 +52,38 @@ export const COMMUNITY_PALETTE: readonly string[] = [
 ] as const;
 
 /**
- * Color for unassigned nodes (community === -1 or any negative id).
+ * Dark-theme community palette (W4 audit FE-GRAPH-1).
+ * Same 12-color CVD-safe hue set as COMMUNITY_PALETTE, lightened to the same
+ * degree as the --syn-type-* dark overrides in theme.css so each color stays
+ * legible on the navy dark-theme canvas (--syn-bg: #0b1120) instead of
+ * washing out like the light-theme tones do.
+ */
+export const COMMUNITY_PALETTE_DARK: readonly string[] = [
+  "#58a6ff", // 0 — steel blue (lightened; matches --syn-accent dark)
+  "#ffa657", // 1 — burnt orange (lightened)
+  "#56d364", // 2 — medium green (lightened; matches --syn-green dark)
+  "#ff7b72", // 3 — brick red (lightened)
+  "#b088f9", // 4 — violet purple (lightened; matches --syn-type-concept dark)
+  "#cf9e8a", // 5 — brown (lightened)
+  "#f2a5dd", // 6 — pink (lightened)
+  "#a8a8a8", // 7 — mid grey (lightened)
+  "#e6d84a", // 8 — dark yellow (lightened)
+  "#56d4e0", // 9 — teal (lightened; matches --syn-type-source dark)
+  "#2ea56f", // 10 — dark forest green (lightened)
+  "#d16b6b", // 11 — deep red / maroon (lightened)
+] as const;
+
+/**
+ * Color for unassigned nodes (community === -1 or any negative id) — light theme.
  * Matches --syn-type-other in theme.css.
  */
 export const COMMUNITY_UNASSIGNED_COLOR = "#6e7781";
+
+/**
+ * Color for unassigned nodes — dark theme.
+ * Matches --syn-type-other / --syn-text-dim dark override in theme.css.
+ */
+export const COMMUNITY_UNASSIGNED_COLOR_DARK = "#7d8590";
 
 /**
  * Low-cohesion threshold.
@@ -74,20 +102,31 @@ export const LOW_COHESION_THRESHOLD = 0.1;
  */
 export type ColorMode = "type" | "community";
 
+/** Resolved app theme — read from document.documentElement.dataset.theme. */
+export type GraphTheme = "light" | "dark";
+
 /**
  * Returns the color for a given server-provided community id.
  *
- * - Negative ids (unassigned, -1) → COMMUNITY_UNASSIGNED_COLOR (#6e7781)
- * - 0–11                           → COMMUNITY_PALETTE[id]
+ * - Negative ids (unassigned, -1) → COMMUNITY_UNASSIGNED_COLOR (#6e7781, or the
+ *   dark-theme equivalent when theme === "dark")
+ * - 0–11                           → COMMUNITY_PALETTE[id] (or _DARK)
  * - ≥12                            → COMMUNITY_PALETTE[id % 12] (cycle)
  *
  * INVARIANT I2: the `communityId` argument MUST come from the server
  * (GraphNode.community field in the GET /graph response). Never pass a
  * client-computed value here.
+ *
+ * `theme` (W4 audit FE-GRAPH-1): pass "dark" when
+ * document.documentElement.dataset.theme === "dark" so the palette stays
+ * legible on the dark canvas instead of washing out. Defaults to "light" for
+ * existing call sites.
  */
-export function colorForCommunity(communityId: number): string {
-  if (communityId < 0) return COMMUNITY_UNASSIGNED_COLOR;
-  return COMMUNITY_PALETTE[communityId % COMMUNITY_PALETTE.length] ?? COMMUNITY_UNASSIGNED_COLOR;
+export function colorForCommunity(communityId: number, theme: GraphTheme = "light"): string {
+  const palette = theme === "dark" ? COMMUNITY_PALETTE_DARK : COMMUNITY_PALETTE;
+  const unassigned = theme === "dark" ? COMMUNITY_UNASSIGNED_COLOR_DARK : COMMUNITY_UNASSIGNED_COLOR;
+  if (communityId < 0) return unassigned;
+  return palette[communityId % palette.length] ?? unassigned;
 }
 
 // ─── Domain color palette ──────────────────────────────────────────────────────
@@ -118,11 +157,45 @@ const DOMAIN_PALETTE: readonly string[] = [
 ] as const;
 
 /**
- * Color for nodes with no domain tag (domain === null or absent).
+ * Dark-theme domain palette (W4 audit FE-GRAPH-1).
+ * Lightened counterpart of DOMAIN_PALETTE, same lightening approach as the
+ * --syn-type-* dark overrides in theme.css. Index 9 in the light palette
+ * ("#24292f", near-black) is invisible against the dark canvas background
+ * (--syn-bg: #0b1120) — replaced here with a light periwinkle/lavender tone
+ * that stays distinct from every other entry instead of a near-black swap.
+ */
+const DOMAIN_PALETTE_DARK: readonly string[] = [
+  "#58a6ff", // 0 — github blue (lightened)
+  "#ff7b72", // 1 — github red (lightened)
+  "#56d364", // 2 — github green (lightened)
+  "#d3a24a", // 3 — amber/gold (lightened)
+  "#a78bfa", // 4 — purple (lightened; matches --syn-type-concept dark)
+  "#e58a63", // 5 — terra cotta (lightened; matches --syn-type-comparison dark)
+  "#79c0ff", // 6 — navy (lightened)
+  "#56d379", // 7 — forest green (lightened)
+  "#ff9492", // 8 — crimson (lightened)
+  "#c4b5fd", // 9 — light lavender (was near-black #24292f — invisible on dark; brand-compliant swap, never black)
+  "#4fb3ff", // 10 — cerulean (lightened)
+  "#daa657", // 11 — brown (lightened)
+  "#b399e8", // 12 — deep violet (lightened)
+  "#2cc3b9", // 13 — dark teal (lightened; matches --syn-type-source dark)
+  "#e6934d", // 14 — burnt sienna (lightened)
+  "#4f9d75", // 15 — dark sage (lightened)
+] as const;
+
+/**
+ * Color for nodes with no domain tag (domain === null or absent) — light theme.
  * Neutral gray — visually distinct from all domain colors above.
  * Matches --syn-type-other / COMMUNITY_UNASSIGNED_COLOR.
  */
 export const DOMAIN_UNTAGGED_COLOR = "#8b949e";
+
+/**
+ * Color for untagged nodes — dark theme.
+ * Matches --syn-type-other dark override (#8b949e stays legible enough, but
+ * this slightly lighter tone keeps it distinct from DOMAIN_PALETTE_DARK[9]).
+ */
+export const DOMAIN_UNTAGGED_COLOR_DARK = "#9198a1";
 
 /**
  * Returns a STABLE, DETERMINISTIC color for a domain name.
@@ -135,10 +208,16 @@ export const DOMAIN_UNTAGGED_COLOR = "#8b949e";
  *
  * INVARIANT I2: the `domain` argument MUST come from the server
  * (GraphNode.domain field in the GET /graph response).
+ *
+ * `theme` (W4 audit FE-GRAPH-1): pass "dark" when
+ * document.documentElement.dataset.theme === "dark" to use the lightened
+ * dark-theme palette. Defaults to "light" for existing call sites.
  */
-export function colorForDomain(domain: string | null | undefined): string {
+export function colorForDomain(domain: string | null | undefined, theme: GraphTheme = "light"): string {
+  const palette = theme === "dark" ? DOMAIN_PALETTE_DARK : DOMAIN_PALETTE;
+  const untagged = theme === "dark" ? DOMAIN_UNTAGGED_COLOR_DARK : DOMAIN_UNTAGGED_COLOR;
   if (domain === null || domain === undefined || domain.trim() === "") {
-    return DOMAIN_UNTAGGED_COLOR;
+    return untagged;
   }
   // djb2 hash (non-cryptographic, fast, well-distributed for short strings)
   let hash = 5381;
@@ -149,6 +228,6 @@ export function colorForDomain(domain: string | null | undefined): string {
     hash = hash | 0;
   }
   // Map to a non-negative palette index
-  const index = Math.abs(hash) % DOMAIN_PALETTE.length;
-  return DOMAIN_PALETTE[index] ?? DOMAIN_UNTAGGED_COLOR;
+  const index = Math.abs(hash) % palette.length;
+  return palette[index] ?? untagged;
 }

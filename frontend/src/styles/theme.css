@@ -107,6 +107,26 @@
   --syn-shadow-soft: 0 1px 2px rgba(15, 23, 41, 0.05), 0 8px 24px -14px rgba(15, 23, 41, 0.12);
   --syn-shadow-pop: 0 2px 8px rgba(15, 23, 41, 0.07), 0 20px 44px -22px rgba(15, 23, 41, 0.22);
 
+  /* ── Typography scale (W4 audit FE-QUAL-8) ──────────────────────────────────
+   * Derived from a grep of the most common inline fontSize values already in
+   * use across src/components (287× 12px, 282× 11px, 111× 13px, 27× 14px).
+   * xs/sm cover the dominant meta-text sizes; md/lg cover body/heading sizes.
+   * New code should reference these tokens instead of a raw px literal. */
+  --syn-font-xs: 11px;
+  --syn-font-sm: 12px;
+  --syn-font-md: 13px;
+  --syn-font-lg: 16px;
+
+  /* ── Spacing scale (W4 audit FE-QUAL-8) ─────────────────────────────────────
+   * Derived from a grep of the most common inline gap/padding values already
+   * in use (gap: 4/6/8/10/12/16 dominate). Use for new gap/padding/margin. */
+  --syn-space-1: 4px;
+  --syn-space-2: 6px;
+  --syn-space-3: 8px;
+  --syn-space-4: 10px;
+  --syn-space-5: 12px;
+  --syn-space-6: 16px;
+
   /* ── Scrollbar tokens (audit: was hardcoded #c7ccd4) ── */
   --syn-scrollbar-thumb: #c7ccd4;
 
@@ -452,37 +472,6 @@ select:focus-visible {
   color: var(--syn-text) !important;
 }
 
-.syn-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 6px 12px;
-  border-radius: var(--syn-radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.syn-button--primary {
-  border: 1px solid var(--syn-accent-strong);
-  background: var(--syn-accent);
-  color: #ffffff;
-}
-
-.syn-button--secondary {
-  border: 1px solid var(--syn-border);
-  background: var(--syn-surface);
-  color: var(--syn-text-muted);
-}
-
-.syn-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 /* Rounded pill chip (tags, type badges) — llm_wiki style */
 .syn-chip {
   display: inline-flex;
@@ -613,7 +602,6 @@ select:focus-visible {
  * These animate interactive state changes (hover, press) but NOT the theme swap.
  * The .theme-switching guard above suppresses them during the attribute write.
  */
-.syn-button,
 .syn-toolbar-button,
 .syn-chip,
 button {
@@ -803,7 +791,7 @@ button {
     padding: 18px;
   }
 
-  .syn-button {
+  .syn-btn {
     min-width: 0;
   }
 

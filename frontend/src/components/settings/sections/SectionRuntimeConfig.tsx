@@ -16,7 +16,7 @@ import {
   type AppConfigEntry,
   type AppConfigKey,
 } from "../../../api/appConfigClient";
-import { INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
+import { Button } from "../../ui/Button";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -336,24 +336,24 @@ function RuntimeConfigField({
       {(isDirty || isOverride || entry.saved) && (
         <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
           {isDirty && (
-            <button
+            <Button
+              variant="accent-ghost"
               data-testid={`rc-save-${configKey}`}
               onClick={() => { void onSave(configKey); }}
               disabled={entry.saving}
-              style={{ ...BTN_PRIMARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
             >
               {entry.saving ? t("config.saving") : t("config.save")}
-            </button>
+            </Button>
           )}
           {isOverride && (
-            <button
+            <Button
+              variant="ghost"
               data-testid={`rc-reset-${configKey}`}
               onClick={() => { void onReset(configKey); }}
               disabled={entry.saving}
-              style={{ ...BTN_SECONDARY, opacity: entry.saving ? 0.4 : 1, cursor: entry.saving ? "not-allowed" : "pointer" }}
             >
               {t("config.resetToDefault")}
-            </button>
+            </Button>
           )}
           {entry.saved && (
             <span style={{ fontSize: 11, color: "var(--syn-green)" }}>
@@ -423,7 +423,7 @@ function RcControl({
           data-testid="rc-control-pdf_extractor"
           value={entry.localValue}
           onChange={(e) => onLocalChange(configKey, e.target.value)}
-          style={INPUT_STYLE}
+          className="syn-input"
         >
           <option value="pypdf">{t("config.pdfExtractor.optionPypdf")}</option>
           <option value="marker">{t("config.pdfExtractor.optionMarker")}</option>
@@ -456,7 +456,7 @@ function RcControl({
         data-testid="rc-control-embedding_format"
         value={entry.localValue}
         onChange={(e) => onLocalChange(configKey, e.target.value)}
-        style={INPUT_STYLE}
+        className="syn-input"
       >
         <option value="ollama">{t("config.embeddingFormat.optionOllama")}</option>
         <option value="openai">{t("config.embeddingFormat.optionOpenai")}</option>
@@ -519,7 +519,7 @@ function RcControl({
         value={entry.localValue}
         onChange={(e) => onLocalChange(configKey, e.target.value)}
         placeholder={t("config.overviewLanguage.placeholder")}
-        style={INPUT_STYLE}
+        className="syn-input"
       />
     );
   }
@@ -532,7 +532,7 @@ function RcControl({
         value={entry.localValue}
         onChange={(e) => onLocalChange(configKey, e.target.value)}
         placeholder={t("config.markerServiceUrl.placeholder")}
-        style={INPUT_STYLE}
+        className="syn-input"
       />
     );
   }
@@ -560,7 +560,7 @@ function RcControl({
             onLocalChange(configKey, jsonValue);
           }}
           placeholder={t("config.domainVocabulary.placeholder")}
-          style={INPUT_STYLE}
+          className="syn-input"
         />
         <p style={{ margin: 0, fontSize: 10, color: "var(--syn-text-dim)", lineHeight: 1.4 }}>
           {t("config.domainVocabulary.chipHint")}
@@ -598,7 +598,7 @@ function RcControl({
         value={entry.localValue}
         onChange={(e) => onLocalChange(configKey, e.target.value)}
         placeholder={placeholderMap[configKey] ?? ""}
-        style={INPUT_STYLE}
+        className="syn-input"
       />
     );
   }
@@ -610,7 +610,7 @@ function RcControl({
       data-testid={`rc-control-${configKey}`}
       value={entry.localValue}
       onChange={(e) => onLocalChange(configKey, e.target.value)}
-      style={INPUT_STYLE}
+      className="syn-input"
     />
   );
 }

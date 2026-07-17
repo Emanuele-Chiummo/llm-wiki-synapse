@@ -24,6 +24,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../ui/Button";
 import { OpsScheduleCard } from "./OpsScheduleCard";
 import { SettingsSaveFooter } from "./SettingsSaveFooter";
 import { SectionGeneral } from "./sections/SectionGeneral";
@@ -42,31 +43,29 @@ import { SectionScenarios } from "./sections/SectionScenarios";
 import { SectionCosts } from "./sections/SectionCosts";
 import { SectionSecurity } from "./sections/SectionSecurity";
 import { SectionRuntimeConfig } from "./sections/SectionRuntimeConfig";
+import { SectionHeader, GroupDivider } from "./ui";
 import {
-  SectionHeader,
-  GroupDivider,
-  BTN_PRIMARY,
-  IconSliders,
-  IconCpu,
-  IconFolder,
-  IconWrench,
-  IconBook,
-  IconLink,
-  IconShield,
-  IconPalette,
-  IconWand,
-  IconBolt,
-  IconVectors,
-  IconGlobe,
-  IconClock,
-  IconScissors,
-  IconFileText,
-  IconImage,
-  IconLock,
-  IconDollar,
-  IconInfo,
-  IconHistory,
-} from "./ui";
+  SlidersHorizontal,
+  Cpu,
+  Folder,
+  Wrench,
+  Book,
+  Link2,
+  Shield,
+  Palette,
+  Wand2,
+  Zap,
+  Network,
+  Globe,
+  Clock,
+  Scissors,
+  FileText,
+  Image as ImageIcon,
+  Lock,
+  DollarSign,
+  Info,
+  History,
+} from "lucide-react";
 
 // ─── Page type ────────────────────────────────────────────────────────────────
 // 20 stable page IDs — one per leaf page in the 2-level nav.
@@ -120,9 +119,9 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupEssentials",
     descKey: "settings.nav.groupEssentialsDesc",
     pages: [
-      { id: "providers", labelKey: "settings.nav.providers", icon: <IconCpu /> },
-      { id: "appearance", labelKey: "settings.nav.appearance", icon: <IconPalette /> },
-      { id: "setup", labelKey: "settings.nav.setup", icon: <IconWand /> },
+      { id: "providers", labelKey: "settings.nav.providers", icon: <Cpu size={15} aria-hidden="true" /> },
+      { id: "appearance", labelKey: "settings.nav.appearance", icon: <Palette size={15} aria-hidden="true" /> },
+      { id: "setup", labelKey: "settings.nav.setup", icon: <Wand2 size={15} aria-hidden="true" /> },
     ],
   },
   {
@@ -130,12 +129,12 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupContent",
     descKey: "settings.nav.groupContentDesc",
     pages: [
-      { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <IconFolder /> },
-      { id: "clipper", labelKey: "settings.nav.clipper", icon: <IconScissors /> },
-      { id: "pdf", labelKey: "settings.nav.pdf", icon: <IconFileText /> },
-      { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <IconImage /> },
-      { id: "generation", labelKey: "settings.nav.generation", icon: <IconBook /> },
-      { id: "scenarios", labelKey: "settings.nav.scenarios", icon: <IconBolt /> },
+      { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <Folder size={15} aria-hidden="true" /> },
+      { id: "clipper", labelKey: "settings.nav.clipper", icon: <Scissors size={15} aria-hidden="true" /> },
+      { id: "pdf", labelKey: "settings.nav.pdf", icon: <FileText size={15} aria-hidden="true" /> },
+      { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <ImageIcon size={15} aria-hidden="true" /> },
+      { id: "generation", labelKey: "settings.nav.generation", icon: <Book size={15} aria-hidden="true" /> },
+      { id: "scenarios", labelKey: "settings.nav.scenarios", icon: <Zap size={15} aria-hidden="true" /> },
     ],
   },
   {
@@ -143,21 +142,21 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupAiBehavior",
     descKey: "settings.nav.groupAiBehaviorDesc",
     pages: [
-      { id: "context", labelKey: "settings.nav.context", icon: <IconSliders />, advanced: true },
+      { id: "context", labelKey: "settings.nav.context", icon: <SlidersHorizontal size={15} aria-hidden="true" />, advanced: true },
       {
         id: "embeddings",
         labelKey: "settings.nav.embeddings2",
-        icon: <IconVectors />,
+        icon: <Network size={15} aria-hidden="true" />,
         advanced: true,
       },
-      { id: "webSearch", labelKey: "settings.nav.webSearch2", icon: <IconGlobe />, advanced: true },
+      { id: "webSearch", labelKey: "settings.nav.webSearch2", icon: <Globe size={15} aria-hidden="true" />, advanced: true },
       {
         id: "automation",
         labelKey: "settings.nav.automation",
-        icon: <IconClock />,
+        icon: <Clock size={15} aria-hidden="true" />,
         advanced: true,
       },
-      { id: "limits", labelKey: "settings.nav.limits", icon: <IconShield />, advanced: true },
+      { id: "limits", labelKey: "settings.nav.limits", icon: <Shield size={15} aria-hidden="true" />, advanced: true },
     ],
   },
   {
@@ -165,8 +164,8 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupAccess",
     descKey: "settings.nav.groupAccessDesc",
     pages: [
-      { id: "security", labelKey: "settings.nav.security2", icon: <IconLock /> },
-      { id: "apiMcp", labelKey: "settings.nav.apiMcp2", icon: <IconLink /> },
+      { id: "security", labelKey: "settings.nav.security2", icon: <Lock size={15} aria-hidden="true" /> },
+      { id: "apiMcp", labelKey: "settings.nav.apiMcp2", icon: <Link2 size={15} aria-hidden="true" /> },
     ],
   },
   {
@@ -174,10 +173,10 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupSystem",
     descKey: "settings.nav.groupSystemDesc",
     pages: [
-      { id: "costs", labelKey: "settings.nav.costs2", icon: <IconDollar /> },
-      { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <IconWrench /> },
-      { id: "changelog", labelKey: "settings.nav.changelog2", icon: <IconHistory /> },
-      { id: "about", labelKey: "settings.nav.about2", icon: <IconInfo /> },
+      { id: "costs", labelKey: "settings.nav.costs2", icon: <DollarSign size={15} aria-hidden="true" /> },
+      { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <Wrench size={15} aria-hidden="true" /> },
+      { id: "changelog", labelKey: "settings.nav.changelog2", icon: <History size={15} aria-hidden="true" /> },
+      { id: "about", labelKey: "settings.nav.about2", icon: <Info size={15} aria-hidden="true" /> },
     ],
   },
 ];
@@ -462,9 +461,9 @@ function PageSetup() {
         title={t("config.gettingStarted.wizardSlot")}
         desc={t("config.gettingStarted.wizardSlotDesc")}
       />
-      <button data-testid="wizard-reopen-btn" onClick={handleOpenWizard} style={BTN_PRIMARY}>
+      <Button variant="accent-ghost" data-testid="wizard-reopen-btn" onClick={handleOpenWizard}>
         {t("config.gettingStarted.wizardReopen")}
-      </button>
+      </Button>
     </div>
   );
 }

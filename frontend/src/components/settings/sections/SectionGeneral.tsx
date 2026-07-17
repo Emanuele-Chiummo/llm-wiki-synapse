@@ -6,7 +6,7 @@
  */
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, Field, BudgetRow, INPUT_STYLE } from "../ui";
+import { SectionHeader, Field, BudgetRow } from "../ui";
 import {
   useSettingsStore,
   selectDraftContextWindow,
@@ -42,7 +42,7 @@ export function SectionGeneral() {
             id="ctx-select"
             value={draftContextWindow}
             onChange={(e) => setDraftContextWindow(Number(e.target.value) as ContextWindowTokens)}
-            style={INPUT_STYLE}
+            className="syn-input"
           >
             {CONTEXT_WINDOW_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>{formatTokenCount(opt)}</option>

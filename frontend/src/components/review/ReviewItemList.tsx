@@ -27,6 +27,7 @@ import {
   selectToggleSelected,
 } from "../../store/reviewStore";
 import { EmptyState } from "../common/EmptyState";
+import { Skeleton } from "../ui/Skeleton";
 import type { ReviewItem } from "../../api/types";
 import type { Translate } from "./ReviewBadges";
 import { ReviewRow } from "./ReviewRow";
@@ -124,6 +125,16 @@ export function ReviewItemList({
     },
     [toggleSelected],
   );
+
+  if (items.length === 0 && loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} height={48} radius={8} />
+        ))}
+      </div>
+    );
+  }
 
   if (items.length === 0 && !loading) {
     return (
