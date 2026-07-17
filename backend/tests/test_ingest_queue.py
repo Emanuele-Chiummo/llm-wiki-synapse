@@ -1045,3 +1045,196 @@ class TestDrainCallback:
 
         asyncio.run(run())
         assert calls == [], "callback must not fire after being cleared with None"
+
+
+# ── 429 / rate-limit auto-pause (BE-QUEUE-1, 1.9.4 W3) ─────────────────────────
+
+
+class TestRateLimitAutoPause:
+    def test_pause_for_rate_limit_pauses_with_auto_429_reason(self) -> None:
+        mgr = make_manager()
+        cooldown = mgr.pause_for_rate_limit()
+        assert cooldown == 30.0
+        assert mgr._paused is True
+        assert mgr._paused_by == "auto_429"
+
+    def test_auto_pause_then_auto_resume_after_cooldown(self) -> None:
+        """(a) A simulated 429 pauses the queue, then auto-resumes once the (fake/injected)
+        cooldown clock elapses — no real sleep involved."""
+
+        async def run() -> None:
+            mgr = make_manager()
+
+            async def instant_sleep(_seconds: float) -> None:
+                return None  # fake clock: cooldown "elapses" immediately
+
+            mgr._sleep_fn = instant_sleep
+            cooldown = mgr.pause_for_rate_limit()
+            assert cooldown == 30.0
+            assert mgr._paused is True
+
+            # Let the scheduled auto-resume task run to completion.
+            for _ in range(5):
+                await asyncio.sleep(0)
+
+            assert mgr._paused is False
+            assert mgr._paused_by is None
+
+        asyncio.run(run())
+
+    def test_backoff_schedule_caps_at_300s(self) -> None:
+        """(b) The cooldown ladder escalates but never grows past the 300s I7 hard cap."""
+        mgr = make_manager()
+        seen = [mgr.pause_for_rate_limit() for _ in range(6)]
+        assert seen == [30.0, 60.0, 120.0, 300.0, 300.0, 300.0]
+        assert max(seen) == 300.0
+
+    def test_reset_rate_limit_backoff_drops_to_base_tier(self) -> None:
+        mgr = make_manager()
+        mgr.pause_for_rate_limit()
+        mgr.pause_for_rate_limit()
+        assert mgr._rate_limit_level == 2
+        mgr.reset_rate_limit_backoff()
+        assert mgr._rate_limit_level == 0
+        assert mgr.pause_for_rate_limit() == 30.0
+
+    def test_manual_pause_not_overridden_by_pending_auto_resume(self) -> None:
+        """(c) A manual pause taken WHILE a 429 cooldown is still counting down must win —
+        the auto-resume timer must never un-pause a manually-paused queue."""
+
+        async def run() -> None:
+            mgr = make_manager()
+
+            async def never_completes(_seconds: float) -> None:
+                # Simulates a cooldown that has not elapsed yet by the time the test acts.
+                await asyncio.sleep(3600)
+
+            mgr._sleep_fn = never_completes
+            mgr.pause_for_rate_limit()
+            assert mgr._paused_by == "auto_429"
+
+            # Operator manually pauses before the cooldown would have fired.
+            mgr.pause()
+            assert mgr._paused_by == "manual"
+            assert mgr._rate_limit_task is None  # cancelled — no lingering auto-resume
+
+            # Give the event loop a beat to process the cancellation; must NOT resume.
+            await asyncio.sleep(0)
+            assert mgr._paused is True
+            assert mgr._paused_by == "manual"
+
+        asyncio.run(run())
+
+    def test_pause_for_rate_limit_is_noop_when_already_manually_paused(self) -> None:
+        mgr = make_manager()
+        mgr.pause()
+        cooldown = mgr.pause_for_rate_limit()
+        assert cooldown == 0.0
+        assert mgr._paused_by == "manual"  # unchanged — manual pause always wins
+
+    def test_manual_resume_clears_auto_429_state(self) -> None:
+        mgr = make_manager()
+        mgr.pause_for_rate_limit()
+        assert mgr._paused_by == "auto_429"
+        mgr.resume()
+        assert mgr._paused is False
+        assert mgr._paused_by is None
+
+    def test_snapshot_exposes_paused_by(self) -> None:
+        mgr = make_manager()
+        assert mgr.snapshot()["paused_by"] is None
+        mgr.pause_for_rate_limit()
+        assert mgr.snapshot()["paused_by"] == "auto_429"
+
+
+# ── Per-capability concurrency cap (BE-QUEUE-2, 1.9.4 W3) ──────────────────────
+
+
+class TestCapabilityConcurrencyCap:
+    def test_default_limits_match_config_defaults(self) -> None:
+        from app.ingest.queue_manager import _CAPABILITY_CONCURRENCY_LIMITS
+
+        # CLI=1, API=3, Local=1 (config.py defaults) unless overridden via env.
+        assert _CAPABILITY_CONCURRENCY_LIMITS == {"cli": 1, "api": 3, "local": 1}
+
+    def test_acquire_blocks_dispatch_beyond_the_cap(self) -> None:
+        """(d) A second acquire for the same capability blocks once the cap (1) is reached,
+        and unblocks only after the first slot is released."""
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr._capability_semaphores["cli"] = asyncio.Semaphore(1)
+
+            await mgr.acquire_capability_slot("cli")
+
+            acquired_second = False
+
+            async def try_second() -> None:
+                nonlocal acquired_second
+                await mgr.acquire_capability_slot("cli")
+                acquired_second = True
+
+            task = asyncio.create_task(try_second())
+            await asyncio.sleep(0)
+            assert acquired_second is False, "second acquire must block at the cap"
+
+            mgr.release_capability_slot("cli")
+            await asyncio.sleep(0)
+            assert acquired_second is True, "second acquire unblocks once a slot is released"
+
+            await task
+
+        asyncio.run(run())
+
+    def test_higher_cap_allows_concurrent_dispatch(self) -> None:
+        """A capability with cap=3 (API default) admits 3 concurrent acquires without blocking."""
+
+        async def run() -> None:
+            mgr = make_manager()
+            for _ in range(3):
+                await mgr.acquire_capability_slot("api")  # must not block
+
+            blocked = False
+
+            async def fourth() -> None:
+                nonlocal blocked
+                await mgr.acquire_capability_slot("api")
+                blocked = True
+
+            task = asyncio.create_task(fourth())
+            await asyncio.sleep(0)
+            assert blocked is False, "4th acquire must block once the cap (3) is reached"
+
+            mgr.release_capability_slot("api")
+            await asyncio.sleep(0)
+            assert blocked is True
+            await task
+
+        asyncio.run(run())
+
+    def test_unknown_mode_gets_fail_safe_cap_of_one(self) -> None:
+        async def run() -> None:
+            mgr = make_manager()
+            await mgr.acquire_capability_slot("some_future_mode")
+
+            acquired_second = False
+
+            async def try_second() -> None:
+                nonlocal acquired_second
+                await mgr.acquire_capability_slot("some_future_mode")
+                acquired_second = True
+
+            task = asyncio.create_task(try_second())
+            await asyncio.sleep(0)
+            assert acquired_second is False
+
+            mgr.release_capability_slot("some_future_mode")
+            await asyncio.sleep(0)
+            assert acquired_second is True
+            await task
+
+        asyncio.run(run())
+
+    def test_release_is_a_noop_for_never_acquired_mode(self) -> None:
+        mgr = make_manager()
+        mgr.release_capability_slot("cli")  # must not raise even though never acquired first
