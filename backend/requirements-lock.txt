@@ -297,7 +297,7 @@ rpds-py==2026.6.3
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.20
+ruff==0.15.22
     # via synapse-backend (pyproject.toml)
 scipy==1.17.1
     # via fa2-modified
