@@ -17,6 +17,7 @@ import {
   setCfAccessCreds,
   clearCfAccessCreds,
 } from "../../../api/base";
+import { ApiTokensCard } from "./ApiTokensCard";
 
 // LLM Wiki card style — bordered surface card (brand colors only, never black).
 const SEC_CARD: CSSProperties = {
@@ -211,6 +212,9 @@ export function SectionSecurity() {
           {cfCleared && <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.security.cleared")}</span>}
         </div>
       </div>
+
+      {/* Scoped, revocable API tokens (PF-AUTH-1, 1.9.4 W4) */}
+      <ApiTokensCard />
 
       {/* Asymmetry banner (ADR-0052 §2.6 / AC-R10-2-5) */}
       <div style={{ marginTop: 24, padding: "12px 14px", background: "var(--syn-notice-info-bg, #eff6ff)", border: "1px solid var(--syn-notice-info-border, #bfdbfe)", borderRadius: 8, fontSize: 12, color: "var(--syn-text)", lineHeight: 1.6 }}>
