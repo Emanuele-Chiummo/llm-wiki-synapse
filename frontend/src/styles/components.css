@@ -187,6 +187,27 @@
   font-size: 11px;
 }
 
+/* ── Shared input shell (W4 audit FE-QUAL-8) ─────────────────────────────────
+ * Replaces the settings/ui.tsx INPUT_STYLE inline-style constant.
+ * Applies to <input>/<select>/<textarea>. Layout overrides (flex, width,
+ * marginBottom, ...) stay inline — this class owns only appearance.
+ */
+.syn-input {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--syn-bg);
+  border: 1px solid var(--syn-border);
+  border-radius: var(--syn-radius-sm);
+  color: var(--syn-text);
+  font-size: var(--syn-font-sm);
+  box-sizing: border-box;
+}
+
+.syn-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--syn-accent) 70%, var(--syn-mix-base) 30%);
+  outline-offset: 1px;
+}
+
 /* ── Shared shell connection state ───────────────────────────────────────── */
 
 .syn-connection-banner {

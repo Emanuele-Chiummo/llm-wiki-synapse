@@ -36,9 +36,7 @@ export function EmptyState({
               key={action.label}
               type="button"
               className={
-                action.variant === "primary"
-                  ? "syn-button syn-button--primary"
-                  : "syn-button syn-button--secondary"
+                action.variant === "primary" ? "syn-btn syn-btn--primary" : "syn-btn syn-btn--secondary"
               }
               onClick={action.onClick}
             >

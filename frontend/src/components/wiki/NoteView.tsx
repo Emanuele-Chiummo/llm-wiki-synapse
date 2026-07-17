@@ -774,7 +774,7 @@ export function NoteView() {
                     type="button"
                     data-testid="note-reload-btn"
                     onClick={handleReload}
-                    className="syn-button syn-button--secondary"
+                    className="syn-btn syn-btn--secondary"
                   >
                     {t("noteView.reload")}
                   </button>
@@ -783,7 +783,7 @@ export function NoteView() {
                   type="button"
                   data-testid="note-edit-btn"
                   onClick={handleEdit}
-                  className="syn-button syn-button--secondary"
+                  className="syn-btn syn-btn--secondary"
                 >
                   {t("noteView.edit")}
                 </button>
@@ -924,7 +924,7 @@ export function NoteView() {
                   type="button"
                   data-testid="note-reload-btn"
                   onClick={handleReload}
-                  className="syn-button syn-button--secondary"
+                  className="syn-btn syn-btn--secondary"
                 >
                   {t("noteView.reload")}
                 </button>
@@ -933,7 +933,7 @@ export function NoteView() {
                 type="button"
                 data-testid="note-cancel-btn"
                 onClick={handleCancel}
-                className="syn-button syn-button--secondary"
+                className="syn-btn syn-btn--secondary"
                 disabled={isSaving}
               >
                 {t("noteView.cancel")}
@@ -944,7 +944,7 @@ export function NoteView() {
                   type="button"
                   data-testid="note-save-btn"
                   onClick={() => void handleSave()}
-                  className="syn-button syn-button--primary"
+                  className="syn-btn syn-btn--primary"
                   disabled={isSaving}
                   style={{ position: "relative" }}
                 >
