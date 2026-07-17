@@ -97,6 +97,14 @@ export interface AppActions {
   /** Show or hide the GraphInsightsPanel overlay (F4 chrome parity). */
   setShowInsightsPanel: (show: boolean) => void;
   reset: () => void;
+  /**
+   * FE-UIUX-3: switch the active vault WITHOUT a full page reload.
+   * Adopts the new vaultId and clears any selection/overlay state that
+   * referenced the previous vault's data (a node id, graph-vs-tree source,
+   * insights overlay). Navigation (activeSection/activeTab) and generic UI
+   * prefs (treeCollapsed group keys) are NOT vault-specific and are kept.
+   */
+  resetForVault: (vaultId: string) => void;
 }
 
 export type AppStore = AppState & AppActions;
@@ -147,6 +155,15 @@ export const useAppStore = create<AppStore>((set) => ({
   setShowInsightsPanel: (showInsightsPanel) => set({ showInsightsPanel }),
 
   reset: () => set(INITIAL_STATE),
+
+  // FE-UIUX-3
+  resetForVault: (vaultId) =>
+    set({
+      vaultId,
+      selectedNodeId: null,
+      selectedSource: null,
+      showInsightsPanel: false,
+    }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -161,6 +178,11 @@ export function selectVaultIdAndActions(s: AppStore): {
   setVaultId: AppActions["setVaultId"];
 } {
   return { vaultId: s.vaultId, setVaultId: s.setVaultId };
+}
+
+/** FE-UIUX-3: select the resetForVault action. */
+export function selectResetForVault(s: AppStore): AppActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 /** Select the currently selected node id (scalar). */

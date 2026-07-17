@@ -6,7 +6,8 @@
  *  2. Step gating: Next disabled on step 2 until a language is chosen.
  *  3. "general" scenario is pre-selected on step 3.
  *  4. createProject payload contains name, computed path, scenario, output_language.
- *  5. Success triggers activateProject + window.location.reload.
+ *  5. Success triggers activateProject + soft vault switch (FE-UIUX-3): resetAllVaultStores,
+ *     navigate to Home, close the modal — no window.location.reload().
  *  6. Create error is displayed without reloading.
  *  7. Esc closes the dialog.
  *  8. Backdrop click closes the dialog.
@@ -56,9 +57,21 @@ vi.mock("../api/scenariosClient", () => ({
   applyScenario: vi.fn(),
 }));
 
-// ─── Mock window.location.reload ─────────────────────────────────────────────
+// ─── Mock window.location.reload (must NOT be called — FE-UIUX-3 soft switch) ─
 
 const mockReload = vi.fn();
+
+// ─── Mock the soft vault-switch helper + appStore (FE-UIUX-3) ────────────────
+
+const mockResetAllVaultStores = vi.fn();
+vi.mock("../store/vaultSwitch", () => ({
+  resetAllVaultStores: (...args: unknown[]) => mockResetAllVaultStores(...args),
+}));
+
+const mockSetActiveSection = vi.fn();
+vi.mock("../store/appStore", () => ({
+  useAppStore: { getState: () => ({ setActiveSection: mockSetActiveSection }) },
+}));
 
 // ─── Import component (after mocks) ──────────────────────────────────────────
 
@@ -380,24 +393,38 @@ describe("NewProjectWizard — success flow", () => {
     expect(mockActivateProject.mock.calls[0]?.[0]).toBe("proj-789");
   });
 
-  it("calls window.location.reload after both API calls succeed", async () => {
+  it("does NOT call window.location.reload after success (FE-UIUX-3 soft switch)", async () => {
     renderWizard();
     await advanceToStep3();
     await waitFor(() => expect(screen.getByTestId("np-scenario-card-general")).toBeTruthy());
     fireEvent.click(screen.getByTestId("np-create"));
 
-    await waitFor(() => expect(mockReload).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockResetAllVaultStores).toHaveBeenCalledOnce());
+    expect(mockReload).not.toHaveBeenCalled();
   });
 
-  it("activateProject is called BEFORE reload", async () => {
+  it("resets every vault-scoped store with the activated project's id, then navigates home and closes", async () => {
+    const onClose = vi.fn();
+    renderWizard(onClose);
+    await advanceToStep3();
+    await waitFor(() => expect(screen.getByTestId("np-scenario-card-general")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("np-create"));
+
+    await waitFor(() => expect(mockResetAllVaultStores).toHaveBeenCalledOnce());
+    expect(mockResetAllVaultStores).toHaveBeenCalledWith("proj-789");
+    expect(mockSetActiveSection).toHaveBeenCalledWith("home");
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("activateProject is called BEFORE resetAllVaultStores", async () => {
     renderWizard();
     await advanceToStep3();
     await waitFor(() => expect(screen.getByTestId("np-scenario-card-general")).toBeTruthy());
     fireEvent.click(screen.getByTestId("np-create"));
 
-    await waitFor(() => expect(mockReload).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockResetAllVaultStores).toHaveBeenCalledOnce());
     expect(mockActivateProject.mock.invocationCallOrder[0]).toBeLessThan(
-      mockReload.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
+      mockResetAllVaultStores.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER,
     );
   });
 });

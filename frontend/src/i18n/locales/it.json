@@ -1367,14 +1367,25 @@
     "neighborhood": "Vicinato"
   },
   "palette": {
-    "placeholder": "Cerca sezioni e pagine…",
+    "placeholder": "Cerca sezioni, pagine e azioni…",
     "noResults": "Nessun risultato",
     "sections": "Sezioni",
     "pages": "Pagine",
+    "actions": "Azioni",
     "hint": "↑↓ naviga · Invio apri · Esc chiudi",
     "trigger": "⌘K",
     "searchHint": "Cerca o salta…",
-    "openLabel": "Apri palette comandi"
+    "openLabel": "Apri palette comandi",
+    "action": {
+      "newChat": "Nuova chat",
+      "importIngest": "Importa contenuti",
+      "runLint": "Esegui scansione lint",
+      "switchProject": "Cambia progetto",
+      "switchTheme": "Cambia tema",
+      "regenerateOverview": "Rigenera overview",
+      "regenerateDone": "overview.md rigenerato",
+      "regenerateDegraded": "Rigenerazione degradata — overview.md precedente mantenuto"
+    }
   },
   "conversation": {
     "autoTitle": {

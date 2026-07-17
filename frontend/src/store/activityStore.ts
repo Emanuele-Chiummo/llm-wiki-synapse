@@ -96,6 +96,8 @@ export interface ActivityActions {
   retryRun: (runId: string, signal?: AbortSignal) => Promise<void>;
   /** Toggle pause/resume. */
   togglePause: (signal?: AbortSignal) => Promise<void>;
+  /** FE-UIUX-3: clear the queue snapshot when the active vault changes. */
+  resetForVault: () => void;
 }
 
 export type ActivityStore = ActivityState & ActivityActions;
@@ -217,6 +219,15 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
     // Refresh immediately after pause/resume.
     void get().fetchOnce(signal);
   },
+
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      snapshot: null,
+      loading: false,
+      error: null,
+      cancellingIds: new Set<string>(),
+    }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -247,6 +258,9 @@ export function selectRetryRun(s: ActivityStore): ActivityActions["retryRun"] {
 }
 export function selectTogglePause(s: ActivityStore): ActivityActions["togglePause"] {
   return s.togglePause;
+}
+export function selectResetForVault(s: ActivityStore): ActivityActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 /** Hook: tasks array — shallow equality (I3). */

@@ -15,17 +15,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { CommandPalette } from "../components/common/CommandPalette";
 
+// Number of executable actions in the palette (v2, FE-UIUX-3): new chat, import,
+// run lint, switch project, switch theme, regenerate overview.
+const ACTION_COUNT = 6;
+
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
-        "palette.placeholder": "Search sections and pages…",
+        "palette.placeholder": "Search sections, pages, and actions…",
         "palette.noResults": "No results",
         "palette.sections": "Sections",
         "palette.pages": "Pages",
+        "palette.actions": "Actions",
         "palette.hint": "↑↓ navigate · Enter open · Esc close",
+        "palette.action.newChat": "New chat",
+        "palette.action.importIngest": "Import content",
+        "palette.action.runLint": "Run lint scan",
+        "palette.action.switchProject": "Switch project",
+        "palette.action.switchTheme": "Switch theme",
+        "palette.action.regenerateOverview": "Regenerate overview",
         "nav.home": "Home",
         "nav.chat": "Chat",
         "nav.wiki": "Wiki",
@@ -71,6 +82,39 @@ vi.mock("../api/pagesClient", () => ({
   fetchAllPages: (...args: unknown[]) => mockFetchAllPages(...args),
 }));
 
+// ─── Mock v2 action dependencies (FE-UIUX-3) ─────────────────────────────────
+// CommandPalette actions delegate to these — mocked here so palette tests never
+// hit real stores/API. Behavior of the underlying operations is unit-tested in
+// their own dedicated store/component test files.
+
+const mockStartNewConversation = vi.fn();
+vi.mock("../store/chatActions", () => ({
+  startNewConversation: (...args: unknown[]) => mockStartNewConversation(...args),
+}));
+
+const mockRunNow = vi.fn();
+vi.mock("../store/importScheduleStore", () => ({
+  useImportScheduleStore: { getState: () => ({ runNow: mockRunNow }) },
+}));
+
+const mockLintScan = vi.fn();
+vi.mock("../store/lintStore", () => ({
+  useLintStore: { getState: () => ({ scan: mockLintScan }) },
+}));
+
+const mockSetTheme = vi.fn();
+const mockSetDraftTheme = vi.fn();
+vi.mock("../store/settingsStore", () => ({
+  useSettingsStore: {
+    getState: () => ({ theme: "light", setTheme: mockSetTheme, setDraftTheme: mockSetDraftTheme }),
+  },
+}));
+
+const mockTriggerRegenerateOverview = vi.fn();
+vi.mock("../api/opsClient", () => ({
+  triggerRegenerateOverview: (...args: unknown[]) => mockTriggerRegenerateOverview(...args),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makePages(count: number) {
@@ -88,6 +132,15 @@ function makePages(count: number) {
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
+
+// Default resolved values for the v2 action mocks — re-applied before every test
+// since vi.clearAllMocks() (called in every describe's afterEach) wipes impls.
+beforeEach(() => {
+  mockStartNewConversation.mockResolvedValue({ id: "conv-x" });
+  mockRunNow.mockResolvedValue(undefined);
+  mockLintScan.mockResolvedValue(undefined);
+  mockTriggerRegenerateOverview.mockResolvedValue({ status: "regenerated" });
+});
 
 describe("CommandPalette — open/close", () => {
   beforeEach(() => {
@@ -149,12 +202,13 @@ describe("CommandPalette — section list", () => {
     vi.clearAllMocks();
   });
 
-  it("shows all 13 sections when query is empty", async () => {
+  it("shows all 6 actions + 13 sections when query is empty", async () => {
     render(<CommandPalette open={true} onClose={vi.fn()} />);
     await waitFor(() => {
-      // 13 sections: Home, Sources, Chat, Convert, Wiki, Graph, Search, Deep Search, Review, Lint, Ingest, Settings, Projects
+      // 6 actions (v2, FE-UIUX-3) + 13 sections: Home, Sources, Chat, Convert, Wiki,
+      // Graph, Search, Deep Search, Review, Lint, Ingest, Settings, Projects
       const items = screen.getAllByRole("option");
-      expect(items.length).toBe(13);
+      expect(items.length).toBe(ACTION_COUNT + 13);
     });
   });
 
@@ -163,7 +217,7 @@ describe("CommandPalette — section list", () => {
     const input = await waitFor(() => screen.getByTestId("palette-input"));
     fireEvent.change(input, { target: { value: "set" } });
     await waitFor(() => {
-      // "Settings" matches "set"
+      // "Settings" matches "set"; none of the v2 action labels contain "set".
       const items = screen.getAllByRole("option");
       expect(items.length).toBe(1);
       expect(items[0]!.textContent).toContain("Settings");
@@ -259,10 +313,28 @@ describe("CommandPalette — keyboard navigation and Enter", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} />);
     const input = await waitFor(() => screen.getByTestId("palette-input"));
-    // First item in list is the "Home" section (idx=0) — NavRail v1.7 order.
-    await waitFor(() => screen.getAllByRole("option"));
+    // Filter to isolate the "Home" section — actions (v2) are listed before
+    // sections, so idx=0 is no longer guaranteed to be a section.
+    fireEvent.change(input, { target: { value: "Home" } });
+    await waitFor(() => {
+      const items = screen.getAllByRole("option");
+      expect(items.length).toBe(1);
+    });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(mockSetActiveSection).toHaveBeenCalledWith("home");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Enter on the first (unfiltered) result runs an action, not a section", async () => {
+    // v2 (FE-UIUX-3): actions are listed FIRST — idx=0 with an empty query is
+    // "New chat", not the "Home" section.
+    const onClose = vi.fn();
+    render(<CommandPalette open={true} onClose={onClose} />);
+    const input = await waitFor(() => screen.getByTestId("palette-input"));
+    await waitFor(() => screen.getAllByRole("option"));
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(mockStartNewConversation).toHaveBeenCalledWith("default");
+    expect(mockSetActiveSection).toHaveBeenCalledWith("chat");
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -293,6 +365,70 @@ describe("CommandPalette — keyboard navigation and Enter", () => {
     const firstItem = screen.getAllByRole("option")[0]!;
     fireEvent.click(firstItem);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("CommandPalette — v2 executable actions (FE-UIUX-3)", () => {
+  beforeEach(() => {
+    mockSetActiveSection.mockImplementation(() => {});
+    mockSelectPage.mockImplementation(() => {});
+    mockFetchAllPages.mockResolvedValue({ items: [] });
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function selectAction(label: string, onClose: () => void) {
+    render(<CommandPalette open={true} onClose={onClose} />);
+    const input = await waitFor(() => screen.getByTestId("palette-input"));
+    fireEvent.change(input, { target: { value: label } });
+    await waitFor(() => {
+      expect(screen.getAllByRole("option").length).toBe(1);
+    });
+    fireEvent.keyDown(input, { key: "Enter" });
+  }
+
+  it("'New chat' navigates to chat and calls startNewConversation (chatActions.ts)", async () => {
+    const onClose = vi.fn();
+    await selectAction("New chat", onClose);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("chat");
+    expect(mockStartNewConversation).toHaveBeenCalledWith("default");
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("'Import content' navigates to ingest and calls importScheduleStore.runNow()", async () => {
+    const onClose = vi.fn();
+    await selectAction("Import content", onClose);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("ingest");
+    expect(mockRunNow).toHaveBeenCalledTimes(1);
+  });
+
+  it("'Run lint scan' navigates to lint and calls lintStore.scan(vaultId)", async () => {
+    const onClose = vi.fn();
+    await selectAction("Run lint scan", onClose);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("lint");
+    expect(mockLintScan).toHaveBeenCalledWith("default");
+  });
+
+  it("'Switch project' navigates to the Projects section", async () => {
+    const onClose = vi.fn();
+    await selectAction("Switch project", onClose);
+    expect(mockSetActiveSection).toHaveBeenCalledWith("projects");
+  });
+
+  it("'Switch theme' calls settingsStore.setTheme() with the next theme in the cycle", async () => {
+    const onClose = vi.fn();
+    // Mocked useSettingsStore.getState().theme === "light" → next is "dark".
+    await selectAction("Switch theme", onClose);
+    expect(mockSetTheme).toHaveBeenCalledWith("dark");
+    expect(mockSetDraftTheme).toHaveBeenCalledWith("dark");
+  });
+
+  it("'Regenerate overview' calls POST /ops/overview/regenerate", async () => {
+    const onClose = vi.fn();
+    await selectAction("Regenerate overview", onClose);
+    expect(mockTriggerRegenerateOverview).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -120,6 +120,41 @@ export async function triggerSynthesize(
   return postJsonOp("/ops/synthesize", options, signal);
 }
 
+/** Response body for POST /ops/overview/regenerate (ADR-0078). */
+export interface OverviewRegenerateResponse {
+  /** "regenerated" on success; "degraded" when the provider is unavailable (never a 5xx). */
+  status: string;
+}
+
+/**
+ * triggerRegenerateOverview — POST /ops/overview/regenerate (ADR-0078).
+ *
+ * Manually refreshes vault/wiki/overview.md via the configured ingest provider.
+ * Bounded, degrade-safe single provider call (I6/I7) — never throws for a
+ * provider failure (returns status="degraded" instead); throws only on a
+ * genuine transport/HTTP error.
+ */
+export async function triggerRegenerateOverview(
+  signal?: AbortSignal,
+): Promise<OverviewRegenerateResponse> {
+  const url = `${apiBase()}/ops/overview/regenerate`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  if (!res.ok) {
+    let detail = `${res.status}`;
+    try {
+      const body = (await res.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`POST /ops/overview/regenerate: ${detail}`);
+  }
+  return res.json() as Promise<OverviewRegenerateResponse>;
+}
+
 // ─── System self-update (R12-3, B1: Watchtower HTTP API) ──────────────────────────
 
 /** GET /ops/update-status — deployment update availability (read-only; safe to poll). */

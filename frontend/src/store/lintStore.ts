@@ -179,6 +179,13 @@ interface LintActions {
   deleteOrphanPage: (findingId: string, pageId: string, vaultId: string) => Promise<void>;
 
   clearBatchError: () => void;
+
+  /**
+   * FE-UIUX-3: clear all vault-scoped lint state (findings/runs/selection) when
+   * the active vault changes. `semanticEnabled` is a global user preference
+   * (localStorage) and is intentionally kept.
+   */
+  resetForVault: () => void;
 }
 
 export type LintStore = LintState & LintActions;
@@ -520,6 +527,29 @@ export const useLintStore = create<LintStore>((set, get) => ({
   },
 
   clearBatchError: () => set({ batchError: null }),
+
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      findings: [],
+      findingsTotal: 0,
+      findingsOffset: 0,
+      findingsLoading: false,
+      findingsError: null,
+      severityTotals: null,
+      runs: [],
+      runsTotal: 0,
+      runsLoading: false,
+      runsError: null,
+      currentRun: null,
+      scanning: false,
+      scanError: null,
+      actionInFlight: {},
+      actionError: {},
+      selectedIds: new Set<string>(),
+      batchInFlight: false,
+      batchError: null,
+    }),
 }));
 
 // ─── Typed selectors (I3) ────────────────────────────────────────────────────
@@ -656,4 +686,7 @@ export function selectLintSeverityTotals(
   s: LintStore,
 ): { error?: number; warning?: number; info?: number } | null {
   return s.severityTotals;
+}
+export function selectLintResetForVault(s: LintStore): LintActions["resetForVault"] {
+  return s.resetForVault;
 }

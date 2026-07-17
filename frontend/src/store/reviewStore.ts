@@ -261,6 +261,12 @@ interface ReviewActions {
   clearLastBulkResult: () => void;
   clearLastClearResult: () => void;
   clearBulkError: () => void;
+
+  /**
+   * FE-UIUX-3: clear all vault-scoped review-queue state when the active
+   * vault changes (items, tab/filters, selection, per-item action state).
+   */
+  resetForVault: () => void;
 }
 
 export type ReviewStore = ReviewState & ReviewActions;
@@ -624,6 +630,28 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
   clearLastBulkResult: () => set({ lastBulkResult: null }),
   clearLastClearResult: () => set({ lastClearResult: null }),
   clearBulkError: () => set({ bulkError: null }),
+
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      items: [],
+      total: 0,
+      offset: 0,
+      loading: false,
+      error: null,
+      activeTab: "pending",
+      filters: { ...EMPTY_REVIEW_FILTERS },
+      selectedIds: new Set<string>(),
+      actionInFlight: {},
+      actionError: {},
+      createGenerationError: {},
+      lastDeepResearch: null,
+      deepResearchError: null,
+      lastSweepResult: null,
+      lastBulkResult: null,
+      lastClearResult: null,
+      bulkError: null,
+    }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -791,6 +819,11 @@ export function selectClearBulkError(
   s: ReviewStore,
 ): ReviewActions["clearBulkError"] {
   return s.clearBulkError;
+}
+export function selectReviewResetForVault(
+  s: ReviewStore,
+): ReviewActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 /** Hook: items array — shallow equality (I3). */

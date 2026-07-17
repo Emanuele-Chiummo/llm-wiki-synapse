@@ -5,7 +5,12 @@
  *   1. Name + Parent Directory (validates both non-empty)
  *   2. AI Output Language (required; "auto" excluded)
  *   3. Scenario Template (5 cards from GET /scenarios; "general" pre-selected)
- *      → Create → POST /projects + POST /projects/{id}/activate → reload
+ *      → Create → POST /projects + POST /projects/{id}/activate → soft switch (FE-UIUX-3)
+ *
+ * FE-UIUX-3 (v1.9.3): used to `window.location.reload()` after activate. Now resets every
+ * vault-scoped store via resetAllVaultStores() (see store/vaultSwitch.ts) and navigates the
+ * user to the Home section — mirroring where a fresh reload used to land (appStore's default
+ * activeSection) — without losing the rest of the app's UI state.
  *
  * Accessibility: role="dialog" aria-modal, focus-trap, Esc to close, aria-labelledby.
  * Tokens: all styling via var(--syn-*) CSS variables; no hardcoded colors.
@@ -24,6 +29,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { createProject, activateProject } from "../../api/projectsClient";
 import { fetchScenarios, type ScenarioItem } from "../../api/scenariosClient";
+import { resetAllVaultStores } from "../../store/vaultSwitch";
+import { useAppStore } from "../../store/appStore";
 
 // ─── Language options ─────────────────────────────────────────────────────────
 // "auto" is intentionally excluded (required at create time, per spec).
@@ -568,14 +575,19 @@ export function NewProjectWizard({ onClose }: NewProjectWizardProps): ReactNode 
         scenario,
         output_language: language,
       });
-      await activateProject(project.id);
-      window.location.reload();
+      const res = await activateProject(project.id);
+      // FE-UIUX-3: soft switch — no window.location.reload(). Reset every
+      // vault-scoped store, land on Home (mirrors the old reload's default
+      // section), then close the modal.
+      resetAllVaultStores(res.project.id);
+      useAppStore.getState().setActiveSection("home");
+      onClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t("wizard.createError");
       setCreateError(msg);
       setCreating(false);
     }
-  }, [name, parentDir, language, scenario, t]);
+  }, [name, parentDir, language, scenario, t, onClose]);
 
   return (
     <div

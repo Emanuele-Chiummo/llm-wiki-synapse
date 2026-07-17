@@ -114,6 +114,7 @@ function buildMockState(snapshot: IngestQueueSnapshot | null): ActivityStore {
     cancelRun: vi.fn().mockResolvedValue(undefined),
     retryRun: vi.fn().mockResolvedValue(undefined),
     togglePause: vi.fn().mockResolvedValue(undefined),
+    resetForVault: vi.fn(),
   };
   return state;
 }

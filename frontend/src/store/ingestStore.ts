@@ -58,6 +58,8 @@ interface IngestActions {
    * Throws ApiError on 404 (unknown) or 409 (already terminal) — caller should toast.
    */
   cancelRun: (runId: string, signal?: AbortSignal) => Promise<void>;
+  /** FE-UIUX-3: clear run history/selection when the active vault changes. */
+  resetForVault: () => void;
 }
 
 export type IngestStore = IngestState & IngestActions;
@@ -214,6 +216,18 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
     }
   },
 
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      runs: [],
+      total: 0,
+      offset: 0,
+      loading: false,
+      error: null,
+      selectedRunId: null,
+      runningCount: 0,
+    }),
+
   startPolling: (vaultId) => {
     // bounded: stop when no running rows remain (I3/I7, via createPollChain).
     const chain = createPollChain({
@@ -301,6 +315,9 @@ export function selectStartPolling(s: IngestStore): IngestActions["startPolling"
 }
 export function selectCancelRun(s: IngestStore): IngestActions["cancelRun"] {
   return s.cancelRun;
+}
+export function selectResetForVault(s: IngestStore): IngestActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 /** Hook: runs array — shallow equality (I3). */

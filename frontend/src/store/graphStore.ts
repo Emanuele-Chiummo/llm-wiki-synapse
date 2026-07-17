@@ -92,6 +92,12 @@ export interface GraphActions {
   setError: (error: string | null) => void;
   reset: () => void;
   /**
+   * FE-UIUX-3: clear all graph data + visual filters when the active vault
+   * changes, so no node/edge/community from the previous vault stays visible
+   * while GraphViewer's vaultId-effect re-fetches GET /graph for the new one.
+   */
+  resetForVault: () => void;
+  /**
    * GR3: Toggle a node type in/out of the active filter set.
    * Empty set = all visible. I2-safe: never touches coords.
    */
@@ -173,6 +179,9 @@ export const useGraphStore = create<GraphStore>((set) => ({
   setError: (error) => set({ error, loading: false }),
 
   reset: () => set(INITIAL_STATE),
+
+  // FE-UIUX-3
+  resetForVault: () => set(INITIAL_STATE),
 
   toggleFilterNodeType: (nodeType) =>
     set((s) => {
@@ -290,6 +299,11 @@ export function selectSetLoading(s: GraphStore): GraphActions["setLoading"] {
 
 export function selectSetError(s: GraphStore): GraphActions["setError"] {
   return s.setError;
+}
+
+/** FE-UIUX-3: select the resetForVault action. */
+export function selectResetForVault(s: GraphStore): GraphActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 // ── GI-2 (v1.3.14) visual filter selectors ────────────────────────────────
