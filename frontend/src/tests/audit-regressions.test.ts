@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useStatusStore } from "../store/statusStore";
 import { useGraphStore } from "../store/graphStore";
-import type { GraphNode, GraphEdge } from "../api/types";
+import type { GraphNode, GraphEdge, CacheStatus } from "../api/types";
 
 // ─── Finding #5 — graphStore correctly reflects an empty /graph payload ────────
 
@@ -28,20 +28,22 @@ describe("graphStore — empty payload clears nodes (finding #5 regression)", ()
     ];
     const EDGES: GraphEdge[] = [{ source: "a", target: "b", weight: 7.5 }];
 
-    useGraphStore.getState().setGraph(NODES, EDGES, { dataVersion: 1 });
+    const CACHE: CacheStatus = "miss";
+    useGraphStore.getState().setGraph(NODES, EDGES, 1, CACHE);
 
     expect(useGraphStore.getState().nodes).toHaveLength(2);
     expect(useGraphStore.getState().edges).toHaveLength(1);
 
     // Simulate a /graph response after cascade-delete emptied the vault.
-    useGraphStore.getState().setGraph([], [], { dataVersion: 2 });
+    useGraphStore.getState().setGraph([], [], 2, CACHE);
 
     expect(useGraphStore.getState().nodes).toHaveLength(0);
     expect(useGraphStore.getState().edges).toHaveLength(0);
   });
 
   it("empty-to-empty transition is a no-op (dataVersion still advances)", () => {
-    useGraphStore.getState().setGraph([], [], { dataVersion: 5 });
+    const CACHE: CacheStatus = "miss";
+    useGraphStore.getState().setGraph([], [], 5, CACHE);
     expect(useGraphStore.getState().nodes).toHaveLength(0);
     expect(useGraphStore.getState().edges).toHaveLength(0);
   });

@@ -9,6 +9,7 @@
  * INVARIANT I2: coords (x, y) come FROM the server; the client NEVER computes layout.
  */
 
+export * from "./chat";
 export * from "./graph";
 export * from "./pages";
 export * from "./status";

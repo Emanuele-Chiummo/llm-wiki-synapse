@@ -16,71 +16,27 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { WebCitationRef } from "../api/chatClient";
 
-// ─── Domain types ─────────────────────────────────────────────────────────────
-
-export interface ConversationSummary {
-  id: string;
-  vault_id: string;
-  title: string | null;
-  created_at: string;
-  updated_at: string;
-  /**
-   * UXB-1: preview snippet — first 80 chars of the last message, server-generated.
-   * null when no messages exist yet (new conversation).
-   * Non-breaking additive field; older servers omit it.
-   */
-  preview?: string | null;
-}
-
-export type ChatRole = "user" | "assistant" | "system";
-
-/**
- * CitationRef — compact citation reference carried from the done event (ADR-0022 §2.4).
- * Shape: { n, id, title, slug } — score/phase are stored server-side, not streamed.
- */
-export interface CitationRef {
-  /** 1-based citation index matching [n] markers in the message content. */
-  n: number;
-  /** UUID of the pages row (source document). */
-  id: string;
-  /** Display title of the source page (never empty). */
-  title: string;
-  /** URL-friendly slug derived from the title. */
-  slug: string;
-}
-
-// Re-export WebCitationRef so consumers can import it from chatStore.
-export type { WebCitationRef };
-
-export interface ChatMessage {
-  id: string;
-  conversation_id: string;
-  role: ChatRole;
-  /** Raw content — includes literal <think>…</think> spans if present (AC-F7-2). */
-  content: string;
-  input_tokens: number;
-  output_tokens: number;
-  total_cost_usd: number;
-  created_at: string;
-  /**
-   * Citations carried from the done event (ADR-0022 §2.4).
-   * Empty array when retrieval produced no citations (non-breaking additive field).
-   */
-  citations: CitationRef[];
-  /**
-   * Web citations from a SearXNG search (B2).
-   * Present when use_web_search=true. Empty array when not set. Non-breaking additive field.
-   */
-  web_citations?: WebCitationRef[];
-}
-
-export interface LastUsage {
-  inputTokens: number;
-  outputTokens: number;
-  totalCostUsd: number;
-}
+// ─── Domain types (api/types/chat.ts — single source of truth) ───────────────
+// Moved from this file to break the chatClient ↔ chatStore circular import.
+// Imported for use within this file AND re-exported so all existing call sites
+// (`import ... from "store/chatStore"`) continue to work unchanged.
+import type {
+  WebCitationRef,
+  ConversationSummary,
+  ChatRole,
+  CitationRef,
+  ChatMessage,
+  LastUsage,
+} from "../api/types/chat";
+export type {
+  WebCitationRef,
+  ConversationSummary,
+  ChatRole,
+  CitationRef,
+  ChatMessage,
+  LastUsage,
+};
 
 // ─── State shape (ADR-0019 §3) ────────────────────────────────────────────────
 

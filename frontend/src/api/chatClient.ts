@@ -13,9 +13,12 @@
  *   POST /ingest/from-text  (save assistant message to wiki — AC-F6-5)
  */
 
-import type { ConversationSummary, ChatMessage, CitationRef } from "../store/chatStore";
+import type { ConversationSummary, ChatMessage, CitationRef, WebCitationRef } from "./types/chat";
 import { apiBase, apiFetch } from "./base";
 import { errorMessageFromBody } from "./errors";
+// Re-export the shared chat domain types so existing import sites (e.g. MessageList.tsx
+// importing WebCitationRef from api/chatClient) continue to work unchanged.
+export type { WebCitationRef, ConversationSummary, ChatMessage, CitationRef } from "./types/chat";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 // ─── REST helpers ─────────────────────────────────────────────────────────────
@@ -168,6 +171,11 @@ export interface ChatStreamRequest {
 
 // ─── NDJSON event types (ADR-0019 §2.2 frozen schema) ────────────────────────
 
+/**
+ * WebCitationRef is re-exported above from api/types/chat.ts; the DoneEvent below
+ * references it via the re-export. No duplicate definition here.
+ */
+
 export interface TokenEvent {
   type: "token";
   delta: string;
@@ -176,20 +184,6 @@ export interface TokenEvent {
 export interface ThinkEvent {
   type: "think";
   delta: string;
-}
-
-/**
- * Web citation reference from the done event (B2 — web search results).
- * Cited in the response text as [W1], [W2], etc.
- * Distinct from wiki CitationRef (which uses [1], [2] etc.).
- */
-export interface WebCitationRef {
-  /** 1-based index matching [Wn] markers in the message content. */
-  index: number;
-  /** Page title from the web source. */
-  title: string;
-  /** Source URL — opens in new tab. */
-  url: string;
 }
 
 export interface DoneEvent {
