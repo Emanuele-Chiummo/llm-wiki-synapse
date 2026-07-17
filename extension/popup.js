@@ -26,6 +26,7 @@
 "use strict";
 
 /* ── DOM refs ─────────────────────────────────────────────────────────────── */
+const vaultSelect = document.getElementById("vaultSelect");
 const titleInput = document.getElementById("titleInput");
 const clipBtn = document.getElementById("clipBtn");
 const statusEl = document.getElementById("status");
@@ -34,6 +35,8 @@ const statusEl = document.getElementById("status");
 let _markdown = "";
 let _url = "";
 let _settings = { baseURL: "", token: "", cfClientId: "", cfClientSecret: "" };
+/** @type {string|null} Active vault_id from GET /projects; null if unknown. */
+let _activeVaultId = null;
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
 function setStatus(msg, cls = "inf") {
@@ -49,6 +52,68 @@ function setError(msg) {
 function setReady(msg) {
   setStatus(msg, "ok");
   clipBtn.disabled = false;
+}
+
+/* ── Vault picker ────────────────────────────────────────────────────────── */
+
+/**
+ * Fetch GET /projects and populate the vault <select>.
+ * Non-active vaults are shown but disabled (the backend only accepts the active
+ * vault; the user must switch active vault in Synapse before clipping there).
+ * Falls back gracefully: if the endpoint fails, hides the picker row entirely.
+ *
+ * @param {string} baseURL  — Synapse base URL (already trimmed, no trailing slash)
+ * @param {Record<string, string>} headers — auth + CF Access headers
+ */
+async function loadVaultPicker(baseURL, headers) {
+  try {
+    const resp = await fetch(`${baseURL}/projects`, { method: "GET", headers });
+    if (!resp.ok) {
+      // /projects may require auth; swallow silently and hide the picker
+      vaultSelect.closest(".field").style.display = "none";
+      return;
+    }
+    /** @type {{ projects: Array<{id: string, name: string}>, active_id: string|null }} */
+    const data = await resp.json();
+    _activeVaultId = data.active_id ?? null;
+
+    // Clear loading placeholder
+    vaultSelect.innerHTML = "";
+
+    if (!data.projects || data.projects.length === 0) {
+      vaultSelect.closest(".field").style.display = "none";
+      return;
+    }
+
+    // Single-vault: hide the picker (no choice to make)
+    if (data.projects.length === 1) {
+      _activeVaultId = data.projects[0].id;
+      vaultSelect.closest(".field").style.display = "none";
+      return;
+    }
+
+    // Multi-vault: populate dropdown
+    data.projects.forEach((project) => {
+      const opt = document.createElement("option");
+      opt.value = project.id;
+      const isActive = project.id === data.active_id;
+      opt.textContent = isActive
+        ? `${project.name} [active]`
+        : project.name;
+      // Non-active vaults are visible but disabled: the server rejects cross-vault
+      // clips (you must activate the target vault first via /projects/{id}/activate).
+      opt.disabled = !isActive;
+      if (isActive) {
+        opt.selected = true;
+      }
+      vaultSelect.appendChild(opt);
+    });
+
+    vaultSelect.disabled = false;
+  } catch (_err) {
+    // Network error loading vaults — hide the picker, fall back to active vault
+    vaultSelect.closest(".field").style.display = "none";
+  }
 }
 
 /* ── Load settings ───────────────────────────────────────────────────────── */
@@ -150,10 +215,17 @@ async function doClip() {
   setStatus("Sending to Synapse...", "inf");
 
   const title = titleInput.value.trim();
+  // Include the selected vault_id (W5 / PF-MCP-VAULT-1 vault picker).
+  // The server validates that vault_id matches the active vault; if the user
+  // somehow selects a non-active vault (e.g. picker wasn't populated correctly),
+  // the backend returns 400 with a clear message. When _activeVaultId is null,
+  // omit the field entirely so the server falls back to its active vault.
+  const selectedVaultId = vaultSelect.value || _activeVaultId || null;
   const body = {
     url: _url,
     title,
     markdown: _markdown,
+    ...(selectedVaultId ? { vault_id: selectedVaultId } : {}),
   };
 
   // ── Build request headers ──────────────────────────────────────────────
@@ -226,10 +298,25 @@ async function doClip() {
     return;
   }
 
+  // Build auth headers (same as doClip) so loadVaultPicker can call /projects
+  const authHeadersForProjects = {
+    Authorization: `Bearer ${_settings.token}`,
+  };
+  if (_settings.cfClientId && _settings.cfClientSecret) {
+    authHeadersForProjects["CF-Access-Client-Id"] = _settings.cfClientId;
+    authHeadersForProjects["CF-Access-Client-Secret"] = _settings.cfClientSecret;
+  }
+
+  // Load vault picker (W5 — runs in parallel with article extraction)
+  const vaultPickerPromise = loadVaultPicker(_settings.baseURL, authHeadersForProjects);
+
   setStatus("Extracting article...", "inf");
 
   try {
-    const { title, markdown, url } = await extractArticle(tab.id);
+    const [, { title, markdown, url }] = await Promise.all([
+      vaultPickerPromise,
+      extractArticle(tab.id),
+    ]);
     _markdown = markdown;
     _url = url || tab.url;
     titleInput.value = title;

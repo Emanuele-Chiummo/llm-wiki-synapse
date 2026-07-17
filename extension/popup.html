@@ -110,6 +110,36 @@
     }
 
     .settings-link:hover { text-decoration: underline; }
+
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: 13px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    select:disabled {
+      opacity: 0.5;
+    }
+
+    .vault-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      background: #238636;
+      color: #f0f6fc;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body>
@@ -119,6 +149,13 @@
   </header>
 
   <main>
+    <div class="field">
+      <label for="vaultSelect">Vault</label>
+      <select id="vaultSelect" disabled>
+        <option value="">Loading vaults…</option>
+      </select>
+    </div>
+
     <div class="field">
       <label for="titleInput">Title (editable)</label>
       <input type="text" id="titleInput" placeholder="Article title..." />
