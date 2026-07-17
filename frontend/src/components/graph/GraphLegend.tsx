@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LOW_COHESION_THRESHOLD, colorForCommunity } from "../graphPalette";
-import type { ColorMode } from "../graphPalette";
+import type { ColorMode, GraphTheme } from "../graphPalette";
 import { communityDisplayName } from "../graphCommunityUtils";
 import type { GraphCommunity, GraphNode } from "../../api/types";
 import { DEFAULT_NODE_COLOR, TYPE_COLORS } from "./graphViewerShared";
@@ -27,6 +27,12 @@ interface GraphLegendProps {
    * Kept for potential future use / backward compat.
    */
   nodes?: GraphNode[];
+  /**
+   * Resolved app theme (W4 audit FE-GRAPH-1) — selects the light or dark
+   * community/domain palette so swatches stay legible on the dark canvas.
+   * Defaults to "light" for backward compat.
+   */
+  theme?: GraphTheme;
 }
 
 export const GraphLegend: React.FC<GraphLegendProps> = ({
@@ -34,6 +40,7 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
   communities,
   onCommunityClick,
   nodes = [],
+  theme = "light",
 }) => {
   const { t } = useTranslation();
   // Collapsible: the community legend can be tall (one row per Louvain cluster) and cover
@@ -69,10 +76,10 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
       .map((c) => ({
         community: c,
         displayName: communityDisplayName(c, (id) => t("graph.legendCommunityLabel", { id })),
-        color: colorForCommunity(c.id),
+        color: colorForCommunity(c.id, theme),
         lowCohesion: c.cohesion < LOW_COHESION_THRESHOLD,
       }));
-  }, [colorMode, communities, t]);
+  }, [colorMode, communities, t, theme]);
 
   return (
     <div

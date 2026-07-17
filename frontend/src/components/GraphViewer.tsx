@@ -42,7 +42,7 @@ import {
   COMMUNITY_PALETTE,
   LOW_COHESION_THRESHOLD,
 } from "./graphPalette";
-import type { ColorMode } from "./graphPalette";
+import type { ColorMode, GraphTheme } from "./graphPalette";
 import {
   computeCommunityCentroids,
   computeDomainCentroids,
@@ -294,6 +294,14 @@ export const GraphViewer: React.FC = () => {
   // "{dominant_domain} · {top_page_subtopic}" — unique per cluster, no duplicate SAM rows.
   const [colorMode, setColorMode] = useState<ColorMode>("type");
 
+  // Resolved app theme discriminant (W4 audit FE-GRAPH-1) — selects the light or dark
+  // community/domain palette (graphPalette.ts) for the legend + centroid overlay so
+  // colors stay legible on the dark canvas instead of washing out. Kept in sync with
+  // sigmaThemeColors by the same MutationObserver below.
+  const [graphTheme, setGraphTheme] = React.useState<GraphTheme>(() =>
+    document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
+  );
+
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Aria-live announcement text
@@ -307,13 +315,13 @@ export const GraphViewer: React.FC = () => {
   const communityCentroids = useMemo(() => {
     // Convert number-keyed Map<number, CommunityCentroid> → string-keyed Map<string, CommunityCentroid>
     // because CentroidOverlay uses string keys (supports both community and domain modes).
-    const raw = computeCommunityCentroids(nodes, communities);
+    const raw = computeCommunityCentroids(nodes, communities, graphTheme);
     const result = new Map<string, CommunityCentroid>();
     for (const [cid, centroid] of raw) {
       result.set(String(cid), centroid);
     }
     return result;
-  }, [nodes, communities]);
+  }, [nodes, communities, graphTheme]);
 
   // ── R9-5: Community panel state ──────────────────────────────────────────
   const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
@@ -550,6 +558,7 @@ export const GraphViewer: React.FC = () => {
   useEffect(() => {
     const observer = new MutationObserver(() => {
       setSigmaThemeColors(readSigmaThemeColors());
+      setGraphTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
     });
     observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
     return () => observer.disconnect();
@@ -587,7 +596,9 @@ export const GraphViewer: React.FC = () => {
         // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
         // "type" mode colors by page type (concept, entity, source, …).
         const nodeColor =
-          mode === "community" ? colorForCommunity(nodeCommunity) : colorForType(nodeType ?? null);
+          mode === "community"
+            ? colorForCommunity(nodeCommunity, isDarkTheme ? "dark" : "light")
+            : colorForType(nodeType ?? null);
         sigmaGraph.addNode(nodeKey, {
           x: attrs["x"] as number,
           y: attrs["y"] as number,
@@ -1506,10 +1517,11 @@ export const GraphViewer: React.FC = () => {
           colorMode={colorMode}
           communities={communities}
           nodes={nodes}
+          theme={graphTheme}
           {...(colorMode === "community"
             ? {
                 onCommunityClick: (id: number) =>
-                  setCommunityPanel({ id, color: colorForCommunity(id) }),
+                  setCommunityPanel({ id, color: colorForCommunity(id, graphTheme) }),
               }
             : {})}
         />
