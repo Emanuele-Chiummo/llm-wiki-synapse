@@ -8,13 +8,17 @@ Covers:
   • lang-less frontmatter is accepted (NO ``lang`` gate — unlike the JSON loop's validate_pages),
   • empty generation (0 FILE blocks) fails → retries → non-converged at max_iter,
   • a recovered retry augments the generation user message with the prior errors and converges,
-  • the dedicated review stage fires once the FILE-block / char threshold is crossed.
+  • the dedicated review stage fires once the FILE-block / char threshold is crossed,
+  • 1.9.4 W1 (PF-LONGSRC-1): Stage 1 chunked analysis for long sources — over-threshold chunking
+    + merge, under-threshold no-op (non-regression), the max_chunks hard cap (I7), and the
+    token_budget pre-call guard mid-chunking (I7).
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
+import pytest
 from app.ingest.block_loop import run_block_loop
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import (
@@ -245,3 +249,127 @@ async def test_diagnostics_on_max_iter_captures_last_errors() -> None:
     assert diag["iterations"] == 3
     assert diag["last_errors"] != []
     assert any("FILE blocks" in e for e in diag["last_errors"])
+
+
+# ── 1.9.4 W1 (PF-LONGSRC-1): chunked Stage 1 analysis for long sources ────────────
+
+
+def _long_text(paragraphs: int, para_chars: int = 6_000) -> str:
+    # Distinct paragraphs separated by blank lines so the splitter has boundaries — mirrors
+    # test_long_source_chunked.py's helper so both loops are exercised the same way.
+    return "\n\n".join(f"Para {i} " + ("x" * para_chars) for i in range(paragraphs))
+
+
+def _set_long_source_knobs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    threshold: int,
+    chunk_chars: int = 6_000,
+    max_chunks: int = 8,
+) -> None:
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ingest_long_source_char_threshold", threshold)
+    monkeypatch.setattr(settings, "ingest_long_source_chunk_chars", chunk_chars)
+    monkeypatch.setattr(settings, "ingest_long_source_max_chunks", max_chunks)
+
+
+async def test_short_source_below_threshold_is_not_chunked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Chunking is ENABLED (nonzero threshold) but the default short source_text stays under it —
+    # must take the exact pre-1.9.4 single whole-source complete() call, no different call shape.
+    _set_long_source_knobs(monkeypatch, threshold=5_000, chunk_chars=6_000)
+    provider = _ScriptedProvider([ANALYSIS, GEN_TWO_FILES])
+    result = await _run(provider)
+
+    assert result.converged is True
+    assert len(provider.calls) == 2  # analysis + one generation — identical to the short path
+    assert result.analysis_text == ANALYSIS
+    analysis_user = provider.calls[0][1]
+    assert ORIGIN in analysis_user
+    assert "section" not in analysis_user.lower()  # no chunk framing was added
+
+
+async def test_long_source_triggers_chunked_analysis_and_merges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.ingest.long_source import chunk_overlap_chars, split_into_chunks
+
+    _set_long_source_knobs(monkeypatch, threshold=5_000, chunk_chars=6_000)
+    long_source = _long_text(4, para_chars=6_000)
+    n_chunks = len(split_into_chunks(long_source, 6_000, chunk_overlap_chars(6_000)))
+    assert n_chunks >= 2  # sanity: this source really does split into multiple chunks
+
+    chunk_analyses = [f"chunk analysis {i}" for i in range(n_chunks)]
+    provider = _ScriptedProvider([*chunk_analyses, GEN_TWO_FILES])
+    result = await _run(provider, source_text=long_source)
+
+    assert result.converged is True
+    # one complete() call per analyzed chunk + one generation call — chunking never leaks into
+    # the generation loop's own call count.
+    assert len(provider.calls) == n_chunks + 1
+    for text in chunk_analyses:
+        assert text in result.analysis_text
+    assert result.analysis_text.startswith("## Source section 1/")
+
+
+async def test_max_chunks_hard_cap_bounds_analysis_calls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.ingest.long_source import chunk_overlap_chars, split_into_chunks
+
+    _set_long_source_knobs(monkeypatch, threshold=5_000, chunk_chars=4_000, max_chunks=2)
+    long_source = _long_text(10, para_chars=5_000)
+    raw = split_into_chunks(long_source, 4_000, chunk_overlap_chars(4_000))
+    assert len(raw) > 2  # the natural split exceeds the cap so the cap actually engages (I7)
+
+    provider = _ScriptedProvider(["c1", "c2", GEN_TWO_FILES])
+    result = await _run(provider, source_text=long_source, max_iter=1)
+
+    # exactly 2 analysis calls (HARD cap, I7) + 1 generation call — never one call per chunk of a
+    # document that would otherwise split into more than max_chunks pieces.
+    assert len(provider.calls) == 3
+    assert result.converged is True
+
+
+async def test_token_budget_stops_further_chunk_analysis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # I7: the token_budget pre-call guard also bounds the chunked ANALYSIS stage, not just
+    # generation — a budget exhausted after the first chunk stops further chunk calls (and, in
+    # turn, the generation loop never runs either since the same budget is already spent).
+    _set_long_source_knobs(monkeypatch, threshold=5_000, chunk_chars=6_000)
+    long_source = _long_text(4, para_chars=6_000)
+
+    provider = _ScriptedProvider(["chunk one analysis"])
+    result = await _run(provider, source_text=long_source, token_budget=15)
+
+    assert len(provider.calls) == 1  # only the first chunk's complete() call was made
+    assert result.analysis_text == "chunk one analysis"
+    assert result.iterations == 0
+    assert result.stop_reason == "token_budget"
+
+
+async def test_all_chunks_empty_falls_back_to_single_whole_source_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.ingest.long_source import chunk_overlap_chars, split_into_chunks
+
+    _set_long_source_knobs(monkeypatch, threshold=5_000, chunk_chars=6_000)
+    long_source = _long_text(4, para_chars=6_000)
+    n_chunks = len(split_into_chunks(long_source, 6_000, chunk_overlap_chars(6_000)))
+    assert n_chunks >= 2
+
+    # Every chunk analysis call returns empty prose (no exception) → no chunk contributes any
+    # text → the loop degrades to ONE whole-source complete() call, exactly like a total-failure
+    # of the JSON loop's chunked analyze_source().
+    provider = _ScriptedProvider(["", *([""] * (n_chunks - 1)), ANALYSIS, GEN_TWO_FILES])
+    result = await _run(provider, source_text=long_source)
+
+    assert result.converged is True
+    assert len(provider.calls) == n_chunks + 2  # n_chunks empty + 1 fallback + 1 generation
+    assert result.analysis_text == ANALYSIS
+    # The fallback call received the WHOLE source, not a chunk fragment.
+    fallback_user = provider.calls[n_chunks][1]
+    assert long_source in fallback_user

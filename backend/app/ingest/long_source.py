@@ -87,6 +87,30 @@ def split_into_chunks(text: str, target_chars: int, overlap_chars: int) -> list[
     return out
 
 
+def chunk_overlap_chars(target_chars: int) -> int:
+    """Overlap size (chars) for a given target chunk size — shared by both ingest loops (JSON's
+    ``analyze_source`` below and the block loop's chunked Stage 1, 1.9.4 W1)."""
+    return min(_OVERLAP_MAX, max(_OVERLAP_MIN, int(target_chars * _OVERLAP_RATIO)))
+
+
+def bounded_chunks(
+    source_text: str, target_chars: int, max_chunks: int, *, label: str = "long_source"
+) -> list[str]:
+    """``split_into_chunks()`` + the I7 hard-cap enforcement (log + truncate), shared by both
+    ingest loops so the "never one call per paragraph" bound is expressed exactly once."""
+    chunks = split_into_chunks(source_text, target_chars, chunk_overlap_chars(target_chars))
+    if len(chunks) > max_chunks:
+        logger.info(
+            "%s: %d chunks exceeds max_chunks=%d — analyzing first %d only (I7)",
+            label,
+            len(chunks),
+            max_chunks,
+            max_chunks,
+        )
+        chunks = chunks[:max_chunks]
+    return chunks
+
+
 # ── Analysis merge ───────────────────────────────────────────────────────────────
 
 
@@ -100,6 +124,24 @@ def _dedup_preserve(items: list[str]) -> list[str]:
         seen.add(key)
         out.append(it.strip())
     return out
+
+
+def merge_analysis_texts(analyses: list[str]) -> str:
+    """
+    Merge per-chunk FREE-MARKDOWN analysis texts into one (block-loop twin of
+    :func:`merge_analyses`, 1.9.4 W1). The block loop's Stage 1 output is markdown prose (not a
+    structured ``Analysis``), so merging is order-preserving concatenation under numbered section
+    headers rather than a field-by-field union — Stage 2 (generation) then consumes the merged
+    text exactly like a single-call analysis, no separate code path.
+    """
+    if len(analyses) == 1:
+        return analyses[0]
+    total = len(analyses)
+    parts = [
+        f"## Source section {i}/{total} analysis\n\n{text.strip()}"
+        for i, text in enumerate(analyses, start=1)
+    ]
+    return "\n\n".join(parts)
 
 
 def merge_analyses(analyses: list[Analysis]) -> Analysis:
@@ -239,21 +281,13 @@ async def analyze_source(
         return await provider.analyze(source_text, vault_context)
 
     target_chars = int(settings.ingest_long_source_chunk_chars)
-    overlap = min(_OVERLAP_MAX, max(_OVERLAP_MIN, int(target_chars * _OVERLAP_RATIO)))
-    chunks = split_into_chunks(source_text, target_chars, overlap)
-    if len(chunks) <= 1:
+    raw_chunks = split_into_chunks(source_text, target_chars, chunk_overlap_chars(target_chars))
+    if len(raw_chunks) <= 1:
         # Below the paragraph structure needed to chunk meaningfully → single-call path.
         return await provider.analyze(source_text, vault_context)
 
     max_chunks = max(1, int(settings.ingest_long_source_max_chunks))
-    if len(chunks) > max_chunks:
-        logger.info(
-            "long_source: %d chunks exceeds max_chunks=%d — analyzing first %d only (I7)",
-            len(chunks),
-            max_chunks,
-            max_chunks,
-        )
-        chunks = chunks[:max_chunks]
+    chunks = bounded_chunks(source_text, target_chars, max_chunks, label="long_source")
     chunk_total = len(chunks)
 
     checkpoint_on = bool(settings.ingest_long_source_checkpoint_enabled)
