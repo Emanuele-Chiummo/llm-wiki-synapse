@@ -41,6 +41,7 @@ import logging
 import secrets
 import sys
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from starlette.responses import Response as StarletteResponse
@@ -490,6 +491,67 @@ class WebSearchConfigCache:
             self._max_queries_db = value
 
 
+@dataclass(frozen=True)
+class ApiTokenEntry:
+    """
+    In-process, read-only view of one active ``api_tokens`` row (PF-AUTH-1, 1.9.4 W4).
+
+    Holds ``secret_hash`` (PBKDF2 string, never plaintext) purely for verify_token() —
+    it is never logged or returned to any caller.
+    """
+
+    id: str
+    label: str
+    secret_hash: str
+    vault_id: str | None
+    read_only: bool
+
+
+class ApiTokenCache:
+    """
+    In-process cache of ACTIVE (non-revoked) ``api_tokens`` rows (PF-AUTH-1, 1.9.4 W4).
+
+    Loaded at startup from the DB (``revoked_at IS NULL``); refreshed on
+    POST /config/api-tokens (add) and DELETE /config/api-tokens/{id} (remove).
+    SynapseAuthMiddleware reads this O(1)-per-entry per request — no DB round-trip in
+    the hot auth path except the (best-effort) last_used_at write after a match.
+
+    ``find_match`` is O(n) over the active token set (PBKDF2 verification has no way to
+    index by plaintext) — expected to stay small (operator-issued tokens, not per-user).
+    NEVER exposes secret_hash to any caller outside verify_token().
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, ApiTokenEntry] = {}
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def load(self, entries: list[ApiTokenEntry]) -> None:
+        """Replace the full active-entry set (startup or full reload)."""
+        async with self._lock:
+            self._entries = {e.id: e for e in entries}
+
+    async def add(self, entry: ApiTokenEntry) -> None:
+        """Add (or replace) one entry — called right after a successful DB insert."""
+        async with self._lock:
+            self._entries[entry.id] = entry
+
+    async def revoke(self, token_id: str) -> None:
+        """Remove one entry from the active set — called right after a DB soft-delete."""
+        async with self._lock:
+            self._entries.pop(token_id, None)
+
+    def find_match(self, presented: str) -> ApiTokenEntry | None:
+        """
+        Return the active entry whose secret_hash verifies against ``presented``, else None.
+
+        NEVER logs ``presented`` or any entry's secret_hash.
+        """
+        for entry in self._entries.values():
+            if verify_token(presented, entry.secret_hash):
+                return entry
+        return None
+
+
 # ── Module-level singletons — initialised at import, populated in lifespan loaders ─
 remote_mcp_flag: RemoteMcpFlag = RemoteMcpFlag()
 # ADR-0072 §2: in-process cache for vault_state.remote_mcp_write_enabled.
@@ -500,6 +562,31 @@ mcp_write_flag: RemoteMcpFlag = RemoteMcpFlag()
 mcp_auth_cache: McpAuthCache = McpAuthCache()
 clip_config_cache: ClipConfigCache = ClipConfigCache()
 web_search_config_cache: WebSearchConfigCache = WebSearchConfigCache()
+# PF-AUTH-1 (1.9.4 W4): in-process cache of active (non-revoked) api_tokens rows.
+api_token_cache: ApiTokenCache = ApiTokenCache()
+
+
+async def bump_api_token_last_used(token_id: str) -> None:
+    """
+    Persist ``api_tokens.last_used_at = now()`` for the given row id (PF-AUTH-1).
+
+    Called (best-effort, errors swallowed by the caller) from SynapseAuthMiddleware right
+    after a scoped-token match. A tiny, isolated helper — not a route handler — so it can be
+    awaited from middleware without importing app.main (would be circular).
+    """
+    import uuid as _uuid  # noqa: PLC0415
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from sqlalchemy import update  # noqa: PLC0415
+
+    from app.models import ApiToken  # noqa: PLC0415
+
+    async with get_session() as session:
+        await session.execute(
+            update(ApiToken)
+            .where(ApiToken.id == _uuid.UUID(token_id))
+            .values(last_used_at=datetime.now(UTC))
+        )
 
 
 # ── MCP access gate middleware (ADR-0033 §2.4 — replaces _BearerAuthMiddleware) ─

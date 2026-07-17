@@ -1,5 +1,5 @@
 """
-Synapse shared Bearer token middleware (ADR-0052, R10-1).
+Synapse shared Bearer token middleware (ADR-0052, R10-1; extended PF-AUTH-1, 1.9.4 W4).
 
 Credential model
 ----------------
@@ -10,6 +10,31 @@ Credential model
 * Non-empty → every non-exempt HTTP request MUST present
   ``Authorization: Bearer <token>``, compared constant-time via
   ``secrets.compare_digest`` (I3 — no KDF, no DB round-trip).
+
+Scoped API tokens (PF-AUTH-1, 1.9.4 W4)
+----------------------------------------
+In ADDITION to the single bootstrap ``SYNAPSE_AUTH_TOKEN`` above, a presented bearer is
+also checked against the in-process ``ApiTokenCache`` (``app.runtime_state.api_token_cache``),
+which mirrors the active (non-revoked) rows of the ``api_tokens`` table (PBKDF2 hashes,
+never plaintext — see ``app.models.ApiToken`` / ``app.runtime_state.hash_token``).
+
+This is purely additive: the bootstrap token check runs first and is completely unchanged;
+the DB-token check only runs when the bootstrap check did not match (or auth is disabled —
+see below). A request that presents a valid ``api_tokens`` bearer is subject to two
+extra, token-specific gates that the bootstrap token has never had:
+
+* **Vault scope** — if the matched token's ``vault_id`` is not NULL, it must equal the
+  running instance's ``settings.vault_id`` (single-vault-per-backend architecture). A
+  mismatch is indistinguishable from "no token matched" to the caller (401) — it is NOT
+  treated as a 403, because the token simply does not apply to this backend.
+* **Read-only** — if the matched token's ``read_only`` flag is set, any HTTP method other
+  than GET/HEAD/OPTIONS is rejected with 403 (the token authenticated fine; it just isn't
+  allowed to write).
+
+NOTE: when ``SYNAPSE_AUTH_TOKEN`` is unset (auth "disabled"), the middleware is STILL a
+transparent pass-through — scoped API tokens are an ADDITIONAL credential type layered on
+top of the same gate, not a replacement for it. Operators who want scoped tokens enforced
+must set ``SYNAPSE_AUTH_TOKEN`` (the perimeter must be closed for a token to mean anything).
 
 Exempt set (bypass_auth predicate — authoritative per ADR-0052 §2.3)
 ---------------------------------------------------------------------
@@ -57,10 +82,14 @@ Do-NOTs (ADR-0052 §6)
 
 from __future__ import annotations
 
+import logging
 import secrets
+from typing import Any
 
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 # ── Exempt-set constants (ADR-0052 §2.3 — named constants, never scattered literals) ─
 
@@ -147,14 +176,30 @@ class SynapseAuthMiddleware:
         The ``SYNAPSE_AUTH_TOKEN`` value, read once at import time from
         ``app.config.settings``.  Injected here rather than re-read per request
         so the comparison cost is truly O(len(token)) with no I/O.
+    token_cache:
+        Optional ``app.runtime_state.ApiTokenCache`` — the in-process cache of active
+        ``api_tokens`` rows (PF-AUTH-1, 1.9.4 W4). ``None`` (the default) reproduces the
+        pre-1.9.4 behaviour exactly: only the bootstrap ``token`` is checked.
+    vault_id:
+        This backend instance's ``settings.vault_id``, used to enforce a matched token's
+        optional vault scope. Ignored when ``token_cache`` is ``None``.
     """
 
-    def __init__(self, app: ASGIApp, token: str = "") -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        token: str = "",
+        token_cache: Any | None = None,
+        vault_id: str = "",
+    ) -> None:
         self._app = app
         # Read once at startup — never per-request (I3: no DB round-trip).
         # Token is stored as bytes for secrets.compare_digest (constant-time requires
         # both operands to be the same type; str works too but bytes is canonical).
         self._token: str = token
+        # PF-AUTH-1 (1.9.4 W4): optional scoped-token cache + this instance's vault_id.
+        self._token_cache: Any | None = token_cache
+        self._vault_id: str = vault_id
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # Only enforce on HTTP requests; let lifespan / WebSocket scopes pass through.
@@ -162,7 +207,10 @@ class SynapseAuthMiddleware:
             await self._app(scope, receive, send)
             return
 
-        # Auth disabled (empty token) → transparent pass-through (EC-M10-11).
+        # Auth disabled (empty bootstrap token) → transparent pass-through (EC-M10-11).
+        # PF-AUTH-1: scoped api_tokens are an ADDITIONAL credential layered on top of the
+        # bootstrap gate, never a replacement for it — this branch (and its back-compat
+        # guarantee) is completely unchanged.
         if not self._token:
             await self._app(scope, receive, send)
             return
@@ -185,18 +233,76 @@ class SynapseAuthMiddleware:
                     presented_token = raw[7:]
                 break
 
-        # Constant-time comparison (ADR-0052 §2.1, I3 — closes timing side-channel).
-        # secrets.compare_digest requires both operands to be the same type (str here).
-        # NEVER compare with == (Do-NOT §9).
-        # NEVER log the token value or the presented token (Do-NOT §2).
-        if presented_token is not None and secrets.compare_digest(self._token, presented_token):
-            await self._app(scope, receive, send)
-            return
+        if presented_token is not None:
+            # Constant-time comparison (ADR-0052 §2.1, I3 — closes timing side-channel).
+            # secrets.compare_digest requires both operands to be the same type (str here).
+            # NEVER compare with == (Do-NOT §9).
+            # NEVER log the token value or the presented token (Do-NOT §2).
+            if secrets.compare_digest(self._token, presented_token):
+                await self._app(scope, receive, send)
+                return
 
-        # Reject: 401 with RFC 6750 WWW-Authenticate: Bearer header.
+            # PF-AUTH-1 (1.9.4 W4): bootstrap token didn't match — try the scoped
+            # api_tokens cache. NEVER logs presented_token or any stored hash.
+            if self._token_cache is not None:
+                entry = self._token_cache.find_match(presented_token)
+                if entry is not None:
+                    # Vault scope: a mismatch is treated identically to "no token
+                    # matched" (401) — the token simply does not apply to this backend.
+                    if entry.vault_id is not None and entry.vault_id != self._vault_id:
+                        await self._respond_401(scope, receive, send)
+                        return
+                    # Read-only: any method other than GET/HEAD/OPTIONS is rejected.
+                    if entry.read_only and method not in ("GET", "HEAD", "OPTIONS"):
+                        await self._respond_403_read_only(scope, receive, send)
+                        return
+                    # Match — best-effort last_used_at bump. Awaited inline (not a
+                    # detached background task — StaticPool/SQLite test sessions do not
+                    # tolerate concurrent fire-and-forget writes); swallows any DB error
+                    # so a persistence hiccup never turns into a request failure.
+                    await self._touch_last_used(entry.id)
+                    await self._app(scope, receive, send)
+                    return
+
+        await self._respond_401(scope, receive, send)
+
+    @staticmethod
+    async def _respond_401(scope: Scope, receive: Receive, send: Send) -> None:
+        """Reject: 401 with RFC 6750 WWW-Authenticate: Bearer header."""
         response = JSONResponse(
             content=_UNAUTHORIZED_BODY,
             status_code=401,
             headers={"WWW-Authenticate": "Bearer"},
         )
         await response(scope, receive, send)
+
+    @staticmethod
+    async def _respond_403_read_only(scope: Scope, receive: Receive, send: Send) -> None:
+        """PF-AUTH-1: a read_only api_tokens row attempted a non-read HTTP method."""
+        response = JSONResponse(
+            content={
+                "error": "read_only_token",
+                "hint": "This API token is read-only and cannot perform write requests.",
+            },
+            status_code=403,
+        )
+        await response(scope, receive, send)
+
+    @staticmethod
+    async def _touch_last_used(token_id: str) -> None:
+        """
+        Best-effort ``last_used_at`` bump for a matched scoped token.
+
+        Swallows any DB error — a persistence hiccup on the audit timestamp must never
+        turn into a request failure for an otherwise-valid token. NEVER logs the token
+        secret (only the row id, which is not sensitive).
+        """
+        try:
+            from app.runtime_state import bump_api_token_last_used  # noqa: PLC0415
+
+            await bump_api_token_last_used(token_id)
+        except Exception:  # noqa: BLE001 — best-effort audit write, never fatal
+            logger.debug(
+                "SynapseAuthMiddleware: last_used_at bump failed for token id=%s (non-fatal)",
+                token_id,
+            )
