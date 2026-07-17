@@ -52,3 +52,52 @@ def test_existing_header_not_overwritten() -> None:
     # The route sets X-Frame-Options: DENY; the middleware must leave it untouched.
     resp = _client().get("/preset")
     assert resp.headers["x-frame-options"] == "DENY"
+
+
+# ── ADR-0087: CSP header assertions ───────────────────────────────────────────
+
+
+def test_csp_header_present_on_every_response() -> None:
+    """CSP header is stamped on every response (ADR-0087 / SEC-CSP-1)."""
+    resp = _client().get("/")
+    assert "content-security-policy" in resp.headers
+
+
+def test_csp_script_src_self_without_unsafe_inline() -> None:
+    """script-src must be 'self' only — no unsafe-inline or unsafe-eval (AC-CSP-2)."""
+    resp = _client().get("/")
+    csp = resp.headers["content-security-policy"]
+    assert "script-src 'self'" in csp
+    # Extract the script-src directive value to confirm no unsafe-inline in script-src.
+    import re
+
+    m = re.search(r"script-src([^;]*)", csp)
+    assert m is not None, "script-src directive must be present in CSP"
+    script_src_value = m.group(1)
+    assert "'unsafe-inline'" not in script_src_value, "script-src must NOT contain 'unsafe-inline'"
+    assert "'unsafe-eval'" not in script_src_value, "script-src must NOT contain 'unsafe-eval'"
+
+
+def test_csp_style_src_has_unsafe_inline() -> None:
+    """style-src 'unsafe-inline' is present — required by KaTeX, React inline styles,
+    and the index.html inline <style> block (ADR-0087 finding)."""
+    resp = _client().get("/")
+    csp = resp.headers["content-security-policy"]
+    assert "style-src" in csp
+    # unsafe-inline must be present in the CSP (for style-src specifically)
+    assert "'unsafe-inline'" in csp
+
+
+def test_csp_frame_ancestors_none() -> None:
+    """frame-ancestors 'none' prevents clickjacking via iframe embedding (AC-CSP-4)."""
+    resp = _client().get("/")
+    csp = resp.headers["content-security-policy"]
+    assert "frame-ancestors 'none'" in csp
+
+
+def test_csp_object_src_none_and_base_uri_self() -> None:
+    """object-src 'none' blocks plugins; base-uri 'self' blocks base-tag injection."""
+    resp = _client().get("/")
+    csp = resp.headers["content-security-policy"]
+    assert "object-src 'none'" in csp
+    assert "base-uri 'self'" in csp

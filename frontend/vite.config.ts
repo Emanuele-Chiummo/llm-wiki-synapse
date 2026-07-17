@@ -6,6 +6,40 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 /**
+ * Content Security Policy for the Vite dev server and preview server (ADR-0087 / SEC-CSP-1).
+ *
+ * This header is served by Vite in development and CI (``vite preview`` mode).
+ * Production uses the same directives via nginx.conf.template; see that file for per-directive
+ * rationale.
+ *
+ * Dev/preview divergence from production nginx policy:
+ *   connect-src adds ``http://localhost:* ws://localhost:* wss://localhost:*`` — in CI the
+ *   frontend is served at :5173 and the API at :8000 (different origins), so cross-origin
+ *   fetch/XHR/SSE calls to localhost:8000 would otherwise be blocked by ``connect-src 'self'``.
+ *   In production nginx, the API is proxied on the same origin and ``'self'`` is sufficient.
+ *
+ * style-src 'unsafe-inline' explanation:
+ *   Required by three independent sources: (1) the inline <style> block in index.html,
+ *   (2) KaTeX's HTML+MathML output which sets inline ``style`` attributes on every rendered span,
+ *   (3) React's inline style={{}} props used extensively in the app (react-resizable-panels,
+ *   type-color badges, etc.). Removing unsafe-inline would require significant refactoring; it
+ *   is accepted because style-src unsafe-inline does NOT enable JavaScript execution.
+ */
+const _DEV_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data: blob:",
+  // Broader connect-src for dev/CI: allow cross-origin localhost (frontend :5173, API :8000).
+  "connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join("; ");
+
+/**
  * API path prefixes that MUST bypass the service worker cache (NetworkOnly).
  * Any request whose URL pathname starts with one of these is never served
  * from cache — data freshness is mandatory (I1 dataVersion model).
@@ -109,6 +143,10 @@ export default defineConfig({
   ],
   server: {
     port: Number(process.env["PORT"]) || 5173,
+    // Stamp the CSP on every dev-server response (ADR-0087 / SEC-CSP-1).
+    headers: {
+      "Content-Security-Policy": _DEV_CSP,
+    },
     proxy: {
       // In dev, proxy /graph and /pages/* to the FastAPI backend
       "/graph": {
@@ -221,6 +259,14 @@ export default defineConfig({
       },
     },
   },
+  // Stamp the CSP on every vite preview response (used in CI E2E — ADR-0087 / SEC-CSP-1).
+  // port is intentionally NOT set here: CI passes --port 5173 on the CLI.
+  preview: {
+    headers: {
+      "Content-Security-Policy": _DEV_CSP,
+    },
+  },
+
   // VITE_API_BASE: browser base (relative by default, inlined by Vite at build time).
   // BACKEND_PROXY_TARGET: Vite dev proxy target (server-only, NOT inlined).
   // Never hardcode secrets here.

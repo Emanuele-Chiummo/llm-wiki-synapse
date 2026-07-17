@@ -30,9 +30,22 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options    "nosniff"                              always;
     add_header X-Frame-Options           "DENY"                                 always;
-    # frame-ancestors only — a full default-src/script-src CSP would break
-    # the SPA's inline styles and is out of scope for this change.
-    add_header Content-Security-Policy   "frame-ancestors 'none'"               always;
+    # Full CSP (ADR-0087 / SEC-CSP-1).
+    # directive notes:
+    #   script-src 'self'          — Vite production build: external hashed chunks only; no inline JS.
+    #   style-src 'self' 'unsafe-inline'  — required by KaTeX HTML+MathML output (inline style
+    #                                       attributes on rendered spans), React inline style={{}} props
+    #                                       (react-resizable-panels, type-color badges), and the inline
+    #                                       <style> block in index.html. Deliberately accepted tradeoff:
+    #                                       unsafe-inline for styles does NOT enable JS execution.
+    #   font-src 'self' data:      — KaTeX fonts bundled by Vite (same-origin); data: safety net.
+    #   img-src 'self' data: blob: — favicon + potential data-URI wiki images + canvas/sigma snapshots.
+    #   connect-src 'self'         — API is same-origin (nginx proxies all /api-prefixes to backend).
+    #   worker-src 'self' blob:    — PWA service worker (same-origin); blob: future-proofs blob workers.
+    #   frame-ancestors 'none'     — prevents framing; supersedes X-Frame-Options for modern browsers.
+    #   object-src 'none'          — block browser plugins (Flash, Java applets).
+    #   base-uri 'self'            — prevent <base href="..."> injection.
+    add_header Content-Security-Policy   "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'" always;
     add_header Referrer-Policy           "no-referrer"                          always;
     add_header Permissions-Policy        "geolocation=(), microphone=(), camera=(), interest-cohort=()" always;
 
