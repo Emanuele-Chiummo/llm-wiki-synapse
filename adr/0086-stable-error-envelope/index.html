@@ -1,0 +1,957 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0086-stable-error-envelope/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>ADR-0086 — Stable JSON error envelope across backend, frontend, and MCP (2.0.0) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0086-stable-json-error-envelope-across-backend-frontend-and-mcp-200" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0086 — Stable JSON error envelope across backend, frontend, and MCP (2.0.0)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Decision">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-the-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-code-derivation-rule-mechanical-not-hand-maintained" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. code derivation rule (mechanical, not hand-maintained)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-three-handlers-one-envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Three handlers, one envelope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-why-the-httpexception-fallback-and-not-migrating-all-190-call-sites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Why the HTTPException fallback (and not migrating all 190 call sites)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-frontend-consumption" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Frontend consumption
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-mcp-surface-intentionally-unchanged" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. MCP surface — intentionally unchanged
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0086-stable-json-error-envelope-across-backend-frontend-and-mcp-200">ADR-0086 — Stable JSON error envelope across backend, frontend, and MCP (2.0.0)<a class="headerlink" href="#adr-0086-stable-json-error-envelope-across-backend-frontend-and-mcp-200" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Date:</strong> 2026-07-17</li>
+<li><strong>Invariants touched:</strong> I8 (docs-as-DoD: OpenAPI regenerated)</li>
+<li><strong>Supersedes (partially):</strong> the 1.9.2 non-regression contract in <code>app/errors.py</code>
+  (the deliberately deferred wire-format change now lands)</li>
+<li><strong>SemVer:</strong> MAJOR — breaking change (2.0.0 "One engine", breaking-change item 3)</li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>Since 1.9.2 the backend has raised a domain exception taxonomy (<code>SynapseError</code> + 12
+subclasses in <code>backend/app/errors.py</code>) through a single global handler
+(<code>synapse_error_handler</code>). That handler was <strong>deliberately</strong> built to reproduce the exact
+same wire shape a raw <code>fastapi.HTTPException</code> already produces — <code>{"detail": "..."}</code> — so
+1.9.2 could ship the taxonomy infrastructure with zero observable behaviour change and defer
+the actual envelope change to 2.0.0. This ADR is that deferred work.</p>
+<p>The <code>{"detail": ...}</code> shape has three problems as a public contract:</p>
+<ol>
+<li><strong>No machine-readable code.</strong> Consumers (web frontend, iOS, MCP clients, external API
+   users) branch on parsed message <em>strings</em>, which are human-facing and unstable.</li>
+<li><strong>Two different shapes for errors.</strong> A <code>HTTPException</code> produces <code>{"detail": "&lt;string&gt;"}</code>,
+   but FastAPI's built-in <code>RequestValidationError</code> (Pydantic 422s) produces
+   <code>{"detail": [ {loc, msg, type}, ... ]}</code> — an <em>array</em>. Frontend code had to special-case
+   this (<code>providerClient.formatDetail</code>) to avoid rendering <code>[object Object]</code>.</li>
+<li><strong>No status in the body.</strong> Consumers that only see the parsed JSON (not the transport
+   layer) can't read the status code.</li>
+</ol>
+<p>The frontend already centralised error parsing in <code>frontend/src/api/errors.ts</code>
+(<code>ApiError</code> + <code>checkResponse</code>) in 1.9.2 — though in practice ~13 API clients still carry an
+inline copy of the same <code>body.detail</code> parse (they predate the extraction). All of them must
+move to the new shape; this ADR treats <code>errors.ts</code> as the single source of <em>shape knowledge</em>
+and has every client read the envelope through a shared helper.</p>
+<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
+<h3 id="1-the-envelope">1. The envelope<a class="headerlink" href="#1-the-envelope" title="Permanent link">&para;</a></h3>
+<p>Every error response — from any source — is wrapped in a single stable shape:</p>
+<div class="highlight"><pre><span></span><code><span class="p">{</span><span class="w"> </span><span class="nt">&quot;error&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;code&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;not_found&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;message&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Page 42 not found&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">404</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;details&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>code</code></td>
+<td><code>string</code> (snake_case)</td>
+<td>Stable, machine-readable slug. Public contract.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td><code>string</code></td>
+<td>Human-readable text — the exact wording <code>detail</code> carried before.</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td><code>int</code></td>
+<td>HTTP status, duplicated in the body for JSON-only consumers.</td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td><code>object \| array \| null</code></td>
+<td>Optional structured payload (field-level validation errors); <code>null</code>/absent for simple errors.</td>
+</tr>
+</tbody>
+</table>
+<p>This is the <strong>only</strong> shape after 2.0.0. There is no dual-shape / backward-compatible mode
+and no deprecation grace period (SemVer MAJOR). Status codes and message wording are
+preserved byte-for-byte from before — <strong>only the wrapping changes.</strong></p>
+<h3 id="2-code-derivation-rule-mechanical-not-hand-maintained">2. <code>code</code> derivation rule (mechanical, not hand-maintained)<a class="headerlink" href="#2-code-derivation-rule-mechanical-not-hand-maintained" title="Permanent link">&para;</a></h3>
+<p>For a <code>SynapseError</code> subclass: <strong>strip a trailing <code>"Error"</code> suffix, then convert CamelCase
+to snake_case and lowercase.</strong> One dictionary override exists (the base class only).</p>
+<table>
+<thead>
+<tr>
+<th>Subclass</th>
+<th>Status</th>
+<th><code>code</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BadRequestError</code></td>
+<td>400</td>
+<td><code>bad_request</code></td>
+</tr>
+<tr>
+<td><code>AuthenticationError</code></td>
+<td>401</td>
+<td><code>authentication</code></td>
+</tr>
+<tr>
+<td><code>ForbiddenError</code></td>
+<td>403</td>
+<td><code>forbidden</code></td>
+</tr>
+<tr>
+<td><code>NotFoundError</code></td>
+<td>404</td>
+<td><code>not_found</code></td>
+</tr>
+<tr>
+<td><code>ConflictError</code></td>
+<td>409</td>
+<td><code>conflict</code></td>
+</tr>
+<tr>
+<td><code>GoneError</code></td>
+<td>410</td>
+<td><code>gone</code></td>
+</tr>
+<tr>
+<td><code>PayloadTooLargeError</code></td>
+<td>413</td>
+<td><code>payload_too_large</code></td>
+</tr>
+<tr>
+<td><code>UnsupportedMediaTypeError</code></td>
+<td>415</td>
+<td><code>unsupported_media_type</code></td>
+</tr>
+<tr>
+<td><code>ValidationError</code></td>
+<td>422</td>
+<td><code>validation</code></td>
+</tr>
+<tr>
+<td><code>NotImplementedFeatureError</code></td>
+<td>501</td>
+<td><code>not_implemented_feature</code></td>
+</tr>
+<tr>
+<td><code>UpstreamError</code></td>
+<td>502</td>
+<td><code>upstream</code></td>
+</tr>
+<tr>
+<td><code>ServiceUnavailableError</code></td>
+<td>503</td>
+<td><code>service_unavailable</code></td>
+</tr>
+<tr>
+<td><code>SynapseError</code> (base, 500)</td>
+<td>500</td>
+<td><code>internal_error</code> (override)</td>
+</tr>
+</tbody>
+</table>
+<p>The rule is applied by <code>error_code_for()</code> in <code>app/errors.py</code>; adding a subclass yields a code
+with <strong>no per-class hand maintenance</strong>. The only override is the base class (mechanical
+<code>synapse</code> → the meaningful <code>internal_error</code>).</p>
+<h3 id="3-three-handlers-one-envelope">3. Three handlers, one envelope<a class="headerlink" href="#3-three-handlers-one-envelope" title="Permanent link">&para;</a></h3>
+<p><code>register_exception_handlers(app)</code> registers all three:</p>
+<ol>
+<li><strong><code>SynapseError</code></strong> → <code>synapse_error_handler</code>. <code>code</code> from the derivation rule; <code>message</code>
+   from <code>exc.detail</code> (string); <code>details</code> = <code>exc.detail</code> when it is a non-string structured
+   payload, else <code>null</code>; <code>status</code> = <code>exc.status_code</code>; headers preserved.</li>
+<li><strong><code>RequestValidationError</code></strong> (Pydantic 422s that do <strong>not</strong> go through <code>SynapseError</code>) →
+   <code>request_validation_error_handler</code>. <code>code = "validation_error"</code> (deliberately distinct from
+   the domain <code>ValidationError</code>'s <code>validation</code> — different source: framework schema mismatch vs
+   business rule). <code>details</code> = a cleaned field-error list <code>[{loc, msg, type}]</code> (FastAPI's
+   <code>input</code>/<code>url</code> fields are dropped to avoid echoing request content). <code>message</code> = a concise
+   <code>"&lt;loc&gt;: &lt;msg&gt;; ..."</code> join so JSON-only consumers still get a readable summary.</li>
+<li><strong><code>HTTPException</code></strong> (Starlette base, catches every raw <code>raise HTTPException</code> still in the
+   codebase) → <code>http_exception_handler_envelope</code>. <code>code</code> derived from the <strong>status code</strong> via a
+   reverse map built from the subclass table (+ a few extras: <code>429 → rate_limited</code>,
+   <code>500 → internal_error</code>, unknown → <code>http_&lt;status&gt;</code>). <code>message</code> from <code>exc.detail</code>.</li>
+</ol>
+<h3 id="4-why-the-httpexception-fallback-and-not-migrating-all-190-call-sites">4. Why the HTTPException fallback (and not migrating all 190 call sites)<a class="headerlink" href="#4-why-the-httpexception-fallback-and-not-migrating-all-190-call-sites" title="Permanent link">&para;</a></h3>
+<p>There are ~190 <code>raise HTTPException(...)</code> sites across <code>backend/app/</code>. Migrating each to the
+matching <code>SynapseError</code> subclass is the ideal end state (one source of truth) but is a large,
+independent refactor with real regression surface, out of scope for this contract change. The
+<strong>fallback <code>HTTPException</code> handler gives every one of those sites the new envelope immediately</strong>
+with a status-derived <code>code</code> — so the wire contract is uniform <em>now</em>, and incremental migration
+of call sites to <code>SynapseError</code> (which upgrades a status-derived code to a semantic one) can
+happen later with zero further wire change. This is the pragmatic, invariant-safe choice.</p>
+<h3 id="5-frontend-consumption">5. Frontend consumption<a class="headerlink" href="#5-frontend-consumption" title="Permanent link">&para;</a></h3>
+<p><code>ApiError</code> gains a <code>code?: string</code> field so callers can branch on stable codes instead of
+parsing messages. <code>errors.ts</code> exports <code>errorMessageFromBody()</code> / <code>errorCodeFromBody()</code> /
+<code>parseErrorEnvelope()</code>; <code>checkResponse()</code> and every inline-parsing client are updated to read
+<code>body.error.message</code> / <code>body.error.code</code>. <code>providerClient.formatDetail</code> (which existed solely
+to flatten the old 422 <em>array</em> shape) is removed — the backend now emits a pre-joined <code>message</code>
+for 422s, so no client-side array flattening is needed.</p>
+<h3 id="6-mcp-surface-intentionally-unchanged">6. MCP surface — intentionally unchanged<a class="headerlink" href="#6-mcp-surface-intentionally-unchanged" title="Permanent link">&para;</a></h3>
+<p>MCP tool calls in <code>backend/app/mcp/server.py</code> do <strong>not</strong> flow through the HTTP exception path.
+They already return protocol-level structured error payloads (<code>{"error": "&lt;message&gt;"}</code>
+dictionaries) as tool results, per the FastMCP/<code>mcp</code> SDK's own error-reporting mechanism. These
+are adequate and are consumed by the CLI agent as tool output, not as HTTP responses. Bolting
+the HTTP envelope onto them would be a redundant second wrapper. <strong>MCP error semantics are left
+as-is</strong> — noted here (not silently skipped) per the design brief. If a future need arises to
+carry the same <code>code</code> taxonomy into MCP tool results, that is a separate, additive decision.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Breaking:</strong> every HTTP error body changes from <code>{"detail": ...}</code> to
+  <code>{"error": {code, message, status, details}}</code>. All Synapse-owned consumers (web, iOS,
+  clipper) are updated in this change; external API/MCP-over-HTTP consumers must update.</li>
+<li><code>code</code> is now a public contract: values in the table above are frozen. Renaming a
+  <code>SynapseError</code> subclass would change its code — that is itself a breaking change and must be
+  treated as one.</li>
+<li>422 responses are now uniformly structured (<code>details</code> carries the field list) regardless of
+  whether they originate from a domain <code>ValidationError</code> or Pydantic — but they carry different
+  <code>code</code>s (<code>validation</code> vs <code>validation_error</code>) so consumers can tell the source apart.</li>
+<li><code>docs/api/openapi.json</code> is regenerated (I8).</li>
+<li>The 1.9.2 "byte-for-bit identical to HTTPException" contract in <code>test_errors.py</code> is
+  intentionally retired; the comparison-control-route tests are re-pointed to assert the new
+  envelope (the plain-<code>HTTPException</code> control route now asserts it <em>also</em> gets the envelope via
+  the fallback handler, which is the new invariant worth locking down).</li>
+<li>Migrating the ~190 raw <code>HTTPException</code> sites to <code>SynapseError</code> remains desirable follow-up
+  (upgrades status-derived codes to semantic ones) but is explicitly <strong>not</strong> required by this
+  contract and can proceed incrementally.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
