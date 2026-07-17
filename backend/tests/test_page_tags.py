@@ -96,8 +96,8 @@ async def test_write_wiki_page_persists_tags_and_serializes_frontmatter(
     import frontmatter as fm_lib
     from app.config import settings
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
     from sqlalchemy import select
 
@@ -143,8 +143,8 @@ async def test_write_wiki_page_without_tags_omits_key_and_stores_null(
     """
     from app.config import settings
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
     from sqlalchemy import select
 
@@ -177,8 +177,8 @@ async def test_write_wiki_page_without_tags_omits_key_and_stores_null(
 @pytest.mark.asyncio
 async def test_get_page_content_returns_tags(api_env: dict[str, Any], api_client: Any) -> None:
     """GET /pages/{id}/content includes the `tags` key (additive, like type/sources)."""
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     page = WikiPage(
         title="Tagged Concept",
@@ -206,8 +206,8 @@ async def test_get_page_content_tags_present_even_when_empty(
     api_env: dict[str, Any], api_client: Any
 ) -> None:
     """The `tags` key is always present in the response (NULL/empty when the page has none)."""
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     page = WikiPage(
         title="Untagged Concept",

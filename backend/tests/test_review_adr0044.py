@@ -831,7 +831,7 @@ async def test_E_delegated_writes_emit_proposals(
     env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A delegated run that recorded write_page ids drives ONE bounded propose_reviews call."""
-    from app.ingest import orchestrator as orch
+    import app.ingest.pipeline as pipeline
 
     written = await _insert_page(env, title="Delegated Page", page_type="concept")
 
@@ -845,7 +845,7 @@ async def test_E_delegated_writes_emit_proposals(
 
     monkeypatch.setattr("app.ops.review.propose_reviews", _fake_propose)
 
-    await orch._propose_reviews_for_delegated(
+    await pipeline._propose_reviews_for_delegated(
         vault_id="test-vault",
         written_page_ids=[written],
         origin_source="raw/s.md",
@@ -861,7 +861,7 @@ async def test_E_delegated_no_writes_no_call(
     env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A delegated run that wrote nothing → no propose_reviews call (zero cost)."""
-    from app.ingest import orchestrator as orch
+    import app.ingest.pipeline as pipeline
 
     called = {"n": 0}
 
@@ -870,7 +870,7 @@ async def test_E_delegated_no_writes_no_call(
 
     monkeypatch.setattr("app.ops.review.propose_reviews", _fake_propose)
 
-    await orch._propose_reviews_for_delegated(
+    await pipeline._propose_reviews_for_delegated(
         vault_id="test-vault",
         written_page_ids=[],
         origin_source="raw/s.md",

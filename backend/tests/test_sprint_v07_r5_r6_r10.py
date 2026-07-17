@@ -259,23 +259,23 @@ class TestR76FolderContext:
     """AC-R7-6-2: folderContext derived from subfolder path and injected into the prompt."""
 
     def test_folder_context_from_nested_path(self) -> None:
-        from app.ingest.orchestrator import _folder_context
+        from app.ingest.context import _folder_context
 
         fc = _folder_context("raw/sources/servicenow/itam/sam/foo.md")
         assert fc == "servicenow / itam / sam"
 
     def test_folder_context_empty_for_top_level(self) -> None:
-        from app.ingest.orchestrator import _folder_context
+        from app.ingest.context import _folder_context
 
         assert _folder_context("raw/sources/foo.md") == ""
 
     def test_folder_context_windows_separators(self) -> None:
-        from app.ingest.orchestrator import _folder_context
+        from app.ingest.context import _folder_context
 
         assert _folder_context("raw\\sources\\a\\b\\x.md") == "a / b"
 
     def test_folder_context_block_phrasing(self) -> None:
-        from app.ingest.orchestrator import _folder_context_block
+        from app.ingest.context import _folder_context_block
 
         block = _folder_context_block("raw/sources/servicenow/itam/foo.md")
         assert "folderContext" in block
@@ -283,12 +283,12 @@ class TestR76FolderContext:
         assert "comes from the folder path" in block
 
     def test_folder_context_block_empty_when_no_subfolder(self) -> None:
-        from app.ingest.orchestrator import _folder_context_block
+        from app.ingest.context import _folder_context_block
 
         assert _folder_context_block("raw/sources/foo.md") == ""
 
     def test_folder_context_bounded_segments(self) -> None:
-        from app.ingest.orchestrator import _FOLDER_CONTEXT_MAX_SEGMENTS, _folder_context
+        from app.ingest.context import _FOLDER_CONTEXT_MAX_SEGMENTS, _folder_context
 
         deep = "raw/sources/" + "/".join(f"s{i}" for i in range(20)) + "/f.md"
         fc = _folder_context(deep)

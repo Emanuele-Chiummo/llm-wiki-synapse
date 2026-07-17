@@ -22,6 +22,8 @@ from __future__ import annotations
 from typing import Any
 
 import app.ingest.orchestrator as orch
+import app.ingest.pipeline as pipeline
+import app.ingest.writer as writer
 import pytest
 from app.config import settings
 from app.ingest.provider._common import build_generate_prompt
@@ -97,7 +99,7 @@ def test_build_generate_prompt_budget_zero_disables_source(
 
 
 def test_ensure_source_summary_title_is_source_identity() -> None:
-    out = orch._ensure_source_summary([], _analysis(), ORIGIN)
+    out = pipeline._ensure_source_summary([], _analysis(), ORIGIN)
     assert len(out) == 1
     page = out[0]
     # llm_wiki: title `Source: <identity>` where identity == origin minus raw/sources/.
@@ -107,7 +109,9 @@ def test_ensure_source_summary_title_is_source_identity() -> None:
 
 
 def test_ensure_source_summary_body_has_h1_and_analysis_text() -> None:
-    out = orch._ensure_source_summary([], _analysis(summary="Distinctive summary text."), ORIGIN)
+    out = pipeline._ensure_source_summary(
+        [], _analysis(summary="Distinctive summary text."), ORIGIN
+    )
     body = out[0].content
     assert body.startswith("# Source: example.md")
     assert "Distinctive summary text." in body
@@ -115,19 +119,19 @@ def test_ensure_source_summary_body_has_h1_and_analysis_text() -> None:
 
 def test_ensure_source_summary_identity_strips_subfolder_prefix() -> None:
     origin = "raw/sources/reports/2024/q3.pdf"
-    out = orch._ensure_source_summary([], _analysis(), origin)
+    out = pipeline._ensure_source_summary([], _analysis(), origin)
     assert out[0].title == "Source: reports/2024/q3.pdf"
     assert out[0].content.startswith("# Source: reports/2024/q3.pdf")
 
 
 def test_source_identity_helpers() -> None:
-    assert orch._source_identity("raw/sources/example.md") == "example.md"
-    assert orch._source_identity("raw/sources/sub/paper.pdf") == "sub/paper.pdf"
+    assert writer._source_identity("raw/sources/example.md") == "example.md"
+    assert writer._source_identity("raw/sources/sub/paper.pdf") == "sub/paper.pdf"
     # Windows separators + embedded marker.
-    assert orch._source_identity("vault\\raw\\sources\\doc.txt") == "doc.txt"
-    assert orch._source_identity_stem("raw/sources/example.md") == "example"
-    assert orch._source_identity_stem("raw/sources/sub/paper.pdf") == "paper"
-    assert orch._source_identity_stem("") == ""
+    assert writer._source_identity("vault\\raw\\sources\\doc.txt") == "doc.txt"
+    assert writer._source_identity_stem("raw/sources/example.md") == "example"
+    assert writer._source_identity_stem("raw/sources/sub/paper.pdf") == "paper"
+    assert writer._source_identity_stem("") == ""
 
 
 # ── D3: write path lands a source page at wiki/sources/<stem>.md ───────────────────
@@ -147,7 +151,7 @@ async def test_source_page_written_at_identity_stem_path(
         content="# Source: example.md\n\nbody",
         frontmatter=fm,
     )
-    row = await orch.write_wiki_page(None, page, ORIGIN)
+    row = await writer.write_wiki_page(None, page, ORIGIN)
     # Deterministic 1-source→1-page path from the origin stem (NOT `source-example-md`).
     assert row.file_path == "wiki/sources/example.md"
     assert (api_env["vault_root"] / "wiki" / "sources" / "example.md").exists()

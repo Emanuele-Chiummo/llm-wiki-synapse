@@ -230,7 +230,8 @@ def test_legacy_duplicate_audit_is_pure_and_non_destructive() -> None:
 
 @pytest.fixture()
 def sy_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    import app.ingest.orchestrator as orch
+    import app.ingest.context as context
+    import app.ingest.writer as writer
     from app.ops import review
 
     state: dict[str, Any] = {
@@ -280,8 +281,8 @@ def sy_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(sy, "resolve_operation_provider", fake_resolve)
     monkeypatch.setattr(sy, "_seed_candidates", fake_seed)
     monkeypatch.setattr(sy, "_generation_key_exists", fake_key_exists)
-    monkeypatch.setattr(orch, "write_wiki_page", fake_write)
-    monkeypatch.setattr(orch, "_load_vault_context", fake_vault_context)
+    monkeypatch.setattr(writer, "write_wiki_page", fake_write)
+    monkeypatch.setattr(context, "_load_vault_context", fake_vault_context)
     monkeypatch.setattr(review, "propose_corpus_shape_review", fake_propose)
 
     sy._state.is_running = False

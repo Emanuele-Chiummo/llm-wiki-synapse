@@ -164,7 +164,7 @@ async def run_reclassify(
     when the proposed type differs. Bumps ``data_version`` once at the end if any page changed.
     Never raises — a fatal error is recorded as ``stopped_reason="error"``.
     """
-    from app.ingest.orchestrator import _load_vault_context  # noqa: PLC0415
+    from app.ingest.context import _load_vault_context  # noqa: PLC0415
 
     mp, tb = clamp_bounds(max_pages, token_budget)
     summary = ReclassifySummary(max_pages=mp, token_budget=tb, force=force)

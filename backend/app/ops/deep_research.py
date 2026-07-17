@@ -964,7 +964,7 @@ async def _ingest_synthesis(
     Returns the page_id from IngestResult, or None on error.
     """
     from app.config import settings as _settings
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     rel = f"raw/sources/deep-research-{run_id}.md"
     abs_path = _settings.vault_root / rel

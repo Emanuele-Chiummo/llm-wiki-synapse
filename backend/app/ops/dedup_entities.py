@@ -351,7 +351,7 @@ async def _load_entity_clusters(
     """
     from sqlalchemy import select  # noqa: PLC0415
 
-    from app.ingest.orchestrator import _resolve_canonical_entity_key  # noqa: PLC0415
+    from app.ingest.writer import _resolve_canonical_entity_key  # noqa: PLC0415
     from app.models import Page  # noqa: PLC0415
 
     async with get_session() as session:

@@ -179,19 +179,19 @@ async def test_chat_stream_sends_num_ctx(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_derive_run_status_completed() -> None:
-    from app.ingest.orchestrator import _derive_run_status
+    from app.ingest.pipeline import _derive_run_status
 
     assert _derive_run_status(converged=True, error_message=None) == "completed"
 
 
 def test_derive_run_status_non_converged() -> None:
-    from app.ingest.orchestrator import _derive_run_status
+    from app.ingest.pipeline import _derive_run_status
 
     assert _derive_run_status(converged=False, error_message=None) == "converged_false"
 
 
 def test_derive_run_status_failed_takes_precedence() -> None:
-    from app.ingest.orchestrator import _derive_run_status
+    from app.ingest.pipeline import _derive_run_status
 
     # Even if converged somehow True, an error_message means the run failed.
     assert _derive_run_status(converged=True, error_message="boom") == "failed"
@@ -254,12 +254,13 @@ async def test_write_ingest_run_persists_pages_and_status(
     from datetime import UTC, datetime
 
     import app.ingest.orchestrator as orch
+    import app.ingest.pipeline as pipeline
 
     _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._finalize_ingest_run(
+    await pipeline._finalize_ingest_run(
         run_id=_uuid.uuid4(),
         provider_name="OllamaProvider",
         provider_type="local",
@@ -285,12 +286,13 @@ async def test_write_ingest_run_records_failure(monkeypatch: pytest.MonkeyPatch)
     from datetime import UTC, datetime
 
     import app.ingest.orchestrator as orch
+    import app.ingest.pipeline as pipeline
 
     _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._finalize_ingest_run(
+    await pipeline._finalize_ingest_run(
         run_id=_uuid.uuid4(),
         provider_name="ApiProvider",
         provider_type="api",
@@ -325,12 +327,13 @@ async def test_write_ingest_run_records_converged_false(monkeypatch: pytest.Monk
     from datetime import UTC, datetime
 
     import app.ingest.orchestrator as orch
+    import app.ingest.pipeline as pipeline
 
     _FakeSession, captured = _make_finalize_test_helpers()
     monkeypatch.setattr(orch, "get_session", lambda: _FakeSession())
 
     now = datetime.now(UTC)
-    await orch._finalize_ingest_run(
+    await pipeline._finalize_ingest_run(
         run_id=_uuid.uuid4(),
         provider_name="OllamaProvider",
         provider_type="local",

@@ -266,7 +266,7 @@ class TestWriteToolsRefuseCrossVault:
         fake_page_row.title = "Synapse"
         fake_page_row.page_type = "concept"
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
+        with patch("app.ingest.writer.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_page_row
             result = await write_page(
                 title="Synapse",

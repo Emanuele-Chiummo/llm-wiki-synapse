@@ -20,7 +20,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.ingest.orchestrator import _ensure_source_summary
+from app.ingest.pipeline import _ensure_source_summary
 from app.ingest.provider._common import (
     ANALYZE_SYSTEM,
     GENERATE_SYSTEM,
@@ -276,14 +276,16 @@ async def test_delegated_source_summary_skips_when_agent_wrote_source(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Agent already wrote a source page for the origin → no fallback, no duplicate (dedupe guard)."""
+    import app.ingest.pipeline as pipeline
+    import app.ingest.writer as writer
     from app.ingest import orchestrator as orch
 
     existing = _row("source", [ORIGIN])
     monkeypatch.setattr(orch, "get_session", _fake_get_session([existing]))
     write_spy = AsyncMock()
-    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+    monkeypatch.setattr(writer, "write_wiki_page", write_spy)
 
-    out = await orch._ensure_source_summary_for_delegated(
+    out = await pipeline._ensure_source_summary_for_delegated(
         vault_id="v", written_page_ids=["id-1"], origin_source=ORIGIN
     )
     assert out is None
@@ -295,6 +297,8 @@ async def test_delegated_source_summary_writes_fallback_when_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Agent wrote only entity/concept pages → the fallback source page is synthesized + written."""
+    import app.ingest.pipeline as pipeline
+    import app.ingest.writer as writer
     from app.ingest import orchestrator as orch
 
     only_entity = _row("entity", [ORIGIN])
@@ -304,9 +308,9 @@ async def test_delegated_source_summary_writes_fallback_when_missing(
     written.id = uuid.uuid4()
     written.title = "Source: example"
     write_spy = AsyncMock(return_value=written)
-    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+    monkeypatch.setattr(writer, "write_wiki_page", write_spy)
 
-    out = await orch._ensure_source_summary_for_delegated(
+    out = await pipeline._ensure_source_summary_for_delegated(
         vault_id="v", written_page_ids=["id-1"], origin_source=ORIGIN
     )
     assert out is written
@@ -322,6 +326,8 @@ async def test_delegated_source_summary_no_ids_writes_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """No recorded write ids (agent wrote nothing tracked) → still guarantee a source page."""
+    import app.ingest.pipeline as pipeline
+    import app.ingest.writer as writer
     from app.ingest import orchestrator as orch
 
     # get_session must not even be needed when there are no ids; guard by making it raise if used.
@@ -332,9 +338,9 @@ async def test_delegated_source_summary_no_ids_writes_fallback(
     written = MagicMock()
     written.id = uuid.uuid4()
     write_spy = AsyncMock(return_value=written)
-    monkeypatch.setattr(orch, "write_wiki_page", write_spy)
+    monkeypatch.setattr(writer, "write_wiki_page", write_spy)
 
-    out = await orch._ensure_source_summary_for_delegated(
+    out = await pipeline._ensure_source_summary_for_delegated(
         vault_id="v", written_page_ids=[], origin_source=ORIGIN
     )
     assert out is written

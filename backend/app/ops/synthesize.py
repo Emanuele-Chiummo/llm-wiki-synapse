@@ -258,7 +258,7 @@ async def run_synthesize(
     vault-context once, seeds candidate clusters deterministically from the graph, then processes
     the bounded set. Never raises — a fatal error is recorded as ``stopped_reason="error"``.
     """
-    from app.ingest.orchestrator import _load_vault_context  # noqa: PLC0415
+    from app.ingest.context import _load_vault_context  # noqa: PLC0415
 
     mp, tb = clamp_bounds(max_pages, token_budget)
     mc = clamp_max_candidates(max_candidates)
@@ -1077,7 +1077,7 @@ async def _write_cluster_page(cluster: Cluster, title: str, body: str) -> None:
     has no single raw origin doc; provenance is the union sources + ``related`` links. The write
     seam owns the incremental ``data_version`` bump (I1).
     """
-    from app.ingest.orchestrator import write_wiki_page  # noqa: PLC0415
+    from app.ingest.writer import write_wiki_page  # noqa: PLC0415
 
     page_type = PageType.SYNTHESIS if cluster.kind == "synthesis" else PageType.COMPARISON
     frontmatter = WikiFrontmatter(

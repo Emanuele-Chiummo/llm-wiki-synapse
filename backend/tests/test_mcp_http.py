@@ -260,7 +260,7 @@ async def _flag_on() -> Any:
     ADR-0032: _BearerAuthMiddleware now requires a flag arg; these bearer tests
     verify the bearer check (gate-ON path), so the flag must be ON.
     """
-    from app.main import RemoteMcpFlag
+    from app.runtime_state import RemoteMcpFlag
 
     f = RemoteMcpFlag()
     await f.load(True)
@@ -274,7 +274,8 @@ async def _build_auth_cache_with_db_hash(token: str) -> Any:
     supply an auth_cache so the gate's token resolver uses the DB-hash path.
     Using the DB-hash path avoids the need to patch settings.mcp_auth_token.
     """
-    from app.main import _hash_token, _McpAuthCache
+    from app.runtime_state import McpAuthCache as _McpAuthCache
+    from app.runtime_state import hash_token as _hash_token
 
     cache = _McpAuthCache()
     db_hash = _hash_token(token)
@@ -312,7 +313,7 @@ class TestBearerAuthMiddleware:
         ADR-0033: gate now source-classifies; we must supply a private-peer scope and
         a DB hash so the source=PRIVATE + tok_configured=True (db path) → 401.
         """
-        from app.main import _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
 
         calls: list[dict[str, Any]] = []
 
@@ -340,7 +341,7 @@ class TestBearerAuthMiddleware:
     @pytest.mark.asyncio
     async def test_wrong_token_returns_401(self) -> None:
         """Wrong bearer token, token configured, PRIVATE source → 401."""
-        from app.main import _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
 
         calls: list[dict[str, Any]] = []
 
@@ -364,7 +365,7 @@ class TestBearerAuthMiddleware:
     @pytest.mark.asyncio
     async def test_correct_token_passes_through(self) -> None:
         """Correct bearer token, PRIVATE source → inner app is called (flag ON)."""
-        from app.main import _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
 
         calls: list[dict[str, Any]] = []
 
@@ -381,7 +382,8 @@ class TestBearerAuthMiddleware:
     @pytest.mark.asyncio
     async def test_lifespan_scope_bypasses_auth(self) -> None:
         """Lifespan scope must pass through without auth check (so session manager starts)."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import RemoteMcpFlag
 
         calls: list[dict[str, Any]] = []
 
@@ -401,7 +403,7 @@ class TestBearerAuthMiddleware:
     @pytest.mark.asyncio
     async def test_case_insensitive_bearer_prefix(self) -> None:
         """Authorization header prefix is parsed case-insensitively (flag ON, PRIVATE)."""
-        from app.main import _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
 
         calls: list[dict[str, Any]] = []
 
@@ -524,7 +526,8 @@ class TestMcpServerAlwaysMountedAdr0033:
         """
         saved = os.environ.pop("MCP_AUTH_TOKEN", None)
         try:
-            from app.main import _remote_mcp_flag, app
+            from app.main import app
+            from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
             # Ensure the in-process flag is OFF for this test (cross-test isolation).
             await _remote_mcp_flag.load(False)
@@ -575,7 +578,7 @@ class TestWritePageRoutesThroughSharedSeam:
         fake_row.title = "Test"
         fake_row.page_type = "concept"
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
+        with patch("app.ingest.writer.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_row
             result = await _write_page_body(
                 title="Test",
@@ -613,7 +616,7 @@ class TestWritePageRoutesThroughSharedSeam:
         fake_row.title = "WikiPage"
         fake_row.page_type = "concept"
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
+        with patch("app.ingest.writer.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_row
             # Call _write_page_body directly (the shared body that both tools call)
             from app.mcp.server import _write_page_body
@@ -725,7 +728,10 @@ class TestMcpServerMountedEndToEnd:
     @pytest.mark.asyncio
     async def test_mcp_server_handshake_reaches_app_when_gate_open(self) -> None:
         import app.main as m
-        from app.main import _hash_token, _mcp_auth_cache, _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import hash_token as _hash_token
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         body = {
             "jsonrpc": "2.0",
@@ -784,7 +790,10 @@ class TestMcpServerMountedEndToEnd:
     async def test_mcp_server_404_when_remote_disabled(self) -> None:
         """Gate floor: remote_enabled OFF → 404 even with a valid bearer (ADR-0032)."""
         import app.main as m
-        from app.main import _hash_token, _mcp_auth_cache, _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import hash_token as _hash_token
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         sub = m._http_mcp_asgi_app
         await _remote_mcp_flag.load(False)

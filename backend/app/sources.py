@@ -1328,7 +1328,7 @@ async def _ingest_all_driver(candidates: list[Path]) -> None:
     workers = min(SOURCES_INGEST_ALL_CONCURRENCY, len(candidates))
 
     try:
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         # Shared cursor into the candidate list; each worker claims the next index.
         # Safe without a lock: index mutation happens between awaits on a single event loop.

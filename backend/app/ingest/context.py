@@ -142,7 +142,7 @@ async def _load_ingest_context() -> str:
     guidance lives in the context STRING, not in any provider). The catalogue is appended so it
     never shadows the schema/purpose rules.
     """
-    base = orch._load_vault_context()
+    base = _load_vault_context()
     try:
         catalogue = await _load_existing_pages_catalogue()
     except Exception as exc:  # noqa: BLE001

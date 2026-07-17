@@ -364,7 +364,7 @@ async def _ingest_test_file(
     content: str = "---\ntype: entity\ntitle: Test Page\nsources: [a.pdf]\n---\n\nBody.\n",
 ) -> Path:
     """Write a test .md file to sources and ingest it via the seam."""
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     src = api_env["sources_dir"] / filename
     src.write_text(content, encoding="utf-8")
@@ -413,7 +413,7 @@ class TestGetStatus:
         self, api_client: AsyncClient, api_env: dict[str, Any]
     ) -> None:
         """T-API-004: AC-F16dv-3 — data_version in /status matches vault_state DB value."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         # Get baseline
         resp0 = await api_client.get("/status")
@@ -496,7 +496,7 @@ class TestGetPageById:
         self, api_client: AsyncClient, api_env: dict[str, Any]
     ) -> None:
         """T-API-009: AC-REST-3 — GET /pages/{id} returns 200 with full metadata."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = api_env["sources_dir"] / "known_page.md"
         src.write_text(

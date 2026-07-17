@@ -229,7 +229,7 @@ class TestWritePage:
         fake_page_row.title = "Synapse"
         fake_page_row.page_type = "concept"
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
+        with patch("app.ingest.writer.write_wiki_page", new_callable=AsyncMock) as mock_wwp:
             mock_wwp.return_value = fake_page_row
 
             result = await write_page(
@@ -256,7 +256,7 @@ class TestWritePage:
         from app.mcp.server import write_page
 
         with patch(
-            "app.ingest.orchestrator.write_wiki_page",
+            "app.ingest.writer.write_wiki_page",
             new_callable=AsyncMock,
             side_effect=RuntimeError("disk full"),
         ):
@@ -539,7 +539,7 @@ class TestBuildSdkMcpServerBoundOrigin:
             written_origin.append(origin_source_arg)
             return fake_page_row
 
-        with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_capture_wwp):
+        with patch("app.ingest.writer.write_wiki_page", side_effect=_capture_wwp):
             from app.mcp.server import _write_page_body
 
             tool_arg = ""  # agent omits origin_source

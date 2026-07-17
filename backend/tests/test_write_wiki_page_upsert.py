@@ -42,7 +42,7 @@ async def test_write_wiki_page_reuses_id_and_merges_sources_on_slug_collision(
     api_env: dict[str, Any],
 ) -> None:
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
 
     rel_path = "wiki/entities/vector-embeddings.md"

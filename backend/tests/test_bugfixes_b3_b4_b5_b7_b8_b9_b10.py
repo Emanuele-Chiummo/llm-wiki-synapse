@@ -48,6 +48,7 @@ class TestB3ContextLoadFailureFinalisesRun:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """_load_vault_context silently skips a file that vanishes mid-read (B3 fix)."""
+        import app.ingest.context as context
         from app.ingest import orchestrator as orch_mod
 
         vault_root = tmp_path / "vault"
@@ -71,7 +72,7 @@ class TestB3ContextLoadFailureFinalisesRun:
         monkeypatch.setattr(Path, "read_text", _flaky_read_text)
 
         # Must NOT raise; must return empty string (file was the only candidate).
-        result = orch_mod._load_vault_context()
+        result = context._load_vault_context()
         assert (
             result == ""
         ), "_load_vault_context must silently skip files that disappear mid-read (B3 fix)"
@@ -80,6 +81,7 @@ class TestB3ContextLoadFailureFinalisesRun:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """When purpose.md vanishes, schema.md content is still returned."""
+        import app.ingest.context as context
         from app.ingest import orchestrator as orch_mod
 
         vault_root = tmp_path / "vault"
@@ -101,7 +103,7 @@ class TestB3ContextLoadFailureFinalisesRun:
 
         monkeypatch.setattr(Path, "read_text", _flaky_purpose)
 
-        result = orch_mod._load_vault_context()
+        result = context._load_vault_context()
         assert "# schema.md" in result
         assert "rules." in result
         assert "purpose.md" not in result
@@ -896,7 +898,7 @@ class TestB10OptimisticLockAtomic:
         wiki_file = wiki_entities / "test-b10.md"
         wiki_file.write_text(initial_content, encoding="utf-8")
 
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         result = await ingest_file(wiki_file)
         page_id = str(result.page_id)

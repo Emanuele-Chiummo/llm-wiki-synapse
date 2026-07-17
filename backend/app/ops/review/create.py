@@ -312,23 +312,21 @@ async def _run_generation(
       Raises on failure (caller converts to 502; item left pending — no partial write).
     """
     from app.ingest import block_loop as _block_loop
-    from app.ingest.orchestrator import (
-        COST_ANOMALY_THRESHOLD_USD,
+    from app.ingest.context import _load_vault_context
+    from app.ingest.orchestrator import COST_ANOMALY_THRESHOLD_USD
+    from app.ingest.pipeline import (
         _delegate_ingest,
         _ensure_source_summary,
-        _load_vault_context,
-        _source_identity,
-        _write_ingest_run,
-    )
-    from app.ingest.pipeline import (
         _read_vault_root_file,
         _read_wiki_file,
         _vault_output_language,
+        _write_ingest_run,
     )
     from app.ingest.prompts import language_prompt_name
     from app.ingest.provider import resolve_provider
     from app.ingest.provider.base import UsageAccumulator
     from app.ingest.schemas import WikiFrontmatter, WikiPage
+    from app.ingest.writer import _source_identity
 
     # ── Resolve type / dir heuristic (§5.2) ──────────────────────────────────────
     resolved_type = _resolve_create_page_type(
@@ -1008,7 +1006,7 @@ async def create_page_from_review(item_id: uuid.UUID, *, mode: str = "stub") -> 
     # Primary (first) candidate failure → 502, item left pending (identical to pre-fan-out
     # single-page behavior). Secondary candidate failures are logged and skipped; the primary
     # is already committed at that point.
-    from app.ingest.orchestrator import write_wiki_page  # lazy; avoids circular at module level
+    from app.ingest.writer import write_wiki_page  # lazy; avoids circular at module level
 
     created_page_ids: list[str] = []
 

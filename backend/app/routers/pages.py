@@ -315,8 +315,8 @@ async def create_page(body: PageCreateRequest) -> PageCreateResponse:
 
     409 when a live (non-deleted) page with the same (vault_id, file_path) already exists.
     """
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     # Validate page_type
     try:

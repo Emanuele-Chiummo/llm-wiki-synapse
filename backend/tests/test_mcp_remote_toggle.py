@@ -84,7 +84,7 @@ class TestDefaultOff:
     @pytest.mark.asyncio
     async def test_remote_mcp_flag_default_is_false(self) -> None:
         """RemoteMcpFlag starts as False (loaded from DB at startup)."""
-        from app.main import RemoteMcpFlag
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         assert flag.is_enabled() is False
@@ -92,7 +92,8 @@ class TestDefaultOff:
     @pytest.mark.asyncio
     async def test_mcp_info_remote_enabled_false_when_flag_off(self) -> None:
         """GET /mcp/info returns remote_enabled=false when the flag is OFF."""
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         # Force flag to OFF
         await _remote_mcp_flag.load(False)
@@ -153,7 +154,9 @@ class TestGateOff404:
     @pytest.mark.asyncio
     async def test_gate_off_no_bearer_returns_404(self) -> None:
         """Flag OFF + no bearer → 404 (not 401 — no info leak)."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware, _McpAuthCache
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import McpAuthCache as _McpAuthCache
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         await flag.load(False)  # flag OFF
@@ -186,7 +189,9 @@ class TestGateOff404:
     @pytest.mark.asyncio
     async def test_gate_off_valid_bearer_still_404(self) -> None:
         """Flag OFF + correct bearer → still 404 (flag check is BEFORE bearer check)."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware, _McpAuthCache
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import McpAuthCache as _McpAuthCache
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         await flag.load(False)  # flag OFF
@@ -229,7 +234,8 @@ async def _build_cache_with_db_hash(token: str) -> Any:
     ADR-0033: the gate verifies via the DB-hash path (PBKDF2) when the cache
     has a non-None hash — this avoids needing to patch settings.mcp_auth_token.
     """
-    from app.main import _hash_token, _McpAuthCache
+    from app.runtime_state import McpAuthCache as _McpAuthCache
+    from app.runtime_state import hash_token as _hash_token
 
     cache = _McpAuthCache()
     db_hash = _hash_token(token)
@@ -254,7 +260,8 @@ class TestGateOnBearerEnforced:
     @pytest.mark.asyncio
     async def test_gate_on_missing_bearer_returns_401(self) -> None:
         """Flag ON + token configured (DB hash) + PRIVATE source + no bearer → 401."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         await flag.load(True)  # flag ON
@@ -281,7 +288,8 @@ class TestGateOnBearerEnforced:
     @pytest.mark.asyncio
     async def test_gate_on_wrong_bearer_returns_401(self) -> None:
         """Flag ON + token configured (DB hash) + PRIVATE source + wrong bearer → 401."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         await flag.load(True)
@@ -308,7 +316,8 @@ class TestGateOnBearerEnforced:
     @pytest.mark.asyncio
     async def test_gate_on_correct_bearer_passes_through(self) -> None:
         """Flag ON + token configured (DB hash) + PRIVATE source + correct bearer → pass."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         await flag.load(True)
@@ -327,7 +336,9 @@ class TestGateOnBearerEnforced:
     @pytest.mark.asyncio
     async def test_lifespan_scope_always_passes_regardless_of_flag(self) -> None:
         """Lifespan scope passes through regardless of flag state (ADR-0032 §2.3)."""
-        from app.main import RemoteMcpFlag, _BearerAuthMiddleware, _McpAuthCache
+        from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+        from app.runtime_state import McpAuthCache as _McpAuthCache
+        from app.runtime_state import RemoteMcpFlag
 
         # Test with flag OFF
         flag_off = RemoteMcpFlag()
@@ -365,7 +376,8 @@ class TestPutMcpRemote:
     async def test_put_enabled_true_with_token_sets_remote_enabled(self) -> None:
         """enabled=true + token set → remote_enabled=true, clamped=false (ADR-0032 §2.4)."""
         import app.main as main_mod
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -399,7 +411,8 @@ class TestPutMcpRemote:
     async def test_put_enabled_true_without_token_is_clamped(self) -> None:
         """enabled=true + NO token → clamped=true, remote_enabled=false (ADR-0032 §2.4)."""
         import app.main as main_mod
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -430,7 +443,8 @@ class TestPutMcpRemote:
     async def test_put_enabled_false_always_succeeds(self) -> None:
         """enabled=false always succeeds, even without a token (ADR-0032 §2.4)."""
         import app.main as main_mod
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(True)  # start ON
 
@@ -461,7 +475,8 @@ class TestPutMcpRemote:
     async def test_put_mcp_remote_refreshes_in_memory_flag(self) -> None:
         """PUT /mcp/remote refreshes RemoteMcpFlag immediately (ADR-0032 §2.2)."""
         import app.main as main_mod
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -492,7 +507,8 @@ class TestPutMcpRemote:
     async def test_put_response_has_correct_shape(self) -> None:
         """PUT /mcp/remote response: remote_enabled, token_configured, mount_path, clamped."""
         import app.main as main_mod
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -524,7 +540,9 @@ class TestPutMcpRemote:
     async def test_put_mount_path_equals_constant(self) -> None:
         """PUT /mcp/remote.mount_path must equal MCP_MOUNT_PATH constant (I6)."""
         import app.main as main_mod
-        from app.main import MCP_MOUNT_PATH, _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import MCP_MOUNT_PATH
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -573,7 +591,8 @@ class TestMcpInfoAdr0032:
     @pytest.mark.asyncio
     async def test_mcp_info_has_remote_enabled(self) -> None:
         """GET /mcp/info must include remote_enabled (bool)."""
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
 
@@ -589,7 +608,8 @@ class TestMcpInfoAdr0032:
     @pytest.mark.asyncio
     async def test_mcp_info_has_mount_path(self) -> None:
         """GET /mcp/info must include mount_path (str = MCP_MOUNT_PATH constant, I6)."""
-        from app.main import MCP_MOUNT_PATH, app
+        from app.main import app
+        from app.runtime_state import MCP_MOUNT_PATH
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -647,7 +667,8 @@ class TestMcpInfoAdr0032:
     @pytest.mark.asyncio
     async def test_mcp_info_remote_enabled_reflects_flag(self) -> None:
         """GET /mcp/info.remote_enabled reflects the in-process RemoteMcpFlag value."""
-        from app.main import _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         # Set flag to True
         await _remote_mcp_flag.load(True)
@@ -696,7 +717,8 @@ class TestFlagPersistence:
     @pytest.mark.asyncio
     async def test_load_remote_mcp_flag_reads_true_from_db(self) -> None:
         """_load_remote_mcp_flag() sets the flag from a DB row with remote_mcp_enabled=True."""
-        from app.main import _load_remote_mcp_flag, _remote_mcp_flag
+        from app.main import _load_remote_mcp_flag
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         # Start with flag OFF
         await _remote_mcp_flag.load(False)
@@ -718,7 +740,8 @@ class TestFlagPersistence:
     @pytest.mark.asyncio
     async def test_load_remote_mcp_flag_reads_false_from_db(self) -> None:
         """_load_remote_mcp_flag() sets the flag to False from a DB row with enabled=False."""
-        from app.main import _load_remote_mcp_flag, _remote_mcp_flag
+        from app.main import _load_remote_mcp_flag
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         # Start with flag ON (to verify it can be reset)
         await _remote_mcp_flag.load(True)
@@ -734,7 +757,8 @@ class TestFlagPersistence:
     @pytest.mark.asyncio
     async def test_load_remote_mcp_flag_defaults_false_when_no_row(self) -> None:
         """_load_remote_mcp_flag() defaults to False when vault_state row is missing."""
-        from app.main import _load_remote_mcp_flag, _remote_mcp_flag
+        from app.main import _load_remote_mcp_flag
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(True)
 
@@ -765,7 +789,7 @@ class TestNoRemount:
         This is a structural test: the flag class has no reference to any ASGI app,
         session manager, or lifespan — it is a pure in-memory boolean holder.
         """
-        from app.main import RemoteMcpFlag
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         # The flag must have no attributes referencing an ASGI app or session manager.
@@ -784,7 +808,7 @@ class TestNoRemount:
         Setting the flag via RemoteMcpFlag.set() does not trigger any lifespan event.
         (Structural: set() is a simple boolean assignment behind an asyncio.Lock.)
         """
-        from app.main import RemoteMcpFlag
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         lifespan_calls: list[str] = []
@@ -815,7 +839,7 @@ class TestMcpMountPathConstant:
     """MCP_MOUNT_PATH is a single module constant; /mcp/info and PUT /mcp/remote use it (I6)."""
 
     def test_mcp_mount_path_is_string(self) -> None:
-        from app.main import MCP_MOUNT_PATH
+        from app.runtime_state import MCP_MOUNT_PATH
 
         assert isinstance(MCP_MOUNT_PATH, str)
         assert (
@@ -825,7 +849,8 @@ class TestMcpMountPathConstant:
     @pytest.mark.asyncio
     async def test_mcp_info_mount_path_equals_constant(self) -> None:
         """GET /mcp/info.mount_path equals MCP_MOUNT_PATH."""
-        from app.main import MCP_MOUNT_PATH, app
+        from app.main import app
+        from app.runtime_state import MCP_MOUNT_PATH
 
         with patch("app.main.app.router.lifespan_context", _noop_lifespan):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

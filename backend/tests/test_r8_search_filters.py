@@ -541,7 +541,7 @@ async def test_unknown_sort_value_detected() -> None:
     The route handler rejects unknown sort values with 422.
     Verify the validation set is consistent with the documented valid values.
     """
-    from app.main import _SEARCH_VALID_SORTS  # type: ignore[attr-defined]
+    from app.routers.search import _SEARCH_VALID_SORTS  # type: ignore[attr-defined]
 
     assert "relevance" in _SEARCH_VALID_SORTS
     assert "date_desc" in _SEARCH_VALID_SORTS

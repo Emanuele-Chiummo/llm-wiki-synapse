@@ -404,7 +404,7 @@ class TestNewFileIngest:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-001: Ingest a new file → exactly 1 DB row + 1 Qdrant point."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "new_file.md"
         src.write_text(
@@ -423,7 +423,7 @@ class TestNewFileIngest:
 
     async def test_new_file_embedding_called_exactly_once(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-002: Embedding client called exactly once per new file ingest."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "embed_once.md"
         src.write_text("---\ntype: concept\ntitle: E\nsources: []\n---\n", encoding="utf-8")
@@ -441,7 +441,7 @@ class TestNewFileIngest:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """Untrusted frontmatter cannot enter the reserved corpus identity index."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "invalid_generation_key.md"
         src.write_text(
@@ -473,7 +473,7 @@ class TestUnchangedFileSkip:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-003: Same file ingested twice → still exactly 1 DB row (I1)."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "idempotent.md"
         src.write_text("---\ntype: entity\ntitle: Idem\nsources: []\n---\n", encoding="utf-8")
@@ -493,7 +493,7 @@ class TestUnchangedFileSkip:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-004: Same file ingested twice → still exactly 1 Qdrant point (I1)."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "qdrant_idem.md"
         src.write_text("---\ntype: entity\ntitle: Q\nsources: []\n---\n", encoding="utf-8")
@@ -512,7 +512,7 @@ class TestUnchangedFileSkip:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-005: AC-K4-3 — duplicate ingest must NOT append a log line."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "log_idem.md"
         src.write_text("---\ntype: entity\ntitle: L\nsources: []\n---\n", encoding="utf-8")
@@ -531,7 +531,7 @@ class TestUnchangedFileSkip:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-006: AC-F16dv-4 — skip does not increment data_version."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "version_skip.md"
         src.write_text("---\ntype: entity\ntitle: V\nsources: []\n---\n", encoding="utf-8")
@@ -556,7 +556,7 @@ class TestModifiedFileUpsert:
 
     async def test_modified_file_updates_row_in_place(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-007: Modify content → updated_at changes, content_hash changes, still 1 row."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "modified.md"
         src.write_text("---\ntype: entity\ntitle: Before\nsources: []\n---\n", encoding="utf-8")
@@ -590,7 +590,7 @@ class TestModifiedFileUpsert:
 
     async def test_modified_file_replaces_qdrant_point(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-008: Modify → Qdrant upsert replaces the point (no orphan)."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "qdrant_update.md"
         src.write_text("---\ntype: entity\ntitle: Old\nsources: []\n---\n", encoding="utf-8")
@@ -624,7 +624,7 @@ class TestFileDelete:
 
     async def test_delete_file_sets_deleted_at(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-009: delete_file() sets deleted_at to non-NULL."""
-        from app.ingest.orchestrator import delete_file, ingest_file
+        from app.ingest.pipeline import delete_file, ingest_file
 
         src = ingest_env["sources_dir"] / "to_delete.md"
         src.write_text("---\ntype: entity\ntitle: Del\nsources: []\n---\n", encoding="utf-8")
@@ -654,7 +654,7 @@ class TestFileDelete:
 
     async def test_delete_file_removes_qdrant_point(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-010: delete_file() hard-removes the Qdrant point."""
-        from app.ingest.orchestrator import delete_file, ingest_file
+        from app.ingest.pipeline import delete_file, ingest_file
 
         src = ingest_env["sources_dir"] / "qdrant_delete.md"
         src.write_text("---\ntype: entity\ntitle: Qdel\nsources: []\n---\n", encoding="utf-8")
@@ -679,7 +679,7 @@ class TestLogMdAppend:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-011: AC-K4-1 — each ingest appends exactly one INDEXED log line."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         src = ingest_env["sources_dir"] / "log_test.md"
         src.write_text("---\ntype: entity\ntitle: Log\nsources: []\n---\n", encoding="utf-8")
@@ -700,7 +700,7 @@ class TestLogMdAppend:
 
     async def test_three_ingests_three_log_lines(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-012: AC-K4-2 — after 3 ingests log.md has exactly 3 INDEXED lines."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         lines_before = len(_log_lines(ingest_env))
         for i in range(3):
@@ -718,7 +718,7 @@ class TestLogMdAppend:
 
     async def test_log_md_never_shrinks(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-013: AC-K4-2 — log.md line count never decreases across operations."""
-        from app.ingest.orchestrator import delete_file, ingest_file
+        from app.ingest.pipeline import delete_file, ingest_file
 
         src1 = ingest_env["sources_dir"] / "shrink1.md"
         src1.write_text("---\ntype: entity\ntitle: S1\nsources: []\n---\n", encoding="utf-8")
@@ -749,7 +749,7 @@ class TestDataVersionMonotonicity:
         self, ingest_env: dict[str, Any]
     ) -> None:
         """T-INC-014: AC-F16dv-2 — data_version bumps +1 on each successful ingest."""
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         v0 = await _get_data_version(ingest_env)
 
@@ -767,7 +767,7 @@ class TestDataVersionMonotonicity:
 
     async def test_data_version_not_decremented_by_delete(self, ingest_env: dict[str, Any]) -> None:
         """T-INC-015: AC-F16dv-4 — delete does not decrement data_version."""
-        from app.ingest.orchestrator import delete_file, ingest_file
+        from app.ingest.pipeline import delete_file, ingest_file
 
         src = ingest_env["sources_dir"] / "dv_del.md"
         src.write_text("---\ntype: entity\ntitle: DVDel\nsources: []\n---\n", encoding="utf-8")
@@ -805,7 +805,7 @@ class TestEmbeddingsDisabledIngest:
     ) -> None:
         """T-EMB-001: flag off → 0 embed calls AND 0 Qdrant upserts; page row still written."""
         from app import config as cfg
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
 
@@ -839,7 +839,7 @@ class TestEmbeddingsDisabledIngest:
     ) -> None:
         """T-EMB-002: flag off → K4 log line still appended (I1)."""
         from app import config as cfg
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
 
@@ -860,7 +860,7 @@ class TestEmbeddingsDisabledIngest:
     ) -> None:
         """T-EMB-003: flag off → data_version still bumps +1 (I1 incremental)."""
         from app import config as cfg
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         monkeypatch.setattr(cfg.settings, "embeddings_enabled", False)
 
@@ -877,7 +877,7 @@ class TestEmbeddingsDisabledIngest:
     ) -> None:
         """T-EMB-004: flag on (default) → embed IS called exactly once; behavior unchanged."""
         from app import config as cfg
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         monkeypatch.setattr(cfg.settings, "embeddings_enabled", True)
 
@@ -949,7 +949,7 @@ class TestNoStartupRescan:
         async def fake_ingest(path: object) -> None:
             ingest_calls.append(str(path))
 
-        monkeypatch.setattr("app.ingest.orchestrator.ingest_file", fake_ingest)
+        monkeypatch.setattr("app.ingest.pipeline.ingest_file", fake_ingest)
 
         loop = asyncio.new_event_loop()
         watcher = VaultWatcher()

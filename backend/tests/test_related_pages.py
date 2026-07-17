@@ -39,7 +39,7 @@ async def _ingest_page(
     content: str,
 ) -> str:
     """Write a markdown file to sources and ingest it; return page_id as str."""
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     src: Path = api_env["sources_dir"] / filename
     src.write_text(content, encoding="utf-8")

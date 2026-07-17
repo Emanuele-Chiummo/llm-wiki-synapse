@@ -194,7 +194,8 @@ def test_scenarios_list_returns_five_presets() -> None:
     AC-R7-1-1: Five named scenario presets must be available.
     Tests the server-side data directly (no HTTP client needed — module import test).
     """
-    from app.main import _SCENARIO_INDEX, _SCENARIOS
+    from app.scenarios_data import SCENARIO_INDEX as _SCENARIO_INDEX
+    from app.scenarios_data import SCENARIOS as _SCENARIOS
 
     assert len(_SCENARIOS) == 5, f"Expected 5 scenarios, got {len(_SCENARIOS)}"
     ids = {s["id"] for s in _SCENARIOS}
@@ -210,7 +211,7 @@ def test_scenario_purpose_md_content(tmp_path: Path, monkeypatch: pytest.MonkeyP
     AC-R7-1-2: Each scenario writes non-empty, preset-specific purpose.md and schema.md.
     This test exercises the write logic directly via the _SCENARIOS data.
     """
-    from app.main import _SCENARIOS
+    from app.scenarios_data import SCENARIOS as _SCENARIOS
 
     for s in _SCENARIOS:
         purpose_content = s["purpose_md"]
@@ -232,7 +233,7 @@ def test_scenario_apply_writes_files(tmp_path: Path, monkeypatch: pytest.MonkeyP
     AC-R7-1-2: Applying a preset writes vault/purpose.md and vault/schema.md with
     non-empty, preset-specific content (unit test without HTTP — tests the file write logic).
     """
-    from app.main import _SCENARIOS
+    from app.scenarios_data import SCENARIOS as _SCENARIOS
 
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
@@ -259,7 +260,7 @@ def test_scenario_apply_writes_files(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_scenario_ids_are_unique() -> None:
     """All scenario IDs must be unique (R7-1 — 5 distinct presets)."""
-    from app.main import _SCENARIOS
+    from app.scenarios_data import SCENARIOS as _SCENARIOS
 
     ids = [s["id"] for s in _SCENARIOS]
     assert len(ids) == len(set(ids)), "Scenario IDs must be unique"
@@ -267,7 +268,7 @@ def test_scenario_ids_are_unique() -> None:
 
 def test_unknown_scenario_returns_none() -> None:
     """_SCENARIO_INDEX.get returns None for an unknown id (R7-1 — 404 path)."""
-    from app.main import _SCENARIO_INDEX
+    from app.scenarios_data import SCENARIO_INDEX as _SCENARIO_INDEX
 
     assert _SCENARIO_INDEX.get("nonexistent-id") is None
 
@@ -280,7 +281,7 @@ def test_create_page_request_model_validates_type() -> None:
     POST /pages body validation: valid page_type accepted, invalid rejected.
     Unit test at the model level (no HTTP needed).
     """
-    from app.main import PageCreateRequest
+    from app.routers.pages import PageCreateRequest
     from pydantic import ValidationError
 
     # Valid type
@@ -296,7 +297,7 @@ def test_create_page_request_model_validates_type() -> None:
 def test_create_page_all_valid_types() -> None:
     """All PageType values are accepted by PageCreateRequest (R7-2, AC-R7-2-2)."""
     from app.ingest.schemas import PageType
-    from app.main import PageCreateRequest
+    from app.routers.pages import PageCreateRequest
 
     valid_types = [pt.value for pt in PageType]
     for t in valid_types:
@@ -306,7 +307,7 @@ def test_create_page_all_valid_types() -> None:
 
 def test_page_create_response_model() -> None:
     """PageCreateResponse carries id, file_path, title, page_type (R7-2 contract)."""
-    from app.main import PageCreateResponse
+    from app.routers.pages import PageCreateResponse
 
     resp = PageCreateResponse(
         id=uuid.uuid4(),
@@ -323,7 +324,7 @@ def test_page_create_response_model() -> None:
 
 def test_conversation_rename_request_validates_title() -> None:
     """ConversationRenameRequest: title 1..200 chars; empty rejected (R7-3)."""
-    from app.main import ConversationRenameRequest
+    from app.routers.chat import ConversationRenameRequest
     from pydantic import ValidationError
 
     # Valid
@@ -341,7 +342,7 @@ def test_conversation_rename_request_validates_title() -> None:
 
 def test_conversation_rename_response_model() -> None:
     """ConversationRenameResponse has id + title (R7-3 contract)."""
-    from app.main import ConversationRenameResponse
+    from app.routers.chat import ConversationRenameResponse
 
     cid = uuid.uuid4()
     resp = ConversationRenameResponse(id=cid, title="New Title")
