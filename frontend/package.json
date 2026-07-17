@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "private": true,
   "description": "Synapse — The self-hosted LLM wiki that turns your sources into connected knowledge.",
   "type": "module",
