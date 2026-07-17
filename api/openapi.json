@@ -1229,6 +1229,24 @@
               "title": "Offset"
             },
             "description": "Row offset for pagination"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional frontmatter type filter (e.g. 'query'); server-side, avoids over-fetching + client-side filtering (FE-PERF-2).",
+              "title": "Type"
+            },
+            "description": "Optional frontmatter type filter (e.g. 'query'); server-side, avoids over-fetching + client-side filtering (FE-PERF-2)."
           }
         ],
         "responses": {
