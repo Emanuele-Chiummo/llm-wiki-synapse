@@ -139,6 +139,15 @@ export interface ChatActions {
   // Streaming — called per NDJSON event (I3: cheap string appends only)
   appendToken: (delta: string) => void;
   appendThink: (delta: string) => void;
+  /**
+   * FE-PERF-3: rAF-batched flush. useChatStream accumulates token/think deltas
+   * arriving between animation frames and calls this ONCE per frame with the
+   * accumulated chunks — a single set() instead of one per token. Still just a
+   * cheap string append (I3: no markdown/LaTeX parsing here — that stays at
+   * stream END only, per MarkdownView). Either argument may be "" when only
+   * one of the two buffers received deltas during that frame.
+   */
+  appendStreamDelta: (contentDelta: string, thinkDelta: string) => void;
   setIsStreaming: (v: boolean) => void;
   setStreamError: (error: string | null) => void;
 
@@ -224,6 +233,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   // ── Per-token mutations (cheap string appends, I3) ────────────────────────
   appendToken: (delta) => set((s) => ({ streamingContent: s.streamingContent + delta })),
   appendThink: (delta) => set((s) => ({ streamingThink: s.streamingThink + delta })),
+  appendStreamDelta: (contentDelta, thinkDelta) =>
+    set((s) => {
+      if (!contentDelta && !thinkDelta) return s; // no-op guard — skip empty flushes
+      return {
+        streamingContent: contentDelta ? s.streamingContent + contentDelta : s.streamingContent,
+        streamingThink: thinkDelta ? s.streamingThink + thinkDelta : s.streamingThink,
+      };
+    }),
   setIsStreaming: (isStreaming) => set({ isStreaming }),
   setStreamError: (streamError) => set({ streamError }),
 
@@ -337,6 +354,8 @@ export const selectSetMessagesError = (s: ChatStore): ChatActions["setMessagesEr
   s.setMessagesError;
 export const selectAppendToken = (s: ChatStore): ChatActions["appendToken"] => s.appendToken;
 export const selectAppendThink = (s: ChatStore): ChatActions["appendThink"] => s.appendThink;
+export const selectAppendStreamDelta = (s: ChatStore): ChatActions["appendStreamDelta"] =>
+  s.appendStreamDelta;
 export const selectSetIsStreaming = (s: ChatStore): ChatActions["setIsStreaming"] =>
   s.setIsStreaming;
 export const selectFinalizeTurn = (s: ChatStore): ChatActions["finalizeTurn"] => s.finalizeTurn;
