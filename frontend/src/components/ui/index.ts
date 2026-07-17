@@ -14,3 +14,5 @@ export { Field } from "./Field";
 export type { FieldProps } from "./Field";
 export { Notice } from "./Notice";
 export type { NoticeProps } from "./Notice";
+export { Skeleton } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";

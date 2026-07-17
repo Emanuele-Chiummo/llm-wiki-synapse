@@ -81,6 +81,7 @@ import type { PageType, ReviewItemType, ReviewProposalOrigin } from "../../api/t
 import type { ReviewQueueStatus } from "../../api/reviewClient";
 import { TabButton } from "./ReviewTabButton";
 import { ReviewItemList } from "./ReviewItemList";
+import { ErrorState } from "../common/ErrorState";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -772,35 +773,8 @@ export function ReviewQueueView() {
 
       {/* ── Load error ───────────────────────────────────────────────────── */}
       {error && !loading && (
-        <div
-          role="alert"
-          data-testid="review-load-error"
-          className="syn-section-notice syn-section-notice--danger"
-          style={{
-            borderRadius: 0,
-            borderLeft: 0,
-            borderRight: 0,
-            borderTop: 0,
-            flexShrink: 0,
-            fontSize: 12,
-          }}
-        >
-          <span style={{ flex: 1 }}>{error}</span>
-          <button
-            onClick={() => void fetchFresh(effectiveVaultId)}
-            style={{
-              marginLeft: 4,
-              fontSize: 12,
-              color: "var(--syn-text-muted)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              textDecoration: "underline",
-              padding: 0,
-            }}
-          >
-            {t("common.retry")}
-          </button>
+        <div data-testid="review-load-error" style={{ padding: "8px 16px", flexShrink: 0 }}>
+          <ErrorState error={error} onRetry={() => void fetchFresh(effectiveVaultId)} />
         </div>
       )}
 

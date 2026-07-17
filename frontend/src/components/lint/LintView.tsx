@@ -76,6 +76,8 @@ import {
 } from "../../store/appStore";
 import { useProviderConfigured } from "../../hooks/useProviderConfigured";
 import { EmptyState } from "../common/EmptyState";
+import { ErrorState } from "../common/ErrorState";
+import { Skeleton } from "../ui/Skeleton";
 import { showToast } from "../common/Toast";
 import type { LintFinding } from "../../api/types";
 import { LINT_FLAG_ONLY_CATEGORIES } from "../../api/types";
@@ -771,6 +773,16 @@ function FindingsList({ vaultId, onOpen, onDelete }: FindingsListProps) {
   );
   const handleToggleSelect = useCallback((id: string) => toggleSelect(id), [toggleSelect]);
 
+  if (virtualRows.length === 0 && loading) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 16 }}>
+        {Array.from({ length: 6 }, (_, i) => (
+          <Skeleton key={i} height={48} radius={8} />
+        ))}
+      </div>
+    );
+  }
+
   if (virtualRows.length === 0 && !loading) {
     return (
       <div style={{ display: "flex", height: "100%", padding: 16 }}>
@@ -1233,37 +1245,8 @@ export function LintView() {
 
       {/* ── Findings load error ──────────────────────────────────────── */}
       {findingsError && !findingsLoading && (
-        <div
-          role="alert"
-          data-testid="lint-findings-error"
-          style={{
-            padding: "8px 16px",
-            borderBottom: "1px solid var(--syn-border)",
-            flexShrink: 0,
-            fontSize: 12,
-            color: "var(--syn-red)",
-            background: "color-mix(in srgb, var(--syn-red) 6%, var(--syn-mix-base) 94%)",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {findingsError}
-          <button
-            onClick={handleRefresh}
-            style={{
-              marginLeft: 4,
-              fontSize: 12,
-              color: "var(--syn-text-muted)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              textDecoration: "underline",
-              padding: 0,
-            }}
-          >
-            {t("common.retry")}
-          </button>
+        <div data-testid="lint-findings-error" style={{ padding: "8px 16px", flexShrink: 0 }}>
+          <ErrorState error={findingsError} onRetry={handleRefresh} />
         </div>
       )}
 

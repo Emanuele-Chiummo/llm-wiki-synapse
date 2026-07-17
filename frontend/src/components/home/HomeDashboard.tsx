@@ -116,6 +116,7 @@ import {
 } from "../../store/statusStore";
 import { useActivityCounts, useActivityBatch, useActivityTasks } from "../../store/activityStore";
 import { ErrorState } from "../common/ErrorState";
+import { Skeleton } from "../ui/Skeleton";
 import { HomeGettingStarted } from "./HomeGettingStarted";
 import { readSetupState } from "../setup/setupState";
 import { providerVerificationFingerprint } from "../setup/providerVerification";
@@ -238,27 +239,6 @@ function TypeBar({ pagesByType, total }: TypeBarProps) {
         />
       ))}
     </div>
-  );
-}
-
-// ─── Skeleton ──────────────────────────────────────────────────────────────────
-
-/** A single shimmering placeholder block (see .syn-skeleton in theme.css). */
-function Skeleton({
-  width,
-  height,
-  radius = 8,
-}: {
-  width?: number | string;
-  height: number | string;
-  radius?: number;
-}) {
-  return (
-    <div
-      className="syn-skeleton"
-      aria-hidden="true"
-      style={{ width: width ?? "100%", height, borderRadius: radius }}
-    />
   );
 }
 
