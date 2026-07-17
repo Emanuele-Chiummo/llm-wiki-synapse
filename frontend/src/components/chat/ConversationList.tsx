@@ -35,7 +35,6 @@ import {
   selectActiveConversationId,
   selectSetActiveConversationId,
   selectSetConversations,
-  selectAddConversation,
   selectRemoveConversation,
   selectUpdateConversation,
   selectConversationsLoading,
@@ -50,11 +49,11 @@ import {
 import type { ConversationSummary } from "../../store/chatStore";
 import {
   fetchConversations,
-  createConversation,
   deleteConversation,
   renameConversation,
   fetchMessages,
 } from "../../api/chatClient";
+import { startNewConversation } from "../../store/chatActions";
 import { selectVaultId, useAppStore } from "../../store/appStore";
 import { showToast } from "../common/Toast";
 
@@ -80,7 +79,6 @@ export function ConversationList({
 
   const setConversations = useChatStore(selectSetConversations);
   const setActiveId = useChatStore(selectSetActiveConversationId);
-  const addConversation = useChatStore(selectAddConversation);
   const removeConversation = useChatStore(selectRemoveConversation);
   const updateConversation = useChatStore(selectUpdateConversation);
   const setLoading = useChatStore(selectSetConversationsLoading);
@@ -197,16 +195,13 @@ export function ConversationList({
 
   const handleNew = useCallback(async () => {
     try {
-      const conv = await createConversation({ vault_id: vaultId });
-      addConversation(conv);
-      setActiveId(conv.id);
-      setMessages([]);
+      await startNewConversation(vaultId);
       onConversationSelected?.();
     } catch (err) {
       showToast(t("chat.newConvError"), "error");
       console.error("[chat] create conversation error", err);
     }
-  }, [vaultId, addConversation, setActiveId, setMessages, t, onConversationSelected]);
+  }, [vaultId, t, onConversationSelected]);
 
   const handleDelete = useCallback(
     async (convId: string, e: MouseEvent) => {

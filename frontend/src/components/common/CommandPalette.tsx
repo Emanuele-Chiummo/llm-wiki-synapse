@@ -4,15 +4,19 @@
  * Sources:
  *   1. App sections (from NavRail constants, same Section type from graphStore).
  *   2. Wiki pages via fetchAllPages — fetched ONCE per palette open (in-flight guard).
+ *   3. Executable actions (v2, FE-UIUX-3): new chat / import / run lint / switch project /
+ *      switch theme / regenerate overview. Each action calls the SAME store action or API
+ *      client function the dedicated UI already uses for that operation — the palette is
+ *      just another entry point, never a second implementation.
  *
- * Filter: case-insensitive substring on title. Results CAPPED at 20 (I4 compliance —
+ * Filter: case-insensitive substring on title/label. Results CAPPED at 20 (I4 compliance —
  * hard cap instead of virtualizer; ADR-0048 §2.2 explicitly calls this out).
- * Sections listed first when matching.
+ * Order when unfiltered: actions, then sections, then pages.
  *
  * Keyboard:
  *   Arrow Up/Down → move selection
- *   Enter         → navigate to selected item (page: selectPage + switch to pages section;
- *                   section: setActiveSection)
+ *   Enter         → activate selected item (page: selectPage + switch to pages section;
+ *                   section: setActiveSection; action: run its handler)
  *   Esc           → close
  *
  * Styling: uses only --syn-* CSS variables. Modal centered, top-third of screen.
@@ -40,6 +44,12 @@ import {
   useAppStore,
 } from "../../store/appStore";
 import type { Section } from "../../store/appStore";
+import { startNewConversation } from "../../store/chatActions";
+import { useImportScheduleStore } from "../../store/importScheduleStore";
+import { useLintStore } from "../../store/lintStore";
+import { useSettingsStore, type Theme } from "../../store/settingsStore";
+import { triggerRegenerateOverview } from "../../api/opsClient";
+import { showToast } from "./Toast";
 
 // ─── Section definitions (mirrors NavRail order) ──────────────────────────────
 
@@ -77,9 +87,121 @@ interface PageEntry {
   file_path: string;
 }
 
-type PaletteEntry = SectionEntry | PageEntry;
+/**
+ * ActionEntry — an executable command (v2, FE-UIUX-3). `run` receives the palette's
+ * own context (current vaultId + navigation actions) and MUST delegate to the same
+ * store action / API client the dedicated UI uses — never re-implement the operation.
+ */
+interface ActionEntry {
+  kind: "action";
+  id: string;
+  labelKey: string;
+  run: (ctx: ActionContext) => void;
+}
+
+interface ActionContext {
+  vaultId: string;
+  setActiveSection: (section: Section) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}
+
+type PaletteEntry = SectionEntry | PageEntry | ActionEntry;
 
 const MAX_RESULTS = 20;
+
+// ─── Actions (v2, FE-UIUX-3) ───────────────────────────────────────────────────
+//
+// Every action calls a function/store that already exists elsewhere in the app for
+// that operation — the palette adds no new business logic, only a faster entry point.
+
+const THEME_CYCLE: Theme[] = ["light", "dark", "system"];
+
+const ALL_ACTIONS: ActionEntry[] = [
+  {
+    kind: "action",
+    id: "new-chat",
+    labelKey: "palette.action.newChat",
+    run: ({ vaultId, setActiveSection, t }) => {
+      // Same sequence as ConversationList's "+" button (store/chatActions.ts).
+      setActiveSection("chat");
+      void startNewConversation(vaultId).catch((err: unknown) => {
+        showToast(t("chat.newConvError"), "error");
+        console.error("[palette] new chat error", err);
+      });
+    },
+  },
+  {
+    kind: "action",
+    id: "import-ingest",
+    labelKey: "palette.action.importIngest",
+    run: ({ setActiveSection, t }) => {
+      // Same store action as the "Run now" button in ImportScheduleCard.tsx.
+      setActiveSection("ingest");
+      void useImportScheduleStore
+        .getState()
+        .runNow()
+        .then(() => showToast(t("settings.import.runNowToast"), "success"))
+        .catch((err: unknown) => {
+          const detail = err instanceof Error ? err.message : t("common.unknown");
+          showToast(t("settings.import.runNowError", { detail }), "error");
+        });
+    },
+  },
+  {
+    kind: "action",
+    id: "run-lint",
+    labelKey: "palette.action.runLint",
+    run: ({ vaultId, setActiveSection }) => {
+      // Same store action as LintView's "Run lint" button (selectLintScan).
+      setActiveSection("lint");
+      void useLintStore.getState().scan(vaultId);
+    },
+  },
+  {
+    kind: "action",
+    id: "switch-project",
+    labelKey: "palette.action.switchProject",
+    run: ({ setActiveSection }) => {
+      // Same navigation as the "Projects" section entry — a dedicated action entry
+      // so "switch project" fuzzy-matches without requiring the exact section name.
+      setActiveSection("projects");
+    },
+  },
+  {
+    kind: "action",
+    id: "switch-theme",
+    labelKey: "palette.action.switchTheme",
+    run: () => {
+      // Same immediate setTheme() the Settings > Interface radios apply on commit;
+      // also updates draftTheme so Settings doesn't show a stale/dirty draft next open.
+      const { theme, setTheme, setDraftTheme } = useSettingsStore.getState();
+      const next = THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length] ?? "system";
+      setDraftTheme(next);
+      setTheme(next);
+    },
+  },
+  {
+    kind: "action",
+    id: "regenerate-overview",
+    labelKey: "palette.action.regenerateOverview",
+    run: ({ t }) => {
+      // Same POST /ops/overview/regenerate the endpoint exposes (ADR-0078) — bounded,
+      // degrade-safe single provider call; never throws for a provider failure.
+      void triggerRegenerateOverview()
+        .then((res) => {
+          if (res.status === "regenerated") {
+            showToast(t("palette.action.regenerateDone"), "success");
+          } else {
+            showToast(t("palette.action.regenerateDegraded"), "error");
+          }
+        })
+        .catch((err: unknown) => {
+          const detail = err instanceof Error ? err.message : t("common.unknown");
+          showToast(detail, "error");
+        });
+    },
+  },
+];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -156,6 +278,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
   const results: PaletteEntry[] = (() => {
     const q = query.trim().toLowerCase();
 
+    const matchedActions: ActionEntry[] = ALL_ACTIONS.filter((a) =>
+      t(a.labelKey).toLowerCase().includes(q),
+    );
+
     const matchedSections: SectionEntry[] = ALL_SECTIONS.filter((s) =>
       t(s.labelKey).toLowerCase().includes(q),
     );
@@ -169,8 +295,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
         file_path: p.file_path,
       }));
 
-    // Sections first, then pages — total capped at MAX_RESULTS.
-    const combined: PaletteEntry[] = [...matchedSections, ...matchedPages];
+    // Actions first, then sections, then pages — total capped at MAX_RESULTS.
+    const combined: PaletteEntry[] = [...matchedActions, ...matchedSections, ...matchedPages];
     return combined.slice(0, MAX_RESULTS);
   })();
 
@@ -181,7 +307,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
 
   const openEntry = useCallback(
     (entry: PaletteEntry) => {
-      if (entry.kind === "section") {
+      if (entry.kind === "action") {
+        entry.run({ vaultId, setActiveSection, t });
+      } else if (entry.kind === "section") {
         setActiveSection(entry.id);
       } else {
         // Navigate to page: select it in the store + switch to pages section.
@@ -190,7 +318,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
       }
       onClose();
     },
-    [setActiveSection, selectPage, onClose],
+    [vaultId, setActiveSection, selectPage, onClose, t],
   );
 
   const handleKeyDown = useCallback(
@@ -368,19 +496,28 @@ interface ResultListProps {
 }
 
 function ResultList({ results, selectedIdx, t, onSelect }: ResultListProps): ReactNode {
-  // Group sections and pages for visual separation.
+  // Group actions/sections/pages for visual separation (results are always ordered
+  // actions → sections → pages — see the `combined` array above). A group's label is
+  // inserted right before its first item, and only when that group has at least one
+  // match — independent of which other groups are also present.
+  const firstActionIdx = results.findIndex((r) => r.kind === "action");
+  const firstSectionIdx = results.findIndex((r) => r.kind === "section");
   const firstPageIdx = results.findIndex((r) => r.kind === "page");
-  const hasSections = results.some((r) => r.kind === "section");
-  const hasPages = results.some((r) => r.kind === "page");
 
   return (
     <>
-      {hasSections && <GroupLabel label={t("palette.sections")} />}
       {results.map((entry, idx) => {
-        const isFirstPage = idx === firstPageIdx && hasSections && hasPages;
+        const key =
+          entry.kind === "action"
+            ? `action-${entry.id}`
+            : entry.kind === "section"
+              ? `section-${entry.id}`
+              : `page-${entry.id}`;
         return (
-          <span key={entry.kind === "section" ? `section-${entry.id}` : `page-${entry.id}`}>
-            {isFirstPage && <GroupLabel label={t("palette.pages")} />}
+          <span key={key}>
+            {idx === firstActionIdx && <GroupLabel label={t("palette.actions")} />}
+            {idx === firstSectionIdx && <GroupLabel label={t("palette.sections")} />}
+            {idx === firstPageIdx && <GroupLabel label={t("palette.pages")} />}
             <ResultItem
               entry={entry}
               isSelected={idx === selectedIdx}
@@ -422,7 +559,7 @@ interface ResultItemProps {
 }
 
 function ResultItem({ entry, isSelected, t, onSelect, idx }: ResultItemProps): ReactNode {
-  const label = entry.kind === "section" ? t(entry.labelKey) : entry.title;
+  const label = entry.kind === "page" ? entry.title : t(entry.labelKey);
 
   return (
     <div
@@ -447,7 +584,7 @@ function ResultItem({ entry, isSelected, t, onSelect, idx }: ResultItemProps): R
         aria-hidden="true"
         style={{ fontSize: 12, color: "var(--syn-text-dim)", flexShrink: 0, width: 16 }}
       >
-        {entry.kind === "section" ? "⊞" : "↗"}
+        {entry.kind === "action" ? "▸" : entry.kind === "section" ? "⊞" : "↗"}
       </span>
       <span
         style={{

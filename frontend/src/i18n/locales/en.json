@@ -1367,14 +1367,25 @@
     "neighborhood": "Neighborhood"
   },
   "palette": {
-    "placeholder": "Search sections and pages…",
+    "placeholder": "Search sections, pages, and actions…",
     "noResults": "No results",
     "sections": "Sections",
     "pages": "Pages",
+    "actions": "Actions",
     "hint": "↑↓ navigate · Enter open · Esc close",
     "trigger": "⌘K",
     "searchHint": "Search or jump…",
-    "openLabel": "Open command palette"
+    "openLabel": "Open command palette",
+    "action": {
+      "newChat": "New chat",
+      "importIngest": "Import content",
+      "runLint": "Run lint scan",
+      "switchProject": "Switch project",
+      "switchTheme": "Switch theme",
+      "regenerateOverview": "Regenerate overview",
+      "regenerateDone": "overview.md regenerated",
+      "regenerateDegraded": "Regeneration degraded — previous overview.md kept"
+    }
   },
   "conversation": {
     "autoTitle": {
