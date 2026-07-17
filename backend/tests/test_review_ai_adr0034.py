@@ -388,11 +388,11 @@ class TestCreateGeneration:
         review_env_0034: dict[str, Any],
     ) -> None:
         """
-        T-AI-007: provider/loop failure → HTTPException(502); item left pending; no write
-        (Do-NOT #5 / §5.3 — no partial create).
+        T-AI-007: provider/loop failure → UpstreamError (→ HTTP 502); item left pending; no
+        write (Do-NOT #5 / §5.3 — no partial create).
         """
+        from app.errors import SynapseError
         from app.ops import review as review_mod
-        from fastapi import HTTPException
 
         item_id_str = await _insert_proposal(
             review_env_0034,
@@ -423,7 +423,7 @@ class TestCreateGeneration:
             patch("app.ingest.provider.resolve_provider", return_value=provider),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(SynapseError) as exc_info:
                 # mode="generate" — testing provider failure on LLM path (ADR-0079 §2).
                 await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 
@@ -507,10 +507,11 @@ class TestCreateGeneration:
     ) -> None:
         """
         T-AI-007b: a delegated run where the agent writes NOTHING (empty written_page_ids) →
-        HTTPException(502); item left pending; no write in the caller (§5.3 — no partial create).
+        UpstreamError (→ HTTP 502); item left pending; no write in the caller (§5.3 — no
+        partial create).
         """
+        from app.errors import SynapseError
         from app.ops import review as review_mod
-        from fastapi import HTTPException
 
         item_id_str = await _insert_proposal(
             review_env_0034,
@@ -543,7 +544,7 @@ class TestCreateGeneration:
             patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
             patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
         ):
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(SynapseError) as exc_info:
                 # mode="generate" — testing empty delegated write on LLM path (ADR-0079 §2).
                 await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
 

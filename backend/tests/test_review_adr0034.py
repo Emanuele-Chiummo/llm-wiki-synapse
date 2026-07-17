@@ -716,7 +716,7 @@ class TestCreateAction0034:
         review_env_0034: dict[str, Any],
     ) -> None:
         """T-0034-017: create_page_from_review raises 409 when item not pending (ops unit)."""
-        from fastapi import HTTPException
+        from app.errors import SynapseError
 
         item_id_str = await _insert_proposal(review_env_0034, status="created")
         item_uuid = uuid.UUID(item_id_str)
@@ -728,7 +728,7 @@ class TestCreateAction0034:
         ):
             from app.ops.review import create_page_from_review
 
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(SynapseError) as exc_info:
                 await create_page_from_review(item_uuid)
             assert exc_info.value.status_code == 409
 
@@ -743,7 +743,7 @@ class TestCreateAction0034:
         making resolve_provider() raise (provider layer error) — the Create handler converts it
         to 502 and leaves the item pending (§5.3 — no partial create).
         """
-        from fastapi import HTTPException
+        from app.errors import SynapseError
 
         item_id_str = await _insert_proposal(review_env_0034, status="pending")
         item_uuid = uuid.UUID(item_id_str)
@@ -763,7 +763,7 @@ class TestCreateAction0034:
         ):
             from app.ops.review import create_page_from_review
 
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(SynapseError) as exc_info:
                 await create_page_from_review(item_uuid)
             assert exc_info.value.status_code == 502
 

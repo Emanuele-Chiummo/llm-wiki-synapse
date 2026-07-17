@@ -100,6 +100,7 @@ from app.config_overrides import (
 )
 from app.db import dispose_engine, get_session
 from app.embeddings import EmbeddingError, aclose_embedding_client, get_embedding_client
+from app.errors import register_exception_handlers
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler
@@ -996,6 +997,11 @@ app = FastAPI(
     openapi_url="/openapi.json",
     lifespan=lifespan,
 )
+
+# ── Domain exception taxonomy (BE-QUAL-1 partial) ─────────────────────────────
+# Translates app.errors.SynapseError subclasses to the SAME response shape FastAPI
+# already produces for HTTPException — no observable behaviour change (v1.9.2).
+register_exception_handlers(app)
 
 # ── Auth + CORS middleware (ADR-0052 §2.4 — ORDER IS LOAD-BEARING) ─────────────
 # In Starlette, ``add_middleware`` wraps in REVERSE registration order:
