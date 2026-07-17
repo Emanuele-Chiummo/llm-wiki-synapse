@@ -352,7 +352,12 @@ async def lint_env(
 
     monkeypatch.setattr("app.db.get_session", patched_get_session)
     monkeypatch.setattr("app.main.get_session", patched_get_session)
-    monkeypatch.setattr("app.ops.lint.get_session", patched_get_session)
+    # BE-REFAC-2: app.ops.lint is now a package split into detectors/fixes/persistence
+    # submodules, each of which imports get_session independently — patch all of them so the
+    # in-memory session is used regardless of which submodule performs the query.
+    monkeypatch.setattr("app.ops.lint.detectors.get_session", patched_get_session)
+    monkeypatch.setattr("app.ops.lint.fixes.get_session", patched_get_session)
+    monkeypatch.setattr("app.ops.lint.persistence.get_session", patched_get_session)
     monkeypatch.setattr("app.ops.review.get_session", patched_get_session)
     monkeypatch.setattr("app.routers.pages.get_session", patched_get_session, raising=False)
 
@@ -999,7 +1004,9 @@ class TestContradictionAuthoring:
             write_calls.append((page, origin))
             return MagicMock(id=uuid.uuid4())
 
-        monkeypatch.setattr("app.ops.lint.resolve_operation_provider", _fake_resolve)
+        # BE-REFAC-2: contradiction authoring lives in fixes.py, which imports
+        # resolve_operation_provider independently from app.ops._llm.
+        monkeypatch.setattr("app.ops.lint.fixes.resolve_operation_provider", _fake_resolve)
         with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
@@ -1050,7 +1057,7 @@ class TestContradictionAuthoring:
             write_calls.append((page, origin))
             return MagicMock(id=uuid.uuid4())
 
-        monkeypatch.setattr("app.ops.lint.resolve_operation_provider", _resolve_none)
+        monkeypatch.setattr("app.ops.lint.fixes.resolve_operation_provider", _resolve_none)
         with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
@@ -1206,17 +1213,19 @@ class TestScanEndpoint:
 
 class TestI6NoBranching:
     def test_no_isinstance_branching_in_lint(self) -> None:
-        """I6: lint.py must not branch on isinstance/class names (route by capabilities)."""
+        """I6: the lint package must not branch on isinstance/class names (route by capabilities)."""
         from pathlib import Path
 
-        lint_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "lint.py"
-        text = lint_path.read_text(encoding="utf-8")
+        # BE-REFAC-2: app/ops/lint.py is now the app/ops/lint/ package — scan every module.
+        lint_pkg = Path(__file__).resolve().parent.parent / "app" / "ops" / "lint"
+        for py_file in sorted(lint_pkg.glob("*.py")):
+            text = py_file.read_text(encoding="utf-8")
 
-        assert "isinstance(provider" not in text
-        assert "OllamaProvider" not in text
-        assert "CliAgentProvider" not in text
-        assert "ApiProvider" not in text
-        assert "provider_type ==" not in text
+            assert "isinstance(provider" not in text, py_file
+            assert "OllamaProvider" not in text, py_file
+            assert "CliAgentProvider" not in text, py_file
+            assert "ApiProvider" not in text, py_file
+            assert "provider_type ==" not in text, py_file
 
 
 # ── T-LINT-015: I1 — no full vault rescan ─────────────────────────────────────
@@ -1224,16 +1233,18 @@ class TestI6NoBranching:
 
 class TestI1NoRescan:
     def test_no_vault_walk_in_lint(self) -> None:
-        """I1: lint.py reads pages/links tables only — never walks the vault filesystem."""
+        """I1: the lint package reads pages/links tables only — never walks the vault filesystem."""
         from pathlib import Path
 
-        lint_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "lint.py"
-        text = lint_path.read_text(encoding="utf-8")
+        # BE-REFAC-2: app/ops/lint.py is now the app/ops/lint/ package — scan every module.
+        lint_pkg = Path(__file__).resolve().parent.parent / "app" / "ops" / "lint"
+        for py_file in sorted(lint_pkg.glob("*.py")):
+            text = py_file.read_text(encoding="utf-8")
 
-        # No directory walking primitives in the lint scan path.
-        assert "os.walk" not in text
-        assert ".rglob(" not in text
-        assert ".iterdir(" not in text
+            # No directory walking primitives in the lint scan path.
+            assert "os.walk" not in text, py_file
+            assert ".rglob(" not in text, py_file
+            assert ".iterdir(" not in text, py_file
 
 
 # ── T-LINT-B1: broken-wikilink detection (L1/L2) ─────────────────────────────────
@@ -2331,8 +2342,8 @@ class TestNewApplyPaths:
             write_calls.append(kwargs)
 
         with (
-            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
-            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+            patch("app.ops.lint.fixes._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint.fixes._write_body_back", side_effect=_fake_write),
         ):
             from app.ops.lint import apply_lint_fix
 
@@ -2365,7 +2376,7 @@ class TestNewApplyPaths:
         async def _fake_write(**kwargs: Any) -> None:
             write_calls.append(kwargs)
 
-        with patch("app.ops.lint._write_body_back", side_effect=_fake_write):
+        with patch("app.ops.lint.fixes._write_body_back", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
             finding = await apply_lint_fix(uuid.UUID(fid))
@@ -2408,8 +2419,8 @@ class TestNewApplyPaths:
             write_calls.append(kwargs)
 
         with (
-            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
-            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+            patch("app.ops.lint.fixes._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint.fixes._write_body_back", side_effect=_fake_write),
         ):
             from app.ops.lint import apply_lint_fix
 
@@ -2443,7 +2454,7 @@ class TestNewApplyPaths:
         async def _fake_write(**kwargs: Any) -> None:
             write_calls.append(kwargs)
 
-        with patch("app.ops.lint._write_body_back", side_effect=_fake_write):
+        with patch("app.ops.lint.fixes._write_body_back", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
             finding = await apply_lint_fix(uuid.UUID(fid))
@@ -2582,8 +2593,8 @@ class TestNewApplyPaths:
             write_calls.append(kwargs)
 
         with (
-            patch("app.ops.lint._read_page_file_for_apply", return_value=read_result),
-            patch("app.ops.lint._write_body_back", side_effect=_fake_write),
+            patch("app.ops.lint.fixes._read_page_file_for_apply", return_value=read_result),
+            patch("app.ops.lint.fixes._write_body_back", side_effect=_fake_write),
         ):
             from app.ops.lint import apply_lint_fix
 
