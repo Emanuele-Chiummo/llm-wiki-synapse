@@ -463,7 +463,7 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     });
 
     // Intercept GET /pages/{id} to return math content.
-    await page.route(`**/pages/${mathPageId}`, async (route) => {
+    await page.route(`**/pages/${mathPageId}/content`, async (route) => {
       if (route.request().method() !== "GET") {
         await route.continue();
         return;
@@ -481,6 +481,20 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
           updated_at: "2026-01-01T00:00:00Z",
           sources: [],
         }),
+      });
+    });
+
+    // Intercept GET /pages/{id}/related — NoteView fetches this alongside content;
+    // an unmocked call would 404 against the real backend (page doesn't really exist).
+    await page.route(`**/pages/${mathPageId}/related**`, async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
       });
     });
 
@@ -509,9 +523,11 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     const mathRow = page.locator(".nav-tree__page-row").first();
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mathRow.click();
-      // Wait for the preview panel to render the page content (NoteView → renderMarkdown).
-      const preview = page.getByTestId("preview-panel").first();
-      await expect(preview).not.toContainText("Select a node", { timeout: 8_000 });
+      // Wait for NoteView (the center content pane, NOT the unrelated right-side
+      // "preview-panel" detail pane, which always shows "Select a node...") to render
+      // the KaTeX-rendered math via renderMarkdown.
+      const noteView = page.getByTestId("note-view").first();
+      await expect(noteView.locator(".katex").first()).toBeVisible({ timeout: 8_000 });
       // Allow KaTeX to finish rendering (renderMarkdown is synchronous, but React
       // commit may add a tick).
       await page.waitForTimeout(800);
@@ -549,7 +565,7 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await page.route(`**/pages/${mathPageId}`, async (route) => {
+    await page.route(`**/pages/${mathPageId}/content`, async (route) => {
       if (route.request().method() !== "GET") { await route.continue(); return; }
       await route.fulfill({
         status: 200,
@@ -558,6 +574,11 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
           file_path: "wiki/concepts/csp-katex-dark-test.md", source_count: 0,
           content: mathContent, updated_at: "2026-01-01T00:00:00Z", sources: [] }),
       });
+    });
+
+    await page.route(`**/pages/${mathPageId}/related**`, async (route) => {
+      if (route.request().method() !== "GET") { await route.continue(); return; }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
     });
 
     await page.route("**/graph**", async (route) => {
@@ -576,8 +597,8 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mathRow.click();
       await expect(
-        page.getByTestId("preview-panel").first()
-      ).not.toContainText("Select a node", { timeout: 8_000 });
+        page.getByTestId("note-view").first().locator(".katex").first(),
+      ).toBeVisible({ timeout: 8_000 });
       await page.waitForTimeout(800);
     }
 
