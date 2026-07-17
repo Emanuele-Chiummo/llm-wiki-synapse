@@ -45,19 +45,28 @@ export function SectionGeneral() {
             className="syn-input"
           >
             {CONTEXT_WINDOW_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{formatTokenCount(opt)}</option>
+              <option key={opt} value={opt}>
+                {formatTokenCount(opt)}
+              </option>
             ))}
           </select>
         </Field>
       </div>
 
       <div style={GEN_CARD}>
-        <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+        <p
+          style={{
+            margin: "0 0 10px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+          }}
+        >
           {t("settings.budgetSplit")}
         </p>
-        <BudgetRow label={t("settings.budgetHistory")}    pct={60} tokens={budget.history} />
-        <BudgetRow label={t("settings.budgetRetrieved")}  pct={20} tokens={budget.retrieved} />
-        <BudgetRow label={t("settings.budgetSystem")}     pct={5}  tokens={budget.system} />
+        <BudgetRow label={t("settings.budgetHistory")} pct={60} tokens={budget.history} />
+        <BudgetRow label={t("settings.budgetRetrieved")} pct={20} tokens={budget.retrieved} />
+        <BudgetRow label={t("settings.budgetSystem")} pct={5} tokens={budget.system} />
         <BudgetRow label={t("settings.budgetGeneration")} pct={15} tokens={budget.generation} />
       </div>
     </div>

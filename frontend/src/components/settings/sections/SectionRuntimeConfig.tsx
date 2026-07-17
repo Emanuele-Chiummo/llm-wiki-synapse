@@ -64,8 +64,10 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
         setFetchErr(t("config.error"));
         setLoading(false);
       });
-    return () => { ac.abort(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      ac.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys.join(",")]);
 
   const setLocal = (key: AppConfigKey, localValue: string) => {
@@ -90,7 +92,14 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
       setEntries((prev) => {
         const next = new Map(prev);
         const e = next.get(key);
-        if (e) next.set(key, { ...e, value: entry.localValue, source: "override", saving: false, saved: true });
+        if (e)
+          next.set(key, {
+            ...e,
+            value: entry.localValue,
+            source: "override",
+            saving: false,
+            saved: true,
+          });
         return next;
       });
       setTimeout(() => {
@@ -126,7 +135,15 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
       setEntries((prev) => {
         const next = new Map(prev);
         const e = next.get(key);
-        if (e) next.set(key, { ...e, value, localValue: value, source: "override", saving: false, saved: true });
+        if (e)
+          next.set(key, {
+            ...e,
+            value,
+            localValue: value,
+            source: "override",
+            saving: false,
+            saved: true,
+          });
         return next;
       });
       setTimeout(() => {
@@ -190,7 +207,11 @@ export function SectionRuntimeConfig({ keys }: { keys: AppConfigKey[] }) {
   };
 
   if (loading) {
-    return <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("config.loading")}</p>;
+    return (
+      <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>
+        {t("config.loading")}
+      </p>
+    );
   }
   if (fetchErr) {
     return <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{fetchErr}</p>;
@@ -262,13 +283,32 @@ function RuntimeConfigField({
       <div data-testid={`rc-field-${configKey}`} style={RC_CARD}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <label style={{ display: "block", fontSize: 14, fontWeight: 600, color: "var(--syn-text)", marginBottom: 2 }}>
+            <label
+              style={{
+                display: "block",
+                fontSize: 14,
+                fontWeight: 600,
+                color: "var(--syn-text)",
+                marginBottom: 2,
+              }}
+            >
               {label}
             </label>
-            <p style={{ fontSize: 12.5, color: "var(--syn-text-muted)", margin: 0, lineHeight: 1.5 }}>{help}</p>
+            <p
+              style={{ fontSize: 12.5, color: "var(--syn-text-muted)", margin: 0, lineHeight: 1.5 }}
+            >
+              {help}
+            </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.03em", color: "var(--syn-text-dim)" }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.03em",
+                color: "var(--syn-text-dim)",
+              }}
+            >
               {isOn ? t(`${i18nBase}.on`) : t(`${i18nBase}.off`)}
             </span>
             <button
@@ -277,28 +317,54 @@ function RuntimeConfigField({
               aria-checked={isOn}
               aria-label={label}
               disabled={entry.saving}
-              onClick={() => { void onToggle(configKey, isOn ? "false" : "true"); }}
+              onClick={() => {
+                void onToggle(configKey, isOn ? "false" : "true");
+              }}
               style={{
-                width: 40, height: 22, borderRadius: 11, border: "none",
-                cursor: entry.saving ? "not-allowed" : "pointer", position: "relative",
+                width: 40,
+                height: 22,
+                borderRadius: 11,
+                border: "none",
+                cursor: entry.saving ? "not-allowed" : "pointer",
+                position: "relative",
                 background: isOn ? "var(--syn-accent)" : "var(--syn-border)",
-                transition: "background 0.15s", flexShrink: 0, padding: 0,
+                transition: "background 0.15s",
+                flexShrink: 0,
+                padding: 0,
               }}
             >
-              <span style={{
-                position: "absolute", top: 3, left: isOn ? 21 : 3, width: 16, height: 16,
-                borderRadius: "50%", background: "#fff", transition: "left 0.15s",
-              }} />
+              <span
+                style={{
+                  position: "absolute",
+                  top: 3,
+                  left: isOn ? 21 : 3,
+                  width: 16,
+                  height: 16,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left 0.15s",
+                }}
+              />
             </button>
           </div>
         </div>
         {isOverride && (
           <button
             data-testid={`rc-reset-${configKey}`}
-            onClick={() => { void onReset(configKey); }}
+            onClick={() => {
+              void onReset(configKey);
+            }}
             disabled={entry.saving}
-            style={{ marginTop: 10, background: "none", border: "none", padding: 0,
-              color: "var(--syn-text-muted)", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+            style={{
+              marginTop: 10,
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: "var(--syn-text-muted)",
+              fontSize: 11,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
           >
             {t("config.resetToDefault")}
           </button>
@@ -315,7 +381,10 @@ function RuntimeConfigField({
         <span
           data-testid={`rc-source-badge-${configKey}`}
           style={{
-            padding: "1px 7px", borderRadius: 4, fontSize: 10, fontWeight: 600,
+            padding: "1px 7px",
+            borderRadius: 4,
+            fontSize: 10,
+            fontWeight: 600,
             background: isOverride
               ? "color-mix(in srgb, var(--syn-accent) 12%, var(--syn-mix-base) 88%)"
               : "var(--syn-surface-hover)",
@@ -329,7 +398,16 @@ function RuntimeConfigField({
         </span>
       </div>
 
-      <p style={{ fontSize: 12.5, color: "var(--syn-text-muted)", margin: "0 0 8px", lineHeight: 1.5 }}>{help}</p>
+      <p
+        style={{
+          fontSize: 12.5,
+          color: "var(--syn-text-muted)",
+          margin: "0 0 8px",
+          lineHeight: 1.5,
+        }}
+      >
+        {help}
+      </p>
 
       <RcControl configKey={configKey} entry={entry} onLocalChange={onLocalChange} />
 
@@ -339,7 +417,9 @@ function RuntimeConfigField({
             <Button
               variant="accent-ghost"
               data-testid={`rc-save-${configKey}`}
-              onClick={() => { void onSave(configKey); }}
+              onClick={() => {
+                void onSave(configKey);
+              }}
               disabled={entry.saving}
             >
               {entry.saving ? t("config.saving") : t("config.save")}
@@ -349,7 +429,9 @@ function RuntimeConfigField({
             <Button
               variant="ghost"
               data-testid={`rc-reset-${configKey}`}
-              onClick={() => { void onReset(configKey); }}
+              onClick={() => {
+                void onReset(configKey);
+              }}
               disabled={entry.saving}
             >
               {t("config.resetToDefault")}
@@ -370,33 +452,33 @@ function RuntimeConfigField({
 
 export function configKeyToI18nSuffix(key: AppConfigKey): string {
   const map: Record<AppConfigKey, string> = {
-    pdf_extractor:              "pdfExtractor",
-    marker_service_url:         "markerServiceUrl",
-    marker_timeout_seconds:     "markerTimeoutSeconds",
-    cost_alert_threshold_usd:   "costAlertThresholdUsd",
-    embeddings_enabled:         "embeddingsEnabled",
-    embedding_format:           "embeddingFormat",
-    overview_language:          "overviewLanguage",
-    wikilink_enrich_enabled:    "wikilinkEnrichEnabled",
-    domain_vocabulary:          "domainVocabulary",
-    lint_schedule:              "lintSchedule",
-    backfill_schedule:          "backfillSchedule",
-    schema_review_schedule:     "schemaReviewSchedule",
-    reclassify_schedule:        "reclassifySchedule",
+    pdf_extractor: "pdfExtractor",
+    marker_service_url: "markerServiceUrl",
+    marker_timeout_seconds: "markerTimeoutSeconds",
+    cost_alert_threshold_usd: "costAlertThresholdUsd",
+    embeddings_enabled: "embeddingsEnabled",
+    embedding_format: "embeddingFormat",
+    overview_language: "overviewLanguage",
+    wikilink_enrich_enabled: "wikilinkEnrichEnabled",
+    domain_vocabulary: "domainVocabulary",
+    lint_schedule: "lintSchedule",
+    backfill_schedule: "backfillSchedule",
+    schema_review_schedule: "schemaReviewSchedule",
+    reclassify_schedule: "reclassifySchedule",
     // S14–S18: new loop-limit keys
-    deep_research_max_iter:     "deepResearchMaxIter",
+    deep_research_max_iter: "deepResearchMaxIter",
     deep_research_token_budget: "deepResearchTokenBudget",
-    deep_research_max_queries:  "deepResearchMaxQueries",
-    lint_max_iter:              "lintMaxIter",
-    lint_token_budget:          "lintTokenBudget",
+    deep_research_max_queries: "deepResearchMaxQueries",
+    lint_max_iter: "lintMaxIter",
+    lint_token_budget: "lintTokenBudget",
     // S19/S20: Image Captioning (v1.5 P3-a)
-    vision_captions_enabled:    "visionCaptionsEnabled",
-    vision_max_images_per_run:  "visionMaxImagesPerRun",
+    vision_captions_enabled: "visionCaptionsEnabled",
+    vision_max_images_per_run: "visionMaxImagesPerRun",
     // S21/S22: MinerU cloud PDF (v1.5 P3-d)
-    mineru_api_url:             "mineruApiUrl",
-    mineru_timeout_seconds:     "mineruTimeoutSeconds",
+    mineru_api_url: "mineruApiUrl",
+    mineru_timeout_seconds: "mineruTimeoutSeconds",
     // S23: web-search provider selector (v1.5 P3-e) — rendered by SectionWebSearch, not here.
-    web_search_provider:        "webSearchProvider",
+    web_search_provider: "webSearchProvider",
   };
   return map[key];
 }
@@ -555,7 +637,10 @@ function RcControl({
           value={displayValue}
           onChange={(e) => {
             const raw = e.target.value;
-            const names = raw.split(",").map((s) => s.trim()).filter(Boolean);
+            const names = raw
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
             const jsonValue = JSON.stringify(names);
             onLocalChange(configKey, jsonValue);
           }}
@@ -582,13 +667,13 @@ function RcControl({
   ];
   if (numericKeys.includes(configKey)) {
     const placeholderMap: Partial<Record<AppConfigKey, string>> = {
-      marker_timeout_seconds:     t("config.markerTimeoutSeconds.placeholder"),
-      cost_alert_threshold_usd:   t("config.costAlertThresholdUsd.placeholder"),
-      deep_research_max_iter:     t("config.deepResearchMaxIter.placeholder"),
+      marker_timeout_seconds: t("config.markerTimeoutSeconds.placeholder"),
+      cost_alert_threshold_usd: t("config.costAlertThresholdUsd.placeholder"),
+      deep_research_max_iter: t("config.deepResearchMaxIter.placeholder"),
       deep_research_token_budget: t("config.deepResearchTokenBudget.placeholder"),
-      deep_research_max_queries:  t("config.deepResearchMaxQueries.placeholder"),
-      lint_max_iter:              t("config.lintMaxIter.placeholder"),
-      lint_token_budget:          t("config.lintTokenBudget.placeholder"),
+      deep_research_max_queries: t("config.deepResearchMaxQueries.placeholder"),
+      lint_max_iter: t("config.lintMaxIter.placeholder"),
+      lint_token_budget: t("config.lintTokenBudget.placeholder"),
     };
     return (
       <input

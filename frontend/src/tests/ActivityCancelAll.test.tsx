@@ -64,8 +64,7 @@ vi.mock("../store/graphStore", () => ({
 // ─── Mock providerStore ───────────────────────────────────────────────────────
 
 vi.mock("../store/providerStore", () => ({
-  useProviderStore: (selector: (s: unknown) => unknown) =>
-    selector({ activeItem: null }),
+  useProviderStore: (selector: (s: unknown) => unknown) => selector({ activeItem: null }),
   selectActiveProvider: (s: { activeItem: unknown }) => s.activeItem,
 }));
 
@@ -77,15 +76,24 @@ vi.mock("../api/pagesClient", () => ({
 
 // ─── Mock ingestClient ────────────────────────────────────────────────────────
 
-const mockCancelIngestRun = vi.fn().mockResolvedValue({ run_id: "r1", status: "cancelling", cleaned_pages: 0 });
-const mockRetryIngestRun = vi.fn().mockResolvedValue({ run_id_prev: "r1", source_path: "a.md", retry_count: 1, status: "queued" });
+const mockCancelIngestRun = vi
+  .fn()
+  .mockResolvedValue({ run_id: "r1", status: "cancelling", cleaned_pages: 0 });
+const mockRetryIngestRun = vi
+  .fn()
+  .mockResolvedValue({ run_id_prev: "r1", source_path: "a.md", retry_count: 1, status: "queued" });
 const mockPauseIngestQueue = vi.fn().mockResolvedValue({ paused: true });
 const mockResumeIngestQueue = vi.fn().mockResolvedValue({ paused: false, drained: 0 });
 
 vi.mock("../api/ingestClient", () => ({
   getIngestQueue: vi.fn().mockResolvedValue({
-    paused: false, pending: 0, processing: 0, failed: 0,
-    completed_since_idle: 0, total: 0, tasks: [],
+    paused: false,
+    pending: 0,
+    processing: 0,
+    failed: 0,
+    completed_since_idle: 0,
+    total: 0,
+    tasks: [],
   }),
   cancelIngestRun: (...args: unknown[]) => mockCancelIngestRun(...args),
   retryIngestRun: (...args: unknown[]) => mockRetryIngestRun(...args),
@@ -142,7 +150,9 @@ vi.mock("../store/activityStore", () => {
     useActivityTasks: () => mockActivityState.snapshot?.tasks ?? [],
     useActivityBatch: () => {
       const b = mockActivityState.snapshot?.batch;
-      return b ? { running: b.running, done: b.done, total: b.total, eta_seconds: b.eta_seconds ?? null } : null;
+      return b
+        ? { running: b.running, done: b.done, total: b.total, eta_seconds: b.eta_seconds ?? null }
+        : null;
     },
     selectStartPolling: (s: ActivityStore) => s.startPolling,
     selectCancelRun: (s: ActivityStore) => s.cancelRun,
@@ -187,7 +197,12 @@ describe("ActivityBar — R7-12 Cancel All confirmation dialog", () => {
     mockActivityState = buildMockState(TWO_PENDING_SNAPSHOT);
     // Re-set mock impls that may have been cleared.
     mockCancelIngestRun.mockResolvedValue({ run_id: "r1", status: "cancelling", cleaned_pages: 0 });
-    mockRetryIngestRun.mockResolvedValue({ run_id_prev: "r1", source_path: "a.md", retry_count: 1, status: "queued" });
+    mockRetryIngestRun.mockResolvedValue({
+      run_id_prev: "r1",
+      source_path: "a.md",
+      retry_count: 1,
+      status: "queued",
+    });
   });
 
   it("Cancel All button is visible when pending >= 2", () => {

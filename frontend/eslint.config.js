@@ -20,6 +20,29 @@ import globals from "globals";
  * The bundle-grep test (tests/no-client-layout.test.ts) provides a second,
  * independent enforcement layer that scans the built dist/ output.
  */
+/**
+ * LAYERING BOUNDARY (finding #7 — 2.0.0 W-FE audit): api/* clients must not
+ * import from store/*. Stores may import from api clients; never the reverse.
+ * This mirrors the backend's import-linter contracts (BE-ARCH-4 / 1.9.2 W2).
+ *
+ * Applies only to files under src/api/ so that components and hooks (which need
+ * to wire both layers together) are not incorrectly flagged.
+ */
+const API_LAYERING_RULE = {
+  "no-restricted-imports": [
+    "error",
+    {
+      patterns: [
+        {
+          group: ["*/store/*", "../store/*", "../../store/*"],
+          message:
+            "[LAYER] api/* clients must not import from store/*. Extract shared types to api/types/ instead (see api/types/chat.ts for the established pattern).",
+        },
+      ],
+    },
+  ],
+};
+
 const NO_CLIENT_LAYOUT_RULE = {
   "no-restricted-imports": [
     "error",
@@ -141,6 +164,22 @@ export default [
       // Allow non-null assertions in tests (accessing array elements with !)
       "@typescript-eslint/no-non-null-assertion": "off",
       "no-console": "off",
+    },
+  },
+
+  // api/* files: enforce the store/* import boundary (finding #7 — 2.0.0 W-FE audit).
+  // api clients may import from api/types and api/base; never from store/*.
+  {
+    files: ["src/api/**/*.ts", "src/api/**/*.tsx"],
+    ignores: ["src/api/**/*.test.ts"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: { ecmaVersion: 2022, sourceType: "module" },
+      globals: { ...globals.browser },
+    },
+    plugins: { "@typescript-eslint": tsPlugin },
+    rules: {
+      ...API_LAYERING_RULE,
     },
   },
 

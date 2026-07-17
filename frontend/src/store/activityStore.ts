@@ -85,7 +85,8 @@ export function activityPollDelayMs(
   sseHealthy = false,
 ): number {
   if (sseHealthy) return POLL_IDLE_MS;
-  const isActive = (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0 || (snap?.paused ?? false);
+  const isActive =
+    (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0 || (snap?.paused ?? false);
   return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
 }
 

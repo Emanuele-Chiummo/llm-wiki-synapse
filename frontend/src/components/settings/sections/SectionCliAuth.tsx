@@ -25,9 +25,16 @@ export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}
   useEffect(() => {
     const ac = new AbortController();
     getCliAuthConfig(ac.signal)
-      .then((data) => { setPosture(data); setErr(false); })
-      .catch((e: unknown) => { if (!(e instanceof Error) || e.name !== "AbortError") setErr(true); });
-    return () => { ac.abort(); };
+      .then((data) => {
+        setPosture(data);
+        setErr(false);
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
+      });
+    return () => {
+      ac.abort();
+    };
   }, []);
 
   const applyPosture = (resp: CliAuthConfig) => {
@@ -39,7 +46,10 @@ export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}
   const handleSave = async () => {
     if (busy) return;
     const trimmed = tokenInput.trim();
-    if (trimmed === "") { setSaveErr(t("settings.cliAuth.emptyTokenError")); return; }
+    if (trimmed === "") {
+      setSaveErr(t("settings.cliAuth.emptyTokenError"));
+      return;
+    }
     setBusy(true);
     setSaveErr(null);
     try {
@@ -71,68 +81,198 @@ export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}
   return (
     <div data-testid="cli-auth-section">
       {!embedded && (
-        <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <p
+          style={{
+            margin: "0 0 12px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
           {t("settings.cliAuth.title")}
         </p>
       )}
 
       {err ? (
-        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.cliAuth.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>
+          {t("settings.cliAuth.error")}
+        </p>
       ) : posture === null ? (
-        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.cliAuth.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>
+          {t("settings.cliAuth.loading")}
+        </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span data-testid="cli-auth-configured-badge" style={{ padding: "2px 8px", borderRadius: 4, background: posture.token_configured ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)", border: `1px solid ${posture.token_configured ? "color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)" : "color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)"}`, color: posture.token_configured ? "var(--syn-green)" : "var(--syn-red)", fontSize: 11, fontWeight: 600 }}>
-              {posture.token_configured ? t("settings.cliAuth.configuredBadge") : t("settings.cliAuth.notConfiguredBadge")}
+            <span
+              data-testid="cli-auth-configured-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: posture.token_configured
+                  ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)"
+                  : "color-mix(in srgb, var(--syn-red) 8%, var(--syn-mix-base) 92%)",
+                border: `1px solid ${posture.token_configured ? "color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)" : "color-mix(in srgb, var(--syn-red) 30%, var(--syn-mix-base) 70%)"}`,
+                color: posture.token_configured ? "var(--syn-green)" : "var(--syn-red)",
+                fontSize: 11,
+                fontWeight: 600,
+              }}
+            >
+              {posture.token_configured
+                ? t("settings.cliAuth.configuredBadge")
+                : t("settings.cliAuth.notConfiguredBadge")}
             </span>
-            <span data-testid="cli-auth-source-badge" style={{ padding: "2px 8px", borderRadius: 4, background: "var(--syn-surface-hover)", color: "var(--syn-text-muted)", fontSize: 11 }}>
+            <span
+              data-testid="cli-auth-source-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background: "var(--syn-surface-hover)",
+                color: "var(--syn-text-muted)",
+                fontSize: 11,
+              }}
+            >
               {t("settings.cliAuth.sourceBadge", { source: posture.token_source })}
             </span>
-            <span data-testid="cli-auth-mode-badge" style={{ padding: "2px 8px", borderRadius: 4, background: posture.auth_mode === "subscription" ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)" : "var(--syn-surface-hover)", color: posture.auth_mode === "subscription" ? "var(--syn-green)" : "var(--syn-text-muted)", fontSize: 11 }}>
+            <span
+              data-testid="cli-auth-mode-badge"
+              style={{
+                padding: "2px 8px",
+                borderRadius: 4,
+                background:
+                  posture.auth_mode === "subscription"
+                    ? "color-mix(in srgb, var(--syn-green) 8%, var(--syn-mix-base) 92%)"
+                    : "var(--syn-surface-hover)",
+                color:
+                  posture.auth_mode === "subscription"
+                    ? "var(--syn-green)"
+                    : "var(--syn-text-muted)",
+                fontSize: 11,
+              }}
+            >
               {t(`settings.cliAuth.authMode.${posture.auth_mode}`)}
             </span>
           </div>
 
           <div>
-            <label style={{ display: "block", marginBottom: 6, fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)" }}>
+            <label
+              style={{
+                display: "block",
+                marginBottom: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--syn-text-muted)",
+              }}
+            >
               {t("settings.cliAuth.tokenLabel")}
             </label>
-            <p style={{ margin: "0 0 6px", fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+            <p
+              style={{
+                margin: "0 0 6px",
+                fontSize: 11,
+                color: "var(--syn-text-muted)",
+                lineHeight: 1.5,
+              }}
+            >
               {t("settings.cliAuth.tokenHelp")}
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ position: "relative", flex: 1, minWidth: 200, display: "flex" }}>
-                <input type={showToken ? "text" : "password"} data-testid="cli-auth-token-input" value={tokenInput} onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }} placeholder={t("settings.cliAuth.tokenPlaceholder")} autoComplete="off" className="syn-input" style={{ flex: 1, minWidth: 0, paddingRight: 36 }} />
+                <input
+                  type={showToken ? "text" : "password"}
+                  data-testid="cli-auth-token-input"
+                  value={tokenInput}
+                  onChange={(e) => {
+                    setTokenInput(e.target.value);
+                    setSaveErr(null);
+                  }}
+                  placeholder={t("settings.cliAuth.tokenPlaceholder")}
+                  autoComplete="off"
+                  className="syn-input"
+                  style={{ flex: 1, minWidth: 0, paddingRight: 36 }}
+                />
                 <button
                   type="button"
                   onClick={() => setShowToken((v) => !v)}
                   aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 2,
+                    color: "var(--syn-text-dim)",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
                 >
-                  {showToken ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+                  {showToken ? (
+                    <EyeOff size={14} aria-hidden="true" />
+                  ) : (
+                    <Eye size={14} aria-hidden="true" />
+                  )}
                 </button>
               </div>
               <Button
                 variant="accent-ghost"
                 data-testid="cli-auth-save-btn"
-                onClick={() => { void handleSave(); }}
+                onClick={() => {
+                  void handleSave();
+                }}
                 disabled={busy}
                 style={{ flexShrink: 0 }}
               >
                 {busy ? "…" : t("settings.cliAuth.saveButton")}
               </Button>
               {posture.token_configured && (
-                <button data-testid="cli-auth-clear-btn" onClick={() => { void handleClear(); }} disabled={busy} style={{ padding: "6px 14px", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 6, background: "transparent", color: "var(--syn-red)", fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.4 : 1, flexShrink: 0 }}>
+                <button
+                  data-testid="cli-auth-clear-btn"
+                  onClick={() => {
+                    void handleClear();
+                  }}
+                  disabled={busy}
+                  style={{
+                    padding: "6px 14px",
+                    border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+                    borderRadius: 6,
+                    background: "transparent",
+                    color: "var(--syn-red)",
+                    fontSize: 12,
+                    cursor: busy ? "not-allowed" : "pointer",
+                    fontWeight: 500,
+                    opacity: busy ? 0.4 : 1,
+                    flexShrink: 0,
+                  }}
+                >
                   {t("settings.cliAuth.clearButton")}
                 </button>
               )}
             </div>
-            {saveErr && <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>{saveErr}</p>}
+            {saveErr && (
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: "var(--syn-red)" }}>{saveErr}</p>
+            )}
           </div>
 
-          <div data-testid="cli-auth-guide" style={{ padding: "10px 14px", background: "var(--syn-bg-soft)", border: "1px solid var(--syn-border)", borderRadius: 8, fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.7 }}>
-            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--syn-text-muted)" }}>{t("settings.cliAuth.guideTitle")}</p>
+          <div
+            data-testid="cli-auth-guide"
+            style={{
+              padding: "10px 14px",
+              background: "var(--syn-bg-soft)",
+              border: "1px solid var(--syn-border)",
+              borderRadius: 8,
+              fontSize: 11,
+              color: "var(--syn-text-muted)",
+              lineHeight: 1.7,
+            }}
+          >
+            <p style={{ margin: "0 0 6px", fontWeight: 600, color: "var(--syn-text-muted)" }}>
+              {t("settings.cliAuth.guideTitle")}
+            </p>
             <p style={{ margin: 0, whiteSpace: "pre-line" }}>{t("settings.cliAuth.guideSteps")}</p>
           </div>
         </div>

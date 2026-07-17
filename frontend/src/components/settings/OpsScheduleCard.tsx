@@ -65,7 +65,7 @@ export function OpsScheduleCard() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language ?? "en";
 
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   /**
@@ -108,36 +108,39 @@ export function OpsScheduleCard() {
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
-  const loadSchedules = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const data = await getOpsSchedules(signal);
-      if (data === null) {
-        // 404 → older backend → null sentinel to hide card
-        setOps(null);
+  const loadSchedules = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const data = await getOpsSchedules(signal);
+        if (data === null) {
+          // 404 → older backend → null sentinel to hide card
+          setOps(null);
+          setFetchError(null);
+          return;
+        }
+        setOps(data.ops);
         setFetchError(null);
-        return;
+        // Seed local frequency state from server
+        const freqs: Record<OpsScheduleOp, OpsScheduleFrequency> = {
+          lint: "off",
+          backfill: "off",
+          schema_review: "off",
+          reclassify: "off",
+        };
+        for (const entry of data.ops) {
+          freqs[entry.op] = entry.schedule;
+        }
+        setLocalFreqs(freqs);
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") return;
+        setFetchError(t("settings.opsSchedule.fetchError"));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      setOps(data.ops);
-      setFetchError(null);
-      // Seed local frequency state from server
-      const freqs: Record<OpsScheduleOp, OpsScheduleFrequency> = {
-        lint: "off",
-        backfill: "off",
-        schema_review: "off",
-        reclassify: "off",
-      };
-      for (const entry of data.ops) {
-        freqs[entry.op] = entry.schedule;
-      }
-      setLocalFreqs(freqs);
-    } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") return;
-      setFetchError(t("settings.opsSchedule.fetchError"));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [t]);
+    },
+    [t],
+  );
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -152,55 +155,66 @@ export function OpsScheduleCard() {
 
   // ── Frequency change → PUT /config/app ─────────────────────────────────────
 
-  const handleFrequencyChange = useCallback(async (op: OpsScheduleOp, value: OpsScheduleFrequency) => {
-    setLocalFreqs((prev) => ({ ...prev, [op]: value }));
-    setSaving((prev) => ({ ...prev, [op]: true }));
+  const handleFrequencyChange = useCallback(
+    async (op: OpsScheduleOp, value: OpsScheduleFrequency) => {
+      setLocalFreqs((prev) => ({ ...prev, [op]: value }));
+      setSaving((prev) => ({ ...prev, [op]: true }));
 
-    // Map op name → AppConfigKey (S10/S11/S12/S13 — R12-7/A5/R12-8/R12-9)
-    const scheduleKeyMap: Record<OpsScheduleOp, AppConfigKey> = {
-      lint: "lint_schedule",
-      backfill: "backfill_schedule",
-      schema_review: "schema_review_schedule",
-      reclassify: "reclassify_schedule",
-    };
-    const key: AppConfigKey = scheduleKeyMap[op];
-    try {
-      await putAppConfig(key, value);
-      // Reload so server-authoritative state is shown
-      await loadSchedules();
-    } catch {
-      showToast(t("settings.opsSchedule.saveError"), "error");
-    } finally {
-      setSaving((prev) => ({ ...prev, [op]: false }));
-    }
-  }, [t, loadSchedules]);
+      // Map op name → AppConfigKey (S10/S11/S12/S13 — R12-7/A5/R12-8/R12-9)
+      const scheduleKeyMap: Record<OpsScheduleOp, AppConfigKey> = {
+        lint: "lint_schedule",
+        backfill: "backfill_schedule",
+        schema_review: "schema_review_schedule",
+        reclassify: "reclassify_schedule",
+      };
+      const key: AppConfigKey = scheduleKeyMap[op];
+      try {
+        await putAppConfig(key, value);
+        // Reload so server-authoritative state is shown
+        await loadSchedules();
+      } catch {
+        showToast(t("settings.opsSchedule.saveError"), "error");
+      } finally {
+        setSaving((prev) => ({ ...prev, [op]: false }));
+      }
+    },
+    [t, loadSchedules],
+  );
 
   // ── Run now → POST /ops/schedules/{op}/run-now ─────────────────────────────
 
-  const handleRunNow = useCallback(async (op: OpsScheduleOp) => {
-    setRunningNow((prev) => ({ ...prev, [op]: true }));
-    setDormantHint((prev) => ({ ...prev, [op]: false }));
-    try {
-      await runOpNow(op);
-      showToast(t("settings.opsSchedule.runNowTriggered", { op: t(`settings.opsSchedule.opLabel.${op}`) }), "success");
-      // Refresh to update in_flight / last_run_at
-      await loadSchedules();
-    } catch (e: unknown) {
-      if (e instanceof RunOpNowError) {
-        if (e.httpStatus === 409) {
-          showToast(t("settings.opsSchedule.alreadyRunning"), "error");
-        } else if (e.httpStatus === 400) {
-          // Dormant op — show vocabulary hint
-          setDormantHint((prev) => ({ ...prev, [op]: true }));
+  const handleRunNow = useCallback(
+    async (op: OpsScheduleOp) => {
+      setRunningNow((prev) => ({ ...prev, [op]: true }));
+      setDormantHint((prev) => ({ ...prev, [op]: false }));
+      try {
+        await runOpNow(op);
+        showToast(
+          t("settings.opsSchedule.runNowTriggered", {
+            op: t(`settings.opsSchedule.opLabel.${op}`),
+          }),
+          "success",
+        );
+        // Refresh to update in_flight / last_run_at
+        await loadSchedules();
+      } catch (e: unknown) {
+        if (e instanceof RunOpNowError) {
+          if (e.httpStatus === 409) {
+            showToast(t("settings.opsSchedule.alreadyRunning"), "error");
+          } else if (e.httpStatus === 400) {
+            // Dormant op — show vocabulary hint
+            setDormantHint((prev) => ({ ...prev, [op]: true }));
+          }
+        } else {
+          const detail = e instanceof Error ? e.message : t("common.unknown");
+          showToast(t("settings.opsSchedule.runNowError", { detail }), "error");
         }
-      } else {
-        const detail = e instanceof Error ? e.message : t("common.unknown");
-        showToast(t("settings.opsSchedule.runNowError", { detail }), "error");
+      } finally {
+        setRunningNow((prev) => ({ ...prev, [op]: false }));
       }
-    } finally {
-      setRunningNow((prev) => ({ ...prev, [op]: false }));
-    }
-  }, [t, loadSchedules]);
+    },
+    [t, loadSchedules],
+  );
 
   // ── Render guards ───────────────────────────────────────────────────────────
 
@@ -226,20 +240,28 @@ export function OpsScheduleCard() {
     if (entry.in_flight) return t("settings.opsSchedule.statusRunning");
     if (!entry.last_run_at) return t("settings.opsSchedule.never");
     switch (statusKind(entry.last_status)) {
-      case "dormant":  return t("settings.opsSchedule.statusDormant");
-      case "error":    return t("settings.opsSchedule.statusError");
-      case "skipped":  return t("settings.opsSchedule.statusSkipped");
-      default:         return t("settings.opsSchedule.statusOk");
+      case "dormant":
+        return t("settings.opsSchedule.statusDormant");
+      case "error":
+        return t("settings.opsSchedule.statusError");
+      case "skipped":
+        return t("settings.opsSchedule.statusSkipped");
+      default:
+        return t("settings.opsSchedule.statusOk");
     }
   }
 
   function statusColor(entry: OpsScheduleEntry): string {
     if (entry.in_flight) return "var(--syn-accent)";
     switch (statusKind(entry.last_status)) {
-      case "ok":       return "var(--syn-green)";
-      case "error":    return "var(--syn-red)";
-      case "dormant":  return "var(--syn-amber)";
-      default:         return "var(--syn-text-dim)";
+      case "ok":
+        return "var(--syn-green)";
+      case "error":
+        return "var(--syn-red)";
+      case "dormant":
+        return "var(--syn-amber)";
+      default:
+        return "var(--syn-text-dim)";
     }
   }
 
@@ -247,9 +269,9 @@ export function OpsScheduleCard() {
 
   function OpRow({ entry }: { entry: OpsScheduleEntry }) {
     const op = entry.op;
-    const isSaving    = saving[op];
-    const isRunning   = runningNow[op];
-    const isInFlight  = entry.in_flight;
+    const isSaving = saving[op];
+    const isRunning = runningNow[op];
+    const isInFlight = entry.in_flight;
     const runDisabled = isRunning || isInFlight || isSaving;
 
     return (
@@ -339,7 +361,9 @@ export function OpsScheduleCard() {
           <button
             data-testid={`ops-run-now-${op}`}
             disabled={runDisabled}
-            onClick={() => { void handleRunNow(op); }}
+            onClick={() => {
+              void handleRunNow(op);
+            }}
             aria-label={t("settings.opsSchedule.runNow")}
             style={{
               padding: "4px 12px",
@@ -427,7 +451,9 @@ export function OpsScheduleCard() {
         </p>
         <button
           data-testid="ops-schedule-refresh"
-          onClick={() => { void handleRefresh(); }}
+          onClick={() => {
+            void handleRefresh();
+          }}
           disabled={loading || refreshing}
           aria-label={t("settings.opsSchedule.refresh")}
           title={t("settings.opsSchedule.refresh")}
@@ -435,8 +461,8 @@ export function OpsScheduleCard() {
             padding: 4,
             border: "none",
             background: "transparent",
-            color: (loading || refreshing) ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
-            cursor: (loading || refreshing) ? "default" : "pointer",
+            color: loading || refreshing ? "var(--syn-text-dim)" : "var(--syn-text-muted)",
+            cursor: loading || refreshing ? "default" : "pointer",
             borderRadius: 4,
             display: "flex",
             alignItems: "center",

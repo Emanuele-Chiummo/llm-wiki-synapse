@@ -127,12 +127,11 @@ describe("computeGraphInsights — surprising connections", () => {
     // Build 10 cross-community edges with distinct weights
     const nodeList: GraphNode[] = [
       node("src", "Src", "concept", 0, 10),
-      ...Array.from({ length: 10 }, (_, i) =>
-        node(`t${i}`, `T${i}`, "entity", 1, 5),
-      ),
+      ...Array.from({ length: 10 }, (_, i) => node(`t${i}`, `T${i}`, "entity", 1, 5)),
     ];
-    const edgeList: GraphEdge[] = Array.from({ length: 10 }, (_, i) =>
-      edge("src", `t${i}`, 3 + i), // weights 3..12
+    const edgeList: GraphEdge[] = Array.from(
+      { length: 10 },
+      (_, i) => edge("src", `t${i}`, 3 + i), // weights 3..12
     );
     const result = computeGraphInsights(nodeList, edgeList, []);
     expect(result.surprising).toHaveLength(8);
@@ -216,48 +215,28 @@ describe("computeGraphInsights — gap-sparse", () => {
   ];
 
   it("C1: cohesion < 0.15 AND size >= 3 → detected", () => {
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(5, 4, 0.10)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(5, 4, 0.1)]);
     const ids = result.gapSparse.map((g) => g.communityId);
     expect(ids).toContain(5);
   });
 
   it("C2: cohesion = 0.15 NOT detected (boundary — not strictly less)", () => {
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(5, 4, 0.15)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(5, 4, 0.15)]);
     expect(result.gapSparse).toHaveLength(0);
   });
 
   it("C3: cohesion < 0.15 but size < 3 → NOT detected", () => {
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(5, 2, 0.05)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(5, 2, 0.05)]);
     expect(result.gapSparse).toHaveLength(0);
   });
 
   it("C4: stable id is 'gap-sparse:{communityId}'", () => {
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(5, 3, 0.08)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(5, 3, 0.08)]);
     expect(result.gapSparse[0]?.id).toBe("gap-sparse:5");
   });
 
   it("C5: primaryNodeId points to a member node of that community", () => {
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(5, 3, 0.08)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(5, 3, 0.08)]);
     const item = result.gapSparse[0];
     expect(item).toBeDefined();
     const memberIds = nodesForCommunity.map((n) => n.id);
@@ -266,11 +245,7 @@ describe("computeGraphInsights — gap-sparse", () => {
 
   it("C5b: primaryNodeId is null when no member node exists for the community", () => {
     // community id 99, but no node has community=99
-    const result = computeGraphInsights(
-      nodesForCommunity,
-      [],
-      [community(99, 5, 0.05)],
-    );
+    const result = computeGraphInsights(nodesForCommunity, [], [community(99, 5, 0.05)]);
     expect(result.gapSparse[0]?.primaryNodeId).toBeNull();
   });
 });
@@ -293,11 +268,7 @@ describe("computeGraphInsights — gap-bridge", () => {
   ];
 
   it("D1: node with 4 distinct neighbor communities (>= 3) detected", () => {
-    const result = computeGraphInsights(
-      [nBridge, nA, nB2, nC, nD],
-      bridgeEdges,
-      [],
-    );
+    const result = computeGraphInsights([nBridge, nA, nB2, nC, nD], bridgeEdges, []);
     const ids = result.gapBridge.map((g) => g.nodeId);
     expect(ids).toContain("b");
   });
@@ -322,11 +293,7 @@ describe("computeGraphInsights — gap-bridge", () => {
     const nOther2 = node("o2", "O2", "concept", 2, 1);
     const result = computeGraphInsights(
       [nHub, nSameCom, nOther1, nOther2],
-      [
-        edge("hub", "s", 1),
-        edge("hub", "o1", 1),
-        edge("hub", "o2", 1),
-      ],
+      [edge("hub", "s", 1), edge("hub", "o1", 1), edge("hub", "o2", 1)],
       [],
     );
     // Only 2 distinct OTHER communities — below threshold of 3
@@ -341,7 +308,7 @@ describe("computeGraphInsights — gap-bridge", () => {
     const result = computeGraphInsights(
       [nHub, nUnassigned, nOther1, nOther2],
       [
-        edge("hub", "u", 1),   // excluded (community -1)
+        edge("hub", "u", 1), // excluded (community -1)
         edge("hub", "o1", 1),
         edge("hub", "o2", 1),
       ],
@@ -355,12 +322,7 @@ describe("computeGraphInsights — gap-bridge", () => {
     const metaIndex = node("idx", "index", "concept", 10, 4);
     const result = computeGraphInsights(
       [metaIndex, nA, nB2, nC, nD],
-      [
-        edge("idx", "a", 1),
-        edge("idx", "b2", 1),
-        edge("idx", "c", 1),
-        edge("idx", "d", 1),
-      ],
+      [edge("idx", "a", 1), edge("idx", "b2", 1), edge("idx", "c", 1), edge("idx", "d", 1)],
       [],
     );
     const ids = result.gapBridge.map((g) => g.nodeId);
@@ -368,11 +330,7 @@ describe("computeGraphInsights — gap-bridge", () => {
   });
 
   it("D6: stable id is 'gap-bridge:{nodeId}'", () => {
-    const result = computeGraphInsights(
-      [nBridge, nA, nB2, nC, nD],
-      bridgeEdges,
-      [],
-    );
+    const result = computeGraphInsights([nBridge, nA, nB2, nC, nD], bridgeEdges, []);
     const bridgeItem = result.gapBridge.find((g) => g.nodeId === "b");
     expect(bridgeItem?.id).toBe("gap-bridge:b");
   });

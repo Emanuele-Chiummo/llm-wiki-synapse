@@ -177,7 +177,9 @@ export function TokenGate({ onSuccess }: TokenGateProps) {
 
           {/* Form */}
           <form
-            onSubmit={(e) => { void handleSubmit(e); }}
+            onSubmit={(e) => {
+              void handleSubmit(e);
+            }}
             style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}
           >
             <label
@@ -209,8 +211,7 @@ export function TokenGate({ onSuccess }: TokenGateProps) {
                   width: "100%",
                   padding: "10px 40px 10px 14px",
                   fontSize: 14,
-                  fontFamily:
-                    "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
+                  fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace",
                   border: error
                     ? "1.5px solid var(--syn-red, #ef4444)"
                     : "1.5px solid var(--syn-border, #e2e8f0)",

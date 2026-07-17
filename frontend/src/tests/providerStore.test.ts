@@ -61,9 +61,7 @@ describe("providerStore mutation failures", () => {
     providerApi.createProviderConfig.mockResolvedValueOnce(provider);
     providerApi.fetchProviderConfigs.mockResolvedValueOnce({ items: [provider] });
 
-    await useProviderStore
-      .getState()
-      .setActive("api", "model-b", null, "vault", "default");
+    await useProviderStore.getState().setActive("api", "model-b", null, "vault", "default");
 
     expect(useProviderStore.getState().error).toBeNull();
     expect(useProviderStore.getState().activeItem?.id).toBe("provider-b");

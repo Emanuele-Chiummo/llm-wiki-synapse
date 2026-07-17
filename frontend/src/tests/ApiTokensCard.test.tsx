@@ -88,20 +88,18 @@ describe("ApiTokensCard — empty + list states", () => {
 
 describe("ApiTokensCard — create flow (one-time reveal)", () => {
   it("creates a token, reveals the plaintext once, and reloads the list", async () => {
-    fetchApiTokens
-      .mockResolvedValueOnce({ tokens: [] })
-      .mockResolvedValueOnce({
-        tokens: [
-          {
-            id: "tok-new",
-            label: "new-token",
-            vault_id: null,
-            read_only: false,
-            created_at: "2026-07-17T00:00:00Z",
-            last_used_at: null,
-          },
-        ],
-      });
+    fetchApiTokens.mockResolvedValueOnce({ tokens: [] }).mockResolvedValueOnce({
+      tokens: [
+        {
+          id: "tok-new",
+          label: "new-token",
+          vault_id: null,
+          read_only: false,
+          created_at: "2026-07-17T00:00:00Z",
+          last_used_at: null,
+        },
+      ],
+    });
     createApiToken.mockResolvedValue({
       id: "tok-new",
       label: "new-token",
@@ -119,11 +117,13 @@ describe("ApiTokensCard — create flow (one-time reveal)", () => {
     });
     fireEvent.click(screen.getByTestId("api-token-create-btn"));
 
-    await waitFor(() => expect(createApiToken).toHaveBeenCalledWith({
-      label: "new-token",
-      vault_id: null,
-      read_only: false,
-    }));
+    await waitFor(() =>
+      expect(createApiToken).toHaveBeenCalledWith({
+        label: "new-token",
+        vault_id: null,
+        read_only: false,
+      }),
+    );
 
     const revealValue = await screen.findByTestId("api-token-reveal-value");
     expect(revealValue.textContent).toContain("plaintext-secret-abc123");

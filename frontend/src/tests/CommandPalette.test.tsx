@@ -16,8 +16,8 @@ import { render, screen, fireEvent, act, waitFor } from "@testing-library/react"
 import { CommandPalette } from "../components/common/CommandPalette";
 
 // Number of executable actions in the palette (v2, FE-UIUX-3): new chat, import,
-// run lint, switch project, switch theme, regenerate overview.
-const ACTION_COUNT = 6;
+// run lint, switch project, switch theme, regenerate overview, new page.
+const ACTION_COUNT = 7;
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,7 @@ vi.mock("react-i18next", () => ({
         "palette.action.switchProject": "Switch project",
         "palette.action.switchTheme": "Switch theme",
         "palette.action.regenerateOverview": "Regenerate overview",
+        "palette.action.newPage": "New page",
         "nav.home": "Home",
         "nav.chat": "Chat",
         "nav.wiki": "Wiki",
@@ -202,10 +203,10 @@ describe("CommandPalette — section list", () => {
     vi.clearAllMocks();
   });
 
-  it("shows all 6 actions + 13 sections when query is empty", async () => {
+  it("shows all 7 actions + 13 sections when query is empty", async () => {
     render(<CommandPalette open={true} onClose={vi.fn()} />);
     await waitFor(() => {
-      // 6 actions (v2, FE-UIUX-3) + 13 sections: Home, Sources, Chat, Convert, Wiki,
+      // 7 actions (v2, FE-UIUX-3) + 13 sections: Home, Sources, Chat, Convert, Wiki,
       // Graph, Search, Deep Search, Review, Lint, Ingest, Settings, Projects
       const items = screen.getAllByRole("option");
       expect(items.length).toBe(ACTION_COUNT + 13);

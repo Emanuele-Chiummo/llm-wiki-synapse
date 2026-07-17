@@ -128,4 +128,3 @@ export function EmbedRow({ label, value, mono }: { label: string; value: string;
     </div>
   );
 }
-

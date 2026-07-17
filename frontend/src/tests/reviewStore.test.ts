@@ -152,9 +152,7 @@ describe("reviewStore — v1.6 server-side filters", () => {
         proposedPageType: "synthesis",
       },
     });
-    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(
-      makeQueue([makeItem("2")], 2),
-    );
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(makeQueue([makeItem("2")], 2));
 
     await useReviewStore.getState().fetchMore("default");
 
@@ -212,9 +210,7 @@ describe("reviewStore — fetchFresh", () => {
   });
 
   it("sets error on fetch failure", async () => {
-    vi.mocked(reviewClient.fetchReviewQueue).mockRejectedValueOnce(
-      new Error("Network error"),
-    );
+    vi.mocked(reviewClient.fetchReviewQueue).mockRejectedValueOnce(new Error("Network error"));
 
     await useReviewStore.getState().fetchFresh("default");
 
@@ -409,9 +405,7 @@ describe("reviewStore — sweep (ADR-0034 §6)", () => {
       kept: 1,
     });
     // After sweep, queue has one fewer item (the resolved one is gone)
-    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(
-      makeQueue([makeItem("Y")], 1),
-    );
+    vi.mocked(reviewClient.fetchReviewQueue).mockResolvedValueOnce(makeQueue([makeItem("Y")], 1));
 
     await useReviewStore.getState().sweep("default");
 
@@ -489,9 +483,7 @@ describe("reviewStore — approve (R2)", () => {
 
   it("sets actionError on failure and keeps item in list", async () => {
     useReviewStore.setState({ items: [makeItem("c1")], total: 1 });
-    vi.mocked(reviewClient.resolveReviewItem).mockRejectedValueOnce(
-      new Error("400 Bad Request"),
-    );
+    vi.mocked(reviewClient.resolveReviewItem).mockRejectedValueOnce(new Error("400 Bad Request"));
 
     await useReviewStore.getState().approve("c1", "default");
 

@@ -84,10 +84,14 @@ vi.mock("../store/settingsStore", () => ({
   selectCommitDraft: (s: { commitDraft: unknown }) => s.commitDraft,
   selectDiscardDraft: (s: { discardDraft: unknown }) => s.discardDraft,
   selectIsDirty: (s: {
-    draftTheme: string; theme: string;
-    draftLanguage: string; language: string;
-    draftConversationHistoryLength: number; conversationHistoryLength: number;
-    draftContextWindowTokens: number; contextWindowTokens: number;
+    draftTheme: string;
+    theme: string;
+    draftLanguage: string;
+    language: string;
+    draftConversationHistoryLength: number;
+    conversationHistoryLength: number;
+    draftContextWindowTokens: number;
+    contextWindowTokens: number;
   }) =>
     s.draftTheme !== s.theme ||
     s.draftLanguage !== s.language ||
@@ -138,8 +142,7 @@ vi.mock("../store/providerStore", () => ({
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "vault-1" }),
+  useGraphStore: (selector: (s: unknown) => unknown) => selector({ vaultId: "vault-1" }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
 }));
 
@@ -181,14 +184,57 @@ vi.mock("../api/providerClient", async (importOriginal) => {
       token_source: "none",
       allow_without_token: false,
     }),
-    setRemoteMcpEnabled: vi.fn().mockResolvedValue({ remote_enabled: false, token_configured: false, mount_path: "/mcp/server", clamped: false }),
-    setMcpAuth: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", allow_without_token: false, remote_enabled: false, mount_path: "/mcp/server" }),
-    fetchClipConfig: vi.fn().mockResolvedValue({ enabled: false, token_configured: false, token_source: "none", allowed_origins: [], max_body_bytes: 1048576 }),
-    setClipConfig: vi.fn().mockResolvedValue({ enabled: false, token_configured: false, token_source: "none", allowed_origins: [], max_body_bytes: 1048576 }),
-    fetchWebSearchConfig: vi.fn().mockResolvedValue({ configured: false, url: "", categories: [], max_queries: 3, source: "none" }),
-    setWebSearchConfig: vi.fn().mockResolvedValue({ configured: false, url: "", categories: [], max_queries: 3, source: "none" }),
-    getCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
-    setCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
+    setRemoteMcpEnabled: vi.fn().mockResolvedValue({
+      remote_enabled: false,
+      token_configured: false,
+      mount_path: "/mcp/server",
+      clamped: false,
+    }),
+    setMcpAuth: vi.fn().mockResolvedValue({
+      token_configured: false,
+      token_source: "none",
+      allow_without_token: false,
+      remote_enabled: false,
+      mount_path: "/mcp/server",
+    }),
+    fetchClipConfig: vi.fn().mockResolvedValue({
+      enabled: false,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    }),
+    setClipConfig: vi.fn().mockResolvedValue({
+      enabled: false,
+      token_configured: false,
+      token_source: "none",
+      allowed_origins: [],
+      max_body_bytes: 1048576,
+    }),
+    fetchWebSearchConfig: vi.fn().mockResolvedValue({
+      configured: false,
+      url: "",
+      categories: [],
+      max_queries: 3,
+      source: "none",
+    }),
+    setWebSearchConfig: vi.fn().mockResolvedValue({
+      configured: false,
+      url: "",
+      categories: [],
+      max_queries: 3,
+      source: "none",
+    }),
+    getCliAuthConfig: vi.fn().mockResolvedValue({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
+    }),
+    setCliAuthConfig: vi.fn().mockResolvedValue({
+      token_configured: false,
+      token_source: "none",
+      auth_mode: "unconfigured",
+    }),
     fetchVendors: vi.fn().mockResolvedValue({ vendors: [] }),
     fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     createProviderConfig: vi.fn(),
@@ -211,14 +257,14 @@ vi.mock("../api/scenariosClient", () => ({
 vi.mock("../api/appConfigClient", () => ({
   getAppConfig: vi.fn().mockResolvedValue({
     settings: [
-      { key: "pdf_extractor",           value: "pypdf",  source: "env" },
-      { key: "marker_service_url",       value: "",       source: "env" },
-      { key: "marker_timeout_seconds",   value: "60",     source: "env" },
-      { key: "cost_alert_threshold_usd", value: "5.0",    source: "env" },
-      { key: "embeddings_enabled",       value: "true",   source: "env" },
-      { key: "embedding_format",         value: "ollama", source: "env" },
-      { key: "overview_language",        value: "en",     source: "env" },
-      { key: "wikilink_enrich_enabled",  value: "true",   source: "env" },
+      { key: "pdf_extractor", value: "pypdf", source: "env" },
+      { key: "marker_service_url", value: "", source: "env" },
+      { key: "marker_timeout_seconds", value: "60", source: "env" },
+      { key: "cost_alert_threshold_usd", value: "5.0", source: "env" },
+      { key: "embeddings_enabled", value: "true", source: "env" },
+      { key: "embedding_format", value: "ollama", source: "env" },
+      { key: "overview_language", value: "en", source: "env" },
+      { key: "wikilink_enrich_enabled", value: "true", source: "env" },
     ],
   }),
   putAppConfig: vi.fn().mockResolvedValue(undefined),
@@ -231,9 +277,7 @@ import type { CostsSummary } from "../api/costsClient";
 
 const BASE_COSTS: CostsSummary = {
   period: "2026-07",
-  by_provider: [
-    { provider: "api/anthropic", total_usd: 1.23, call_count: 42 },
-  ],
+  by_provider: [{ provider: "api/anthropic", total_usd: 1.23, call_count: 42 }],
   by_provider_note: null,
   by_operation: [
     { operation: "ingest", total_usd: 0.75, call_count: 30 },

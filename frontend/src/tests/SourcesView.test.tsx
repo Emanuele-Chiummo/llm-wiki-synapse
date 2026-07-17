@@ -102,8 +102,12 @@ vi.mock("../components/common/ConfirmDialog", () => ({
   }) => (
     <div data-testid="confirm-dialog">
       <span>{title}</span>
-      <button data-testid="confirm-dialog-confirm" onClick={onConfirm}>{confirmLabel}</button>
-      <button data-testid="confirm-dialog-cancel" onClick={onCancel}>{cancelLabel}</button>
+      <button data-testid="confirm-dialog-confirm" onClick={onConfirm}>
+        {confirmLabel}
+      </button>
+      <button data-testid="confirm-dialog-cancel" onClick={onCancel}>
+        {cancelLabel}
+      </button>
     </div>
   ),
 }));
@@ -189,12 +193,28 @@ vi.mock("../components/common/Toast", () => ({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const SAMPLE_ENTRIES = [
-  { path: "doc1.md", name: "doc1.md", is_dir: false, ext: ".md", size_bytes: 1024, mtime: "2026-06-28T07:27:37+00:00" },
-  { path: "doc2.pdf", name: "doc2.pdf", is_dir: false, ext: ".pdf", size_bytes: 2048, mtime: "2026-06-28T07:28:00+00:00" },
+  {
+    path: "doc1.md",
+    name: "doc1.md",
+    is_dir: false,
+    ext: ".md",
+    size_bytes: 1024,
+    mtime: "2026-06-28T07:27:37+00:00",
+  },
+  {
+    path: "doc2.pdf",
+    name: "doc2.pdf",
+    is_dir: false,
+    ext: ".pdf",
+    size_bytes: 2048,
+    mtime: "2026-06-28T07:28:00+00:00",
+  },
   { path: "images", name: "images", is_dir: true },
 ];
 
-function makeContent(overrides: Partial<import("../api/sourcesClient").SourceContentResponse> = {}): import("../api/sourcesClient").SourceContentResponse {
+function makeContent(
+  overrides: Partial<import("../api/sourcesClient").SourceContentResponse> = {},
+): import("../api/sourcesClient").SourceContentResponse {
   return {
     path: "doc1.md",
     name: "doc1.md",
@@ -276,7 +296,9 @@ describe("SourcesView — rendering", () => {
   it("shows empty state when entries is empty", async () => {
     render(<SourcesView />);
     await waitFor(() => {
-      expect(screen.getByText("No source files yet. Import a document to get started.")).toBeTruthy();
+      expect(
+        screen.getByText("No source files yet. Import a document to get started."),
+      ).toBeTruthy();
     });
   });
 
@@ -406,9 +428,7 @@ describe("SourcePreview — ingested badge", () => {
   });
 
   it("shows not-ingested badge when content.ingested = false", async () => {
-    vi.mocked(sourcesClient.getSourceContent).mockResolvedValue(
-      makeContent({ ingested: false }),
-    );
+    vi.mocked(sourcesClient.getSourceContent).mockResolvedValue(makeContent({ ingested: false }));
     render(<SourcePreview path="doc1.md" />);
     await waitFor(() => {
       expect(screen.getByTestId("source-ingested-badge")).toBeTruthy();
@@ -655,10 +675,7 @@ describe("SourcesView — R7-11 bulk ingest (AC-R7-11-2)", () => {
     expect(sourcesClient.triggerIngest).toHaveBeenCalledWith("raw/sources/doc1.md");
     expect(sourcesClient.triggerIngest).toHaveBeenCalledWith("raw/sources/doc2.pdf");
     await waitFor(() => {
-      expect(showToast).toHaveBeenCalledWith(
-        "Ingest complete: 2 file(s) processed",
-        "success",
-      );
+      expect(showToast).toHaveBeenCalledWith("Ingest complete: 2 file(s) processed", "success");
     });
   });
 
@@ -682,10 +699,7 @@ describe("SourcesView — R7-11 bulk ingest (AC-R7-11-2)", () => {
     fireEvent.click(screen.getByTestId("sources-bulk-ingest"));
 
     await waitFor(() => {
-      expect(showToast).toHaveBeenCalledWith(
-        "Ingest partial: 1/2 succeeded, 1 failed",
-        "error",
-      );
+      expect(showToast).toHaveBeenCalledWith("Ingest partial: 1/2 succeeded, 1 failed", "error");
     });
   });
 });
@@ -1057,10 +1071,7 @@ describe("SourcesView — S2 folder delete (two-stage)", () => {
       expect(sourcesClient.deleteFolderSource).toHaveBeenCalledWith("images");
     });
     await waitFor(() => {
-      expect(showToast).toHaveBeenCalledWith(
-        "Folder deleted · 3 file(s), 2 page(s)",
-        "success",
-      );
+      expect(showToast).toHaveBeenCalledWith("Folder deleted · 3 file(s), 2 page(s)", "success");
     });
   });
 });

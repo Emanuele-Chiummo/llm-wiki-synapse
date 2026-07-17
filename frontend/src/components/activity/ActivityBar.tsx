@@ -728,7 +728,7 @@ export function ActivityBar(): ReactNode {
         >
           {/* Vault id */}
           <span
-            aria-label={`Vault: ${vaultId}`}
+            aria-label={t("activity.vault", { id: vaultId })}
             style={{ display: "flex", alignItems: "center", gap: 4 }}
           >
             <span aria-hidden="true" style={{ opacity: 0.5 }}>
@@ -739,7 +739,7 @@ export function ActivityBar(): ReactNode {
 
           {/* Data version */}
           <span
-            aria-label={`Data version: ${displayVersion ?? "unknown"}`}
+            aria-label={t("activity.dataVersion", { version: displayVersion ?? "unknown" })}
             style={{ display: "flex", alignItems: "center", gap: 4 }}
           >
             <span aria-hidden="true" style={{ opacity: 0.5 }}>
@@ -753,7 +753,7 @@ export function ActivityBar(): ReactNode {
           {/* Uptime */}
           {status.uptimeSeconds !== null && (
             <span
-              aria-label={`Uptime: ${formatUptime(status.uptimeSeconds)}`}
+              aria-label={t("activity.uptimeLabel", { uptime: formatUptime(status.uptimeSeconds) })}
               style={{ display: "flex", alignItems: "center", gap: 4 }}
             >
               <span aria-hidden="true" style={{ opacity: 0.5 }}>
@@ -767,7 +767,9 @@ export function ActivityBar(): ReactNode {
 
           {/* Connectivity indicator */}
           <span
-            aria-label={pollError ? "Backend unreachable" : "Backend connected"}
+            aria-label={
+              pollError ? t("activity.backendUnreachable") : t("activity.backendConnected")
+            }
             style={{ display: "flex", alignItems: "center", gap: 4 }}
           >
             <span
@@ -844,7 +846,9 @@ export function ActivityBar(): ReactNode {
 
           {/* Active provider indicator (F17) */}
           <span
-            aria-label={`Active provider: ${activeProvider?.provider_type ?? "none"}`}
+            aria-label={t("activity.activeProvider", {
+              name: activeProvider?.provider_type ?? "none",
+            })}
             style={{
               color: activeProvider ? "var(--syn-text-muted)" : "var(--syn-text-dim)",
               cursor: "default",

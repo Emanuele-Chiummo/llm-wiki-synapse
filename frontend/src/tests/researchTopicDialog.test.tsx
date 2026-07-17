@@ -53,13 +53,7 @@ function renderDialog(
   const onCancel = overrides.onCancel ?? vi.fn();
   const seedTopic = overrides.seedTopic ?? "Kubernetes networking";
 
-  render(
-    <ResearchTopicDialog
-      seedTopic={seedTopic}
-      onConfirm={onConfirm}
-      onCancel={onCancel}
-    />,
-  );
+  render(<ResearchTopicDialog seedTopic={seedTopic} onConfirm={onConfirm} onCancel={onCancel} />);
 
   return { onConfirm, onCancel };
 }
@@ -251,9 +245,7 @@ describe("ResearchTopicDialog", () => {
     });
 
     // The degradation note key should appear (i18n returns the key in tests)
-    expect(
-      screen.getByText("research.topicDialog.optimizeUnavailable"),
-    ).toBeDefined();
+    expect(screen.getByText("research.topicDialog.optimizeUnavailable")).toBeDefined();
 
     // Topic textarea should fall back to the seed topic
     const topicTextarea = screen.getByTestId("research-topic-dialog-topic") as HTMLTextAreaElement;

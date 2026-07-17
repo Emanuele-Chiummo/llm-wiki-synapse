@@ -60,7 +60,11 @@ function buildThemeExtension(resolved: "light" | "dark"): Extension {
   return resolved === "dark" ? oneDark : [];
 }
 
-export function CodeMirrorEditor({ initialContent, handleRef, onContentChange }: CodeMirrorEditorProps) {
+export function CodeMirrorEditor({
+  initialContent,
+  handleRef,
+  onContentChange,
+}: CodeMirrorEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

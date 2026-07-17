@@ -45,7 +45,7 @@ describe("wikilinkTransform", () => {
   });
 
   it("HTML-escapes special characters in target", () => {
-    const result = wikilinkTransform('[[A & B]]');
+    const result = wikilinkTransform("[[A & B]]");
     expect(result).toContain('data-wikilink="A &amp; B"');
   });
 
@@ -55,7 +55,7 @@ describe("wikilinkTransform", () => {
   });
 
   it("HTML-escapes special characters in label", () => {
-    const result = wikilinkTransform('[[Target|A & B label]]');
+    const result = wikilinkTransform("[[Target|A & B label]]");
     expect(result).toContain(">A &amp; B label</a>");
   });
 

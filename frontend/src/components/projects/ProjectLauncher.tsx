@@ -250,8 +250,16 @@ export function ProjectLauncher() {
                     opacity: busyId && busyId !== p.id ? 0.6 : 1,
                   }}
                   onClick={() => !isActive && void handleActivate(p.id)}
+                  onKeyDown={(e) => {
+                    if (!isActive && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      void handleActivate(p.id);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
+                  aria-pressed={isActive}
+                  aria-disabled={busyId !== null && busyId !== p.id}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: 14, color: "var(--syn-text)" }}>

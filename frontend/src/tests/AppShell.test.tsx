@@ -53,7 +53,9 @@ vi.mock("../store/graphStore", () => ({
   useGraphStore: (selector: (s: unknown) => unknown) =>
     selector({
       activeSection: mockActiveSection,
-      setActiveSection: (s: string) => { mockActiveSection = s; },
+      setActiveSection: (s: string) => {
+        mockActiveSection = s;
+      },
       vaultId: "vault-1",
       dataVersion: 1,
     }),
@@ -234,11 +236,51 @@ vi.mock("zustand/react/shallow", () => ({
 vi.mock("../components/nav/NavRail", () => ({
   NavRail: () => (
     <nav data-testid="nav-rail">
-      <button data-section="chat" onClick={() => { mockActiveSection = "chat"; }} aria-current={mockActiveSection === "chat" ? "page" : undefined}>Chat</button>
-      <button data-section="pages" onClick={() => { mockActiveSection = "pages"; }} aria-current={mockActiveSection === "pages" ? "page" : undefined}>Wiki</button>
-      <button data-section="ingest" onClick={() => { mockActiveSection = "ingest"; }} aria-current={mockActiveSection === "ingest" ? "page" : undefined}>Sources</button>
-      <button data-section="graph" onClick={() => { mockActiveSection = "graph"; }} aria-current={mockActiveSection === "graph" ? "page" : undefined}>Graph</button>
-      <button data-section="settings" onClick={() => { mockActiveSection = "settings"; }} aria-current={mockActiveSection === "settings" ? "page" : undefined}>Settings</button>
+      <button
+        data-section="chat"
+        onClick={() => {
+          mockActiveSection = "chat";
+        }}
+        aria-current={mockActiveSection === "chat" ? "page" : undefined}
+      >
+        Chat
+      </button>
+      <button
+        data-section="pages"
+        onClick={() => {
+          mockActiveSection = "pages";
+        }}
+        aria-current={mockActiveSection === "pages" ? "page" : undefined}
+      >
+        Wiki
+      </button>
+      <button
+        data-section="ingest"
+        onClick={() => {
+          mockActiveSection = "ingest";
+        }}
+        aria-current={mockActiveSection === "ingest" ? "page" : undefined}
+      >
+        Sources
+      </button>
+      <button
+        data-section="graph"
+        onClick={() => {
+          mockActiveSection = "graph";
+        }}
+        aria-current={mockActiveSection === "graph" ? "page" : undefined}
+      >
+        Graph
+      </button>
+      <button
+        data-section="settings"
+        onClick={() => {
+          mockActiveSection = "settings";
+        }}
+        aria-current={mockActiveSection === "settings" ? "page" : undefined}
+      >
+        Settings
+      </button>
     </nav>
   ),
 }));
@@ -252,7 +294,9 @@ vi.mock("../components/SectionRouter", () => ({
         {mockActiveSection === "pages" && <div data-testid="section-pages">Wiki Section</div>}
         {mockActiveSection === "ingest" && <div data-testid="section-ingest">Sources Section</div>}
         {mockActiveSection === "graph" && <div data-testid="section-graph">Graph Section</div>}
-        {mockActiveSection === "settings" && <div data-testid="section-settings">Settings Section</div>}
+        {mockActiveSection === "settings" && (
+          <div data-testid="section-settings">Settings Section</div>
+        )}
       </div>
     );
   },
@@ -316,7 +360,6 @@ vi.mock("../components/setup/FirstRunWizard", () => ({
   getSetupCompleted: () => true,
   markSetupCompleted: vi.fn(),
 }));
-
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

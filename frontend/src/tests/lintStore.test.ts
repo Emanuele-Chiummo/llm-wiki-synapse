@@ -132,9 +132,7 @@ describe("lintStore — scan", () => {
   });
 
   it("sets scanError on failure", async () => {
-    vi.mocked(lintClient.runLintScan).mockRejectedValueOnce(
-      new Error("Provider not configured"),
-    );
+    vi.mocked(lintClient.runLintScan).mockRejectedValueOnce(new Error("Provider not configured"));
 
     await useLintStore.getState().scan("default");
 
@@ -243,9 +241,7 @@ describe("lintStore — dismiss", () => {
 
   it("sets actionError on failure and keeps finding in list", async () => {
     useLintStore.setState({ findings: [makeFinding("f1")], findingsTotal: 1 });
-    vi.mocked(lintClient.dismissLintFinding).mockRejectedValueOnce(
-      new Error("404 Not Found"),
-    );
+    vi.mocked(lintClient.dismissLintFinding).mockRejectedValueOnce(new Error("404 Not Found"));
 
     await useLintStore.getState().dismiss("f1");
 
@@ -277,9 +273,7 @@ describe("lintStore — refresh", () => {
   });
 
   it("sets findingsError on failure", async () => {
-    vi.mocked(lintClient.fetchLintFindings).mockRejectedValueOnce(
-      new Error("Backend unavailable"),
-    );
+    vi.mocked(lintClient.fetchLintFindings).mockRejectedValueOnce(new Error("Backend unavailable"));
 
     await useLintStore.getState().refresh("default");
 
@@ -353,9 +347,7 @@ describe("lintStore — fetchRuns", () => {
   });
 
   it("sets runsError on failure", async () => {
-    vi.mocked(lintClient.fetchLintRuns).mockRejectedValueOnce(
-      new Error("Network error"),
-    );
+    vi.mocked(lintClient.fetchLintRuns).mockRejectedValueOnce(new Error("Network error"));
 
     await useLintStore.getState().fetchRuns("default");
 
@@ -374,7 +366,7 @@ describe("lintStore — clear helpers", () => {
   });
 
   it("clearActionError clears per-finding error", () => {
-    useLintStore.setState({ actionError: { "f1": "apply failed" } });
+    useLintStore.setState({ actionError: { f1: "apply failed" } });
     useLintStore.getState().clearActionError("f1");
     expect(useLintStore.getState().actionError["f1"]).toBeFalsy();
   });
@@ -402,22 +394,14 @@ describe("lintStore — semanticEnabled [B1-L8]", () => {
     useLintStore.setState({ semanticEnabled: false });
     vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
     await useLintStore.getState().scan("default");
-    expect(lintClient.runLintScan).toHaveBeenCalledWith(
-      { vault_id: "default" },
-      undefined,
-      false,
-    );
+    expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, false);
   });
 
   it("scan passes semanticEnabled=true to runLintScan", async () => {
     useLintStore.setState({ semanticEnabled: true });
     vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
     await useLintStore.getState().scan("default");
-    expect(lintClient.runLintScan).toHaveBeenCalledWith(
-      { vault_id: "default" },
-      undefined,
-      true,
-    );
+    expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, true);
   });
 });
 
@@ -497,9 +481,7 @@ describe("lintStore — applyBatch [B1-L5]", () => {
       findingsTotal: 1,
       selectedIds: new Set(["f1"]),
     });
-    vi.mocked(lintClient.batchLintAction).mockRejectedValueOnce(
-      new Error("Server error"),
-    );
+    vi.mocked(lintClient.batchLintAction).mockRejectedValueOnce(new Error("Server error"));
 
     const result = await useLintStore.getState().applyBatch("default");
 
@@ -638,9 +620,7 @@ describe("lintStore — deleteOrphanPage [B1-L9]", () => {
       findings: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-1" })],
       findingsTotal: 1,
     });
-    vi.mocked(lintClient.deleteWikiPage).mockRejectedValueOnce(
-      new Error("Page not found"),
-    );
+    vi.mocked(lintClient.deleteWikiPage).mockRejectedValueOnce(new Error("Page not found"));
 
     await useLintStore.getState().deleteOrphanPage("f1", "page-1", "default");
 

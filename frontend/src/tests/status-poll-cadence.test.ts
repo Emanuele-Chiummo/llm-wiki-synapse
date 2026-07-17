@@ -11,7 +11,13 @@ import type { IngestQueueSnapshot } from "../api/types";
 import { statusPollDelayMs } from "../store/statusStore";
 
 function snap(overrides: Partial<IngestQueueSnapshot>): IngestQueueSnapshot {
-  return { processing: 0, pending: 0, paused: false, tasks: [], ...overrides } as IngestQueueSnapshot;
+  return {
+    processing: 0,
+    pending: 0,
+    paused: false,
+    tasks: [],
+    ...overrides,
+  } as IngestQueueSnapshot;
 }
 
 describe("statusPollDelayMs (RT-1)", () => {

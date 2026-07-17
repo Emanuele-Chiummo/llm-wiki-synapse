@@ -9,10 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Wrench } from "lucide-react";
 import { SectionHeader } from "../ui";
 import { Button } from "../../ui/Button";
-import {
-  useSettingsStore,
-  selectResetSettings,
-} from "../../../store/settingsStore";
+import { useSettingsStore, selectResetSettings } from "../../../store/settingsStore";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
 
 export function SectionMaintenance() {
@@ -39,16 +36,33 @@ export function SectionMaintenance() {
       <SectionHeader title={t("settings.nav.maintenance")} desc={t("settings.maintenance.desc")} />
 
       {/* Detect duplicates */}
-      <div style={{ padding: 16, border: "1px solid var(--syn-border)", borderRadius: 8, background: "var(--syn-bg-soft)", marginBottom: 20 }}>
+      <div
+        style={{
+          padding: 16,
+          border: "1px solid var(--syn-border)",
+          borderRadius: 8,
+          background: "var(--syn-bg-soft)",
+          marginBottom: 20,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           <span style={{ marginTop: 1, opacity: 0.6 }}>
             <Wrench size={16} strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div style={{ flex: 1 }}>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
+            <p
+              style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}
+            >
               {t("settings.maintenance.duplicates")}
             </p>
-            <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+            <p
+              style={{
+                margin: "0 0 12px",
+                fontSize: 12,
+                color: "var(--syn-text-muted)",
+                lineHeight: 1.5,
+              }}
+            >
               {t("settings.maintenance.duplicatesDesc")}
             </p>
             <Button variant="accent-ghost" disabled>
@@ -62,7 +76,14 @@ export function SectionMaintenance() {
       </div>
 
       {/* Danger zone */}
-      <div style={{ padding: 16, border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 8, marginBottom: 16 }}>
+      <div
+        style={{
+          padding: 16,
+          border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)",
+          borderRadius: 8,
+          marginBottom: 16,
+        }}
+      >
         <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "var(--syn-red)" }}>
           {t("settings.maintenance.dangerZone")}
         </p>

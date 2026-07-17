@@ -97,9 +97,7 @@ function toKnownType(raw: string | null): KnownType {
  * Standard sections (ALWAYS_SHOW) are pre-seeded with empty arrays so they always
  * appear in the tree at count 0.  The "other" bucket is retained only when non-empty.
  */
-export function groupPagesByType(
-  items: PageListItem[],
-): Map<KnownType, PageListItem[]> {
+export function groupPagesByType(items: PageListItem[]): Map<KnownType, PageListItem[]> {
   const map = new Map<KnownType, PageListItem[]>();
 
   // Pre-seed every position in TYPE_ORDER so iteration order is guaranteed.
@@ -187,10 +185,7 @@ function isAlwaysVisible(p: PageListItem): boolean {
  * pages (overview/index/log), which are always kept so the vault front page never
  * disappears behind a filter.
  */
-export function filterPagesByDomain(
-  pages: PageListItem[],
-  domainFilter: string,
-): PageListItem[] {
+export function filterPagesByDomain(pages: PageListItem[], domainFilter: string): PageListItem[] {
   return pages.filter((p) => isAlwaysVisible(p) || p.domain === domainFilter);
 }
 
@@ -200,10 +195,7 @@ export function filterPagesByDomain(
  * Pages with community == null or undefined are excluded — EXCEPT the reserved meta
  * pages (overview/index/log), which are always kept.
  */
-export function filterPagesByCommunity(
-  pages: PageListItem[],
-  communityId: number,
-): PageListItem[] {
+export function filterPagesByCommunity(pages: PageListItem[], communityId: number): PageListItem[] {
   return pages.filter((p) => isAlwaysVisible(p) || p.community === communityId);
 }
 
@@ -229,8 +221,7 @@ function readFilters(): FilterState {
     const domainFilter = localStorage.getItem(DOMAIN_FILTER_KEY) || null;
     const groupStr = localStorage.getItem(GROUP_FILTER_KEY);
     const groupParsed = groupStr !== null ? parseInt(groupStr, 10) : null;
-    const groupFilter =
-      groupParsed !== null && !Number.isNaN(groupParsed) ? groupParsed : null;
+    const groupFilter = groupParsed !== null && !Number.isNaN(groupParsed) ? groupParsed : null;
     const filterLabel = localStorage.getItem(NAV_FILTER_LABEL_KEY) || null;
     return { domainFilter, groupFilter, filterLabel };
   } catch {
@@ -277,10 +268,7 @@ export interface NavTreeData {
  * @param vaultId   - Vault to fetch from.
  * @param collapsed - Map of group type → collapsed; drives flattenTree.
  */
-export function useNavTreeData(
-  vaultId: string,
-  collapsed: Record<string, boolean>,
-): NavTreeData {
+export function useNavTreeData(vaultId: string, collapsed: Record<string, boolean>): NavTreeData {
   // Raw flat page list (pre-filter) — updated only on fetch.
   const [allPages, setAllPages] = useState<PageListItem[]>([]);
   const [metaFiles, setMetaFiles] = useState<VaultMetaFile[]>([]);
@@ -305,9 +293,9 @@ export function useNavTreeData(
       // Fetch pages and meta in parallel; meta failure is non-fatal.
       const pagesPromise = fetchAllPages(vaultId, signal);
       // AbortSignal is shared — both abort together on unmount / vaultId change.
-      const metaPromise = fetchVaultMeta(vaultId, signal).catch(
-        () => ({ files: [] as VaultMetaFile[] }),
-      );
+      const metaPromise = fetchVaultMeta(vaultId, signal).catch(() => ({
+        files: [] as VaultMetaFile[],
+      }));
 
       return Promise.all([pagesPromise, metaPromise])
         .then(([pagesRes, metaRes]) => {
@@ -364,10 +352,7 @@ export function useNavTreeData(
   }, [allPages, filters]);
 
   // Group the filtered pages (memoised — rebuilds only when filteredPages changes).
-  const grouped = useMemo(
-    () => groupPagesByType(filteredPages),
-    [filteredPages],
-  );
+  const grouped = useMemo(() => groupPagesByType(filteredPages), [filteredPages]);
 
   // Flatten into the virtualizer-ready TreeRow[].
   // Memoize: only rebuild when grouped data, collapse state, or meta files change.

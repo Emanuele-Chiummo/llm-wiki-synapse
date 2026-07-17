@@ -251,10 +251,7 @@ describe("reviewClient — deepResearchReviewItem", () => {
   });
 
   it("throws ApiError with status 503 when SEARXNG_URL not configured", async () => {
-    const fetchMock = mockFetch(
-      { detail: "SEARXNG_URL is not configured" },
-      503,
-    );
+    const fetchMock = mockFetch({ detail: "SEARXNG_URL is not configured" }, 503);
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(deepResearchReviewItem("item-1")).rejects.toBeInstanceOf(ApiError);

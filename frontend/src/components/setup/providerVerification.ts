@@ -10,9 +10,7 @@ export interface ProviderVerificationIdentity {
  * Bind a successful probe to the exact persisted provider revision.
  * A new row, model/base URL change, or backend update timestamp invalidates it.
  */
-export function providerVerificationFingerprint(
-  provider: ProviderVerificationIdentity,
-): string {
+export function providerVerificationFingerprint(provider: ProviderVerificationIdentity): string {
   return JSON.stringify([
     provider.id ?? null,
     provider.provider_type,

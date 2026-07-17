@@ -97,8 +97,8 @@ describe("buildMessagePayload — more than N messages (truncation)", () => {
     const result = buildMessagePayload(messages, 3);
     // makeMessages: index 3 → role "user" (3%2=1 → "assistant"), 4 → "user", 5 → "assistant"
     expect(result[0]?.role).toBe("assistant"); // message-4 = index 3
-    expect(result[1]?.role).toBe("user");       // message-5 = index 4
-    expect(result[2]?.role).toBe("assistant");  // message-6 = index 5
+    expect(result[1]?.role).toBe("user"); // message-5 = index 4
+    expect(result[2]?.role).toBe("assistant"); // message-6 = index 5
   });
 });
 

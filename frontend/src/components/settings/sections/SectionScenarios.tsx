@@ -22,13 +22,19 @@ export function SectionScenarios() {
     const ac = new AbortController();
     setLoading(true);
     fetchScenarios(ac.signal)
-      .then((items) => { setScenarios(items); setLoadErr(false); setLoading(false); })
+      .then((items) => {
+        setScenarios(items);
+        setLoadErr(false);
+        setLoading(false);
+      })
       .catch((e: unknown) => {
         if (e instanceof Error && e.name === "AbortError") return;
         setLoadErr(true);
         setLoading(false);
       });
-    return () => { ac.abort(); };
+    return () => {
+      ac.abort();
+    };
   }, []);
 
   const handleApplyConfirm = async () => {
@@ -57,7 +63,9 @@ export function SectionScenarios() {
         <p style={{ fontSize: 12, color: "var(--syn-red)" }}>{t("settings.scenarios.loadError")}</p>
       )}
       {!loading && !loadErr && scenarios.length === 0 && (
-        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.scenarios.loadError")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>
+          {t("settings.scenarios.loadError")}
+        </p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -76,10 +84,19 @@ export function SectionScenarios() {
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
+              <p
+                style={{
+                  margin: "0 0 4px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--syn-text)",
+                }}
+              >
                 {sc.name}
               </p>
-              <p style={{ margin: 0, fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+              <p
+                style={{ margin: 0, fontSize: 11, color: "var(--syn-text-muted)", lineHeight: 1.5 }}
+              >
                 {sc.description}
               </p>
             </div>
@@ -102,7 +119,9 @@ export function SectionScenarios() {
           body={t("settings.scenarios.applyConfirmBody", { name: pendingScenario.name })}
           confirmLabel={t("settings.scenarios.applyConfirm")}
           cancelLabel={t("settings.scenarios.applyCancel")}
-          onConfirm={() => { void handleApplyConfirm(); }}
+          onConfirm={() => {
+            void handleApplyConfirm();
+          }}
           onCancel={() => setPendingScenario(null)}
         />
       )}

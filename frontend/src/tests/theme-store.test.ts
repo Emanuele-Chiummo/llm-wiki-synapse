@@ -27,14 +27,24 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
     getItem(k: string) {
       return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
     },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -117,14 +127,22 @@ describe("resolveTheme()", () => {
 
   it("returns 'light' when theme is 'system' and OS prefers light", async () => {
     mqlMock = makeMqlMock(false);
-    Object.defineProperty(window, "matchMedia", { writable: true, configurable: true, value: vi.fn(() => mqlMock) });
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: vi.fn(() => mqlMock),
+    });
     const { resolveTheme } = await import("../store/settingsStore");
     expect(resolveTheme("system")).toBe("light");
   });
 
   it("returns 'dark' when theme is 'system' and OS prefers dark", async () => {
     mqlMock = makeMqlMock(true);
-    Object.defineProperty(window, "matchMedia", { writable: true, configurable: true, value: vi.fn(() => mqlMock) });
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: vi.fn(() => mqlMock),
+    });
     const { resolveTheme } = await import("../store/settingsStore");
     expect(resolveTheme("system")).toBe("dark");
   });
@@ -156,7 +174,11 @@ describe("Theme applier — dataset.theme", () => {
 
   it("sets dataset.theme to 'light' when theme is 'system' and OS is light", async () => {
     mqlMock = makeMqlMock(false);
-    Object.defineProperty(window, "matchMedia", { writable: true, configurable: true, value: vi.fn(() => mqlMock) });
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: vi.fn(() => mqlMock),
+    });
     fakeStorage.setItem("synapse.theme", "system");
     await import("../store/settingsStore");
     expect(document.documentElement.dataset["theme"]).toBe("light");
@@ -164,7 +186,11 @@ describe("Theme applier — dataset.theme", () => {
 
   it("sets dataset.theme to 'dark' when theme is 'system' and OS prefers dark", async () => {
     mqlMock = makeMqlMock(true);
-    Object.defineProperty(window, "matchMedia", { writable: true, configurable: true, value: vi.fn(() => mqlMock) });
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      configurable: true,
+      value: vi.fn(() => mqlMock),
+    });
     fakeStorage.setItem("synapse.theme", "system");
     await import("../store/settingsStore");
     expect(document.documentElement.dataset["theme"]).toBe("dark");

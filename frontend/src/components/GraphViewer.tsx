@@ -558,7 +558,9 @@ export const GraphViewer: React.FC = () => {
   useEffect(() => {
     const observer = new MutationObserver(() => {
       setSigmaThemeColors(readSigmaThemeColors());
-      setGraphTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      setGraphTheme(
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
+      );
     });
     observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
     return () => observer.disconnect();
@@ -1135,7 +1137,9 @@ export const GraphViewer: React.FC = () => {
   useEffect(() => {
     const sigma = sigmaRef.current;
     if (!sigma) return; // Not mounted yet — the mount effect above owns the first build.
-    if (nodes.length === 0) return;
+    // NOTE: do NOT early-return for nodes.length === 0 here. When a cascade-delete
+    // empties the vault and /graph returns zero nodes, we must run the remove loops
+    // below so all stale sigma nodes/edges are dropped and the canvas clears.
 
     // Diff against sigmaGraph (the transformed copy — color/hubLabel/nodeType/
     // nodeCommunity/nodeDomain/isHub already computed), NOT rawGraph (plain

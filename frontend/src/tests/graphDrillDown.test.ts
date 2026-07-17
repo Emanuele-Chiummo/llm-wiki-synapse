@@ -114,21 +114,19 @@ describe("fetchCommunityDetail — 409 graph cache cold (AC-R9-5-409)", () => {
   it("throws ApiError(409) when server returns 409", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          jsonResponse(
-            {
-              error: {
-                code: "conflict",
-                message: "Graph cache cold — regenerate first",
-                status: 409,
-                details: null,
-              },
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: "conflict",
+              message: "Graph cache cold — regenerate first",
+              status: 409,
+              details: null,
             },
-            409,
-          ),
+          },
+          409,
         ),
+      ),
     );
 
     const err = await fetchCommunityDetail(2).catch((e: unknown) => e);
@@ -139,16 +137,14 @@ describe("fetchCommunityDetail — 409 graph cache cold (AC-R9-5-409)", () => {
   it("error message contains 409", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          jsonResponse(
-            {
-              error: { code: "conflict", message: "Graph cache cold", status: 409, details: null },
-            },
-            409,
-          ),
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: { code: "conflict", message: "Graph cache cold", status: 409, details: null },
+          },
+          409,
         ),
+      ),
     );
 
     try {

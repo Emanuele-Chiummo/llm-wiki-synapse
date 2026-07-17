@@ -39,12 +39,24 @@ import { ConvertError } from "../api/convertClient";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -127,7 +139,9 @@ function makeBatchResponse(files: string[]): ConvertBatchResponse {
   };
 }
 
-function makeStatusDone(files: Array<{ file: string; status: "ok" | "failed"; detail?: string }>): ConvertStatusResponse {
+function makeStatusDone(
+  files: Array<{ file: string; status: "ok" | "failed"; detail?: string }>,
+): ConvertStatusResponse {
   return {
     batch_id: "batch-1",
     running: false,
@@ -139,7 +153,8 @@ function makeStatusDone(files: Array<{ file: string; status: "ok" | "failed"; de
       safe_stem: f.file.replace(".pdf", ""),
       status: f.status,
       detail: f.detail ?? null,
-      companion_path: f.status === "ok" ? `vault/raw/sources/${f.file.replace(".pdf", ".md")}` : null,
+      companion_path:
+        f.status === "ok" ? `vault/raw/sources/${f.file.replace(".pdf", ".md")}` : null,
     })),
   };
 }
@@ -282,9 +297,7 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
 
   it("renders ok rows after successful async conversion (poll returns running=false)", async () => {
     mockStartConvert.mockResolvedValue(makeBatchResponse(["doc.pdf"]));
-    mockGetConvertStatus.mockResolvedValue(
-      makeStatusDone([{ file: "doc.pdf", status: "ok" }]),
-    );
+    mockGetConvertStatus.mockResolvedValue(makeStatusDone([{ file: "doc.pdf", status: "ok" }]));
 
     await renderPanel();
     dropFiles([makePdf("doc.pdf")]);
@@ -295,15 +308,20 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
     });
 
     // Wait for the immediate poll to fire and resolve
-    await waitFor(() => {
-      expect(screen.queryByTestId("convert-file-row-ok")).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("convert-file-row-ok")).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("renders failed rows with detail string on conversion error", async () => {
     mockStartConvert.mockResolvedValue(makeBatchResponse(["report.pdf"]));
     mockGetConvertStatus.mockResolvedValue(
-      makeStatusDone([{ file: "report.pdf", status: "failed", detail: "Marker service returned 503" }]),
+      makeStatusDone([
+        { file: "report.pdf", status: "failed", detail: "Marker service returned 503" },
+      ]),
     );
 
     await renderPanel();
@@ -314,13 +332,16 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
       fireEvent.click(btn);
     });
 
-    await waitFor(() => {
-      const failedRow = screen.queryByTestId("convert-file-row-failed");
-      expect(failedRow).not.toBeNull();
-      const errorEl = screen.queryByTestId("convert-file-error");
-      expect(errorEl).not.toBeNull();
-      expect(errorEl?.textContent).toContain("Marker service returned 503");
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const failedRow = screen.queryByTestId("convert-file-row-failed");
+        expect(failedRow).not.toBeNull();
+        const errorEl = screen.queryByTestId("convert-file-error");
+        expect(errorEl).not.toBeNull();
+        expect(errorEl?.textContent).toContain("Marker service returned 503");
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("shows progress bar while batch is running", async () => {
@@ -328,10 +349,12 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
     // First poll: running; second poll: done
     mockGetConvertStatus
       .mockResolvedValueOnce(makeStatusRunning(["a.pdf", "b.pdf"], 1))
-      .mockResolvedValue(makeStatusDone([
-        { file: "a.pdf", status: "ok" },
-        { file: "b.pdf", status: "ok" },
-      ]));
+      .mockResolvedValue(
+        makeStatusDone([
+          { file: "a.pdf", status: "ok" },
+          { file: "b.pdf", status: "ok" },
+        ]),
+      );
 
     await renderPanel();
     dropFiles([makePdf("a.pdf"), makePdf("b.pdf")]);
@@ -343,10 +366,13 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
 
     // Progress section should be visible during conversion (converting=true)
     // OR immediately after (done=true). Either way, the progress bar should appear.
-    await waitFor(() => {
-      const progress = screen.queryByTestId("convert-progress");
-      expect(progress).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const progress = screen.queryByTestId("convert-progress");
+        expect(progress).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("shows ETA label when eta_seconds is present", async () => {
@@ -359,7 +385,15 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
         total: 1,
         done: 0,
         eta_seconds: 42,
-        files: [{ file: "a.pdf", safe_stem: "a", status: "converting", detail: null, companion_path: null }],
+        files: [
+          {
+            file: "a.pdf",
+            safe_stem: "a",
+            status: "converting",
+            detail: null,
+            companion_path: null,
+          },
+        ],
       })
       .mockResolvedValue(makeStatusDone([{ file: "a.pdf", status: "ok" }]));
 
@@ -371,10 +405,13 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
     });
 
     // ETA label should appear during the running phase
-    await waitFor(() => {
-      const eta = screen.queryByTestId("convert-eta-label");
-      expect(eta).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const eta = screen.queryByTestId("convert-eta-label");
+        expect(eta).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("renders multiple file rows when multiple PDFs are dropped", async () => {
@@ -390,9 +427,7 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
 
   it("shows success hint after all files convert successfully", async () => {
     mockStartConvert.mockResolvedValue(makeBatchResponse(["ok.pdf"]));
-    mockGetConvertStatus.mockResolvedValue(
-      makeStatusDone([{ file: "ok.pdf", status: "ok" }]),
-    );
+    mockGetConvertStatus.mockResolvedValue(makeStatusDone([{ file: "ok.pdf", status: "ok" }]));
 
     await renderPanel();
     dropFiles([makePdf("ok.pdf")]);
@@ -401,9 +436,12 @@ describe("ConvertPanel — async conversion flow + per-file status rows (AC-R11-
       fireEvent.click(screen.getByTestId("convert-submit-btn"));
     });
 
-    await waitFor(() => {
-      expect(screen.queryByTestId("convert-success-hint")).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("convert-success-hint")).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("shows submit error on 409 (batch already running)", async () => {
@@ -446,9 +484,7 @@ describe("ConvertPanel — conversion history", () => {
 
   it("adds an ok entry to history after successful conversion", async () => {
     mockStartConvert.mockResolvedValue(makeBatchResponse(["hist.pdf"]));
-    mockGetConvertStatus.mockResolvedValue(
-      makeStatusDone([{ file: "hist.pdf", status: "ok" }]),
-    );
+    mockGetConvertStatus.mockResolvedValue(makeStatusDone([{ file: "hist.pdf", status: "ok" }]));
 
     await renderPanel();
     dropFiles([makePdf("hist.pdf")]);
@@ -457,9 +493,12 @@ describe("ConvertPanel — conversion history", () => {
       fireEvent.click(screen.getByTestId("convert-submit-btn"));
     });
 
-    await waitFor(() => {
-      expect(screen.queryByTestId("convert-history-entry-ok")).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("convert-history-entry-ok")).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("adds a failed entry to history after failed conversion", async () => {
@@ -475,16 +514,17 @@ describe("ConvertPanel — conversion history", () => {
       fireEvent.click(screen.getByTestId("convert-submit-btn"));
     });
 
-    await waitFor(() => {
-      expect(screen.queryByTestId("convert-history-entry-failed")).not.toBeNull();
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("convert-history-entry-failed")).not.toBeNull();
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("persists history to localStorage after conversion", async () => {
     mockStartConvert.mockResolvedValue(makeBatchResponse(["persist.pdf"]));
-    mockGetConvertStatus.mockResolvedValue(
-      makeStatusDone([{ file: "persist.pdf", status: "ok" }]),
-    );
+    mockGetConvertStatus.mockResolvedValue(makeStatusDone([{ file: "persist.pdf", status: "ok" }]));
 
     await renderPanel();
     dropFiles([makePdf("persist.pdf")]);
@@ -493,19 +533,36 @@ describe("ConvertPanel — conversion history", () => {
       fireEvent.click(screen.getByTestId("convert-submit-btn"));
     });
 
-    await waitFor(() => {
-      const raw = fakeLocalStorage.getItem("synapse.convertHistory");
-      expect(raw).not.toBeNull();
-      const entries = JSON.parse(raw!) as Array<{ filename: string }>;
-      expect(entries.some((e) => e.filename === "persist.pdf")).toBe(true);
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const raw = fakeLocalStorage.getItem("synapse.convertHistory");
+        expect(raw).not.toBeNull();
+        const entries = JSON.parse(raw!) as Array<{ filename: string }>;
+        expect(entries.some((e) => e.filename === "persist.pdf")).toBe(true);
+      },
+      { timeout: 3000 },
+    );
   });
 
   it("shows 'Apri' button only for ok history entries", async () => {
     // Pre-populate localStorage with one ok and one failed entry
     const entries = [
-      { id: "1", filename: "ok.pdf", safe_stem: "ok", timestamp: Date.now(), status: "ok", companion_path: "vault/raw/sources/ok.md" },
-      { id: "2", filename: "fail.pdf", safe_stem: "fail", timestamp: Date.now(), status: "failed", companion_path: null },
+      {
+        id: "1",
+        filename: "ok.pdf",
+        safe_stem: "ok",
+        timestamp: Date.now(),
+        status: "ok",
+        companion_path: "vault/raw/sources/ok.md",
+      },
+      {
+        id: "2",
+        filename: "fail.pdf",
+        safe_stem: "fail",
+        timestamp: Date.now(),
+        status: "failed",
+        companion_path: null,
+      },
     ];
     fakeLocalStorage.setItem("synapse.convertHistory", JSON.stringify(entries));
 
@@ -519,7 +576,14 @@ describe("ConvertPanel — conversion history", () => {
 
   it("loads history from localStorage on mount (survives refresh)", async () => {
     const entries = [
-      { id: "x1", filename: "saved.pdf", safe_stem: "saved", timestamp: Date.now(), status: "ok", companion_path: "vault/raw/sources/saved.md" },
+      {
+        id: "x1",
+        filename: "saved.pdf",
+        safe_stem: "saved",
+        timestamp: Date.now(),
+        status: "ok",
+        companion_path: "vault/raw/sources/saved.md",
+      },
     ];
     fakeLocalStorage.setItem("synapse.convertHistory", JSON.stringify(entries));
 
@@ -575,7 +639,9 @@ describe("ConvertPanel — drag-drop (fix: onDragEnter + onDragOver both prevent
       total: 1,
       done: 0,
       eta_seconds: null,
-      files: [{ file: "a.pdf", safe_stem: "a", status: "converting", detail: null, companion_path: null }],
+      files: [
+        { file: "a.pdf", safe_stem: "a", status: "converting", detail: null, companion_path: null },
+      ],
     });
 
     await renderPanel();
@@ -594,8 +660,9 @@ describe("ConvertPanel — drag-drop (fix: onDragEnter + onDragOver both prevent
 
     // "ignored.pdf" should not appear in the pre-submit queue
     await waitFor(() => {
-      const names = Array.from(document.querySelectorAll("[data-testid='convert-file-name']"))
-        .map((el) => el.textContent ?? "");
+      const names = Array.from(document.querySelectorAll("[data-testid='convert-file-name']")).map(
+        (el) => el.textContent ?? "",
+      );
       expect(names.every((n) => !n.includes("ignored"))).toBe(true);
     });
   });
@@ -746,7 +813,11 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
       status: "offline",
       detail: "refused",
     } satisfies MarkerHealthResponse);
-    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("synapse.markerStartCommand");
+    } catch {
+      /* ignore */
+    }
     vi.clearAllMocks();
     mockIsTauri.mockReturnValue(true);
     mockGetMarkerHealth.mockResolvedValue({
@@ -757,7 +828,11 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
 
   afterEach(() => {
     vi.resetAllMocks();
-    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("synapse.markerStartCommand");
+    } catch {
+      /* ignore */
+    }
   });
 
   it("shows the start-marker button when Tauri + offline", async () => {
@@ -832,10 +907,7 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
     });
 
     await waitFor(() => {
-      expect(mockCreate).toHaveBeenCalledWith(
-        "sh",
-        expect.arrayContaining(["-c"]),
-      );
+      expect(mockCreate).toHaveBeenCalledWith("sh", expect.arrayContaining(["-c"]));
     });
 
     const allCalls = mockCreate.mock.calls as unknown as Array<[string, string[]]>;
@@ -880,7 +952,11 @@ describe("ConvertPanel — R12-6: Avvia Marker — visible in Tauri + offline", 
 describe("ConvertPanel — R12-6: cancel hides the config field", () => {
   afterEach(() => {
     vi.resetAllMocks();
-    try { localStorage.removeItem("synapse.markerStartCommand"); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem("synapse.markerStartCommand");
+    } catch {
+      /* ignore */
+    }
   });
 
   it("clicking cancel on the config field hides it without spawning", async () => {

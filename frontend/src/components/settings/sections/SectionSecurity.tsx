@@ -95,10 +95,28 @@ export function SectionSecurity() {
 
       {/* Server URL (read-only) */}
       <div style={SEC_CARD}>
-        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
+        <label
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            display: "block",
+            marginBottom: 4,
+          }}
+        >
           {t("settings.security.serverUrl")}
         </label>
-        <div style={{ fontSize: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "var(--syn-text-dim)", background: "var(--syn-bg-soft)", border: "1px solid var(--syn-border)", borderRadius: 6, padding: "8px 12px" }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            color: "var(--syn-text-dim)",
+            background: "var(--syn-bg-soft)",
+            border: "1px solid var(--syn-border)",
+            borderRadius: 6,
+            padding: "8px 12px",
+          }}
+        >
           {currentServerUrl}
         </div>
         <p style={{ fontSize: 11, color: "var(--syn-text-dim)", marginTop: 4 }}>
@@ -108,7 +126,16 @@ export function SectionSecurity() {
 
       {/* Rotate token field */}
       <div style={SEC_CARD}>
-        <label htmlFor="settings-security-token" style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
+        <label
+          htmlFor="settings-security-token"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            display: "block",
+            marginBottom: 4,
+          }}
+        >
           {t("settings.security.rotateLabel")}
         </label>
         <div style={{ position: "relative", marginBottom: 8 }}>
@@ -120,26 +147,59 @@ export function SectionSecurity() {
             placeholder={t("settings.security.rotatePlaceholder")}
             autoComplete="new-password"
             className="syn-input"
-            style={{ paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+            style={{
+              paddingRight: 40,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 12,
+            }}
           />
           <button
             type="button"
             onClick={() => setShowToken((v) => !v)}
             aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
-            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
+            style={{
+              position: "absolute",
+              right: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 2,
+              color: "var(--syn-text-dim)",
+              display: "flex",
+              alignItems: "center",
+            }}
           >
-            {showToken ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+            {showToken ? (
+              <EyeOff size={14} aria-hidden="true" />
+            ) : (
+              <Eye size={14} aria-hidden="true" />
+            )}
           </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Button variant="accent-ghost" onClick={handleUpdate} disabled={newToken.trim().length === 0} data-testid="security-update-btn">
+          <Button
+            variant="accent-ghost"
+            onClick={handleUpdate}
+            disabled={newToken.trim().length === 0}
+            data-testid="security-update-btn"
+          >
             {t("settings.security.update")}
           </Button>
           <Button variant="ghost" onClick={handleClear} data-testid="security-clear-btn">
             {t("settings.security.clear")}
           </Button>
-          {saved && <span style={{ fontSize: 12, color: "var(--syn-green)" }}>{t("settings.security.saved")}</span>}
-          {cleared && <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.security.cleared")}</span>}
+          {saved && (
+            <span style={{ fontSize: 12, color: "var(--syn-green)" }}>
+              {t("settings.security.saved")}
+            </span>
+          )}
+          {cleared && (
+            <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>
+              {t("settings.security.cleared")}
+            </span>
+          )}
         </div>
       </div>
 
@@ -148,7 +208,9 @@ export function SectionSecurity() {
         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, color: "var(--syn-text)" }}>
           {t("settings.security.cfTitle")}
         </h3>
-        <p style={{ fontSize: 12, color: "var(--syn-text-dim)", marginBottom: 12, lineHeight: 1.6 }}>
+        <p
+          style={{ fontSize: 12, color: "var(--syn-text-dim)", marginBottom: 12, lineHeight: 1.6 }}
+        >
           {t("settings.security.cfDesc")}
         </p>
         <p style={{ fontSize: 11, color: "var(--syn-text-dim)", marginBottom: 12 }}>
@@ -156,7 +218,16 @@ export function SectionSecurity() {
         </p>
 
         {/* Client ID */}
-        <label htmlFor="settings-security-cf-id" style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
+        <label
+          htmlFor="settings-security-cf-id"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            display: "block",
+            marginBottom: 4,
+          }}
+        >
           {t("settings.security.cfIdLabel")}
         </label>
         <input
@@ -169,11 +240,24 @@ export function SectionSecurity() {
           autoCorrect="off"
           spellCheck={false}
           className="syn-input"
-          style={{ marginBottom: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+          style={{
+            marginBottom: 10,
+            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+            fontSize: 12,
+          }}
         />
 
         {/* Client Secret */}
-        <label htmlFor="settings-security-cf-secret" style={{ fontSize: 12, fontWeight: 600, color: "var(--syn-text-muted)", display: "block", marginBottom: 4 }}>
+        <label
+          htmlFor="settings-security-cf-secret"
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--syn-text-muted)",
+            display: "block",
+            marginBottom: 4,
+          }}
+        >
           {t("settings.security.cfSecretLabel")}
         </label>
         <div style={{ position: "relative", marginBottom: 8 }}>
@@ -185,15 +269,35 @@ export function SectionSecurity() {
             placeholder={t("settings.security.cfSecretPlaceholder")}
             autoComplete="new-password"
             className="syn-input"
-            style={{ paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+            style={{
+              paddingRight: 40,
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 12,
+            }}
           />
           <button
             type="button"
             onClick={() => setShowCfSecret((v) => !v)}
             aria-label={showCfSecret ? t("connect.hideToken") : t("connect.showToken")}
-            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
+            style={{
+              position: "absolute",
+              right: 10,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: 2,
+              color: "var(--syn-text-dim)",
+              display: "flex",
+              alignItems: "center",
+            }}
           >
-            {showCfSecret ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
+            {showCfSecret ? (
+              <EyeOff size={14} aria-hidden="true" />
+            ) : (
+              <Eye size={14} aria-hidden="true" />
+            )}
           </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -208,8 +312,16 @@ export function SectionSecurity() {
           <Button variant="ghost" onClick={handleCfClear} data-testid="security-cf-clear-btn">
             {t("settings.security.clear")}
           </Button>
-          {cfSaved && <span style={{ fontSize: 12, color: "var(--syn-green)" }}>{t("settings.security.saved")}</span>}
-          {cfCleared && <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.security.cleared")}</span>}
+          {cfSaved && (
+            <span style={{ fontSize: 12, color: "var(--syn-green)" }}>
+              {t("settings.security.saved")}
+            </span>
+          )}
+          {cfCleared && (
+            <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>
+              {t("settings.security.cleared")}
+            </span>
+          )}
         </div>
       </div>
 
@@ -217,9 +329,22 @@ export function SectionSecurity() {
       <ApiTokensCard />
 
       {/* Asymmetry banner (ADR-0052 §2.6 / AC-R10-2-5) */}
-      <div style={{ marginTop: 24, padding: "12px 14px", background: "var(--syn-notice-info-bg, #eff6ff)", border: "1px solid var(--syn-notice-info-border, #bfdbfe)", borderRadius: 8, fontSize: 12, color: "var(--syn-text)", lineHeight: 1.6 }}>
+      <div
+        style={{
+          marginTop: 24,
+          padding: "12px 14px",
+          background: "var(--syn-notice-info-bg, #eff6ff)",
+          border: "1px solid var(--syn-notice-info-border, #bfdbfe)",
+          borderRadius: 8,
+          fontSize: 12,
+          color: "var(--syn-text)",
+          lineHeight: 1.6,
+        }}
+      >
         <p style={{ fontWeight: 600, marginBottom: 4 }}>{t("settings.security.asymmetryTitle")}</p>
-        <p style={{ margin: 0, color: "var(--syn-text-dim)" }}>{t("settings.security.asymmetryNote")}</p>
+        <p style={{ margin: 0, color: "var(--syn-text-dim)" }}>
+          {t("settings.security.asymmetryNote")}
+        </p>
       </div>
     </div>
   );

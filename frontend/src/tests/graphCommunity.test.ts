@@ -30,7 +30,11 @@ import {
   colorForDomain,
 } from "../components/graphPalette";
 import { buildGraphologyGraph } from "../api/graphTransform";
-import { computeCommunityCentroids, computeDomainCentroids, communityDisplayName } from "../components/graphCommunityUtils";
+import {
+  computeCommunityCentroids,
+  computeDomainCentroids,
+  communityDisplayName,
+} from "../components/graphCommunityUtils";
 import { useGraphStore, selectCommunities } from "../store/graphStore";
 import type { GraphNode, GraphEdge, GraphCommunity } from "../api/types";
 
@@ -91,8 +95,8 @@ describe("colorForCommunity — palette mapping (I2: read-only server values)", 
 describe("buildGraphologyGraph — community passthrough (I2: no client recompute)", () => {
   const nodes: GraphNode[] = [
     { id: "n1", title: "Alpha", type: "concept", x: 0, y: 0, degree: 1, community: 0 },
-    { id: "n2", title: "Beta",  type: "entity",  x: 1, y: 1, degree: 1, community: 3 },
-    { id: "n3", title: "Gamma", type: "source",  x: 2, y: 2, degree: 0 }, // no community field
+    { id: "n2", title: "Beta", type: "entity", x: 1, y: 1, degree: 1, community: 3 },
+    { id: "n3", title: "Gamma", type: "source", x: 2, y: 2, degree: 0 }, // no community field
   ];
   const edges: GraphEdge[] = [{ source: "n1", target: "n2", weight: 1 }];
 
@@ -153,9 +157,7 @@ describe("graphStore — communities via setGraph + selectCommunities (I3)", () 
   });
 
   it("reset clears communities back to []", () => {
-    useGraphStore.getState().setGraph([], [], 1, "hit", [
-      { id: 0, size: 5, cohesion: 0.9 },
-    ]);
+    useGraphStore.getState().setGraph([], [], 1, "hit", [{ id: 0, size: 5, cohesion: 0.9 }]);
     useGraphStore.getState().reset();
     expect(selectCommunities(useGraphStore.getState())).toEqual([]);
   });
@@ -190,7 +192,7 @@ describe("LOW_COHESION_THRESHOLD — legend warning logic", () => {
   });
 
   it("cohesion = 0.10 is NOT low-cohesion (= threshold, not strictly less)", () => {
-    const c: GraphCommunity = { id: 0, size: 10, cohesion: 0.10 };
+    const c: GraphCommunity = { id: 0, size: 10, cohesion: 0.1 };
     expect(c.cohesion < LOW_COHESION_THRESHOLD).toBe(false);
   });
 
@@ -267,13 +269,13 @@ describe("computeCommunityCentroids — centroid computation (I2/I3)", () => {
   ];
 
   const nodes: GraphNode[] = [
-    { id: "n1", title: "A", type: "concept", x: 0,   y: 0,   community: 0 },
-    { id: "n2", title: "B", type: "concept", x: 4,   y: 4,   community: 0 },
-    { id: "n3", title: "C", type: "entity",  x: 10,  y: 20,  community: 1 },
-    { id: "n4", title: "D", type: "entity",  x: 30,  y: 0,   community: 1 },
-    { id: "n5", title: "E", type: "entity",  x: 20,  y: 10,  community: 1 },
-    { id: "n6", title: "F", type: "source",  x: 100, y: 100, community: 2 }, // singleton
-    { id: "n7", title: "G", type: "source",  x: 50,  y: 50,  community: -1 }, // unassigned
+    { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0 },
+    { id: "n2", title: "B", type: "concept", x: 4, y: 4, community: 0 },
+    { id: "n3", title: "C", type: "entity", x: 10, y: 20, community: 1 },
+    { id: "n4", title: "D", type: "entity", x: 30, y: 0, community: 1 },
+    { id: "n5", title: "E", type: "entity", x: 20, y: 10, community: 1 },
+    { id: "n6", title: "F", type: "source", x: 100, y: 100, community: 2 }, // singleton
+    { id: "n7", title: "G", type: "source", x: 50, y: 50, community: -1 }, // unassigned
   ];
 
   it("returns centroids only for communities with size > 1 (skips singletons)", () => {
@@ -359,9 +361,7 @@ describe("computeCommunityCentroids — centroid computation (I2/I3)", () => {
   });
 
   it("returns empty map when all communities are singletons (size=1)", () => {
-    const singletonComms: GraphCommunity[] = [
-      { id: 0, size: 1, cohesion: 0.9 },
-    ];
+    const singletonComms: GraphCommunity[] = [{ id: 0, size: 1, cohesion: 0.9 }];
     const singleNodes: GraphNode[] = [
       { id: "s1", title: "Solo", type: "concept", x: 1, y: 2, community: 0 },
     ];
@@ -375,7 +375,9 @@ describe("computeCommunityCentroids — centroid computation (I2/I3)", () => {
 describe("communityDisplayName — unique label derivation (I2/I3)", () => {
   it("H1: returns '{domain} · {sub}' when dominant_domain and top_page exist", () => {
     const c: GraphCommunity = {
-      id: 0, size: 10, cohesion: 0.8,
+      id: 0,
+      size: 10,
+      cohesion: 0.8,
       dominant_domain: "SAM",
       top_page: { id: "p1", title: "Reconciliation Process", slug: "reconciliation-process" },
     };
@@ -384,7 +386,9 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H2: strips leading domain word from top_page.title to avoid duplication", () => {
     const c: GraphCommunity = {
-      id: 1, size: 8, cohesion: 0.7,
+      id: 1,
+      size: 8,
+      cohesion: 0.7,
       dominant_domain: "SAM",
       top_page: { id: "p2", title: "SAM Reconciliation", slug: "sam-reconciliation" },
     };
@@ -396,12 +400,16 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H3: two same-domain communities get DIFFERENT display names via their top_page", () => {
     const cA: GraphCommunity = {
-      id: 0, size: 12, cohesion: 0.9,
+      id: 0,
+      size: 12,
+      cohesion: 0.9,
       dominant_domain: "SAM",
       top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" },
     };
     const cB: GraphCommunity = {
-      id: 1, size: 8, cohesion: 0.6,
+      id: 1,
+      size: 8,
+      cohesion: 0.6,
       dominant_domain: "SAM",
       top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" },
     };
@@ -415,9 +423,15 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H4: truncates subtitle at 24 chars with ellipsis", () => {
     const c: GraphCommunity = {
-      id: 2, size: 5, cohesion: 0.5,
+      id: 2,
+      size: 5,
+      cohesion: 0.5,
       dominant_domain: "Procurement",
-      top_page: { id: "p3", title: "Supplier Evaluation Framework", slug: "supplier-evaluation-framework" },
+      top_page: {
+        id: "p3",
+        title: "Supplier Evaluation Framework",
+        slug: "supplier-evaluation-framework",
+      },
     };
     const name = communityDisplayName(c);
     // "Supplier Evaluation Framework" is 29 chars; MAX_SUB_CHARS=24 → slice(0,23)+"…"
@@ -427,7 +441,9 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H5: falls back to top_page.title when no dominant_domain", () => {
     const c: GraphCommunity = {
-      id: 3, size: 4, cohesion: 0.4,
+      id: 3,
+      size: 4,
+      cohesion: 0.4,
       dominant_domain: null,
       top_page: { id: "p4", title: "Risk Assessment", slug: "risk-assessment" },
     };
@@ -436,7 +452,9 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H6: falls back to community.label when no domain or top_page", () => {
     const c: GraphCommunity = {
-      id: 4, size: 3, cohesion: 0.3,
+      id: 4,
+      size: 3,
+      cohesion: 0.3,
       label: "Finance",
     };
     expect(communityDisplayName(c)).toBe("Finance");
@@ -455,8 +473,13 @@ describe("communityDisplayName — unique label derivation (I2/I3)", () => {
 
   it("H9: does NOT call Math.random (I2/I3 sentinel — pure function)", () => {
     const randomSpy = vi.spyOn(Math, "random");
-    communityDisplayName({ id: 0, size: 5, cohesion: 0.8, dominant_domain: "SAM",
-      top_page: { id: "x", title: "SAM Overview", slug: "sam-overview" } });
+    communityDisplayName({
+      id: 0,
+      size: 5,
+      cohesion: 0.8,
+      dominant_domain: "SAM",
+      top_page: { id: "x", title: "SAM Overview", slug: "sam-overview" },
+    });
     communityDisplayName({ id: 1, size: 2, cohesion: 0.2 });
     expect(randomSpy).not.toHaveBeenCalled();
     randomSpy.mockRestore();
@@ -532,14 +555,14 @@ describe("colorForDomain — domain color palette (I2/I3)", () => {
 
 describe("computeDomainCentroids — domain centroid computation (I2/I3)", () => {
   const nodesWithDomains: GraphNode[] = [
-    { id: "n1", title: "A",    type: "concept", x: 0,   y: 0,   community: 0, domain: "SAM" },
-    { id: "n2", title: "B",    type: "concept", x: 4,   y: 4,   community: 0, domain: "SAM" },
-    { id: "n3", title: "C",    type: "entity",  x: 10,  y: 20,  community: 1, domain: "Procurement" },
-    { id: "n4", title: "D",    type: "entity",  x: 30,  y: 0,   community: 1, domain: "Procurement" },
-    { id: "n5", title: "E",    type: "entity",  x: 20,  y: 10,  community: 1, domain: "Procurement" },
-    { id: "n6", title: "F",    type: "source",  x: 100, y: 100, community: 2, domain: "TPRM" }, // singleton domain
-    { id: "n7", title: "G",    type: "source",  x: 50,  y: 50,  community: -1, domain: null }, // untagged (explicit null)
-    { id: "n8", title: "H",    type: "concept", x: 5,   y: 5,   community: -1 }, // untagged (domain absent)
+    { id: "n1", title: "A", type: "concept", x: 0, y: 0, community: 0, domain: "SAM" },
+    { id: "n2", title: "B", type: "concept", x: 4, y: 4, community: 0, domain: "SAM" },
+    { id: "n3", title: "C", type: "entity", x: 10, y: 20, community: 1, domain: "Procurement" },
+    { id: "n4", title: "D", type: "entity", x: 30, y: 0, community: 1, domain: "Procurement" },
+    { id: "n5", title: "E", type: "entity", x: 20, y: 10, community: 1, domain: "Procurement" },
+    { id: "n6", title: "F", type: "source", x: 100, y: 100, community: 2, domain: "TPRM" }, // singleton domain
+    { id: "n7", title: "G", type: "source", x: 50, y: 50, community: -1, domain: null }, // untagged (explicit null)
+    { id: "n8", title: "H", type: "concept", x: 5, y: 5, community: -1 }, // untagged (domain absent)
   ];
 
   it("returns centroids only for domains with >= 2 nodes (skips singletons + null)", () => {
@@ -641,10 +664,20 @@ describe("community legend aggregation — one row per cluster, unique names (I2
   it("K1: produces ONE row per Louvain community (no domain-aggregation)", () => {
     // Two communities both with dominant_domain="SAM" but different top_pages
     const communities: GraphCommunity[] = [
-      { id: 0, size: 12, cohesion: 0.9, dominant_domain: "SAM",
-        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" } },
-      { id: 1, size: 8, cohesion: 0.6, dominant_domain: "SAM",
-        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" } },
+      {
+        id: 0,
+        size: 12,
+        cohesion: 0.9,
+        dominant_domain: "SAM",
+        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" },
+      },
+      {
+        id: 1,
+        size: 8,
+        cohesion: 0.6,
+        dominant_domain: "SAM",
+        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" },
+      },
     ];
     const rows = aggregateCommunityLegendRows(communities);
     expect(rows).toHaveLength(2); // two clusters, not merged into one "SAM"
@@ -652,10 +685,20 @@ describe("community legend aggregation — one row per cluster, unique names (I2
 
   it("K2: two same-domain communities get DIFFERENT display names", () => {
     const communities: GraphCommunity[] = [
-      { id: 0, size: 10, cohesion: 0.8, dominant_domain: "SAM",
-        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" } },
-      { id: 1, size: 6, cohesion: 0.5, dominant_domain: "SAM",
-        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" } },
+      {
+        id: 0,
+        size: 10,
+        cohesion: 0.8,
+        dominant_domain: "SAM",
+        top_page: { id: "p1", title: "SAM Reconciliation", slug: "sam-reconciliation" },
+      },
+      {
+        id: 1,
+        size: 6,
+        cohesion: 0.5,
+        dominant_domain: "SAM",
+        top_page: { id: "p2", title: "SAM Reporting", slug: "sam-reporting" },
+      },
     ];
     const rows = aggregateCommunityLegendRows(communities);
     const names = rows.map((r) => r.displayName);
@@ -693,8 +736,8 @@ describe("community legend aggregation — one row per cluster, unique names (I2
   it("K5: low-cohesion flag set for communities with cohesion < LOW_COHESION_THRESHOLD", () => {
     const communities: GraphCommunity[] = [
       { id: 0, size: 10, cohesion: 0.05 }, // low — 0.05 < 0.1
-      { id: 1, size: 5, cohesion: 0.10 },  // exactly at threshold — NOT low
-      { id: 2, size: 3, cohesion: 0.80 },  // healthy
+      { id: 1, size: 5, cohesion: 0.1 }, // exactly at threshold — NOT low
+      { id: 2, size: 3, cohesion: 0.8 }, // healthy
     ];
     const rows = aggregateCommunityLegendRows(communities);
     const row0 = rows.find((r) => r.community.id === 0)!;

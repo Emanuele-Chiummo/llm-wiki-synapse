@@ -42,7 +42,9 @@ export function ToastHost() {
   // Register the setter so showToast() can reach it
   useEffect(() => {
     globalSetToasts = setToasts;
-    return () => { globalSetToasts = null; };
+    return () => {
+      globalSetToasts = null;
+    };
   }, []);
 
   const dismiss = useCallback((id: number) => {

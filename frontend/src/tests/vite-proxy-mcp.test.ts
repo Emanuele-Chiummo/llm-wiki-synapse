@@ -37,12 +37,11 @@ describe("GAP-MCP-VITE (ADR-0029 A-AC-6) — Vite proxy covers /mcp", () => {
     // The proxy entry looks like:  '"/mcp":'  or  '"/mcp": {'.
     // We match both the quoted-key form and the property form to be resilient
     // against minor formatting changes.
-    const hasMcpProxy =
-      raw.includes('"/mcp"') || raw.includes("'/mcp'") || raw.includes("`/mcp`");
+    const hasMcpProxy = raw.includes('"/mcp"') || raw.includes("'/mcp'") || raw.includes("`/mcp`");
     expect(hasMcpProxy).toBe(true);
   });
 
-  it('the /mcp proxy entry points at the backend target (not a different host)', () => {
+  it("the /mcp proxy entry points at the backend target (not a different host)", () => {
     const raw = readFileSync(VITE_CONFIG_PATH, "utf-8");
     // Find the /mcp block and verify it has a target property.
     // We accept any non-empty target string (env-driven or hardcoded fallback).

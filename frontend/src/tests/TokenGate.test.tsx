@@ -20,12 +20,24 @@ import { TokenGate } from "../components/connect/TokenGate";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -89,7 +101,9 @@ describe("TokenGate — Eye/EyeOff toggle", () => {
     vi.stubGlobal("fetch", vi.fn());
     render(<TokenGate onSuccess={vi.fn()} />);
     const toggleBtn = screen.getByRole("button", { name: /show/i });
-    await act(async () => { fireEvent.click(toggleBtn); });
+    await act(async () => {
+      fireEvent.click(toggleBtn);
+    });
     const input = document.querySelector("input") as HTMLInputElement;
     expect(input.type).toBe("text");
   });
@@ -98,9 +112,13 @@ describe("TokenGate — Eye/EyeOff toggle", () => {
     vi.stubGlobal("fetch", vi.fn());
     render(<TokenGate onSuccess={vi.fn()} />);
     const toggleBtn = screen.getByRole("button", { name: /show/i });
-    await act(async () => { fireEvent.click(toggleBtn); });
+    await act(async () => {
+      fireEvent.click(toggleBtn);
+    });
     const toggleBtn2 = screen.getByRole("button", { name: /hide/i });
-    await act(async () => { fireEvent.click(toggleBtn2); });
+    await act(async () => {
+      fireEvent.click(toggleBtn2);
+    });
     const input = document.querySelector("input") as HTMLInputElement;
     expect(input.type).toBe("password");
   });
@@ -117,7 +135,9 @@ describe("TokenGate — empty token shows error", () => {
     const submitBtn = document.querySelector("button[type=submit]") as HTMLButtonElement;
     // Token is empty — button is disabled; force-enable for test
     submitBtn.removeAttribute("disabled");
-    await act(async () => { fireEvent.click(submitBtn); });
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
     expect(screen.getByTestId("token-gate-error")).toBeTruthy();
     expect(onSuccess).not.toHaveBeenCalled();
   });
@@ -133,7 +153,9 @@ describe("TokenGate — 401 from protected probe shows error", () => {
     const input = document.querySelector("input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "wrong-token" } });
     const submitBtn = document.querySelector("button[type=submit]") as HTMLButtonElement;
-    await act(async () => { fireEvent.click(submitBtn); });
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
     await waitFor(() => {
       expect(screen.getByTestId("token-gate-error")).toBeTruthy();
     });
@@ -151,7 +173,9 @@ describe("TokenGate — successful probe calls onSuccess", () => {
     const input = document.querySelector("input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "correct-token" } });
     const submitBtn = document.querySelector("button[type=submit]") as HTMLButtonElement;
-    await act(async () => { fireEvent.click(submitBtn); });
+    await act(async () => {
+      fireEvent.click(submitBtn);
+    });
     await waitFor(() => {
       expect(onSuccess).toHaveBeenCalledTimes(1);
     });

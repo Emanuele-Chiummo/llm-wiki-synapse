@@ -32,9 +32,7 @@ export function StreamingMessage(): ReactNode {
       aria-live="polite"
       aria-atomic="false"
     >
-      {hasThink && (
-        <ThinkBlock content={think} streaming={thinkStreaming} />
-      )}
+      {hasThink && <ThinkBlock content={think} streaming={thinkStreaming} />}
 
       {/* Raw buffer — NO parse (I3 / G3). white-space:pre-wrap preserves newlines. */}
       <div

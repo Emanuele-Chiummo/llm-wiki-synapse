@@ -20,8 +20,8 @@ export function SectionInterface() {
 
   // LLM Wiki order: Light · Dark · System.
   const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
-    { value: "light",  labelKey: "settings.theme.light" },
-    { value: "dark",   labelKey: "settings.theme.dark" },
+    { value: "light", labelKey: "settings.theme.light" },
+    { value: "dark", labelKey: "settings.theme.dark" },
     { value: "system", labelKey: "settings.theme.system" },
   ];
 
@@ -57,7 +57,14 @@ export function SectionInterface() {
             );
           })}
         </div>
-        <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--syn-text-muted)", lineHeight: 1.5 }}>
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 12.5,
+            color: "var(--syn-text-muted)",
+            lineHeight: 1.5,
+          }}
+        >
           {t("settings.theme.help")}
         </p>
       </Field>

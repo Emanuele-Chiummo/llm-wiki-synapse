@@ -153,10 +153,7 @@ describe("uploadDocument — 413 error (AC-U4)", () => {
   });
 
   it("throws ApiError with status 413 on oversized file", async () => {
-    vi.stubGlobal(
-      "fetch",
-      mockFetch(413, { detail: "File exceeds 25 MB limit." }),
-    );
+    vi.stubGlobal("fetch", mockFetch(413, { detail: "File exceeds 25 MB limit." }));
 
     const file = new File(["x".repeat(100)], "big.md", { type: "text/markdown" });
     await expect(uploadDocument(file)).rejects.toThrow(ApiError);
@@ -178,7 +175,10 @@ describe("uploadDocument — AbortSignal forwarding (AC-U5)", () => {
   });
 
   it("passes the signal to fetch when provided", async () => {
-    vi.stubGlobal("fetch", mockFetch(202, { file_path: "raw/sources/ok.md", status: "queued", overwritten: false }));
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(202, { file_path: "raw/sources/ok.md", status: "queued", overwritten: false }),
+    );
 
     const ctrl = new AbortController();
     const file = new File(["# ok"], "ok.md");
@@ -190,7 +190,10 @@ describe("uploadDocument — AbortSignal forwarding (AC-U5)", () => {
   });
 
   it("omits signal key when no signal is provided", async () => {
-    vi.stubGlobal("fetch", mockFetch(202, { file_path: "raw/sources/ok.md", status: "queued", overwritten: false }));
+    vi.stubGlobal(
+      "fetch",
+      mockFetch(202, { file_path: "raw/sources/ok.md", status: "queued", overwritten: false }),
+    );
 
     const file = new File(["# ok"], "ok.md");
     await uploadDocument(file);

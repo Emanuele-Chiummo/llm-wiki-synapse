@@ -138,7 +138,15 @@ describe("groupPagesByType", () => {
     expect(grouped.has("other")).toBe(false);
 
     // All at 0
-    for (const key of ["overview", "concept", "entity", "source", "synthesis", "comparison", "query"] as const) {
+    for (const key of [
+      "overview",
+      "concept",
+      "entity",
+      "source",
+      "synthesis",
+      "comparison",
+      "query",
+    ] as const) {
       expect(grouped.get(key)?.length).toBe(0);
     }
   });
@@ -239,10 +247,7 @@ describe("flattenTree", () => {
   });
 
   it("collapsed group emits only the header row", () => {
-    const grouped = groupPagesByType([
-      makePage("c1", "concept"),
-      makePage("c2", "concept"),
-    ]);
+    const grouped = groupPagesByType([makePage("c1", "concept"), makePage("c2", "concept")]);
     const rows = flattenTree(grouped, { concept: true });
 
     // concept group header is collapsed — its 2 page rows are suppressed

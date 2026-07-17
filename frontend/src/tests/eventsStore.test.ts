@@ -69,7 +69,7 @@ afterEach(() => {
 
 describe("parseSseFrame", () => {
   it("extracts id/event/data lines", () => {
-    const frame = "id: 3:1\nevent: data_version\ndata: {\"data_version\":3}";
+    const frame = 'id: 3:1\nevent: data_version\ndata: {"data_version":3}';
     expect(parseSseFrame(frame)).toEqual({
       id: "3:1",
       event: "data_version",

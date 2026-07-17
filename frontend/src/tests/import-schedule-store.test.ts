@@ -34,11 +34,7 @@ import {
   selectSaveSchedule,
   selectRunNow,
 } from "../store/importScheduleStore";
-import {
-  getImportSchedule,
-  putImportSchedule,
-  runImportNow,
-} from "../api/importScheduleClient";
+import { getImportSchedule, putImportSchedule, runImportNow } from "../api/importScheduleClient";
 import type { ImportSchedule, ImportSchedulePutResponse } from "../api/types";
 
 const mockGet = getImportSchedule as ReturnType<typeof vi.fn>;
@@ -101,7 +97,11 @@ beforeEach(() => {
 describe("fetchSchedule (AC-S1)", () => {
   it("sets loading:true during fetch then false after", async () => {
     let resolveGet!: (v: ImportSchedule) => void;
-    mockGet.mockReturnValue(new Promise<ImportSchedule>((r) => { resolveGet = r; }));
+    mockGet.mockReturnValue(
+      new Promise<ImportSchedule>((r) => {
+        resolveGet = r;
+      }),
+    );
 
     const fetchFn = getStore().fetchSchedule;
     const promise = fetchFn();
