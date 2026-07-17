@@ -1001,3 +1001,54 @@ button {
     transform: rotate(360deg);
   }
 }
+
+/* ── Accessibility utilities ───────────────────────────────────────────────
+ * .syn-sr-only   — visually hidden but announced by screen-readers.
+ * .syn-skip-link — skip-to-content link, visible only on :focus so keyboard
+ *                  users can bypass navigation, invisible by default (sr-only).
+ */
+
+.syn-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.syn-skip-link {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.syn-skip-link:focus {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  width: auto;
+  height: auto;
+  padding: 8px 16px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: var(--syn-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--syn-radius);
+  text-decoration: none;
+  box-shadow: var(--syn-shadow-pop);
+}

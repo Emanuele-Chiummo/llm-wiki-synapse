@@ -24,7 +24,7 @@
  * ADR-0048 §T2: CommandPalette + global shortcuts mounted here (single listener).
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useId } from "react";
 import { Header } from "./Header";
 import { NavRail } from "./nav/NavRail";
 import { SectionRouter } from "./SectionRouter";
@@ -56,8 +56,11 @@ import { useEventsStore, selectStartEventsStream } from "../store/eventsStore";
 import { useShallow } from "zustand/react/shallow";
 import { useGlobalShortcuts } from "../hooks/useGlobalShortcuts";
 import { useDesktopUpdater } from "../hooks/useDesktopUpdater";
+import { useTranslation } from "react-i18next";
 
 export function AppShell() {
+  const { t } = useTranslation();
+  const mainId = useId();
   // ADR-0047 §2.3: gate is active only in Tauri and only when no server URL is set.
   // selectServerUrl reads the Zustand field (initialized from localStorage); when
   // ConnectScreen calls storeSetServerUrl, the field updates and this re-renders.
@@ -220,6 +223,11 @@ export function AppShell() {
         color: "var(--syn-text)",
       }}
     >
+      {/* Skip-to-content link — visually hidden until focused (finding #2). */}
+      <a href={`#${mainId}`} className="syn-skip-link">
+        {t("a11y.skipToContent")}
+      </a>
+
       {/* ── Row 1: Header ──────────────────────────────────────────────────── */}
       <Header />
 
@@ -244,8 +252,9 @@ export function AppShell() {
         }}
       >
         <NavRail />
-        {/* SectionRouter fills remaining horizontal space */}
-        <div
+        {/* SectionRouter fills remaining horizontal space; id targets the skip link */}
+        <main
+          id={mainId}
           style={{
             flex: 1,
             minWidth: 0,
@@ -255,7 +264,7 @@ export function AppShell() {
           }}
         >
           <SectionRouter />
-        </div>
+        </main>
       </div>
 
       {/* ── Row 3: ActivityBar ─────────────────────────────────────────────── */}

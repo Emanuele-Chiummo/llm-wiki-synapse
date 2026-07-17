@@ -1266,7 +1266,13 @@
       "queued": "in coda",
       "failed": "fallito",
       "agentRunning": "agente in esecuzione"
-    }
+    },
+    "vault": "Vault: {{id}}",
+    "dataVersion": "Versione dati: {{version}}",
+    "uptimeLabel": "Uptime: {{uptime}}",
+    "backendUnreachable": "Backend non raggiungibile",
+    "backendConnected": "Backend connesso",
+    "activeProvider": "Provider attivo: {{name}}"
   },
   "connect": {
     "title": "Synapse",
@@ -1413,7 +1419,8 @@
       "switchTheme": "Cambia tema",
       "regenerateOverview": "Rigenera overview",
       "regenerateDone": "overview.md rigenerato",
-      "regenerateDegraded": "Rigenerazione degradata — overview.md precedente mantenuto"
+      "regenerateDegraded": "Rigenerazione degradata — overview.md precedente mantenuto",
+      "newPage": "Nuova pagina"
     }
   },
   "conversation": {
@@ -1806,5 +1813,8 @@
     "ariaLabel": "Pagine wiki",
     "filterBanner": "Filtrato per: {{label}}",
     "clearFilter": "Rimuovi filtro"
+  },
+  "a11y": {
+    "skipToContent": "Vai al contenuto principale"
   }
 }

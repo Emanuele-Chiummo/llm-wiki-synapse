@@ -776,7 +776,14 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
       <div
         style={headerStyle}
         onClick={() => setExpanded((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }
+        }}
         role="button"
+        tabIndex={0}
         aria-expanded={expanded}
         aria-label={vendor.display_name}
       >
