@@ -77,7 +77,6 @@ import asyncio
 import importlib.metadata
 import logging
 import os
-import warnings
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -123,38 +122,16 @@ _ops_scheduler: OpsScheduler | None = None
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# ── Runtime state moved to app.runtime_state (BE-ARCH-3) ──────────────────
+# ── Runtime state lives in app.runtime_state (BE-ARCH-3) ──────────────────
 # The MCP/clip/web-search DB-backed caches, PBKDF2 token helpers, source
-# classification, and the MCP access-gate middleware now live in
-# app.runtime_state (typed, no _LazyMain proxy). They are re-imported here under
-# their historical private names so existing `from app.main import X` /
-# `patch("app.main.X")` call-sites keep working for one release (removed in
-# 2.0.0 — BE-ARCH-3).
+# classification, and the MCP access-gate middleware live in app.runtime_state
+# (typed, no _LazyMain proxy) and are referenced here as ``runtime_state.<name>``.
+# The historical ``app.main.<private-alias>`` compatibility seam was removed in
+# Synapse 2.0.0 (BE-ARCH-3): importers use app.runtime_state / app.client_ip directly.
 # Client-IP resolution lives in app.client_ip (shared with app.rate_limit / runtime_state).
-# Kept as a private alias for the historical app.main._resolve_source_ip test seam (2.0 removal).
 from app import runtime_state  # noqa: E402  (PF-AUTH-1: api_token_cache access)
-from app.client_ip import resolve_source_ip as _resolve_source_ip  # noqa: E402,F401
-from app.runtime_state import (  # noqa: E402,F401  (compat aliases for app.main.* seam)
-    MCP_MOUNT_PATH,  # noqa: E402  (used by mount + /mcp/info)
-    MCP_PRIVATE_CIDRS,
-    RemoteMcpFlag,
-)
-from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware  # noqa: E402
-from app.runtime_state import ClipConfigCache as _ClipConfigCache  # noqa: E402,F401
-from app.runtime_state import McpAuthCache as _McpAuthCache  # noqa: E402,F401
-from app.runtime_state import TokenSource as _TokenSource  # noqa: E402,F401
-from app.runtime_state import WebSearchConfigCache as _WebSearchConfigCache  # noqa: E402,F401
-from app.runtime_state import classify_source as _classify_source  # noqa: E402,F401
-from app.runtime_state import clip_config_cache as _clip_config_cache  # noqa: E402
-from app.runtime_state import hash_token as _hash_token  # noqa: E402,F401
-from app.runtime_state import ip_is_private as _ip_is_private  # noqa: E402,F401
-from app.runtime_state import mcp_auth_cache as _mcp_auth_cache  # noqa: E402
-from app.runtime_state import mcp_write_flag as _mcp_write_flag  # noqa: E402
-from app.runtime_state import remote_mcp_flag as _remote_mcp_flag  # noqa: E402
-from app.runtime_state import resolve_token_source as _resolve_token_source  # noqa: E402
-from app.runtime_state import token_configured as _token_configured  # noqa: E402,F401
-from app.runtime_state import verify_token as _verify_token  # noqa: E402,F401
-from app.runtime_state import web_search_config_cache as _web_search_config_cache  # noqa: E402
+from app.client_ip import resolve_source_ip  # noqa: E402,F401
+from app.runtime_state import MCP_MOUNT_PATH  # noqa: E402  (MCP mount + /mcp/info)
 
 # ── MCP HTTP surface (ADR-0033 §2.4 — always-mount) ──────────────────────────
 # Built unconditionally at module load (ADR-0033 §2.4: mount condition is no longer
@@ -170,10 +147,12 @@ _http_mcp_asgi_app: ASGIApp | None = None
 # would have put the real endpoint at /mcp/server/mcp, so a client POSTing to
 # /mcp/server would 404 even with the sub-app mounted (ADR-0033 §2.4).
 # ADR-0072 §3: inject a runtime getter so write tools are always registered but
-# each body checks the flag at call time.  _mcp_write_flag is the in-process cache
+# each body checks the flag at call time.  runtime_state.mcp_write_flag is the in-process cache
 # loaded from vault_state in lifespan (DB-wins-else-env).  The getter closure
 # captures the module-level singleton by name; mcp/server.py never imports main.py.
-_http_mcp_instance = build_http_mcp(write_enabled_getter=lambda: _mcp_write_flag.is_enabled())
+_http_mcp_instance = build_http_mcp(
+    write_enabled_getter=lambda: runtime_state.mcp_write_flag.is_enabled()
+)
 _http_mcp_asgi_app = _http_mcp_instance.http_app(path="/")
 logger.info(
     "MCP HTTP surface always-mounted (ADR-0033 §2.4 / ADR-0072 §3): %s, "
@@ -577,70 +556,30 @@ app.openapi = _patched_openapi  # type: ignore[method-assign]
 
 # ── MCP HTTP mount (ADR-0033 §2.4 — always-mount; gate is the sole arbiter) ──
 # Mounted at MCP_MOUNT_PATH — always, regardless of token configuration.
-# The _BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
+# The runtime_state.BearerAuthMiddleware (now the full MCP access gate) is applied ONLY to
 # this sub-app (scoped; REST API unaffected).
-# The gate carries _remote_mcp_flag, _mcp_auth_cache, and the env bootstrap token.
+# The gate carries the remote_mcp_flag, mcp_auth_cache, and the env bootstrap token
+# (all owned by app.runtime_state).
 # No remount on flag changes (ADR-0032 §2.3 — session manager stable).
 # NOTE: restored after the R13-1 router split (2bbe195) dropped this block, which
 # left /mcp/server unmounted → every remote MCP request 404'd while /mcp/info still
 # reported http_enabled=true. The OpenAPI drift gate could not catch it because a
 # Mount() sub-app is not an OpenAPI path.
 if _http_mcp_asgi_app is not None:
-    _guarded_mcp_app = _BearerAuthMiddleware(
+    _guarded_mcp_app = runtime_state.BearerAuthMiddleware(
         _http_mcp_asgi_app,
         settings.mcp_auth_token or "",
-        _remote_mcp_flag,
-        _mcp_auth_cache,
+        runtime_state.remote_mcp_flag,
+        runtime_state.mcp_auth_cache,
     )
     app.mount(MCP_MOUNT_PATH, _guarded_mcp_app)
     logger.info("MCP HTTP surface mounted at %s (ADR-0033 §2.4 always-mount)", MCP_MOUNT_PATH)
 
-# ── Re-exports for backward-compatible test imports (R13-1) ───────────────────
-# Tests use `from app.main import X` — these ensure nothing breaks.
-from app.models import ProviderConfig  # noqa: E402, F401  # patched by tests via app.main
-from app.routers.chat import (  # noqa: E402, F401
-    ConversationRenameRequest,
-    ConversationRenameResponse,
-    _clean_chat_content,
-    save_chat_to_wiki,
-)
-from app.routers.clip import (  # noqa: E402, F401
-    _clip_origin_allowed,
-    _clip_safe_filename,
-)
-from app.routers.config import EmbeddingConfigResponse, get_embedding_config  # noqa: E402, F401
-from app.routers.pages import (  # noqa: E402, F401
-    _MAX_PAGE_CONTENT_BYTES,
-    PageCreateRequest,
-    PageCreateResponse,
-    _resolve_page_path,
-    _resolve_wiki_page_path,
-)
-from app.routers.search import _SEARCH_VALID_SORTS  # noqa: E402, F401
-from app.scenarios_data import SCENARIO_INDEX as _SCENARIO_INDEX  # noqa: E402, F401
-from app.scenarios_data import SCENARIOS as _SCENARIOS  # noqa: E402, F401
-
-# W7 / 1.9.4 — app.main compatibility-alias deprecation.
-# The runtime_state aliases above (e.g. _ClipConfigCache, _McpAuthCache, _verify_token,
-# _classify_source …) and the R13-1 re-exports (ConversationRenameRequest, ProviderConfig,
-# _clip_origin_allowed, etc.) are scheduled for removal in Synapse 2.0.0 (BE-ARCH-3).
-# Callers should import directly from the owning modules:
-#   app.runtime_state          — token/MCP/clip/web-search caches + helpers
-#   app.routers.chat           — ConversationRenameRequest, save_chat_to_wiki
-#   app.routers.clip           — _clip_origin_allowed, _clip_safe_filename
-#   app.routers.config         — EmbeddingConfigResponse, get_embedding_config
-#   app.routers.pages          — PageCreateRequest, _resolve_page_path, etc.
-#   app.models                 — ProviderConfig
-# NOTE: this warning is emitted at module load (import time). Tests that import
-# `from app.main import app` (the FastAPI application) are unaffected at runtime
-# (no action needed). The warning is informational only; it does not block startup.
-warnings.warn(  # noqa: E402
-    "app.main exposes compatibility aliases (runtime_state symbols and router re-exports) "
-    "that are scheduled for removal in Synapse 2.0.0 (BE-ARCH-3, W7). "
-    "Import directly from app.runtime_state, app.routers.*, or app.models.",
-    DeprecationWarning,
-    stacklevel=2,
-)
+# ProviderConfig is exposed on app.main as the runtime_state → app.main bridge seam:
+# app.runtime_state.provider_config_model() reads app.main.ProviderConfig and the
+# provider-config tests patch app.main.ProviderConfig. It is NOT a compatibility alias
+# (those were removed in 2.0.0, BE-ARCH-3); it is the live ORM-class seam.
+from app.models import ProviderConfig  # noqa: E402, F401  # runtime_state bridge / test seam
 
 # ── Startup helpers ────────────────────────────────────────────────────────────
 
@@ -729,7 +668,7 @@ async def _seed_vault_state() -> None:
 
 async def _load_remote_mcp_flag() -> None:
     """
-    Load vault_state.remote_mcp_enabled into _remote_mcp_flag at startup (ADR-0032 §2.2).
+    Load vault_state.remote_mcp_enabled into remote_mcp_flag at startup (ADR-0032 §2.2).
 
     Called once in lifespan after _seed_vault_state().  The DB column is the source of
     truth; this populates the in-process cache so the middleware can read it in O(1)
@@ -741,13 +680,13 @@ async def _load_remote_mcp_flag() -> None:
         )
         state = row.scalar_one_or_none()
         enabled: bool = state.remote_mcp_enabled if state is not None else False
-    await _remote_mcp_flag.load(enabled)
+    await runtime_state.remote_mcp_flag.load(enabled)
     logger.info("RemoteMcpFlag loaded from DB: remote_mcp_enabled=%s (ADR-0032 §2.2)", enabled)
 
 
 async def _load_mcp_write_flag() -> None:
     """
-    Load vault_state.remote_mcp_write_enabled into _mcp_write_flag at startup (ADR-0072 §2).
+    Load vault_state.remote_mcp_write_enabled into mcp_write_flag at startup (ADR-0072 §2).
 
     Called once in lifespan after _load_remote_mcp_flag().  Mirrors the RemoteMcpFlag
     pattern (ADR-0032 §2.2): DB is source of truth; in-process cache is O(1) per request.
@@ -766,7 +705,7 @@ async def _load_mcp_write_flag() -> None:
             effective: bool = db_val if db_val is not None else settings.mcp_remote_write_enabled
         else:
             effective = settings.mcp_remote_write_enabled
-    await _mcp_write_flag.load(effective)
+    await runtime_state.mcp_write_flag.load(effective)
     logger.info(
         "McpWriteFlag loaded from DB: remote_mcp_write_enabled=%s (ADR-0072 §2)",
         effective,
@@ -776,7 +715,7 @@ async def _load_mcp_write_flag() -> None:
 async def _load_mcp_auth_cache() -> None:
     """
     Load vault_state.mcp_access_token_hash and mcp_allow_without_token into
-    _mcp_auth_cache at startup (ADR-0033 §2.1/§2.3).
+    runtime_state.mcp_auth_cache at startup (ADR-0033 §2.1/§2.3).
 
     Called once in lifespan after _seed_vault_state().  Mirrors the RemoteMcpFlag
     pattern (ADR-0032 §2.2): DB is source of truth; in-process cache is O(1) per
@@ -796,8 +735,8 @@ async def _load_mcp_auth_cache() -> None:
             hash_val = None
             allow_val = False
 
-    await _mcp_auth_cache.load(hash_val, allow_val)
-    tok_src = _resolve_token_source(hash_val)
+    await runtime_state.mcp_auth_cache.load(hash_val, allow_val)
+    tok_src = runtime_state.resolve_token_source(hash_val)
     logger.info(
         "McpAuthCache loaded from DB: token_source=%s allow_without_token=%s (ADR-0033)",
         tok_src,
@@ -836,7 +775,7 @@ async def _load_api_token_cache() -> None:
 
 async def _load_clip_config_cache() -> None:
     """
-    Load vault_state clip runtime config into _clip_config_cache at startup (ADR-0040 §3).
+    Load vault_state clip runtime config into clip_config_cache at startup (ADR-0040 §3).
 
     Called once in lifespan after _seed_vault_state().  Mirrors the _load_mcp_auth_cache
     pattern: DB is source of truth; in-process cache is O(1) per request.
@@ -859,20 +798,20 @@ async def _load_clip_config_cache() -> None:
             token_hash_db = None
             origins_db = None
 
-    await _clip_config_cache.load(enabled_db, token_hash_db, origins_db)
+    await runtime_state.clip_config_cache.load(enabled_db, token_hash_db, origins_db)
     logger.info(
         "ClipConfigCache loaded from DB: enabled_source=%s token_source=%s origins_source=%s "
         "(ADR-0040)",
-        _clip_config_cache.enabled_source(),
-        _clip_config_cache.token_source(),
-        _clip_config_cache.origins_source(),
+        runtime_state.clip_config_cache.enabled_source(),
+        runtime_state.clip_config_cache.token_source(),
+        runtime_state.clip_config_cache.origins_source(),
         # NEVER log the token value
     )
 
 
 async def _load_web_search_config_cache() -> None:
     """
-    Load vault_state SearXNG runtime config into _web_search_config_cache at startup (ADR-0041 §3).
+    Load vault_state SearXNG runtime config into web_search_config_cache at startup (ADR-0041 §3).
 
     Called once in lifespan after _seed_vault_state().  Mirrors the _load_clip_config_cache
     pattern: DB is source of truth; in-process cache is O(1) per request.
@@ -894,14 +833,14 @@ async def _load_web_search_config_cache() -> None:
             categories_db = None
             max_queries_db = None
 
-    await _web_search_config_cache.load(url_db, categories_db, max_queries_db)
+    await runtime_state.web_search_config_cache.load(url_db, categories_db, max_queries_db)
     logger.info(
         "WebSearchConfigCache loaded from DB: url_source=%s categories_source=%s "
         "max_queries_source=%s configured=%s (ADR-0041)",
-        _web_search_config_cache.url_source(),
-        _web_search_config_cache.categories_source(),
-        _web_search_config_cache.max_queries_source(),
-        _web_search_config_cache.configured(),
+        runtime_state.web_search_config_cache.url_source(),
+        runtime_state.web_search_config_cache.categories_source(),
+        runtime_state.web_search_config_cache.max_queries_source(),
+        runtime_state.web_search_config_cache.configured(),
     )
 
 

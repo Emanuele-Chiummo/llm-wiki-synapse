@@ -23,11 +23,13 @@ What stays in ``app.main`` (legitimately part of app assembly / lifespan):
     monkeypatches them (and ``app.main.get_session``) on the ``app.main`` module.
   * The app-lifespan singletons: graph cache, import/ops schedulers, ``_started_at``.
 
-Legacy ``app.main.*`` seam: ``app.main`` re-imports every public name below under its old
-private alias, so existing ``from app.main import X`` / ``patch("app.main.X")`` call-sites keep
-working for ONE release. The ``bridge`` accessors at the bottom read the app-lifespan
-singletons (and the ``get_session`` factory) back out of ``app.main`` dynamically so those
-monkeypatch seams are preserved too. Both are slated for removal in 2.0.0.
+The historical ``app.main.<private-alias>`` re-export seam (``from app.main import X`` /
+``patch("app.main.X")`` for the caches/helpers below) was REMOVED in Synapse 2.0.0 (BE-ARCH-3):
+callers now import these names from ``app.runtime_state`` directly. The ``bridge`` accessors at
+the bottom REMAIN active — they read the app-lifespan singletons (graph/import/ops schedulers,
+``_started_at``) and the ``get_session`` factory + ``ProviderConfig`` class back out of
+``app.main`` dynamically, because those are genuinely owned by ``app.main`` (app assembly /
+lifespan) and the test-suite still monkeypatches them on the ``app.main`` module.
 """
 
 from __future__ import annotations
