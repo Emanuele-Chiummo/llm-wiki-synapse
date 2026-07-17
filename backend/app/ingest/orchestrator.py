@@ -49,6 +49,7 @@ import hashlib
 import logging
 import re
 import uuid
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -72,6 +73,7 @@ from app.ingest.schemas import INDEX_TYPE, LOG_TYPE, Analysis
 from app.models import Page, VaultState
 from app.qdrant_client import delete_point as delete_point
 from app.qdrant_client import upsert_point
+from app.wiki.summary import extract_first_paragraph_summary
 
 logger = logging.getLogger(__name__)
 
@@ -141,6 +143,9 @@ async def reindex_wiki_page_body(
     await asyncio.get_event_loop().run_in_executor(None, _atomic_write)
 
     # Refresh content_hash; preserve existing metadata verbatim (frontmatter untouched, I5).
+    # summary IS recomputed here (unlike apply_domain_tags/apply_page_type below): the body
+    # itself changed (wikilink enrichment / in-place edit), so the K3 gloss must stay in sync
+    # (1.9.4 W6).
     await persist_metadata(
         page_id=page.id,
         vault_id=page.vault_id,
@@ -149,6 +154,7 @@ async def reindex_wiki_page_body(
         page_type=page.page_type,
         sources=page.sources,
         tags=page.tags,
+        summary=extract_first_paragraph_summary(body_for_embedding),
         content_hash=_sha256(new_bytes),
         source_mtime_ns=page.source_mtime_ns or 0,
     )
@@ -1196,6 +1202,7 @@ async def persist_metadata(
     source_mtime_ns: int,
     tags: list[str] | None = None,
     generation_key: str | None = None,
+    summary: str | None = None,
 ) -> None:
     """
     Upsert the `pages` row for *page_id* inside a single Postgres transaction.
@@ -1206,6 +1213,14 @@ async def persist_metadata(
     `tags` (K6 navigation, nashsu/llm_wiki parity) is persisted exactly like `sources`
     (JSONB list; None when absent). Additive keyword — existing callers that omit it write
     NULL, preserving backward compatibility.
+
+    `summary` (K3 gloss, 1.9.4 W6, PF-INDEX-GLOSS-1) mirrors `generation_key`'s
+    preserve-if-omitted semantics on UPDATE: a caller that did not recompute the body (e.g.
+    a metadata-only tag/type change) passes nothing and the existing summary is left
+    untouched, rather than being wiped to NULL. Callers that DID rewrite the body pass the
+    freshly extracted summary (``app.wiki.summary.extract_first_paragraph_summary``) so it
+    stays in sync with the content. On INSERT, a None summary is written as NULL (backfilled
+    later by ``backend/scripts/backfill_page_summary.py`` for pre-existing pages).
     """
     from sqlalchemy import select
 
@@ -1225,6 +1240,7 @@ async def persist_metadata(
                 sources=sources,
                 tags=tags,
                 generation_key=generation_key,
+                summary=summary,
                 content_hash=content_hash,
                 source_mtime_ns=source_mtime_ns,
                 qdrant_point_id=page_id,  # == pages.id (ADR-0002)
@@ -1243,6 +1259,10 @@ async def persist_metadata(
             # it and must never erase an existing indexed identity accidentally.
             if generation_key is not None:
                 page.generation_key = generation_key
+            # Preserve the existing gloss through metadata-only updates (tags/type changes) that
+            # did not recompute the body (K3, 1.9.4 W6) — only overwrite when a caller passes one.
+            if summary is not None:
+                page.summary = summary
             page.content_hash = content_hash
             page.source_mtime_ns = source_mtime_ns
             page.qdrant_point_id = page_id
@@ -1605,3 +1625,23 @@ __all__ = [
     "run_ingest_pipeline",
     "write_wiki_page",
 ]
+
+# W7 / 1.9.4 — compatibility-facade deprecation notice.
+# This module remains the single monkeypatch surface for 18+ test modules (see
+# module docstring §1) and is KEPT until 2.0.0 when the test-decoupling pass is
+# complete. Until then, this DeprecationWarning signals to callers that they
+# should migrate to the cohesive siblings:
+#   • app.ingest.pipeline   — ingest_file / delete_file / run_ingest_pipeline
+#   • app.ingest.writer     — write_wiki_page
+#   • app.ingest.context    — _load_ingest_context / vault context helpers
+# Production code within the backend already imports from the siblings directly
+# (mcp/server.py, routers/, etc.). External integrators importing this module will
+# see the warning unless they suppress DeprecationWarning (the default in CPython
+# for non-__main__ code; pytest surfaces it as a test warning, not a failure).
+warnings.warn(
+    "app.ingest.orchestrator is a compatibility facade scheduled for removal in "
+    "Synapse 2.0.0 (W7). Import directly from app.ingest.pipeline, "
+    "app.ingest.writer, or app.ingest.context instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)

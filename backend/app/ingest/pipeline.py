@@ -28,6 +28,7 @@ from app.ingest.loop import IngestCancelled, LoopResult, run_orchestrated_loop
 from app.ingest.provider.base import InferenceProvider, ProviderTransientError, UsageAccumulator
 from app.ingest.schemas import Analysis, PageType, WikiFrontmatter, WikiPage
 from app.models import IngestRun, Page, VaultState
+from app.wiki.summary import extract_first_paragraph_summary
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +218,21 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
                 rel,
             )
             _generation_key = None
+
+    # Frontmatter-stripped body, computed BEFORE persist_metadata so the K3 gloss summary
+    # (1.9.4 W6) and the Qdrant embedding both derive from the exact same clean text.
+    # Embedding the BODY with a title breadcrumb — NOT the raw bytes. Embedding the YAML
+    # frontmatter block (type/sources/tags/lang) injects boilerplate tokens that pollute vector
+    # similarity; nashsu/llm_wiki strips frontmatter (text-chunker.ts) and prepends the
+    # title/heading path. We keep the single whole-page point (ADR-0002) but feed it clean
+    # "<title>\n\n<body>" text. (Per-page embed-time chunking — llm_wiki's N-points-per-page —
+    # remains an ADR-gated change.)
+    _decoded = raw_bytes.decode("utf-8", errors="replace")
+    try:
+        _embed_body = frontmatter.loads(_decoded).content
+    except Exception:  # noqa: BLE001 — malformed/binary: fall back to the raw decoded text
+        _embed_body = _decoded
+
     await orch.persist_metadata(
         page_id=page_id,
         vault_id=settings.vault_id,
@@ -226,21 +242,12 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
         sources=_sources,
         tags=_tags,
         generation_key=_generation_key,
+        summary=extract_first_paragraph_summary(_embed_body),
         content_hash=current_hash,
         source_mtime_ns=current_mtime_ns,
     )
 
     # ── Embed + upsert Qdrant ─────────────────────────────────────────────────
-    # Embed the BODY with a title breadcrumb — NOT the raw bytes. Embedding the YAML frontmatter
-    # block (type/sources/tags/lang) injects boilerplate tokens that pollute vector similarity;
-    # nashsu/llm_wiki strips frontmatter (text-chunker.ts) and prepends the title/heading path.
-    # We keep the single whole-page point (ADR-0002) but feed it clean "<title>\n\n<body>" text.
-    # (Per-page embed-time chunking — llm_wiki's N-points-per-page — remains an ADR-gated change.)
-    _decoded = raw_bytes.decode("utf-8", errors="replace")
-    try:
-        _embed_body = frontmatter.loads(_decoded).content
-    except Exception:  # noqa: BLE001 — malformed/binary: fall back to the raw decoded text
-        _embed_body = _decoded
     text_for_embedding = f"{_title}\n\n{_embed_body}".strip() if _title else _embed_body.strip()
     await orch.upsert_vector(
         page_id=page_id,

@@ -27,11 +27,14 @@ def _make_row(
     page_type: str | None,
     file_path: str,
     updated_at: Any = None,
+    summary: str | None = None,
 ) -> Any:
     """Build a fake SQLAlchemy row-like object.
 
     updated_at is optional (defaults to None); it is used for the "## Recently Updated"
     section query (ADR-0078) — callers that don't care about ordering can omit it.
+    summary is optional (defaults to None — pre-backfill/empty-body pages); used for the
+    K3 em-dash gloss (1.9.4 W6, PF-INDEX-GLOSS-1).
     """
 
     class _Row:
@@ -42,20 +45,22 @@ def _make_row(
     r.page_type = page_type  # type: ignore[attr-defined]
     r.file_path = file_path  # type: ignore[attr-defined]
     r.updated_at = updated_at  # type: ignore[attr-defined]
+    r.summary = summary  # type: ignore[attr-defined]
     return r
 
 
 async def _run_update_index(rows: list[Any], tmp_path: Path) -> str:
     """Run update_index with a mocked session and return the written file content.
 
-    The mock returns 4-tuples (title, page_type, file_path, updated_at) to match the
-    updated query in update_index (ADR-0078 — added updated_at for the Recently Updated
-    section).
+    The mock returns 5-tuples (title, page_type, file_path, updated_at, summary) to match the
+    updated query in update_index (ADR-0078 updated_at + 1.9.4 W6 summary).
     """
     from app.wiki.index import update_index
 
     mock_result = MagicMock()
-    mock_result.all.return_value = [(r.title, r.page_type, r.file_path, r.updated_at) for r in rows]
+    mock_result.all.return_value = [
+        (r.title, r.page_type, r.file_path, r.updated_at, r.summary) for r in rows
+    ]
 
     mock_session = MagicMock()
     mock_session.execute = AsyncMock(return_value=mock_result)
@@ -336,7 +341,7 @@ class TestIndexMdIdempotency:
         async def _run(rows: list[Any]) -> str:
             mock_result = MagicMock()
             mock_result.all.return_value = [
-                (r.title, r.page_type, r.file_path, r.updated_at) for r in rows
+                (r.title, r.page_type, r.file_path, r.updated_at, r.summary) for r in rows
             ]
             mock_session = MagicMock()
             mock_session.execute = AsyncMock(return_value=mock_result)

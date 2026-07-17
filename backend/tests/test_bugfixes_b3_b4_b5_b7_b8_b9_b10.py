@@ -290,7 +290,7 @@ class TestB5AtomicIndexWrite:
         def _make_session(tag: str) -> MagicMock:
             mock_result = MagicMock()
             mock_result.all.return_value = [
-                (f"Page {tag}", "concept", f"wiki/concepts/{tag}.md", None)
+                (f"Page {tag}", "concept", f"wiki/concepts/{tag}.md", None, None)
             ]
             mock_session = MagicMock()
             mock_session.execute = AsyncMock(return_value=mock_result)
@@ -767,6 +767,7 @@ class TestB10OptimisticLockAtomic:
             Column("sources", Text, nullable=True),
             Column("tags", Text, nullable=True),
             Column("generation_key", Text, nullable=True),
+            Column("summary", Text, nullable=True),
             Column("content_hash", String(64), nullable=False),
             Column("source_mtime_ns", BigInteger, nullable=True),
             Column("qdrant_point_id", String(36), nullable=True),

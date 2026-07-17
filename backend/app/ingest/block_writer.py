@@ -37,6 +37,7 @@ from app.ingest.blocks import is_safe_ingest_path
 from app.ingest.provider.base import InferenceProvider
 from app.models import Page
 from app.wiki.schema import validate_page_routing
+from app.wiki.summary import extract_first_paragraph_summary
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,7 @@ async def write_block_page(
         page_type=page_type or None,
         sources=sources or None,
         tags=tags,
+        summary=extract_first_paragraph_summary(body_for_embedding),
         content_hash=orch._sha256(new_bytes),
         source_mtime_ns=0,
     )

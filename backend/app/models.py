@@ -211,6 +211,16 @@ class Page(Base):
         ),
     )
 
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Short gloss derived from the page's first content paragraph (no LLM), used as "
+            "the em-dash gloss next to the wikilink in index.md (K3, 1.9.4 W6). NULL for "
+            "pages written before the backfill / with an empty body."
+        ),
+    )
+
     # ── Change-detection ──────────────────────────────────────────────────────
     content_hash: Mapped[str] = mapped_column(
         String(64),

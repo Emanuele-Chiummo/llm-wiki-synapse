@@ -23,6 +23,7 @@ from app.config import settings
 from app.ingest.provider.base import InferenceProvider
 from app.ingest.schemas import PageType, WikiPage, type_subdir
 from app.models import Page
+from app.wiki.summary import extract_first_paragraph_summary
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +486,7 @@ async def write_wiki_page(
         sources=sources,
         tags=tags or None,
         generation_key=generation_key,
+        summary=extract_first_paragraph_summary(body),
         content_hash=orch._sha256(file_text.encode("utf-8")),
         source_mtime_ns=0,
     )
