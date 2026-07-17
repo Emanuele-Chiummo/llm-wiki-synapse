@@ -1,10 +1,26 @@
 # Synapse Deployment Guide
 
-<!-- Generated: v1.0 sprint 9 | 2026-07-03 -->
+<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v1.0 — covers v1.0.0 release (M10 — Distribution: shared-token auth, mobile/PWA polish, MkDocs site, code-signing guide)
-> Status: CURRENT — updated for v1.0.0 release
+> Version: v2.0.0
+> Status: CURRENT — updated for 2.0.0 release
+>
+> **2.0.0 breaking changes for operators:**
+>
+> 1. **`ingest_pipeline_format` env var removed.** If you had this set to `"json"` as a rollback
+>    lever, remove the env var. There is only one pipeline now (block-based, ADR-0076). The JSON
+>    generation path (`app.ingest.loop`) is deleted.
+>
+> 2. **`orchestrator` import aliases removed.** If you have internal scripts or integrations that
+>    `import app.ingest.orchestrator` for `IngestResult`, `run_ingest_pipeline`, or `write_wiki_page`,
+>    update them: `IngestResult` and `run_ingest_pipeline` are in `app.ingest.pipeline`;
+>    `write_wiki_page` is in `app.ingest.writer`.
+>
+> 3. **HTTP error body changed.** Every error response now uses
+>    `{"error": {"code": "<slug>", "message": "...", "status": N, "details": null|[...]}}`.
+>    The old `{"detail": "..."}` shape is gone (ADR-0086). Update any monitoring scripts or
+>    client code that parsed `response.detail` to read `response.error.message` instead.
 
 ---
 

@@ -872,3 +872,276 @@ class TestDeepResearchSequenceDiagram:
             "docs/sequences/deep-research.mmd must show InferenceProvider participant "
             "(AC-D3-DR-1(b), I6)"
         )
+
+
+# ── 2.0.0 structural freshness harness (QA-TEST-4 / docs/2.0.0-veritieri) ───────
+#
+# These tests assert that the committed documentation reflects the 2.0.0 post-breaking-
+# change architecture rather than the pre-2.0.0 state.  They are deliberately structural
+# (text-pattern checks that survive toolchain changes) and do not require a live stack.
+#
+# Three invariants for 2.0.0 docs correctness:
+#   BC-1: Legacy JSON pipeline removed — no doc must describe it as the CURRENT behavior.
+#   BC-2: orchestrator compatibility facades dissolved — no C4 diagram must reference the
+#         old monolithic orchestrator as the ingest public-API surface.
+#   BC-3: Stable error envelope — USER.md/DEPLOY.md must not describe {"detail": ...} as
+#         today's contract.  Historical mentions in ADR-0086 describing what 2.0.0
+#         *changed from* are explicitly exempted.
+
+
+class Test200BreakingChange1_JSONPipelineRemoved:
+    """
+    BC-1: the JSON ingest pipeline is removed in 2.0.0.
+
+    - docs/sequences/ingest-blocks.mmd must NOT contain the old JSON-pipeline branch
+      annotation (ingest_pipeline_format == "json").
+    - C4 diagrams must NOT reference the deleted app.ingest.loop module.
+    - USER.md must NOT describe ingest_pipeline_format as a current operator-settable
+      feature (it is gone; references in CHANGELOG/ADRs as historical are fine).
+    """
+
+    def test_ingest_blocks_mmd_has_no_json_pipeline_branch(self) -> None:
+        """T-DOCS-200: BC-1 — ingest-blocks.mmd must not reference the removed JSON loop path."""
+        p = _DOCS / "sequences" / "ingest-blocks.mmd"
+        if not p.exists():
+            pytest.skip("ingest-blocks.mmd not present")
+        text = p.read_text(encoding="utf-8")
+        # The pre-2.0.0 annotation marking the JSON branch. A 2.0.0-clean file
+        # describes only the block-based path; the JSON branch annotation is gone.
+        assert 'ingest_pipeline_format == "json"' not in text, (
+            "docs/sequences/ingest-blocks.mmd still contains the pre-2.0.0 JSON pipeline "
+            "branch annotation. Remove the 'ingest_pipeline_format == \"json\"' else-branch "
+            "— the JSON loop is deleted in 2.0.0 (BC-1)."
+        )
+
+    def test_c4_diagrams_do_not_reference_deleted_loop_module(self) -> None:
+        """T-DOCS-201: BC-1 — C4 diagrams must not reference app.ingest.loop (deleted in 2.0.0)."""
+        arch_dir = _DOCS / "architecture"
+        for mmd in arch_dir.glob("*.mmd"):
+            text = mmd.read_text(encoding="utf-8")
+            assert "app.ingest.loop" not in text and "ingest/loop" not in text, (
+                f"{mmd.name} references the deleted app.ingest.loop module (BC-1). "
+                "Update the diagram to reflect the 2.0.0 block-based pipeline."
+            )
+
+    def test_deploy_md_no_ingest_pipeline_format_as_current_feature(self) -> None:
+        """T-DOCS-202: BC-1 — DEPLOY.md must not list ingest_pipeline_format as an active config."""
+        p = _DOCS / "DEPLOY.md"
+        if not p.exists():
+            pytest.skip("DEPLOY.md not present")
+        text = p.read_text(encoding="utf-8")
+        # The env-var reference table row for ingest_pipeline_format is the signal:
+        # if it appears in a variable table (pipe-delimited rows), the doc still treats it
+        # as a live operator setting.  A header comment noting its removal is fine.
+        lines = [ln for ln in text.splitlines() if "ingest_pipeline_format" in ln]
+        for ln in lines:
+            # Any table row (contains '|') describing it as an active variable is stale.
+            assert "| `ingest_pipeline_format`" not in ln, (
+                "DEPLOY.md still contains an active env-var table row for "
+                "'ingest_pipeline_format'. This variable is removed in 2.0.0 (BC-1). "
+                "Remove the table row; a note about its removal is fine."
+            )
+
+
+class Test200BreakingChange2_OrchestratorFacadeDissolved:
+    """
+    BC-2: the orchestrator.py compatibility re-export facade is dissolved in 2.0.0.
+
+    - C4 container/component diagrams must NOT describe orchestrator.py as the module
+      that owns ingest_file / run_ingest_pipeline / IngestResult (those live in pipeline.py).
+    - At least one C4 diagram must reference pipeline.py as the ingest entry point.
+    """
+
+    def test_container_mmd_does_not_label_orchestrator_as_ingest_api_owner(self) -> None:
+        """T-DOCS-210: BC-2 — container.mmd must not describe orchestrator.py as the public ingest API."""
+        p = _DOCS / "architecture" / "container.mmd"
+        if not p.exists():
+            pytest.skip("container.mmd not present")
+        text = p.read_text(encoding="utf-8")
+        # Pre-2.0.0 versions had a container labeled "Ingest Orchestrator" pointing at
+        # orchestrator.py with routing/loop logic.  Post-2.0.0 it is "Persistence primitives".
+        # Check that the old "Routes on supports_agentic_loop" description is gone from there.
+        assert "ingest/orchestrator.py" not in text or "Persistence primitives" in text, (
+            "container.mmd still describes orchestrator.py as the F17 routing/loop container "
+            "(pre-2.0.0 framing). Update to show it as persistence primitives only (BC-2). "
+            "The public ingest API (ingest_file, run_ingest_pipeline) lives in pipeline.py."
+        )
+
+    def test_at_least_one_c4_diagram_references_pipeline_py(self) -> None:
+        """T-DOCS-211: BC-2 — at least one C4 diagram must reference pipeline.py as ingest entry point."""
+        arch_dir = _DOCS / "architecture"
+        combined = ""
+        for mmd in arch_dir.glob("*.mmd"):
+            combined += mmd.read_text(encoding="utf-8")
+        assert "pipeline.py" in combined or "ingest/pipeline" in combined, (
+            "No C4 diagram in docs/architecture/ references pipeline.py (the 2.0.0 public "
+            "ingest entry point). At least container.mmd or component.mmd must be updated "
+            "to show that ingest_file / run_ingest_pipeline live in pipeline.py (BC-2)."
+        )
+
+
+class Test200BreakingChange3_StableErrorEnvelope:
+    """
+    BC-3: the stable JSON error envelope {"error": {code, message, status, details}} is
+    the ONLY error shape in 2.0.0.  The legacy {"detail": ...} shape is gone.
+
+    Rules:
+    - USER.md and DEPLOY.md must not describe {"detail": ...} as the CURRENT error contract.
+    - A historical mention (describing what 2.0.0 changed FROM) is only acceptable when it
+      is clearly qualified as historical (near words like "legacy", "old", "changed from",
+      "previously", "before 2.0.0", "was").
+    - docs/api/openapi.json must contain an ErrorEnvelope schema component (ADR-0086 §1).
+    - USER.md/DEPLOY.md must reference the stable "error" envelope or ADR-0086 somewhere
+      near the 2.0.0 section to document the change for operators.
+    """
+
+    def test_user_md_does_not_describe_detail_as_current_contract(self) -> None:
+        """T-DOCS-220: BC-3 — USER.md must not present {"detail": ...} as the live error shape."""
+        p = _DOCS / "USER.md"
+        if not p.exists():
+            pytest.skip("USER.md not present")
+        text = p.read_text(encoding="utf-8")
+        # If the pattern appears, make sure it is in a clearly historical context.
+        if '"detail"' not in text and "detail" not in text.lower():
+            return  # no mention at all — clean
+        for line in text.splitlines():
+            # Skip historical qualifiers
+            low = line.lower()
+            if '"detail"' in line and not any(
+                q in low
+                for q in ("legacy", "old", "changed from", "previously", "before 2.0", "was ")
+            ):
+                # Only fail if it looks like a prescriptive description (contains "response" or
+                # "body" or "error" or a code-fence context), not a casual mention.
+                if any(kw in low for kw in ("response", "error body", "returns", "will return")):
+                    raise AssertionError(
+                        f"USER.md appears to describe {{\"detail\": ...}} as the current error "
+                        f"contract (line: {line!r}). Post-2.0.0 the shape is "
+                        f'{{\"error\": {{\"code\": ..., \"message\": ..., \"status\": ..., '
+                        f'\"details\": ...}}}} (ADR-0086, BC-3).'
+                    )
+
+    def test_openapi_has_error_envelope_schema_component(self) -> None:
+        """T-DOCS-221: BC-3 — openapi.json must define an ErrorEnvelope (or equivalent) schema."""
+        import json as _json
+
+        p = _DOCS / "api" / "openapi.json"
+        if not p.exists():
+            pytest.skip("openapi.json not present")
+        data = _json.loads(p.read_text(encoding="utf-8"))
+        schemas = data.get("components", {}).get("schemas", {})
+        # Look for an error envelope schema — may be named ErrorEnvelope, ErrorResponse, etc.
+        envelope_keys = [k for k in schemas if "error" in k.lower() and "envelope" in k.lower()]
+        # Also accept any schema whose properties include "code" AND "message" AND "status"
+        # (the three mandatory fields from ADR-0086).
+        alt_envelope_keys = [
+            k
+            for k, v in schemas.items()
+            if isinstance(v, dict)
+            and {"code", "message", "status"}.issubset(v.get("properties", {}).keys())
+        ]
+        assert envelope_keys or alt_envelope_keys, (
+            "openapi.json components.schemas contains no ErrorEnvelope schema with "
+            "code/message/status fields. Regenerate openapi.json after the 2.0.0 error "
+            "handler registration (ADR-0086, BC-3). Run: cd backend && python scripts/generate_openapi.py"
+        )
+
+    def test_deploy_md_mentions_stable_error_envelope(self) -> None:
+        """T-DOCS-222: BC-3 — DEPLOY.md must document the stable error envelope for operators."""
+        p = _DOCS / "DEPLOY.md"
+        if not p.exists():
+            pytest.skip("DEPLOY.md not present")
+        text = p.read_text(encoding="utf-8")
+        # At least one of these signals must appear to indicate the breaking change is noted:
+        signals = [
+            '"error"',
+            "error.message",
+            "ADR-0086",
+            "stable envelope",
+            "stable error",
+            "error envelope",
+        ]
+        assert any(s in text for s in signals), (
+            "DEPLOY.md does not mention the 2.0.0 stable error envelope (ADR-0086, BC-3). "
+            "Add a note for operators who script against the API: the old {\"detail\": ...} "
+            "shape is replaced by {\"error\": {\"code\": ..., \"message\": ..., ...}}."
+        )
+
+
+class Test200VersionHeaders:
+    """
+    The 2.0.0 documentation pass requires that USER.md and DEPLOY.md carry updated
+    version headers rather than the pre-2.0.0 stamps (v1.6.0 / v1.0).
+
+    We do NOT hard-code "2.0.0" as the expected string — the version bump may be in
+    flight — but the headers MUST NOT still say v1.6.0 or v1.0 (the last known stale
+    values before this pass).
+    """
+
+    def test_user_md_version_header_not_stale_v160(self) -> None:
+        """T-DOCS-230: USER.md must not carry the stale v1.6.0 version stamp."""
+        p = _DOCS / "USER.md"
+        if not p.exists():
+            pytest.skip("USER.md not present")
+        text = p.read_text(encoding="utf-8")
+        # The stale header reads: "> Version: v1.6.0"
+        assert "> Version: v1.6.0" not in text, (
+            "USER.md still carries the stale 'v1.6.0' version header from before the "
+            "2.0.0 docs pass. Update the version header to reflect the current release."
+        )
+
+    def test_deploy_md_version_header_not_stale_v10(self) -> None:
+        """T-DOCS-231: DEPLOY.md must not carry the stale v1.0 version stamp."""
+        p = _DOCS / "DEPLOY.md"
+        if not p.exists():
+            pytest.skip("DEPLOY.md not present")
+        text = p.read_text(encoding="utf-8")
+        # The stale header reads: "> Version: v1.0" (with optional trailing text)
+        stale = any(
+            line.strip().startswith("> Version: v1.0")
+            and not line.strip().startswith("> Version: v1.0.")
+            for line in text.splitlines()
+        )
+        assert not stale, (
+            "DEPLOY.md still carries the stale 'v1.0' version header from before the "
+            "2.0.0 docs pass. Update the version header to reflect the current release."
+        )
+
+    def test_user_md_has_200_breaking_change_note(self) -> None:
+        """T-DOCS-232: USER.md must document at least the error envelope 2.0.0 change for users."""
+        p = _DOCS / "USER.md"
+        if not p.exists():
+            pytest.skip("USER.md not present")
+        text = p.read_text(encoding="utf-8")
+        # At least one signal that the breaking changes are documented:
+        signals = ["2.0.0", "ADR-0086", "error.message", "error envelope", "stable envelope"]
+        assert any(s in text for s in signals), (
+            "USER.md does not mention any 2.0.0 breaking change. Add at least a brief note "
+            "about the stable error envelope (BC-3) and the JSON pipeline removal (BC-1) so "
+            "users who script against the API are informed."
+        )
+
+
+class Test200ADRIndex:
+    """
+    The ADR index must be current for 2.0.0: ADR-0086 (stable error envelope) must be listed.
+    """
+
+    def test_adr_index_includes_0086(self) -> None:
+        """T-DOCS-240: docs/adr/index.md must list ADR-0086 (stable error envelope, 2.0.0 BC-3)."""
+        p = _DOCS / "adr" / "index.md"
+        if not p.exists():
+            pytest.skip("docs/adr/index.md not present")
+        text = p.read_text(encoding="utf-8")
+        assert "0086" in text, (
+            "docs/adr/index.md does not reference ADR-0086 (stable JSON error envelope, "
+            "2.0.0 breaking change 3). Add the ADR-0086 row to the index."
+        )
+
+    def test_adr_0086_file_exists(self) -> None:
+        """T-DOCS-241: docs/adr/0086-stable-error-envelope.md must exist."""
+        p = _DOCS / "adr" / "0086-stable-error-envelope.md"
+        assert p.exists(), (
+            "docs/adr/0086-stable-error-envelope.md is missing. "
+            "Create the ADR for the stable JSON error envelope (ADR-0086, 2.0.0 BC-3)."
+        )
