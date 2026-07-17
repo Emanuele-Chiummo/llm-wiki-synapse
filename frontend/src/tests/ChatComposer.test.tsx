@@ -20,7 +20,11 @@ import React from "react";
 import { I18nextProvider } from "react-i18next";
 import i18n from "../i18n";
 
-import { MessageInput, CHAT_MAX_IMAGES, CHAT_MAX_IMAGE_BYTES } from "../components/chat/MessageInput";
+import {
+  MessageInput,
+  CHAT_MAX_IMAGES,
+  CHAT_MAX_IMAGE_BYTES,
+} from "../components/chat/MessageInput";
 import { useStatusStore } from "../store/statusStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { decorateWebCitations } from "../components/chat/decorateCitations";
@@ -30,19 +34,12 @@ import * as ToastModule from "../components/common/Toast";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function renderComposer(
-  props: Partial<React.ComponentProps<typeof MessageInput>> = {},
-) {
+function renderComposer(props: Partial<React.ComponentProps<typeof MessageInput>> = {}) {
   const onSend = vi.fn();
   const onStop = vi.fn();
   const { unmount } = render(
     <I18nextProvider i18n={i18n}>
-      <MessageInput
-        onSend={onSend}
-        onStop={onStop}
-        isStreaming={false}
-        {...props}
-      />
+      <MessageInput onSend={onSend} onStop={onStop} isStreaming={false} {...props} />
     </I18nextProvider>,
   );
   return { onSend, onStop, unmount };
@@ -99,17 +96,20 @@ describe("B — thumbnail add / remove + CHAT_MAX_IMAGES cap", () => {
     useStatusStore.setState({ supportsVision: true });
     // JSDOM FileReader mock: synchronously read as data URL
     vi.spyOn(globalThis, "FileReader").mockImplementation(() => {
-      const fr: Partial<FileReader> & { onload?: ((e: ProgressEvent<FileReader>) => void) | null } = {
-        onload: null,
-        readAsDataURL(file: Blob) {
-          // Produce a deterministic fake data URL using the file name
-          const f = file as File;
-          const fakeDataUrl = `data:${f.type};base64,FAKEBASE64_${f.name}`;
-          if (this.onload) {
-            this.onload({ target: { result: fakeDataUrl } } as unknown as ProgressEvent<FileReader>);
-          }
-        },
-      };
+      const fr: Partial<FileReader> & { onload?: ((e: ProgressEvent<FileReader>) => void) | null } =
+        {
+          onload: null,
+          readAsDataURL(file: Blob) {
+            // Produce a deterministic fake data URL using the file name
+            const f = file as File;
+            const fakeDataUrl = `data:${f.type};base64,FAKEBASE64_${f.name}`;
+            if (this.onload) {
+              this.onload({
+                target: { result: fakeDataUrl },
+              } as unknown as ProgressEvent<FileReader>);
+            }
+          },
+        };
       return fr as FileReader;
     });
   });
@@ -356,16 +356,19 @@ describe("E — send payload includes images + use_web_search + retrieval_mode",
     useSettingsStore.getState().setRetrievalMode("deep");
     // FileReader mock
     vi.spyOn(globalThis, "FileReader").mockImplementation(() => {
-      const fr: Partial<FileReader> & { onload?: ((e: ProgressEvent<FileReader>) => void) | null } = {
-        onload: null,
-        readAsDataURL(file: Blob) {
-          const f = file as File;
-          const fakeDataUrl = `data:${f.type};base64,FAKEBASE64`;
-          if (this.onload) {
-            this.onload({ target: { result: fakeDataUrl } } as unknown as ProgressEvent<FileReader>);
-          }
-        },
-      };
+      const fr: Partial<FileReader> & { onload?: ((e: ProgressEvent<FileReader>) => void) | null } =
+        {
+          onload: null,
+          readAsDataURL(file: Blob) {
+            const f = file as File;
+            const fakeDataUrl = `data:${f.type};base64,FAKEBASE64`;
+            if (this.onload) {
+              this.onload({
+                target: { result: fakeDataUrl },
+              } as unknown as ProgressEvent<FileReader>);
+            }
+          },
+        };
       return fr as FileReader;
     });
   });
@@ -489,7 +492,7 @@ describe("F — WebSourcesPanel renders web_citations", () => {
 describe("G — decorateWebCitations wraps [Wn] markers", () => {
   const webCitations: WebCitationRef[] = [
     { index: 1, title: "Alpha", url: "https://alpha.com" },
-    { index: 2, title: "Beta & \"Inc\"", url: "https://beta.org" },
+    { index: 2, title: 'Beta & "Inc"', url: "https://beta.org" },
   ];
 
   it("wraps [W1] in <sup class='synapse-web-citation'>", () => {
@@ -531,7 +534,7 @@ describe("G — decorateWebCitations wraps [Wn] markers", () => {
     const html = "<p>[W1]</p>";
     const result = decorateWebCitations(html, webCitations);
     expect(result).toContain("synapse-web-citation");
-    expect(result).not.toContain("synapse-citation\"");
+    expect(result).not.toContain('synapse-citation"');
   });
 
   it("memoizes: same inputs return same string reference", () => {

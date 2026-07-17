@@ -28,12 +28,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -44,7 +56,14 @@ vi.stubGlobal("localStorage", fakeStorage);
 
 // ─── Import module under test (after stubbing) ────────────────────────────────
 
-import { apiBase, getServerUrl, setServerUrl, clearServerUrl, getLastServerUrl, isTauri } from "../api/base";
+import {
+  apiBase,
+  getServerUrl,
+  setServerUrl,
+  clearServerUrl,
+  getLastServerUrl,
+  isTauri,
+} from "../api/base";
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -165,7 +184,11 @@ describe("setServerUrl() — scheme allowlist (ADR-0047 §2.7.1)", () => {
   });
 
   it("does not persist when scheme is invalid (storage must be empty)", () => {
-    try { setServerUrl("javascript:void(0)"); } catch { /* expected */ }
+    try {
+      setServerUrl("javascript:void(0)");
+    } catch {
+      /* expected */
+    }
     expect(getServerUrl()).toBeNull();
     expect(fakeStorage.getItem(LS_KEY)).toBeNull();
   });

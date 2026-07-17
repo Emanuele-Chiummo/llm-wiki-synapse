@@ -87,8 +87,7 @@ vi.mock("../store/graphStore", () => ({
 // ─── Mock providerStore ───────────────────────────────────────────────────────
 
 vi.mock("../store/providerStore", () => ({
-  useProviderStore: (selector: (s: unknown) => unknown) =>
-    selector({ activeItem: null }),
+  useProviderStore: (selector: (s: unknown) => unknown) => selector({ activeItem: null }),
   selectActiveProvider: (s: { activeItem: unknown }) => s.activeItem,
 }));
 
@@ -100,15 +99,24 @@ vi.mock("../api/pagesClient", () => ({
 
 // ─── Mock ingestClient ────────────────────────────────────────────────────────
 
-const mockCancelIngestRun = vi.fn().mockResolvedValue({ run_id: "r1", status: "cancelling", cleaned_pages: 0 });
-const mockRetryIngestRun = vi.fn().mockResolvedValue({ run_id_prev: "r1", source_path: "a.md", retry_count: 1, status: "queued" });
+const mockCancelIngestRun = vi
+  .fn()
+  .mockResolvedValue({ run_id: "r1", status: "cancelling", cleaned_pages: 0 });
+const mockRetryIngestRun = vi
+  .fn()
+  .mockResolvedValue({ run_id_prev: "r1", source_path: "a.md", retry_count: 1, status: "queued" });
 const mockPauseIngestQueue = vi.fn().mockResolvedValue({ paused: true });
 const mockResumeIngestQueue = vi.fn().mockResolvedValue({ paused: false, drained: 0 });
 
 vi.mock("../api/ingestClient", () => ({
   getIngestQueue: vi.fn().mockResolvedValue({
-    paused: false, pending: 0, processing: 0, failed: 0,
-    completed_since_idle: 0, total: 0, tasks: [],
+    paused: false,
+    pending: 0,
+    processing: 0,
+    failed: 0,
+    completed_since_idle: 0,
+    total: 0,
+    tasks: [],
   }),
   cancelIngestRun: (...args: unknown[]) => mockCancelIngestRun(...args),
   retryIngestRun: (...args: unknown[]) => mockRetryIngestRun(...args),
@@ -192,8 +200,13 @@ vi.mock("../store/activityStore", () => {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const EMPTY_SNAPSHOT: IngestQueueSnapshot = {
-  paused: false, pending: 0, processing: 0, failed: 0,
-  completed_since_idle: 0, total: 0, tasks: [],
+  paused: false,
+  pending: 0,
+  processing: 0,
+  failed: 0,
+  completed_since_idle: 0,
+  total: 0,
+  tasks: [],
 };
 
 function renderBar() {
@@ -277,7 +290,14 @@ describe("ActivityPanel — task rows", () => {
       total: 4,
       tasks: [
         { source_path: "raw/b.md", filename: "b.md", status: "pending", retry_count: 0 },
-        { run_id: "fail-1", source_path: "raw/c.md", filename: "c.md", status: "failed", retry_count: 1, error: "parse error" },
+        {
+          run_id: "fail-1",
+          source_path: "raw/c.md",
+          filename: "c.md",
+          status: "failed",
+          retry_count: 1,
+          error: "parse error",
+        },
       ],
     });
   });
@@ -331,7 +351,9 @@ describe("ActivityPanel — retry disabled at max retries", () => {
 
   it("Retry button is disabled when retry_count >= 3", async () => {
     renderBar();
-    await act(async () => { fireEvent.click(screen.getByTestId("activity-panel-toggle")); });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("activity-panel-toggle"));
+    });
     await waitFor(() => {
       const retryBtn = screen.getByTestId("activity-retry") as HTMLButtonElement;
       expect(retryBtn.disabled).toBe(true);

@@ -558,7 +558,9 @@ export const GraphViewer: React.FC = () => {
   useEffect(() => {
     const observer = new MutationObserver(() => {
       setSigmaThemeColors(readSigmaThemeColors());
-      setGraphTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
+      setGraphTheme(
+        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
+      );
     });
     observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
     return () => observer.disconnect();

@@ -98,9 +98,7 @@ export interface DetailedHealth {
  *
  * [F18][R12-1 A2]
  */
-export async function getHealthDetailed(
-  signal?: AbortSignal,
-): Promise<DetailedHealth | null> {
+export async function getHealthDetailed(signal?: AbortSignal): Promise<DetailedHealth | null> {
   try {
     const url = `${apiBase()}/health/detailed`;
     const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);

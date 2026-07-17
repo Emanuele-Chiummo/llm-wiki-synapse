@@ -64,9 +64,9 @@ const ITALIAN_PATTERNS: RegExp[] = [
   // Accented words (uniquely Italian when accented)
   /\bperch[eé]\b/i,
   /\bperò\b/i,
-  /\battivit[àa]\b/i,   // "attività" with accent is Italian
-  /\bcos[ìi]\b/i,        // "così"
-  /\bpi[uù]\b/i,         // "più"
+  /\battivit[àa]\b/i, // "attività" with accent is Italian
+  /\bcos[ìi]\b/i, // "così"
+  /\bpi[uù]\b/i, // "più"
   /\bcitt[àa]\b/i,
   /\bverit[àa]\b/i,
   /\bunit[àa]\b/i,
@@ -74,21 +74,21 @@ const ITALIAN_PATTERNS: RegExp[] = [
   /\blibert[àa]\b/i,
   /\bsicurezza\b/i,
   // Italian-specific constructs (very unlikely in English)
-  /\bdell[ae]\b/i,       // "della", "delle"
+  /\bdell[ae]\b/i, // "della", "delle"
   /\bdegli\b/i,
-  /\bnell[ae]\b/i,       // "nella", "nelle"
+  /\bnell[ae]\b/i, // "nella", "nelle"
   /\bnello\b/i,
   /\bsullo\b/i,
   /\bsulla\b/i,
   /\bsulle\b/i,
-  /\balle\b(?!\s*right|\s*panel)/i,  // "alle" but not in English contexts
+  /\balle\b(?!\s*right|\s*panel)/i, // "alle" but not in English contexts
   /\bagli\b/i,
   /\bnostra\b/i,
   /\bnostro\b/i,
   /\bnostri\b/i,
   /\bnostre\b/i,
   /\bvostra\b/i,
-  /\btutto\b/i,           // "tutto" (not "button" etc.)
+  /\btutto\b/i, // "tutto" (not "button" etc.)
   /\btutti\b/i,
   /\btutte\b/i,
   /\bogni\b/i,
@@ -109,11 +109,11 @@ const ITALIAN_PATTERNS: RegExp[] = [
   /\bsezioni\b/i,
   /\bgruppi\b/i,
   /\blavori\b/i,
-  /\bstato\s+del\b/i,    // "stato del" (system status in Italian)
-  /\bGRUPPI\b/,           // ALL-CAPS Italian
+  /\bstato\s+del\b/i, // "stato del" (system status in Italian)
+  /\bGRUPPI\b/, // ALL-CAPS Italian
   /\bLAVORI\b/,
   /\bSEZIONI\b/,
-  /\bSTATO\b(?!\s+status|\s+machine|\s+bar|\s+of)/,  // "STATO" not followed by English words
+  /\bSTATO\b(?!\s+status|\s+machine|\s+bar|\s+of)/, // "STATO" not followed by English words
   /\bATTIVI\b/,
   /\bAUTOMATICI\b/,
 ];
@@ -126,7 +126,6 @@ const ITALIAN_PATTERNS: RegExp[] = [
 const WHITELIST_KEYS = new Set<string>([
   // i18next interpolation patterns like {{variabile}} look like Italian but aren't
   // (handled separately by stripping interpolations before testing)
-
   // "Tailscale" contains "alle" — whitelist the specific key if needed
   // Add specific keys here if the heuristic generates false positives:
   // e.g. "settings.maintenance.someKey"

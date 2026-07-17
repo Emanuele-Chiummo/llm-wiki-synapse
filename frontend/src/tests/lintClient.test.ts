@@ -389,7 +389,10 @@ describe("lintClient — dismissLintFinding", () => {
 describe("lintClient — batchLintAction [B1-L5]", () => {
   it("POSTs to /lint/findings/batch with ids and action=apply", async () => {
     const fetchMock = mockFetch({
-      results: [{ id: "f1", status: "ok" }, { id: "f2", status: "ok" }],
+      results: [
+        { id: "f1", status: "ok" },
+        { id: "f2", status: "ok" },
+      ],
       ok_count: 2,
       error_count: 0,
     });

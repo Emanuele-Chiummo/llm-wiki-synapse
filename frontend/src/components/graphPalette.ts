@@ -124,7 +124,8 @@ export type GraphTheme = "light" | "dark";
  */
 export function colorForCommunity(communityId: number, theme: GraphTheme = "light"): string {
   const palette = theme === "dark" ? COMMUNITY_PALETTE_DARK : COMMUNITY_PALETTE;
-  const unassigned = theme === "dark" ? COMMUNITY_UNASSIGNED_COLOR_DARK : COMMUNITY_UNASSIGNED_COLOR;
+  const unassigned =
+    theme === "dark" ? COMMUNITY_UNASSIGNED_COLOR_DARK : COMMUNITY_UNASSIGNED_COLOR;
   if (communityId < 0) return unassigned;
   return palette[communityId % palette.length] ?? unassigned;
 }
@@ -213,7 +214,10 @@ export const DOMAIN_UNTAGGED_COLOR_DARK = "#9198a1";
  * document.documentElement.dataset.theme === "dark" to use the lightened
  * dark-theme palette. Defaults to "light" for existing call sites.
  */
-export function colorForDomain(domain: string | null | undefined, theme: GraphTheme = "light"): string {
+export function colorForDomain(
+  domain: string | null | undefined,
+  theme: GraphTheme = "light",
+): string {
   const palette = theme === "dark" ? DOMAIN_PALETTE_DARK : DOMAIN_PALETTE;
   const untagged = theme === "dark" ? DOMAIN_UNTAGGED_COLOR_DARK : DOMAIN_UNTAGGED_COLOR;
   if (domain === null || domain === undefined || domain.trim() === "") {

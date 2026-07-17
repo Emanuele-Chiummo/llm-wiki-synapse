@@ -119,8 +119,16 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupEssentials",
     descKey: "settings.nav.groupEssentialsDesc",
     pages: [
-      { id: "providers", labelKey: "settings.nav.providers", icon: <Cpu size={15} aria-hidden="true" /> },
-      { id: "appearance", labelKey: "settings.nav.appearance", icon: <Palette size={15} aria-hidden="true" /> },
+      {
+        id: "providers",
+        labelKey: "settings.nav.providers",
+        icon: <Cpu size={15} aria-hidden="true" />,
+      },
+      {
+        id: "appearance",
+        labelKey: "settings.nav.appearance",
+        icon: <Palette size={15} aria-hidden="true" />,
+      },
       { id: "setup", labelKey: "settings.nav.setup", icon: <Wand2 size={15} aria-hidden="true" /> },
     ],
   },
@@ -129,12 +137,32 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupContent",
     descKey: "settings.nav.groupContentDesc",
     pages: [
-      { id: "sourceWatch", labelKey: "settings.nav.sourceWatch2", icon: <Folder size={15} aria-hidden="true" /> },
-      { id: "clipper", labelKey: "settings.nav.clipper", icon: <Scissors size={15} aria-hidden="true" /> },
+      {
+        id: "sourceWatch",
+        labelKey: "settings.nav.sourceWatch2",
+        icon: <Folder size={15} aria-hidden="true" />,
+      },
+      {
+        id: "clipper",
+        labelKey: "settings.nav.clipper",
+        icon: <Scissors size={15} aria-hidden="true" />,
+      },
       { id: "pdf", labelKey: "settings.nav.pdf", icon: <FileText size={15} aria-hidden="true" /> },
-      { id: "imageCaptioning", labelKey: "settings.nav.imageCaptioning", icon: <ImageIcon size={15} aria-hidden="true" /> },
-      { id: "generation", labelKey: "settings.nav.generation", icon: <Book size={15} aria-hidden="true" /> },
-      { id: "scenarios", labelKey: "settings.nav.scenarios", icon: <Zap size={15} aria-hidden="true" /> },
+      {
+        id: "imageCaptioning",
+        labelKey: "settings.nav.imageCaptioning",
+        icon: <ImageIcon size={15} aria-hidden="true" />,
+      },
+      {
+        id: "generation",
+        labelKey: "settings.nav.generation",
+        icon: <Book size={15} aria-hidden="true" />,
+      },
+      {
+        id: "scenarios",
+        labelKey: "settings.nav.scenarios",
+        icon: <Zap size={15} aria-hidden="true" />,
+      },
     ],
   },
   {
@@ -142,21 +170,36 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupAiBehavior",
     descKey: "settings.nav.groupAiBehaviorDesc",
     pages: [
-      { id: "context", labelKey: "settings.nav.context", icon: <SlidersHorizontal size={15} aria-hidden="true" />, advanced: true },
+      {
+        id: "context",
+        labelKey: "settings.nav.context",
+        icon: <SlidersHorizontal size={15} aria-hidden="true" />,
+        advanced: true,
+      },
       {
         id: "embeddings",
         labelKey: "settings.nav.embeddings2",
         icon: <Network size={15} aria-hidden="true" />,
         advanced: true,
       },
-      { id: "webSearch", labelKey: "settings.nav.webSearch2", icon: <Globe size={15} aria-hidden="true" />, advanced: true },
+      {
+        id: "webSearch",
+        labelKey: "settings.nav.webSearch2",
+        icon: <Globe size={15} aria-hidden="true" />,
+        advanced: true,
+      },
       {
         id: "automation",
         labelKey: "settings.nav.automation",
         icon: <Clock size={15} aria-hidden="true" />,
         advanced: true,
       },
-      { id: "limits", labelKey: "settings.nav.limits", icon: <Shield size={15} aria-hidden="true" />, advanced: true },
+      {
+        id: "limits",
+        labelKey: "settings.nav.limits",
+        icon: <Shield size={15} aria-hidden="true" />,
+        advanced: true,
+      },
     ],
   },
   {
@@ -164,8 +207,16 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupAccess",
     descKey: "settings.nav.groupAccessDesc",
     pages: [
-      { id: "security", labelKey: "settings.nav.security2", icon: <Lock size={15} aria-hidden="true" /> },
-      { id: "apiMcp", labelKey: "settings.nav.apiMcp2", icon: <Link2 size={15} aria-hidden="true" /> },
+      {
+        id: "security",
+        labelKey: "settings.nav.security2",
+        icon: <Lock size={15} aria-hidden="true" />,
+      },
+      {
+        id: "apiMcp",
+        labelKey: "settings.nav.apiMcp2",
+        icon: <Link2 size={15} aria-hidden="true" />,
+      },
     ],
   },
   {
@@ -173,9 +224,21 @@ const NAV_GROUPS: NavGroup[] = [
     labelKey: "settings.nav.groupSystem",
     descKey: "settings.nav.groupSystemDesc",
     pages: [
-      { id: "costs", labelKey: "settings.nav.costs2", icon: <DollarSign size={15} aria-hidden="true" /> },
-      { id: "maintenance", labelKey: "settings.nav.maintenance2", icon: <Wrench size={15} aria-hidden="true" /> },
-      { id: "changelog", labelKey: "settings.nav.changelog2", icon: <History size={15} aria-hidden="true" /> },
+      {
+        id: "costs",
+        labelKey: "settings.nav.costs2",
+        icon: <DollarSign size={15} aria-hidden="true" />,
+      },
+      {
+        id: "maintenance",
+        labelKey: "settings.nav.maintenance2",
+        icon: <Wrench size={15} aria-hidden="true" />,
+      },
+      {
+        id: "changelog",
+        labelKey: "settings.nav.changelog2",
+        icon: <History size={15} aria-hidden="true" />,
+      },
       { id: "about", labelKey: "settings.nav.about2", icon: <Info size={15} aria-hidden="true" /> },
     ],
   },

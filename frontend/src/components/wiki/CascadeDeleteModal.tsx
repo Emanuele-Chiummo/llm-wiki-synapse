@@ -325,9 +325,7 @@ export function CascadeDeleteModal({
         {/* Header */}
         <div style={S.header}>
           <h2 style={S.headerTitle} data-testid="cascade-delete-modal-title">
-            {step === "preview"
-              ? t("cascadeDelete.step1Title")
-              : t("cascadeDelete.step2Title")}
+            {step === "preview" ? t("cascadeDelete.step1Title") : t("cascadeDelete.step2Title")}
             {" — "}
             <span style={{ color: "var(--syn-text-muted)", fontWeight: 400 }}>{title}</span>
           </h2>
@@ -345,12 +343,7 @@ export function CascadeDeleteModal({
         {/* Body */}
         <div style={S.body}>
           {step === "preview" ? (
-            <PreviewBody
-              loading={previewLoading}
-              error={previewError}
-              preview={preview}
-              t={t}
-            />
+            <PreviewBody loading={previewLoading} error={previewError} preview={preview} t={t} />
           ) : (
             <ConfirmBody preview={preview} deleteError={deleteError} t={t} />
           )}
@@ -360,11 +353,7 @@ export function CascadeDeleteModal({
         <div style={S.footer}>
           {step === "preview" ? (
             <>
-              <button
-                style={S.secondaryBtn}
-                onClick={onCancel}
-                data-testid="cascade-delete-cancel"
-              >
+              <button style={S.secondaryBtn} onClick={onCancel} data-testid="cascade-delete-cancel">
                 {t("cascadeDelete.cancelButton")}
               </button>
               <button
@@ -441,9 +430,7 @@ function PreviewBody({ loading, error, preview, t }: PreviewBodyProps) {
 
   if (!preview) return null;
 
-  const otherPagesToDelete = preview.will_delete.filter(
-    (id) => id !== preview.target_page_id,
-  );
+  const otherPagesToDelete = preview.will_delete.filter((id) => id !== preview.target_page_id);
 
   return (
     <>
@@ -579,17 +566,14 @@ function ConfirmBody({ preview, deleteError, t }: ConfirmBodyProps) {
           style={{ display: "flex", flexWrap: "wrap" as const, gap: 8 }}
           data-testid="cascade-delete-confirm-summary"
         >
-          <span style={S.badge}>
-            {preview.will_delete.length} page(s) deleted
-          </span>
+          <span style={S.badge}>{preview.will_delete.length} page(s) deleted</span>
           {preview.wikilinks_to_rewrite.length > 0 && (
             <span style={S.badge}>
-              {preview.wikilinks_to_rewrite.reduce((s, r) => s + r.occurrences, 0)} wikilink(s) cleaned
+              {preview.wikilinks_to_rewrite.reduce((s, r) => s + r.occurrences, 0)} wikilink(s)
+              cleaned
             </span>
           )}
-          {preview.index_entry_will_be_removed && (
-            <span style={S.badge}>index.md updated</span>
-          )}
+          {preview.index_entry_will_be_removed && <span style={S.badge}>index.md updated</span>}
         </div>
       )}
 

@@ -8,7 +8,11 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useResearchStore, isTerminal } from "../store/researchStore";
-import type { ResearchRunListResponse, ResearchRunDetail, ResearchStartResponse } from "../api/types";
+import type {
+  ResearchRunListResponse,
+  ResearchRunDetail,
+  ResearchStartResponse,
+} from "../api/types";
 import type { ResearchPrefill } from "../store/researchStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -249,9 +253,21 @@ describe("startRun", () => {
 
     const spy = vi.spyOn(globalThis, "fetch");
     spy
-      .mockResolvedValueOnce({ ok: true, status: 202, json: () => Promise.resolve(startResponse) } as Response)
-      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(listResponse) } as Response)
-      .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(detailResponse) } as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 202,
+        json: () => Promise.resolve(startResponse),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(listResponse),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(detailResponse),
+      } as Response);
 
     const runId = await useResearchStore.getState().startRun({
       vault_id: "default",
@@ -269,7 +285,7 @@ describe("startRun", () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("503 SEARXNG not configured"));
 
     await expect(
-      useResearchStore.getState().startRun({ vault_id: "default", topic: "test" })
+      useResearchStore.getState().startRun({ vault_id: "default", topic: "test" }),
     ).rejects.toThrow();
 
     const state = useResearchStore.getState();

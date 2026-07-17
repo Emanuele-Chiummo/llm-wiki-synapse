@@ -55,10 +55,15 @@ export function ErrorState({ title, onRetry, error }: ErrorStateProps) {
 
   const handleCopy = () => {
     if (!errorText) return;
-    navigator.clipboard.writeText(errorText).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => { /* clipboard unavailable in insecure context */ });
+    navigator.clipboard
+      .writeText(errorText)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        /* clipboard unavailable in insecure context */
+      });
   };
 
   return (
@@ -172,9 +177,7 @@ export function ErrorState({ title, onRetry, error }: ErrorStateProps) {
                 background: copied
                   ? "color-mix(in srgb, var(--syn-green, #1a7f37) 8%, var(--syn-mix-base, transparent) 92%)"
                   : "transparent",
-                color: copied
-                  ? "var(--syn-green, #1a7f37)"
-                  : "var(--syn-text-muted, #6e7781)",
+                color: copied ? "var(--syn-green, #1a7f37)" : "var(--syn-text-muted, #6e7781)",
                 fontSize: 11,
                 cursor: "pointer",
                 transition: "background 0.15s, color 0.15s",

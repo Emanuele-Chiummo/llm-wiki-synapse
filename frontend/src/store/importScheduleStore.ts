@@ -16,11 +16,7 @@ import type {
   ImportSchedulePutBody,
   ImportSchedulePutResponse,
 } from "../api/types";
-import {
-  getImportSchedule,
-  putImportSchedule,
-  runImportNow,
-} from "../api/importScheduleClient";
+import { getImportSchedule, putImportSchedule, runImportNow } from "../api/importScheduleClient";
 import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -33,7 +29,7 @@ interface ImportScheduleState {
   schedule: ImportSchedule | null;
   loading: boolean;
   saving: boolean;
-  running: boolean;    // run-now in flight
+  running: boolean; // run-now in flight
   error: string | null;
   saveError: string | null;
   /** dir_ok/dir_message from the last PUT response */
@@ -43,7 +39,10 @@ interface ImportScheduleState {
 
 interface ImportScheduleActions {
   fetchSchedule: (signal?: AbortSignal) => Promise<void>;
-  saveSchedule: (body: ImportSchedulePutBody, signal?: AbortSignal) => Promise<ImportSchedulePutResponse | null>;
+  saveSchedule: (
+    body: ImportSchedulePutBody,
+    signal?: AbortSignal,
+  ) => Promise<ImportSchedulePutResponse | null>;
   runNow: (signal?: AbortSignal) => Promise<void>;
   /** Start polling while status === "running". Returns cleanup fn. */
   startPollingIfRunning: () => () => void;
@@ -104,7 +103,10 @@ export const useImportScheduleStore = create<ImportScheduleStore>((set, get) => 
       // Refresh schedule state after triggering a run
       void get().fetchSchedule();
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") { set({ running: false }); return; }
+      if (err instanceof Error && err.name === "AbortError") {
+        set({ running: false });
+        return;
+      }
       set({ error: (err as Error).message, running: false });
     }
   },
@@ -142,18 +144,48 @@ export const useImportScheduleStore = create<ImportScheduleStore>((set, get) => 
 export function selectImportSchedule(s: ImportScheduleStore): ImportSchedule | null {
   return s.schedule;
 }
-export function selectImportLoading(s: ImportScheduleStore): boolean { return s.loading; }
-export function selectImportSaving(s: ImportScheduleStore): boolean { return s.saving; }
-export function selectImportRunning(s: ImportScheduleStore): boolean { return s.running; }
-export function selectImportError(s: ImportScheduleStore): string | null { return s.error; }
-export function selectImportSaveError(s: ImportScheduleStore): string | null { return s.saveError; }
-export function selectDirOk(s: ImportScheduleStore): boolean | null { return s.dirOk; }
-export function selectDirMessage(s: ImportScheduleStore): string | null { return s.dirMessage; }
-export function selectFetchSchedule(s: ImportScheduleStore): ImportScheduleActions["fetchSchedule"] { return s.fetchSchedule; }
-export function selectSaveSchedule(s: ImportScheduleStore): ImportScheduleActions["saveSchedule"] { return s.saveSchedule; }
-export function selectRunNow(s: ImportScheduleStore): ImportScheduleActions["runNow"] { return s.runNow; }
-export function selectStartPollingIfRunning(s: ImportScheduleStore): ImportScheduleActions["startPollingIfRunning"] { return s.startPollingIfRunning; }
-export function selectImportResetForVault(s: ImportScheduleStore): ImportScheduleActions["resetForVault"] { return s.resetForVault; }
+export function selectImportLoading(s: ImportScheduleStore): boolean {
+  return s.loading;
+}
+export function selectImportSaving(s: ImportScheduleStore): boolean {
+  return s.saving;
+}
+export function selectImportRunning(s: ImportScheduleStore): boolean {
+  return s.running;
+}
+export function selectImportError(s: ImportScheduleStore): string | null {
+  return s.error;
+}
+export function selectImportSaveError(s: ImportScheduleStore): string | null {
+  return s.saveError;
+}
+export function selectDirOk(s: ImportScheduleStore): boolean | null {
+  return s.dirOk;
+}
+export function selectDirMessage(s: ImportScheduleStore): string | null {
+  return s.dirMessage;
+}
+export function selectFetchSchedule(
+  s: ImportScheduleStore,
+): ImportScheduleActions["fetchSchedule"] {
+  return s.fetchSchedule;
+}
+export function selectSaveSchedule(s: ImportScheduleStore): ImportScheduleActions["saveSchedule"] {
+  return s.saveSchedule;
+}
+export function selectRunNow(s: ImportScheduleStore): ImportScheduleActions["runNow"] {
+  return s.runNow;
+}
+export function selectStartPollingIfRunning(
+  s: ImportScheduleStore,
+): ImportScheduleActions["startPollingIfRunning"] {
+  return s.startPollingIfRunning;
+}
+export function selectImportResetForVault(
+  s: ImportScheduleStore,
+): ImportScheduleActions["resetForVault"] {
+  return s.resetForVault;
+}
 
 /** Hook: schedule object — shallow equality (I3). */
 export function useImportSchedule(): ImportSchedule | null {

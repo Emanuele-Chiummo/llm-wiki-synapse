@@ -52,8 +52,7 @@ import * as chatClient from "../api/chatClient";
 // ─── Mock graphStore ──────────────────────────────────────────────────────────
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: (selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "v1" }),
+  useGraphStore: (selector: (s: unknown) => unknown) => selector({ vaultId: "v1" }),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
 }));
 
@@ -73,8 +72,20 @@ vi.mock("../store/chatStore", async (importOriginal) => {
 import { useChatStore, useConversations } from "../store/chatStore";
 
 const SAMPLE_CONVERSATIONS = [
-  { id: "c1", vault_id: "v1", title: "Alpha conversation", created_at: "2026-01-01", updated_at: "2026-01-01" },
-  { id: "c2", vault_id: "v1", title: "Beta conversation", created_at: "2026-01-02", updated_at: "2026-01-02" },
+  {
+    id: "c1",
+    vault_id: "v1",
+    title: "Alpha conversation",
+    created_at: "2026-01-01",
+    updated_at: "2026-01-01",
+  },
+  {
+    id: "c2",
+    vault_id: "v1",
+    title: "Beta conversation",
+    created_at: "2026-01-02",
+    updated_at: "2026-01-02",
+  },
 ];
 
 // ─── Mock i18n ────────────────────────────────────────────────────────────────

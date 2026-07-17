@@ -18,12 +18,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -53,7 +65,9 @@ beforeEach(() => {
   fakeStorage.clear();
   mockFetch.mockReset();
   // Clear the module-level 401 handler by registering a no-op
-  register401Handler(() => {/* no-op */});
+  register401Handler(() => {
+    /* no-op */
+  });
 });
 
 afterEach(() => {
@@ -192,7 +206,9 @@ describe("apiFetch() — 401 handling", () => {
 
   it("does not throw when no 401 handler is registered", async () => {
     // Clear handler by registering a no-op then resetting _on401 indirectly
-    register401Handler(() => {/* no-op */});
+    register401Handler(() => {
+      /* no-op */
+    });
     mockFetch.mockResolvedValue(new Response("{}", { status: 401 }));
     await expect(apiFetch("/api/protected")).resolves.not.toThrow();
   });

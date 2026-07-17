@@ -9,8 +9,7 @@ describe("stripLeadingFrontmatter", () => {
   });
 
   it("removes TWO consecutive leading blocks (legacy duplicated frontmatter)", () => {
-    const md =
-      "---\nlang: en\ntitle: X\n---\n\n---\ntype: concept\ntitle: X\n---\n\n# Body";
+    const md = "---\nlang: en\ntitle: X\n---\n\n---\ntype: concept\ntitle: X\n---\n\n# Body";
     expect(stripLeadingFrontmatter(md).trim()).toBe("# Body");
   });
 

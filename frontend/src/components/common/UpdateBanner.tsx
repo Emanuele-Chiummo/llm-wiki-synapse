@@ -64,9 +64,7 @@ export function UpdateBanner({ state }: UpdateBannerProps) {
       {/* ── Message ─────────────────────────────────────────────────────────── */}
       <span style={{ flex: 1, minWidth: 0 }}>
         {installing ? (
-          <span data-testid="update-installing-text">
-            {t("desktop.update.installing")}
-          </span>
+          <span data-testid="update-installing-text">{t("desktop.update.installing")}</span>
         ) : installError !== null ? (
           <span data-testid="update-error-text" style={{ color: "var(--syn-error, #f87171)" }}>
             {t("desktop.update.error")}

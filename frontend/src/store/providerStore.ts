@@ -12,7 +12,12 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { ProviderConfigItem, CreateProviderConfigBody, UpdateProviderConfigBody, VendorInfo } from "../api/types";
+import type {
+  ProviderConfigItem,
+  CreateProviderConfigBody,
+  UpdateProviderConfigBody,
+  VendorInfo,
+} from "../api/types";
 import {
   fetchProviderConfigs,
   createProviderConfig,
@@ -72,10 +77,7 @@ export type ProviderStore = ProviderState & ProviderActions;
  * Precedence: vault-scoped rows (for this vault) DESC created_at > global rows DESC created_at.
  * Non-fallback rows take precedence within a scope.
  */
-function deriveActiveItem(
-  list: ProviderConfigItem[],
-  vaultId: string,
-): ProviderConfigItem | null {
+function deriveActiveItem(list: ProviderConfigItem[], vaultId: string): ProviderConfigItem | null {
   const vaultRows = list
     .filter((r) => r.scope === "vault" && r.vault_id === vaultId)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));

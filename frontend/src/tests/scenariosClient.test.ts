@@ -25,9 +25,7 @@ describe("fetchScenarios — envelope unwrap", () => {
   it("unwraps {items: [...]} into the array", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ items: ITEMS }), { status: 200 }),
-      ),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: ITEMS }), { status: 200 })),
     );
     const result = await fetchScenarios();
     expect(Array.isArray(result)).toBe(true);
@@ -36,19 +34,16 @@ describe("fetchScenarios — envelope unwrap", () => {
   });
 
   it("returns [] when items is missing or not an array", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("{}", { status: 200 })),
-    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 200 })));
     expect(await fetchScenarios()).toEqual([]);
   });
 });
 
 describe("applyScenario", () => {
   it("POSTs to /scenarios/{id}/apply and returns the response", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ applied: true }), { status: 200 }),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ applied: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const result = await applyScenario("research");
     expect(fetchMock).toHaveBeenCalledWith(

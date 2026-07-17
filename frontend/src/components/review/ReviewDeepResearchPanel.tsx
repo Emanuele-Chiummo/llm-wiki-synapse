@@ -47,11 +47,11 @@ export interface ReviewDeepResearchPanelProps {
 // ─── Status colour map ────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<string, string> = {
-  running:          "var(--syn-accent)",
-  converged:        "var(--syn-green)",
+  running: "var(--syn-accent)",
+  converged: "var(--syn-green)",
   max_iter_reached: "var(--syn-amber)",
   budget_exhausted: "var(--syn-amber)",
-  error:            "var(--syn-red)",
+  error: "var(--syn-red)",
 };
 
 // ─── Run row ──────────────────────────────────────────────────────────────────
@@ -71,9 +71,7 @@ function RunRow({ run, lang }: RunRowProps) {
       const mins = Math.round(diff / 60_000);
       if (Math.abs(mins) < 60) return formatter.format(mins, "minute");
       const hrs = Math.round(diff / 3_600_000);
-      return Math.abs(hrs) < 24
-        ? formatter.format(hrs, "hour")
-        : date.toLocaleDateString(lang);
+      return Math.abs(hrs) < 24 ? formatter.format(hrs, "hour") : date.toLocaleDateString(lang);
     } catch {
       return "";
     }
@@ -107,9 +105,7 @@ function RunRow({ run, lang }: RunRowProps) {
         <span style={{ color: STATUS_COLOR[run.status] ?? "var(--syn-text-dim)", fontWeight: 500 }}>
           {t(`research.status.${run.status}`, { defaultValue: run.status })}
         </span>
-        <span style={{ color: "var(--syn-text-dim)" }}>
-          {relTime}
-        </span>
+        <span style={{ color: "var(--syn-text-dim)" }}>{relTime}</span>
       </div>
     </div>
   );
@@ -243,7 +239,9 @@ export function ReviewDeepResearchPanel({
           className="syn-btn syn-btn--secondary syn-btn--sm"
           style={{ flexShrink: 0, padding: "4px 8px", fontSize: 11 }}
         >
-          {starting ? t("review.deepResearchPanel.starting") : t("review.deepResearchPanel.startBtn")}
+          {starting
+            ? t("review.deepResearchPanel.starting")
+            : t("review.deepResearchPanel.startBtn")}
         </button>
       </div>
 
@@ -269,9 +267,7 @@ export function ReviewDeepResearchPanel({
             {t("review.deepResearchPanel.noTasks")}
           </div>
         ) : (
-          runs.map((run) => (
-            <RunRow key={run.id} run={run} lang={i18n.language} />
-          ))
+          runs.map((run) => <RunRow key={run.id} run={run} lang={i18n.language} />)
         )}
       </div>
     </div>

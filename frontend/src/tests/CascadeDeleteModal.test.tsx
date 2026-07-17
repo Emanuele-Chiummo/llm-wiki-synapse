@@ -126,18 +126,14 @@ beforeEach(() => {
 describe("CascadeDeleteModal — loading state", () => {
   it("shows loading text while preview is fetching", () => {
     // Never resolves during this test
-    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockReturnValue(
-      new Promise(() => {}),
-    );
+    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockReturnValue(new Promise(() => {}));
     render(<CascadeDeleteModal {...defaultProps} />);
     expect(screen.getByTestId("cascade-delete-preview-loading")).toBeTruthy();
     expect(screen.getByText("Computing deletion plan…")).toBeTruthy();
   });
 
   it("disables the confirm button while loading", () => {
-    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockReturnValue(
-      new Promise(() => {}),
-    );
+    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockReturnValue(new Promise(() => {}));
     render(<CascadeDeleteModal {...defaultProps} />);
     const nextBtn = screen.getByTestId("cascade-delete-next");
     expect((nextBtn as HTMLButtonElement).disabled).toBe(true);
@@ -159,9 +155,7 @@ describe("CascadeDeleteModal — preview error", () => {
   });
 
   it("keeps the confirm button disabled on error", async () => {
-    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockRejectedValue(
-      new Error("Nope"),
-    );
+    vi.mocked(cascadeDeleteClient.previewCascadeDelete).mockRejectedValue(new Error("Nope"));
     render(<CascadeDeleteModal {...defaultProps} />);
     await waitFor(() => {
       expect(screen.getByTestId("cascade-delete-preview-error")).toBeTruthy();
@@ -298,8 +292,12 @@ describe("CascadeDeleteModal — shared_entity_warnings (AC-F13-6a)", () => {
     await waitFor(() => {
       expect(screen.getByTestId("cascade-delete-shared-warnings")).toBeTruthy();
       expect(screen.getByText("Shared-entity warnings")).toBeTruthy();
-      expect(screen.getByText("Page 'Shared A' shares source overlap with 'Test Page'")).toBeTruthy();
-      expect(screen.getByText("Page 'Shared B' shares source overlap with 'Test Page'")).toBeTruthy();
+      expect(
+        screen.getByText("Page 'Shared A' shares source overlap with 'Test Page'"),
+      ).toBeTruthy();
+      expect(
+        screen.getByText("Page 'Shared B' shares source overlap with 'Test Page'"),
+      ).toBeTruthy();
     });
   });
 
@@ -462,9 +460,7 @@ describe("CascadeDeleteModal — confirm flow (step 2)", () => {
   });
 
   it("shows inline error and does NOT call onDeleted on DELETE failure", async () => {
-    vi.mocked(cascadeDeleteClient.cascadeDelete).mockRejectedValue(
-      new Error("Server error: 500"),
-    );
+    vi.mocked(cascadeDeleteClient.cascadeDelete).mockRejectedValue(new Error("Server error: 500"));
     render(<CascadeDeleteModal {...defaultProps} />);
     await goToStep2();
     fireEvent.click(screen.getByTestId("cascade-delete-confirm"));

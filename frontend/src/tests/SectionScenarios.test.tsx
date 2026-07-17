@@ -43,8 +43,12 @@ vi.mock("../components/common/ConfirmDialog", () => ({
   }) => (
     <div data-testid="confirm-dialog">
       <span data-testid="confirm-dialog-title">{title}</span>
-      <button data-testid="confirm-dialog-confirm" onClick={onConfirm}>{confirmLabel}</button>
-      <button data-testid="confirm-dialog-cancel" onClick={onCancel}>{cancelLabel}</button>
+      <button data-testid="confirm-dialog-confirm" onClick={onConfirm}>
+        {confirmLabel}
+      </button>
+      <button data-testid="confirm-dialog-cancel" onClick={onCancel}>
+        {cancelLabel}
+      </button>
     </div>
   ),
 }));
@@ -86,10 +90,12 @@ vi.mock("../store/settingsStore", () => ({
   ),
   selectContextWindow: (s: { contextWindow: number }) => s.contextWindow,
   selectLanguage: (s: { language: string }) => s.language,
-  selectConversationHistoryLength: (s: { conversationHistoryLength: number }) => s.conversationHistoryLength,
+  selectConversationHistoryLength: (s: { conversationHistoryLength: number }) =>
+    s.conversationHistoryLength,
   selectSetContextWindow: (s: { setContextWindow: () => void }) => s.setContextWindow,
   selectSetLanguage: (s: { setLanguage: () => void }) => s.setLanguage,
-  selectSetConversationHistoryLength: (s: { setConversationHistoryLength: () => void }) => s.setConversationHistoryLength,
+  selectSetConversationHistoryLength: (s: { setConversationHistoryLength: () => void }) =>
+    s.setConversationHistoryLength,
   selectResetSettings: (s: { resetSettings: () => void }) => s.resetSettings,
   selectTheme: (s: { theme: string }) => s.theme,
   selectSetTheme: (s: { setTheme: () => void }) => s.setTheme,
@@ -99,7 +105,8 @@ vi.mock("../store/settingsStore", () => ({
     s.draftConversationHistoryLength,
   selectDraftLanguage: (s: { draftLanguage: string }) => s.draftLanguage,
   selectDraftTheme: (s: { draftTheme: string }) => s.draftTheme,
-  selectSetDraftContextWindow: (s: { setDraftContextWindow: () => void }) => s.setDraftContextWindow,
+  selectSetDraftContextWindow: (s: { setDraftContextWindow: () => void }) =>
+    s.setDraftContextWindow,
   selectSetDraftConversationHistoryLength: (s: { setDraftConversationHistoryLength: () => void }) =>
     s.setDraftConversationHistoryLength,
   selectSetDraftLanguage: (s: { setDraftLanguage: () => void }) => s.setDraftLanguage,
@@ -107,10 +114,14 @@ vi.mock("../store/settingsStore", () => ({
   selectCommitDraft: (s: { commitDraft: () => void }) => s.commitDraft,
   selectDiscardDraft: (s: { discardDraft: () => void }) => s.discardDraft,
   selectIsDirty: (s: {
-    draftTheme: string; theme: string;
-    draftLanguage: string; language: string;
-    draftConversationHistoryLength: number; conversationHistoryLength: number;
-    draftContextWindowTokens: number; contextWindowTokens: number;
+    draftTheme: string;
+    theme: string;
+    draftLanguage: string;
+    language: string;
+    draftConversationHistoryLength: number;
+    conversationHistoryLength: number;
+    draftContextWindowTokens: number;
+    contextWindowTokens: number;
   }) =>
     s.draftTheme !== s.theme ||
     s.draftLanguage !== s.language ||
@@ -157,22 +168,54 @@ vi.mock("../store/providerStore", () => ({
 }));
 
 vi.mock("../store/graphStore", () => ({
-  useGraphStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ vaultId: "v1" }),
-  ),
+  useGraphStore: vi.fn((selector: (s: unknown) => unknown) => selector({ vaultId: "v1" })),
   selectVaultId: (s: { vaultId: string }) => s.vaultId,
 }));
 
 vi.mock("../api/providerClient", () => ({
-  fetchEmbeddingConfig: vi.fn().mockResolvedValue({ embeddings_enabled: false, embedding_url: "", embedding_model: "", embedding_dim: 768 }),
-  fetchMcpInfo: vi.fn().mockResolvedValue({ server_name: "synapse", transport: "stdio", entry_point_command: "python -m app", tool_count: 0, tools: [], http_enabled: false, remote_write_enabled: false, token_configured: false, remote_enabled: false, mount_path: "/mcp", token_source: "none", allow_without_token: false }),
+  fetchEmbeddingConfig: vi.fn().mockResolvedValue({
+    embeddings_enabled: false,
+    embedding_url: "",
+    embedding_model: "",
+    embedding_dim: 768,
+  }),
+  fetchMcpInfo: vi.fn().mockResolvedValue({
+    server_name: "synapse",
+    transport: "stdio",
+    entry_point_command: "python -m app",
+    tool_count: 0,
+    tools: [],
+    http_enabled: false,
+    remote_write_enabled: false,
+    token_configured: false,
+    remote_enabled: false,
+    mount_path: "/mcp",
+    token_source: "none",
+    allow_without_token: false,
+  }),
   setRemoteMcpEnabled: vi.fn(),
   setMcpAuth: vi.fn(),
-  fetchClipConfig: vi.fn().mockResolvedValue({ enabled: false, token_configured: false, token_source: "none", allowed_origins: [], max_body_bytes: 1048576 }),
+  fetchClipConfig: vi.fn().mockResolvedValue({
+    enabled: false,
+    token_configured: false,
+    token_source: "none",
+    allowed_origins: [],
+    max_body_bytes: 1048576,
+  }),
   setClipConfig: vi.fn(),
-  fetchWebSearchConfig: vi.fn().mockResolvedValue({ configured: false, url: null, categories: [], max_queries: 3, source: "env" }),
+  fetchWebSearchConfig: vi.fn().mockResolvedValue({
+    configured: false,
+    url: null,
+    categories: [],
+    max_queries: 3,
+    source: "env",
+  }),
   setWebSearchConfig: vi.fn(),
-  getCliAuthConfig: vi.fn().mockResolvedValue({ token_configured: false, token_source: "none", auth_mode: "unconfigured" }),
+  getCliAuthConfig: vi.fn().mockResolvedValue({
+    token_configured: false,
+    token_source: "none",
+    auth_mode: "unconfigured",
+  }),
   setCliAuthConfig: vi.fn(),
   fetchVendors: vi.fn().mockResolvedValue({ vendors: [] }),
   fetchProviderConfigs: vi.fn().mockResolvedValue({ items: [], total: 0 }),
@@ -191,14 +234,14 @@ vi.mock("../components/settings/ImportScheduleCard", () => ({
 vi.mock("../api/appConfigClient", () => ({
   getAppConfig: vi.fn().mockResolvedValue({
     settings: [
-      { key: "pdf_extractor",           value: "pypdf",  source: "env" },
-      { key: "marker_service_url",       value: "",       source: "env" },
-      { key: "marker_timeout_seconds",   value: "60",     source: "env" },
-      { key: "cost_alert_threshold_usd", value: "5.0",    source: "env" },
-      { key: "embeddings_enabled",       value: "true",   source: "env" },
-      { key: "embedding_format",         value: "ollama", source: "env" },
-      { key: "overview_language",        value: "en",     source: "env" },
-      { key: "wikilink_enrich_enabled",  value: "true",   source: "env" },
+      { key: "pdf_extractor", value: "pypdf", source: "env" },
+      { key: "marker_service_url", value: "", source: "env" },
+      { key: "marker_timeout_seconds", value: "60", source: "env" },
+      { key: "cost_alert_threshold_usd", value: "5.0", source: "env" },
+      { key: "embeddings_enabled", value: "true", source: "env" },
+      { key: "embedding_format", value: "ollama", source: "env" },
+      { key: "overview_language", value: "en", source: "env" },
+      { key: "wikilink_enrich_enabled", value: "true", source: "env" },
     ],
   }),
   putAppConfig: vi.fn().mockResolvedValue(undefined),
@@ -298,7 +341,9 @@ describe("SectionScenarios — R7-1 (FE)", () => {
 
   it("shows loading while fetchScenarios is pending", async () => {
     vi.mocked(scenariosClient.fetchScenarios).mockReturnValue(
-      new Promise(() => { /* never resolves */ }),
+      new Promise(() => {
+        /* never resolves */
+      }),
     );
     await openScenariosSection();
     await waitFor(() => {

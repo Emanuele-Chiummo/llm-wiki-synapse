@@ -767,7 +767,9 @@ export function ActivityBar(): ReactNode {
 
           {/* Connectivity indicator */}
           <span
-            aria-label={pollError ? t("activity.backendUnreachable") : t("activity.backendConnected")}
+            aria-label={
+              pollError ? t("activity.backendUnreachable") : t("activity.backendConnected")
+            }
             style={{ display: "flex", alignItems: "center", gap: 4 }}
           >
             <span

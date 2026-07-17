@@ -25,7 +25,12 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { Virtualizer, observeElementRect, observeElementOffset, elementScroll } from "@tanstack/virtual-core";
+import {
+  Virtualizer,
+  observeElementRect,
+  observeElementOffset,
+  elementScroll,
+} from "@tanstack/virtual-core";
 
 // ─── Fake scroll element with a known height ──────────────────────────────────
 
@@ -82,11 +87,24 @@ describe("AC-R11-4-BUG3: NavTree virtualizer — getTotalSize() > 0 on initial r
 
   it("returns > 0 with a mix of group rows and page rows", () => {
     // Simulate 2 groups of 5 pages each: [group, page, page, page, page, page, group, ...]
-    const rowKinds = ["group", "page", "page", "page", "page", "page", "group", "page", "page", "page", "page", "page"] as const;
+    const rowKinds = [
+      "group",
+      "page",
+      "page",
+      "page",
+      "page",
+      "page",
+      "group",
+      "page",
+      "page",
+      "page",
+      "page",
+      "page",
+    ] as const;
     const scrollEl = makeFakeScrollEl(400);
     const v = makeVirtualizer(
       rowKinds.length,
-      (index) => rowKinds[index] === "group" ? GROUP_ROW_HEIGHT : PAGE_ROW_HEIGHT,
+      (index) => (rowKinds[index] === "group" ? GROUP_ROW_HEIGHT : PAGE_ROW_HEIGHT),
       scrollEl,
     );
     const total = v.getTotalSize();

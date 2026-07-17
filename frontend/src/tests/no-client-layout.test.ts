@@ -187,7 +187,9 @@ describe("AC-FE-2 / I2 — no client-layout imports in source (pre-build check)"
       `require\\(['"]${pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
       "m",
     );
-    return esmPattern.test(content) || sideEffectPattern.test(content) || requirePattern.test(content);
+    return (
+      esmPattern.test(content) || sideEffectPattern.test(content) || requirePattern.test(content)
+    );
   }
 
   const sourceFiles = collectSourceFiles(SRC_DIR);

@@ -50,8 +50,7 @@ vi.mock("react-i18next", () => ({
 // the full DOMPurify / marked / KaTeX pipeline in jsdom.
 
 vi.mock("../components/chat/renderMarkdown", () => ({
-  renderMarkdown: (text: string) =>
-    `<p data-testid="md-rendered">${text.slice(0, 60)}</p>`,
+  renderMarkdown: (text: string) => `<p data-testid="md-rendered">${text.slice(0, 60)}</p>`,
 }));
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -418,10 +417,13 @@ describe("SectionChangelog — VISIBLE_MAX cap (at most 10 cards)", () => {
   });
 
   it("renders exactly 4 cards for the 4-entry SAMPLE_CHANGELOG fixture", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(SAMPLE_CHANGELOG),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(SAMPLE_CHANGELOG),
+      }),
+    );
     render(<SectionChangelog />);
     await waitFor(() => expect(screen.getByTestId("changelog-count")).toBeTruthy());
     // SAMPLE_CHANGELOG has 4 entries (< VISIBLE_MAX) — all 4 rendered
@@ -432,10 +434,13 @@ describe("SectionChangelog — VISIBLE_MAX cap (at most 10 cards)", () => {
 
   it("renders at most VISIBLE_MAX cards when the source has more than 10 versions", async () => {
     const bigCl = makeBigChangelog(15); // 15 versions
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(bigCl),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(bigCl),
+      }),
+    );
     render(<SectionChangelog />);
     await waitFor(() => expect(screen.getByTestId("changelog-count")).toBeTruthy());
     const listItems = document.querySelectorAll('[role="listitem"]');
@@ -445,10 +450,13 @@ describe("SectionChangelog — VISIBLE_MAX cap (at most 10 cards)", () => {
 
   it("shows the newest entry first (most recent semver) when capped at 10", async () => {
     const bigCl = makeBigChangelog(15); // 1.0.15 down to 1.0.1
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(bigCl),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(bigCl),
+      }),
+    );
     render(<SectionChangelog />);
     await waitFor(() => expect(screen.getByTestId("changelog-count")).toBeTruthy());
     // 1.0.15 should be present (first/newest); 1.0.5 absent (11th, beyond cap)
@@ -458,10 +466,13 @@ describe("SectionChangelog — VISIBLE_MAX cap (at most 10 cards)", () => {
 
   it("count label shows the number of displayed cards (capped at 10, not the total)", async () => {
     const bigCl = makeBigChangelog(15);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      text: () => Promise.resolve(bigCl),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(bigCl),
+      }),
+    );
     render(<SectionChangelog />);
     await waitFor(() => expect(screen.getByTestId("changelog-count")).toBeTruthy());
     // The count label shows how many cards are actually rendered, not the total

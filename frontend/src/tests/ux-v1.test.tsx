@@ -17,12 +17,24 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
-    getItem(k: string) { return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null; },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
+    getItem(k: string) {
+      return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
+    },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -142,7 +154,9 @@ describe("UXA-15 — ProviderSelector ARIA", () => {
     render(<ProviderSelector />);
     // Open the panel
     const trigger = screen.getByTestId("provider-selector-trigger");
-    await act(async () => { fireEvent.click(trigger); });
+    await act(async () => {
+      fireEvent.click(trigger);
+    });
     const panel = screen.getByTestId("provider-selector-panel");
     // No element inside the panel should have role="listbox"
     const listboxEls = panel.querySelectorAll("[role=listbox]");

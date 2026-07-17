@@ -121,7 +121,10 @@ interface ReviewState {
    * In-flight action state per item id.
    * "create" = lazy page generation; "approve" = acknowledge without creating (R2).
    */
-  actionInFlight: Record<string, "create" | "approve" | "skip" | "dismiss" | "deep-research" | null>;
+  actionInFlight: Record<
+    string,
+    "create" | "approve" | "skip" | "dismiss" | "deep-research" | null
+  >;
 
   /** Per-item action error (non-503). */
   actionError: Record<string, string | null>;
@@ -228,10 +231,7 @@ interface ReviewActions {
    * POST /review/queue/bulk → refresh queue.
    * Only pending ids mutated; terminal ids counted in skipped_terminal.
    */
-  bulkAction: (
-    vaultId: string,
-    action: "skip" | "dismiss" | "mark-resolved",
-  ) => Promise<void>;
+  bulkAction: (vaultId: string, action: "skip" | "dismiss" | "mark-resolved") => Promise<void>;
 
   /**
    * Clear all resolved/terminal rows for the vault (ADR-0044 §6).
@@ -297,10 +297,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     const { activeTab, filters } = get();
     set({ loading: true, error: null });
     try {
-      const res = await fetchReviewQueue(
-        queueOptions(vaultId, activeTab, filters, 0),
-        signal,
-      );
+      const res = await fetchReviewQueue(queueOptions(vaultId, activeTab, filters, 0), signal);
       set({
         items: res.items,
         total: res.total,
@@ -321,9 +318,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     const nextOffset = offset + PAGE_LIMIT;
     set({ loading: true });
     try {
-      const res = await fetchReviewQueue(
-        queueOptions(vaultId, activeTab, filters, nextOffset),
-      );
+      const res = await fetchReviewQueue(queueOptions(vaultId, activeTab, filters, nextOffset));
       set({
         items: [...items, ...res.items],
         total: res.total,
@@ -356,9 +351,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
       selectedIds: new Set<string>(),
     });
     try {
-      const res = await fetchReviewQueue(
-        queueOptions(vaultId, get().activeTab, nextFilters, 0),
-      );
+      const res = await fetchReviewQueue(queueOptions(vaultId, get().activeTab, nextFilters, 0));
       set({ items: res.items, total: res.total, offset: 0, loading: false });
     } catch (err: unknown) {
       set({ error: (err as Error).message, loading: false });
@@ -399,10 +392,9 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
           ? { ...s.createGenerationError, [itemId]: (err as Error).message }
           : s.createGenerationError,
         // 409 / other: not pending / no provider — generic per-item error
-        actionError:
-          !is502
-            ? { ...s.actionError, [itemId]: (err as Error).message }
-            : s.actionError,
+        actionError: !is502
+          ? { ...s.actionError, [itemId]: (err as Error).message }
+          : s.actionError,
       }));
     }
   },
@@ -518,9 +510,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
       const is503 = err instanceof ApiError && err.status === 503;
       set((s) => ({
         actionInFlight: { ...s.actionInFlight, [itemId]: null },
-        actionError: is503
-          ? s.actionError
-          : { ...s.actionError, [itemId]: (err as Error).message },
+        actionError: is503 ? s.actionError : { ...s.actionError, [itemId]: (err as Error).message },
         deepResearchError: is503 ? (err as Error).message : s.deepResearchError,
       }));
       return null;
@@ -533,9 +523,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     try {
       const result = await sweepReviewQueue(vaultId);
       // Refresh queue after sweep so resolved items disappear
-      const res = await fetchReviewQueue(
-        queueOptions(vaultId, get().activeTab, get().filters, 0),
-      );
+      const res = await fetchReviewQueue(queueOptions(vaultId, get().activeTab, get().filters, 0));
       set({
         items: res.items,
         total: res.total,
@@ -578,9 +566,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     try {
       const result = await clearResolved(vaultId);
       // Refresh queue
-      const res = await fetchReviewQueue(
-        queueOptions(vaultId, get().activeTab, get().filters, 0),
-      );
+      const res = await fetchReviewQueue(queueOptions(vaultId, get().activeTab, get().filters, 0));
       set({
         items: res.items,
         total: res.total,
@@ -611,9 +597,7 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
   selectAllPending: () => {
     set((s) => {
       // O(loaded): only select currently-loaded pending items (ADR-0044 §10 Do-NOT #8)
-      const pendingIds = s.items
-        .filter((item) => item.status === "pending")
-        .map((item) => item.id);
+      const pendingIds = s.items.filter((item) => item.status === "pending").map((item) => item.id);
       return { selectedIds: new Set(pendingIds) };
     });
   },
@@ -689,48 +673,34 @@ export function selectReviewActionInFlight(
 ): Record<string, "create" | "approve" | "skip" | "dismiss" | "deep-research" | null> {
   return s.actionInFlight;
 }
-export function selectReviewActionError(
-  s: ReviewStore,
-): Record<string, string | null> {
+export function selectReviewActionError(s: ReviewStore): Record<string, string | null> {
   return s.actionError;
 }
-export function selectCreateGenerationError(
-  s: ReviewStore,
-): Record<string, string | null> {
+export function selectCreateGenerationError(s: ReviewStore): Record<string, string | null> {
   return s.createGenerationError;
 }
-export function selectLastDeepResearch(
-  s: ReviewStore,
-): { itemId: string; runId: string } | null {
+export function selectLastDeepResearch(s: ReviewStore): { itemId: string; runId: string } | null {
   return s.lastDeepResearch;
 }
 export function selectDeepResearchError(s: ReviewStore): string | null {
   return s.deepResearchError;
 }
-export function selectLastSweepResult(
-  s: ReviewStore,
-): ReviewSweepResponse | null {
+export function selectLastSweepResult(s: ReviewStore): ReviewSweepResponse | null {
   return s.lastSweepResult;
 }
 export function selectLastBulkResult(s: ReviewStore): ReviewBulkResponse | null {
   return s.lastBulkResult;
 }
-export function selectLastClearResult(
-  s: ReviewStore,
-): ReviewClearResolvedResponse | null {
+export function selectLastClearResult(s: ReviewStore): ReviewClearResolvedResponse | null {
   return s.lastClearResult;
 }
 export function selectBulkError(s: ReviewStore): string | null {
   return s.bulkError;
 }
-export function selectFetchFreshReview(
-  s: ReviewStore,
-): ReviewActions["fetchFresh"] {
+export function selectFetchFreshReview(s: ReviewStore): ReviewActions["fetchFresh"] {
   return s.fetchFresh;
 }
-export function selectFetchMoreReview(
-  s: ReviewStore,
-): ReviewActions["fetchMore"] {
+export function selectFetchMoreReview(s: ReviewStore): ReviewActions["fetchMore"] {
   return s.fetchMore;
 }
 export function selectSetActiveTab(s: ReviewStore): ReviewActions["setActiveTab"] {
@@ -754,9 +724,7 @@ export function selectDismiss(s: ReviewStore): ReviewActions["dismiss"] {
 export function selectApprove(s: ReviewStore): ReviewActions["approve"] {
   return s.approve;
 }
-export function selectDeepResearch(
-  s: ReviewStore,
-): ReviewActions["deepResearch"] {
+export function selectDeepResearch(s: ReviewStore): ReviewActions["deepResearch"] {
   return s.deepResearch;
 }
 export function selectSweep(s: ReviewStore): ReviewActions["sweep"] {
@@ -765,24 +733,16 @@ export function selectSweep(s: ReviewStore): ReviewActions["sweep"] {
 export function selectBulkAction(s: ReviewStore): ReviewActions["bulkAction"] {
   return s.bulkAction;
 }
-export function selectClearResolvedRows(
-  s: ReviewStore,
-): ReviewActions["clearResolvedRows"] {
+export function selectClearResolvedRows(s: ReviewStore): ReviewActions["clearResolvedRows"] {
   return s.clearResolvedRows;
 }
-export function selectToggleSelected(
-  s: ReviewStore,
-): ReviewActions["toggleSelected"] {
+export function selectToggleSelected(s: ReviewStore): ReviewActions["toggleSelected"] {
   return s.toggleSelected;
 }
-export function selectSelectAllPending(
-  s: ReviewStore,
-): ReviewActions["selectAllPending"] {
+export function selectSelectAllPending(s: ReviewStore): ReviewActions["selectAllPending"] {
   return s.selectAllPending;
 }
-export function selectClearSelection(
-  s: ReviewStore,
-): ReviewActions["clearSelection"] {
+export function selectClearSelection(s: ReviewStore): ReviewActions["clearSelection"] {
   return s.clearSelection;
 }
 export function selectClearDeepResearchError(
@@ -795,9 +755,7 @@ export function selectClearLastDeepResearch(
 ): ReviewActions["clearLastDeepResearch"] {
   return s.clearLastDeepResearch;
 }
-export function selectClearLastSweepResult(
-  s: ReviewStore,
-): ReviewActions["clearLastSweepResult"] {
+export function selectClearLastSweepResult(s: ReviewStore): ReviewActions["clearLastSweepResult"] {
   return s.clearLastSweepResult;
 }
 export function selectClearCreateGenerationError(
@@ -805,24 +763,16 @@ export function selectClearCreateGenerationError(
 ): ReviewActions["clearCreateGenerationError"] {
   return s.clearCreateGenerationError;
 }
-export function selectClearLastBulkResult(
-  s: ReviewStore,
-): ReviewActions["clearLastBulkResult"] {
+export function selectClearLastBulkResult(s: ReviewStore): ReviewActions["clearLastBulkResult"] {
   return s.clearLastBulkResult;
 }
-export function selectClearLastClearResult(
-  s: ReviewStore,
-): ReviewActions["clearLastClearResult"] {
+export function selectClearLastClearResult(s: ReviewStore): ReviewActions["clearLastClearResult"] {
   return s.clearLastClearResult;
 }
-export function selectClearBulkError(
-  s: ReviewStore,
-): ReviewActions["clearBulkError"] {
+export function selectClearBulkError(s: ReviewStore): ReviewActions["clearBulkError"] {
   return s.clearBulkError;
 }
-export function selectReviewResetForVault(
-  s: ReviewStore,
-): ReviewActions["resetForVault"] {
+export function selectReviewResetForVault(s: ReviewStore): ReviewActions["resetForVault"] {
   return s.resetForVault;
 }
 

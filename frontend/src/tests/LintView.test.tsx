@@ -68,7 +68,12 @@ vi.mock("../api/lintClient", () => ({
   dismissLintFinding: vi.fn(),
   batchLintAction: vi.fn().mockResolvedValue({ results: [], ok_count: 0, error_count: 0 }),
   sendLintFindingToReview: vi.fn().mockResolvedValue({}),
-  deleteWikiPage: vi.fn().mockResolvedValue({ deleted_page_id: "p1", wikilinks_cleaned: 0, index_entry_removed: false, shared_entity_warnings: [] }),
+  deleteWikiPage: vi.fn().mockResolvedValue({
+    deleted_page_id: "p1",
+    wikilinks_cleaned: 0,
+    index_entry_removed: false,
+    shared_entity_warnings: [],
+  }),
 }));
 
 import * as lintClient from "../api/lintClient";
@@ -424,12 +429,14 @@ describe("LintView — Batch bar [B1-L5]", () => {
 describe("LintView — Suggested target strip [B1-L2]", () => {
   it("renders green suggested target strip when suggested_target present", async () => {
     vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
-      items: [makeFinding("f1", {
-        category: "broken-wikilink",
-        severity: "warning",
-        suggested_target: "Temperature Scaling",
-        suggested_page_id: "page-ts",
-      })],
+      items: [
+        makeFinding("f1", {
+          category: "broken-wikilink",
+          severity: "warning",
+          suggested_target: "Temperature Scaling",
+          suggested_page_id: "page-ts",
+        }),
+      ],
       total: 1,
       limit: 50,
       offset: 0,
@@ -516,7 +523,13 @@ describe("LintView — Delete button [B1-L9]", () => {
 
   it("shows delete confirm banner on first click (two-stage)", async () => {
     vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
-      items: [makeFinding("f1", { category: "orphan-page", target_page_id: "page-orphan", target_title: "Orphan Page" })],
+      items: [
+        makeFinding("f1", {
+          category: "orphan-page",
+          target_page_id: "page-orphan",
+          target_title: "Orphan Page",
+        }),
+      ],
       total: 1,
       limit: 50,
       offset: 0,
@@ -586,12 +599,14 @@ describe("LintView — Apply button label (real-fix vs flag-only)", () => {
 
   it("shows 'Fix' for broken-wikilink WITH suggested_target", async () => {
     vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
-      items: [makeFinding("f1", {
-        category: "broken-wikilink",
-        severity: "warning",
-        suggested_target: "Some Existing Page",
-        suggested_page_id: "page-sep",
-      })],
+      items: [
+        makeFinding("f1", {
+          category: "broken-wikilink",
+          severity: "warning",
+          suggested_target: "Some Existing Page",
+          suggested_page_id: "page-sep",
+        }),
+      ],
       total: 1,
       limit: 50,
       offset: 0,
@@ -606,12 +621,14 @@ describe("LintView — Apply button label (real-fix vs flag-only)", () => {
 
   it("shows 'Acknowledge' for broken-wikilink WITHOUT suggested_target", async () => {
     vi.mocked(lintClient.fetchLintFindings).mockResolvedValue({
-      items: [makeFinding("f1", {
-        category: "broken-wikilink",
-        severity: "warning",
-        suggested_target: null,
-        suggested_page_id: null,
-      })],
+      items: [
+        makeFinding("f1", {
+          category: "broken-wikilink",
+          severity: "warning",
+          suggested_target: null,
+          suggested_page_id: null,
+        }),
+      ],
       total: 1,
       limit: 50,
       offset: 0,
@@ -784,11 +801,7 @@ describe("LintView — Run Lint button", () => {
 
     await waitFor(() => {
       // semantic=true is default, passed as third param to runLintScan
-      expect(lintClient.runLintScan).toHaveBeenCalledWith(
-        { vault_id: "default" },
-        undefined,
-        true,
-      );
+      expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, true);
     });
   });
 });
@@ -838,9 +851,7 @@ describe("LintView — scan error banner", () => {
 
 describe("LintView — findings load error", () => {
   it("shows error message when fetch fails", async () => {
-    vi.mocked(lintClient.fetchLintFindings).mockRejectedValueOnce(
-      new Error("Backend unavailable"),
-    );
+    vi.mocked(lintClient.fetchLintFindings).mockRejectedValueOnce(new Error("Backend unavailable"));
     render(<LintView />);
     await waitFor(() => {
       expect(screen.getByTestId("lint-findings-error")).toBeTruthy();

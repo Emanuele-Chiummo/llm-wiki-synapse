@@ -78,9 +78,9 @@ describe("computeBudgetSplit (60/20/5/15)", () => {
 
   it("32768 splits to approximately 60/20/5/15", () => {
     const split = computeBudgetSplit(32_768);
-    expect(split.history).toBe(Math.round(32_768 * 0.6));    // 19661
-    expect(split.retrieved).toBe(Math.round(32_768 * 0.2));  // 6554
-    expect(split.system).toBe(Math.round(32_768 * 0.05));    // 1638
+    expect(split.history).toBe(Math.round(32_768 * 0.6)); // 19661
+    expect(split.retrieved).toBe(Math.round(32_768 * 0.2)); // 6554
+    expect(split.system).toBe(Math.round(32_768 * 0.05)); // 1638
     expect(split.generation).toBe(Math.round(32_768 * 0.15)); // 4915
   });
 

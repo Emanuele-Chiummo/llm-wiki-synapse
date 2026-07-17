@@ -32,7 +32,8 @@ vi.mock("react-i18next", () => ({
         "ingest.error": "Error",
         "ingest.costAnomaly": "Cost anomaly",
         "ingest.noRunSelected": "Select a run to see details.",
-        "ingest.zeroPagesHint": "0 pages created — check the provider configuration and that the file format is supported.",
+        "ingest.zeroPagesHint":
+          "0 pages created — check the provider configuration and that the file format is supported.",
         "ingest.diagnostics.heading": "Why it didn't converge",
         "ingest.diagnostics.stopReason": "Stop reason",
         "ingest.diagnostics.stopReasonValue.max_iter": "Max iterations reached",
@@ -62,8 +63,7 @@ const mockState = {
 };
 
 vi.mock("../store/ingestStore", () => ({
-  useIngestStore: (selector: (s: typeof mockState) => unknown) =>
-    selector(mockState),
+  useIngestStore: (selector: (s: typeof mockState) => unknown) => selector(mockState),
   selectRuns: (s: typeof mockState) => s.runs,
   selectSelectedRunId: (s: typeof mockState) => s.selectedRunId,
 }));
@@ -114,9 +114,7 @@ describe("IngestRunDetail — UXA-06: zero-pages hint", () => {
 
     render(<IngestRunDetail />);
     expect(screen.getByTestId("ingest-zero-pages-hint")).toBeTruthy();
-    expect(screen.getByTestId("ingest-zero-pages-hint").textContent).toContain(
-      "0 pages created",
-    );
+    expect(screen.getByTestId("ingest-zero-pages-hint").textContent).toContain("0 pages created");
   });
 
   it("UXA-06-2: completed run with pages_created>0 does NOT show hint", () => {

@@ -31,10 +31,10 @@ function makeNodes(): GraphNode[] {
 
 function makeEdges(): GraphEdge[] {
   return [
-    { source: "c1", target: "c2", weight: 10 },   // concept–concept
-    { source: "c1", target: "e1", weight: 8 },    // concept–entity
-    { source: "e1", target: "s1", weight: 5 },    // entity–source
-    { source: "c2", target: "u1", weight: 2 },    // concept–other(null)
+    { source: "c1", target: "c2", weight: 10 }, // concept–concept
+    { source: "c1", target: "e1", weight: 8 }, // concept–entity
+    { source: "e1", target: "s1", weight: 5 }, // entity–source
+    { source: "c2", target: "u1", weight: 2 }, // concept–other(null)
   ];
 }
 
@@ -178,7 +178,8 @@ describe("graphStore filterNodeTypes slice", () => {
   it("hiddenCount is 0 when filter is empty (all types shown)", () => {
     const nodes = makeNodes();
     const totalNodes = nodes.length;
-    const visible = filter.size === 0 ? nodes.length : nodes.filter((n) => filter.has(n.type ?? "other")).length;
+    const visible =
+      filter.size === 0 ? nodes.length : nodes.filter((n) => filter.has(n.type ?? "other")).length;
     expect(totalNodes - visible).toBe(0);
   });
 
@@ -211,7 +212,8 @@ describe("GL1 link-chip culling — visibleEdges with edgeVisibilityThreshold", 
   function buildNormWeightMap(edges: GraphEdge[]): Map<string, number> {
     const m = new Map<string, number>();
     if (edges.length === 0) return m;
-    let wMin = Infinity, wMax = -Infinity;
+    let wMin = Infinity,
+      wMax = -Infinity;
     for (const e of edges) {
       if (e.weight < wMin) wMin = e.weight;
       if (e.weight > wMax) wMax = e.weight;
@@ -270,16 +272,22 @@ describe("GL1 link-chip culling — visibleEdges with edgeVisibilityThreshold", 
     // by telling the function node count is 800.
     // With weights [1, 1, 1, 2]: min=1, max=2, range=1 → nw for w=1 is 0, w=2 is 1.
     const edges: GraphEdge[] = [
-      { source: "c1", target: "c2", weight: 1 },   // nw = 0 → culled at threshold 0.03
-      { source: "c1", target: "e1", weight: 1 },   // nw = 0 → culled
-      { source: "e1", target: "s1", weight: 2 },   // nw = 1 → shown
-      { source: "c2", target: "u1", weight: 1 },   // nw = 0 → culled
+      { source: "c1", target: "c2", weight: 1 }, // nw = 0 → culled at threshold 0.03
+      { source: "c1", target: "e1", weight: 1 }, // nw = 0 → culled
+      { source: "e1", target: "s1", weight: 2 }, // nw = 1 → shown
+      { source: "c2", target: "u1", weight: 1 }, // nw = 0 → culled
     ];
     const nodes = makeNodes();
     const nodeTypeMap = new Map(nodes.map((n) => [n.id, n.type ?? "other"]));
     const normWeightMap = buildNormWeightMap(edges);
     // 800 nodes → threshold = 0.03 → nw=0 edges culled, nw=1 edge shown
-    const visible = computeVisibleEdgesWithCulling(edges, 800, new Set(), nodeTypeMap, normWeightMap);
+    const visible = computeVisibleEdgesWithCulling(
+      edges,
+      800,
+      new Set(),
+      nodeTypeMap,
+      normWeightMap,
+    );
     expect(visible).toBe(1); // only the nw=1 edge passes
   });
 
@@ -293,16 +301,22 @@ describe("GL1 link-chip culling — visibleEdges with edgeVisibilityThreshold", 
     // Filter = {concept}: only concept–concept edges pass type filter
     // GL1 threshold at 800 nodes = 0.03: nw=0 culled
     const edges: GraphEdge[] = [
-      { source: "c1", target: "c2", weight: 2 },  // strong, concept–concept
-      { source: "c1", target: "e1", weight: 1 },  // weak, concept–entity
-      { source: "e1", target: "s1", weight: 1 },  // weak, entity–source
-      { source: "c2", target: "u1", weight: 1 },  // weak, concept–other
+      { source: "c1", target: "c2", weight: 2 }, // strong, concept–concept
+      { source: "c1", target: "e1", weight: 1 }, // weak, concept–entity
+      { source: "e1", target: "s1", weight: 1 }, // weak, entity–source
+      { source: "c2", target: "u1", weight: 1 }, // weak, concept–other
     ];
     const nodes = makeNodes();
     const nodeTypeMap = new Map(nodes.map((n) => [n.id, n.type ?? "other"]));
     const normWeightMap = buildNormWeightMap(edges);
     // GL1 culls nw=0; filter {concept} keeps only concept–concept
-    const visible = computeVisibleEdgesWithCulling(edges, 800, new Set(["concept"]), nodeTypeMap, normWeightMap);
+    const visible = computeVisibleEdgesWithCulling(
+      edges,
+      800,
+      new Set(["concept"]),
+      nodeTypeMap,
+      normWeightMap,
+    );
     expect(visible).toBe(1); // only c1–c2 passes both GL1 + filter
   });
 });

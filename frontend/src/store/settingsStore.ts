@@ -18,7 +18,11 @@
  */
 
 import { create } from "zustand";
-import { getServerUrl, setServerUrl as baseSetServerUrl, clearServerUrl as baseClearServerUrl } from "../api/base";
+import {
+  getServerUrl,
+  setServerUrl as baseSetServerUrl,
+  clearServerUrl as baseClearServerUrl,
+} from "../api/base";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -226,7 +230,16 @@ function loadSettings(): {
     // ignore
   }
 
-  return { language, contextWindowTokens, conversationHistoryLength, theme, retrievalMode, webSearchEnabled, skillsEnabled, anytxtEnabled };
+  return {
+    language,
+    contextWindowTokens,
+    conversationHistoryLength,
+    theme,
+    retrievalMode,
+    webSearchEnabled,
+    skillsEnabled,
+    anytxtEnabled,
+  };
 }
 
 function saveSettings(
@@ -240,7 +253,14 @@ function saveSettings(
   try {
     localStorage.setItem(
       LS_SETTINGS,
-      JSON.stringify({ contextWindowTokens, conversationHistoryLength, retrievalMode, webSearchEnabled, skillsEnabled, anytxtEnabled }),
+      JSON.stringify({
+        contextWindowTokens,
+        conversationHistoryLength,
+        retrievalMode,
+        webSearchEnabled,
+        skillsEnabled,
+        anytxtEnabled,
+      }),
     );
   } catch {
     // ignore
@@ -384,19 +404,37 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
     draftContextWindowTokens: initial.contextWindowTokens,
 
     setLanguage: (language) => {
-      try { localStorage.setItem(LS_LANG, language); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(LS_LANG, language);
+      } catch {
+        /* ignore */
+      }
       set({ language });
     },
 
     setContextWindow: (contextWindowTokens) => {
       const s = get();
-      saveSettings(contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
+      saveSettings(
+        contextWindowTokens,
+        s.conversationHistoryLength,
+        s.retrievalMode,
+        s.webSearchEnabled,
+        s.skillsEnabled,
+        s.anytxtEnabled,
+      );
       set({ contextWindowTokens });
     },
 
     setConversationHistoryLength: (conversationHistoryLength) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
+      saveSettings(
+        s.contextWindowTokens,
+        conversationHistoryLength,
+        s.retrievalMode,
+        s.webSearchEnabled,
+        s.skillsEnabled,
+        s.anytxtEnabled,
+      );
       set({ conversationHistoryLength });
     },
 
@@ -412,7 +450,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
     },
 
     setTheme: (theme) => {
-      try { localStorage.setItem(LS_THEME, theme); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(LS_THEME, theme);
+      } catch {
+        /* ignore */
+      }
 
       // Manage system listener: install when switching TO "system", remove when leaving
       const prev = get().theme;
@@ -435,25 +477,53 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
 
     setRetrievalMode: (retrievalMode) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, retrievalMode, s.webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
+      saveSettings(
+        s.contextWindowTokens,
+        s.conversationHistoryLength,
+        retrievalMode,
+        s.webSearchEnabled,
+        s.skillsEnabled,
+        s.anytxtEnabled,
+      );
       set({ retrievalMode });
     },
 
     setWebSearchEnabled: (webSearchEnabled) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, webSearchEnabled, s.skillsEnabled, s.anytxtEnabled);
+      saveSettings(
+        s.contextWindowTokens,
+        s.conversationHistoryLength,
+        s.retrievalMode,
+        webSearchEnabled,
+        s.skillsEnabled,
+        s.anytxtEnabled,
+      );
       set({ webSearchEnabled });
     },
 
     setSkillsEnabled: (skillsEnabled) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, skillsEnabled, s.anytxtEnabled);
+      saveSettings(
+        s.contextWindowTokens,
+        s.conversationHistoryLength,
+        s.retrievalMode,
+        s.webSearchEnabled,
+        skillsEnabled,
+        s.anytxtEnabled,
+      );
       set({ skillsEnabled });
     },
 
     setAnytxtEnabled: (anytxtEnabled) => {
       const s = get();
-      saveSettings(s.contextWindowTokens, s.conversationHistoryLength, s.retrievalMode, s.webSearchEnabled, s.skillsEnabled, anytxtEnabled);
+      saveSettings(
+        s.contextWindowTokens,
+        s.conversationHistoryLength,
+        s.retrievalMode,
+        s.webSearchEnabled,
+        s.skillsEnabled,
+        anytxtEnabled,
+      );
       set({ anytxtEnabled });
     },
 
@@ -463,7 +533,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => {
         localStorage.removeItem(LS_SETTINGS);
         localStorage.removeItem(LS_THEME);
         localStorage.removeItem("synapse-panel-layout-v2");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       // Re-apply default theme on reset
       applyThemeToDom(resolveTheme(DEFAULT_THEME));
       set({
@@ -593,7 +665,9 @@ export function selectWebSearchEnabled(s: SettingsStore): boolean {
   return s.webSearchEnabled;
 }
 
-export function selectSetWebSearchEnabled(s: SettingsStore): SettingsActions["setWebSearchEnabled"] {
+export function selectSetWebSearchEnabled(
+  s: SettingsStore,
+): SettingsActions["setWebSearchEnabled"] {
   return s.setWebSearchEnabled;
 }
 

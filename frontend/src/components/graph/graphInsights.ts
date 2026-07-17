@@ -61,11 +61,7 @@ export function isMetaNode(node: GraphNode): boolean {
 // ─── Insight types ────────────────────────────────────────────────────────────
 
 /** The kind of insight item. */
-export type InsightKind =
-  | "surprising"
-  | "gap-isolated"
-  | "gap-sparse"
-  | "gap-bridge";
+export type InsightKind = "surprising" | "gap-isolated" | "gap-sparse" | "gap-bridge";
 
 /** Base fields shared by all insight items. */
 interface InsightBase {
@@ -118,10 +114,7 @@ export interface GapBridgeInsight extends InsightBase {
 
 /** Union type of all insight items. */
 export type InsightItem =
-  | SurprisingInsight
-  | GapIsolatedInsight
-  | GapSparseInsight
-  | GapBridgeInsight;
+  SurprisingInsight | GapIsolatedInsight | GapSparseInsight | GapBridgeInsight;
 
 // ─── Output shape ─────────────────────────────────────────────────────────────
 
@@ -289,8 +282,7 @@ export function computeGraphInsights(
     }
   }
 
-  const total =
-    topSurprising.length + gapIsolated.length + gapSparse.length + gapBridge.length;
+  const total = topSurprising.length + gapIsolated.length + gapSparse.length + gapBridge.length;
 
   return {
     surprising: topSurprising,

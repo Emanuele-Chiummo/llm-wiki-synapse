@@ -61,7 +61,9 @@ export class SectionErrorBoundary extends Component<Props, State> {
             textAlign: "center",
           }}
         >
-          <span style={{ fontSize: 15, fontWeight: 700 }}>Qualcosa è andato storto in questa sezione</span>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>
+            Qualcosa è andato storto in questa sezione
+          </span>
           <code
             style={{
               fontSize: 12,
@@ -72,7 +74,9 @@ export class SectionErrorBoundary extends Component<Props, State> {
             }}
           >
             {this.state.error.message}
-            {__DEV__ ? `\n\n${(this.state.error.stack ?? "").split("\n").slice(0, 6).join("\n")}` : ""}
+            {__DEV__
+              ? `\n\n${(this.state.error.stack ?? "").split("\n").slice(0, 6).join("\n")}`
+              : ""}
           </code>
           <button
             onClick={this.handleRetry}

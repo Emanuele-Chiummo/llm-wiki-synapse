@@ -357,9 +357,7 @@ export const useLintStore = create<LintStore>((set, get) => ({
     set({ runsLoading: true, runsError: null });
     try {
       const runsOpts =
-        vaultId !== undefined
-          ? { vaultId, limit: 20, offset: 0 }
-          : { limit: 20, offset: 0 };
+        vaultId !== undefined ? { vaultId, limit: 20, offset: 0 } : { limit: 20, offset: 0 };
       const res = await fetchLintRuns(runsOpts, signal);
       set({
         runs: res.items,
@@ -578,14 +576,10 @@ export function selectLintScanning(s: LintStore): boolean {
 export function selectLintScanError(s: LintStore): string | null {
   return s.scanError;
 }
-export function selectLintActionInFlight(
-  s: LintStore,
-): Record<string, "apply" | "dismiss" | null> {
+export function selectLintActionInFlight(s: LintStore): Record<string, "apply" | "dismiss" | null> {
   return s.actionInFlight;
 }
-export function selectLintActionError(
-  s: LintStore,
-): Record<string, string | null> {
+export function selectLintActionError(s: LintStore): Record<string, string | null> {
   return s.actionError;
 }
 export function selectLintScan(s: LintStore): LintActions["scan"] {
@@ -600,17 +594,13 @@ export function selectLintDismiss(s: LintStore): LintActions["dismiss"] {
 export function selectLintRefresh(s: LintStore): LintActions["refresh"] {
   return s.refresh;
 }
-export function selectLintFetchMoreFindings(
-  s: LintStore,
-): LintActions["fetchMoreFindings"] {
+export function selectLintFetchMoreFindings(s: LintStore): LintActions["fetchMoreFindings"] {
   return s.fetchMoreFindings;
 }
 export function selectLintFetchRuns(s: LintStore): LintActions["fetchRuns"] {
   return s.fetchRuns;
 }
-export function selectClearLintScanError(
-  s: LintStore,
-): LintActions["clearScanError"] {
+export function selectClearLintScanError(s: LintStore): LintActions["clearScanError"] {
   return s.clearScanError;
 }
 
@@ -620,10 +610,7 @@ export function useLintFindings(): LintFinding[] {
 }
 
 /** Hook: per-finding actionInFlight map — shallow equality (I3). */
-export function useLintActionInFlight(): Record<
-  string,
-  "apply" | "dismiss" | null
-> {
+export function useLintActionInFlight(): Record<string, "apply" | "dismiss" | null> {
   return useLintStore(useShallow(selectLintActionInFlight));
 }
 
@@ -646,9 +633,7 @@ export function selectLintBatchInFlight(s: LintStore): boolean {
 export function selectLintBatchError(s: LintStore): string | null {
   return s.batchError;
 }
-export function selectLintSetSemanticEnabled(
-  s: LintStore,
-): LintActions["setSemanticEnabled"] {
+export function selectLintSetSemanticEnabled(s: LintStore): LintActions["setSemanticEnabled"] {
   return s.setSemanticEnabled;
 }
 export function selectLintToggleSelect(s: LintStore): LintActions["toggleSelect"] {
@@ -666,17 +651,13 @@ export function selectLintApplyBatch(s: LintStore): LintActions["applyBatch"] {
 export function selectLintDismissBatch(s: LintStore): LintActions["dismissBatch"] {
   return s.dismissBatch;
 }
-export function selectLintSendToReviewBatch(
-  s: LintStore,
-): LintActions["sendToReviewBatch"] {
+export function selectLintSendToReviewBatch(s: LintStore): LintActions["sendToReviewBatch"] {
   return s.sendToReviewBatch;
 }
 export function selectLintSendToReview(s: LintStore): LintActions["sendToReview"] {
   return s.sendToReview;
 }
-export function selectLintDeleteOrphanPage(
-  s: LintStore,
-): LintActions["deleteOrphanPage"] {
+export function selectLintDeleteOrphanPage(s: LintStore): LintActions["deleteOrphanPage"] {
   return s.deleteOrphanPage;
 }
 export function selectLintClearBatchError(s: LintStore): LintActions["clearBatchError"] {

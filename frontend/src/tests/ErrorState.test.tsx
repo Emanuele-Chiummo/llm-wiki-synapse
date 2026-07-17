@@ -44,16 +44,12 @@ beforeEach(() => {
 describe("ErrorState — title rendering", () => {
   it("renders a custom title when title prop is provided", () => {
     render(<ErrorState title="Couldn't load projects" />);
-    expect(screen.getByTestId("error-state-title").textContent).toBe(
-      "Couldn't load projects",
-    );
+    expect(screen.getByTestId("error-state-title").textContent).toBe("Couldn't load projects");
   });
 
   it("renders the default i18n title when title prop is omitted", () => {
     render(<ErrorState />);
-    expect(screen.getByTestId("error-state-title").textContent).toBe(
-      "Something went wrong",
-    );
+    expect(screen.getByTestId("error-state-title").textContent).toBe("Something went wrong");
   });
 
   it("renders the error-state container with role='alert'", () => {

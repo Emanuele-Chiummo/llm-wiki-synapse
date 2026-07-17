@@ -116,9 +116,7 @@ vi.mock("../assets/synapse-logo.svg", () => ({
 
 function renderMessageList(onSend?: ((text: string) => void) | undefined) {
   // Pass onSend only when defined to avoid exactOptionalPropertyTypes error
-  return onSend !== undefined
-    ? render(<MessageList onSend={onSend} />)
-    : render(<MessageList />);
+  return onSend !== undefined ? render(<MessageList onSend={onSend} />) : render(<MessageList />);
 }
 
 // ─── A. Empty state renders correctly ────────────────────────────────────────
@@ -157,15 +155,9 @@ describe("ChatEmptyState — renders when no messages and not streaming (ADR-004
 
   it("chip texts match the i18n keys q1, q2, q3", () => {
     renderMessageList();
-    expect(
-      screen.getByText("Map the strongest concepts in this vault"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Summarize what changed in the latest sources"),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Find gaps that need deep research"),
-    ).toBeTruthy();
+    expect(screen.getByText("Map the strongest concepts in this vault")).toBeTruthy();
+    expect(screen.getByText("Summarize what changed in the latest sources")).toBeTruthy();
+    expect(screen.getByText("Find gaps that need deep research")).toBeTruthy();
   });
 
   it("chip container has data-testid='chat-example-chips'", () => {
@@ -192,9 +184,7 @@ describe("ChatEmptyState — chip click triggers send action (ADR-0048 §T3)", (
     fireEvent.click(chips[0]!);
 
     expect(onSend).toHaveBeenCalledTimes(1);
-    expect(onSend).toHaveBeenCalledWith(
-      "Map the strongest concepts in this vault",
-    );
+    expect(onSend).toHaveBeenCalledWith("Map the strongest concepts in this vault");
   });
 
   it("clicking the second chip calls onSend with q2 text", () => {
@@ -204,9 +194,7 @@ describe("ChatEmptyState — chip click triggers send action (ADR-0048 §T3)", (
     const chips = screen.getAllByTestId("chat-example-chip");
     fireEvent.click(chips[1]!);
 
-    expect(onSend).toHaveBeenCalledWith(
-      "Summarize what changed in the latest sources",
-    );
+    expect(onSend).toHaveBeenCalledWith("Summarize what changed in the latest sources");
   });
 
   it("clicking the third chip calls onSend with q3 text", () => {

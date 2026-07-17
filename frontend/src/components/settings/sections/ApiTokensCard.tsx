@@ -8,11 +8,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "../../ui/Button";
-import {
-  fetchApiTokens,
-  createApiToken,
-  revokeApiToken,
-} from "../../../api/apiTokensClient";
+import { fetchApiTokens, createApiToken, revokeApiToken } from "../../../api/apiTokensClient";
 import type { ApiTokenListItem } from "../../../api/types";
 
 const CARD: CSSProperties = {
@@ -149,7 +145,9 @@ export function ApiTokensCard() {
             borderRadius: 8,
           }}
         >
-          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--syn-green)" }}>
+          <p
+            style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 700, color: "var(--syn-green)" }}
+          >
             {t("settings.security.apiTokens.revealTitle")}
           </p>
           <p style={{ margin: "0 0 8px", fontSize: 11, color: "var(--syn-text-dim)" }}>
@@ -165,7 +163,8 @@ export function ApiTokensCard() {
                 color: "var(--syn-text)",
                 padding: "6px 10px",
                 background: "var(--syn-bg)",
-                border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
+                border:
+                  "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                 borderRadius: 4,
                 wordBreak: "break-all",
                 userSelect: "all",
@@ -178,7 +177,8 @@ export function ApiTokensCard() {
               onClick={handleCopyRevealed}
               style={{
                 padding: "6px 12px",
-                border: "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
+                border:
+                  "1px solid color-mix(in srgb, var(--syn-green) 30%, var(--syn-mix-base) 70%)",
                 borderRadius: 4,
                 background: copied ? "var(--syn-green)" : "transparent",
                 color: copied ? "#fff" : "var(--syn-green)",
@@ -289,7 +289,10 @@ export function ApiTokensCard() {
       )}
       {!loadError && tokens.length > 0 && (
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }} data-testid="api-tokens-table">
+          <table
+            style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
+            data-testid="api-tokens-table"
+          >
             <thead>
               <tr style={{ textAlign: "left", color: "var(--syn-text-muted)" }}>
                 <th style={{ padding: "4px 8px", fontWeight: 600 }}>

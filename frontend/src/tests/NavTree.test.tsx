@@ -40,14 +40,14 @@ import {
 // ─── Icon mapping contract ────────────────────────────────────────────────────
 
 const ICON_MAP = {
-  overview:   LayoutDashboard,
-  concept:    Lightbulb,
-  entity:     Users,
-  source:     BookOpen,
-  synthesis:  GitBranch,
+  overview: LayoutDashboard,
+  concept: Lightbulb,
+  entity: Users,
+  source: BookOpen,
+  synthesis: GitBranch,
   comparison: BarChart3,
-  query:      HelpCircle,
-  other:      File,
+  query: HelpCircle,
+  other: File,
 } as const;
 
 type KnownType = keyof typeof ICON_MAP;
@@ -192,7 +192,12 @@ describe("NavTree — page row still uses compact dot (no type icon)", () => {
       <button data-page-id="c1" data-type="concept" aria-label="Alpha">
         <span
           aria-hidden="true"
-          style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--syn-type-concept)" }}
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "var(--syn-type-concept)",
+          }}
         />
         <span>Alpha</span>
       </button>,

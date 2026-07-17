@@ -18,11 +18,7 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { ResearchRunSummary, ResearchRunDetail } from "../api/types";
-import {
-  fetchResearchRuns,
-  fetchResearchRunDetail,
-  startResearch,
-} from "../api/researchClient";
+import { fetchResearchRuns, fetchResearchRunDetail, startResearch } from "../api/researchClient";
 import { createPollChain } from "./pollChain";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,12 +27,7 @@ const POLL_INTERVAL_MS = 5_000;
 const PAGE_LIMIT = 20;
 
 /** Statuses that mean the run is finished; polling MUST stop. */
-const TERMINAL_STATUSES = new Set([
-  "converged",
-  "max_iter_reached",
-  "budget_exhausted",
-  "error",
-]);
+const TERMINAL_STATUSES = new Set(["converged", "max_iter_reached", "budget_exhausted", "error"]);
 
 export function isTerminal(status: string): boolean {
   return TERMINAL_STATUSES.has(status);
@@ -338,14 +329,10 @@ export function selectStarting(s: ResearchStore): boolean {
 export function selectStartError(s: ResearchStore): string | null {
   return s.startError;
 }
-export function selectFetchFreshResearch(
-  s: ResearchStore,
-): ResearchActions["fetchFresh"] {
+export function selectFetchFreshResearch(s: ResearchStore): ResearchActions["fetchFresh"] {
   return s.fetchFresh;
 }
-export function selectFetchMoreResearch(
-  s: ResearchStore,
-): ResearchActions["fetchMore"] {
+export function selectFetchMoreResearch(s: ResearchStore): ResearchActions["fetchMore"] {
   return s.fetchMore;
 }
 export function selectSelectRun(s: ResearchStore): ResearchActions["selectRun"] {
@@ -354,22 +341,16 @@ export function selectSelectRun(s: ResearchStore): ResearchActions["selectRun"] 
 export function selectStartRun(s: ResearchStore): ResearchActions["startRun"] {
   return s.startRun;
 }
-export function selectStartPollingDetail(
-  s: ResearchStore,
-): ResearchActions["startPollingDetail"] {
+export function selectStartPollingDetail(s: ResearchStore): ResearchActions["startPollingDetail"] {
   return s.startPollingDetail;
 }
-export function selectClearStartError(
-  s: ResearchStore,
-): ResearchActions["clearStartError"] {
+export function selectClearStartError(s: ResearchStore): ResearchActions["clearStartError"] {
   return s.clearStartError;
 }
 export function selectResearchPrefill(s: ResearchStore): ResearchPrefill | null {
   return s.prefill;
 }
-export function selectSetResearchPrefill(
-  s: ResearchStore,
-): ResearchActions["setResearchPrefill"] {
+export function selectSetResearchPrefill(s: ResearchStore): ResearchActions["setResearchPrefill"] {
   return s.setResearchPrefill;
 }
 export function selectClearResearchPrefill(
@@ -377,9 +358,7 @@ export function selectClearResearchPrefill(
 ): ResearchActions["clearResearchPrefill"] {
   return s.clearResearchPrefill;
 }
-export function selectResearchResetForVault(
-  s: ResearchStore,
-): ResearchActions["resetForVault"] {
+export function selectResearchResetForVault(s: ResearchStore): ResearchActions["resetForVault"] {
   return s.resetForVault;
 }
 

@@ -141,9 +141,7 @@ describe("buildGraphologyGraph — graph structure", () => {
   });
 
   it("skips edges with unknown endpoints gracefully", () => {
-    const badEdges: GraphEdge[] = [
-      { source: "node-1", target: "ghost-99", weight: 3.0 },
-    ];
+    const badEdges: GraphEdge[] = [{ source: "node-1", target: "ghost-99", weight: 3.0 }];
     const graph = buildGraphologyGraph(NODES, badEdges);
     // ghost-99 not in nodes → edge should be silently skipped
     expect(graph.size).toBe(0);
@@ -283,7 +281,7 @@ describe("buildGraphologyGraph — GL1 edge hidden flag", () => {
     // one weak (weight = min → normalizedWeight = 0, below 0.05).
     const edges: GraphEdge[] = [
       { source: "n-0", target: "n-1", weight: 100 }, // strong
-      { source: "n-0", target: "n-2", weight: 1 },   // weak (min weight → nw=0)
+      { source: "n-0", target: "n-2", weight: 1 }, // weak (min weight → nw=0)
     ];
     const graph = buildGraphologyGraph(nodes800, edges);
 

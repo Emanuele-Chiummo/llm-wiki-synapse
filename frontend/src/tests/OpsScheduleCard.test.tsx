@@ -52,25 +52,27 @@ vi.mock("../components/ingest/IngestRunList", () => ({
 
 // ─── Factories for mocked schedule responses ──────────────────────────────────
 
-function makeOpsResponse(overrides: Partial<{
-  lintSchedule: string;
-  lintLastRunAt: string | null;
-  lintLastStatus: string | null;
-  lintInFlight: boolean;
-  backfillSchedule: string;
-  backfillLastRunAt: string | null;
-  backfillLastStatus: string | null;
-  backfillLastDetail: string | null;
-  backfillInFlight: boolean;
-  schemaReviewSchedule: string;
-  schemaReviewLastRunAt: string | null;
-  schemaReviewLastStatus: string | null;
-  schemaReviewInFlight: boolean;
-  reclassifySchedule: string;
-  reclassifyLastRunAt: string | null;
-  reclassifyLastStatus: string | null;
-  reclassifyInFlight: boolean;
-}> = {}) {
+function makeOpsResponse(
+  overrides: Partial<{
+    lintSchedule: string;
+    lintLastRunAt: string | null;
+    lintLastStatus: string | null;
+    lintInFlight: boolean;
+    backfillSchedule: string;
+    backfillLastRunAt: string | null;
+    backfillLastStatus: string | null;
+    backfillLastDetail: string | null;
+    backfillInFlight: boolean;
+    schemaReviewSchedule: string;
+    schemaReviewLastRunAt: string | null;
+    schemaReviewLastStatus: string | null;
+    schemaReviewInFlight: boolean;
+    reclassifySchedule: string;
+    reclassifyLastRunAt: string | null;
+    reclassifyLastStatus: string | null;
+    reclassifyInFlight: boolean;
+  }> = {},
+) {
   const {
     lintSchedule = "off",
     lintLastRunAt = null,
@@ -495,7 +497,6 @@ describe("OpsScheduleCard", () => {
   });
 
   // ── 6. Card hidden when getOpsSchedules returns null ───────────────────────
-
 
   describe("null response hides the card (older backend)", () => {
     it("renders nothing when getOpsSchedules returns null", async () => {

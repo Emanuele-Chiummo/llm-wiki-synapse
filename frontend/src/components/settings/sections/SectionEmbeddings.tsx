@@ -16,18 +16,29 @@ export function SectionEmbeddings() {
   useEffect(() => {
     const ac = new AbortController();
     fetchEmbeddingConfig(ac.signal)
-      .then((data) => { setCfg(data); setErr(false); })
-      .catch((e: unknown) => { if (!(e instanceof Error) || e.name !== "AbortError") setErr(true); });
-    return () => { ac.abort(); };
+      .then((data) => {
+        setCfg(data);
+        setErr(false);
+      })
+      .catch((e: unknown) => {
+        if (!(e instanceof Error) || e.name !== "AbortError") setErr(true);
+      });
+    return () => {
+      ac.abort();
+    };
   }, []);
 
   return (
     <div>
       <SectionHeader title={t("settings.nav.embeddings")} desc={t("settings.embeddings.desc")} />
       {err ? (
-        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>{t("settings.embeddings.error")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-red)", margin: "8px 0" }}>
+          {t("settings.embeddings.error")}
+        </p>
       ) : cfg === null ? (
-        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>{t("settings.embeddings.loading")}</p>
+        <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: "8px 0" }}>
+          {t("settings.embeddings.loading")}
+        </p>
       ) : cfg.embeddings_enabled ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div
@@ -45,13 +56,30 @@ export function SectionEmbeddings() {
               fontWeight: 600,
             }}
           >
-            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--syn-green)", flexShrink: 0, display: "inline-block" }} />
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--syn-green)",
+                flexShrink: 0,
+                display: "inline-block",
+              }}
+            />
             {t("settings.embeddings.semanticActive")}
           </div>
           <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
           <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
           <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
-          <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: "4px 0 0", lineHeight: 1.5 }}>
+          <p
+            style={{
+              fontSize: 11,
+              color: "var(--syn-text-dim)",
+              margin: "4px 0 0",
+              lineHeight: 1.5,
+            }}
+          >
             {t("settings.embeddings.envNote")}
           </p>
         </div>
@@ -72,7 +100,17 @@ export function SectionEmbeddings() {
               fontWeight: 600,
             }}
           >
-            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--syn-amber)", flexShrink: 0, display: "inline-block" }} />
+            <span
+              aria-hidden="true"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--syn-amber)",
+                flexShrink: 0,
+                display: "inline-block",
+              }}
+            />
             {t("settings.embeddings.lexicalOnly")}
           </div>
           <p style={{ fontSize: 12, color: "var(--syn-text-muted)", margin: 0, lineHeight: 1.6 }}>
@@ -81,10 +119,17 @@ export function SectionEmbeddings() {
           <div style={{ opacity: 0.45 }}>
             <EmbedRow label={t("settings.embeddings.urlLabel")} value={cfg.embedding_url} mono />
             <div style={{ marginTop: 10 }}>
-              <EmbedRow label={t("settings.embeddings.modelLabel")} value={cfg.embedding_model} mono />
+              <EmbedRow
+                label={t("settings.embeddings.modelLabel")}
+                value={cfg.embedding_model}
+                mono
+              />
             </div>
             <div style={{ marginTop: 10 }}>
-              <EmbedRow label={t("settings.embeddings.dimLabel")} value={String(cfg.embedding_dim)} />
+              <EmbedRow
+                label={t("settings.embeddings.dimLabel")}
+                value={String(cfg.embedding_dim)}
+              />
             </div>
           </div>
           <p style={{ fontSize: 11, color: "var(--syn-text-dim)", margin: 0, lineHeight: 1.5 }}>

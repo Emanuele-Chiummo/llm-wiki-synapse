@@ -189,10 +189,16 @@ export const useStatusStore = create<StatusStore>((set) => ({
           }
         },
         intervalFor: () =>
-          statusPollDelayMs(useActivityStore.getState().snapshot, useEventsStore.getState().healthy),
+          statusPollDelayMs(
+            useActivityStore.getState().snapshot,
+            useEventsStore.getState().healthy,
+          ),
         onError: () => set({ connectionState: "offline" }),
         errorIntervalFor: () =>
-          statusPollDelayMs(useActivityStore.getState().snapshot, useEventsStore.getState().healthy),
+          statusPollDelayMs(
+            useActivityStore.getState().snapshot,
+            useEventsStore.getState().healthy,
+          ),
       });
     }
     return sharedStatusPollChain.subscribe();

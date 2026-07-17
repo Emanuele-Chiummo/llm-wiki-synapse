@@ -472,7 +472,7 @@ export async function apiFetch(
       // caller's explicit headers — callers always win on collision.
       ...cfAccessHeaders(),
       ...authHeaders(),
-      ...(init.headers as Record<string, string> | undefined ?? {}),
+      ...((init.headers as Record<string, string> | undefined) ?? {}),
     },
   };
 

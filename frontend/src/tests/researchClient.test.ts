@@ -6,8 +6,17 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { optimizeResearchTopic, startResearch, fetchResearchRuns, fetchResearchRunDetail } from "../api/researchClient";
-import type { ResearchRunListResponse, ResearchRunDetail, ResearchStartResponse } from "../api/types";
+import {
+  optimizeResearchTopic,
+  startResearch,
+  fetchResearchRuns,
+  fetchResearchRunDetail,
+} from "../api/researchClient";
+import type {
+  ResearchRunListResponse,
+  ResearchRunDetail,
+  ResearchStartResponse,
+} from "../api/types";
 
 // Inline type for fetch init to avoid ESLint no-undef on the DOM global FetchInit
 interface FetchInit {
@@ -34,12 +43,18 @@ describe("optimizeResearchTopic", () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it("POSTs to /research/optimize-topic and returns optimized_topic + queries", async () => {
-    mockFetch({ optimized_topic: "Kubernetes CNI deep dive", queries: ["Kubernetes CNI comparison", "Calico vs Cilium"] });
+    mockFetch({
+      optimized_topic: "Kubernetes CNI deep dive",
+      queries: ["Kubernetes CNI comparison", "Calico vs Cilium"],
+    });
 
     const result = await optimizeResearchTopic("Kubernetes networking");
 
     expect(globalThis.fetch).toHaveBeenCalledOnce();
-    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     expect(url).toContain("/research/optimize-topic");
     expect(opts.method).toBe("POST");
     expect(JSON.parse(opts.body as string)).toMatchObject({ topic: "Kubernetes networking" });
@@ -53,7 +68,10 @@ describe("optimizeResearchTopic", () => {
 
     await optimizeResearchTopic("test topic", ctrl.signal);
 
-    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     expect(opts?.signal).toBe(ctrl.signal);
   });
 
@@ -84,7 +102,10 @@ describe("startResearch", () => {
     const result = await startResearch({ vault_id: "default", topic: "Kubernetes networking" });
 
     expect(globalThis.fetch).toHaveBeenCalledOnce();
-    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     expect(url).toContain("/research/start");
     expect(opts.method).toBe("POST");
     expect(JSON.parse(opts.body as string)).toMatchObject({ topic: "Kubernetes networking" });
@@ -101,7 +122,10 @@ describe("startResearch", () => {
       token_budget: 50000,
     });
 
-    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     const body = JSON.parse(opts.body as string) as Record<string, unknown>;
     expect(body["max_iter"]).toBe(2);
     expect(body["token_budget"]).toBe(50000);
@@ -116,7 +140,10 @@ describe("startResearch", () => {
       queries: ["Kubernetes CNI comparison", "Calico vs Cilium"],
     });
 
-    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     const body = JSON.parse(opts.body as string) as Record<string, unknown>;
     expect(body["queries"]).toEqual(["Kubernetes CNI comparison", "Calico vs Cilium"]);
   });
@@ -185,7 +212,10 @@ describe("fetchResearchRuns", () => {
 
     await fetchResearchRuns({}, ctrl.signal);
 
-    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, FetchInit];
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [
+      string,
+      FetchInit,
+    ];
     expect(opts?.signal).toBe(ctrl.signal);
   });
 });
@@ -209,7 +239,9 @@ describe("fetchResearchRunDetail", () => {
       total_cost_usd: 0.0042,
       synthesis_text: "# Summary\nSome content.",
       synthesis_page_id: null,
-      sources: [{ url: "https://example.com", title: "Example", relevance_score: 0.9, iteration: 1 }],
+      sources: [
+        { url: "https://example.com", title: "Example", relevance_score: 0.9, iteration: 1 },
+      ],
       started_at: "2026-06-29T10:00:00Z",
       completed_at: "2026-06-29T10:01:00Z",
       error_message: null,

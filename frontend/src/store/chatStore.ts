@@ -29,14 +29,7 @@ import type {
   ChatMessage,
   LastUsage,
 } from "../api/types/chat";
-export type {
-  WebCitationRef,
-  ConversationSummary,
-  ChatRole,
-  CitationRef,
-  ChatMessage,
-  LastUsage,
-};
+export type { WebCitationRef, ConversationSummary, ChatRole, CitationRef, ChatMessage, LastUsage };
 
 // ─── State shape (ADR-0019 §3) ────────────────────────────────────────────────
 
@@ -347,8 +340,7 @@ export const selectSetStreamAbortFn = (s: ChatStore): ChatActions["setStreamAbor
   s.setStreamAbortFn;
 
 // FE-UIUX-3
-export const selectResetForVault = (s: ChatStore): ChatActions["resetForVault"] =>
-  s.resetForVault;
+export const selectResetForVault = (s: ChatStore): ChatActions["resetForVault"] => s.resetForVault;
 
 // ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
 

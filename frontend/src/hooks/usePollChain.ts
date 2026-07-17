@@ -22,7 +22,11 @@
  */
 
 import { useEffect, useMemo, useRef } from "react";
-import { createPollChain, type PollChainOptions, type PollChainController } from "../store/pollChain";
+import {
+  createPollChain,
+  type PollChainOptions,
+  type PollChainController,
+} from "../store/pollChain";
 
 export interface UsePollChainHandle {
   start: () => void;

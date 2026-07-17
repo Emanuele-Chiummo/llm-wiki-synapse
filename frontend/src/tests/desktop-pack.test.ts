@@ -15,14 +15,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 function makeFakeStorage(): Storage {
   let store: Record<string, string> = {};
   return {
-    get length() { return Object.keys(store).length; },
-    key(n: number) { return Object.keys(store)[n] ?? null; },
+    get length() {
+      return Object.keys(store).length;
+    },
+    key(n: number) {
+      return Object.keys(store)[n] ?? null;
+    },
     getItem(k: string) {
       return Object.prototype.hasOwnProperty.call(store, k) ? (store[k] ?? null) : null;
     },
-    setItem(k: string, v: string) { store[k] = v; },
-    removeItem(k: string) { delete store[k]; },
-    clear() { store = {}; },
+    setItem(k: string, v: string) {
+      store[k] = v;
+    },
+    removeItem(k: string) {
+      delete store[k];
+    },
+    clear() {
+      store = {};
+    },
   };
 }
 
@@ -46,7 +56,11 @@ beforeEach(() => {
   const w = globalThis as Record<string, unknown>;
   if ("__TAURI_INTERNALS__" in w) delete w["__TAURI_INTERNALS__"];
   // Reset document.documentElement.style.zoom
-  try { document.documentElement.style.zoom = ""; } catch { /* ignore */ }
+  try {
+    document.documentElement.style.zoom = "";
+  } catch {
+    /* ignore */
+  }
 });
 
 afterEach(() => {
@@ -54,7 +68,11 @@ afterEach(() => {
   vi.restoreAllMocks();
   const w = globalThis as Record<string, unknown>;
   if ("__TAURI_INTERNALS__" in w) delete w["__TAURI_INTERNALS__"];
-  try { document.documentElement.style.zoom = ""; } catch { /* ignore */ }
+  try {
+    document.documentElement.style.zoom = "";
+  } catch {
+    /* ignore */
+  }
 });
 
 // ─── 1. getKnownServers — dedupe / cap / order ────────────────────────────────
@@ -93,9 +111,7 @@ describe("getKnownServers() — dedupe, cap, order (ADR-0048 §T4a)", () => {
     setServerUrl("http://TRUENAS:8000");
     const list = getKnownServers();
     // Only one entry for truenas:8000 — the most-recent lowercase-normalised form
-    const truenasEntries = list.filter(
-      (s) => s.toLowerCase() === "http://truenas:8000",
-    );
+    const truenasEntries = list.filter((s) => s.toLowerCase() === "http://truenas:8000");
     expect(truenasEntries).toHaveLength(1);
   });
 
@@ -143,7 +159,11 @@ describe("getKnownServers() — dedupe, cap, order (ADR-0048 §T4a)", () => {
   });
 
   it("does NOT add a server that fails validation (invalid scheme)", () => {
-    try { setServerUrl("ftp://bad"); } catch { /* expected */ }
+    try {
+      setServerUrl("ftp://bad");
+    } catch {
+      /* expected */
+    }
     expect(getKnownServers()).toEqual([]);
     expect(fakeStorage.getItem(LS_SERVERS)).toBeNull();
   });

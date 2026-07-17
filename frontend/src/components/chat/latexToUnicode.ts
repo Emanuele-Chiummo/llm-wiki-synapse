@@ -249,12 +249,13 @@ export function latexToUnicode(input: string): string {
     // $$…$$ (may be multi-line)
     .replace(/\$\$([\s\S]*?)\$\$/g, (_m, inner: string) => "\n```math\n" + inner.trim() + "\n```\n")
     // \[…\]
-    .replace(/\\\[([\s\S]*?)\\\]/g, (_m, inner: string) => "\n```math\n" + inner.trim() + "\n```\n");
+    .replace(
+      /\\\[([\s\S]*?)\\\]/g,
+      (_m, inner: string) => "\n```math\n" + inner.trim() + "\n```\n",
+    );
 
   // 2. Process inline math: \(…\) — convert content, strip delimiters
-  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_m, inner: string) =>
-    convertInline(inner),
-  );
+  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (_m, inner: string) => convertInline(inner));
 
   // 3. Process inline math: $…$ (single $, not $$)
   // Use a pattern that avoids matching already-replaced $$
