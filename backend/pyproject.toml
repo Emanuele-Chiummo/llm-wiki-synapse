@@ -51,6 +51,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-httpx>=0.30.0",
     "aiosqlite>=0.20.0",
+    "import-linter>=2.0",
     "ruff==0.15.20",
     "black==26.5.1",
     "mypy==2.1.0",
@@ -159,3 +160,92 @@ addopts = "-m 'not live'"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+# ── import-linter — layer boundary enforcement (BE-ARCH-4, 1.9.2 W2) ─────────
+# The 1.9.2 decomposition (W1a-d) carved real module boundaries on disk:
+#   app.runtime_state (persistence, split out of app.main),
+#   app.ops.review / app.ops.lint (services packages, split out of monoliths),
+#   app.routers.config (routers layer, split out of a single router module).
+# These contracts impose the SAME boundaries on the import graph so the codebase
+# cannot regress to "everything imports everything" (210+ historical lazy-import
+# escape hatches, `# noqa: PLC0415`, exist precisely because that boundary was
+# never enforced). Layering (bottom → top): models → persistence → services →
+# routers/mcp → main. A higher layer may import a lower layer; never the reverse.
+#
+# Deliberately scoped to the modules the BE-ARCH-4 finding named explicitly.
+# Several top-level utility modules (app.auth, app.costs, app.embeddings,
+# app.projects, app.sources, app.vault, app.watcher, app.chat.*, app.wiki.*, ...)
+# are NOT yet assigned a layer — they are cross-cutting/legacy modules that
+# predate this decomposition. Extending the contracts to cover them is future
+# work once they are formally assigned a layer (see BE-ARCH-4 follow-up).
+[tool.importlinter]
+root_package = "app"
+# TYPE_CHECKING-only imports (mypy-only forward refs) are excluded: they never
+# execute at runtime and do not create a real import-time dependency cycle.
+exclude_type_checking_imports = true
+
+[[tool.importlinter.contracts]]
+name = "Models must not import upper layers (persistence/services/routers/main)"
+type = "forbidden"
+source_modules = ["app.models"]
+forbidden_modules = [
+    "app.db",
+    "app.runtime_state",
+    "app.ops",
+    "app.ingest",
+    "app.rag",
+    "app.graph",
+    "app.routers",
+    "app.mcp",
+    "app.main",
+]
+
+[[tool.importlinter.contracts]]
+name = "Persistence must not import services/routers/main"
+type = "forbidden"
+source_modules = ["app.db", "app.runtime_state"]
+forbidden_modules = [
+    "app.ops",
+    "app.ingest",
+    "app.rag",
+    "app.graph",
+    "app.routers",
+    "app.mcp",
+    "app.main",
+]
+# Known baseline debt (documented, not silently ignored — BE-ARCH-4 burn-down
+# tracker). app.runtime_state re-exports a handful of app.main-owned lifespan
+# singletons (GraphCache, ImportScheduler, OpsScheduler, get_session) via typed
+# accessor functions that resolve `sys.modules["app.main"]` dynamically at call
+# time — this is intentional (app.main assembles those singletons in its
+# lifespan) and is a legacy test-monkeypatch seam slated for removal in 2.0.0
+# per the module's own docstring. The TYPE_CHECKING-only annotations for those
+# accessors' return types are excluded above; nothing here is a *runtime*
+# persistence -> services/main dependency.
+
+[[tool.importlinter.contracts]]
+name = "Services must not import routers/mcp/main"
+type = "forbidden"
+source_modules = ["app.ops", "app.ingest", "app.rag", "app.graph"]
+forbidden_modules = ["app.routers", "app.mcp", "app.main"]
+# app.ingest.indexing does not exist yet as of 1.9.2 W2 (no W1a extraction of a
+# dedicated indexing module under app.ingest/) — when it lands, move it to the
+# persistence contract above per the BE-ARCH-4 finding.
+#
+# Known, DOCUMENTED baseline exception (BE-ARCH-4 burn-down tracker — not silent
+# debt): the CLI-delegated ingest path (ADR-0010 §2) must hand the CLI agent an
+# in-process MCP SDK server object (McpSdkServerConfig), which only
+# app.mcp.server.build_sdk_mcp_server()/delegated_write_capture() can construct
+# (one write path for the SDK write_page tool, I1/I5 traceability). This is a
+# real, deliberate inversion of the layer direction for exactly one call site;
+# fixing it properly means extracting the SDK-server-construction helpers out of
+# app.mcp.server into a shared module both app.ingest and app.mcp can import
+# (future work, tracked as a BE-ARCH-4 follow-up — out of scope for this pass
+# per the "burn-down what's reasonable in one session" guidance).
+ignore_imports = ["app.ingest.pipeline -> app.mcp.server"]
+
+[[tool.importlinter.contracts]]
+name = "Routers/MCP must not import main"
+type = "forbidden"
+source_modules = ["app.routers", "app.mcp"]
+forbidden_modules = ["app.main"]
