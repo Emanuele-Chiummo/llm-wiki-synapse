@@ -6,6 +6,8 @@
  */
 import { useCallback, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "../../ui/Button";
 import {
   getAuthToken,
   setAuthToken,
@@ -15,7 +17,6 @@ import {
   setCfAccessCreds,
   clearCfAccessCreds,
 } from "../../../api/base";
-import { INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
 
 // LLM Wiki card style — bordered surface card (brand colors only, never black).
 const SEC_CARD: CSSProperties = {
@@ -117,7 +118,8 @@ export function SectionSecurity() {
             onChange={(e) => setNewToken(e.target.value)}
             placeholder={t("settings.security.rotatePlaceholder")}
             autoComplete="new-password"
-            style={{ ...INPUT_STYLE, paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+            className="syn-input"
+            style={{ paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
           />
           <button
             type="button"
@@ -125,26 +127,16 @@ export function SectionSecurity() {
             aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
             style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
           >
-            {showToken ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            )}
+            {showToken ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
           </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" onClick={handleUpdate} disabled={newToken.trim().length === 0} style={{ ...BTN_PRIMARY, opacity: newToken.trim().length === 0 ? 0.5 : 1 }} data-testid="security-update-btn">
+          <Button variant="accent-ghost" onClick={handleUpdate} disabled={newToken.trim().length === 0} data-testid="security-update-btn">
             {t("settings.security.update")}
-          </button>
-          <button type="button" onClick={handleClear} style={BTN_SECONDARY} data-testid="security-clear-btn">
+          </Button>
+          <Button variant="ghost" onClick={handleClear} data-testid="security-clear-btn">
             {t("settings.security.clear")}
-          </button>
+          </Button>
           {saved && <span style={{ fontSize: 12, color: "var(--syn-green)" }}>{t("settings.security.saved")}</span>}
           {cleared && <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.security.cleared")}</span>}
         </div>
@@ -175,7 +167,8 @@ export function SectionSecurity() {
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          style={{ ...INPUT_STYLE, marginBottom: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+          className="syn-input"
+          style={{ marginBottom: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
         />
 
         {/* Client Secret */}
@@ -190,7 +183,8 @@ export function SectionSecurity() {
             onChange={(e) => setCfSecret(e.target.value)}
             placeholder={t("settings.security.cfSecretPlaceholder")}
             autoComplete="new-password"
-            style={{ ...INPUT_STYLE, paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
+            className="syn-input"
+            style={{ paddingRight: 40, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
           />
           <button
             type="button"
@@ -198,26 +192,21 @@ export function SectionSecurity() {
             aria-label={showCfSecret ? t("connect.hideToken") : t("connect.showToken")}
             style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
           >
-            {showCfSecret ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                <line x1="1" y1="1" x2="23" y2="23"/>
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            )}
+            {showCfSecret ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
           </button>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" onClick={handleCfSave} disabled={cfId.trim().length === 0 || cfSecret.trim().length === 0} style={{ ...BTN_PRIMARY, opacity: cfId.trim().length === 0 || cfSecret.trim().length === 0 ? 0.5 : 1 }} data-testid="security-cf-save-btn">
+          <Button
+            variant="accent-ghost"
+            onClick={handleCfSave}
+            disabled={cfId.trim().length === 0 || cfSecret.trim().length === 0}
+            data-testid="security-cf-save-btn"
+          >
             {t("settings.security.update")}
-          </button>
-          <button type="button" onClick={handleCfClear} style={BTN_SECONDARY} data-testid="security-cf-clear-btn">
+          </Button>
+          <Button variant="ghost" onClick={handleCfClear} data-testid="security-cf-clear-btn">
             {t("settings.security.clear")}
-          </button>
+          </Button>
           {cfSaved && <span style={{ fontSize: 12, color: "var(--syn-green)" }}>{t("settings.security.saved")}</span>}
           {cfCleared && <span style={{ fontSize: 12, color: "var(--syn-text-dim)" }}>{t("settings.security.cleared")}</span>}
         </div>

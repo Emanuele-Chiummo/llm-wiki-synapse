@@ -17,7 +17,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
-import { SectionHeader, INPUT_STYLE, BTN_PRIMARY, BTN_SECONDARY } from "../ui";
+import { SectionHeader } from "../ui";
+import { Button } from "../../ui/Button";
 import { ErrorState } from "../../common/ErrorState";
 import { SectionCliAuth } from "./SectionCliAuth";
 import {
@@ -523,7 +524,8 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
                   : t("settings.llmModels.apiKeyPlaceholder")
               }
               autoComplete="off"
-              style={{ ...INPUT_STYLE, flex: 1, minWidth: 180 }}
+              className="syn-input"
+              style={{ flex: 1, minWidth: 180 }}
               data-testid={`api-key-input-${vendor.id}`}
             />
             {apiKeySaving && (
@@ -532,19 +534,15 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
               </span>
             )}
             {vendorConfig?.api_key_configured && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleApiKeyClear}
                 disabled={apiKeySaving}
-                style={{
-                  ...BTN_SECONDARY,
-                  fontSize: 11,
-                  padding: "4px 10px",
-                  opacity: apiKeySaving ? 0.4 : 1,
-                }}
                 data-testid={`api-key-clear-${vendor.id}`}
               >
                 {t("settings.llmModels.apiKeyClearBtn")}
-              </button>
+              </Button>
             )}
           </div>
           {apiKeyMsg && (
@@ -628,21 +626,18 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
                 if (e.key === "Enter") handleCustomModelSave();
               }}
               placeholder={t("settings.llmModels.modelCustomPlaceholder")}
-              style={{ ...INPUT_STYLE, flex: 1 }}
+              className="syn-input"
+              style={{ flex: 1 }}
               data-testid={`model-custom-input-${vendor.id}`}
             />
-            <button
+            <Button
+              variant="accent-ghost"
+              size="sm"
               onClick={handleCustomModelSave}
               disabled={!customModelInput.trim()}
-              style={{
-                ...BTN_PRIMARY,
-                fontSize: 11,
-                padding: "4px 10px",
-                opacity: customModelInput.trim() ? 1 : 0.4,
-              }}
             >
               {t("settings.llmModels.add")}
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -663,7 +658,8 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
         <select
           value={contextWindow}
           onChange={(e) => setContextWindow(Number(e.target.value) as typeof contextWindow)}
-          style={{ ...INPUT_STYLE, width: "auto", minWidth: 100 }}
+          className="syn-input"
+          style={{ width: "auto", minWidth: 100 }}
           data-testid={`ctx-select-${vendor.id}`}
         >
           {CONTEXT_WINDOW_OPTIONS.map((opt) => (
@@ -719,36 +715,28 @@ function VendorRow({ vendor, vendorConfig, active, scope, vaultId }: VendorRowPr
       {/* Provider tests */}
       <div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => void handleTestConnection()}
             disabled={testConn.running}
-            style={{
-              ...BTN_SECONDARY,
-              fontSize: 11,
-              padding: "4px 10px",
-              opacity: testConn.running ? 0.5 : 1,
-            }}
             data-testid={`test-conn-${vendor.id}`}
           >
             {testConn.running
               ? t("settings.llmModels.testRunning")
               : t("settings.llmModels.testConnectionBtn")}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => void handleTestFunction()}
             disabled={testFunc.running}
-            style={{
-              ...BTN_SECONDARY,
-              fontSize: 11,
-              padding: "4px 10px",
-              opacity: testFunc.running ? 0.5 : 1,
-            }}
             data-testid={`test-func-${vendor.id}`}
           >
             {testFunc.running
               ? t("settings.llmModels.testRunning")
               : t("settings.llmModels.testFunctionBtn")}
-          </button>
+          </Button>
         </div>
         {testConn.ok !== null && (
           <p

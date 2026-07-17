@@ -8,7 +8,8 @@
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { INPUT_STYLE, BTN_PRIMARY } from "../ui";
+import { Eye, EyeOff } from "lucide-react";
+import { Button } from "../../ui/Button";
 import { getCliAuthConfig, setCliAuthConfig } from "../../../api/providerClient";
 import type { CliAuthConfig } from "../../../api/types";
 
@@ -102,29 +103,25 @@ export function SectionCliAuth({ embedded = false }: { embedded?: boolean } = {}
             </p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ position: "relative", flex: 1, minWidth: 200, display: "flex" }}>
-                <input type={showToken ? "text" : "password"} data-testid="cli-auth-token-input" value={tokenInput} onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }} placeholder={t("settings.cliAuth.tokenPlaceholder")} autoComplete="off" style={{ ...INPUT_STYLE, flex: 1, minWidth: 0, paddingRight: 36 }} />
+                <input type={showToken ? "text" : "password"} data-testid="cli-auth-token-input" value={tokenInput} onChange={(e) => { setTokenInput(e.target.value); setSaveErr(null); }} placeholder={t("settings.cliAuth.tokenPlaceholder")} autoComplete="off" className="syn-input" style={{ flex: 1, minWidth: 0, paddingRight: 36 }} />
                 <button
                   type="button"
                   onClick={() => setShowToken((v) => !v)}
                   aria-label={showToken ? t("connect.hideToken") : t("connect.showToken")}
                   style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--syn-text-dim)", display: "flex", alignItems: "center" }}
                 >
-                  {showToken ? (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
-                      <line x1="1" y1="1" x2="23" y2="23"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
-                    </svg>
-                  )}
+                  {showToken ? <EyeOff size={14} aria-hidden="true" /> : <Eye size={14} aria-hidden="true" />}
                 </button>
               </div>
-              <button data-testid="cli-auth-save-btn" onClick={() => { void handleSave(); }} disabled={busy} style={{ ...BTN_PRIMARY, opacity: busy ? 0.4 : 1, cursor: busy ? "not-allowed" : "pointer", flexShrink: 0 }}>
+              <Button
+                variant="accent-ghost"
+                data-testid="cli-auth-save-btn"
+                onClick={() => { void handleSave(); }}
+                disabled={busy}
+                style={{ flexShrink: 0 }}
+              >
                 {busy ? "…" : t("settings.cliAuth.saveButton")}
-              </button>
+              </Button>
               {posture.token_configured && (
                 <button data-testid="cli-auth-clear-btn" onClick={() => { void handleClear(); }} disabled={busy} style={{ padding: "6px 14px", border: "1px solid color-mix(in srgb, var(--syn-red) 30%, transparent 70%)", borderRadius: 6, background: "transparent", color: "var(--syn-red)", fontSize: 12, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.4 : 1, flexShrink: 0 }}>
                   {t("settings.cliAuth.clearButton")}

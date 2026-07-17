@@ -6,7 +6,8 @@
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, EmbedRow, BTN_PRIMARY } from "../ui";
+import { SectionHeader, EmbedRow } from "../ui";
+import { Button } from "../../ui/Button";
 import {
   fetchMcpInfo,
   setRemoteMcpEnabled,
@@ -296,24 +297,20 @@ export function SectionApiMcp() {
               </div>
 
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button
+                <Button
+                  variant="accent-ghost"
                   data-testid="mcp-generate-token-btn"
                   onClick={() => {
                     void handleGenerateToken();
                   }}
                   disabled={authBusy}
-                  style={{
-                    ...BTN_PRIMARY,
-                    opacity: authBusy ? 0.4 : 1,
-                    cursor: authBusy ? "not-allowed" : "pointer",
-                  }}
                 >
                   {authBusy
                     ? "…"
                     : tokenConfigured
                       ? t("settings.apiMcp.access.rotateToken")
                       : t("settings.apiMcp.access.generateToken")}
-                </button>
+                </Button>
                 {tokenConfigured && (
                   <button
                     data-testid="mcp-clear-token-btn"

@@ -4,7 +4,8 @@
  */
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, BTN_PRIMARY } from "../ui";
+import { SectionHeader } from "../ui";
+import { Button } from "../../ui/Button";
 import { fetchScenarios, applyScenario, type ScenarioItem } from "../../../api/scenariosClient";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
 import { showToast } from "../../common/Toast";
@@ -82,14 +83,15 @@ export function SectionScenarios() {
                 {sc.description}
               </p>
             </div>
-            <button
+            <Button
+              variant="accent-ghost"
               data-testid="scenario-apply-btn"
-              style={{ ...BTN_PRIMARY, flexShrink: 0, opacity: applying ? 0.5 : 1, cursor: applying ? "not-allowed" : "pointer" }}
+              style={{ flexShrink: 0 }}
               disabled={applying}
               onClick={() => setPendingScenario(sc)}
             >
               {applying ? t("settings.scenarios.applying") : t("settings.scenarios.apply")}
-            </button>
+            </Button>
           </div>
         ))}
       </div>

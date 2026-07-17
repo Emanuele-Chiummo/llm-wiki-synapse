@@ -1,48 +1,17 @@
 /**
  * ui.tsx — shared sub-components for the Settings surface.
  *
- * Exports: SectionHeader, Field, BudgetRow, GroupDivider, INPUT_STYLE,
- *          BTN_PRIMARY, BTN_SECONDARY, and icon helpers.
+ * Exports: SectionHeader, Field, BudgetRow, GroupDivider, and icon helpers.
+ *
+ * BTN_PRIMARY/BTN_SECONDARY/INPUT_STYLE inline-style constants were removed
+ * (W4 audit FE-QUAL-8, eliminates a parallel styling system). Consumers now
+ * use components/ui/Button (variant="accent-ghost" | "ghost") and the shared
+ * .syn-input CSS class (styles/components.css) directly.
  *
  * I3: no Zustand subscriptions here — pure presentational.
  */
 
-import React, { type ReactNode } from "react";
-
-// ─── Shared style constants ───────────────────────────────────────────────────
-
-export const INPUT_STYLE: React.CSSProperties = {
-  width: "100%",
-  padding: "6px 10px",
-  background: "var(--syn-bg)",
-  border: "1px solid var(--syn-border)",
-  borderRadius: 6,
-  color: "var(--syn-text)",
-  fontSize: 12,
-  cursor: "pointer",
-  boxSizing: "border-box",
-};
-
-export const BTN_PRIMARY: React.CSSProperties = {
-  padding: "6px 14px",
-  border: "1px solid var(--syn-accent)",
-  borderRadius: 6,
-  background: "var(--syn-accent-soft)",
-  color: "var(--syn-accent)",
-  fontSize: 12,
-  cursor: "pointer",
-  fontWeight: 500,
-};
-
-export const BTN_SECONDARY: React.CSSProperties = {
-  padding: "6px 14px",
-  border: "1px solid var(--syn-border)",
-  borderRadius: 6,
-  background: "transparent",
-  color: "var(--syn-text-muted)",
-  fontSize: 12,
-  cursor: "pointer",
-};
+import { type ReactNode } from "react";
 
 // ─── Shared sub-components ────────────────────────────────────────────────────
 

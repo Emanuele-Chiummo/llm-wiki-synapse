@@ -24,7 +24,8 @@
  */
 import { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { SectionHeader, BTN_SECONDARY } from "../ui";
+import { SectionHeader } from "../ui";
+import { Button } from "../../ui/Button";
 import { renderMarkdown } from "../../chat/renderMarkdown";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -159,9 +160,9 @@ export function SectionChangelog() {
           <p style={{ fontSize: 12, color: "var(--syn-text-dim)", marginBottom: 12 }}>
             {t("settings.changelog.unavailable")}
           </p>
-          <button onClick={load} style={BTN_SECONDARY} data-testid="changelog-refresh-btn">
+          <Button variant="ghost" onClick={load} data-testid="changelog-refresh-btn">
             {t("settings.changelog.refresh")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -316,9 +317,9 @@ export function SectionChangelog() {
           </p>
 
           {/* Refresh */}
-          <button onClick={load} style={BTN_SECONDARY} data-testid="changelog-refresh-btn">
+          <Button variant="ghost" onClick={load} data-testid="changelog-refresh-btn">
             {t("settings.changelog.refresh")}
-          </button>
+          </Button>
         </div>
       )}
     </div>

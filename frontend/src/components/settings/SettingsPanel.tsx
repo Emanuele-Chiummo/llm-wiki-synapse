@@ -24,6 +24,7 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { Button } from "../ui/Button";
 import { OpsScheduleCard } from "./OpsScheduleCard";
 import { SettingsSaveFooter } from "./SettingsSaveFooter";
 import { SectionGeneral } from "./sections/SectionGeneral";
@@ -45,7 +46,6 @@ import { SectionRuntimeConfig } from "./sections/SectionRuntimeConfig";
 import {
   SectionHeader,
   GroupDivider,
-  BTN_PRIMARY,
   IconSliders,
   IconCpu,
   IconFolder,
@@ -462,9 +462,9 @@ function PageSetup() {
         title={t("config.gettingStarted.wizardSlot")}
         desc={t("config.gettingStarted.wizardSlotDesc")}
       />
-      <button data-testid="wizard-reopen-btn" onClick={handleOpenWizard} style={BTN_PRIMARY}>
+      <Button variant="accent-ghost" data-testid="wizard-reopen-btn" onClick={handleOpenWizard}>
         {t("config.gettingStarted.wizardReopen")}
-      </button>
+      </Button>
     </div>
   );
 }
