@@ -50,8 +50,8 @@ Synapse v0.6 ships the same React frontend in two distribution formats:
 
 Both share the same backend API (`http://backend:8000`). Choose based on your preference:
 
-- **For Emanuele (homelab, TrueNAS):** Download the Tauri desktop binary for your OS or run the PWA in a pinned browser window.
-- **For multi-user deployments (future):** Recommend the PWA for accessibility; Tauri for power users preferring native apps.
+- **For single-user/homelab deployments:** Download the Tauri desktop binary for your OS or run the PWA in a pinned browser window.
+- **For multi-user deployments:** Recommend the PWA for accessibility; Tauri for power users preferring native apps.
 
 **ADR-0039** (Tauri v2 desktop shell) documents the implementation. See §7 for desktop app usage.
 

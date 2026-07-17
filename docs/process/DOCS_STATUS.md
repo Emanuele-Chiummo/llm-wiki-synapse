@@ -3050,7 +3050,7 @@ not reflecting the M4-GUX transition.
 
 ### Fix applied
 
-Ran `/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_er.py`
+Ran `[project-root]/.venv/bin/python backend/scripts/generate_er.py`
 which introspects live SQLAlchemy models (`backend/app/models.py`) and regenerates
 `docs/er/schema.mmd` from the authoritative source. Output confirmed by generator sanity check:
 "all 6 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)".
@@ -3092,7 +3092,7 @@ M4-GUX additions:
 
 ### Fix applied
 
-Ran `/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_openapi.py`
+Ran `[project-root]/.venv/bin/python backend/scripts/generate_openapi.py`
 which imports `backend/app/main.py` (FastAPI app) and regenerates `docs/api/openapi.json`.
 Output confirmed by generator sanity check:
 "all 5 required endpoints present (including GET /graph)".

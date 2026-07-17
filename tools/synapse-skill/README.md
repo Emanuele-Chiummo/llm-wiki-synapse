@@ -79,5 +79,5 @@ Base: `http://localhost:8000` (default)
 
 ## Synapse project
 
-See [github.com/emanuelechiummo/synapse](https://github.com/emanuelechiummo/synapse) (TBD)
+See [github.com/Emanuele-Chiummo/llm-wiki-synapse](https://github.com/Emanuele-Chiummo/llm-wiki-synapse)
 for the full self-hosted deployment guide.
