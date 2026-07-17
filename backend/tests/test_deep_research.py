@@ -133,14 +133,14 @@ def _patch_db_everywhere(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.fixture(autouse=True)
 def _patch_ingest_file(monkeypatch: pytest.MonkeyPatch) -> None:
     """Patch ingest_file so no real filesystem/DB writes happen."""
-    from app.ingest.orchestrator import IngestResult
+    from app.ingest.pipeline import IngestResult
 
     mock_page_id = uuid.uuid4()
 
     async def _mock_ingest(path: Any) -> IngestResult:
         return IngestResult(page_id=mock_page_id, status="completed")
 
-    monkeypatch.setattr("app.ingest.orchestrator.ingest_file", _mock_ingest)
+    monkeypatch.setattr("app.ingest.pipeline.ingest_file", _mock_ingest)
 
 
 @pytest.fixture(autouse=True)
@@ -844,7 +844,7 @@ async def test_synthesis_routed_through_ingest_file() -> None:
     from app.ops.deep_research import FetchedSource, Sufficiency
 
     async def _track_ingest(path: Any) -> Any:
-        from app.ingest.orchestrator import IngestResult
+        from app.ingest.pipeline import IngestResult
 
         ingest_calls.append(path)
         return IngestResult(page_id=uuid.uuid4(), status="completed")
@@ -876,7 +876,7 @@ async def test_synthesis_routed_through_ingest_file() -> None:
             "app.ops.deep_research._synthesize",
             new=AsyncMock(return_value="# Synthesis\n\nContent."),
         ),
-        patch("app.ingest.orchestrator.ingest_file", side_effect=_track_ingest),
+        patch("app.ingest.pipeline.ingest_file", side_effect=_track_ingest),
         patch("app.ops.deep_research._create_run_row", side_effect=_mock_create_run),
         patch("app.ops.deep_research._update_run_iterations", new=AsyncMock()),
         patch("app.ops.deep_research._update_run_sources", new=AsyncMock()),

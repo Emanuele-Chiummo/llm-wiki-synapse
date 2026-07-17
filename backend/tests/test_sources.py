@@ -987,7 +987,7 @@ class TestIngestAll:
             return result
 
         # Patch ingest_file inside the sources module (where _ingest_all_driver imports it)
-        monkeypatch.setattr("app.ingest.orchestrator.ingest_file", _fake_ingest, raising=False)
+        monkeypatch.setattr("app.ingest.pipeline.ingest_file", _fake_ingest, raising=False)
 
         # Run the driver directly (not via HTTP) to avoid the fire-and-forget task
         await _ingest_all_driver(candidates)

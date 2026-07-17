@@ -189,7 +189,7 @@ async def test_write_wiki_page_merges_existing_body(
     api_env: dict[str, Any],  # noqa: F811 — pytest fixture param shadows the import (documented)
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.writer import write_wiki_page
 
     _set_merge(monkeypatch, enabled=True)
     merged_marker = ("MERGED BODY combining both sources. " * 8).strip()
@@ -224,7 +224,7 @@ async def test_write_wiki_page_merge_failure_degrades(
     api_env: dict[str, Any],  # noqa: F811 — pytest fixture param shadows the import (documented)
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.writer import write_wiki_page
 
     _set_merge(monkeypatch, enabled=True)
     provider = _MergeProvider(raise_exc=True)

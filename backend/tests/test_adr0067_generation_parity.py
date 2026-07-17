@@ -43,8 +43,8 @@ def _entity(title: str, source: str, *, content: str = "Body.", body: str | None
 async def test_serializer_llmwiki_shape_no_sources_or_lang(api_env: dict[str, Any]) -> None:
     """type is FIRST; created/updated follow title; NO sources:/lang: keys; round-trips."""
     from app.config import settings
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     page = WikiPage(
         title="Photosynthesis",
@@ -83,8 +83,8 @@ async def test_serializer_llmwiki_shape_no_sources_or_lang(api_env: dict[str, An
 async def test_related_populated_from_resolved_wikilinks(api_env: dict[str, Any]) -> None:
     """related = slugs of live pages the body links to; an unresolved target is dropped."""
     from app.config import settings
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     # Target entity must exist first so the wikilink resolves to its slug.
     await write_wiki_page(None, _entity("Chloroplast", "raw/sources/bio.md"), "raw/sources/bio.md")
@@ -119,8 +119,8 @@ async def test_db_sources_populated_when_model_omits_sources(api_env: dict[str, 
     """
     from app.config import settings
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
 
     page = WikiPage(
@@ -145,7 +145,7 @@ async def test_db_sources_populated_when_model_omits_sources(api_env: dict[str, 
 
 
 def test_resolve_canonical_entity_key_folds_and_strips() -> None:
-    from app.ingest.orchestrator import _resolve_canonical_entity_key as key
+    from app.ingest.writer import _resolve_canonical_entity_key as key
 
     # Acronym / longform / parenthetical / legal-suffix all collapse to one key.
     assert (
@@ -176,8 +176,8 @@ async def test_write_wiki_page_entity_canonical_merge(api_env: dict[str, Any]) -
     unions sources — an exact canonical-key merge, not a new ghost entity.
     """
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
 
     row1 = await write_wiki_page(None, _entity("AWS", "raw/sources/a.md"), "raw/sources/a.md")
@@ -211,8 +211,8 @@ async def test_write_wiki_page_entity_canonical_merge(api_env: dict[str, Any]) -
 async def test_write_wiki_page_distinct_entities_do_not_merge(api_env: dict[str, Any]) -> None:
     """Deloitte vs Deloitte Italia are different canonical keys → two separate pages (no merge)."""
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
 
     r1 = await write_wiki_page(None, _entity("Deloitte", "raw/sources/a.md"), "raw/sources/a.md")
@@ -262,8 +262,8 @@ async def test_corpus_generation_key_reuses_identity_when_title_changes(
     """Forced regeneration updates one keyed page/file even if the model changes its title."""
     from app.config import settings
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
 
     generation_key = "corpus:synthesis:" + "c" * 64

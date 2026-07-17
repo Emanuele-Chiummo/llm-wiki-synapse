@@ -423,7 +423,7 @@ async def test_clip_no_origin_header(clip_env: dict[str, Any]) -> None:
 def test_clip_origin_allowed_extension() -> None:
     """chrome-extension:// origin in CLIP_ALLOWED_ORIGINS → True."""
     from app import config as cfg
-    from app.main import _clip_origin_allowed
+    from app.routers.clip import _clip_origin_allowed
 
     with patch.object(
         type(cfg.settings),
@@ -436,7 +436,7 @@ def test_clip_origin_allowed_extension() -> None:
 def test_clip_origin_allowed_rejects_unknown() -> None:
     """Origin not in allowlist → False."""
     from app import config as cfg
-    from app.main import _clip_origin_allowed
+    from app.routers.clip import _clip_origin_allowed
 
     with patch.object(
         type(cfg.settings),
@@ -449,7 +449,7 @@ def test_clip_origin_allowed_rejects_unknown() -> None:
 def test_clip_origin_allowed_loopback_implicit() -> None:
     """http://localhost is always allowed (implicit loopback list)."""
     from app import config as cfg
-    from app.main import _clip_origin_allowed
+    from app.routers.clip import _clip_origin_allowed
 
     with patch.object(
         type(cfg.settings),
@@ -462,7 +462,7 @@ def test_clip_origin_allowed_loopback_implicit() -> None:
 
 def test_clip_origin_allowed_none_passes() -> None:
     """No Origin header (None) → True (non-browser path; token gate is sufficient)."""
-    from app.main import _clip_origin_allowed
+    from app.routers.clip import _clip_origin_allowed
 
     assert _clip_origin_allowed(None) is True
 
@@ -473,14 +473,14 @@ def test_clip_origin_allowed_none_passes() -> None:
 
 
 def test_clip_safe_filename_normal() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     result = _clip_safe_filename("My Article", "https://example.com")
     assert result == "My-Article.md"
 
 
 def test_clip_safe_filename_strips_path_separators() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     result = _clip_safe_filename("../../etc/passwd", "https://evil.com")
     # Must NOT contain path separators; hyphens or underscores are fine
@@ -490,7 +490,7 @@ def test_clip_safe_filename_strips_path_separators() -> None:
 
 
 def test_clip_safe_filename_empty_title_uses_hostname() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     result = _clip_safe_filename("", "https://example.com/article")
     assert "example" in result
@@ -498,7 +498,7 @@ def test_clip_safe_filename_empty_title_uses_hostname() -> None:
 
 
 def test_clip_safe_filename_length_clamp() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     long_title = "a" * 300
     result = _clip_safe_filename(long_title, "https://example.com")
@@ -507,7 +507,7 @@ def test_clip_safe_filename_length_clamp() -> None:
 
 
 def test_clip_safe_filename_unsafe_chars() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     result = _clip_safe_filename('bad:*?"<>|title', "https://example.com")
     for ch in ':*?"<>|':
@@ -516,7 +516,7 @@ def test_clip_safe_filename_unsafe_chars() -> None:
 
 
 def test_clip_safe_filename_empty_fallback() -> None:
-    from app.main import _clip_safe_filename
+    from app.routers.clip import _clip_safe_filename
 
     # If both title and URL hostname produce nothing sensible
     result = _clip_safe_filename("   ", "")

@@ -106,7 +106,9 @@ async def _build_gate(
     Returns (middleware, inner_calls) where inner_calls is a list that gains
     a dict when the inner app is reached.
     """
-    from app.main import RemoteMcpFlag, _BearerAuthMiddleware, _McpAuthCache
+    from app.runtime_state import BearerAuthMiddleware as _BearerAuthMiddleware
+    from app.runtime_state import McpAuthCache as _McpAuthCache
+    from app.runtime_state import RemoteMcpFlag
 
     flag = RemoteMcpFlag()
     await flag.load(flag_enabled)
@@ -177,7 +179,7 @@ class TestTokenHashing:
     """Unit tests for PBKDF2 token hashing helpers (ADR-0033 §2.1)."""
 
     def test_hash_token_returns_pbkdf2_string(self) -> None:
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         h = _hash_token("my-secret-token")
         assert h.startswith("pbkdf2_sha256$"), f"Expected pbkdf2_sha256 prefix, got {h[:30]!r}"
@@ -185,28 +187,30 @@ class TestTokenHashing:
         assert len(parts) == 4, "Hash must have 4 parts separated by $"
 
     def test_verify_token_correct(self) -> None:
-        from app.main import _hash_token, _verify_token
+        from app.runtime_state import hash_token as _hash_token
+        from app.runtime_state import verify_token as _verify_token
 
         plaintext = "super-secret-12345"
         h = _hash_token(plaintext)
         assert _verify_token(plaintext, h) is True
 
     def test_verify_token_wrong(self) -> None:
-        from app.main import _hash_token, _verify_token
+        from app.runtime_state import hash_token as _hash_token
+        from app.runtime_state import verify_token as _verify_token
 
         h = _hash_token("correct-token")
         assert _verify_token("wrong-token", h) is False
 
     def test_verify_token_different_salts_different_hashes(self) -> None:
         """Each call to _hash_token generates a new salt → different stored hash."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         h1 = _hash_token("same-plaintext")
         h2 = _hash_token("same-plaintext")
         assert h1 != h2, "Same plaintext must produce different hashes (different salts)"
 
     def test_verify_token_invalid_format(self) -> None:
-        from app.main import _verify_token
+        from app.runtime_state import verify_token as _verify_token
 
         # Malformed hash → False (fail-closed)
         assert _verify_token("token", "not-a-valid-hash") is False
@@ -215,7 +219,7 @@ class TestTokenHashing:
 
     def test_hash_contains_no_plaintext(self) -> None:
         """The stored hash must not contain the plaintext token."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         plaintext = "UNIQUE-TOKEN-SENTINEL-XYZ-9876"
         h = _hash_token(plaintext)
@@ -231,13 +235,13 @@ class TestTokenSourceResolver:
     """_resolve_token_source + _token_configured precedence (ADR-0033 §2.1)."""
 
     def test_db_hash_is_db_source(self) -> None:
-        from app.main import _resolve_token_source
+        from app.runtime_state import resolve_token_source as _resolve_token_source
 
         assert _resolve_token_source("pbkdf2_sha256$...") == "db"
 
     def test_no_db_hash_env_token_is_env_source(self) -> None:
         import app.main as main_mod
-        from app.main import _resolve_token_source
+        from app.runtime_state import resolve_token_source as _resolve_token_source
 
         original = main_mod.settings.mcp_auth_token
         main_mod.settings.mcp_auth_token = "env-token"  # type: ignore[assignment]
@@ -248,7 +252,7 @@ class TestTokenSourceResolver:
 
     def test_no_db_no_env_is_none_source(self) -> None:
         import app.main as main_mod
-        from app.main import _resolve_token_source
+        from app.runtime_state import resolve_token_source as _resolve_token_source
 
         original = main_mod.settings.mcp_auth_token
         main_mod.settings.mcp_auth_token = None  # type: ignore[assignment]
@@ -260,7 +264,7 @@ class TestTokenSourceResolver:
     def test_db_hash_overrides_env(self) -> None:
         """DB hash takes precedence over env bootstrap (ADR-0033 §2.1)."""
         import app.main as main_mod
-        from app.main import _resolve_token_source
+        from app.runtime_state import resolve_token_source as _resolve_token_source
 
         original = main_mod.settings.mcp_auth_token
         main_mod.settings.mcp_auth_token = "env-token"  # type: ignore[assignment]
@@ -270,13 +274,13 @@ class TestTokenSourceResolver:
             main_mod.settings.mcp_auth_token = original  # type: ignore[assignment]
 
     def test_token_configured_true_with_db_hash(self) -> None:
-        from app.main import _token_configured
+        from app.runtime_state import token_configured as _token_configured
 
         assert _token_configured("any-hash") is True
 
     def test_token_configured_false_with_nothing(self) -> None:
         import app.main as main_mod
-        from app.main import _token_configured
+        from app.runtime_state import token_configured as _token_configured
 
         original = main_mod.settings.mcp_auth_token
         main_mod.settings.mcp_auth_token = None  # type: ignore[assignment]
@@ -295,20 +299,20 @@ class TestSourceClassifier:
     """_classify_source + _ip_is_private (ADR-0033 §2.3)."""
 
     def test_loopback_is_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         assert _ip_is_private("127.0.0.1") is True
         assert _ip_is_private("127.255.255.255") is True
         assert _ip_is_private("::1") is True
 
     def test_tailscale_cgnat_is_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         assert _ip_is_private("100.64.0.1") is True
         assert _ip_is_private("100.127.255.255") is True
 
     def test_rfc1918_is_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         assert _ip_is_private("10.0.0.1") is True
         assert _ip_is_private("172.16.0.1") is True
@@ -316,20 +320,20 @@ class TestSourceClassifier:
         assert _ip_is_private("192.168.1.1") is True
 
     def test_link_local_is_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         assert _ip_is_private("169.254.0.1") is True
         # fe80:: (link-local IPv6)
         assert _ip_is_private("fe80::1") is True
 
     def test_ula_ipv6_is_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         # fc00::/7 ULA
         assert _ip_is_private("fd00::1") is True
 
     def test_public_ip_is_not_private(self) -> None:
-        from app.main import _ip_is_private
+        from app.runtime_state import ip_is_private as _ip_is_private
 
         assert _ip_is_private("8.8.8.8") is False
         assert _ip_is_private("1.1.1.1") is False
@@ -337,14 +341,14 @@ class TestSourceClassifier:
 
     def test_private_peer_no_cf_headers_is_private(self) -> None:
         """Loopback peer + no CF headers → PRIVATE."""
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         scope = _make_scope("127.0.0.1")
         assert _classify_source(scope) is False  # PRIVATE
 
     def test_private_peer_with_cf_connecting_ip_is_public(self) -> None:
         """CF-Connecting-IP present from private peer → PUBLIC (ADR-0033 §2.3 CRITICAL)."""
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         scope = _make_scope(
             "127.0.0.1",
@@ -354,7 +358,7 @@ class TestSourceClassifier:
 
     def test_private_peer_with_cf_ray_is_public(self) -> None:
         """CF-Ray present from private peer → PUBLIC (ADR-0033 §2.3 CRITICAL)."""
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         scope = _make_scope(
             "192.168.1.5",
@@ -364,14 +368,14 @@ class TestSourceClassifier:
 
     def test_public_peer_no_cf_headers_is_public(self) -> None:
         """Non-private peer IP + no CF headers → PUBLIC."""
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         scope = _make_scope("203.0.113.5")
         assert _classify_source(scope) is True  # PUBLIC
 
     def test_missing_client_in_scope_is_public(self) -> None:
         """No client in scope → fail-safe PUBLIC."""
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         scope = {"type": "http", "headers": []}
         assert _classify_source(scope) is True  # PUBLIC (fail-safe)
@@ -383,7 +387,7 @@ class TestSourceClassifier:
         ADR-0033 §2.3 XFF spoofing defence.
         """
         import app.main as main_mod
-        from app.main import _classify_source
+        from app.runtime_state import classify_source as _classify_source
 
         # Ensure no trusted proxies
         original = main_mod.settings.mcp_trusted_proxies
@@ -411,7 +415,7 @@ class TestDecisionTable:
     @pytest.mark.asyncio
     async def test_row_remote_off_any_returns_404(self) -> None:
         """remote_enabled OFF → 404 regardless of everything."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=False, db_hash=_hash_token("tok"), allow_without_token=True
@@ -423,7 +427,7 @@ class TestDecisionTable:
     @pytest.mark.asyncio
     async def test_row_on_valid_bearer_passes(self) -> None:
         """ON + valid bearer → PASS (any source, any allow state)."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         plaintext = "valid-bearer-token"
         h = _hash_token(plaintext)
@@ -435,7 +439,7 @@ class TestDecisionTable:
     @pytest.mark.asyncio
     async def test_row_private_tok_allow_off_no_bearer_returns_401(self) -> None:
         """ON + PRIVATE + tok configured + allow OFF + no bearer → 401."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -449,7 +453,7 @@ class TestDecisionTable:
     @pytest.mark.asyncio
     async def test_row_private_tok_allow_on_no_bearer_passes(self) -> None:
         """ON + PRIVATE + tok configured + allow ON + no bearer → PASS."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -495,7 +499,7 @@ class TestDecisionTable:
     @pytest.mark.asyncio
     async def test_row_public_tok_configured_no_bearer_returns_401(self) -> None:
         """ON + PUBLIC + tok configured + no/bad bearer → 401."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -547,7 +551,7 @@ class TestPublicAlwaysRequiresToken:
         CRITICAL: CF-Connecting-IP header present, peer is private (loopback).
         The CF header forces PUBLIC → token required → 401 (tok configured).
         """
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -567,7 +571,7 @@ class TestPublicAlwaysRequiresToken:
     @pytest.mark.asyncio
     async def test_cf_ray_from_private_peer_is_public(self) -> None:
         """CRITICAL: CF-Ray header → PUBLIC → 401 even from loopback."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -606,7 +610,7 @@ class TestPublicAlwaysRequiresToken:
     @pytest.mark.asyncio
     async def test_public_peer_with_token_gets_401_not_pass(self) -> None:
         """CRITICAL: Public peer, tok configured, allow ON, no bearer → 401 (not PASS)."""
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -624,7 +628,7 @@ class TestPublicAlwaysRequiresToken:
         A private peer forging CF-Connecting-IP cannot GAIN private access —
         it loses it (forced PUBLIC).
         """
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         mw, _ = await _build_gate(
             flag_enabled=True,
@@ -659,7 +663,7 @@ class TestXffSpoofDefence:
         (public) → token required.
         """
         import app.main as main_mod
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         original = main_mod.settings.mcp_trusted_proxies
         main_mod.settings.mcp_trusted_proxies = ""  # type: ignore[assignment]
@@ -684,7 +688,7 @@ class TestXffSpoofDefence:
     def test_resolve_source_ip_uses_peer_when_no_trusted_proxies(self) -> None:
         """_resolve_source_ip returns peer IP when MCP_TRUSTED_PROXIES is empty."""
         import app.main as main_mod
-        from app.main import _resolve_source_ip
+        from app.client_ip import resolve_source_ip as _resolve_source_ip
 
         original = main_mod.settings.mcp_trusted_proxies
         main_mod.settings.mcp_trusted_proxies = ""  # type: ignore[assignment]
@@ -734,7 +738,7 @@ class TestEnvBootstrapPrecedence:
     async def test_db_hash_overrides_env_token(self) -> None:
         """DB hash set → env token no longer authenticates (DB wins)."""
         import app.main as main_mod
-        from app.main import _hash_token
+        from app.runtime_state import hash_token as _hash_token
 
         env_plaintext = "env-token-that-should-be-overridden"
         db_plaintext = "db-ui-set-token"
@@ -884,7 +888,9 @@ class TestAllowAwareClamp:
         (allow_on is a valid posture for private access — ADR-0033 §2.4).
         """
         import app.main as main_mod
-        from app.main import _mcp_auth_cache, _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
         await _mcp_auth_cache.load(None, True)  # allow=ON, no token
@@ -922,7 +928,9 @@ class TestAllowAwareClamp:
         No usable auth posture.
         """
         import app.main as main_mod
-        from app.main import _mcp_auth_cache, _remote_mcp_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
+        from app.runtime_state import remote_mcp_flag as _remote_mcp_flag
 
         await _remote_mcp_flag.load(False)
         await _mcp_auth_cache.load(None, False)  # allow=OFF, no token
@@ -988,7 +996,9 @@ class TestMcpInfoAdr0033:
     @pytest.mark.asyncio
     async def test_mcp_info_never_returns_token_hash_or_salt(self) -> None:
         """GET /mcp/info must NEVER return token, hash, or salt (ADR-0033 §2.5)."""
-        from app.main import _hash_token, _mcp_auth_cache, app
+        from app.main import app
+        from app.runtime_state import hash_token as _hash_token
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
 
         sentinel = "SUPER-SECRET-SENTINEL-TOKEN-0033-XYZ"
         h = _hash_token(sentinel)
@@ -1051,7 +1061,7 @@ class TestNoRemountAdr0033:
     @pytest.mark.asyncio
     async def test_mcp_auth_cache_set_does_not_call_lifespan(self) -> None:
         """_McpAuthCache.set_hash() and set_allow() are pure in-memory — no ASGI calls."""
-        from app.main import _McpAuthCache
+        from app.runtime_state import McpAuthCache as _McpAuthCache
 
         cache = _McpAuthCache()
         calls: list[str] = []
@@ -1089,7 +1099,7 @@ class TestPrivateCidrsConstant:
     """MCP_PRIVATE_CIDRS covers all required ranges (ADR-0033 §2.3 / I6)."""
 
     def test_cidr_constant_is_a_named_tuple(self) -> None:
-        from app.main import MCP_PRIVATE_CIDRS
+        from app.runtime_state import MCP_PRIVATE_CIDRS
 
         assert isinstance(MCP_PRIVATE_CIDRS, tuple)
         assert len(MCP_PRIVATE_CIDRS) > 0
@@ -1097,7 +1107,7 @@ class TestPrivateCidrsConstant:
     def test_loopback_covered(self) -> None:
         import ipaddress
 
-        from app.main import MCP_PRIVATE_CIDRS
+        from app.runtime_state import MCP_PRIVATE_CIDRS
 
         lo = ipaddress.ip_address("127.0.0.1")
         assert any(lo in net for net in MCP_PRIVATE_CIDRS), "127.0.0.1 must be in MCP_PRIVATE_CIDRS"
@@ -1105,7 +1115,7 @@ class TestPrivateCidrsConstant:
     def test_tailscale_cgnat_covered(self) -> None:
         import ipaddress
 
-        from app.main import MCP_PRIVATE_CIDRS
+        from app.runtime_state import MCP_PRIVATE_CIDRS
 
         ts = ipaddress.ip_address("100.100.100.100")
         assert any(
@@ -1115,7 +1125,7 @@ class TestPrivateCidrsConstant:
     def test_rfc1918_covered(self) -> None:
         import ipaddress
 
-        from app.main import MCP_PRIVATE_CIDRS
+        from app.runtime_state import MCP_PRIVATE_CIDRS
 
         for ip in ("10.0.0.1", "172.16.0.1", "192.168.1.1"):
             addr = ipaddress.ip_address(ip)
@@ -1126,7 +1136,7 @@ class TestPrivateCidrsConstant:
     def test_public_ip_not_covered(self) -> None:
         import ipaddress
 
-        from app.main import MCP_PRIVATE_CIDRS
+        from app.runtime_state import MCP_PRIVATE_CIDRS
 
         pub = ipaddress.ip_address("8.8.8.8")
         assert not any(

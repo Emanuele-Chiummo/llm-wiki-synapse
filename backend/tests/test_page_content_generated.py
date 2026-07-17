@@ -39,7 +39,7 @@ async def test_generated_page_get_token_matches_content_and_put_roundtrips(
     api_env: dict[str, Any],
     api_client: Any,
 ) -> None:
-    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.writer import write_wiki_page
 
     # Create a page through the generation write path (NOT a raw-source ingest).
     row = await write_wiki_page(

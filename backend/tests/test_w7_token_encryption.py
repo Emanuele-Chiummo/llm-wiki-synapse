@@ -584,7 +584,8 @@ async def test_clip_access_token_is_pbkdf2_not_plaintext(
     Confirms the stale 'Plaintext bearer token' model comment does NOT reflect runtime
     behaviour — the write path calls _hash_token() (PBKDF2-HMAC-SHA256).
     """
-    from app.main import _hash_token, _verify_token  # noqa: PLC0415
+    from app.runtime_state import hash_token as _hash_token  # noqa: PLC0415
+    from app.runtime_state import verify_token as _verify_token  # noqa: PLC0415
 
     # Test the _hash_token / _verify_token contract directly.
     plaintext = "SuperSecretClipToken1234567890"

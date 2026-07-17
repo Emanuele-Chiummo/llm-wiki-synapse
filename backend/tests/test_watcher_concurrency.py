@@ -47,7 +47,7 @@ async def test_run_bounds_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
         return _IngestResultStub()
 
     # Patch the seam symbol imported lazily inside _on_ingest.
-    monkeypatch.setattr("app.ingest.orchestrator.ingest_file", _fake_ingest_file, raising=True)
+    monkeypatch.setattr("app.ingest.pipeline.ingest_file", _fake_ingest_file, raising=True)
 
     loop = asyncio.get_running_loop()
     handler = _MarkdownHandler(loop)
@@ -72,7 +72,7 @@ async def test_run_releases_inflight_after_completion(
     async def _fake_ingest_file(_path: str) -> _IngestResultStub:
         return _IngestResultStub()
 
-    monkeypatch.setattr("app.ingest.orchestrator.ingest_file", _fake_ingest_file, raising=True)
+    monkeypatch.setattr("app.ingest.pipeline.ingest_file", _fake_ingest_file, raising=True)
 
     loop = asyncio.get_running_loop()
     handler = _MarkdownHandler(loop)

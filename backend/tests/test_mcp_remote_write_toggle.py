@@ -90,7 +90,7 @@ class TestWriteFlagDefault:
     @pytest.mark.asyncio
     async def test_mcp_write_flag_default_is_false(self) -> None:
         """RemoteMcpFlag() for write starts as False (fail-closed, ADR-0072 §2)."""
-        from app.main import RemoteMcpFlag
+        from app.runtime_state import RemoteMcpFlag
 
         flag = RemoteMcpFlag()
         assert flag.is_enabled() is False
@@ -98,7 +98,8 @@ class TestWriteFlagDefault:
     @pytest.mark.asyncio
     async def test_mcp_info_remote_write_enabled_reflects_flag(self) -> None:
         """GET /mcp/info.remote_write_enabled reflects _mcp_write_flag, not env (ADR-0072 §5)."""
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         # Explicitly force flag OFF (in case env MCP_REMOTE_WRITE_ENABLED is set somewhere)
         await _mcp_write_flag.load(False)
@@ -116,7 +117,8 @@ class TestWriteFlagDefault:
     @pytest.mark.asyncio
     async def test_mcp_info_remote_write_enabled_true_when_flag_on(self) -> None:
         """GET /mcp/info.remote_write_enabled=true when _mcp_write_flag is ON."""
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(True)
         try:
@@ -144,7 +146,8 @@ class TestPutMcpRemoteWrite:
     async def test_put_enabled_true_with_token_sets_write_enabled(self) -> None:
         """enabled=true + token set → remote_write_enabled=true, clamped=false (ADR-0072 §4)."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -176,7 +179,8 @@ class TestPutMcpRemoteWrite:
     async def test_put_enabled_true_without_token_is_clamped(self) -> None:
         """enabled=true + NO token → clamped=true, remote_write_enabled=false (ADR-0072 §4)."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -207,7 +211,8 @@ class TestPutMcpRemoteWrite:
     async def test_put_enabled_false_always_succeeds(self) -> None:
         """enabled=false always succeeds, even without a token (ADR-0072 §4)."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(True)
 
@@ -238,7 +243,8 @@ class TestPutMcpRemoteWrite:
     async def test_put_refreshes_in_memory_flag(self) -> None:
         """PUT /mcp/remote-write refreshes _mcp_write_flag immediately (ADR-0072 §2)."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -269,7 +275,8 @@ class TestPutMcpRemoteWrite:
     async def test_put_response_shape(self) -> None:
         """PUT /mcp/remote-write response has remote_write_enabled, token_configured, clamped."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -300,7 +307,9 @@ class TestPutMcpRemoteWrite:
     async def test_put_enabled_true_with_allow_without_token_not_clamped(self) -> None:
         """enabled=true + allow_without_token=true (no token) → not clamped (ADR-0072 §4)."""
         import app.main as main_mod
-        from app.main import _mcp_auth_cache, _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_auth_cache as _mcp_auth_cache
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
         # Simulate allow_without_token=true in the auth cache
@@ -523,7 +532,8 @@ class TestWriteFlagPersistence:
     async def test_put_updates_vault_state_column(self) -> None:
         """PUT /mcp/remote-write sets vault_state.remote_mcp_write_enabled in DB."""
         import app.main as main_mod
-        from app.main import _mcp_write_flag, app
+        from app.main import app
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -563,7 +573,8 @@ class TestLoadMcpWriteFlag:
     async def test_load_uses_db_value_when_non_null(self) -> None:
         """DB non-NULL value wins over env bootstrap (ADR-0072 §1)."""
         import app.main as main_mod
-        from app.main import _load_mcp_write_flag, _mcp_write_flag
+        from app.main import _load_mcp_write_flag
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -588,7 +599,8 @@ class TestLoadMcpWriteFlag:
     async def test_load_falls_back_to_env_when_db_null(self) -> None:
         """DB NULL falls back to MCP_REMOTE_WRITE_ENABLED env (ADR-0072 §1)."""
         import app.main as main_mod
-        from app.main import _load_mcp_write_flag, _mcp_write_flag
+        from app.main import _load_mcp_write_flag
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(False)
 
@@ -613,7 +625,8 @@ class TestLoadMcpWriteFlag:
     async def test_load_defaults_false_when_no_row(self) -> None:
         """Missing vault_state row falls back to env default (False by default)."""
         import app.main as main_mod
-        from app.main import _load_mcp_write_flag, _mcp_write_flag
+        from app.main import _load_mcp_write_flag
+        from app.runtime_state import mcp_write_flag as _mcp_write_flag
 
         await _mcp_write_flag.load(True)
 

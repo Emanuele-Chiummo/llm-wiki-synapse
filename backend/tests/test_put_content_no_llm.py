@@ -68,7 +68,7 @@ async def _ingest_wiki_page(
     Write a file to vault/wiki/entities/ and ingest it.
     Returns (page_id_str, abs_path).
     """
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     wiki_entities = api_env["vault_root"] / "wiki" / "entities"
     wiki_entities.mkdir(parents=True, exist_ok=True)
@@ -111,7 +111,7 @@ class TestPutPageContentNoLLM:
         Recommended fix: replace ingest_file(abs_path) with reindex_wiki_page_body()
         at main.py:1739 (orchestrator.py already exports the helper).
         """
-        import app.ingest.orchestrator as orch
+        import app.ingest.pipeline as pipeline
 
         original_content = (
             "---\ntype: entity\ntitle: Test Entity\nsources: []\n---\n\nOriginal body.\n"
@@ -133,7 +133,7 @@ class TestPutPageContentNoLLM:
             return fake_provider_config
 
         monkeypatch.setattr(
-            orch,
+            pipeline,
             "_resolve_ingest_provider_config",
             fake_resolve_provider_config,
         )
@@ -152,7 +152,7 @@ class TestPutPageContentNoLLM:
                 "body_for_embedding=..., bump=True)."
             )
 
-        monkeypatch.setattr(orch, "run_ingest_pipeline", run_ingest_pipeline_guard)
+        monkeypatch.setattr(pipeline, "run_ingest_pipeline", run_ingest_pipeline_guard)
 
         # Perform the PUT
         new_content = "---\ntype: entity\ntitle: Test Entity\nsources: []\n---\n\nEdited by user.\n"
@@ -196,7 +196,7 @@ class TestPutPageContentNoLLM:
         (not the old hash), proving the metadata update path ran correctly
         and independently of any LLM call.
         """
-        import app.ingest.orchestrator as orch
+        import app.ingest.pipeline as pipeline
         from app.ingest.orchestrator import _load_page
 
         # Set up fixture page FIRST (before patching) so ingest_file runs clean.
@@ -214,7 +214,7 @@ class TestPutPageContentNoLLM:
             return fake_provider_config
 
         monkeypatch.setattr(
-            orch,
+            pipeline,
             "_resolve_ingest_provider_config",
             fake_resolve_provider_config,
         )
@@ -227,7 +227,7 @@ class TestPutPageContentNoLLM:
                 "run_ingest_pipeline must NOT be called by PUT /pages/{id}/content."
             )
 
-        monkeypatch.setattr(orch, "run_ingest_pipeline", pipeline_spy)
+        monkeypatch.setattr(pipeline, "run_ingest_pipeline", pipeline_spy)
 
         new_content = "---\ntype: concept\ntitle: Hash Check\nsources: []\n---\n\nNew content.\n"
         resp = await api_client.put(
@@ -269,7 +269,7 @@ class TestPutPageContentNoLLM:
 
         We verify this by counting _open_ingest_run calls: it must be 0 for a wiki PUT.
         """
-        import app.ingest.orchestrator as orch
+        import app.ingest.pipeline as pipeline
 
         # Set up fixture page FIRST (before patching).
         old_content = "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nOld.\n"
@@ -281,13 +281,13 @@ class TestPutPageContentNoLLM:
 
         # AFTER fixture: install spies and guards for the PUT call only.
         write_run_calls: list[dict[str, Any]] = []
-        original_open_run = orch._open_ingest_run  # type: ignore[attr-defined]
+        original_open_run = pipeline._open_ingest_run  # type: ignore[attr-defined]
 
         async def spy_write_run(**kwargs: Any) -> None:
             write_run_calls.append(kwargs)
             await original_open_run(**kwargs)
 
-        monkeypatch.setattr(orch, "_open_ingest_run", spy_write_run)
+        monkeypatch.setattr(pipeline, "_open_ingest_run", spy_write_run)
 
         # Provider configured — simulates production
         fake_config = MagicMock()
@@ -295,13 +295,13 @@ class TestPutPageContentNoLLM:
         async def fake_resolve() -> object:
             return fake_config
 
-        monkeypatch.setattr(orch, "_resolve_ingest_provider_config", fake_resolve)
+        monkeypatch.setattr(pipeline, "_resolve_ingest_provider_config", fake_resolve)
 
         # Guard the pipeline — if called, the bug is present
         async def pipeline_trap(**kwargs: Any) -> None:  # type: ignore[return]
             raise AssertionError("run_ingest_pipeline must not be called on wiki/ PUT")
 
-        monkeypatch.setattr(orch, "run_ingest_pipeline", pipeline_trap)
+        monkeypatch.setattr(pipeline, "run_ingest_pipeline", pipeline_trap)
 
         new_content = "---\ntype: entity\ntitle: Run Check\nsources: []\n---\n\nEdited.\n"
         resp = await api_client.put(

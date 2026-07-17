@@ -8,7 +8,7 @@ Covers the pure decision helper ``_is_owned_only_by_source`` used at the re-inge
 
 from __future__ import annotations
 
-from app.ingest.orchestrator import _is_owned_only_by_source
+from app.ingest.writer import _is_owned_only_by_source
 
 
 def test_owned_only_when_sole_prior_source_matches() -> None:

@@ -58,6 +58,7 @@ def _fake_page(title: str, page_type: str | None = "concept") -> Any:
 @pytest.fixture()
 def rt_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Stub provider, candidate query, vault-context, and the orchestrator write-back primitives."""
+    import app.ingest.context as context
     import app.ingest.orchestrator as orch
 
     state: dict[str, Any] = {
@@ -93,7 +94,7 @@ def rt_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     monkeypatch.setattr(orch, "apply_page_type", fake_apply)
     monkeypatch.setattr(orch, "bump_version", fake_bump)
     monkeypatch.setattr(orch, "_read_body_for_classification", fake_read_body)
-    monkeypatch.setattr(orch, "_load_vault_context", fake_vault_context)
+    monkeypatch.setattr(context, "_load_vault_context", fake_vault_context)
 
     # Reset the module-level single-flight state between tests.
     rt._state.is_running = False

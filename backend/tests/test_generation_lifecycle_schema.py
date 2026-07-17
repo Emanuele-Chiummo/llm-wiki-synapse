@@ -69,7 +69,7 @@ def test_reserved_generation_key_is_bounded_and_typed() -> None:
 
 
 def test_page_type_counts_exposes_all_six_types() -> None:
-    from app.ingest.orchestrator import _page_type_counts
+    from app.ingest.pipeline import _page_type_counts
 
     counts = _page_type_counts(
         [

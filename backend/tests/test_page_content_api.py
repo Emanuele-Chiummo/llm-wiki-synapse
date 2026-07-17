@@ -29,6 +29,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import app.routers.pages as _rt_pages
 from httpx import AsyncClient
 
 # Re-use the shared fixtures from test_api.py (registered by conftest.py auto-discovery)
@@ -52,7 +53,7 @@ async def _ingest_source_page(
     Returns (page_id_str, abs_path).
     Used by GET content tests (GET works for any file_path — no wiki/ restriction).
     """
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     src = api_env["sources_dir"] / filename
     src.write_text(content, encoding="utf-8")
@@ -74,7 +75,7 @@ async def _ingest_wiki_entity(
     The ingest seam stores file_path relative to vault_root, so the stored path will be
     'wiki/entities/<filename>' which passes the _resolve_wiki_page_path guard.
     """
-    from app.ingest.orchestrator import ingest_file
+    from app.ingest.pipeline import ingest_file
 
     wiki_entities = api_env["vault_root"] / "wiki" / "entities"
     wiki_entities.mkdir(parents=True, exist_ok=True)
@@ -155,7 +156,6 @@ class TestGetPageContent:
         T-PC-004: _resolve_page_path raises HTTPException 400 for paths that escape the
         vault root. Tests the guard directly without a DB round-trip.
         """
-        import app.main as main_module
         from fastapi import HTTPException
 
         traversal_cases = [
@@ -165,7 +165,7 @@ class TestGetPageContent:
         ]
         for evil in traversal_cases:
             try:
-                main_module._resolve_page_path(evil)
+                _rt_pages._resolve_page_path(evil)
                 raise AssertionError(f"Expected HTTPException for {evil!r} but none was raised")
             except HTTPException as exc:
                 assert exc.status_code == 400, f"Expected 400 for {evil!r}, got {exc.status_code}"
@@ -349,7 +349,6 @@ class TestPutPageContent:
         self, api_client: AsyncClient, api_env: dict[str, Any]
     ) -> None:
         """T-PC-010: PUT returns 413 when body exceeds _MAX_PAGE_CONTENT_BYTES (ADR-0035)."""
-        import app.main as main_module
 
         page_id, wiki_file = await _ingest_wiki_entity(
             api_env,
@@ -357,7 +356,7 @@ class TestPutPageContent:
             content="---\ntype: entity\ntitle: Size\nsources: []\n---\n\nBody.\n",
         )
 
-        oversized = "x" * (main_module._MAX_PAGE_CONTENT_BYTES + 1)
+        oversized = "x" * (_rt_pages._MAX_PAGE_CONTENT_BYTES + 1)
         resp = await api_client.put(
             f"/pages/{page_id}/content",
             json={"content": oversized},
@@ -397,12 +396,11 @@ class TestPutPageContent:
         T-PC-012: _resolve_wiki_page_path raises 400 for vault-escaping paths and 403
         for paths inside the vault but outside wiki/.
         """
-        import app.main as main_module
         from fastapi import HTTPException
 
         # Total escape → 400
         try:
-            main_module._resolve_wiki_page_path("../../../etc/passwd")
+            _rt_pages._resolve_wiki_page_path("../../../etc/passwd")
             raise AssertionError("Expected HTTPException for traversal but none raised")
         except HTTPException as exc:
             assert exc.status_code == 400, f"Expected 400 for traversal, got {exc.status_code}"
@@ -410,7 +408,7 @@ class TestPutPageContent:
 
         # Inside vault but not wiki/ → 403
         try:
-            main_module._resolve_wiki_page_path("raw/sources/foo.md")
+            _rt_pages._resolve_wiki_page_path("raw/sources/foo.md")
             raise AssertionError("Expected HTTPException for non-wiki path but none raised")
         except HTTPException as exc:
             assert (

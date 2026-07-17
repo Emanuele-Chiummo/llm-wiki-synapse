@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import app.ingest.orchestrator as orch
+import app.ingest.pipeline as pipeline
 import pytest
 from app.ingest.provider.base import InferenceProvider
 from app.ingest.schemas import (
@@ -297,8 +298,8 @@ async def pipeline_env(
     async def fake_finalize_ingest_run(**kwargs: Any) -> None:
         runs.append(kwargs)
 
-    monkeypatch.setattr(orch, "_open_ingest_run", fake_open_ingest_run)
-    monkeypatch.setattr(orch, "_finalize_ingest_run", fake_finalize_ingest_run)
+    monkeypatch.setattr(pipeline, "_open_ingest_run", fake_open_ingest_run)
+    monkeypatch.setattr(pipeline, "_finalize_ingest_run", fake_finalize_ingest_run)
 
     from app.ingest.queue_manager import IngestQueueManager
 
@@ -361,7 +362,7 @@ async def test_blocks_format_writes_custom_type_and_wikilinks(
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
-    result = await orch.run_ingest_pipeline(
+    result = await pipeline.run_ingest_pipeline(
         provider_config_row=object(),
         source_text="The Acme Corp report describes measurable market outcomes.",
         origin_source=ORIGIN,
@@ -404,7 +405,7 @@ async def test_blocks_format_persists_diagnostics_on_convergence(
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
-    result = await orch.run_ingest_pipeline(
+    result = await pipeline.run_ingest_pipeline(
         provider_config_row=object(),
         source_text="The Acme Corp report describes measurable market outcomes.",
         origin_source=ORIGIN,
@@ -434,7 +435,7 @@ async def test_blocks_format_persists_diagnostics_on_nonconvergence(
     )
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
-    result = await orch.run_ingest_pipeline(
+    result = await pipeline.run_ingest_pipeline(
         provider_config_row=object(),
         source_text="The Acme Corp report describes measurable market outcomes.",
         origin_source=ORIGIN,
@@ -459,7 +460,7 @@ async def test_block_loop_is_sole_pipeline_path(
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
-    result = await orch.run_ingest_pipeline(
+    result = await pipeline.run_ingest_pipeline(
         provider_config_row=object(),
         source_text="The Acme Corp report describes measurable market outcomes.",
         origin_source=ORIGIN,
@@ -658,8 +659,8 @@ async def pipeline_env_review(
     async def fake_finalize_ingest_run(**kwargs: Any) -> None:
         runs.append(kwargs)
 
-    monkeypatch.setattr(orch, "_open_ingest_run", fake_open_ingest_run)
-    monkeypatch.setattr(orch, "_finalize_ingest_run", fake_finalize_ingest_run)
+    monkeypatch.setattr(pipeline, "_open_ingest_run", fake_open_ingest_run)
+    monkeypatch.setattr(pipeline, "_finalize_ingest_run", fake_finalize_ingest_run)
 
     from app.ingest.queue_manager import IngestQueueManager
 
@@ -716,7 +717,7 @@ async def test_blocks_format_enqueues_review_blocks(
     provider = _BlockProvider([ANALYSIS, _GEN_BLOCKS_WITH_REVIEW])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
-    result = await orch.run_ingest_pipeline(
+    result = await pipeline.run_ingest_pipeline(
         provider_config_row=object(),
         source_text="The Acme Corp report references an unindexed supplier.",
         origin_source=ORIGIN,

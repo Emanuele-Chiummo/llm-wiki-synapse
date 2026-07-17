@@ -277,7 +277,7 @@ def _make_mock_agentic_provider():  # type: ignore[return]
 
         async def delegate_ingest(self, **kwargs: object) -> DelegatedIngestResult:
             # Simulate writing two pages via the MCP write_page tool
-            from app.ingest.orchestrator import write_wiki_page
+            from app.ingest.writer import write_wiki_page
             from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
 
             pages = [
@@ -436,6 +436,7 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
     # In mock mode or when Postgres is absent, stub out DB/vector calls so we
     # can still validate the wiring (schema, routing, wikilinks, index.md).
     import app.ingest.orchestrator as orch
+    import app.ingest.pipeline as pipeline
     from app.wiki.links import parse_wikilinks
 
     ingest_run_args: dict = {}
@@ -508,15 +509,15 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
     original_upsert = orch.upsert_vector
     original_log = orch.append_log
     original_bump = orch.bump_version
-    original_open_run = orch._open_ingest_run  # type: ignore[attr-defined]
-    original_finalize_run = orch._finalize_ingest_run  # type: ignore[attr-defined]
+    original_open_run = pipeline._open_ingest_run  # type: ignore[attr-defined]
+    original_finalize_run = pipeline._finalize_ingest_run  # type: ignore[attr-defined]
     original_ingest_queue = orch.ingest_queue  # type: ignore[attr-defined]
     orch.persist_metadata = _fake_persist_metadata  # type: ignore[assignment]
     orch.upsert_vector = _fake_upsert_vector  # type: ignore[assignment]
     orch.append_log = _fake_append_log  # type: ignore[assignment]
     orch.bump_version = _fake_bump_version  # type: ignore[assignment]
-    orch._open_ingest_run = _fake_open_ingest_run  # type: ignore[assignment]
-    orch._finalize_ingest_run = _fake_finalize_ingest_run  # type: ignore[assignment]
+    pipeline._open_ingest_run = _fake_open_ingest_run  # type: ignore[assignment]
+    pipeline._finalize_ingest_run = _fake_finalize_ingest_run  # type: ignore[assignment]
     orch.ingest_queue = _fake_queue  # type: ignore[assignment]
 
     # In mock mode also patch resolve_provider so the mock provider is used instead
@@ -554,7 +555,7 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
 
     try:
         with patch("app.ingest.orchestrator.get_session", side_effect=_mock_get_session):
-            result = await orch.run_ingest_pipeline(
+            result = await pipeline.run_ingest_pipeline(
                 provider_config_row=config_row,
                 source_text=source_text,
                 origin_source=FIXTURE_ORIGIN,
@@ -565,8 +566,8 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
         orch.upsert_vector = original_upsert  # type: ignore[assignment]
         orch.append_log = original_log  # type: ignore[assignment]
         orch.bump_version = original_bump  # type: ignore[assignment]
-        orch._open_ingest_run = original_open_run  # type: ignore[assignment]
-        orch._finalize_ingest_run = original_finalize_run  # type: ignore[assignment]
+        pipeline._open_ingest_run = original_open_run  # type: ignore[assignment]
+        pipeline._finalize_ingest_run = original_finalize_run  # type: ignore[assignment]
         orch.ingest_queue = original_ingest_queue  # type: ignore[assignment]
         orch.resolve_provider = original_resolve_provider  # type: ignore[assignment]
 

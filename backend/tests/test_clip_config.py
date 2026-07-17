@@ -95,20 +95,20 @@ async def _make_client() -> AsyncClient:
 @pytest.mark.asyncio
 async def test_get_clip_config_token_source_none() -> None:
     """TC-CC-01: No DB token, no env token → token_source='none', token_configured=False."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
     try:
         cfg.settings.clip_token = None
-        await main_mod._clip_config_cache.load(None, None, None)  # no DB, no env
+        await runtime_state.clip_config_cache.load(None, None, None)  # no DB, no env
         async with await _make_client() as client:
             resp = await client.get("/clip/config")
     finally:
         cfg.settings.clip_token = original_clip_token
         # Restore cache to pre-test state using saved hash (not the plaintext env token).
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -122,19 +122,19 @@ async def test_get_clip_config_token_source_none() -> None:
 @pytest.mark.asyncio
 async def test_get_clip_config_token_source_env() -> None:
     """TC-CC-02: No DB token, CLIP_TOKEN env set → token_source='env', token_configured=True."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
     try:
         cfg.settings.clip_token = "env-token-abc"
-        await main_mod._clip_config_cache.load(None, None, None)  # no DB token
+        await runtime_state.clip_config_cache.load(None, None, None)  # no DB token
         async with await _make_client() as client:
             resp = await client.get("/clip/config")
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -148,22 +148,22 @@ async def test_get_clip_config_token_source_env() -> None:
 @pytest.mark.asyncio
 async def test_get_clip_config_token_source_db() -> None:
     """TC-CC-03: DB token set → token_source='db', token_configured=True, value NOT returned."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     db_token_value = "db-clip-token-secret-xyz"
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
     try:
         # DB token takes precedence over env; store as PBKDF2 hash (ADR-0040 §2.2).
-        db_token_hash = main_mod._hash_token(db_token_value)
+        db_token_hash = runtime_state.hash_token(db_token_value)
         cfg.settings.clip_token = "env-fallback-token"
-        await main_mod._clip_config_cache.load(None, db_token_hash, None)
+        await runtime_state.clip_config_cache.load(None, db_token_hash, None)
         async with await _make_client() as client:
             resp = await client.get("/clip/config")
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -186,11 +186,11 @@ async def test_get_clip_config_token_source_db() -> None:
 @pytest.mark.asyncio
 async def test_put_clip_config_rotate_token_one_time_reveal() -> None:
     """TC-CC-04: rotate_token=true → generated_token populated once in PUT response."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     # Capture what the PUT handler sets on the DB
     captured_token: list[str] = []
@@ -227,14 +227,14 @@ async def test_put_clip_config_rotate_token_one_time_reveal() -> None:
 
     try:
         cfg.settings.clip_token = None
-        await main_mod._clip_config_cache.load(None, None, None)
+        await runtime_state.clip_config_cache.load(None, None, None)
 
         with patch("app.main.get_session", side_effect=make_session):
             async with await _make_client() as client:
                 resp = await client.put("/clip/config", json={"rotate_token": True})
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -249,25 +249,25 @@ async def test_put_clip_config_rotate_token_one_time_reveal() -> None:
 @pytest.mark.asyncio
 async def test_put_clip_config_no_rotate_no_generated_token() -> None:
     """TC-CC-04b: Without rotate_token, generated_token is null in response."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     state_row = _make_vault_state_row(clip_enabled_db=True)
     mock_session = _make_db_session_mock(state_row)
 
     try:
         cfg.settings.clip_token = "env-token"
-        await main_mod._clip_config_cache.load(None, None, None)
+        await runtime_state.clip_config_cache.load(None, None, None)
 
         with patch("app.main.get_session", return_value=mock_session):
             async with await _make_client() as client:
                 resp = await client.put("/clip/config", json={"set_enabled": True})
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -288,23 +288,23 @@ async def test_get_clip_config_never_returns_token_after_rotate() -> None:
     This is the key invariant for ADR-0040 §2.1 — token is shown once in PUT,
     never again in any GET. Mirrors the MCP check in test_mcp_auth_adr0033.py.
     """
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     db_token = "rotated-secret-token-SENTINEL"
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
     try:
         cfg.settings.clip_token = None
         # Simulate: rotate has been called and DB now has a PBKDF2 hash (ADR-0040 §2.2).
-        db_token_hash = main_mod._hash_token(db_token)
-        await main_mod._clip_config_cache.load(None, db_token_hash, None)
+        db_token_hash = runtime_state.hash_token(db_token)
+        await runtime_state.clip_config_cache.load(None, db_token_hash, None)
 
         async with await _make_client() as client:
             resp = await client.get("/clip/config")
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     # The token sentinel must NEVER appear in the response
@@ -325,27 +325,27 @@ async def test_get_clip_config_never_returns_token_after_rotate() -> None:
 @pytest.mark.asyncio
 async def test_put_clip_config_clear_token() -> None:
     """TC-CC-06: clear_token=true → DB token cleared; source becomes env or none."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     # State row simulates DB token previously set as PBKDF2 hash; clear_token nulls it.
-    old_db_token_hash = main_mod._hash_token("old-db-token")
+    old_db_token_hash = runtime_state.hash_token("old-db-token")
     state_row = _make_vault_state_row(clip_access_token=old_db_token_hash)
     mock_session = _make_db_session_mock(state_row)
 
     try:
         cfg.settings.clip_token = "env-fallback"
-        await main_mod._clip_config_cache.load(None, old_db_token_hash, None)
+        await runtime_state.clip_config_cache.load(None, old_db_token_hash, None)
 
         with patch("app.main.get_session", return_value=mock_session):
             async with await _make_client() as client:
                 resp = await client.put("/clip/config", json={"clear_token": True})
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -370,12 +370,12 @@ async def test_put_clip_config_set_enabled_false_gates_clip_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """TC-CC-07/08: set_enabled=false via DB → POST /clip returns 503 regardless of env."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_enabled = cfg.settings.clip_enabled
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     try:
         # env says enabled=True, but DB says False
@@ -383,7 +383,7 @@ async def test_put_clip_config_set_enabled_false_gates_clip_endpoint(
         cfg.settings.clip_token = "test-token-xyz"
         # Load cache: DB clip_enabled_db=False overrides env (hash doesn't matter for 503 test)
         # Use a fake hash-shaped string — auth gate is never reached because enabled=False first
-        await main_mod._clip_config_cache.load(False, "pbkdf2_sha256$1$fake$hash", None)
+        await runtime_state.clip_config_cache.load(False, "pbkdf2_sha256$1$fake$hash", None)
 
         async with await _make_client() as client:
             resp = await client.post(
@@ -398,7 +398,7 @@ async def test_put_clip_config_set_enabled_false_gates_clip_endpoint(
     finally:
         cfg.settings.clip_enabled = original_clip_enabled
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert (
         resp.status_code == 503
@@ -413,8 +413,8 @@ async def test_put_clip_config_set_enabled_true_enables_ingress(
     """TC-CC-07: set_enabled=True via DB → POST /clip proceeds past enabled gate."""
     from contextlib import asynccontextmanager
 
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     # Set up temp vault
     vault_root = tmp_path / "vault"
@@ -427,7 +427,7 @@ async def test_put_clip_config_set_enabled_true_enables_ingress(
 
     original_clip_enabled = cfg.settings.clip_enabled
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     @asynccontextmanager
     async def _fake_session() -> AsyncGenerator[AsyncMock, None]:
@@ -445,13 +445,13 @@ async def test_put_clip_config_set_enabled_true_enables_ingress(
     monkeypatch.setattr(type(cfg.settings), "log_md_path", property(lambda self: log_md))
 
     db_plaintext = "db-token-xyz"
-    db_hash = main_mod._hash_token(db_plaintext)
+    db_hash = runtime_state.hash_token(db_plaintext)
 
     try:
         cfg.settings.clip_enabled = False  # env says disabled
         cfg.settings.clip_token = None
         # DB says: enabled=True; store PBKDF2 hash as the DB would after rotate
-        await main_mod._clip_config_cache.load(True, db_hash, None)
+        await runtime_state.clip_config_cache.load(True, db_hash, None)
 
         async with await _make_client() as client:
             resp = await client.post(
@@ -466,7 +466,7 @@ async def test_put_clip_config_set_enabled_true_enables_ingress(
     finally:
         cfg.settings.clip_enabled = original_clip_enabled
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     # Should reach at least past the enabled gate (503 means fail; want 202 or 401/403/400)
     assert resp.status_code != 503, (
@@ -488,8 +488,8 @@ async def test_clip_honours_db_allowed_origins(
     """TC-CC-09: DB clip_allowed_origins_db wins over CLIP_ALLOWED_ORIGINS env."""
     from contextlib import asynccontextmanager
 
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     vault_root = tmp_path / "vault"
     sources_dir = vault_root / "raw" / "sources"
@@ -502,7 +502,7 @@ async def test_clip_honours_db_allowed_origins(
     original_clip_enabled = cfg.settings.clip_enabled
     original_clip_token = cfg.settings.clip_token
     original_clip_origins = cfg.settings.clip_allowed_origins
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     @asynccontextmanager
     async def _fake_session() -> AsyncGenerator[AsyncMock, None]:
@@ -523,14 +523,14 @@ async def test_clip_honours_db_allowed_origins(
     env_origin = "chrome-extension://env-extension-id"
     token_plaintext = "test-token-origins"
     # Hash the token as the DB would store it after rotate (ADR-0040 §2.2).
-    token_hash = main_mod._hash_token(token_plaintext)
+    token_hash = runtime_state.hash_token(token_plaintext)
 
     try:
         cfg.settings.clip_enabled = True
         cfg.settings.clip_token = None
         cfg.settings.clip_allowed_origins = env_origin
         # DB origins override env: only db_origin is allowed; load PBKDF2 hash into cache
-        await main_mod._clip_config_cache.load(True, token_hash, db_origin)
+        await runtime_state.clip_config_cache.load(True, token_hash, db_origin)
 
         async with await _make_client() as client:
             # DB origin should be ALLOWED (present plaintext; cache has the hash for verify)
@@ -549,7 +549,7 @@ async def test_clip_honours_db_allowed_origins(
         cfg.settings.clip_enabled = original_clip_enabled
         cfg.settings.clip_token = original_clip_token
         cfg.settings.clip_allowed_origins = original_clip_origins
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     # DB origin is allowed (202 success or non-403 non-503)
     assert resp_db.status_code not in (
@@ -580,8 +580,8 @@ async def test_clip_honours_db_token_over_env(
     """
     from contextlib import asynccontextmanager
 
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     vault_root = tmp_path / "vault"
     sources_dir = vault_root / "raw" / "sources"
@@ -593,7 +593,7 @@ async def test_clip_honours_db_token_over_env(
 
     original_clip_enabled = cfg.settings.clip_enabled
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     @asynccontextmanager
     async def _fake_session() -> AsyncGenerator[AsyncMock, None]:
@@ -613,13 +613,13 @@ async def test_clip_honours_db_token_over_env(
     env_token = "env-only-token"
     db_token_plaintext = "db-override-token"
     # Hash the DB token as the DB stores it (PBKDF2 — ADR-0040 §2.2).
-    db_token_hash = main_mod._hash_token(db_token_plaintext)
+    db_token_hash = runtime_state.hash_token(db_token_plaintext)
 
     try:
         cfg.settings.clip_enabled = True
         cfg.settings.clip_token = env_token
         # DB token overrides env; load PBKDF2 hash so _verify_token() is exercised
-        await main_mod._clip_config_cache.load(True, db_token_hash, None)
+        await runtime_state.clip_config_cache.load(True, db_token_hash, None)
 
         async with await _make_client() as client:
             # DB token (plaintext) → _verify_token() → should succeed
@@ -637,7 +637,7 @@ async def test_clip_honours_db_token_over_env(
     finally:
         cfg.settings.clip_enabled = original_clip_enabled
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     # DB token succeeds
     assert resp_db_token.status_code not in (
@@ -664,11 +664,11 @@ async def test_clip_config_response_never_contains_token_value() -> None:
     appear as a substring in the response JSON. This is the critical no-leak invariant
     of ADR-0040 §2.1 (mirrors ADR-0033 §5.2 check in test_mcp_auth_adr0033.py).
     """
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     sentinel_tokens = [
         "UNIQUE-CLIP-TOKEN-SENTINEL-ALPHA-7391",
@@ -681,15 +681,15 @@ async def test_clip_config_response_never_contains_token_value() -> None:
     try:
         for sentinel in sentinel_tokens:
             # Store each sentinel as a PBKDF2 hash (as the DB would after rotate, ADR-0040 §2.2).
-            sentinel_hash = main_mod._hash_token(sentinel)
+            sentinel_hash = runtime_state.hash_token(sentinel)
             cfg.settings.clip_token = None
-            await main_mod._clip_config_cache.load(None, sentinel_hash, None)
+            await runtime_state.clip_config_cache.load(None, sentinel_hash, None)
             async with await _make_client() as client:
                 resp = await client.get("/clip/config")
             results.append((sentinel, resp.text))
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     for sentinel, response_text in results:
         assert sentinel not in response_text, (
@@ -708,24 +708,24 @@ class TestClipTokenSourceResolution:
 
     @pytest.mark.asyncio
     async def test_db_token_is_db_source(self) -> None:
-        import app.main as main_mod
+        from app import runtime_state
 
-        cache = main_mod._ClipConfigCache()
+        cache = runtime_state.ClipConfigCache()
         # Store a PBKDF2 hash as the DB would (ADR-0040 §2.2).
-        fake_hash = main_mod._hash_token("some-db-token")
+        fake_hash = runtime_state.hash_token("some-db-token")
         await cache.load(None, fake_hash, None)
         assert cache.token_source() == "db"
         assert cache.token_configured() is True
 
     @pytest.mark.asyncio
     async def test_no_db_env_token_is_env_source(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_token
         try:
             cfg.settings.clip_token = "env-token-abc"
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(None, None, None)
             assert cache.token_source() == "env"
             assert cache.token_configured() is True
@@ -734,13 +734,13 @@ class TestClipTokenSourceResolution:
 
     @pytest.mark.asyncio
     async def test_no_db_no_env_is_none_source(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_token
         try:
             cfg.settings.clip_token = None
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(None, None, None)
             assert cache.token_source() == "none"
             assert cache.token_configured() is False
@@ -750,15 +750,15 @@ class TestClipTokenSourceResolution:
     @pytest.mark.asyncio
     async def test_db_token_overrides_env(self) -> None:
         """DB token (hash) takes precedence over env bootstrap (ADR-0040 §2.2)."""
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_token
         try:
             cfg.settings.clip_token = "env-token"
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             # Simulate a PBKDF2 hash as stored in the DB (ADR-0040 §2.2).
-            fake_hash = main_mod._hash_token("db-token")
+            fake_hash = runtime_state.hash_token("db-token")
             await cache.load(None, fake_hash, None)
             assert cache.token_source() == "db"
             # get_hash() returns the stored PBKDF2 hash (not the plaintext "db-token")
@@ -770,7 +770,7 @@ class TestClipTokenSourceResolution:
             # The stored hash must NOT be the raw token value
             assert stored != "db-token"
             # _verify_token must confirm the round-trip
-            assert main_mod._verify_token(
+            assert runtime_state.verify_token(
                 "db-token", stored
             ), "_verify_token must accept the original plaintext against the stored hash"
         finally:
@@ -782,13 +782,13 @@ class TestClipEnabledResolution:
 
     @pytest.mark.asyncio
     async def test_db_enabled_true_overrides_env_false(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_enabled
         try:
             cfg.settings.clip_enabled = False
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(True, None, None)
             assert cache.resolved_enabled() is True
         finally:
@@ -796,13 +796,13 @@ class TestClipEnabledResolution:
 
     @pytest.mark.asyncio
     async def test_db_enabled_false_overrides_env_true(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_enabled
         try:
             cfg.settings.clip_enabled = True
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(False, None, None)
             assert cache.resolved_enabled() is False
         finally:
@@ -810,13 +810,13 @@ class TestClipEnabledResolution:
 
     @pytest.mark.asyncio
     async def test_db_none_falls_back_to_env(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_enabled
         try:
             cfg.settings.clip_enabled = True
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(None, None, None)
             assert cache.resolved_enabled() is True
         finally:
@@ -828,13 +828,13 @@ class TestClipAllowedOriginsResolution:
 
     @pytest.mark.asyncio
     async def test_db_origins_override_env(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_allowed_origins
         try:
             cfg.settings.clip_allowed_origins = "chrome-extension://env-only"
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(None, None, "chrome-extension://db-only")
             result = cache.resolved_allowed_origins_list()
             assert result == ["chrome-extension://db-only"]
@@ -843,13 +843,13 @@ class TestClipAllowedOriginsResolution:
 
     @pytest.mark.asyncio
     async def test_db_none_falls_back_to_env(self) -> None:
-        import app.main as main_mod
         from app import config as cfg
+        from app import runtime_state
 
         original = cfg.settings.clip_allowed_origins
         try:
             cfg.settings.clip_allowed_origins = "chrome-extension://env-origin"
-            cache = main_mod._ClipConfigCache()
+            cache = runtime_state.ClipConfigCache()
             await cache.load(None, None, None)
             result = cache.resolved_allowed_origins_list()
             assert result == ["chrome-extension://env-origin"]
@@ -865,19 +865,19 @@ class TestClipAllowedOriginsResolution:
 @pytest.mark.asyncio
 async def test_get_clip_config_response_shape() -> None:
     """TC-CC-shape: GET /clip/config returns all required fields with correct types."""
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
     try:
         cfg.settings.clip_token = "shape-test-env-token"
-        await main_mod._clip_config_cache.load(None, None, None)
+        await runtime_state.clip_config_cache.load(None, None, None)
         async with await _make_client() as client:
             resp = await client.get("/clip/config")
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -914,11 +914,11 @@ async def test_put_clip_config_rotate_stores_pbkdf2_hash() -> None:
     (starts with 'pbkdf2_sha256$'), never the raw token value.
     Mirrors the MCP invariant in ADR-0033 §2.1.
     """
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     original_clip_token = cfg.settings.clip_token
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     # Capture what the PUT handler writes into state.clip_access_token.
     captured_db_value: list[str] = []
@@ -956,14 +956,14 @@ async def test_put_clip_config_rotate_stores_pbkdf2_hash() -> None:
 
     try:
         cfg.settings.clip_token = None
-        await main_mod._clip_config_cache.load(None, None, None)
+        await runtime_state.clip_config_cache.load(None, None, None)
 
         with patch("app.main.get_session", side_effect=make_session):
             async with await _make_client() as client:
                 resp = await client.put("/clip/config", json={"rotate_token": True})
     finally:
         cfg.settings.clip_token = original_clip_token
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -981,7 +981,7 @@ async def test_put_clip_config_rotate_stores_pbkdf2_hash() -> None:
         stored_in_db != raw_token
     ), "SECURITY VIOLATION: DB column must NOT store the raw token — only the hash"
     # Confirm round-trip: _verify_token must accept the raw token against the stored hash.
-    assert main_mod._verify_token(
+    assert runtime_state.verify_token(
         raw_token, stored_in_db
     ), "_verify_token must accept the raw generated_token against the stored PBKDF2 hash"
 
@@ -1004,8 +1004,8 @@ async def test_rotate_token_authenticates_post_clip(
     """
     from contextlib import asynccontextmanager
 
-    import app.main as main_mod
     from app import config as cfg
+    from app import runtime_state
 
     # Set up a minimal vault so POST /clip can proceed past auth to ingest logic.
     vault_root = tmp_path / "vault"
@@ -1018,7 +1018,7 @@ async def test_rotate_token_authenticates_post_clip(
 
     original_clip_token = cfg.settings.clip_token
     original_clip_enabled = cfg.settings.clip_enabled
-    original_cache_hash = main_mod._clip_config_cache.get_hash()
+    original_cache_hash = runtime_state.clip_config_cache.get_hash()
 
     # Intercept the fake session used by PUT to capture the stored hash.
     stored_hash_holder: list[str] = []
@@ -1071,7 +1071,7 @@ async def test_rotate_token_authenticates_post_clip(
         cfg.settings.clip_token = None
         cfg.settings.clip_enabled = True
         # Cache: enabled=True, no token yet.
-        await main_mod._clip_config_cache.load(True, None, None)
+        await runtime_state.clip_config_cache.load(True, None, None)
 
         generated_token: str = ""
 
@@ -1090,8 +1090,8 @@ async def test_rotate_token_authenticates_post_clip(
 
         # Step 2: After rotate, the in-process cache has the PBKDF2 hash (set by set_hash).
         # Confirm cache state is consistent.
-        assert main_mod._clip_config_cache.token_source() == "db"
-        cached_hash = main_mod._clip_config_cache.get_hash()
+        assert runtime_state.clip_config_cache.token_source() == "db"
+        cached_hash = runtime_state.clip_config_cache.get_hash()
         assert cached_hash is not None and cached_hash.startswith("pbkdf2_sha256$")
 
         # Step 3: Use the generated_token to authenticate POST /clip.
@@ -1123,7 +1123,7 @@ async def test_rotate_token_authenticates_post_clip(
     finally:
         cfg.settings.clip_token = original_clip_token
         cfg.settings.clip_enabled = original_clip_enabled
-        await main_mod._clip_config_cache.load(None, original_cache_hash, None)
+        await runtime_state.clip_config_cache.load(None, original_cache_hash, None)
 
     # generated_token must authenticate (not 401/503)
     assert post_resp.status_code not in (401, 503), (

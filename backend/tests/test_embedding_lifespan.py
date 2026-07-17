@@ -317,7 +317,7 @@ class TestEmbeddingToggleSideEffectFree:
             encoding="utf-8",
         )
 
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         await ingest_file(src_file)
 

@@ -328,7 +328,7 @@ class TestCreateGeneration:
                 new=AsyncMock(return_value=_fake_config_row()),
             ),
             patch("app.ingest.provider.resolve_provider", return_value=provider),
-            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+            patch("app.ingest.writer.write_wiki_page", new=fake_write),
         ):
             # mode="generate" — testing the LLM generation path (ADR-0079 §2: stub is now default).
             await review_mod.create_page_from_review(uuid.UUID(item_id_str), mode="generate")
@@ -381,7 +381,7 @@ class TestCreateGeneration:
                 new=AsyncMock(return_value=_fake_config_row()),
             ),
             patch("app.ingest.provider.resolve_provider", return_value=provider),
-            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+            patch("app.ingest.writer.write_wiki_page", new=fake_write),
         ):
             # mode="generate" — testing the BOUNDED orchestrated loop (ADR-0079 §2).
             result = await review_mod.create_page_from_review(
@@ -435,7 +435,7 @@ class TestCreateGeneration:
                 new=AsyncMock(return_value=_fake_config_row()),
             ),
             patch("app.ingest.provider.resolve_provider", return_value=provider),
-            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+            patch("app.ingest.writer.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(SynapseError) as exc_info:
                 # mode="generate" — testing provider failure on LLM path (ADR-0079 §2).
@@ -498,8 +498,8 @@ class TestCreateGeneration:
                 new=AsyncMock(return_value=_fake_config_row()),
             ),
             patch("app.ingest.provider.resolve_provider", return_value=provider),
-            patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
-            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+            patch("app.ingest.pipeline._delegate_ingest", new=delegate_mock),
+            patch("app.ingest.writer.write_wiki_page", new=fake_write),
         ):
             # mode="generate" — testing the DELEGATED (agentic) path (ADR-0079 §2).
             result = await review_mod.create_page_from_review(
@@ -555,8 +555,8 @@ class TestCreateGeneration:
                 new=AsyncMock(return_value=_fake_config_row()),
             ),
             patch("app.ingest.provider.resolve_provider", return_value=provider),
-            patch("app.ingest.orchestrator._delegate_ingest", new=delegate_mock),
-            patch("app.ingest.orchestrator.write_wiki_page", new=fake_write),
+            patch("app.ingest.pipeline._delegate_ingest", new=delegate_mock),
+            patch("app.ingest.writer.write_wiki_page", new=fake_write),
         ):
             with pytest.raises(SynapseError) as exc_info:
                 # mode="generate" — testing empty delegated write on LLM path (ADR-0079 §2).

@@ -93,7 +93,7 @@ def _enable_guard(monkeypatch: pytest.MonkeyPatch, on: bool = True) -> None:
 def test_drops_off_language_concept_keeps_on_language(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.ingest.orchestrator import _drop_wrong_language_pages
+    from app.ingest.pipeline import _drop_wrong_language_pages
 
     _enable_guard(monkeypatch, True)
     pages = [
@@ -106,7 +106,7 @@ def test_drops_off_language_concept_keeps_on_language(
 
 
 def test_source_and_entity_pages_exempt(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.ingest.orchestrator import _drop_wrong_language_pages
+    from app.ingest.pipeline import _drop_wrong_language_pages
 
     _enable_guard(monkeypatch, True)
     pages = [
@@ -120,7 +120,7 @@ def test_source_and_entity_pages_exempt(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_guard_disabled_keeps_everything(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.ingest.orchestrator import _drop_wrong_language_pages
+    from app.ingest.pipeline import _drop_wrong_language_pages
 
     _enable_guard(monkeypatch, False)
     pages = [_page("Bad", CHINESE, PageType.CONCEPT)]
@@ -131,7 +131,7 @@ def test_guard_disabled_keeps_everything(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_no_analysis_or_empty_lang_keeps_everything(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.ingest.orchestrator import _drop_wrong_language_pages
+    from app.ingest.pipeline import _drop_wrong_language_pages
 
     _enable_guard(monkeypatch, True)
     pages = [_page("Bad", CHINESE, PageType.CONCEPT)]
@@ -141,7 +141,7 @@ def test_no_analysis_or_empty_lang_keeps_everything(
 
 
 def test_matching_language_all_kept(monkeypatch: pytest.MonkeyPatch) -> None:
-    from app.ingest.orchestrator import _drop_wrong_language_pages
+    from app.ingest.pipeline import _drop_wrong_language_pages
 
     _enable_guard(monkeypatch, True)
     pages = [

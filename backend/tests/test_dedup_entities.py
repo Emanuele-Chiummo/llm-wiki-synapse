@@ -186,7 +186,7 @@ def dedup_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]
 
 def test_aws_variants_same_canonical_key() -> None:
     """All three AWS page titles resolve to the same canonical key (ACRONYM_FOLD)."""
-    from app.ingest.orchestrator import _resolve_canonical_entity_key
+    from app.ingest.writer import _resolve_canonical_entity_key
 
     key_aws = _resolve_canonical_entity_key("AWS")
     key_long = _resolve_canonical_entity_key("Amazon Web Services")
@@ -199,7 +199,7 @@ def test_aws_variants_same_canonical_key() -> None:
 
 def test_deloitte_keys_differ() -> None:
     """Deloitte vs Deloitte Italia → different canonical keys → cannot auto-merge (Q5)."""
-    from app.ingest.orchestrator import _resolve_canonical_entity_key
+    from app.ingest.writer import _resolve_canonical_entity_key
 
     key_d = _resolve_canonical_entity_key("Deloitte")
     key_di = _resolve_canonical_entity_key("Deloitte Italia")

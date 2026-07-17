@@ -507,7 +507,7 @@ def test_schema_review_reads_v135_schema_md_without_error(
     (tmp_path / "schema.md").write_text(_V135_SCHEMA_MD_CONTENT, encoding="utf-8")
     (tmp_path / "purpose.md").write_text("# Vault Purpose\n\n## Goal\nTest.\n", encoding="utf-8")
 
-    from app.ingest.orchestrator import _load_vault_context
+    from app.ingest.context import _load_vault_context
 
     context = _load_vault_context()
 

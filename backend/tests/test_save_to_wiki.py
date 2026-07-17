@@ -23,6 +23,7 @@ import uuid
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import app.routers.chat as _rt_chat
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text as sa_text
@@ -108,42 +109,42 @@ class TestContentCleaning:
 
     async def test_strips_think_blocks(self) -> None:
         """<think>…</think> blocks are removed from content."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "<think>internal reasoning</think>The actual answer."
         assert _clean_chat_content(raw) == "The actual answer."
 
     async def test_strips_multiline_think_blocks(self) -> None:
         """Multi-line <think> blocks are removed."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "<think>\nline1\nline2\n</think>\nBody text."
         assert _clean_chat_content(raw) == "Body text."
 
     async def test_strips_cited_trailer(self) -> None:
         """<!-- cited: … --> trailer is removed."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "Answer text.<!-- cited: 1,2,3 -->"
         assert _clean_chat_content(raw) == "Answer text."
 
     async def test_strips_both(self) -> None:
         """Both think blocks and cited trailers are stripped."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "<think>reasoning</think>Clean answer.<!-- cited: 1 -->"
         assert _clean_chat_content(raw) == "Clean answer."
 
     async def test_no_artifacts_unchanged(self) -> None:
         """Content without artifacts is returned as-is (stripped)."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "bge-m3 is a model."
         assert _clean_chat_content(raw) == "bge-m3 is a model."
 
     async def test_case_insensitive_think(self) -> None:
         """THINK tag is stripped case-insensitively."""
-        from app.main import _clean_chat_content
+        from app.routers.chat import _clean_chat_content
 
         raw = "<THINK>ignored</THINK>answer"
         assert _clean_chat_content(raw) == "answer"
@@ -160,12 +161,12 @@ class TestSaveToWikiEndpoint:
         fake_page = _make_fake_page()
         with patch(
             (
-                "app.main.save_chat_to_wiki.__wrapped__"
+                "app.routers.chat.save_chat_to_wiki.__wrapped__"
                 if hasattr(
-                    __import__("app.main", fromlist=["save_chat_to_wiki"]).save_chat_to_wiki,
+                    _rt_chat.save_chat_to_wiki,
                     "__wrapped__",
                 )
-                else "app.ingest.orchestrator.write_wiki_page"
+                else "app.ingest.writer.write_wiki_page"
             ),
             new=AsyncMock(return_value=fake_page),
         ):
@@ -181,7 +182,7 @@ class TestSaveToWikiEndpoint:
         """Response contains page_id and file_path."""
         fake_page = _make_fake_page()
         with patch(
-            "app.ingest.orchestrator.write_wiki_page",
+            "app.ingest.writer.write_wiki_page",
             new=AsyncMock(return_value=fake_page),
         ):
             resp = await client.post(
@@ -205,7 +206,7 @@ class TestSaveToWikiEndpoint:
             call_log.append("write_wiki_page")
             return _make_fake_page()
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_fake_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_fake_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={"title": "Test", "content": "Some content."},
@@ -225,7 +226,7 @@ class TestSaveToWikiEndpoint:
                 file_path=f"wiki/queries/{page.title.lower().replace(' ', '-')}.md"
             )
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={"title": "What is bge-m3?", "content": "bge-m3 is a model."},
@@ -247,7 +248,7 @@ class TestSaveToWikiEndpoint:
                 file_path=f"wiki/synthesis/{page.title.lower().replace(' ', '-')}.md"
             )
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={
@@ -273,7 +274,7 @@ class TestSaveToWikiEndpoint:
             return _make_fake_page(file_path="wiki/synthesis/aws-pricing-analysis.md")
 
         with (
-            patch("app.ingest.orchestrator.write_wiki_page", new=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", new=_fake_write),
             patch("app.ops.enrich_wikilinks.enrich_wikilinks", new=enrich_mock),
         ):
             resp = await client.post(
@@ -301,7 +302,7 @@ class TestSaveToWikiEndpoint:
             return _make_fake_page(file_path="wiki/synthesis/x.md")
 
         with (
-            patch("app.ingest.orchestrator.write_wiki_page", new=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", new=_fake_write),
             patch("app.ops.enrich_wikilinks.enrich_wikilinks", new=boom),
         ):
             resp = await client.post(
@@ -324,7 +325,7 @@ class TestSaveToWikiEndpoint:
             captured.append(page)
             return _make_fake_page()
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={
@@ -346,7 +347,7 @@ class TestSaveToWikiEndpoint:
             captured.append(page)
             return _make_fake_page()
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={"title": "Test", "content": "Answer text.<!-- cited: 1,2 -->"},
@@ -365,7 +366,7 @@ class TestSaveToWikiEndpoint:
             captured.append(page)
             return _make_fake_page()
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={
@@ -388,7 +389,7 @@ class TestSaveToWikiEndpoint:
             captured.append(page)
             return _make_fake_page()
 
-        with patch("app.ingest.orchestrator.write_wiki_page", new=_capture_write):
+        with patch("app.ingest.writer.write_wiki_page", new=_capture_write):
             resp = await client.post(
                 "/chat/save-to-wiki",
                 json={

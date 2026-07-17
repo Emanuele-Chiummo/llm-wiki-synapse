@@ -883,7 +883,7 @@ class TestApply:
 
         with (
             patch("app.ops.review._run_generation", side_effect=_fake_run_generation),
-            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write),
             patch(
                 "app.provider_config_service.resolve_provider_config",
                 side_effect=_fake_resolve,
@@ -930,7 +930,7 @@ class TestApply:
 
         with (
             patch("app.ops.review._run_generation", side_effect=_fake_run_generation),
-            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write),
             patch(
                 "app.provider_config_service.resolve_provider_config",
                 side_effect=_fake_resolve,
@@ -1008,7 +1008,7 @@ class TestContradictionAuthoring:
         # BE-REFAC-2: contradiction authoring lives in fixes.py, which imports
         # resolve_operation_provider independently from app.ops._llm.
         monkeypatch.setattr("app.ops.lint.fixes.resolve_operation_provider", _fake_resolve)
-        with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
+        with patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
             finding = await apply_lint_fix(uuid.UUID(finding_id))
@@ -1059,7 +1059,7 @@ class TestContradictionAuthoring:
             return MagicMock(id=uuid.uuid4())
 
         monkeypatch.setattr("app.ops.lint.fixes.resolve_operation_provider", _resolve_none)
-        with patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write):
+        with patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write):
             from app.ops.lint import apply_lint_fix
 
             finding = await apply_lint_fix(uuid.UUID(finding_id))
@@ -2498,7 +2498,7 @@ class TestNewApplyPaths:
             return 1
 
         with (
-            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write),
             patch("app.wiki.links.reresolve_dangling_links", side_effect=_fake_reresolve),
         ):
             from app.ops.lint import apply_lint_fix
@@ -2549,7 +2549,7 @@ class TestNewApplyPaths:
             return 1
 
         with (
-            patch("app.ingest.orchestrator.write_wiki_page", side_effect=_fake_write),
+            patch("app.ingest.writer.write_wiki_page", side_effect=_fake_write),
             patch("app.wiki.links.reresolve_dangling_links", side_effect=_fake_reresolve),
         ):
             from app.ops.lint import apply_lint_fix

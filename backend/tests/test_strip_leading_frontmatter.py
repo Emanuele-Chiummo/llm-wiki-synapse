@@ -28,7 +28,7 @@ from tests.test_api import api_env  # noqa: F401
 
 def test_strip_leading_frontmatter_removes_a_leading_block_once() -> None:
     """(a) body with a leading `---...---` block → stripped exactly once."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = (
         "---\n"
@@ -48,7 +48,7 @@ def test_strip_leading_frontmatter_removes_a_leading_block_once() -> None:
 
 def test_strip_leading_frontmatter_no_frontmatter_unchanged() -> None:
     """(b) body with NO frontmatter → returned unchanged."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = "Just a plain body.\n\nWith a second paragraph.\n"
     assert _strip_leading_frontmatter(body) == body
@@ -56,7 +56,7 @@ def test_strip_leading_frontmatter_no_frontmatter_unchanged() -> None:
 
 def test_strip_leading_frontmatter_later_horizontal_rule_untouched() -> None:
     """(c) body whose content legitimately contains a `---` horizontal rule later → untouched."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = (
         "Intro paragraph before the rule.\n" "\n" "---\n" "\n" "Section after a horizontal rule.\n"
@@ -67,7 +67,7 @@ def test_strip_leading_frontmatter_later_horizontal_rule_untouched() -> None:
 
 def test_strip_leading_frontmatter_unterminated_fence_unchanged() -> None:
     """(d) unterminated leading `---` (no closing fence) → returned unchanged (never corrupt)."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = "---\ntype: entity\ntitle: Oops no closing fence\n\nBody text follows.\n"
     assert _strip_leading_frontmatter(body) == body
@@ -75,7 +75,7 @@ def test_strip_leading_frontmatter_unterminated_fence_unchanged() -> None:
 
 def test_strip_leading_frontmatter_yaml_document_end_terminator() -> None:
     """A leading block closed by the `...` YAML document-end marker is also stripped once."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = "---\ntype: concept\ntitle: X\n...\n\nActual body.\n"
     assert _strip_leading_frontmatter(body) == "Actual body.\n"
@@ -83,7 +83,7 @@ def test_strip_leading_frontmatter_yaml_document_end_terminator() -> None:
 
 def test_strip_leading_frontmatter_tolerates_leading_blank_lines() -> None:
     """A block preceded by blank lines is still recognised and stripped once."""
-    from app.ingest.orchestrator import _strip_leading_frontmatter
+    from app.ingest.writer import _strip_leading_frontmatter
 
     body = "\n\n---\ntype: entity\ntitle: Y\n---\nBody.\n"
     assert _strip_leading_frontmatter(body) == "Body.\n"
@@ -103,8 +103,8 @@ async def test_write_wiki_page_produces_single_frontmatter_block(
     """
     from app.config import settings
     from app.db import get_session
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
     from app.models import Page
     from sqlalchemy import select
 

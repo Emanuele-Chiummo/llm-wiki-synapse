@@ -111,7 +111,7 @@ class TestCatalogue:
     @pytest.mark.asyncio
     async def test_contains_link_instruction(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """The catalogue carries the 'LINK TO THESE' + exact [[wikilink]] instruction."""
-        from app.ingest.orchestrator import _load_existing_pages_catalogue
+        from app.ingest.context import _load_existing_pages_catalogue
 
         _patch_catalogue_session(
             monkeypatch,
@@ -127,7 +127,7 @@ class TestCatalogue:
     @pytest.mark.asyncio
     async def test_groups_by_type(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Titles are grouped under a '## <page_type>' section header."""
-        from app.ingest.orchestrator import _load_existing_pages_catalogue
+        from app.ingest.context import _load_existing_pages_catalogue
 
         _patch_catalogue_session(
             monkeypatch,
@@ -147,7 +147,7 @@ class TestCatalogue:
     @pytest.mark.asyncio
     async def test_empty_when_no_pages(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No linkable pages yet → empty string (first-ever ingest)."""
-        from app.ingest.orchestrator import _load_existing_pages_catalogue
+        from app.ingest.context import _load_existing_pages_catalogue
 
         _patch_catalogue_session(monkeypatch, [])
         assert await _load_existing_pages_catalogue() == ""
@@ -159,10 +159,7 @@ class TestCatalogue:
         """Over the title cap → truncated subset + truncation note + WARNING log (I7)."""
         import logging
 
-        from app.ingest.orchestrator import (
-            _CATALOGUE_MAX_TITLES,
-            _load_existing_pages_catalogue,
-        )
+        from app.ingest.context import _CATALOGUE_MAX_TITLES, _load_existing_pages_catalogue
 
         over = _CATALOGUE_MAX_TITLES + 25
         rows = [_CatalogueRow(f"Concept {i:04d}", "concept") for i in range(over)]
@@ -188,7 +185,7 @@ class TestCatalogue:
         We assert the WHERE clause the helper builds so the exclusion is verified at the query
         layer (the DB never returns those rows to the grouping code).
         """
-        from app.ingest.orchestrator import _CATALOGUE_EXCLUDED_TYPES
+        from app.ingest.context import _CATALOGUE_EXCLUDED_TYPES
 
         assert "index" in _CATALOGUE_EXCLUDED_TYPES
         assert "log" in _CATALOGUE_EXCLUDED_TYPES
@@ -213,7 +210,7 @@ class TestCatalogue:
         orig = orch.get_session
         orch.get_session = lambda: _CapSession()  # type: ignore[assignment]
         try:
-            from app.ingest.orchestrator import _load_existing_pages_catalogue
+            from app.ingest.context import _load_existing_pages_catalogue
 
             await _load_existing_pages_catalogue()
         finally:

@@ -30,6 +30,7 @@ from typing import Any
 
 import app.embeddings as embeddings_mod
 import app.rag.retrieval as retrieval_mod
+import app.routers.config as _rt_config
 import pytest
 from app.embeddings import FakeEmbeddingClient, set_embedding_client
 from app.rag.retrieval import RetrievalContext, retrieve
@@ -458,7 +459,7 @@ async def test_adr0030_ac6_config_embedding_includes_enabled_field(
     import app.main as main_mod
 
     # Verify the response model has the field (static check).
-    from app.main import EmbeddingConfigResponse
+    from app.routers.config import EmbeddingConfigResponse
 
     fields = EmbeddingConfigResponse.model_fields
     assert (
@@ -467,11 +468,11 @@ async def test_adr0030_ac6_config_embedding_includes_enabled_field(
 
     # Exercise the handler directly.
     monkeypatch.setattr(main_mod.settings, "embeddings_enabled", False)
-    response = await main_mod.get_embedding_config()
+    response = await _rt_config.get_embedding_config()
     assert response.embeddings_enabled is False
 
     monkeypatch.setattr(main_mod.settings, "embeddings_enabled", True)
-    response = await main_mod.get_embedding_config()
+    response = await _rt_config.get_embedding_config()
     assert response.embeddings_enabled is True
 
 
