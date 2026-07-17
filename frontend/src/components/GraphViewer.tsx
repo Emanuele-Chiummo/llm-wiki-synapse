@@ -57,6 +57,7 @@ import { buildGraphologyGraph } from "../api/graphTransform";
 import { computeGraphInsights } from "./graph/graphInsights";
 import { fetchGraph, patchNodePosition, recomputeGraph } from "../api/graphClient";
 import type { EdgeDetail } from "../api/graphClient";
+import type { GraphEdge, GraphNode } from "../api/types";
 import {
   selectCommunities,
   selectEdges,
@@ -269,6 +270,17 @@ export const GraphViewer: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   // sigma instance ref — kept outside React state to avoid re-render on mount
   const sigmaRef = useRef<Sigma<Attributes, Attributes, Attributes> | null>(null);
+
+  // FE-RT-1: latest nodes/edges, synced on every render (NOT via useEffect) so the
+  // mount/rebuild effect below can read fresh data without depending on [nodes, edges]
+  // directly — that dependency was the root cause of the kill+rebuild-every-refetch bug.
+  const latestNodesRef = useRef<GraphNode[]>(nodes);
+  const latestEdgesRef = useRef<GraphEdge[]>(edges);
+  latestNodesRef.current = nodes;
+  latestEdgesRef.current = edges;
+  // True once the sigma instance has been constructed at least once — used to gate
+  // the initial-load camera animatedReset() (never on a background data diff/rebuild).
+  const hasMountedSigmaRef = useRef(false);
 
   // Resolved sigma theme colors — updated on mount and on theme change (ADR-0048 §T1)
   // React state drives re-render so sigma can be re-instantiated with correct colors.
@@ -543,79 +555,103 @@ export const GraphViewer: React.FC = () => {
     return () => observer.disconnect();
   }, []);
 
-  // ── Build graphology graph and mount sigma ────────────────────────────────
+  // ── FE-RT-1: build a sigma-ready graphology graph from CURRENT nodes/edges ──
+  // Shared by both the mount/rebuild effect and the data-diff effect below so the
+  // node/edge attribute derivation (colors, hub labels, GL1 hidden flags, …) is
+  // computed identically whichever path constructs it. I2: buildGraphologyGraph
+  // only copies server-provided x/y — no layout call, ever.
+  const buildSigmaGraph = useCallback(
+    (srcNodes: GraphNode[], srcEdges: GraphEdge[], mode: ColorMode) => {
+      const isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
+      const rawGraph = buildGraphologyGraph(srcNodes, srcEdges, isDarkTheme ? "dark" : "light");
+
+      // Build a plain Attributes graphology graph for sigma.
+      // Copy all node/edge attributes (including server x/y) into the sigma graph.
+      const SigmaGraphCtor = rawGraph.constructor as new (opts: {
+        multi: boolean;
+        type: string;
+      }) => import("graphology").default;
+      const sigmaGraph = new SigmaGraphCtor({ multi: false, type: "undirected" });
+
+      rawGraph.forEachNode((nodeKey, rawAttrs) => {
+        // Cast to Attributes (Record<string,unknown>) so dynamic key access is type-safe.
+        const attrs = rawAttrs as Attributes;
+        const nodeType = attrs["type"] as string | null | undefined;
+        // Community id — -1 when unassigned or from older servers (non-breaking, set in graphTransform)
+        const nodeCommunity = (attrs["community"] as number | undefined) ?? -1;
+        // Domain name — null when untagged or from older servers (non-breaking).
+        // I2: value comes from the server (GraphNode.domain); never computed client-side.
+        const nodeDomain = (attrs["domain"] as string | null | undefined) ?? null;
+        // Color is determined by active color-mode (I2: all values come from server).
+        // "community" mode colors by Louvain community id — one distinct color per cluster
+        // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
+        // "type" mode colors by page type (concept, entity, source, …).
+        const nodeColor =
+          mode === "community" ? colorForCommunity(nodeCommunity) : colorForType(nodeType ?? null);
+        sigmaGraph.addNode(nodeKey, {
+          x: attrs["x"] as number,
+          y: attrs["y"] as number,
+          label: attrs["label"] as string,
+          // GL2: pre-truncated hub label; nodeReducer swaps this in for hub nodes at rest
+          hubLabel: (attrs["hubLabel"] as string | undefined) ?? (attrs["label"] as string),
+          size: attrs["size"] as number,
+          color: nodeColor,
+          // Store degree for reducers
+          degree: attrs["degree"] as number,
+          // Store type for reducers
+          nodeType: nodeType ?? null,
+          // Store community for reducers / tooltip
+          nodeCommunity,
+          // Store domain for reducers (I2: from server)
+          nodeDomain,
+          // GL2: hub flag — nodeReducer uses this to force permanent truncated label on top-K hubs
+          isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
+        });
+      });
+
+      rawGraph.forEachEdge((_edgeKey, attrs, source, target) => {
+        if (!sigmaGraph.hasEdge(source, target)) {
+          sigmaGraph.addEdge(source, target, {
+            weight: attrs["weight"] as number,
+            color: attrs["color"] as string,
+            size: attrs["size"] as number,
+            // GL1: pass through normalizedWeight so edgeReducer can check it on hover
+            normalizedWeight: attrs["normalizedWeight"] as number,
+            // GL1: resting hidden flag (weak edges culled at rest, revealed on hover)
+            hidden: attrs["hidden"] as boolean,
+          });
+        }
+      });
+
+      return { rawGraph, sigmaGraph };
+    },
+    [],
+  );
+
+  // ── FE-RT-1: mount / rebuild sigma instance ───────────────────────────────
+  // Deps are ONLY [colorMode, sigmaThemeColors, hasGraphData] — deliberately
+  // NOT [nodes, edges]. Reading current data via latestNodesRef/latestEdgesRef
+  // (synced during render above) means a background data refresh (graphStore's
+  // periodic /graph refetch during a long ingest) never re-runs this effect, so
+  // it never kills+rebuilds the WebGL instance, never re-registers every event
+  // handler, and never resets the user's camera. The instance IS rebuilt when:
+  //  - hasGraphData flips false→true (first data arrival — real initial mount)
+  //  - colorMode changes (Type/Community toggle needs new node colors)
+  //  - sigmaThemeColors changes (light/dark theme needs a new render context)
+  // Ordinary node/edge UPDATES (same colorMode/theme) are handled by the
+  // diff effect further below, which patches the EXISTING graphology graph
+  // in place and calls sigma.refresh() — no kill(), no new Sigma().
+  const hasGraphData = nodes.length > 0;
 
   useEffect(() => {
     if (!containerRef.current) return;
-    if (nodes.length === 0) return;
+    if (!hasGraphData) return;
 
-    // Build graphology graph from precomputed coords.
-    // I2: buildGraphologyGraph sets x/y directly from server — no layout called.
-    // Theme drives the resting edge ramps: light-theme grays glare on the dark canvas.
-    // sigmaThemeColors is in this effect's deps, so a theme switch rebuilds with the
-    // right ramps (data-theme is set by the same code path that changes --syn-bg).
-    const isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
-    const rawGraph = buildGraphologyGraph(nodes, edges, isDarkTheme ? "dark" : "light");
-
-    // Build a plain Attributes graphology graph for sigma.
-    // Copy all node/edge attributes (including server x/y) into the sigma graph.
-    const SigmaGraphCtor = rawGraph.constructor as new (opts: {
-      multi: boolean;
-      type: string;
-    }) => import("graphology").default;
-    const sigmaGraph = new SigmaGraphCtor({ multi: false, type: "undirected" });
-
-    rawGraph.forEachNode((nodeKey, rawAttrs) => {
-      // Cast to Attributes (Record<string,unknown>) so dynamic key access is type-safe.
-      const attrs = rawAttrs as Attributes;
-      const nodeType = attrs["type"] as string | null | undefined;
-      // Community id — -1 when unassigned or from older servers (non-breaking, set in graphTransform)
-      const nodeCommunity = (attrs["community"] as number | undefined) ?? -1;
-      // Domain name — null when untagged or from older servers (non-breaking).
-      // I2: value comes from the server (GraphNode.domain); never computed client-side.
-      const nodeDomain = (attrs["domain"] as string | null | undefined) ?? null;
-      // Color is determined by active color-mode (I2: all values come from server).
-      // "community" mode colors by Louvain community id — one distinct color per cluster
-      // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
-      // "type" mode colors by page type (concept, entity, source, …).
-      const nodeColor =
-        colorMode === "community"
-          ? colorForCommunity(nodeCommunity)
-          : colorForType(nodeType ?? null);
-      sigmaGraph.addNode(nodeKey, {
-        x: attrs["x"] as number,
-        y: attrs["y"] as number,
-        label: attrs["label"] as string,
-        // GL2: pre-truncated hub label; nodeReducer swaps this in for hub nodes at rest
-        hubLabel: (attrs["hubLabel"] as string | undefined) ?? (attrs["label"] as string),
-        size: attrs["size"] as number,
-        color: nodeColor,
-        // Store degree for reducers
-        degree: attrs["degree"] as number,
-        // Store type for reducers
-        nodeType: nodeType ?? null,
-        // Store community for reducers / tooltip
-        nodeCommunity,
-        // Store domain for reducers (I2: from server)
-        nodeDomain,
-        // GL2: hub flag — nodeReducer uses this to force permanent truncated label on top-K hubs
-        isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
-      });
-    });
-
-    rawGraph.forEachEdge((_edgeKey, attrs, source, target) => {
-      if (!sigmaGraph.hasEdge(source, target)) {
-        sigmaGraph.addEdge(source, target, {
-          weight: attrs["weight"] as number,
-          color: attrs["color"] as string,
-          size: attrs["size"] as number,
-          // GL1: pass through normalizedWeight so edgeReducer can check it on hover
-          normalizedWeight: attrs["normalizedWeight"] as number,
-          // GL1: resting hidden flag (weak edges culled at rest, revealed on hover)
-          hidden: attrs["hidden"] as boolean,
-        });
-      }
-    });
+    const { sigmaGraph } = buildSigmaGraph(
+      latestNodesRef.current,
+      latestEdgesRef.current,
+      colorMode,
+    );
 
     // Destroy previous sigma instance before creating a new one
     if (sigmaRef.current) {
@@ -1049,18 +1085,86 @@ export const GraphViewer: React.FC = () => {
     // ── Camera fit ────────────────────────────────────────────────────────
     // sigma/utils in v3.0.3 does not export fitViewportToNodes.
     // animatedReset() resets camera to the normalized graph center — equivalent fit.
-    sigma.getCamera().animatedReset({
-      duration: reducedMotion ? 0 : 500,
-    });
+    // FE-RT-1: ONLY on the true first mount of this component instance — never on a
+    // colorMode/theme-driven rebuild, and never on a background data refresh (that
+    // path doesn't even reach this effect — see the diff effect below). Explicit
+    // re-centering after that is exclusively the user's "Fit" button (handleFit).
+    if (!hasMountedSigmaRef.current) {
+      hasMountedSigmaRef.current = true;
+      sigma.getCamera().animatedReset({
+        duration: reducedMotion ? 0 : 500,
+      });
+    }
 
     return () => {
       sigma.kill();
       sigmaRef.current = null;
     };
-    // Rebuild sigma when graph data, color-mode, or theme colors change.
-    // sigmaThemeColors change triggers re-instantiation with new render properties (I2).
+    // Rebuild sigma ONLY on color-mode or theme change, or when data first arrives
+    // (hasGraphData flips false→true). Ordinary node/edge content updates are handled
+    // by the diff effect below WITHOUT tearing down this sigma instance (FE-RT-1).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, colorMode, sigmaThemeColors]);
+  }, [hasGraphData, colorMode, sigmaThemeColors, buildSigmaGraph]);
+
+  // ── FE-RT-1: diff incoming nodes/edges into the EXISTING sigma graph ──────
+  // Runs whenever the graphStore's nodes/edges arrays change reference (every
+  // GET /graph success — including the throttled background refetch during a
+  // long ingest, RT-3). Instead of killing sigma and building a new WebGL
+  // context (the old behavior — see 1.9.3 W2 finding FE-RT-1), this patches the
+  // ALREADY-MOUNTED graphology graph in place:
+  //   - nodes/edges present in the new payload but missing from the live graph → added
+  //   - nodes/edges present in both → attributes merged (x/y/color/label/…) in place
+  //   - nodes/edges no longer present in the new payload → removed
+  // Then a single sigma.refresh() repaints — no new Sigma instance, no camera reset,
+  // no event-handler re-registration, no hover/drag state loss.
+  // INVARIANT I2: buildSigmaGraph (shared helper above) only ever copies x/y that the
+  // SERVER already computed (FA2 offline) — this effect never runs a layout algorithm,
+  // it only reconciles which nodes/edges are attached to the sigma graph and what their
+  // server-provided attributes are.
+  useEffect(() => {
+    const sigma = sigmaRef.current;
+    if (!sigma) return; // Not mounted yet — the mount effect above owns the first build.
+    if (nodes.length === 0) return;
+
+    const { rawGraph } = buildSigmaGraph(nodes, edges, colorMode);
+    const liveGraph = sigma.getGraph();
+
+    // ── Nodes: add / update ──────────────────────────────────────────────
+    rawGraph.forEachNode((nodeKey, attrs) => {
+      if (liveGraph.hasNode(nodeKey)) {
+        liveGraph.mergeNodeAttributes(nodeKey, attrs);
+      } else {
+        liveGraph.addNode(nodeKey, attrs);
+      }
+    });
+    // ── Nodes: remove any no longer present in the latest payload ────────
+    liveGraph.forEachNode((nodeKey) => {
+      if (!rawGraph.hasNode(nodeKey)) liveGraph.dropNode(nodeKey);
+    });
+
+    // ── Edges: add / update ──────────────────────────────────────────────
+    rawGraph.forEachEdge((_edgeKey, attrs, source, target) => {
+      if (!liveGraph.hasNode(source) || !liveGraph.hasNode(target)) return;
+      if (liveGraph.hasEdge(source, target)) {
+        liveGraph.mergeEdgeAttributes(source, target, attrs);
+      } else {
+        liveGraph.addEdge(source, target, attrs);
+      }
+    });
+    // ── Edges: remove any no longer present in the latest payload ────────
+    liveGraph.forEachEdge((edgeKeyLive, _attrs, source, target) => {
+      if (!rawGraph.hasEdge(source, target)) liveGraph.dropEdge(edgeKeyLive);
+    });
+
+    // Positions/colors may have shifted (server FA2 recompute) — full refresh,
+    // but NOT skipIndexation:true-only since coordinates may have moved and
+    // sigma's spatial index needs to catch up. Still zero WebGL context churn.
+    sigma.refresh({ skipIndexation: false });
+    // colorMode intentionally omitted: when it changes, hasGraphData/colorMode
+    // deps on the mount effect above already trigger a full rebuild that
+    // supersedes this diff for that render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges, buildSigmaGraph]);
 
   // ── Sync selectedNodeId from store → announcement (aria-live) ────────────
 
