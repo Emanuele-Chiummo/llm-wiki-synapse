@@ -76,6 +76,45 @@ def _make_chat_provider(response: str, *, sleep_forever: bool = False) -> Any:
     return provider
 
 
+def _file_block_text(*, page_type: str, title: str, sources: list[str], body: str) -> str:
+    """
+    Build one ``---FILE:---`` block's markdown (BE-DEBT-1, 1.9.4 W2): the review-Create
+    orchestrated route now runs app.ingest.block_loop.run_block_loop, which drives the mocked
+    provider via ``complete()`` (NOT ``analyze()``/``generate()``) and returns raw
+    frontmatter+body text rather than a WikiPage. The block's own ``path`` is a required parse
+    token but is otherwise ignored by ``_wiki_page_from_file_block`` (Create always writes
+    through ``write_wiki_page``, which computes its own path from the resolved WikiPage type).
+    """
+    sources_yaml = ", ".join(f'"{s}"' for s in sources)
+    return (
+        "---FILE: wiki/concepts/generated.md---\n"
+        "---\n"
+        f"type: {page_type}\n"
+        f"title: {title}\n"
+        f"sources: [{sources_yaml}]\n"
+        "---\n\n"
+        f"{body}\n"
+        "---END FILE---\n"
+    )
+
+
+def _make_block_provider(
+    *, mode: str = "local", supports_agentic_loop: bool = False, generation_text: str
+) -> Any:
+    """
+    Build a mock InferenceProvider driving run_block_loop's two ``complete()`` calls (stage 1
+    analysis, stage 2 generation) — the block-loop equivalent of the JSON loop's
+    ``analyze()``/``generate()`` mocks (BE-DEBT-1, 1.9.4 W2).
+    """
+    provider = MagicMock()
+    provider.bind_accumulator = MagicMock()
+    caps = MagicMock(mode=mode, supports_agentic_loop=supports_agentic_loop)
+    caps.name = "prov"
+    provider.capabilities = MagicMock(return_value=caps)
+    provider.complete = AsyncMock(side_effect=["## Analysis\n- key point", generation_text])
+    return provider
+
+
 def _fake_config_row(*, max_iter: int = 3, token_budget: int = 60_000) -> Any:
     row = MagicMock()
     row.max_iter = max_iter
@@ -253,7 +292,7 @@ class TestCreateGeneration:
         review_env_0034: dict[str, Any],
     ) -> None:
         """Accepted review-only corpus pages remain idempotent in later auto runs."""
-        from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+        from app.ingest.schemas import PageType
         from app.ops import review as review_mod
 
         key = "corpus:comparison:" + "a" * 64
@@ -267,25 +306,16 @@ class TestCreateGeneration:
             content_key=key,
         )
         origin = f"review:{item_id_str}"
-        provider_page = WikiPage(
+        # provider drift (type=concept) must be corrected at the boundary — generation_key set →
+        # _run_generation force-overrides to the reserved COMPARISON type regardless of the
+        # block's own frontmatter type (BE-DEBT-1, 1.9.4 W2: block loop, not the JSON loop).
+        gen_block = _file_block_text(
+            page_type="concept",
             title="Alpha and Beta",
-            type=PageType.CONCEPT,  # provider drift must be corrected at the boundary
-            content="Comparison grounded in [[Alpha]] and [[Beta]].",
-            frontmatter=WikiFrontmatter(
-                type=PageType.CONCEPT,
-                title="Alpha and Beta",
-                sources=[origin],
-                lang="en",
-            ),
+            sources=[origin],
+            body="Comparison grounded in [[Alpha]] and [[Beta]].",
         )
-        analysis = MagicMock(language="en", summary="s")
-        provider = MagicMock()
-        provider.bind_accumulator = MagicMock()
-        caps = MagicMock(mode="local", supports_agentic_loop=False)
-        caps.name = "prov"
-        provider.capabilities = MagicMock(return_value=caps)
-        provider.analyze = AsyncMock(return_value=analysis)
-        provider.generate = AsyncMock(return_value=[provider_page])
+        provider = _make_block_provider(generation_text=gen_block)
         captured: dict[str, Any] = {}
 
         async def fake_write(session: Any, page: Any, origin_source: str) -> Any:
@@ -312,10 +342,10 @@ class TestCreateGeneration:
         review_env_0034: dict[str, Any],
     ) -> None:
         """
-        T-AI-006: Create runs the BOUNDED orchestrated loop (mocked provider) and the produced
-        WikiPage is written through write_wiki_page (I1). Item → status=created.
+        T-AI-006: Create runs the BOUNDED block loop (mocked provider, BE-DEBT-1 1.9.4 W2 —
+        app.ingest.block_loop.run_block_loop, same engine as the main ingest pipeline) and the
+        produced WikiPage is written through write_wiki_page (I1). Item → status=created.
         """
-        from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
         from app.ops import review as review_mod
 
         item_id_str = await _insert_proposal(
@@ -326,31 +356,15 @@ class TestCreateGeneration:
             rationale="Referenced but absent",
         )
 
-        # Mock provider for run_orchestrated_loop: analyze() then generate() one valid page.
+        # Mock provider for run_block_loop: complete() analysis, then complete() one FILE block.
         origin = f"review:{item_id_str}"
-        wiki_page = WikiPage(
+        gen_block = _file_block_text(
+            page_type="concept",
             title="Quantum Computing",
-            type=PageType.CONCEPT,
-            content="Body of the page.",
-            frontmatter=WikiFrontmatter(
-                type=PageType.CONCEPT,
-                title="Quantum Computing",
-                sources=[origin],
-                lang="en",
-            ),
+            sources=[origin],
+            body="Body of the page.",
         )
-        analysis = MagicMock()
-        analysis.language = "en"
-        analysis.summary = "s"
-
-        provider = MagicMock()
-        provider.bind_accumulator = MagicMock()
-        # Orchestrated route (I6): supports_agentic_loop is False → analyze→generate loop.
-        _caps = MagicMock(mode="local", supports_agentic_loop=False)
-        _caps.name = "prov"
-        provider.capabilities = MagicMock(return_value=_caps)
-        provider.analyze = AsyncMock(return_value=analysis)
-        provider.generate = AsyncMock(return_value=[wiki_page])
+        provider = _make_block_provider(generation_text=gen_block)
 
         captured: dict[str, Any] = {}
 
@@ -374,9 +388,8 @@ class TestCreateGeneration:
                 uuid.UUID(item_id_str), mode="generate"
             )
 
-        # The bounded loop ran (analyze once, generate at least once).
-        provider.analyze.assert_awaited_once()
-        assert provider.generate.await_count >= 1
+        # The bounded loop ran (analysis, then ≥1 generation complete() call).
+        assert provider.complete.await_count >= 2
         # The produced WikiPage was written via write_wiki_page (I1).
         assert "page" in captured, "write_wiki_page must be called with the produced page"
         assert captured["page"].title == "Quantum Computing"
@@ -403,11 +416,12 @@ class TestCreateGeneration:
 
         provider = MagicMock()
         provider.bind_accumulator = MagicMock()
-        # Orchestrated route (I6): supports_agentic_loop is False → analyze→generate loop.
+        # Orchestrated route (I6): supports_agentic_loop is False → the bounded block loop
+        # (BE-DEBT-1, 1.9.4 W2). The stage-1 analysis complete() call fails.
         _caps = MagicMock(mode="local", supports_agentic_loop=False)
         _caps.name = "prov"
         provider.capabilities = MagicMock(return_value=_caps)
-        provider.analyze = AsyncMock(side_effect=RuntimeError("provider exploded"))
+        provider.complete = AsyncMock(side_effect=RuntimeError("provider exploded"))
 
         write_called = {"n": 0}
 
