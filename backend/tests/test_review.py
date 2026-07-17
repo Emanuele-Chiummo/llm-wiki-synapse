@@ -65,6 +65,7 @@ def _build_review_meta() -> MetaData:
         Column("type", Text, nullable=True),
         Column("sources", Text, nullable=True),
         Column("generation_key", Text, nullable=True),
+        Column("summary", Text, nullable=True),
         Column("content_hash", String(64), nullable=False),
         Column("source_mtime_ns", BigInteger, nullable=True),
         Column("qdrant_point_id", String(36), nullable=True),

@@ -93,13 +93,15 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
     wiki_dir.mkdir(parents=True, exist_ok=True)
     index_path = wiki_dir / "index.md"
 
-    # Single query: select (title, page_type, file_path, updated_at) for all live pages.
-    # updated_at is used for the "## Recently Updated" section (ADR-0078).
+    # Single query: select (title, page_type, file_path, updated_at, summary) for all live
+    # pages. updated_at is used for the "## Recently Updated" section (ADR-0078); summary is
+    # the em-dash gloss (K3, 1.9.4 W6, PF-INDEX-GLOSS-1) — NULL for pages written before the
+    # backfill or with an empty body.
     # NULL/empty page_type rows are filtered in Python below (the mock bypasses SQL filters).
     # Order by updated_at DESC so recently updated rows come first; the catalogue re-sorts
     # in Python by title within each type section, so DB order doesn't matter for the catalogue.
     result = await session.execute(
-        select(Page.title, Page.page_type, Page.file_path, Page.updated_at)
+        select(Page.title, Page.page_type, Page.file_path, Page.updated_at, Page.summary)
         .where(
             # VAULT-SCOPED (parity fix): count/list ONLY this vault's pages. Without the filter the
             # catalogue counted EVERY vault (e.g. 278 across the DB vs 35) — the cross-vault leak
@@ -113,12 +115,12 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
 
     # Build the "## Recently Updated" list (ADR-0078): live content pages, most-recently-updated
     # first, cap 200, dedup by slug (filename stem), excludes aggregates and raw/* paths.
-    recently_updated: list[tuple[str, str]] = _build_recently_updated(rows)
+    recently_updated: list[tuple[str, str, str | None]] = _build_recently_updated(rows)
 
     # Group by page_type for the catalogue, skipping excluded types and NULL/empty types.
-    by_type: dict[str, list[tuple[str, str]]] = {}
+    by_type: dict[str, list[tuple[str, str, str | None]]] = {}
 
-    for title, page_type, file_path, _updated_at in rows:
+    for title, page_type, file_path, _updated_at, summary in rows:
         # Skip auto-generated catalogue types.
         if page_type in _EXCLUDED_TYPES:
             continue
@@ -127,7 +129,7 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
         if not page_type:
             continue
         display_title = title or _stem_from_path(file_path)
-        by_type.setdefault(page_type, []).append((display_title, file_path))
+        by_type.setdefault(page_type, []).append((display_title, file_path, summary))
 
     content = _build_index_content(by_type, recently_updated=recently_updated)
 
@@ -146,19 +148,19 @@ async def update_index(session: AsyncSession, vault_path: Path) -> None:
 
 def _build_recently_updated(
     rows: Sequence[Any],
-) -> list[tuple[str, str]]:
+) -> list[tuple[str, str, str | None]]:
     """
     Build the capped, deduped "## Recently Updated" entry list from DB rows (ADR-0078).
 
     Rows are expected already ordered by updated_at DESC (the query in update_index orders
     them). Excludes aggregate types (index/log/overview), raw/* file paths, and pages
     with no file_path. Deduplicates by filename stem (slug); first occurrence (most recently
-    updated) wins. Returns at most _RECENTLY_UPDATED_CAP entries as (slug, title) pairs
-    where title falls back to slug when the DB title is NULL.
+    updated) wins. Returns at most _RECENTLY_UPDATED_CAP entries as (slug, title, summary)
+    tuples where title falls back to slug when the DB title is NULL (K3, 1.9.4 W6 gloss).
     """
     seen_slugs: set[str] = set()
-    entries: list[tuple[str, str]] = []
-    for title, page_type, file_path, _updated_at in rows:
+    entries: list[tuple[str, str, str | None]] = []
+    for title, page_type, file_path, _updated_at, summary in rows:
         if not file_path:
             continue
         # Exclude aggregate auto-generated types.
@@ -175,16 +177,16 @@ def _build_recently_updated(
             continue
         seen_slugs.add(slug)
         display = title or slug
-        entries.append((slug, display))
+        entries.append((slug, display, summary))
         if len(entries) >= _RECENTLY_UPDATED_CAP:
             break
     return entries
 
 
 def _build_index_content(
-    by_type: dict[str, list[tuple[str, str]]],
+    by_type: dict[str, list[tuple[str, str, str | None]]],
     *,
-    recently_updated: list[tuple[str, str]] | None = None,
+    recently_updated: list[tuple[str, str, str | None]] | None = None,
 ) -> str:
     """Build the full index.md file content (frontmatter + recently-updated + catalogue).
 
@@ -195,10 +197,15 @@ def _build_index_content(
     Deduplicates catalogue entries by case-insensitive display title within each type section
     before rendering (ADR-0067 D6 IL-D2/CE-D5). The total page count reflects
     the deduplicated catalogue set (not the recently-updated count).
+
+    Per-type catalogue entries render an em-dash gloss from ``Page.summary`` when present
+    (K3, 1.9.4 W6, PF-INDEX-GLOSS-1): ``- [[Title]] — {summary, truncated}``. Pages with no
+    summary yet (NULL — pre-backfill or empty body) render the bare ``- [[Title]]`` line,
+    unchanged from before this feature (ADR-0067 D6).
     """
     # Apply dedup per type section (ADR-0067 D6 IL-D2/CE-D5): collapse same-title
     # entries (case-insensitive) to a single line; first occurrence wins.
-    by_type_deduped: dict[str, list[tuple[str, str]]] = {
+    by_type_deduped: dict[str, list[tuple[str, str, str | None]]] = {
         pt: _dedup_by_title(pages) for pt, pages in by_type.items()
     }
 
@@ -212,13 +219,15 @@ def _build_index_content(
     # ── "## Recently Updated" section (ADR-0078, llm_wiki §1.8 parity) ───────────
     # Placed BEFORE the type catalogue — llm_wiki puts this section prominently so
     # readers see recent activity first. Omitted when empty (tolerant of an empty vault).
+    # This section already carries an em-dash (slug — title); it is NOT re-glossed with
+    # summary here to avoid a double em-dash line (K3 gloss targets the bare catalogue only).
     if recently_updated:
         lines.append("## Recently Updated\n\n")
-        for slug, display_title in recently_updated:
+        for slug, display_title, _summary in recently_updated:
             lines.append(f"- [[{slug}]] — {display_title}\n")
         lines.append("\n")
 
-    # ── Per-type catalogue (K3, ADR-0067 D6) ─────────────────────────────────────
+    # ── Per-type catalogue (K3, ADR-0067 D6, 1.9.4 W6 gloss) ─────────────────────
     # Render known types in canonical order first.
     for page_type in _TYPE_ORDER:
         if page_type not in by_type_deduped:
@@ -226,12 +235,8 @@ def _build_index_content(
         pages = by_type_deduped[page_type]
         heading = _pluralise(page_type)
         lines.append(f"## {heading}\n\n")
-        for display_title, _file_path in sorted(pages, key=lambda x: x[0].lower()):
-            # TODO(ADR-0067 D6): em-dash gloss needs a Page.summary column (core wave).
-            # The Page model has no description/summary/excerpt column as of this sprint;
-            # reading files from disk is too expensive here (I1). Render bare [[title]]
-            # until the core-wave adds Page.summary and an Alembic migration for it.
-            lines.append(f"- [[{display_title}]]\n")
+        for display_title, _file_path, summary in sorted(pages, key=lambda x: x[0].lower()):
+            lines.append(_render_catalogue_line(display_title, summary))
         lines.append("\n")
 
     # Render any types not in the canonical order (forward-compatible).
@@ -239,9 +244,8 @@ def _build_index_content(
     for page_type in extra_types:
         pages = by_type_deduped[page_type]
         lines.append(f"## {_pluralise(page_type)}\n\n")
-        for display_title, _file_path in sorted(pages, key=lambda x: x[0].lower()):
-            # TODO(ADR-0067 D6): em-dash gloss needs a Page.summary column (core wave).
-            lines.append(f"- [[{display_title}]]\n")
+        for display_title, _file_path, summary in sorted(pages, key=lambda x: x[0].lower()):
+            lines.append(_render_catalogue_line(display_title, summary))
         lines.append("\n")
 
     return "".join(lines)
@@ -268,21 +272,43 @@ def _pluralise(page_type: str) -> str:
     return page_type.capitalize() + "s"
 
 
-def _dedup_by_title(entries: list[tuple[str, str]]) -> list[tuple[str, str]]:
+def _dedup_by_title(
+    entries: list[tuple[str, str, str | None]],
+) -> list[tuple[str, str, str | None]]:
     """
-    Deduplicate (display_title, file_path) entries by case-insensitive display title.
+    Deduplicate (display_title, file_path, summary) entries by case-insensitive display title.
 
     First occurrence wins; insertion order is preserved (ADR-0067 D6 IL-D2/CE-D5).
     This collapses alias entities and other duplicate-title rows to a single catalogue line.
     """
     seen: set[str] = set()
-    out: list[tuple[str, str]] = []
-    for display_title, file_path in entries:
+    out: list[tuple[str, str, str | None]] = []
+    for display_title, file_path, summary in entries:
         key = display_title.casefold()
         if key not in seen:
             seen.add(key)
-            out.append((display_title, file_path))
+            out.append((display_title, file_path, summary))
     return out
+
+
+# Max chars of Page.summary rendered in the index.md em-dash gloss (K3, 1.9.4 W6).
+_GLOSS_MAX_CHARS: int = 120
+
+
+def _render_catalogue_line(display_title: str, summary: str | None) -> str:
+    """
+    Render one per-type catalogue line (K3, 1.9.4 W6, PF-INDEX-GLOSS-1).
+
+    With a non-empty summary: ``- [[Title]] — {summary, truncated to _GLOSS_MAX_CHARS}\\n``.
+    Without one (NULL/blank — pre-backfill or empty-body page): the bare
+    ``- [[Title]]\\n`` line, unchanged from before this feature.
+    """
+    gloss = (summary or "").strip().replace("\n", " ")
+    if not gloss:
+        return f"- [[{display_title}]]\n"
+    if len(gloss) > _GLOSS_MAX_CHARS:
+        gloss = gloss[:_GLOSS_MAX_CHARS].rstrip() + "…"
+    return f"- [[{display_title}]] — {gloss}\n"
 
 
 def _stem_from_path(file_path: str | None) -> str:

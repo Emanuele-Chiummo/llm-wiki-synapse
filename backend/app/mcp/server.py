@@ -109,6 +109,69 @@ _delegated_write_record: contextvars.ContextVar[DelegatedWriteRecord | None] = (
 )
 
 
+# ── Multi-vault resolution (W5, ADR-0082 — PF-MCP-VAULT-1) ────────────────────
+# Today every MCP tool is hard-wired to settings.vault_id / settings.vault_root (the single
+# ACTIVE vault, Model A — see app/projects.py). This helper lets READ-ONLY tools accept an
+# OPTIONAL `vault` argument (a project id from the projects registry, app/projects.py) so a
+# caller can inspect a vault that is registered but not currently active, without switching
+# it. Omitting `vault` (the default, None) preserves EXACT existing behaviour — this is
+# strictly additive (non-breaking).
+#
+# WRITE tools (write_page, resolve_review, trigger_source_rescan) also accept `vault` for
+# interface symmetry, but Synapse only serves ONE active vault's filesystem at a time
+# (Model A). Attempting to write into a non-active vault would write files under the wrong
+# vault_root while the DB continues to key off settings.vault_id — a correctness hazard.
+# So those bodies resolve `vault` and, if it names a *different* vault than the currently
+# active one, return a structured {"error": ...} instructing the caller to activate it first
+# (POST /projects/{id}/activate) rather than silently doing the wrong thing.
+def _resolve_vault(vault: str | None) -> tuple[str, Any]:
+    """
+    Resolve an optional ``vault`` (project id) to ``(vault_id, vault_root)``.
+
+    Falls back to ``(settings.vault_id, settings.vault_root)`` when *vault* is None/blank
+    or does not match any known project (read-only tools then behave exactly as before —
+    unknown/omitted vault ids are never a hard error for reads).
+    """
+    if not vault:
+        return settings.vault_id, settings.vault_root
+
+    try:
+        from app.project_registry import read_registry as _read_registry
+
+        reg = _read_registry()
+        for project in reg.projects:
+            if project.id == vault:
+                from pathlib import Path as _Path
+
+                return project.id, _Path(project.path)
+    except Exception:  # noqa: BLE001 — never let vault resolution crash a read tool
+        logger.warning(
+            "mcp: could not resolve vault=%r from projects registry", vault, exc_info=True
+        )
+
+    logger.info("mcp: vault=%r not found in projects registry; falling back to active vault", vault)
+    return settings.vault_id, settings.vault_root
+
+
+def _vault_write_guard(vault: str | None) -> dict[str, Any] | None:
+    """
+    Guard for WRITE tools: return a structured error dict if *vault* names a project other
+    than the currently active vault, else None (proceed as before).
+
+    Synapse serves one active vault's filesystem at a time (Model A, app/projects.py); cross-
+    vault writes are refused rather than risking a file landing under the wrong vault_root.
+    """
+    if vault and vault != settings.vault_id:
+        return {
+            "error": (
+                f"cannot write to vault={vault!r}: only the active vault "
+                f"({settings.vault_id!r}) accepts writes. "
+                "Activate it first via POST /projects/{id}/activate, then retry."
+            )
+        }
+    return None
+
+
 class delegated_write_capture:
     """
     Context manager that installs a fresh DelegatedWriteRecord for a delegated ingest run.
@@ -143,7 +206,9 @@ class delegated_write_capture:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-async def _search_wiki_body(query: str, k: int = 5) -> list[dict[str, Any]]:
+async def _search_wiki_body(
+    query: str, k: int = 5, vault: str | None = None
+) -> list[dict[str, Any]]:
     """
     Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
 
@@ -158,6 +223,9 @@ async def _search_wiki_body(query: str, k: int = 5) -> list[dict[str, Any]]:
     Args:
         query: Natural-language search query.
         k:     Maximum number of results to return (default 5).
+        vault: Optional project id (app/projects.py) to search a specific registered vault
+               instead of the currently active one (W5, ADR-0082). Omitted/unknown → active
+               vault (unchanged behaviour).
 
     Returns:
         list of {id, title, type, relevance_score}.
@@ -169,10 +237,12 @@ async def _search_wiki_body(query: str, k: int = 5) -> list[dict[str, Any]]:
 
     from app.chat.context import DEFAULT_CONTEXT_WINDOW
 
+    vault_id, _ = _resolve_vault(vault)
+
     try:
         ctx = await retrieve(
             query,
-            vault_id=settings.vault_id,
+            vault_id=vault_id,
             context_window=DEFAULT_CONTEXT_WINDOW,
             k=k,
         )
@@ -202,6 +272,7 @@ async def _write_page_body(
     content: str,
     frontmatter: dict[str, Any],
     origin_source: str = "",
+    vault: str | None = None,
 ) -> dict[str, Any]:
     """
     Create or update a wiki page through the Synapse ingest seam (I1, I5, ADR-0010 §2).
@@ -224,11 +295,20 @@ async def _write_page_body(
                        include `tags`: 3–6 concise, lowercase, reusable navigation tags
                        (list[str]); they are trimmed/deduped/capped to 12 automatically.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
+        vault:         Optional project id (W5, ADR-0082). Synapse only writes to the
+                       currently ACTIVE vault's filesystem (Model A) — if *vault* names a
+                       different registered vault, this returns a structured error asking
+                       the caller to POST /projects/{id}/activate first. Omitted → active
+                       vault (unchanged behaviour).
 
     Returns:
         {"id", "title", "type", "relevance_score": 0.0} on success.
-        {"error": "<message>"} on validation failure.
+        {"error": "<message>"} on validation failure or cross-vault write attempt.
     """
+    guard_error = _vault_write_guard(vault)
+    if guard_error is not None:
+        return guard_error
+
     # ── K6/F3/F13 traceability: pre-inject origin_source into sources[] ────────
     # validate_pages() checks that origin_source ∈ fm.sources (F3 guard, loop.py:89-93).
     # write_wiki_page() appends it post-write (orchestrator.py:1041-42) — but validation
@@ -300,7 +380,7 @@ async def _write_page_body(
     }
 
 
-async def _get_page_body(title: str) -> dict[str, Any]:
+async def _get_page_body(title: str, vault: str | None = None) -> dict[str, Any]:
     """
     Retrieve a live wiki page by title.
 
@@ -309,6 +389,8 @@ async def _get_page_body(title: str) -> dict[str, Any]:
 
     Args:
         title: Exact page title (case-sensitive).
+        vault: Optional project id (W5, ADR-0082) to read from a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         {title, type, content, frontmatter} or {"error": "<message>"}.
@@ -318,10 +400,12 @@ async def _get_page_body(title: str) -> dict[str, Any]:
     from app.db import get_session
     from app.models import Page
 
+    vault_id, vault_root = _resolve_vault(vault)
+
     async with get_session() as session:
         row = await session.execute(
             select(Page).where(
-                Page.vault_id == settings.vault_id,
+                Page.vault_id == vault_id,
                 Page.title == title,
                 Page.deleted_at.is_(None),
             )
@@ -334,7 +418,7 @@ async def _get_page_body(title: str) -> dict[str, Any]:
         return {"error": f"page not found: {title!r}"}
 
     # Read the actual file content (the DB stores metadata; content is on disk).
-    abs_path = settings.vault_root / page.file_path
+    abs_path = vault_root / page.file_path
     if not abs_path.exists():
         return {"error": f"page file missing on disk: {page.file_path}"}
 
@@ -357,7 +441,9 @@ async def _get_page_body(title: str) -> dict[str, Any]:
     }
 
 
-async def _list_pages_body(type: str | None = None) -> list[dict[str, Any]]:
+async def _list_pages_body(
+    type: str | None = None, vault: str | None = None
+) -> list[dict[str, Any]]:
     """
     List live wiki pages, optionally filtered by page type.
 
@@ -366,6 +452,8 @@ async def _list_pages_body(type: str | None = None) -> list[dict[str, Any]]:
     Args:
         type: Optional page type filter (entity/concept/source/synthesis/comparison).
               Passing None returns all live pages.
+        vault: Optional project id (W5, ADR-0082) to list a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         list of {id, title, type, relevance_score: 0.0}.
@@ -375,9 +463,11 @@ async def _list_pages_body(type: str | None = None) -> list[dict[str, Any]]:
     from app.db import get_session
     from app.models import Page
 
+    vault_id, _ = _resolve_vault(vault)
+
     async with get_session() as session:
         stmt = select(Page.id, Page.title, Page.page_type).where(
-            Page.vault_id == settings.vault_id,
+            Page.vault_id == vault_id,
             Page.deleted_at.is_(None),
         )
         if type is not None:
@@ -402,7 +492,7 @@ async def _list_pages_body(type: str | None = None) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
+async def search_wiki(query: str, k: int = 5, vault: str | None = None) -> list[dict[str, Any]]:
     """
     Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
 
@@ -417,11 +507,14 @@ async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:
     Args:
         query: Natural-language search query.
         k:     Maximum number of results to return (default 5).
+        vault: Optional project id (app/projects.py) — search a specific registered vault
+               instead of the currently active one (W5, ADR-0082). Omitted → active vault
+               (unchanged behaviour).
 
     Returns:
         list of {id, title, type, relevance_score}.
     """
-    return await _search_wiki_body(query, k)
+    return await _search_wiki_body(query, k, vault)
 
 
 # ── Tool: write_page (stdio mcp) ─────────────────────────────────────────────
@@ -433,6 +526,7 @@ async def write_page(
     content: str,
     frontmatter: dict[str, Any],
     origin_source: str = "",
+    vault: str | None = None,
 ) -> dict[str, Any]:
     """
     Create or update a wiki page through the Synapse ingest seam (I1, I5, ADR-0010 §2).
@@ -455,19 +549,23 @@ async def write_page(
                        include `tags`: 3–6 concise, lowercase, reusable navigation tags
                        (list[str]); they are trimmed/deduped/capped to 12 automatically.
         origin_source: Optional origin path injected into sources[] for F3 traceability.
+        vault:         Optional project id (W5, ADR-0082). Writes are only accepted for the
+                       currently ACTIVE vault (Model A); a different vault id returns a
+                       structured error asking the caller to activate it first. Omitted →
+                       active vault (unchanged behaviour).
 
     Returns:
         {"id", "title", "type", "relevance_score": 0.0} on success.
-        {"error": "<message>"} on validation failure.
+        {"error": "<message>"} on validation failure or cross-vault write attempt.
     """
-    return await _write_page_body(title, content, frontmatter, origin_source)
+    return await _write_page_body(title, content, frontmatter, origin_source, vault)
 
 
 # ── Tool: get_page (stdio mcp) ────────────────────────────────────────────────
 
 
 @mcp.tool()
-async def get_page(title: str) -> dict[str, Any]:
+async def get_page(title: str, vault: str | None = None) -> dict[str, Any]:
     """
     Retrieve a live wiki page by title.
 
@@ -476,18 +574,20 @@ async def get_page(title: str) -> dict[str, Any]:
 
     Args:
         title: Exact page title (case-sensitive).
+        vault: Optional project id (W5, ADR-0082) — read from a specific registered vault
+               instead of the currently active one. Omitted → active vault.
 
     Returns:
         {title, type, content, frontmatter} or {"error": "<message>"}.
     """
-    return await _get_page_body(title)
+    return await _get_page_body(title, vault)
 
 
 # ── Tool: list_pages (stdio mcp) ──────────────────────────────────────────────
 
 
 @mcp.tool()
-async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
+async def list_pages(type: str | None = None, vault: str | None = None) -> list[dict[str, Any]]:
     """
     List live wiki pages, optionally filtered by page type.
 
@@ -496,11 +596,13 @@ async def list_pages(type: str | None = None) -> list[dict[str, Any]]:
     Args:
         type: Optional page type filter (entity/concept/source/synthesis/comparison).
               Passing None returns all live pages.
+        vault: Optional project id (W5, ADR-0082) — list a specific registered vault
+               instead of the currently active one. Omitted → active vault.
 
     Returns:
         list of {id, title, type, relevance_score: 0.0}.
     """
-    return await _list_pages_body(type)
+    return await _list_pages_body(type, vault)
 
 
 # ── New body functions: graph neighborhood, reviews, source files (B5/D2) ─────
@@ -518,6 +620,7 @@ _SOURCE_FILE_MAX_BYTES: int = 2 * 1024 * 1024
 async def _get_graph_neighborhood_body(
     title: str,
     depth: int = 1,
+    vault: str | None = None,
 ) -> dict[str, Any]:
     """
     Return the page matching *title* plus its 1–2 hop neighbors from the links/edges tables.
@@ -529,6 +632,8 @@ async def _get_graph_neighborhood_body(
     Args:
         title: Exact page title (case-sensitive). Error dict if not found.
         depth: BFS hops (1 or 2). Values > 2 are clamped to 2 (I7).
+        vault: Optional project id (W5, ADR-0082) — read from a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         {"center": {id, title, type}, "nodes": [{id, title, type}],
@@ -537,10 +642,10 @@ async def _get_graph_neighborhood_body(
     """
     from sqlalchemy import text as _sa_text
 
-    from app.config import settings as _settings
     from app.db import get_session as _get_session
 
     depth = max(1, min(depth, _MAX_GRAPH_DEPTH))
+    vault_id, _ = _resolve_vault(vault)
 
     # ── Resolve seed page (portable SQL — Postgres + SQLite, mirrors retrieval.py) ──
     async with _get_session() as session:
@@ -548,7 +653,7 @@ async def _get_graph_neighborhood_body(
             _sa_text(
                 "SELECT CAST(id AS TEXT) AS id, title, type FROM pages "
                 "WHERE vault_id = :vid AND title = :t AND deleted_at IS NULL LIMIT 1"
-            ).bindparams(vid=_settings.vault_id, t=title)
+            ).bindparams(vid=vault_id, t=title)
         )
         seed_row = result.first()
 
@@ -574,7 +679,7 @@ async def _get_graph_neighborhood_body(
                 break
             placeholders = ",".join(f":f{i}" for i in range(len(frontier)))
             binds: dict[str, object] = {f"f{i}": fid for i, fid in enumerate(frontier)}
-            binds["vid"] = _settings.vault_id
+            binds["vid"] = vault_id
 
             in_clause = (
                 f"(CAST(source_page_id AS TEXT) IN ({placeholders}) "
@@ -664,6 +769,7 @@ async def _get_graph_neighborhood_body(
 async def _list_reviews_body(
     status: str = "open",
     limit: int = 20,
+    vault: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Return review queue items (id, type, title, status) for the default vault (B5/D2).
@@ -675,11 +781,12 @@ async def _list_reviews_body(
         status: "open" (alias for pending) | "pending" | "all" | other values accepted
                 by ops.review.list_queue. Defaults to "open" (pending items).
         limit: Max items to return (default 20, cap 100 — I7).
+        vault: Optional project id (W5, ADR-0082) — list a specific registered vault's queue
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         list of {id, type, proposed_title, status}.
     """
-    from app.config import settings as _settings
     from app.ops.review import list_queue as _list_queue
 
     if limit < 1:
@@ -689,10 +796,9 @@ async def _list_reviews_body(
 
     # "open" is a user-friendly alias for "pending"
     normalized_status = "pending" if status in ("open", "") else status
+    vault_id, _ = _resolve_vault(vault)
 
-    queue_page = await _list_queue(
-        _settings.vault_id, limit=limit, offset=0, status=normalized_status
-    )
+    queue_page = await _list_queue(vault_id, limit=limit, offset=0, status=normalized_status)
     return [
         {
             "id": str(item.id),
@@ -704,30 +810,37 @@ async def _list_reviews_body(
     ]
 
 
-async def _read_source_file_body(path: str) -> dict[str, Any]:
+async def _read_source_file_body(path: str, vault: str | None = None) -> dict[str, Any]:
     """
     Return text content of a raw/sources/ file (B5/D2).
 
-    READ-ONLY. Uses the same path-safety resolver as the REST /sources/content endpoint (I9).
+    READ-ONLY. Uses the same path-safety containment check as the REST /sources/content
+    endpoint (I9), rooted at the *resolved* vault's raw/sources/ dir when ``vault`` is given
+    (W5, ADR-0082) — app.upload.resolve_under_sources is bound to settings.vault_root, so a
+    non-active vault's files are resolved locally against that vault's own raw_sources_dir
+    using the identical containment logic.
     Caps content at _SOURCE_FILE_MAX_BYTES (2 MB) and returns only text-like files.
-    Rejects path traversal (422 from resolve_under_sources → surfaced as error dict).
+    Rejects path traversal (returned as a structured error dict).
 
     Args:
         path: Relative path from raw/sources/ (e.g. "subdir/file.md"). No leading slashes.
+        vault: Optional project id (W5, ADR-0082) — read from a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         {"path": rel, "name": filename, "size_bytes": N, "content": "..."} on success.
         {"error": "..."} on not-found, traversal attempt, or binary file.
     """
-    from fastapi import HTTPException as _HTTPException
+    _, vault_root = _resolve_vault(vault)
+    raw_dir = (vault_root / "raw" / "sources").resolve()
 
-    from app.upload import resolve_under_sources as _resolve
-
-    # ── Path safety (same as GET /sources/content — ADR-0020 §2.2) ────────────
+    # ── Path safety (mirrors app.upload.resolve_under_sources — ADR-0020 §2.2) ─────
     try:
-        abs_path = _resolve(path)
-    except _HTTPException as exc:
-        return {"error": f"unsafe or invalid path: {exc.detail}"}
+        abs_path = (raw_dir / path).resolve()
+        if abs_path != raw_dir and not str(abs_path).startswith(str(raw_dir) + "/"):
+            return {
+                "error": "unsafe or invalid path: filename escapes raw/sources/ after resolution"
+            }
     except Exception as exc:  # noqa: BLE001
         return {"error": f"path resolution failed: {exc}"}
 
@@ -800,6 +913,7 @@ async def _read_source_file_body(path: str) -> dict[str, Any]:
 async def _resolve_review_body(
     review_id: str,
     action: str,
+    vault: str | None = None,
 ) -> dict[str, Any]:
     """
     Resolve one review item (WRITE — B5/D2).
@@ -820,11 +934,18 @@ async def _resolve_review_body(
     Args:
         review_id: UUID string of the review item.
         action: "skip" | "dismiss" — exact resolution token from ops/review.py.
+        vault: Optional project id (W5, ADR-0082). Only the currently ACTIVE vault accepts
+               writes (Model A) — a different vault id returns a structured error. Omitted
+               → active vault (unchanged behaviour).
 
     Returns:
         {"id": review_id, "status": new_status, "action": action, "proposed_title": ...}
         {"error": "..."} on unknown action, invalid UUID, item not found, or failure.
     """
+    guard_error = _vault_write_guard(vault)
+    if guard_error is not None:
+        return guard_error
+
     import uuid as _uuid
 
     from app.ops.review import dismiss as _dismiss
@@ -864,7 +985,7 @@ async def _resolve_review_body(
     }
 
 
-async def _trigger_source_rescan_body() -> dict[str, Any]:
+async def _trigger_source_rescan_body(vault: str | None = None) -> dict[str, Any]:
     """
     Kick the incremental sources ingest-all scan (WRITE — B5/D2, I1).
 
@@ -877,10 +998,20 @@ async def _trigger_source_rescan_body() -> dict[str, Any]:
     Returns {"error": "..."} if already running (single-flight guard) or on any failure.
     The caller should poll GET /sources/ingest-all/status for progress.
 
+    Args:
+        vault: Optional project id (W5, ADR-0082). Only the currently ACTIVE vault can be
+               rescanned (the watcher/ingest driver runs against the active vault_root) — a
+               different vault id returns a structured error. Omitted → active vault
+               (unchanged behaviour).
+
     Returns:
         {"started": bool, "candidate_files": N} on success.
         {"error": "..."} if already running or on any failure.
     """
+    guard_error = _vault_write_guard(vault)
+    if guard_error is not None:
+        return guard_error
+
     import asyncio as _asyncio
 
     try:
@@ -923,7 +1054,9 @@ async def _trigger_source_rescan_body() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def get_graph_neighborhood(title: str, depth: int = 1) -> dict[str, Any]:
+async def get_graph_neighborhood(
+    title: str, depth: int = 1, vault: str | None = None
+) -> dict[str, Any]:
     """
     Return a wiki page and its 1–2 hop neighbors from the persisted graph (B5/D2, I2).
 
@@ -933,17 +1066,21 @@ async def get_graph_neighborhood(title: str, depth: int = 1) -> dict[str, Any]:
     Args:
         title: Exact page title (case-sensitive).
         depth: BFS hops — 1 (immediate neighbors) or 2 (two-hop expansion). Capped at 2 (I7).
+        vault: Optional project id (W5, ADR-0082) — read from a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         {"center": {id, title, type}, "nodes": [{id, title, type}],
          "edges": [{source, target, relation}]}
         or {"error": "..."} if the page is not found.
     """
-    return await _get_graph_neighborhood_body(title, depth)
+    return await _get_graph_neighborhood_body(title, depth, vault)
 
 
 @mcp.tool()
-async def list_reviews(status: str = "open", limit: int = 20) -> list[dict[str, Any]]:
+async def list_reviews(
+    status: str = "open", limit: int = 20, vault: str | None = None
+) -> list[dict[str, Any]]:
     """
     List HITL review queue items (B5/D2, F9).
 
@@ -953,15 +1090,17 @@ async def list_reviews(status: str = "open", limit: int = 20) -> list[dict[str, 
     Args:
         status: "open"/"pending" (default) | "resolved" | "dismissed" | "all".
         limit: Max items to return (1..100). Default 20.
+        vault: Optional project id (W5, ADR-0082) — list a specific registered vault's
+               queue instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         list of {id, type, proposed_title, status}.
     """
-    return await _list_reviews_body(status, limit)
+    return await _list_reviews_body(status, limit, vault)
 
 
 @mcp.tool()
-async def read_source_file(path: str) -> dict[str, Any]:
+async def read_source_file(path: str, vault: str | None = None) -> dict[str, Any]:
     """
     Read a raw/sources/ file as text (B5/D2).
 
@@ -972,16 +1111,18 @@ async def read_source_file(path: str) -> dict[str, Any]:
     Args:
         path: Relative path from raw/sources/ (e.g. "notes/file.md"). No leading slash.
               Absolute paths, ".." traversal, and paths outside raw/sources/ are rejected.
+        vault: Optional project id (W5, ADR-0082) — read from a specific registered vault
+               instead of the currently active one. Omitted/unknown → active vault.
 
     Returns:
         {"path": rel, "name": filename, "size_bytes": N, "truncated": bool, "content": "..."}
         or {"error": "..."} on not-found, traversal, or binary file.
     """
-    return await _read_source_file_body(path)
+    return await _read_source_file_body(path, vault)
 
 
 @mcp.tool()
-async def resolve_review(review_id: str, action: str) -> dict[str, Any]:
+async def resolve_review(review_id: str, action: str, vault: str | None = None) -> dict[str, Any]:
     """
     Resolve one HITL review item (WRITE — B5/D2, F9).
 
@@ -996,16 +1137,19 @@ async def resolve_review(review_id: str, action: str) -> dict[str, Any]:
     Args:
         review_id: UUID string of the review item.
         action: "skip" | "dismiss" — exact token from ops/review.py.
+        vault: Optional project id (W5, ADR-0082). Only the currently ACTIVE vault accepts
+               writes (Model A) — a different id returns a structured error. Omitted →
+               active vault (unchanged behaviour).
 
     Returns:
         {"id": review_id, "status": new_status, "action": action, "proposed_title": ...}
         or {"error": "..."} on unknown action, invalid UUID, item not found, or failure.
     """
-    return await _resolve_review_body(review_id, action)
+    return await _resolve_review_body(review_id, action, vault)
 
 
 @mcp.tool()
-async def trigger_source_rescan() -> dict[str, Any]:
+async def trigger_source_rescan(vault: str | None = None) -> dict[str, Any]:
     """
     Kick the incremental raw/sources/ ingest scan (WRITE — B5/D2, I1).
 
@@ -1013,11 +1157,16 @@ async def trigger_source_rescan() -> dict[str, Any]:
     Fires a bounded fire-and-forget asyncio.Task; poll GET /sources/ingest-all/status
     for progress. Single-flight: returns error if already running.
 
+    Args:
+        vault: Optional project id (W5, ADR-0082). Only the currently ACTIVE vault can be
+               rescanned — a different id returns a structured error. Omitted → active
+               vault (unchanged behaviour).
+
     Returns:
         {"started": bool, "candidate_files": N} on success.
         {"error": "..."} if already running or on any failure.
     """
-    return await _trigger_source_rescan_body()
+    return await _trigger_source_rescan_body(vault)
 
 
 # ── Internal validation helper ────────────────────────────────────────────────
@@ -1122,7 +1271,9 @@ def build_http_mcp(
     # ── Read-only tools (always present on the HTTP surface) ──────────────────
 
     @http_mcp.tool()
-    async def search_wiki(query: str, k: int = 5) -> list[dict[str, Any]]:  # noqa: F811
+    async def search_wiki(
+        query: str, k: int = 5, vault: str | None = None
+    ) -> list[dict[str, Any]]:  # noqa: F811
         """
         Search the Synapse wiki via the SHARED retrieval path (F5, ADR-0022 / ADR-0030 §2.6).
 
@@ -1137,14 +1288,16 @@ def build_http_mcp(
         Args:
             query: Natural-language search query.
             k:     Maximum number of results to return (default 5).
+            vault: Optional project id (W5, ADR-0082) — search a specific registered vault
+                   instead of the active one. Omitted → active vault.
 
         Returns:
             list of {id, title, type, relevance_score}.
         """
-        return await _search_wiki_body(query, k)
+        return await _search_wiki_body(query, k, vault)
 
     @http_mcp.tool()
-    async def get_page(title: str) -> dict[str, Any]:  # noqa: F811
+    async def get_page(title: str, vault: str | None = None) -> dict[str, Any]:  # noqa: F811
         """
         Retrieve a live wiki page by title.
 
@@ -1153,14 +1306,18 @@ def build_http_mcp(
 
         Args:
             title: Exact page title (case-sensitive).
+            vault: Optional project id (W5, ADR-0082) — read from a specific registered
+                   vault instead of the active one. Omitted → active vault.
 
         Returns:
             {title, type, content, frontmatter} or {"error": "<message>"}.
         """
-        return await _get_page_body(title)
+        return await _get_page_body(title, vault)
 
     @http_mcp.tool()
-    async def list_pages(type: str | None = None) -> list[dict[str, Any]]:  # noqa: F811
+    async def list_pages(
+        type: str | None = None, vault: str | None = None
+    ) -> list[dict[str, Any]]:  # noqa: F811
         """
         List live wiki pages, optionally filtered by page type.
 
@@ -1169,16 +1326,20 @@ def build_http_mcp(
         Args:
             type: Optional page type filter (entity/concept/source/synthesis/comparison).
                   Passing None returns all live pages.
+            vault: Optional project id (W5, ADR-0082) — list a specific registered vault
+                   instead of the active one. Omitted → active vault.
 
         Returns:
             list of {id, title, type, relevance_score: 0.0}.
         """
-        return await _list_pages_body(type)
+        return await _list_pages_body(type, vault)
 
     # ── New read-only tools (always present on the HTTP surface — B5/D2) ────────
 
     @http_mcp.tool()
-    async def get_graph_neighborhood(title: str, depth: int = 1) -> dict[str, Any]:  # noqa: F811
+    async def get_graph_neighborhood(
+        title: str, depth: int = 1, vault: str | None = None
+    ) -> dict[str, Any]:  # noqa: F811
         """
         Return a wiki page and its 1–2 hop neighbors from the persisted graph (B5/D2, I2).
 
@@ -1187,16 +1348,18 @@ def build_http_mcp(
         Args:
             title: Exact page title (case-sensitive).
             depth: BFS hops (1 or 2). Capped at 2 (I7).
+            vault: Optional project id (W5, ADR-0082) — read from a specific registered
+                   vault instead of the active one. Omitted → active vault.
 
         Returns:
             {"center": {id, title, type}, "nodes": [...], "edges": [...]}
             or {"error": "..."} if not found.
         """
-        return await _get_graph_neighborhood_body(title, depth)
+        return await _get_graph_neighborhood_body(title, depth, vault)
 
     @http_mcp.tool()
     async def list_reviews(
-        status: str = "open", limit: int = 20
+        status: str = "open", limit: int = 20, vault: str | None = None
     ) -> list[dict[str, Any]]:  # noqa: F811
         """
         List HITL review queue items (B5/D2, F9). READ-ONLY. limit capped at 100 (I7).
@@ -1204,26 +1367,30 @@ def build_http_mcp(
         Args:
             status: "open"/"pending" (default) | "resolved" | "dismissed" | "all".
             limit: Max items (1..100).
+            vault: Optional project id (W5, ADR-0082) — list a specific registered vault's
+                   queue instead of the active one. Omitted → active vault.
 
         Returns:
             list of {id, type, proposed_title, status}.
         """
-        return await _list_reviews_body(status, limit)
+        return await _list_reviews_body(status, limit, vault)
 
     @http_mcp.tool()
-    async def read_source_file(path: str) -> dict[str, Any]:  # noqa: F811
+    async def read_source_file(path: str, vault: str | None = None) -> dict[str, Any]:  # noqa: F811
         """
         Read a raw/sources/ file as text (B5/D2). READ-ONLY. Confined to raw/sources/;
         binary files and path-traversal attempts are rejected. Cap 2 MB (I7).
 
         Args:
             path: Relative path from raw/sources/ (e.g. "notes/file.md").
+            vault: Optional project id (W5, ADR-0082) — read from a specific registered
+                   vault instead of the active one. Omitted → active vault.
 
         Returns:
             {"path", "name", "size_bytes", "truncated", "content"}
             or {"error": "..."}.
         """
-        return await _read_source_file_body(path)
+        return await _read_source_file_body(path, vault)
 
     # ── Write tools (ADR-0029 §2.3 / ADR-0072 §3) ───────────────────────────────
     #
@@ -1242,6 +1409,7 @@ def build_http_mcp(
             content: str,
             frontmatter: dict[str, Any],
             origin_source: str = "",
+            vault: str | None = None,
         ) -> dict[str, Any]:
             """
             Create or update a wiki page through the Synapse ingest seam (I1, I5, ADR-0010 §2).
@@ -1264,6 +1432,9 @@ def build_http_mcp(
                        also include `tags`: 3–6 concise, lowercase, reusable navigation
                        tags (list[str]); trimmed/deduped/capped to 12 automatically.
                 origin_source: Optional origin path injected into sources[] for F3 traceability.
+                vault:         Optional project id (W5, ADR-0082). Only the currently ACTIVE
+                       vault accepts writes (Model A) — a different id returns a structured
+                       error. Omitted → active vault (unchanged behaviour).
 
             Returns:
                 {"id", "title", "type", "relevance_score": 0.0} on success.
@@ -1272,10 +1443,12 @@ def build_http_mcp(
             # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
             if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
                 return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
-            return await _write_page_body(title, content, frontmatter, origin_source)
+            return await _write_page_body(title, content, frontmatter, origin_source, vault)
 
         @http_mcp.tool()
-        async def resolve_review(review_id: str, action: str) -> dict[str, Any]:  # noqa: F811
+        async def resolve_review(
+            review_id: str, action: str, vault: str | None = None
+        ) -> dict[str, Any]:  # noqa: F811
             """
             Resolve one HITL review item (WRITE — B5/D2, F9).
 
@@ -1285,6 +1458,8 @@ def build_http_mcp(
             Args:
                 review_id: UUID string of the review item.
                 action: "skip" | "dismiss".
+                vault: Optional project id (W5, ADR-0082). Only the active vault accepts
+                       writes — a different id returns a structured error.
 
             Returns:
                 {"id", "status", "action", "proposed_title"} or {"error": "..."}.
@@ -1292,14 +1467,18 @@ def build_http_mcp(
             # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
             if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
                 return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
-            return await _resolve_review_body(review_id, action)
+            return await _resolve_review_body(review_id, action, vault)
 
         @http_mcp.tool()
-        async def trigger_source_rescan() -> dict[str, Any]:  # noqa: F811
+        async def trigger_source_rescan(vault: str | None = None) -> dict[str, Any]:  # noqa: F811
             """
             Kick the incremental raw/sources/ ingest scan (WRITE — B5/D2, I1).
 
             Uses mtime-then-hash incremental gate — never a full rescan (I1). Single-flight.
+
+            Args:
+                vault: Optional project id (W5, ADR-0082). Only the active vault can be
+                       rescanned — a different id returns a structured error.
 
             Returns:
                 {"started": bool, "candidate_files": N} or {"error": "..."}.
@@ -1307,7 +1486,7 @@ def build_http_mcp(
             # ADR-0072 §3: runtime guard — check getter at call time (not at registration).
             if _use_getter and write_enabled_getter is not None and not write_enabled_getter():
                 return {"error": "remote writes are disabled; enable them in Settings → API & MCP"}
-            return await _trigger_source_rescan_body()
+            return await _trigger_source_rescan_body(vault)
 
     return http_mcp
 

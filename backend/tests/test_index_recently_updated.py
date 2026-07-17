@@ -30,6 +30,7 @@ def _make_row(
     page_type: str | None,
     file_path: str,
     updated_at: Any = None,
+    summary: str | None = None,
 ) -> Any:
     class _Row:
         pass
@@ -39,6 +40,7 @@ def _make_row(
     r.page_type = page_type  # type: ignore[attr-defined]
     r.file_path = file_path  # type: ignore[attr-defined]
     r.updated_at = updated_at  # type: ignore[attr-defined]
+    r.summary = summary  # type: ignore[attr-defined]
     return r
 
 
@@ -47,7 +49,9 @@ async def _run_update_index(rows: list[Any], tmp_path: Path) -> str:
     from app.wiki.index import update_index
 
     mock_result = MagicMock()
-    mock_result.all.return_value = [(r.title, r.page_type, r.file_path, r.updated_at) for r in rows]
+    mock_result.all.return_value = [
+        (r.title, r.page_type, r.file_path, r.updated_at, r.summary) for r in rows
+    ]
     mock_session = MagicMock()
     mock_session.execute = AsyncMock(return_value=mock_result)
 
@@ -208,7 +212,7 @@ class TestRecentlyUpdatedEdgeCases:
         # Re-run from same tmp_path — update_index overwrites the file.
         mock_result = MagicMock()
         mock_result.all.return_value = [
-            (r.title, r.page_type, r.file_path, r.updated_at) for r in rows
+            (r.title, r.page_type, r.file_path, r.updated_at, r.summary) for r in rows
         ]
         mock_session = MagicMock()
         mock_session.execute = AsyncMock(return_value=mock_result)

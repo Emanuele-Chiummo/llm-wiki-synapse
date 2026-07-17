@@ -438,7 +438,11 @@ class TestWriteToolGuard:
         body_called = False
 
         async def _fake_write_page(
-            title: str, content: str, frontmatter: dict[str, Any], origin_source: str = ""
+            title: str,
+            content: str,
+            frontmatter: dict[str, Any],
+            origin_source: str = "",
+            vault: str | None = None,
         ) -> dict[str, Any]:
             nonlocal body_called
             body_called = True

@@ -350,45 +350,50 @@ class TestListReviews:
 
 
 class TestReadSourceFile:
-    """read_source_file is confined to raw/sources/ via the resolve_under_sources gate."""
+    """
+    read_source_file is confined to raw/sources/ (W5, ADR-0082: _read_source_file_body
+    resolves paths itself — vault-parametrized — mirroring app.upload.resolve_under_sources'
+    containment logic rather than delegating to it).
+    """
 
     @pytest.mark.asyncio
     async def test_path_traversal_returns_error_dict(self) -> None:
         """../etc/passwd and similar traversal paths return an error dict, not exception."""
         from app.mcp.server import _read_source_file_body
-        from fastapi import HTTPException
 
-        with patch(
-            "app.upload.resolve_under_sources",
-            side_effect=HTTPException(status_code=422, detail="unsafe path"),
-        ):
-            result = await _read_source_file_body("../../../etc/passwd")
+        result = await _read_source_file_body("../../../etc/passwd")
 
         assert "error" in result
         assert isinstance(result["error"], str)
 
     @pytest.mark.asyncio
     async def test_valid_text_file_returns_content(self) -> None:
-        """A valid .md file returns {path, name, size_bytes, truncated, content}."""
+        """A valid .md file returns {path, name, size_bytes, truncated, content}.
+
+        W5 (ADR-0082): _read_source_file_body resolves paths itself (vault-parametrized,
+        _resolve_vault) rather than delegating to app.upload.resolve_under_sources, so this
+        test builds a real vault_root/raw/sources/ tree and patches settings.vault_root.
+        """
         import tempfile
         from pathlib import Path
 
         from app.mcp.server import _read_source_file_body
 
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            suffix=".md",
-            delete=False,
-            encoding="utf-8",
-        ) as f:
-            f.write("# Hello\nThis is a source file.\n")
-            tmp_path = Path(f.name)
+        with tempfile.TemporaryDirectory() as tmp_root:
+            root = Path(tmp_root)
+            (root / "raw" / "sources" / "notes").mkdir(parents=True)
+            (root / "raw" / "sources" / "notes" / "hello.md").write_text(
+                "# Hello\nThis is a source file.\n", encoding="utf-8"
+            )
 
-        try:
-            with patch("app.upload.resolve_under_sources", return_value=tmp_path):
+            from app import config as cfg
+
+            with patch.object(
+                type(cfg.settings),
+                "vault_root",
+                new_callable=lambda: property(lambda self: root),  # type: ignore[return-value]
+            ):
                 result = await _read_source_file_body("notes/hello.md")
-        finally:
-            tmp_path.unlink(missing_ok=True)
 
         assert "error" not in result
         assert "content" in result
@@ -397,21 +402,25 @@ class TestReadSourceFile:
 
     @pytest.mark.asyncio
     async def test_binary_file_returns_error(self) -> None:
-        """A .mp4 file that resolve_under_sources accepts returns an error (binary guard)."""
+        """A .mp4 file under raw/sources/ returns an error (binary guard)."""
         import tempfile
         from pathlib import Path
 
         from app.mcp.server import _read_source_file_body
 
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
-            f.write(b"\x00\x01\x02\x03")
-            tmp_path = Path(f.name)
+        with tempfile.TemporaryDirectory() as tmp_root:
+            root = Path(tmp_root)
+            (root / "raw" / "sources").mkdir(parents=True)
+            (root / "raw" / "sources" / "video.mp4").write_bytes(b"\x00\x01\x02\x03")
 
-        try:
-            with patch("app.upload.resolve_under_sources", return_value=tmp_path):
+            from app import config as cfg
+
+            with patch.object(
+                type(cfg.settings),
+                "vault_root",
+                new_callable=lambda: property(lambda self: root),  # type: ignore[return-value]
+            ):
                 result = await _read_source_file_body("video.mp4")
-        finally:
-            tmp_path.unlink(missing_ok=True)
 
         assert "error" in result
         assert "binary" in result["error"].lower() or "not a text" in result["error"].lower()
@@ -419,13 +428,23 @@ class TestReadSourceFile:
     @pytest.mark.asyncio
     async def test_file_not_found_returns_error(self) -> None:
         """A path that resolves safely but does not exist returns an error dict."""
+        import tempfile
         from pathlib import Path
 
         from app.mcp.server import _read_source_file_body
 
-        non_existent = Path("/tmp/synapse-test-nonexistent-12345.md")
-        with patch("app.upload.resolve_under_sources", return_value=non_existent):
-            result = await _read_source_file_body("nonexistent.md")
+        with tempfile.TemporaryDirectory() as tmp_root:
+            root = Path(tmp_root)
+            (root / "raw" / "sources").mkdir(parents=True)
+
+            from app import config as cfg
+
+            with patch.object(
+                type(cfg.settings),
+                "vault_root",
+                new_callable=lambda: property(lambda self: root),  # type: ignore[return-value]
+            ):
+                result = await _read_source_file_body("nonexistent.md")
 
         assert "error" in result
 

@@ -128,6 +128,14 @@ class ClipRequest(BaseModel):
             "Defaults to the url when omitted."
         ),
     )
+    vault_id: str | None = Field(
+        default=None,
+        description=(
+            "Target vault identifier (W5 / PF-MCP-VAULT-1). "
+            "Defaults to the active vault when omitted. "
+            "Clips to a non-active vault are rejected (400) — activate the vault first."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -136,6 +144,7 @@ class ClipRequest(BaseModel):
                 "title": "Example Article",
                 "markdown": "# Example Article\n\nArticle body...",
                 "source": None,
+                "vault_id": None,
             }
         }
     }
@@ -228,6 +237,21 @@ async def clip_ingest(
         raise HTTPException(
             status_code=503,
             detail="Web clipper ingress is disabled (CLIP_ENABLED=false).",
+        )
+
+    # ── 1b. Multi-vault guard (W5 / PF-MCP-VAULT-1) ──────────────────────────
+    # POST /clip always writes to the ACTIVE vault's raw/sources/.  If the caller
+    # sent a vault_id that differs from the active vault, return 400 immediately
+    # (before spending auth time) so the extension can show a clear error rather
+    # than silently clipping to the wrong vault.
+    if body.vault_id and body.vault_id != settings.vault_id:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot clip to vault {body.vault_id!r}: only the active vault "
+                f"({settings.vault_id!r}) accepts clips. "
+                "Switch the active project first (POST /projects/{id}/activate)."
+            ),
         )
 
     # ── 2. AuthN: bearer token — source-aware constant-time compare (ADR-0038 §2.1, ADR-0040) ──
