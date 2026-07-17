@@ -26,7 +26,7 @@ import asyncio
 import logging
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
@@ -244,6 +244,22 @@ class LoopResult:
     converged: bool
     iterations: int  # generate() attempts actually made (1..max_iter)
     stop_reason: str  # "converged" | "max_iter" | "token_budget"
+    # 1.9.1 W5 (NC-1): last batch's validation errors (empty when converged) + token accounting
+    # at stop time, mirroring app.ingest.block_loop.BlockLoopResult so the pipeline can persist
+    # ingest_runs.diagnostics identically for both loop shapes (no parallel channel).
+    last_errors: list[str] = field(default_factory=list)
+    tokens_used: int = 0
+    token_budget: int = 0
+
+    def diagnostics(self) -> dict[str, object]:
+        """Build the ``ingest_runs.diagnostics`` JSON payload (1.9.1 W5, NC-1)."""
+        return {
+            "stop_reason": self.stop_reason,
+            "iterations": self.iterations,
+            "last_errors": self.last_errors,
+            "tokens_used": self.tokens_used,
+            "token_budget": self.token_budget,
+        }
 
 
 # ── The bounded loop ─────────────────────────────────────────────────────────────
@@ -293,6 +309,10 @@ async def run_orchestrated_loop(
     converged = False
     iterations = 0
     stop_reason = "max_iter"
+    # 1.9.1 W5 (NC-1): initialized here (not just inside the loop body) so a token_budget /
+    # max_iter=0 stop BEFORE any iteration runs still returns a well-defined last_errors (empty
+    # rather than "no batch was ever validated" raising a NameError).
+    errors: list[str] = []
 
     for i in range(1, max_iter + 1):
         # ── Cooperative cancel check (ADR-0046 §3 / I7) ──────────────────────────
@@ -359,4 +379,7 @@ async def run_orchestrated_loop(
         converged=converged,
         iterations=iterations,
         stop_reason=stop_reason,
+        last_errors=errors if not converged else [],
+        tokens_used=accumulator.total_tokens,
+        token_budget=token_budget,
     )

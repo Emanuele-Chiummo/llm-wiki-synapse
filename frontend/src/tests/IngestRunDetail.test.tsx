@@ -18,7 +18,7 @@ import type { IngestRunItem } from "../api/types";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, opts?: { defaultValue?: string }) => {
       const map: Record<string, string> = {
         "ingest.manifest": "Run details",
         "ingest.status.completed": "Completed",
@@ -33,8 +33,17 @@ vi.mock("react-i18next", () => ({
         "ingest.costAnomaly": "Cost anomaly",
         "ingest.noRunSelected": "Select a run to see details.",
         "ingest.zeroPagesHint": "0 pages created — check the provider configuration and that the file format is supported.",
+        "ingest.diagnostics.heading": "Why it didn't converge",
+        "ingest.diagnostics.stopReason": "Stop reason",
+        "ingest.diagnostics.stopReasonValue.max_iter": "Max iterations reached",
+        "ingest.diagnostics.stopReasonValue.token_budget": "Token budget exhausted",
+        "ingest.diagnostics.stopReasonValue.converged": "Converged",
+        "ingest.diagnostics.iterationsRun": "Iterations run",
+        "ingest.diagnostics.tokenBudget": "Tokens used",
+        "ingest.diagnostics.lastErrors": "Last validation errors",
+        "ingest.diagnostics.noErrors": "No validation errors were recorded for the final attempt.",
       };
-      return map[key] ?? key;
+      return map[key] ?? opts?.defaultValue ?? key;
     },
   }),
 }));
@@ -160,5 +169,82 @@ describe("IngestRunDetail — UXA-06: zero-pages hint", () => {
     expect(distribution.textContent).toContain("query: 1");
     expect(distribution.textContent).toContain("comparison: 2");
     expect(distribution.textContent).not.toContain("entity: 0");
+  });
+});
+
+describe("IngestRunDetail — 1.9.1 W5 (NC-1): non-convergence diagnostics", () => {
+  it("shows stop_reason/iterations/tokens/last_errors for a converged_false run", () => {
+    const run = makeRun({
+      status: "converged_false" as const,
+      pages_created: 1,
+      diagnostics: {
+        stop_reason: "max_iter",
+        iterations: 3,
+        last_errors: ["generation produced no FILE blocks (0 parsed)"],
+        tokens_used: 42000,
+        token_budget: 60000,
+      },
+    });
+    mockState.runs = [run];
+    mockState.selectedRunId = run.id;
+
+    render(<IngestRunDetail />);
+
+    const block = screen.getByTestId("ingest-nonconvergence-diagnostics");
+    expect(block.textContent).toContain("Max iterations reached");
+    expect(block.textContent).toContain("3");
+    expect(block.textContent).toContain("42000 / 60000");
+    expect(block.textContent).toContain("generation produced no FILE blocks (0 parsed)");
+  });
+
+  it("shows the token_budget stop reason", () => {
+    const run = makeRun({
+      status: "converged_false" as const,
+      diagnostics: {
+        stop_reason: "token_budget",
+        iterations: 2,
+        last_errors: [],
+        tokens_used: 60000,
+        token_budget: 60000,
+      },
+    });
+    mockState.runs = [run];
+    mockState.selectedRunId = run.id;
+
+    render(<IngestRunDetail />);
+
+    const block = screen.getByTestId("ingest-nonconvergence-diagnostics");
+    expect(block.textContent).toContain("Token budget exhausted");
+    expect(block.textContent).toContain("No validation errors were recorded");
+  });
+
+  it("does NOT show the diagnostics block for a converged run", () => {
+    const run = makeRun({
+      status: "completed" as const,
+      diagnostics: {
+        stop_reason: "converged",
+        iterations: 1,
+        last_errors: [],
+        tokens_used: 1000,
+        token_budget: 60000,
+      },
+    });
+    mockState.runs = [run];
+    mockState.selectedRunId = run.id;
+
+    render(<IngestRunDetail />);
+    expect(screen.queryByTestId("ingest-nonconvergence-diagnostics")).toBeNull();
+  });
+
+  it("does NOT show the diagnostics block when diagnostics is null (delegated/CLI route)", () => {
+    const run = makeRun({
+      status: "converged_false" as const,
+      diagnostics: null,
+    });
+    mockState.runs = [run];
+    mockState.selectedRunId = run.id;
+
+    render(<IngestRunDetail />);
+    expect(screen.queryByTestId("ingest-nonconvergence-diagnostics")).toBeNull();
   });
 });

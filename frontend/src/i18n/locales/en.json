@@ -88,6 +88,19 @@
     "costAnomaly": "Cost anomaly (> $1.00)",
     "noRunSelected": "Select a run to see details.",
     "zeroPagesHint": "0 pages created — check the provider configuration and that the file format is supported.",
+    "diagnostics": {
+      "heading": "Why it didn't converge",
+      "stopReason": "Stop reason",
+      "stopReasonValue": {
+        "converged": "Converged",
+        "max_iter": "Max iterations reached",
+        "token_budget": "Token budget exhausted"
+      },
+      "iterationsRun": "Iterations run",
+      "tokenBudget": "Tokens used",
+      "lastErrors": "Last validation errors",
+      "noErrors": "No validation errors were recorded for the final attempt."
+    },
     "upload": {
       "label": "Upload document",
       "drop": "Drop a file here, or click to browse",

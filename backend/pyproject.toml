@@ -151,6 +151,11 @@ python_functions = "test_*"
 markers = [
     "live: marks tests as requiring live infrastructure (Ollama, Anthropic API, claude-agent-sdk)",
 ]
+# 1.9.1 W5 (QA-TEST-2): `live` tests hit real infrastructure and must never run in normal CI
+# (the `unit` job's plain `python -m pytest -q`). This default excludes them; the on-demand
+# live-smoke workflow (.github/workflows/live-smoke.yml) overrides with an explicit `-m live`
+# on its own command line (pytest's `-m` flag is store-not-append, so the last one wins).
+addopts = "-m 'not live'"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

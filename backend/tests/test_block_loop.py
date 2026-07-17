@@ -206,3 +206,42 @@ async def test_token_budget_stops_before_generation() -> None:
     assert result.stop_reason == "token_budget"
     assert result.iterations == 0
     assert len(provider.calls) == 1  # only the analysis call was made
+    # 1.9.1 W5 (NC-1): no iteration ever ran, so last_errors stays empty (never a NameError /
+    # stale-batch leak) but tokens_used/token_budget are still populated for the UI.
+    diag = result.diagnostics()
+    assert diag == {
+        "stop_reason": "token_budget",
+        "iterations": 0,
+        "last_errors": [],
+        "tokens_used": result.tokens_used,
+        "token_budget": 1,
+    }
+
+
+async def test_diagnostics_on_convergence_has_empty_errors() -> None:
+    # 1.9.1 W5 (NC-1): a converged run reports stop_reason="converged" with no last_errors.
+    provider = _ScriptedProvider([ANALYSIS, GEN_TWO_FILES])
+    result = await _run(provider)
+
+    diag = result.diagnostics()
+    assert diag["stop_reason"] == "converged"
+    assert diag["iterations"] == 1
+    assert diag["last_errors"] == []
+    assert diag["token_budget"] == 60_000
+    assert diag["tokens_used"] == result.tokens_used
+
+
+async def test_diagnostics_on_max_iter_captures_last_errors() -> None:
+    # 1.9.1 W5 (NC-1): the finding NC-1 scenario — max_iter exhausted, validation kept failing.
+    # diagnostics() must surface the LAST iteration's errors (not an empty/generic label) so the
+    # UI can show "why" instead of a bare "Non convergito".
+    provider = _ScriptedProvider(
+        [ANALYSIS, "no file blocks here", "still nothing useful", "nope, prose only"]
+    )
+    result = await _run(provider, max_iter=3)
+
+    diag = result.diagnostics()
+    assert diag["stop_reason"] == "max_iter"
+    assert diag["iterations"] == 3
+    assert diag["last_errors"] != []
+    assert any("FILE blocks" in e for e in diag["last_errors"])

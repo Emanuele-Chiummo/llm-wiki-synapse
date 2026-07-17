@@ -112,6 +112,15 @@ class IngestRunResponse(BaseModel):
         default=None,
         description="Per-PageType created-page counts; null for legacy/unavailable runs",
     )
+    diagnostics: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Non-convergence diagnostics (1.9.1 W5, NC-1): "
+            "{stop_reason: 'converged'|'max_iter'|'token_budget', iterations, last_errors, "
+            "tokens_used, token_budget}. Populated on the orchestrated/block routes for every "
+            "terminal outcome; null for the delegated/CLI route (no bounded loop) and legacy rows."
+        ),
+    )
     iterations_used: int = Field(
         description="Iterations consumed (aliases max_iter_used; 0 for delegated)"
     )
@@ -1164,6 +1173,7 @@ def _ingest_run_to_response(run: IngestRun) -> IngestRunResponse:
         provider_type=run.provider_type,
         pages_created=run.pages_created,
         page_type_counts=getattr(run, "page_type_counts", None),
+        diagnostics=getattr(run, "diagnostics", None),
         iterations_used=run.max_iter_used,
         total_cost_usd=float(run.total_cost_usd),
         started_at=run.started_at,

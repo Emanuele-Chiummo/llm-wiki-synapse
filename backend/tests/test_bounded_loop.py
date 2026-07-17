@@ -104,6 +104,14 @@ async def test_non_converging_stops_at_max_iter_no_overrun() -> None:
     # Usage accumulated across analyze + 3 generates.
     assert acc.calls == 4
     assert acc.total_tokens == (5 + 5) + 3 * (10 + 10)
+    # 1.9.1 W5 (NC-1): the last iteration's validation errors survive into diagnostics() so a
+    # converged_false run explains itself instead of a bare "Non convergito" label.
+    diag = result.diagnostics()
+    assert diag["stop_reason"] == "max_iter"
+    assert diag["iterations"] == 3
+    assert diag["last_errors"] != []
+    assert diag["tokens_used"] == acc.total_tokens
+    assert diag["token_budget"] == 1_000_000
 
 
 @pytest.mark.asyncio
@@ -125,6 +133,10 @@ async def test_token_budget_stops_loop_before_unaffordable_call() -> None:
     assert result.stop_reason == "token_budget"
     # generate ran at most a couple of times, NOT all 10 (budget is the binding bound).
     assert provider.generate_calls < 10
+    # 1.9.1 W5 (NC-1): diagnostics reports the binding bound + last-seen validation errors.
+    diag = result.diagnostics()
+    assert diag["stop_reason"] == "token_budget"
+    assert diag["token_budget"] == 15
 
 
 class _ConvergingCostly(InferenceProvider):

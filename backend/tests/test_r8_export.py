@@ -172,6 +172,7 @@ def _build_sqlite_meta() -> MetaData:
         Column("pages_created", Integer, nullable=False, server_default=sa_text("0")),
         Column("error_message", Text, nullable=True),
         Column("page_type_counts", Text, nullable=True),
+        Column("diagnostics", Text, nullable=True),
         Column("source_path", Text, nullable=True),
         Column("retry_count", Integer, nullable=False, server_default=sa_text("0")),
     )

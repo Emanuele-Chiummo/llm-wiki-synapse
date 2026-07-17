@@ -144,6 +144,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | **0082** | [Multi-vault: Project Launcher & runtime active-vault switch (v1.5 P2) — registry, single-active model, no schema change; renumbered from 0067 in 1.9.0 (duplicate-number collision)](0082-multi-vault-project-launcher.md) | Accepted |
 | **0083** | [Parity E2E harness and tolerance bands (v1.7.0) — deterministic 3-doc corpus; file comparator reusing parity_report.analyse() with a wikilink-density metric + 1.5.6 regression sentinel; manual llm_wiki gold + runbook](0083-parity-e2e-harness.md) | Accepted |
 | **0084** | [Single-shot complete() transport for one-shot LLM seams and 120 s cold-start timeouts (v1.7.0) — replaces chat() with complete() for overview regen + review sweep judge + propose-reviews; raises sweep/propose/overview timeouts 30→120 s; I6-preserving; amends ADR-0078 + ADR-0079](0084-single-shot-complete-transport.md) | Accepted |
+| **0085** | [Ingest non-convergence diagnostics + on-demand live-smoke lane (v1.9.1 W5, NC-1) — `ingest_runs.diagnostics` (migration 0035) persists stop_reason/last_errors/tokens; UI surfaces "why it didn't converge"; `live` pytest marker excluded by default (addopts), run via new workflow_dispatch-only `live-smoke.yml`; retry-with-injected-context deferred (no seam exists yet)](0085-ingest-nonconvergence-diagnostics.md) | Accepted |
 
 ---
 

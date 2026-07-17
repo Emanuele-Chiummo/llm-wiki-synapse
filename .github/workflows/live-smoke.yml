@@ -1,0 +1,162 @@
+name: Live Smoke + Parity Gate (manual, pre-release)
+
+# 1.9.1 W5 (QA-TEST-2): on-demand ONLY — never runs on push/pull_request. The normal
+# `ci.yml` `unit` job excludes @pytest.mark.live tests by default (backend/pyproject.toml
+# addopts = "-m 'not live'"); this workflow is the ONE place they run, plus the ADR-0083
+# parity/E2E harness with the link-density regression sentinel. Intended as a manual
+# pre-release gate (see docs/process/PARITY-E2E-RUNBOOK.md), not a merge blocker.
+on:
+  workflow_dispatch:
+    inputs:
+      run_parity_harness:
+        description: >-
+          Also run the ADR-0083 parity/E2E harness (scripts/parity_e2e/compare.py).
+          Requires gold_vault_path (a pre-produced llm_wiki.app snapshot — see the
+          runbook; NOT reproducible on a GitHub-hosted runner).
+        type: boolean
+        default: false
+      gold_vault_path:
+        description: >-
+          Absolute path to the llm_wiki gold vault's wiki/ tree (self-hosted runner
+          only — see docs/process/PARITY-E2E-RUNBOOK.md §1). Ignored if
+          run_parity_harness is false.
+        type: string
+        default: ""
+      baseline_links:
+        description: "Recorded 1.5.6 total wikilink count (regression sentinel)."
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Live 3-provider smoke matrix (EC-M2-5 / GAP-v0.2-1) ─────────────────────
+  # Each @pytest.mark.live test self-skips (pytest.mark.skipif) when its own env vars
+  # are absent — OLLAMA_URL+SMOKE_LOCAL_MODEL for Local, ANTHROPIC_API_KEY for API/CLI —
+  # so this job degrades gracefully on a runner missing some backends instead of failing.
+  live-pytest:
+    name: Live provider smoke matrix (pytest -m live)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: Run live smoke tests (pytest -m live)
+        working-directory: backend
+        env:
+          # Infra-adjacent defaults so Settings() constructs even when a given
+          # provider's live env is absent (that test simply skips — see header).
+          DATABASE_URL: postgresql+asyncpg://dummy:dummy@localhost/dummy
+          QDRANT_URL: http://localhost:6333
+          EMBEDDING_URL: http://localhost:11434/api/embeddings
+          EMBEDDING_DIM: "1024"
+          # Provided as repo/environment secrets when this workflow is actually
+          # dispatched for a real pre-release gate (absent ⇒ those tests skip):
+          OLLAMA_URL: ${{ secrets.SMOKE_OLLAMA_URL }}
+          SMOKE_LOCAL_MODEL: ${{ secrets.SMOKE_LOCAL_MODEL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMOKE_API_MODEL: ${{ secrets.SMOKE_API_MODEL }}
+          SMOKE_CLI_MODEL: ${{ secrets.SMOKE_CLI_MODEL }}
+        run: |
+          # -m live OVERRIDES pyproject.toml's default "-m 'not live'" addopts
+          # (pytest's -m flag is store-not-append — the last one on the command
+          # line wins), so this is the only invocation that runs these tests.
+          python -m pytest -m live -v
+
+  # ── ADR-0083 parity/E2E harness (release-gate runbook, WS-G) ────────────────
+  # Manual by nature: the llm_wiki gold snapshot is produced by hand in a Tauri desktop
+  # app (docs/process/PARITY-E2E-RUNBOOK.md §1) and is NOT reproducible headlessly on a
+  # GitHub-hosted runner. This job stands up the Synapse CANDIDATE side (real Postgres via
+  # docker-compose.ci.yml — a green SQLite unit suite does not prove Postgres SQL) and
+  # scores it against a gold path supplied at dispatch time. Skips (does not fail) when
+  # run_parity_harness is false or gold_vault_path is empty — the default on every
+  # GitHub-hosted dispatch, since the gold only exists on Emanuele's machine.
+  parity-harness:
+    name: ADR-0083 parity/E2E harness (optional, gold-gated)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.run_parity_harness == 'true' }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Skip notice when no gold snapshot is available
+        if: ${{ github.event.inputs.gold_vault_path == '' }}
+        run: |
+          echo "::notice::gold_vault_path not supplied — the ADR-0083 harness needs a" \
+               "manually-produced llm_wiki.app snapshot (see" \
+               "docs/process/PARITY-E2E-RUNBOOK.md §1). This is a release-gate runbook" \
+               "step, not automatable on a GitHub-hosted runner. Nothing to score; exiting 0."
+
+      - name: Start services (docker-compose.ci.yml)
+        if: ${{ github.event.inputs.gold_vault_path != '' }}
+        run: docker compose -f docker-compose.ci.yml up -d
+
+      - name: Wait for services to be healthy
+        if: ${{ github.event.inputs.gold_vault_path != '' }}
+        run: |
+          set +e
+          for i in {1..60}; do
+            ok=1
+            docker compose -f docker-compose.ci.yml exec -T postgres pg_isready -U synapse -d synapse >/dev/null 2>&1 || ok=0
+            curl -sf http://localhost:6333/healthz >/dev/null || ok=0
+            curl -sf http://localhost:11435/health >/dev/null || ok=0
+            if [ "$ok" -eq 1 ]; then
+              echo "All services are healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Services failed to start within 60 seconds"
+          docker compose -f docker-compose.ci.yml logs
+          exit 1
+
+      - name: Install backend dependencies
+        if: ${{ github.event.inputs.gold_vault_path != '' }}
+        working-directory: backend
+        run: |
+          pip install -e .
+          pip install -e ".[dev]"
+
+      - name: Run database migrations
+        if: ${{ github.event.inputs.gold_vault_path != '' }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://synapse:synapse@localhost:5432/synapse
+        run: |
+          cd backend
+          python -m alembic upgrade head
+
+      - name: Run ADR-0083 comparator
+        if: ${{ github.event.inputs.gold_vault_path != '' }}
+        env:
+          CANDIDATE_VAULT: ${{ runner.temp }}/synapse-candidate-vault/wiki
+        run: |
+          echo "NOTE: the candidate vault must already be populated by a real ingest run"
+          echo "against the live stack (see docs/process/PARITY-E2E-RUNBOOK.md §2) before"
+          echo "this step; this workflow does not itself drive the CLI-provider ingest."
+          python scripts/parity_e2e/compare.py \
+            --gold "${{ github.event.inputs.gold_vault_path }}" \
+            --candidate "$CANDIDATE_VAULT" \
+            --baseline-links "${{ github.event.inputs.baseline_links }}"
+
+      - name: Cleanup services
+        if: ${{ always() && github.event.inputs.gold_vault_path != '' }}
+        run: docker compose -f docker-compose.ci.yml down
