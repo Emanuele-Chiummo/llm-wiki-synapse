@@ -360,6 +360,16 @@ async def pipeline_env(
     fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
     fake_queue.set_route = lambda *a, **kw: None  # type: ignore[attr-defined]
     fake_queue.set_phase = lambda *a, **kw: None  # type: ignore[attr-defined]
+    # BE-QUEUE-1/2 (1.9.4 W3): run_ingest_pipeline now gates on the capability semaphore and
+    # touches the rate-limit ladder on both terminal paths — stub them as no-ops.
+
+    async def _noop_acquire_capability_slot(mode: str) -> None:  # type: ignore[no-untyped-def]
+        return None
+
+    fake_queue.acquire_capability_slot = _noop_acquire_capability_slot  # type: ignore[attr-defined]
+    fake_queue.release_capability_slot = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.pause_for_rate_limit = lambda *a, **kw: 0.0  # type: ignore[attr-defined]
+    fake_queue.reset_rate_limit_backoff = lambda *a, **kw: None  # type: ignore[attr-defined]
     monkeypatch.setattr(orch, "ingest_queue", fake_queue)
 
     # ── Stub the fire-and-forget post-write hooks (own suites cover them) ─────────
@@ -745,6 +755,16 @@ async def pipeline_env_review(
     fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
     fake_queue.set_route = lambda *a, **kw: None  # type: ignore[attr-defined]
     fake_queue.set_phase = lambda *a, **kw: None  # type: ignore[attr-defined]
+    # BE-QUEUE-1/2 (1.9.4 W3): run_ingest_pipeline now gates on the capability semaphore and
+    # touches the rate-limit ladder on both terminal paths — stub them as no-ops.
+
+    async def _noop_acquire_capability_slot(mode: str) -> None:  # type: ignore[no-untyped-def]
+        return None
+
+    fake_queue.acquire_capability_slot = _noop_acquire_capability_slot  # type: ignore[attr-defined]
+    fake_queue.release_capability_slot = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.pause_for_rate_limit = lambda *a, **kw: 0.0  # type: ignore[attr-defined]
+    fake_queue.reset_rate_limit_backoff = lambda *a, **kw: None  # type: ignore[attr-defined]
     monkeypatch.setattr(orch, "ingest_queue", fake_queue)
 
     monkeypatch.setattr(orch, "_update_overview", _anoop)

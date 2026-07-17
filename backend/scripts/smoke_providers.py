@@ -492,6 +492,16 @@ async def _run_smoke_backend(backend: str, tmp_vault: Path) -> SmokeResult:
     _fake_queue.finalize = lambda *a, **kw: None  # type: ignore[attr-defined]
     _fake_queue.get_retry_count = lambda path: 0  # type: ignore[attr-defined]
     _fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
+    # BE-QUEUE-1/2 (1.9.4 W3): run_ingest_pipeline now gates on the capability semaphore and
+    # touches the rate-limit ladder on both terminal paths — stub them as no-ops.
+
+    async def _noop_acquire_capability_slot(mode: str) -> None:
+        return None
+
+    _fake_queue.acquire_capability_slot = _noop_acquire_capability_slot  # type: ignore[attr-defined]
+    _fake_queue.release_capability_slot = lambda *a, **kw: None  # type: ignore[attr-defined]
+    _fake_queue.pause_for_rate_limit = lambda *a, **kw: 0.0  # type: ignore[attr-defined]
+    _fake_queue.reset_rate_limit_backoff = lambda *a, **kw: None  # type: ignore[attr-defined]
 
     # Patch primitives so we don't need Postgres/Qdrant for the smoke harness
     original_persist = orch.persist_metadata

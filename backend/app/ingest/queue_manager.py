@@ -30,11 +30,31 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MAX_INGEST_RETRIES: int = 3  # I7 hard cap (ADR-0046 §5)
+
+# ── BE-QUEUE-1 (1.9.4 W3): 429 auto-pause backoff ladder ──────────────────────
+# Escalating cooldown for repeated rate-limit (429) hits, capped hard at 300s (I7 — the
+# cooldown NEVER grows past this regardless of how many consecutive 429s occur). Reset to
+# the base tier by reset_rate_limit_backoff() on the next successful run.
+_RATE_LIMIT_BACKOFF_SCHEDULE: tuple[float, ...] = (30.0, 60.0, 120.0, 300.0)
+
+# ── BE-QUEUE-2 (1.9.4 W3): per-capability concurrency caps ────────────────────
+# Bounds how many runs of a given resolved provider capability ("cli" | "api" | "local")
+# execute their provider calls concurrently — on top of (never instead of) the flat
+# INGEST_MAX_CONCURRENCY gate the watcher already applies (watcher.py). Defaults chosen so
+# CLI/local (heavy, single-GPU-or-single-process) never run >1 at a time; API (hosted, more
+# tolerant) defaults to 3. Configurable via INGEST_CONCURRENCY_{CLI,API,LOCAL}.
+_CAPABILITY_CONCURRENCY_LIMITS: dict[str, int] = {
+    "cli": max(1, settings.ingest_concurrency_cli),
+    "api": max(1, settings.ingest_concurrency_api),
+    "local": max(1, settings.ingest_concurrency_local),
+}
 
 # Cancel-suppression window: 2× the watcher debounce so the cascade_delete file
 # mutations and any editor re-touch do not immediately re-queue (ADR-0046 §3).
@@ -146,6 +166,21 @@ class IngestQueueManager:
         self._recent_failed: dict[str, FailedEntry] = {}
 
         self._paused: bool = False
+        # Who paused the queue: "manual" (user/API) | "auto_429" (rate-limit auto-pause) | None.
+        # A manual pause is never overridden by the 429 auto-resume timer (BE-QUEUE-1).
+        self._paused_by: str | None = None
+        # Escalation index into _RATE_LIMIT_BACKOFF_SCHEDULE; bumped on each auto-429-pause,
+        # reset to 0 by reset_rate_limit_backoff() on the next successful run (I7).
+        self._rate_limit_level: int = 0
+        # The pending auto-resume timer task, if a 429 cooldown is currently counting down.
+        self._rate_limit_task: asyncio.Task[None] | None = None
+        # Injectable sleep for the 429 cooldown timer — tests replace this with a fake/instant
+        # awaitable instead of sleeping for real (up to 300s).
+        self._sleep_fn: Callable[[float], Awaitable[None]] = asyncio.sleep
+        # BE-QUEUE-2: one semaphore per resolved provider capability mode (I7 concurrency cap).
+        self._capability_semaphores: dict[str, asyncio.Semaphore] = {
+            mode: asyncio.Semaphore(limit) for mode, limit in _CAPABILITY_CONCURRENCY_LIMITS.items()
+        }
         self._completed_since_idle: int = 0
 
         # source_path → monotonic deadline (cancel suppression window)
@@ -453,16 +488,30 @@ class IngestQueueManager:
     # ── Pause / resume ─────────────────────────────────────────────────────────
 
     def pause(self) -> None:
-        """Pause dispatch — new FS events are parked in _pending (ADR-0046 §4)."""
+        """
+        Pause dispatch — new FS events are parked in _pending (ADR-0046 §4).
+
+        This is the MANUAL pause (user/API). It always wins over an in-flight 429 auto-pause
+        cooldown: any pending auto-resume timer is cancelled so it can never un-pause a queue
+        the operator explicitly paused (BE-QUEUE-1, 1.9.4 W3).
+        """
+        self._cancel_rate_limit_task()
+        self._paused_by = "manual"
         if not self._paused:
             self._paused = True
-            logger.info("queue: paused")
+            logger.info("queue: paused (manual)")
 
     def resume(self) -> int:
         """
         Resume dispatch — drain _pending by calling the watcher's _arm seam
         (ADR-0046 §4). Returns the number of pending entries replayed.
+
+        Also the convergence point for the 429 auto-resume timer (pause_for_rate_limit) — both
+        the manual API and the automatic cooldown call this same method so pending-replay logic
+        is never duplicated.
         """
+        self._cancel_rate_limit_task()
+        self._paused_by = None
         if self._paused:
             self._paused = False
         pending = dict(self._pending)
@@ -481,6 +530,107 @@ class IngestQueueManager:
         if count:
             logger.info("queue: resumed, replayed %d pending entries", count)
         return count
+
+    # ── 429 / rate-limit auto-pause (BE-QUEUE-1, 1.9.4 W3) ────────────────────
+
+    def _cancel_rate_limit_task(self) -> None:
+        """Cancel any in-flight auto-resume cooldown timer (no-op if none is pending)."""
+        task = self._rate_limit_task
+        self._rate_limit_task = None
+        if task is not None and not task.done():
+            task.cancel()
+
+    def pause_for_rate_limit(self) -> float:
+        """
+        Auto-pause dispatch on a provider 429/rate-limit failure (I7).
+
+        Uses an escalating backoff ladder (30s → 60s → 120s → hard cap 300s): each
+        consecutive 429 (without an intervening successful run) moves one tier further out,
+        but NEVER past the 300s cap — the cap is a hard I7 bound, never grows unbounded.
+        ``reset_rate_limit_backoff()`` (called on the NEXT successful run) drops the ladder
+        back to the base tier.
+
+        A MANUAL pause (``paused_by == "manual"``) is never overridden: this call becomes a
+        no-op (besides an INFO log) so an operator's explicit pause always wins.
+
+        Returns the scheduled cooldown in seconds (``0.0`` when the call was a no-op because
+        the queue is already manually paused).
+        """
+        if self._paused_by == "manual":
+            logger.info("queue: 429 auto-pause skipped — queue already paused manually")
+            return 0.0
+
+        level = min(self._rate_limit_level, len(_RATE_LIMIT_BACKOFF_SCHEDULE) - 1)
+        cooldown = _RATE_LIMIT_BACKOFF_SCHEDULE[level]
+        self._rate_limit_level += 1  # escalate for the NEXT 429, capped by the schedule length
+
+        # A previous auto-429 cooldown (if any) is superseded by this fresh one.
+        self._cancel_rate_limit_task()
+
+        was_paused = self._paused
+        self._paused = True
+        self._paused_by = "auto_429"
+        logger.info(
+            "queue: auto-paused (reason=429 rate-limit, cooldown=%.0fs, was_already_paused=%s)",
+            cooldown,
+            was_paused,
+        )
+
+        async def _cooldown_then_resume(_cooldown: float = cooldown) -> None:
+            await self._sleep_fn(_cooldown)
+            # Only auto-resume if STILL in the auto_429 state — a manual pause taken during the
+            # cooldown must win, and this timer must never undo it (BE-QUEUE-1).
+            if self._paused_by == "auto_429":
+                replayed = self.resume()
+                logger.info(
+                    "queue: auto-resumed after %.0fs 429 cooldown (replayed %d pending entries)",
+                    _cooldown,
+                    replayed,
+                )
+
+        try:
+            task = asyncio.get_running_loop().create_task(_cooldown_then_resume())
+            _bg_tasks.add(task)
+            task.add_done_callback(_bg_tasks.discard)
+            self._rate_limit_task = task
+        except RuntimeError:
+            # No running event loop (test env without asyncio.run) — the pause still takes
+            # effect; only the timed auto-resume is skipped.
+            logger.debug("queue: 429 cooldown timer skipped — no running event loop")
+
+        return cooldown
+
+    def reset_rate_limit_backoff(self) -> None:
+        """Reset the 429 backoff ladder to the base tier after a SUCCESSFUL run (I7)."""
+        if self._rate_limit_level:
+            logger.debug(
+                "queue: 429 backoff ladder reset to base tier (was level %d)",
+                self._rate_limit_level,
+            )
+        self._rate_limit_level = 0
+
+    # ── Per-capability concurrency cap (BE-QUEUE-2, 1.9.4 W3) ──────────────────
+
+    async def acquire_capability_slot(self, mode: str) -> None:
+        """
+        Acquire one concurrency slot for provider capability *mode* ("cli" | "api" | "local").
+
+        Bounds how many runs of that capability execute their provider calls at once (I7),
+        independent of (and on top of) the flat INGEST_MAX_CONCURRENCY gate the watcher
+        applies before a run even reaches the pipeline. An unrecognised mode gets a
+        fail-safe cap of 1 (never unlimited) rather than raising.
+        """
+        sem = self._capability_semaphores.get(mode)
+        if sem is None:
+            sem = asyncio.Semaphore(1)
+            self._capability_semaphores[mode] = sem
+        await sem.acquire()
+
+    def release_capability_slot(self, mode: str) -> None:
+        """Release the slot acquired by ``acquire_capability_slot(mode)``. No-op if absent."""
+        sem = self._capability_semaphores.get(mode)
+        if sem is not None:
+            sem.release()
 
     # ── Admit / suppress ───────────────────────────────────────────────────────
 
@@ -616,6 +766,8 @@ class IngestQueueManager:
 
         return {
             "paused": self._paused,
+            # "manual" | "auto_429" | None — observability for the 429 auto-pause (BE-QUEUE-1).
+            "paused_by": self._paused_by,
             "pending": len(self._pending),
             "processing": len(self._active),
             "failed": len(self._recent_failed),
