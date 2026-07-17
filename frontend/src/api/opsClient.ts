@@ -17,6 +17,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 
 /** Generic response envelope for ops trigger endpoints. */
 export interface OpsTriggerResponse {
@@ -41,8 +42,8 @@ async function postOp(path: string, signal?: AbortSignal): Promise<OpsTriggerRes
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       /* ignore */
     }
@@ -66,8 +67,8 @@ async function postJsonOp(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const responseBody = (await res.json()) as { detail?: string };
-      if (responseBody.detail) detail = responseBody.detail;
+      const responseBody = await res.json();
+      detail = errorMessageFromBody(responseBody) ?? detail;
     } catch {
       /* ignore */
     }
@@ -145,8 +146,8 @@ export async function triggerRegenerateOverview(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       /* ignore */
     }
@@ -199,8 +200,8 @@ export async function triggerSystemUpdate(signal?: AbortSignal): Promise<SystemU
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const body = (await res.json()) as { detail?: string };
-      if (body.detail) detail = body.detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
     } catch {
       /* ignore */
     }

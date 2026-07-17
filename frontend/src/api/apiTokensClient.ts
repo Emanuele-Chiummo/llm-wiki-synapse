@@ -9,25 +9,22 @@
  * flows straight into the caller's one-time-reveal state; it is never logged here.
  */
 
-import type {
-  ApiTokenCreateRequest,
-  ApiTokenCreateResponse,
-  ApiTokenListResponse,
-} from "./types";
-import { ApiError } from "./errors";
+import type { ApiTokenCreateRequest, ApiTokenCreateResponse, ApiTokenListResponse } from "./types";
+import { ApiError, errorCodeFromBody, errorMessageFromBody } from "./errors";
 import { apiBase, apiFetch } from "./base";
-import { formatDetail } from "./providerClient";
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
     let detail = res.statusText;
+    let code: string | undefined;
     try {
-      const body = (await res.json()) as { detail?: unknown };
-      detail = formatDetail(body.detail) ?? detail;
+      const body = await res.json();
+      detail = errorMessageFromBody(body) ?? detail;
+      code = errorCodeFromBody(body);
     } catch {
       // ignore parse error
     }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
+    throw new ApiError(res.status, `${res.status} ${detail}`, code);
   }
 }
 

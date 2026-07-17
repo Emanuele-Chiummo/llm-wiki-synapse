@@ -15,6 +15,7 @@
 
 import type { ConversationSummary, ChatMessage, CitationRef } from "../store/chatStore";
 import { apiBase, apiFetch } from "./base";
+import { errorMessageFromBody } from "./errors";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
 
 // ─── REST helpers ─────────────────────────────────────────────────────────────
@@ -285,8 +286,8 @@ export async function saveToWiki(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const payload = (await res.json()) as { detail?: string };
-      if (payload.detail) detail = payload.detail;
+      const payload = await res.json();
+      detail = errorMessageFromBody(payload) ?? detail;
     } catch {
       // ignore JSON parse error; use status code as message
     }
@@ -351,8 +352,8 @@ export async function saveToWikiV2(
   if (!res.ok) {
     let detail = `${res.status}`;
     try {
-      const payload = (await res.json()) as { detail?: string };
-      if (payload.detail) detail = payload.detail;
+      const payload = await res.json();
+      detail = errorMessageFromBody(payload) ?? detail;
     } catch {
       // ignore JSON parse error; use status code as message
     }

@@ -30,46 +30,24 @@ import type {
   CliAuthConfig,
   CliAuthUpdateRequest,
 } from "./types";
-import { ApiError } from "./errors";
+import { ApiError, errorCodeFromBody, errorMessageFromBody } from "./errors";
 import { apiBase, apiFetch } from "./base";
 // API_BASE removed: use apiBase() at call time (ADR-0047 §2.1/§2.2).
-
-/**
- * Coerce a FastAPI error `detail` into a human-readable string.
- * FastAPI returns `detail` as a plain string for HTTPException, but as an ARRAY of
- * {loc, msg, type} objects for 422 request-validation errors — interpolating that array
- * naively yields "[object Object]". Extract each `msg` (prefixed with the field name) instead.
- */
-export function formatDetail(detail: unknown): string | undefined {
-  if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) {
-    const msgs = detail
-      .map((d) => {
-        if (d && typeof d === "object" && "msg" in d) {
-          const loc = Array.isArray((d as { loc?: unknown[] }).loc)
-            ? (d as { loc: unknown[] }).loc.slice(1).join(".")
-            : "";
-          const msg = String((d as { msg: unknown }).msg);
-          return loc ? `${loc}: ${msg}` : msg;
-        }
-        return null;
-      })
-      .filter((m): m is string => Boolean(m));
-    if (msgs.length) return msgs.join("; ");
-  }
-  return undefined;
-}
 
 async function checkResponse(res: Response): Promise<void> {
   if (!res.ok) {
     let detail = res.statusText;
+    let code: string | undefined;
     try {
-      const body = (await res.json()) as { detail?: unknown };
-      detail = formatDetail(body.detail) ?? detail;
+      const body = await res.json();
+      // ADR-0086: the backend pre-joins 422 field errors into error.message, so no
+      // client-side flattening of the old {"detail": [...]} array is needed anymore.
+      detail = errorMessageFromBody(body) ?? detail;
+      code = errorCodeFromBody(body);
     } catch {
       // ignore parse error
     }
-    throw new ApiError(res.status, `${res.status} ${detail}`);
+    throw new ApiError(res.status, `${res.status} ${detail}`, code);
   }
 }
 
