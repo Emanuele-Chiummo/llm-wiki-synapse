@@ -41,7 +41,7 @@ const VIEWPORT = { width: 1440, height: 900 };
 
 async function loadShell(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
-  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
   // v1.2 [F18]: app boots to "home" section, not pages/graph.
   // Navigate to "pages" section (PanelGroup: NavTree | NoteView | PreviewPanel)
   // so that nav-tree, preview panel, and scenario templates are in the DOM.
@@ -464,7 +464,7 @@ test.describe("CHECK-5 — Invariant spot-checks: I4 virtualised tree, I3 no con
     // Reload and wait for full settle.
     // v1.2 [F18]: app boots to "home" section (no canvas on initial load).
     // We wait for app-shell to be present, then allow subscriptions time to fire.
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
     await page.waitForTimeout(1_500); // let all subscriptions fire
 

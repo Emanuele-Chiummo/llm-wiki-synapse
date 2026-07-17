@@ -47,7 +47,7 @@ const MOBILE_VIEWPORT = { width: 375, height: 812 };
  */
 async function gotoMobile(page: Page): Promise<void> {
   await page.setViewportSize(MOBILE_VIEWPORT);
-  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
   // Wait for the app shell to be visible.
   await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
   // Disable CSS transitions for stable screenshots.

@@ -106,10 +106,43 @@ export function AppShell() {
   // REST poller above (never a replacement). Started once here, same lifecycle as the
   // /status poll; statusStore/activityStore relax their own cadence while this stream
   // is healthy (see eventsStore.ts docstring) but keep polling forever regardless.
+  //
+  // Deliberately deferred past the initial load burst (requestIdleCallback, falling
+  // back to a short setTimeout): SSE is a long-lived connection that never "completes",
+  // so opening it synchronously on mount keeps the browser's network-idle detector from
+  // ever firing — this broke Playwright's `waitUntil: "networkidle"` navigation (used by
+  // nearly every E2E spec) with a hard 30s timeout on every test. Deferring lets the
+  // page's own resource fetches settle into a real idle window first; the stream then
+  // opens a moment later, same as any other post-load background connection.
   const startEventsStream = useEventsStore(selectStartEventsStream);
   useEffect(() => {
-    const stop = startEventsStream();
-    return stop;
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const begin = () => {
+      if (cancelled) return;
+      stop = startEventsStream();
+    };
+
+    let idleHandle: number | undefined;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    if (typeof w.requestIdleCallback === "function") {
+      idleHandle = w.requestIdleCallback(begin, { timeout: 1000 });
+    } else {
+      timeoutHandle = setTimeout(begin, 300);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleHandle !== undefined) w.cancelIdleCallback?.(idleHandle);
+      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+      stop?.();
+    };
   }, [startEventsStream]);
 
   // ── First-run wizard (A2.2) ────────────────────────────────────────────────

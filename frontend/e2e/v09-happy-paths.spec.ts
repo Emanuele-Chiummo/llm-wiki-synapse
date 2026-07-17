@@ -60,7 +60,7 @@ async function gotoApp(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
   // Inject prefers-reduced-motion before load so CSS transitions are disabled.
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(FRONTEND_URL, { waitUntil: "networkidle" });
+  await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId("nav-rail")).toBeVisible({ timeout: 10_000 });
 }
@@ -706,7 +706,7 @@ test.describe("THEME — dark mode via localStorage + reload", () => {
     await page.evaluate(() => {
       localStorage.setItem("synapse.theme", "dark");
     });
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(300);
 
@@ -739,7 +739,7 @@ test.describe("THEME — dark mode via localStorage + reload", () => {
     await page.evaluate(() => {
       localStorage.setItem("synapse.theme", "light");
     });
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(300);
 
@@ -800,7 +800,7 @@ test.describe("D5 screenshots at 1440x900 (I8 / AC-R9-6-3)", () => {
     await gotoApp(page);
     // Set dark theme before navigating.
     await page.evaluate(() => { localStorage.setItem("synapse.theme", "dark"); });
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("app-shell")).toBeVisible({ timeout: 15_000 });
 
     await navTo(page, "graph");
