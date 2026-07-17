@@ -108,6 +108,7 @@ ignore = [
 "tests/test_adr0067_generation_parity.py" = ["ANN", "S", "F811"]
 "tests/test_list_pages_domain.py" = ["ANN", "S", "F811"]
 "tests/test_list_pages_type_filter.py" = ["ANN", "S", "F811"]
+"tests/test_events_sse.py" = ["ANN", "S", "F811"]
 "scripts/*" = ["ANN", "S", "E501"]  # scripts are not production code — relax annotations and line length
 
 [tool.ruff.lint.flake8-bugbear]
