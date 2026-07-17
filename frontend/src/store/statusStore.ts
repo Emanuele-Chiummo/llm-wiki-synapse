@@ -27,6 +27,7 @@ import type { StatusResponse } from "../api/types";
 import { createPollChain } from "./pollChain";
 import { useActivityStore } from "./activityStore";
 import { useAppStore } from "./appStore";
+import { useEventsStore } from "./eventsStore";
 
 // ─── Adaptive /status cadence (RT-1) ───────────────────────────────────────────
 
@@ -41,8 +42,19 @@ const STATUS_POLL_ACTIVE_MS = 3_000;
  * RT-1: adaptive /status cadence. Fast (3s) while the queue is doing work — every write bumps
  * data_version and the dashboard KPIs + graph re-fetch on that change — else the idle 30s.
  * `paused` is intentionally NOT "active": a paused queue produces no writes.
+ *
+ * 1.9.3 W1 (FE-RT-2): when `sseHealthy` is true, GET /events already pushes data_version
+ * bumps in real time, so this REST poll no longer needs the fast cadence to stay fresh —
+ * it always falls back to the idle interval, purely as the permanent fallback poller
+ * (NEVER disabled, per the non-regression mandate; just slower while SSE is healthy).
+ * Defaults to `false` so every existing call site (and the pre-1.9.3 test suite) is
+ * unaffected until the caller explicitly threads the SSE health flag through.
  */
-export function statusPollDelayMs(snap: { processing?: number; pending?: number } | null): number {
+export function statusPollDelayMs(
+  snap: { processing?: number; pending?: number } | null,
+  sseHealthy = false,
+): number {
+  if (sseHealthy) return STATUS_POLL_MS;
   const active = (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0;
   return active ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_MS;
 }
@@ -160,9 +172,11 @@ export const useStatusStore = create<StatusStore>((set) => ({
             useAppStore.getState().setVaultId(res.vault_id);
           }
         },
-        intervalFor: () => statusPollDelayMs(useActivityStore.getState().snapshot),
+        intervalFor: () =>
+          statusPollDelayMs(useActivityStore.getState().snapshot, useEventsStore.getState().healthy),
         onError: () => set({ connectionState: "offline" }),
-        errorIntervalFor: () => statusPollDelayMs(useActivityStore.getState().snapshot),
+        errorIntervalFor: () =>
+          statusPollDelayMs(useActivityStore.getState().snapshot, useEventsStore.getState().healthy),
       });
     }
     return sharedStatusPollChain.subscribe();

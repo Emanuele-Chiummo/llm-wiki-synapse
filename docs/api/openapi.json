@@ -5749,6 +5749,29 @@
           }
         ]
       }
+    },
+    "/events": {
+      "get": {
+        "summary": "Server-Sent Events push channel \u2014 data_version + ingest queue state",
+        "description": "SSE stream (text/event-stream) pushing `data_version` bumps and ingest-queue counter changes as they happen (1.9.3 W1, FE-RT-2). Change-driven, not a continuous blast; periodic comment heartbeats keep the connection alive through proxies/tunnels. Supports `Last-Event-ID` for resume-on-reconnect (the first tick after connect always resends current state). Bounded to EVENTS_MAX_STREAM_SECONDS per connection (I7); EventSource reconnects automatically. Existing REST pollers (/status, /ingest/queue, etc.) remain the permanent fallback and are never disabled by this endpoint.",
+        "operationId": "get_events_events_get",
+        "responses": {
+          "200": {
+            "description": "SSE stream",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/event-stream": {}
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {

@@ -1333,6 +1333,34 @@ class Settings(BaseSettings):
             return Path(self.backup_dir).resolve()
         return self.vault_root / ".synapse" / "backups"
 
+    # ── 1.9.3 W1: GET /events SSE push channel (FE-RT-2) ─────────────────────────
+
+    events_poll_interval_seconds: float = 2.0
+    """
+    Internal poll cadence (seconds) the ``GET /events`` SSE generator uses to check
+    ``data_version`` + the in-memory ingest queue counters for changes (I7 — bounded, cheap:
+    one indexed Postgres row read + one in-memory dict read per tick, no vault scan). An SSE
+    event is emitted ONLY when a watched value actually changed since the last tick — this is
+    a change-driven push, not a continuous blast. Env var: EVENTS_POLL_INTERVAL_SECONDS.
+    """
+
+    events_heartbeat_interval_seconds: float = 15.0
+    """
+    Interval (seconds) between SSE comment heartbeats (``: heartbeat\\n\\n``) sent while
+    nothing has changed, to keep the connection alive through proxies/tunnels that drop idle
+    connections (Cloudflare Access, Tailscale — both are in the real deployment path).
+    Env var: EVENTS_HEARTBEAT_INTERVAL_SECONDS.
+    """
+
+    events_max_stream_seconds: float = 1800.0
+    """
+    Hard wall-clock cap (seconds) on a single ``GET /events`` connection (I7 — every loop is
+    bounded, even a long-lived stream). After this many seconds the generator ends the stream
+    cleanly; ``EventSource`` reconnects automatically with ``Last-Event-ID``, so this is an
+    invisible periodic reconnect from the client's perspective, not an outage. Default 1800s
+    (30 min). Env var: EVENTS_MAX_STREAM_SECONDS.
+    """
+
 
 # Module-level singleton — import with `from app.config import settings`
 settings = Settings()

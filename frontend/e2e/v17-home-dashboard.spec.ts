@@ -28,7 +28,7 @@ const VIEWPORT = { width: 1440, height: 900 };
 
 async function loadHome(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
-  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });
 
   // The first-run setup wizard supports Esc-to-dismiss (see FirstRunWizard). Close it if present

@@ -216,7 +216,7 @@ async function collectLongTasksMs(page: Page, durationMs: number): Promise<numbe
 test.describe("G2 — No main-thread long task > 50ms (AC-F4-6 / EC-M3-5 / I2)", () => {
   test.beforeEach(async ({ page }) => {
     // D-PW-1 fix: single route at `/` (NOT `/graph` — that serves FastAPI JSON via Vite proxy)
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
   });
 
   test("graph renders without any main-thread long task > 50ms", async ({ page }) => {
@@ -310,7 +310,7 @@ async function measureRafFrameTimings(page: Page, frameCount: number): Promise<n
 test.describe("G4 — 140-node WebGL ≥60fps, bounded DOM (AC-F4-7 / EC-M3-6 / I4)", () => {
   test.beforeEach(async ({ page }) => {
     // D-PW-1 fix: navigate to `/`, not `/graph`
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
     await waitForGraph(page);
   });
 
@@ -395,7 +395,7 @@ test.describe("G4 — 140-node WebGL ≥60fps, bounded DOM (AC-F4-7 / EC-M3-6 / 
 test.describe("D5 — Screenshot capture for docs/screens/ (AC-D5-1..4 / EC-M3-11 / I8)", () => {
   test.beforeEach(async ({ page }) => {
     // D-PW-1 fix: navigate to `/`, not `/graph`
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
     await waitForGraph(page);
   });
 
@@ -504,7 +504,7 @@ test.describe("D5 — Screenshot capture for docs/screens/ (AC-D5-1..4 / EC-M3-1
 test.describe("G2/AC-FE-1 — Sigma viewer loads; node click shows title (EC-M3-7)", () => {
   test("graph page loads and sigma canvas is rendered", async ({ page }) => {
     // D-PW-1 fix: single route at `/` (NOT `/graph` — that serves FastAPI JSON via Vite proxy)
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
     // v1.2 [F18]: app boots to "home" section — navigate to "graph" NavRail section
     // so the sigma canvas (WebGL) is mounted.
     await page.locator("[data-section='graph']").click();
@@ -517,7 +517,7 @@ test.describe("G2/AC-FE-1 — Sigma viewer loads; node click shows title (EC-M3-
 
   test("node click dispatches selection and shows title (AC-F4-8)", async ({ page }) => {
     // D-PW-1 fix: navigate to `/`
-    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+    await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
     await waitForGraph(page);
 
     // D-PW-3 fix: use a known high-degree node instead of canvas center

@@ -38,7 +38,7 @@ const VIEWPORT = { width: 1440, height: 900 };
 
 async function loadShell(page: Page): Promise<void> {
   await page.setViewportSize(VIEWPORT);
-  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "networkidle" });
+  await page.goto(`${FRONTEND_URL}/`, { waitUntil: "domcontentloaded" });
   // v1.2 [F18]: app boots to "home" section — no canvas or nav-tree on initial load.
   // Wait only for the app-shell root to confirm the SPA has mounted.
   await page.waitForSelector("[data-testid='app-shell']", { timeout: 15_000 });

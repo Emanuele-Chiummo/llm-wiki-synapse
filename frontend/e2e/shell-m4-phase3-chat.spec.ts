@@ -64,7 +64,7 @@ function ensureScreensDir() {
 
 /** Load app and wait for shell */
 async function gotoApp(page: Page) {
-  await page.goto(FRONTEND_URL, { waitUntil: "networkidle" });
+  await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId("app-shell")).toBeVisible();
   await expect(page.getByTestId("nav-rail")).toBeVisible();
 }

@@ -483,6 +483,7 @@ from app.projects import router as projects_router  # noqa: E402
 from app.routers.chat import router as chat_router  # noqa: E402
 from app.routers.clip import router as clip_router  # noqa: E402
 from app.routers.config import router as config_router  # noqa: E402
+from app.routers.events import router as events_router  # noqa: E402
 from app.routers.graph import router as graph_router  # noqa: E402
 from app.routers.ingest import router as ingest_router  # noqa: E402
 from app.routers.lint import router as lint_router  # noqa: E402
@@ -512,6 +513,7 @@ app.include_router(clip_router)
 app.include_router(scenarios_router)
 app.include_router(vault_meta_router)  # WS-D8: vault-root meta files (schema.md, purpose.md)
 app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (ADR-0082)
+app.include_router(events_router)  # 1.9.3 W1: GET /events SSE push channel (FE-RT-2)
 
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares

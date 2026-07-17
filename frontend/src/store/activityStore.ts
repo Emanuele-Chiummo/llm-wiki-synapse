@@ -22,6 +22,7 @@ import {
   resumeIngestQueue,
 } from "../api/ingestClient";
 import { createPollChain } from "./pollChain";
+import { useEventsStore } from "./eventsStore";
 
 // ─── Structural equality guard (FE-PERF-1) ───────────────────────────────────
 //
@@ -72,6 +73,22 @@ const POLL_IDLE_MS = 5_000;
  */
 export const MAX_VISIBLE_FAILED = 50;
 
+/**
+ * 1.9.3 W1 (FE-RT-2): adaptive /ingest/queue cadence, mirroring statusPollDelayMs.
+ * The GET /events SSE `queue` event already pushes counts changes in real time when
+ * `sseHealthy` is true, so this REST poll — the PERMANENT fallback, never disabled —
+ * only needs the idle cadence to stay a safety net. Falls back to the original
+ * active/idle logic whenever SSE isn't healthy (not connected yet, or degraded).
+ */
+export function activityPollDelayMs(
+  snap: { processing: number; pending: number; paused: boolean } | null,
+  sseHealthy = false,
+): number {
+  if (sseHealthy) return POLL_IDLE_MS;
+  const isActive = (snap?.processing ?? 0) > 0 || (snap?.pending ?? 0) > 0 || (snap?.paused ?? false);
+  return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ActivityState {
@@ -82,11 +99,30 @@ export interface ActivityState {
   cancellingIds: Set<string>;
 }
 
+/** The subset of IngestQueueSnapshot pushed over the SSE `queue` event (1.9.3 W1). */
+export interface QueueCountsPatch {
+  paused: boolean;
+  pending: number;
+  processing: number;
+  failed: number;
+  completed_since_idle: number;
+  total: number;
+}
+
 export interface ActivityActions {
   /** Trigger a single immediate fetch of the queue snapshot. */
   fetchOnce: (signal?: AbortSignal) => Promise<void>;
   /** Start the adaptive poll loop. Returns a cleanup function. */
   startPolling: () => () => void;
+  /**
+   * Merge a lightweight counts-only patch from the GET /events SSE `queue` event
+   * (1.9.3 W1, FE-RT-2) into the current snapshot. Preserves `tasks`/`batch`/
+   * `marker_batch` (the SSE payload does not carry them — those still refresh
+   * on the next GET /ingest/queue poll, which stays active as the fallback).
+   * A no-op guard: if no snapshot exists yet, seeds one with an empty task list
+   * so the counts are visible immediately, before the first REST poll lands.
+   */
+  applyCountsPatch: (patch: QueueCountsPatch) => void;
   /** Cancel an active run; marks it as cancelling until next poll removes it. */
   cancelRun: (runId: string, signal?: AbortSignal) => Promise<void>;
   /**
@@ -162,10 +198,7 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
             return { snapshot: snap, error: null, cancellingIds: nextCancelling };
           });
         },
-        intervalFor: (snap) => {
-          const isActive = snap.processing > 0 || snap.pending > 0 || snap.paused;
-          return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
-        },
+        intervalFor: (snap) => activityPollDelayMs(snap, useEventsStore.getState().healthy),
         onError: (err) => {
           if (err instanceof Error && err.name !== "AbortError") {
             set({ error: err.message });
@@ -173,14 +206,8 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
         },
         // Keep polling on transient errors (backend may restart) — reuse the
         // last-known active/idle cadence rather than a fixed retry delay.
-        errorIntervalFor: () => {
-          const { snapshot } = get();
-          const isActive =
-            (snapshot?.processing ?? 0) > 0 ||
-            (snapshot?.pending ?? 0) > 0 ||
-            (snapshot?.paused ?? false);
-          return isActive ? POLL_ACTIVE_MS : POLL_IDLE_MS;
-        },
+        errorIntervalFor: () =>
+          activityPollDelayMs(get().snapshot, useEventsStore.getState().healthy),
       });
     }
     // Refcounted singleton: shares ONE chain across every subscriber.
@@ -228,6 +255,14 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
       error: null,
       cancellingIds: new Set<string>(),
     }),
+  applyCountsPatch: (patch) => {
+    set((s) => ({
+      snapshot: {
+        ...(s.snapshot ?? { tasks: [] }),
+        ...patch,
+      },
+    }));
+  },
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
