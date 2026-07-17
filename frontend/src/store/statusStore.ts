@@ -148,7 +148,23 @@ export const useStatusStore = create<StatusStore>((set) => ({
   setBackendVersion: (backendVersion) => set({ backendVersion }),
   setReviewPending: (reviewPending) => set({ reviewPending }),
   setSupportsVision: (supportsVision) => set({ supportsVision }),
-  setDataVersion: (dataVersion) => set({ dataVersion }),
+  setDataVersion: (dataVersion) =>
+    set((prev) => {
+      // Monotonic guard: data_version is a server-side counter that only
+      // increases. An in-flight REST response can arrive AFTER a more recent
+      // SSE push has already advanced the value; applying the stale value
+      // would suppress the next GraphViewer/HomeDashboard re-fetch (they check
+      // for a strict change). Drop out-of-order updates silently.
+      if (dataVersion !== null && prev.dataVersion !== null && dataVersion < prev.dataVersion) {
+        if (typeof console !== "undefined") {
+          console.warn(
+            `[statusStore] out-of-order data_version dropped: incoming ${dataVersion} < current ${prev.dataVersion}`,
+          );
+        }
+        return {};
+      }
+      return { dataVersion };
+    }),
   setUptimeSeconds: (uptimeSeconds) => set({ uptimeSeconds }),
 
   startPolling: () => {
