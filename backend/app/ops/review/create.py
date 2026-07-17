@@ -3,10 +3,13 @@ F9 HITL Review Queue — single-page generation engine + Create action (BE-ARCH-
 
 Owns the lazy on-demand Create action (ADR-0034 §5) and its two generation routes:
   _run_generation(...)       — bounded on-demand page generation, capability-aware (I6).
-                               PARALLEL to the main ingest pipeline (mirrors
-                               orchestrator.run_ingest_pipeline's analyze→generate→validate→retry
-                               / delegated-agent routing) — see BE-DEBT-1 step 2 (1.9.4) for the
-                               planned convergence onto the main engine. Unchanged behaviour here.
+                               ORCHESTRATED route now runs the SAME engine as the main ingest
+                               pipeline (``app.ingest.block_loop.run_block_loop``, ADR-0076)
+                               instead of the legacy JSON loop (``app.ingest.loop``) — BE-DEBT-1
+                               step 2 (1.9.4 W2). The block batch's single FILE block is adapted
+                               into a WikiPage (``_wiki_page_from_file_block``) so the caller still
+                               writes it through the single ``write_wiki_page`` seam (I1); DELEGATED
+                               routing is unchanged.
   create_page_from_review(...) — stub (default, no provider) / generate (full LLM) routing
                                (WS-C, ADR-0079), including the missing-page candidate fan-out.
 
@@ -27,8 +30,11 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 
+import frontmatter
 from sqlalchemy import select
 
 from app import db as _db
@@ -43,7 +49,7 @@ from app.ops.review.suggestions import (
 )
 
 if TYPE_CHECKING:
-    from app.ingest.schemas import WikiPage
+    from app.ingest.schemas import Analysis, WikiPage
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +114,87 @@ def _detect_page_type(item_type: str, title: str) -> PageType:
     if _STUB_CONCEPT_KW.search(lower) or _STUB_CONCEPT_CJK.search(title):
         return PageType.CONCEPT
     return PageType.QUERY
+
+
+def _wiki_page_from_file_block(
+    file_block: Any,
+    *,
+    resolved_type: PageType,
+    origin_source: str,
+) -> WikiPage | None:
+    """
+    Adapt one block-loop FILE block into a WikiPage (BE-DEBT-1, 1.9.4 W2 convergence).
+
+    The block engine (``app.ingest.block_loop``) has no PageType-typed DTO — it emits raw
+    ``---FILE:---`` markdown (frontmatter + body) validated by a RELAXED, schema-routing-only
+    validator (``block_loop._validate_block_batch``), unlike the legacy JSON loop's
+    Pydantic-enforced ``WikiPage``. Create() targets exactly ONE page of a KNOWN base PageType
+    (never a schema-custom type — that is reserved for the main pipeline's
+    ``block_writer.write_block_page`` path), so this adapter:
+      - parses the block's frontmatter + body (``frontmatter.loads``);
+      - accepts the model's own ``type`` when it is a valid, non-``source`` PageType (mirrors the
+        JSON loop, which let ``provider.generate()`` choose freely, validated only for enum
+        membership); otherwise falls back to *resolved_type* (§5.2 heuristic);
+      - guarantees ``sources`` includes *origin_source* (F3 traceability — the relaxed block
+        validator does not enforce this; the JSON loop's ``validate_pages`` did).
+
+    Returns None when the block is missing/unparseable/titleless/bodyless — the caller then
+    relies on the same ``_ensure_source_summary`` fallback the JSON loop used on non-convergence
+    (§5).
+    """
+    from app.ingest.schemas import WikiFrontmatter, WikiPage  # noqa: PLC0415
+
+    if file_block is None:
+        return None
+    try:
+        post = frontmatter.loads(file_block.content)
+    except Exception:  # noqa: BLE001 — malformed FM: no usable candidate.
+        return None
+
+    body = post.content.strip()
+    if not body:
+        return None
+
+    meta = post.metadata
+    title = str(meta.get("title") or "").strip()
+    if not title:
+        return None
+
+    type_str = str(meta.get("type") or "").strip()
+    try:
+        page_type = PageType(type_str)
+        if page_type is PageType.SOURCE:
+            page_type = resolved_type
+    except ValueError:
+        page_type = resolved_type
+
+    sources_raw = meta.get("sources")
+    sources = (
+        [str(s).strip() for s in sources_raw if str(s).strip()]
+        if isinstance(sources_raw, list)
+        else []
+    )
+    if origin_source and origin_source not in sources:
+        sources.append(origin_source)
+    tags_raw = meta.get("tags")
+    tags = (
+        [str(t).strip() for t in tags_raw if str(t).strip()] if isinstance(tags_raw, list) else None
+    )
+    lang = str(meta.get("lang") or "").strip() or "en"
+
+    fm_kwargs: dict[str, Any] = {
+        "type": page_type,
+        "title": title,
+        "sources": sources,
+        "lang": lang,
+    }
+    if tags:
+        fm_kwargs["tags"] = tags
+    try:
+        fm = WikiFrontmatter(**fm_kwargs)
+        return WikiPage(title=title, type=page_type, content=post.content, frontmatter=fm)
+    except Exception:  # noqa: BLE001 — defensive: schema validation failure → no candidate.
+        return None
 
 
 @dataclass
@@ -197,7 +284,8 @@ async def _run_generation(
         write_wiki_page. Returns GenerationOutcome(wiki_page=...).
     NEVER isinstance/provider_type/class-name branching (I6) — route ONLY via capabilities().
 
-    Runs the bounded orchestrated loop (ingest/loop.py::run_orchestrated_loop) with a
+    Runs the SAME bounded block loop the main ingest pipeline uses
+    (ingest/block_loop.py::run_block_loop, ADR-0076 — BE-DEBT-1 1.9.4 W2) with a
     single-page-target prompt: "generate the wiki page titled <proposed_title> of type
     <resolved_type>, grounded in the vault context + the proposal rationale."
 
@@ -223,14 +311,21 @@ async def _run_generation(
       delegated → created_page_id set (already written by the agent; caller skips the write).
       Raises on failure (caller converts to 502; item left pending — no partial write).
     """
-    from app.ingest.loop import run_orchestrated_loop
+    from app.ingest import block_loop as _block_loop
     from app.ingest.orchestrator import (
         COST_ANOMALY_THRESHOLD_USD,
         _delegate_ingest,
         _ensure_source_summary,
         _load_vault_context,
+        _source_identity,
         _write_ingest_run,
     )
+    from app.ingest.pipeline import (
+        _read_vault_root_file,
+        _read_wiki_file,
+        _vault_output_language,
+    )
+    from app.ingest.prompts import language_prompt_name
     from app.ingest.provider import resolve_provider
     from app.ingest.provider.base import UsageAccumulator
     from app.ingest.schemas import WikiFrontmatter, WikiPage
@@ -374,30 +469,66 @@ async def _run_generation(
             wiki_page=None, created_page_id=created_page_id, converged=delegated_converged
         )
 
-    # ── ORCHESTRATED (API/Local): bounded analyze→generate→validate→retry (§5) ────
+    # ── ORCHESTRATED (API/Local): bounded block loop (BE-DEBT-1, 1.9.4 W2) ────────
+    # Same engine the main ingest pipeline uses (app.ingest.block_loop.run_block_loop,
+    # ADR-0076) instead of the legacy JSON loop (app.ingest.loop.run_orchestrated_loop) — this
+    # is the review-Create half of the single-generation-engine convergence (2.0.0 target).
+    # Single-page-target semantics are preserved: the batch's FILE block is adapted into a
+    # WikiPage (_wiki_page_from_file_block) and the CALLER still writes it via write_wiki_page
+    # (I1) — never through block_writer.write_block_page, which is the multi-file/custom-type
+    # path the main pipeline uses.
     converged = False
     iterations = 0
     wiki_page: WikiPage | None = None
     error: BaseException | None = None
 
     try:
-        loop_result = await asyncio.wait_for(
-            run_orchestrated_loop(
+        schema_md = _read_vault_root_file("schema.md")
+        purpose_md = _read_vault_root_file("purpose.md")
+        index_md = _read_wiki_file("index.md")
+        overview_md = _read_wiki_file("overview.md")
+        language_name = language_prompt_name(await _vault_output_language())
+        source_filename = _source_identity(origin_source) or Path(origin_source).name
+
+        block_result = await asyncio.wait_for(
+            _block_loop.run_block_loop(
                 provider=provider,
                 accumulator=accumulator,
                 source_text=source_text,
-                vault_context=vault_context,
-                retrieval_context="",
+                purpose=purpose_md,
+                schema=schema_md,
+                index=index_md,
+                source_filename=source_filename,
                 origin_source=origin_source,
+                language_name=language_name,
                 max_iter=max_iter,
                 token_budget=token_budget,
+                overview=overview_md,
             ),
             timeout=timeout_s,
         )
-        converged = loop_result.converged
-        iterations = loop_result.iterations
-        # _ensure_source_summary guarantees a valid WikiPage even on non-convergence (§5).
-        pages = _ensure_source_summary(loop_result.pages, loop_result.analysis, origin_source)
+        converged = block_result.converged
+        iterations = block_result.iterations
+
+        candidate_pages: list[WikiPage] = []
+        block_page = _wiki_page_from_file_block(
+            block_result.file_blocks[0] if block_result.file_blocks else None,
+            resolved_type=resolved_type,
+            origin_source=origin_source,
+        )
+        if block_page is not None:
+            candidate_pages.append(block_page)
+
+        # _ensure_source_summary guarantees a valid WikiPage even on non-convergence (§5) —
+        # the SAME fallback the JSON loop used, fed a duck-typed analysis object (`.language` /
+        # `.summary`) built from the block loop's single analysis pass (block_loop has no
+        # Analysis DTO; _ensure_source_summary only ever attribute-accesses these two fields).
+        analysis_like = SimpleNamespace(
+            language=language_name or "en", summary=block_result.analysis_text
+        )
+        pages = _ensure_source_summary(
+            candidate_pages, cast("Analysis", analysis_like), origin_source
+        )
         wiki_page = pages[0] if pages else None
         if wiki_page is not None and generation_key is not None:
             # Rebuild through Pydantic so the reserved key/type invariant is validated before
