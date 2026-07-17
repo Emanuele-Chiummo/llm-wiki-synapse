@@ -1060,6 +1060,33 @@ class Settings(BaseSettings):
     Env var: INGEST_MAX_CONCURRENCY.
     """
 
+    ingest_concurrency_cli: int = 1
+    """
+    Max CONCURRENT ingest runs whose resolved capability mode is "cli" (BE-QUEUE-2, I7).
+
+    The CLI backend (claude-agent-sdk) is the heaviest per-run (a full local process), so it
+    defaults to a hard cap of 1 — never two CLI agent runs execute their provider calls at the
+    same time, regardless of INGEST_MAX_CONCURRENCY. Coerced to >= 1 at read time.
+    Env var: INGEST_CONCURRENCY_CLI.
+    """
+
+    ingest_concurrency_api: int = 3
+    """
+    Max CONCURRENT ingest runs whose resolved capability mode is "api" (BE-QUEUE-2, I7).
+
+    Hosted API backends (Anthropic / OpenAI-compatible) tolerate more parallelism than CLI or
+    local Ollama. Coerced to >= 1 at read time. Env var: INGEST_CONCURRENCY_API.
+    """
+
+    ingest_concurrency_local: int = 1
+    """
+    Max CONCURRENT ingest runs whose resolved capability mode is "local" (BE-QUEUE-2, I7).
+
+    A single local Ollama instance shares one GPU (RTX 3060, CLAUDE.md §1) — concurrent
+    provider calls would just serialize on the GPU anyway, so this defaults to 1. Coerced to
+    >= 1 at read time. Env var: INGEST_CONCURRENCY_LOCAL.
+    """
+
     # ── System self-update (R12-3, B1: Watchtower HTTP API) ───────────────────────
 
     watchtower_url: str | None = None
