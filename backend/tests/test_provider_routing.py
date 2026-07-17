@@ -197,6 +197,9 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
         written_page_ids: list = []
         status = "running"
 
+    async def _noop_acquire_capability_slot(mode: str) -> None:  # type: ignore[no-untyped-def]
+        return None
+
     fake_queue = IngestQueueManager.__new__(IngestQueueManager)
     fake_queue._active = {}  # type: ignore[attr-defined]
     fake_queue._run_id_to_path = {}  # type: ignore[attr-defined]
@@ -211,6 +214,12 @@ def _patch_persistence(monkeypatch: pytest.MonkeyPatch) -> dict[str, list]:
     fake_queue.finalize = lambda *a, **kw: None  # type: ignore[attr-defined]
     fake_queue.get_retry_count = lambda path: 0  # type: ignore[attr-defined]
     fake_queue.record_written = lambda *a, **kw: None  # type: ignore[attr-defined]
+    # BE-QUEUE-1/2 (1.9.4 W3): run_ingest_pipeline now gates on the capability semaphore and
+    # touches the rate-limit ladder on both terminal paths — stub them as no-ops.
+    fake_queue.acquire_capability_slot = _noop_acquire_capability_slot  # type: ignore[attr-defined]
+    fake_queue.release_capability_slot = lambda *a, **kw: None  # type: ignore[attr-defined]
+    fake_queue.pause_for_rate_limit = lambda *a, **kw: 0.0  # type: ignore[attr-defined]
+    fake_queue.reset_rate_limit_backoff = lambda *a, **kw: None  # type: ignore[attr-defined]
 
     monkeypatch.setattr(orch, "ingest_queue", fake_queue)
     monkeypatch.setattr(orch, "write_wiki_page", fake_write_wiki_page)

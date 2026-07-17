@@ -25,7 +25,7 @@ import app.ingest.orchestrator as orch
 from app import runtime_state
 from app.config import settings
 from app.ingest.loop import IngestCancelled, LoopResult, run_orchestrated_loop
-from app.ingest.provider.base import InferenceProvider, UsageAccumulator
+from app.ingest.provider.base import InferenceProvider, ProviderTransientError, UsageAccumulator
 from app.ingest.schemas import Analysis, PageType, WikiFrontmatter, WikiPage
 from app.models import IngestRun, Page, VaultState
 
@@ -378,6 +378,23 @@ def _seed_accumulator(accumulator: UsageAccumulator, seed_usage: object | None) 
         accumulator.add(seed_usage)
 
 
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """Classify *exc* as a provider rate-limit (429) failure (BE-QUEUE-1, 1.9.4 W3).
+
+    ``ProviderTransientError`` (raised by the CLI backend, provider/base.py) already folds
+    429 / overloaded / SDK-execution failures into one type since the SDK gives no finer
+    signal — treated as rate-limit-class here because 429 is its documented primary cause.
+    The API / Ollama backends surface a raw ``httpx.HTTPStatusError`` via
+    ``resp.raise_for_status()`` (provider/api.py, provider/ollama.py); only status 429 counts
+    as a rate-limit — a 500/other 4xx must NOT auto-pause the whole queue.
+    """
+    if isinstance(exc, ProviderTransientError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code == 429
+    return False
+
+
 async def run_ingest_pipeline(
     *,
     provider_config_row: object,
@@ -458,6 +475,12 @@ async def run_ingest_pipeline(
     # Set before the route try-block so the handle always has a route when active.
     # Will be overwritten to "delegated" inside the try-block if the CLI path is taken.
     orch.ingest_queue.set_route(run_id, route)
+
+    # ── BE-QUEUE-2 (1.9.4 W3): per-capability concurrency cap (I7) ────────────
+    # Bounds how many CLI/API/Local runs execute their provider calls at once, on top of
+    # the flat INGEST_MAX_CONCURRENCY gate in watcher.py. Acquired here (dispatch point,
+    # right before the provider is actually called) and released at every exit below.
+    await orch.ingest_queue.acquire_capability_slot(caps.mode)
 
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
@@ -919,6 +942,7 @@ async def run_ingest_pipeline(
             status_override="cancelled",
         )
         orch.ingest_queue.finalize(run_id, "cancelled", error="cancelled by user")
+        orch.ingest_queue.release_capability_slot(caps.mode)
         # Do NOT re-raise — cancel is a normal, user-initiated terminal state (ADR-0046 §3).
         return IngestRunResult(
             route=route,
@@ -953,6 +977,12 @@ async def run_ingest_pipeline(
             error_message=str(exc) or exc.__class__.__name__,
         )
         orch.ingest_queue.finalize(run_id, "failed", error=str(exc) or exc.__class__.__name__)
+        orch.ingest_queue.release_capability_slot(caps.mode)
+        # BE-QUEUE-1 (1.9.4 W3): a 429/rate-limit failure auto-pauses the queue with a
+        # decaying-cooldown auto-resume (I7 — cooldown is capped, never grows unbounded).
+        # Never overrides an existing MANUAL pause (queue_manager.pause_for_rate_limit).
+        if _is_rate_limit_error(exc):
+            orch.ingest_queue.pause_for_rate_limit()
         logger.warning(
             "ingest_run FAILED provider=%s origin=%s error=%s",
             caps.name,
@@ -1002,6 +1032,10 @@ async def run_ingest_pipeline(
     # ── ADR-0046: notify queue manager of terminal success ────────────────────
     terminal_status = _derive_run_status(converged=converged, error_message=None)
     orch.ingest_queue.finalize(run_id, terminal_status)
+    orch.ingest_queue.release_capability_slot(caps.mode)
+    # BE-QUEUE-1 (1.9.4 W3): any successful run resets the rate-limit backoff ladder so the
+    # NEXT 429 starts cooling down from the base tier again (I7 — no permanently-escalated cap).
+    orch.ingest_queue.reset_rate_limit_backoff()
 
     # Structured log line for live tail (ADR-0008 §4).
     logger.info(
