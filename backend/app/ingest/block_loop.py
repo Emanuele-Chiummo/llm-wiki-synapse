@@ -1,7 +1,7 @@
 """Bounded block-based orchestrated ingest loop (ADR-0076, nashsu/llm_wiki v0.6.3 ``autoIngest``).
 
-The block twin of :func:`app.ingest.loop.run_orchestrated_loop`, kept in a SEPARATE module so the
-JSON loop is untouched. Flow (llm_wiki ingest.ts:626-1326):
+The surviving ingest loop as of Synapse 2.0.0 (the legacy JSON loop was removed).
+Flow (llm_wiki ingest.ts:626-1326):
 
   1. ANALYSIS  — one ``provider.complete`` call producing a free-markdown analysis (NOT JSON).
   2. GENERATION loop — bounded by ``max_iter`` AND ``token_budget`` (I7). Each round emits FILE /
@@ -47,13 +47,13 @@ from app.ingest.long_source import (
     merge_analysis_texts,
     split_into_chunks,
 )
-from app.ingest.loop import IngestCancelled
 from app.ingest.provider.base import (
     InferenceProvider,
     ProviderEmptyOutput,
     ProviderTransientError,
     UsageAccumulator,
 )
+from app.ingest.validate import IngestCancelled
 from app.wiki.schema import parse_page_type_routing, validate_page_routing
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,8 @@ def _validate_block_batch(file_blocks: list[FileBlock], routing: dict[str, str])
     A batch is valid iff at least one FILE block parses AND every block has a non-empty
     frontmatter ``title``, a non-empty body, and a schema-routing-valid path
     (:func:`validate_page_routing`). NO ``lang`` requirement and NO ``## Research queries`` gate
-    (both belong to the JSON loop's ``validate_pages``, not here).
+    (``lang`` and ``## Research queries`` are enforced by ``app.ingest.validate.validate_pages``
+    for MCP write_page validation, not by the block-loop path).
     """
     if not file_blocks:
         return ["generation produced no FILE blocks (0 parsed) — output the ---FILE: blocks"]
@@ -357,7 +358,7 @@ async def run_block_loop(
     """Run analysis → bounded generation → conditional review stage (ADR-0076).
 
     ``cancel_event`` is checked at each generation-loop BOUNDARY (never inside a provider call —
-    ADR-0046 §3); on cancellation :class:`~app.ingest.loop.IngestCancelled` is raised for the
+    ADR-0046 §3); on cancellation :class:`~app.ingest.validate.IngestCancelled` is raised for the
     pipeline's handler. ``token_budget`` is checked BEFORE each generation call (I7). Returns the
     last sanitized FILE-block batch with ``converged`` / ``stop_reason`` set.
     """

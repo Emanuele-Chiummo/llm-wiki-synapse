@@ -18,7 +18,7 @@ lives in ``pipeline.py``; this module now plays two roles.
    The siblings deliberately reach every primitive/seam via ``orch.<name>`` (NOT direct imports)
    so ``app.ingest.orchestrator`` remains the ONE monkeypatch surface. This mirror indirection is
    currently LOAD-BEARING FOR THE TEST SUITE — 18 test modules bind ``orch`` to this module and
-   patch pipeline-internal functions (``_delegate_ingest`` / ``_run_orchestrated`` /
+   patch pipeline-internal functions (``_delegate_ingest`` /
    ``_open_ingest_run`` / ``_finalize_ingest_run`` / …), the shared write path, the persistence
    primitives, and the shared ``get_session`` / ``upsert_point`` seams ON THIS MODULE. Removing the
    mirror, or moving the DB-touching primitives to a new module, silently bypasses those patches
@@ -1524,7 +1524,6 @@ from app.ingest.context import (  # noqa: E402
     _load_vault_context,
 )
 from app.ingest.pipeline import (  # noqa: E402
-    _FALLBACK_TRANSPORT_ERRORS,
     _LANGUAGE_GUARD_EXEMPT_TYPES,
     IngestError,
     IngestResult,
@@ -1536,7 +1535,6 @@ from app.ingest.pipeline import (  # noqa: E402
     _ensure_source_summary,
     _ensure_source_summary_for_delegated,
     _finalize_ingest_run,
-    _is_fallback_eligible,
     _is_raw_sources_page,
     _open_ingest_run,
     _page_type_counts,
@@ -1545,7 +1543,6 @@ from app.ingest.pipeline import (  # noqa: E402
     _purpose_suggestion_for_delegated,
     _resolve_fallback_provider_config,
     _resolve_ingest_provider_config,
-    _run_orchestrated,
     _schema_suggestion_for_delegated,
     _seed_accumulator,
     _write_ingest_run,
@@ -1580,7 +1577,6 @@ __all__ = [
     "_CATALOGUE_EXCLUDED_TYPES",
     "_CATALOGUE_MAX_CHARS",
     "_CATALOGUE_MAX_TITLES",
-    "_FALLBACK_TRANSPORT_ERRORS",
     "_FOLDER_CONTEXT_MAX_CHARS",
     "_FOLDER_CONTEXT_MAX_SEGMENTS",
     "_FOLDER_CONTEXT_ROOTS",
@@ -1598,7 +1594,6 @@ __all__ = [
     "_find_canonical_entity_page",
     "_folder_context",
     "_folder_context_block",
-    "_is_fallback_eligible",
     "_is_owned_only_by_source",
     "_is_raw_sources_page",
     "_load_existing_pages_catalogue",
@@ -1613,7 +1608,6 @@ __all__ = [
     "_resolve_fallback_provider_config",
     "_resolve_ingest_provider_config",
     "_resolve_related_slugs",
-    "_run_orchestrated",
     "_schema_suggestion_for_delegated",
     "_seed_accumulator",
     "_source_identity",

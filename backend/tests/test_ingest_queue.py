@@ -508,55 +508,11 @@ class TestPathNormalizationRegression:
 
 class TestIngestCancelledException:
     def test_exception_carries_origin_source(self) -> None:
-        from app.ingest.loop import IngestCancelled
+        from app.ingest.validate import IngestCancelled
 
         exc = IngestCancelled("raw/sources/doc.md")
         assert exc.origin_source == "raw/sources/doc.md"
         assert "raw/sources/doc.md" in str(exc)
-
-    def test_cancel_event_triggers_ingest_cancelled(self) -> None:
-        """Verify the cancel check in run_orchestrated_loop raises IngestCancelled."""
-
-        from app.ingest.loop import IngestCancelled, run_orchestrated_loop
-        from app.ingest.provider.base import UsageAccumulator
-
-        # Build a minimal mock provider that triggers cancel after analyze()
-        cancel_event = asyncio.Event()
-
-        class _CancellingProvider:
-            def bind_accumulator(self, acc: object) -> None:
-                pass
-
-            async def analyze(self, source_text: str, vault_context: str) -> object:
-                from app.ingest.schemas import Analysis, PageType, SuggestedPage
-
-                cancel_event.set()  # set before first generate() check
-                return Analysis(
-                    topics=["t"],
-                    entities=[],
-                    language="en",
-                    suggested_pages=[SuggestedPage(title="T", type=PageType.CONCEPT)],
-                    summary=None,
-                )
-
-            async def generate(self, analysis: object, ctx: str, source_text: str = "") -> list:
-                return []  # should never be reached
-
-        async def run() -> None:
-            with pytest.raises(IngestCancelled):
-                await run_orchestrated_loop(
-                    provider=_CancellingProvider(),  # type: ignore[arg-type]
-                    accumulator=UsageAccumulator(),
-                    source_text="test",
-                    vault_context="",
-                    retrieval_context="",
-                    origin_source="raw/sources/doc.md",
-                    max_iter=3,
-                    token_budget=60000,
-                    cancel_event=cancel_event,
-                )
-
-        asyncio.run(run())
 
 
 # ── Phase tracking (set_phase / set_route / snapshot) ────────────────────────
@@ -769,129 +725,6 @@ class TestEtaComputation:
         snap = mgr.snapshot()  # no avg argument
         task = snap["tasks"][0]
         assert task["eta_seconds"] is None
-
-
-# ── on_phase callback in run_orchestrated_loop ────────────────────────────────
-
-
-class TestOnPhaseCallback:
-    """Verify on_phase is called at the correct loop boundaries."""
-
-    def test_on_phase_called_with_correct_phases(self) -> None:
-
-        from app.ingest.loop import run_orchestrated_loop
-        from app.ingest.provider.base import UsageAccumulator
-        from app.ingest.schemas import Analysis, PageType, SuggestedPage, WikiFrontmatter, WikiPage
-
-        phases_seen: list[str] = []
-
-        class _QuickProvider:
-            def bind_accumulator(self, acc: object) -> None:
-                pass
-
-            async def analyze(self, source_text: str, vault_context: str) -> Analysis:
-                return Analysis(
-                    topics=["t"],
-                    entities=[],
-                    language="en",
-                    suggested_pages=[SuggestedPage(title="T", type=PageType.CONCEPT)],
-                    summary=None,
-                )
-
-            async def generate(
-                self, analysis: Analysis, ctx: str, source_text: str = ""
-            ) -> list[WikiPage]:
-                fm = WikiFrontmatter(
-                    type=PageType.CONCEPT,
-                    title="T",
-                    sources=["raw/sources/doc.md"],
-                    lang="en",
-                )
-                return [
-                    WikiPage(
-                        title="T",
-                        type=PageType.CONCEPT,
-                        content="content",
-                        frontmatter=fm,
-                    )
-                ]
-
-        async def run() -> None:
-            await run_orchestrated_loop(
-                provider=_QuickProvider(),  # type: ignore[arg-type]
-                accumulator=UsageAccumulator(),
-                source_text="test",
-                vault_context="",
-                retrieval_context="",
-                origin_source="raw/sources/doc.md",
-                max_iter=2,
-                token_budget=60000,
-                on_phase=phases_seen.append,
-            )
-
-        asyncio.run(run())
-        # Must have seen: analyzing, then at least one generating+validating pair
-        assert "analyzing" in phases_seen
-        assert any(p.startswith("generating") for p in phases_seen)
-        assert "validating" in phases_seen
-        # Order: analyzing comes before generating
-        assert phases_seen.index("analyzing") < next(
-            i for i, p in enumerate(phases_seen) if p.startswith("generating")
-        )
-
-    def test_on_phase_none_does_not_raise(self) -> None:
-        """on_phase=None (default) must not cause any error."""
-
-        from app.ingest.loop import run_orchestrated_loop
-        from app.ingest.provider.base import UsageAccumulator
-        from app.ingest.schemas import Analysis, PageType, SuggestedPage, WikiFrontmatter, WikiPage
-
-        class _QuickProvider:
-            def bind_accumulator(self, acc: object) -> None:
-                pass
-
-            async def analyze(self, source_text: str, vault_context: str) -> Analysis:
-                return Analysis(
-                    topics=["t"],
-                    entities=[],
-                    language="en",
-                    suggested_pages=[SuggestedPage(title="T", type=PageType.CONCEPT)],
-                    summary=None,
-                )
-
-            async def generate(
-                self, analysis: Analysis, ctx: str, source_text: str = ""
-            ) -> list[WikiPage]:
-                fm = WikiFrontmatter(
-                    type=PageType.CONCEPT,
-                    title="T",
-                    sources=["raw/sources/doc.md"],
-                    lang="en",
-                )
-                return [
-                    WikiPage(
-                        title="T",
-                        type=PageType.CONCEPT,
-                        content="content",
-                        frontmatter=fm,
-                    )
-                ]
-
-        async def run() -> None:
-            result = await run_orchestrated_loop(
-                provider=_QuickProvider(),  # type: ignore[arg-type]
-                accumulator=UsageAccumulator(),
-                source_text="test",
-                vault_context="",
-                retrieval_context="",
-                origin_source="raw/sources/doc.md",
-                max_iter=1,
-                token_budget=60000,
-                # on_phase not passed — defaults to None
-            )
-            assert result.converged is True
-
-        asyncio.run(run())
 
 
 # ── Drain callback (WS-C, ADR-0079) ──────────────────────────────────────────

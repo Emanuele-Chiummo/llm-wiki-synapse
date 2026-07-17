@@ -294,84 +294,10 @@ class TestR76FolderContext:
         fc = _folder_context(deep)
         assert len(fc.split(" / ")) <= _FOLDER_CONTEXT_MAX_SEGMENTS
 
-    @pytest.mark.asyncio
-    async def test_folder_context_reaches_analysis_prompt(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """The folderContext string is present in the vault_context the orchestrated loop uses."""
-        import app.config_overrides as config_overrides
-        from app.ingest import orchestrator as orch
-
-        # This test captures vault_context via the JSON loop's _run_orchestrated, which the 1.7.0
-        # "blocks" default bypasses (it calls run_block_loop). Pin json to exercise that path.
-        monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
-
-        # Make the base ingest context deterministic (no DB catalogue).
-        async def _fake_ingest_context() -> str:
-            return "# schema.md\n(rules)"
-
-        monkeypatch.setattr(orch, "_load_ingest_context", _fake_ingest_context)
-
-        # Capture the vault_context threaded into the orchestrated loop.
-        captured: dict[str, Any] = {}
-
-        async def _fake_run_orchestrated(**kwargs: Any) -> Any:
-            captured["vault_context"] = kwargs.get("vault_context")
-            result = MagicMock()
-            result.pages = []
-            result.analysis = None
-            result.converged = True
-            result.iterations = 1
-            result.stop_reason = "converged"
-            return result
-
-        monkeypatch.setattr(orch, "_run_orchestrated", _fake_run_orchestrated)
-
-        # Stub the provider + all persistence/finalize hooks so only routing runs.
-        provider = MagicMock()
-        caps = MagicMock()
-        caps.supports_agentic_loop = False
-        caps.name = "StubProvider"
-        caps.mode = "api"
-        provider.capabilities = MagicMock(return_value=caps)
-        provider.bind_accumulator = MagicMock()
-        monkeypatch.setattr(orch, "resolve_provider", lambda _cfg: provider)
-
-        monkeypatch.setattr(orch, "_open_ingest_run", AsyncMock(return_value=uuid.uuid4()))
-        monkeypatch.setattr(orch, "_finalize_ingest_run", AsyncMock())
-        monkeypatch.setattr(orch, "_ensure_source_summary", lambda pages, *_a: pages)
-        monkeypatch.setattr(orch, "_update_overview", AsyncMock())
-
-        handle = MagicMock()
-        handle.cancel_event = MagicMock()
-        handle.cancel_event.is_set = MagicMock(return_value=False)
-        monkeypatch.setattr(orch.ingest_queue, "open_run", MagicMock(return_value=handle))
-        monkeypatch.setattr(orch.ingest_queue, "set_route", MagicMock())
-        monkeypatch.setattr(orch.ingest_queue, "set_phase", MagicMock())
-        monkeypatch.setattr(orch.ingest_queue, "get_retry_count", MagicMock(return_value=0))
-
-        cfg_row = MagicMock()
-        cfg_row.model_id = "test-model"
-        cfg_row.max_iter = 1
-        cfg_row.token_budget = 1000
-
-        try:
-            await orch.run_ingest_pipeline(
-                provider_config_row=cfg_row,
-                source_text="hello world",
-                origin_source="raw/sources/servicenow/itam/doc.md",
-                abs_source="/tmp/doc.md",
-            )
-        except Exception:  # noqa: BLE001
-            # Downstream persistence hooks may still fail on the stub; we only need the
-            # vault_context that _run_orchestrated received (captured before any failure).
-            pass
-
-        assert captured.get("vault_context") is not None
-        assert (
-            "folderContext" in captured["vault_context"]
-        ), "folderContext hint must be injected into the analysis prompt (AC-R7-6-2)"
-        assert "servicenow / itam" in captured["vault_context"]
+    # NOTE (2.0.0 / ADR-0076): test_folder_context_reaches_analysis_prompt was removed.
+    # It pinned ingest_pipeline_format="json" and patched orch._run_orchestrated to capture
+    # vault_context — both of which are gone in 2.0.0.  The folderContext injection is
+    # covered at unit level by test_folder_context_block_phrasing above.
 
 
 class TestR76RecursiveScan:

@@ -19,20 +19,15 @@ D4 — index.md and log.md are graph nodes.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from typing import Any
 
 import app.ingest.orchestrator as orch
 import pytest
 from app.config import settings
-from app.ingest.loop import run_orchestrated_loop
 from app.ingest.provider._common import build_generate_prompt
-from app.ingest.provider.base import InferenceProvider, UsageAccumulator
 from app.ingest.schemas import (
     Analysis,
-    Message,
     PageType,
-    ProviderCapabilities,
     SuggestedPage,
     WikiFrontmatter,
     WikiPage,
@@ -96,57 +91,6 @@ def test_build_generate_prompt_budget_zero_disables_source(
     )
     assert "# Source document" not in prompt
     assert "SHOULD-NOT-APPEAR" not in prompt
-
-
-# ── D1: the orchestrated loop threads source_text into provider.generate() ────────
-
-
-class _SourceCapturingProvider(InferenceProvider):
-    """Records the source_text generate() receives so we can assert the loop threads it."""
-
-    def __init__(self) -> None:
-        self.generate_source_text: str | None = None
-
-    def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(
-            mode="local",
-            supports_tools=False,
-            supports_agentic_loop=False,
-            max_context=8192,
-            name="SourceCapturing",
-        )
-
-    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
-        return _analysis()
-
-    async def generate(
-        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
-    ) -> list[WikiPage]:
-        self.generate_source_text = source_text
-        fm = WikiFrontmatter(type=PageType.CONCEPT, title="C", sources=[ORIGIN], lang="en")
-        return [WikiPage(title="C", type=PageType.CONCEPT, content="body", frontmatter=fm)]
-
-    async def chat(
-        self, messages: list[Message], retrieval_context: str
-    ) -> AsyncIterator[str]:  # pragma: no cover - not used
-        raise NotImplementedError
-
-
-@pytest.mark.asyncio
-async def test_orchestrated_loop_threads_source_text_into_generate() -> None:
-    provider = _SourceCapturingProvider()
-    result = await run_orchestrated_loop(
-        provider=provider,
-        accumulator=UsageAccumulator(),
-        source_text="THE-ORIGINAL-SOURCE-DOCUMENT",
-        vault_context="",
-        retrieval_context="",
-        origin_source=ORIGIN,
-        max_iter=3,
-        token_budget=60_000,
-    )
-    assert result.converged is True
-    assert provider.generate_source_text == "THE-ORIGINAL-SOURCE-DOCUMENT"
 
 
 # ── D3: synthesized source-summary title/body format ──────────────────────────────

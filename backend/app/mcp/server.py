@@ -44,8 +44,8 @@ from typing import Any
 from fastmcp import FastMCP
 
 from app.config import settings
-from app.ingest.loop import validate_pages
 from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+from app.ingest.validate import validate_pages
 from app.rag.retrieval import retrieve
 
 logger = logging.getLogger(__name__)

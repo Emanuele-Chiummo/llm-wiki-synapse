@@ -1,13 +1,11 @@
-"""Integration tests for the ingest_pipeline_format rollback lever (ADR-0076).
+"""Integration tests for the block-loop ingest pipeline (ADR-0076, 2.0.0).
 
 Drives run_ingest_pipeline against a real SQLite in-memory DB + a temporary vault + a fake
 provider, proving:
 
-  • ingest_pipeline_format="blocks" (config override) runs the block-based orchestrated path:
+  • The block-based orchestrated path is the ONLY pipeline path (2.0.0 — JSON loop removed):
     FILE blocks land at their block paths, a CUSTOM type (thesis) persists as pages.type, body
-    [[wikilinks]] are persisted, and the source-summary fallback still fires,
-  • with the flag UNSET (default "json") the existing JSON loop path is unchanged and still
-    writes pages.
+    [[wikilinks]] are persisted, and the source-summary fallback still fires.
 
 Only the ingest write/persistence surface is under test — the fire-and-forget post-write hooks
 (overview regen, review proposals, wikilink enrichment, …) are stubbed to keep the test focused
@@ -22,7 +20,6 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
-import app.config_overrides as config_overrides
 import app.ingest.orchestrator as orch
 import pytest
 from app.ingest.provider.base import InferenceProvider
@@ -30,9 +27,7 @@ from app.ingest.schemas import (
     Analysis,
     Message,
     ProviderCapabilities,
-    SuggestedPage,
     Usage,
-    WikiFrontmatter,
     WikiPage,
 )
 from sqlalchemy import (
@@ -143,49 +138,6 @@ class _BlockProvider(InferenceProvider):
     async def complete(self, system: str, prompt: str, *, max_tokens: int) -> str:
         self._record_usage(Usage(input_tokens=10, output_tokens=5, total_cost_usd=0.0))
         return self._responses.pop(0) if self._responses else ""
-
-
-class _JsonProvider(InferenceProvider):
-    """Orchestrated (non-agentic) provider that produces one JSON WikiPage (default path)."""
-
-    def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities(
-            mode="local",
-            supports_tools=False,
-            supports_agentic_loop=False,
-            max_context=8192,
-            name="JsonFake",
-        )
-
-    async def analyze(self, source_text: str, vault_context: str) -> Analysis:
-        self._record_usage(Usage(input_tokens=10, output_tokens=5, total_cost_usd=0.0))
-        return Analysis(
-            topics=["widgets"],
-            entities=["Acme Corp"],
-            language="en",
-            suggested_pages=[SuggestedPage(title="Widget Platform", type="concept")],
-            summary="A short summary.",
-        )
-
-    async def generate(
-        self, analysis: Analysis, retrieval_context: str, source_text: str = ""
-    ) -> list[WikiPage]:
-        self._record_usage(Usage(input_tokens=20, output_tokens=10, total_cost_usd=0.0))
-        return [
-            WikiPage(
-                title="Widget Platform",
-                type="concept",
-                content="# Widget Platform\n\nBuilt by [[Acme Corp]].",
-                frontmatter=WikiFrontmatter(
-                    type="concept", title="Widget Platform", sources=[ORIGIN], lang="en"
-                ),
-            )
-        ]
-
-    async def chat(
-        self, messages: list[Message], retrieval_context: str
-    ) -> AsyncIterator[str]:  # pragma: no cover
-        raise NotImplementedError
 
 
 async def _anoop(*_a: Any, **_k: Any) -> None:
@@ -408,8 +360,6 @@ async def test_blocks_format_writes_custom_type_and_wikilinks(
 
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
-    # ingest_pipeline_format="blocks" via the config-override cache (auto-reverted after the test).
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
 
     result = await orch.run_ingest_pipeline(
         provider_config_row=object(),
@@ -453,7 +403,6 @@ async def test_blocks_format_persists_diagnostics_on_convergence(
     """1.9.1 W5 (NC-1): a converged block-route run persists diagnostics on ingest_runs."""
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
 
     result = await orch.run_ingest_pipeline(
         provider_config_row=object(),
@@ -484,7 +433,6 @@ async def test_blocks_format_persists_diagnostics_on_nonconvergence(
         [ANALYSIS, "no file blocks", "still nothing", "prose only, no blocks"]
     )
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
 
     result = await orch.run_ingest_pipeline(
         provider_config_row=object(),
@@ -503,14 +451,11 @@ async def test_blocks_format_persists_diagnostics_on_nonconvergence(
     assert any("FILE blocks" in e for e in diagnostics["last_errors"])
 
 
-async def test_default_format_is_blocks_without_override(
+async def test_block_loop_is_sole_pipeline_path(
     pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # 1.7.0 flip (config.py): with NO ingest_pipeline_format override the DEFAULT is now "blocks".
+    # 2.0.0: the block loop is the ONLY pipeline path. All providers run via provider.complete().
     # A provider with complete() runs the block loop, so the blocks-only custom "thesis" type lands.
-    # This guards the default flip itself (the JSON loop would never write a `thesis` page).
-    assert "ingest_pipeline_format" not in config_overrides._cache
-
     provider = _BlockProvider([ANALYSIS, GEN_BLOCKS])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
 
@@ -525,34 +470,6 @@ async def test_default_format_is_blocks_without_override(
     assert result.converged is True
     thesis = await _load_page(pipeline_env, "wiki/thesis/core-thesis.md")
     assert thesis is not None and thesis.page_type == "thesis"
-
-
-async def test_json_format_rollback_still_writes_pages(
-    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # ingest_pipeline_format="json" (the 1.7.0 rollback lever; "blocks" is now the default) →
-    # the legacy JSON loop path runs unchanged.
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
-
-    provider = _JsonProvider()
-    monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
-
-    result = await orch.run_ingest_pipeline(
-        provider_config_row=object(),
-        source_text="The Acme Corp report describes measurable market outcomes.",
-        origin_source=ORIGIN,
-        abs_source=ABS_SOURCE,
-    )
-
-    assert result.route == "orchestrated"
-    assert result.converged is True
-    # concept page + the guaranteed source summary (the JSON path is unchanged).
-    assert result.pages_written == 2
-
-    concept = await _load_page(pipeline_env, "wiki/concepts/widget-platform.md")
-    assert concept is not None and concept.page_type == "concept"
-    source = await _load_page(pipeline_env, "wiki/sources/doc.md")
-    assert source is not None and source.page_type == "source"
 
 
 # ── D3 WS-C: REVIEW block enqueue (ADR-0079 §3) ──────────────────────────────
@@ -798,7 +715,6 @@ async def test_blocks_format_enqueues_review_blocks(
     """
     provider = _BlockProvider([ANALYSIS, _GEN_BLOCKS_WITH_REVIEW])
     monkeypatch.setattr(orch, "resolve_provider", lambda _row: provider)
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "blocks")
 
     result = await orch.run_ingest_pipeline(
         provider_config_row=object(),

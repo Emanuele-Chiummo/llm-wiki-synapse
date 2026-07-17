@@ -3,7 +3,8 @@ ADR-0078 "aggregate ownership" — overview.md must NOT be touched by ingest.
 
 Coverage:
   OWN-01  pipeline.py source contains zero active calls to _update_overview (static).
-  OWN-02  orchestrator.py _run_orchestrated source has no _update_overview call (static).
+  OWN-02  pipeline.py _run_orchestrated_blocks source has no _update_overview call (static).
+          (2.0.0/ADR-0076: _run_orchestrated is gone; _run_orchestrated_blocks is the only path.)
   OWN-03  POST /ops/overview/regenerate returns 200 with a 'status' field.
   OWN-04  POST /ops/overview/regenerate calls app.ops.overview.regenerate_overview exactly once.
   OWN-05  POST /ops/overview/regenerate is degrade-safe: provider failure → status=degraded,
@@ -61,11 +62,16 @@ def test_pipeline_source_has_no_update_overview_call() -> None:
 
 
 def test_orchestrated_path_source_has_no_update_overview_call() -> None:
-    """OWN-02: orchestrator.py _run_orchestrated must not call _update_overview() (ADR-0078)."""
-    source = _orchestrator_source()
-    # Locate the _run_orchestrated function body (starts at 'async def _run_orchestrated').
-    start = source.find("async def _run_orchestrated(")
-    # Find the next top-level function after it (next 'async def ' or 'def ' at column 0).
+    """OWN-02: pipeline.py _run_orchestrated_blocks must not call _update_overview() (ADR-0078).
+
+    2.0.0 / ADR-0076: _run_orchestrated (JSON loop) is gone.  _run_orchestrated_blocks is the
+    only orchestrated ingest path.  ADR-0078 ownership still requires it to not call
+    _update_overview(); overview.md is the sole responsibility of ops/overview.py.
+    """
+    source = _pipeline_source()
+    # Locate the _run_orchestrated_blocks function body.
+    start = source.find("async def _run_orchestrated_blocks(")
+    assert start != -1, "_run_orchestrated_blocks must exist in pipeline.py (ADR-0076)"
     rest = source[start:]
     next_fn = rest.find("\nasync def ", 1)
     if next_fn == -1:
@@ -74,7 +80,7 @@ def test_orchestrated_path_source_has_no_update_overview_call() -> None:
 
     calls = _active_call_sites(fn_body, "_update_overview")
     assert calls == [], (
-        "_run_orchestrated must not call _update_overview() (ADR-0078).\n"
+        "_run_orchestrated_blocks must not call _update_overview() (ADR-0078).\n"
         "Found active call sites:\n" + "\n".join(calls)
     )
 
