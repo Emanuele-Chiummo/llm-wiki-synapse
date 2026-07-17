@@ -136,7 +136,7 @@ def _resolve_vault(vault: str | None) -> tuple[str, Any]:
         return settings.vault_id, settings.vault_root
 
     try:
-        from app.projects import read_registry as _read_registry
+        from app.project_registry import read_registry as _read_registry
 
         reg = _read_registry()
         for project in reg.projects:

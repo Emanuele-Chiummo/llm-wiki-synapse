@@ -55,7 +55,7 @@ class TestResolveVault:
         from app.mcp.server import _resolve_vault
 
         other = _fake_project("other-vault", "/tmp/other-vault-root")
-        with patch("app.projects.read_registry", return_value=_fake_registry([other])):
+        with patch("app.project_registry.read_registry", return_value=_fake_registry([other])):
             vault_id, vault_root = _resolve_vault("other-vault")
 
         assert vault_id == "other-vault"
@@ -66,7 +66,7 @@ class TestResolveVault:
         from app.config import settings
         from app.mcp.server import _resolve_vault
 
-        with patch("app.projects.read_registry", return_value=_fake_registry([])):
+        with patch("app.project_registry.read_registry", return_value=_fake_registry([])):
             vault_id, vault_root = _resolve_vault("no-such-vault")
 
         assert vault_id == settings.vault_id
@@ -77,7 +77,7 @@ class TestResolveVault:
         from app.config import settings
         from app.mcp.server import _resolve_vault
 
-        with patch("app.projects.read_registry", side_effect=RuntimeError("disk error")):
+        with patch("app.project_registry.read_registry", side_effect=RuntimeError("disk error")):
             vault_id, vault_root = _resolve_vault("some-vault")
 
         assert vault_id == settings.vault_id
@@ -121,7 +121,7 @@ class TestReadToolsThreadVaultId:
         other = _fake_project("other-vault", "/tmp/other-vault-root")
 
         with (
-            patch("app.projects.read_registry", return_value=_fake_registry([other])),
+            patch("app.project_registry.read_registry", return_value=_fake_registry([other])),
             patch(
                 "app.mcp.server.retrieve", new_callable=AsyncMock, return_value=ctx
             ) as mock_retrieve,
@@ -156,7 +156,7 @@ class TestReadToolsThreadVaultId:
         ctx.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.projects.read_registry", return_value=_fake_registry([other])),
+            patch("app.project_registry.read_registry", return_value=_fake_registry([other])),
             patch("app.db.get_session", return_value=ctx),
         ):
             result = await list_pages(vault="other-vault")
@@ -176,7 +176,7 @@ class TestReadToolsThreadVaultId:
         fake_page.items = []
 
         with (
-            patch("app.projects.read_registry", return_value=_fake_registry([other])),
+            patch("app.project_registry.read_registry", return_value=_fake_registry([other])),
             patch(
                 "app.ops.review.list_queue", new_callable=AsyncMock, return_value=fake_page
             ) as mock_list_queue,
@@ -197,7 +197,7 @@ class TestReadToolsThreadVaultId:
         ctx.__aexit__ = AsyncMock(return_value=False)
 
         with (
-            patch("app.projects.read_registry", return_value=_fake_registry([])),
+            patch("app.project_registry.read_registry", return_value=_fake_registry([])),
             patch("app.db.get_session", return_value=ctx),
         ):
             result = await get_graph_neighborhood("Some Page", vault="unknown-vault-id")
@@ -225,7 +225,7 @@ class TestReadSourceFileVaultParam:
             )
 
             other = _fake_project("other-vault", str(root))
-            with patch("app.projects.read_registry", return_value=_fake_registry([other])):
+            with patch("app.project_registry.read_registry", return_value=_fake_registry([other])):
                 result = await read_source_file("doc.md", vault="other-vault")
 
         assert "error" not in result

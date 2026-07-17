@@ -78,6 +78,7 @@ erDiagram
         jsonb sources "YAML frontmatter 'sources[]' as JSONB array, NULL if absent (K6)"
         jsonb tags "YAML frontmatter 'tags[]' as JSONB array, NULL if absent (K6 navigation, nashsu/llm_wiki parity). Mirrors 'sources' storage. Migration 0018."
         string generation_key "Stable identity for corpus-derived comparison/synthesis pages, mirrored as synapse_generation_key in YAML. NULL for ordinary/legacy pages (ADR-0074, 0031)."
+        string summary "Short gloss derived from the page's first content paragraph (no LLM), used as the em-dash gloss next to the wikilink in index.md (K3, 1.9.4 W6). NULL for pages written before the backfill / with an empty body."
         string content_hash "sha256 hex of raw file bytes — authoritative change signal (ADR-0001)"
         int source_mtime_ns "st_mtime_ns at last confirmed index — cheap fast-path gate (ADR-0001)"
         uuid qdrant_point_id "Qdrant point id == pages.id, explicit to allow deliberate divergence later"
