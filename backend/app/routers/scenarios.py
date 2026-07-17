@@ -7,8 +7,6 @@ Also re-exports _SCENARIOS and _SCENARIO_INDEX for backward-compatible test impo
 from __future__ import annotations
 
 import logging
-import sys as _sys
-from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -21,20 +19,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── GET /scenarios + POST /scenarios/{id}/apply  (R7-1, [F1, K1]) ─────────────
 # 5 vault-bootstrap presets: Research, Reading, PersonalGrowth, Business, General.

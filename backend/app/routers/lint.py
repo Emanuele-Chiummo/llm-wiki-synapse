@@ -15,7 +15,6 @@ Covers:
 from __future__ import annotations
 
 import logging
-import sys as _sys
 import uuid
 from datetime import datetime
 from typing import Any
@@ -24,26 +23,13 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 
+from app import runtime_state
 from app.models import LintFinding, LintRun
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── K2 Lint-fix loop REST (ADR-0037) ─────────────────────────────────────────
 
@@ -276,7 +262,7 @@ async def lint_scan(body: LintScanRequest) -> LintScanResponse:
 
     # Load the run row + its findings for the response.
     run_id_str = str(result.run_id)
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         run = (await session.execute(select(LintRun).where(LintRun.id == run_id_str))).scalar_one()
         finding_rows = list(
             (
@@ -341,7 +327,7 @@ async def list_lint_runs_endpoint(
 async def get_lint_run(run_id: uuid.UUID) -> LintRunResponse:
     """GET /lint/runs/{id} — lint run detail (ADR-0037 §6)."""
     run_id_str = str(run_id)
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         run = (
             await session.execute(select(LintRun).where(LintRun.id == run_id_str))
         ).scalar_one_or_none()

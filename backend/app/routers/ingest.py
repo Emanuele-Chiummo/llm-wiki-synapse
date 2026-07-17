@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 import re as _re
-import sys as _sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +29,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
+from app import runtime_state
 from app.config import settings
 from app.config_overrides import effective_float, effective_str
 from app.ingest.orchestrator import IngestResult, ingest_file
@@ -40,21 +40,6 @@ from app.upload import _SEP_RE, resolve_under_sources, safe_source_name
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 
 class IngestTriggerRequest(BaseModel):
@@ -1226,7 +1211,7 @@ async def list_ingest_runs(
     Orders by started_at DESC (AC-BE-IR-3).
     422 enforced by Query(ge=1, le=100) / Query(ge=0) validators (AC-BE-IR-5).
     """
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         # COUNT query (filtered)
         count_stmt = select(func.count()).select_from(IngestRun)
         if vault_id is not None:
@@ -1265,7 +1250,7 @@ async def _compute_avg_duration_by_route() -> dict[str, float]:
     result: dict[str, float] = {}
     for route_val in ("orchestrated", "delegated"):
         try:
-            async with _m.get_session() as session:
+            async with runtime_state.get_session() as session:
                 # avg(extract(epoch from finished_at - started_at)) — Postgres dialect.
                 # For SQLite compatibility we use julianday arithmetic converted to seconds.
                 # We rely on the fact that started_at and finished_at are stored as
@@ -1514,7 +1499,7 @@ async def delete_ingest_run(run_id: uuid.UUID) -> JSONResponse:
     try:
         from sqlalchemy import text as _sa_text  # noqa: PLC0415
 
-        async with _m.get_session() as _sess:
+        async with runtime_state.get_session() as _sess:
             _res = await _sess.execute(
                 _sa_text("SELECT status FROM ingest_runs WHERE CAST(id AS TEXT) = :rid"),
                 {"rid": str(run_id)},

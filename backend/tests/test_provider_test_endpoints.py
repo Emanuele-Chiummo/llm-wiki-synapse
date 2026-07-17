@@ -26,14 +26,18 @@ def _client() -> TestClient:
 
 
 def _patch_one_shot(monkeypatch: pytest.MonkeyPatch, result: Any) -> None:
-    """Patch app.routers.config._one_shot_chat to return `result` or raise it if it's an Exception."""
+    """Patch _one_shot_chat to return `result` or raise it if it's an Exception.
+
+    Post BE-REFAC-1 split the probe helpers live in app.routers.config.provider_test, and
+    _run_probe calls the module-local _one_shot_chat — so the patch must target that module.
+    """
 
     async def _fake(*_a: Any, **_k: Any) -> str:
         if isinstance(result, Exception):
             raise result
         return str(result)
 
-    monkeypatch.setattr("app.routers.config._one_shot_chat", _fake)
+    monkeypatch.setattr("app.routers.config.provider_test._one_shot_chat", _fake)
 
 
 _INLINE_API = {

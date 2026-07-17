@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys as _sys
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -20,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
+from app import runtime_state
 from app.config import settings
 from app.models import DeepResearchRun, DeepResearchSource
 from app.rate_limit import rate_limit
@@ -28,20 +28,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # Strong task references — a bare create_task() can be GC'd mid-run (CPython weak-ref).
 _bg_tasks: set[asyncio.Task[Any]] = set()
@@ -321,7 +307,7 @@ async def research_start(body: ResearchStartRequest) -> ResearchStartResponse:
     )
 
     # Pre-INSERT the row so the caller can poll immediately after 202
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         run = DeepResearchRun(
             id=run_id_str,
             vault_id=body.vault_id,
@@ -442,7 +428,7 @@ async def list_research_runs(
     vault_id: str | None = Query(default=None, description="Optional vault_id filter"),
 ) -> ResearchRunListResponse:
     """GET /research/runs — paginated deep-research run list (ADR-0024 §8.2)."""
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         count_stmt = select(func.count()).select_from(DeepResearchRun)
         if vault_id is not None:
             count_stmt = count_stmt.where(DeepResearchRun.vault_id == vault_id)
@@ -494,7 +480,7 @@ async def get_research_run(run_id: uuid.UUID) -> ResearchRunDetail:
     # a str, but aiosqlite cannot bind a native uuid.UUID Python object.
     run_id_str = str(run_id)
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         # Load the run row
         run_result = await session.execute(
             select(DeepResearchRun).where(DeepResearchRun.id == run_id_str)

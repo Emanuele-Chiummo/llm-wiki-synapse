@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re as _re
-import sys as _sys
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
@@ -29,6 +28,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.engine import CursorResult
 
+from app import runtime_state
 from app.chat.stream import ChatStreamError, run_chat_stream
 from app.config import settings
 from app.ingest.schemas import Message
@@ -39,20 +39,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── Chat Pydantic models (F6/F7, ADR-0019 §2.2/§2.5) ──────────────────────────
 
@@ -462,7 +448,7 @@ async def list_conversations(
     vault_id: str | None = Query(default=None, description="Defaults to settings.vault_id"),
 ) -> ConversationListResponse:
     effective_vault_id = vault_id or settings.vault_id
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         base = select(Conversation).where(
             Conversation.vault_id == effective_vault_id,
             Conversation.deleted_at.is_(None),
@@ -526,7 +512,7 @@ async def list_conversations(
 )
 async def create_conversation(body: ConversationCreate) -> ConversationResponse:
     effective_vault_id = body.vault_id or settings.vault_id
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         conv = Conversation(vault_id=effective_vault_id, title=body.title)
         session.add(conv)
         await session.flush()
@@ -544,7 +530,7 @@ async def create_conversation(body: ConversationCreate) -> ConversationResponse:
     responses={404: {"description": "Conversation not found"}},
 )
 async def get_conversation_messages(conversation_id: uuid.UUID) -> ChatMessageListResponse:
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         conv_row = await session.execute(
             select(Conversation.id).where(
                 Conversation.id == conversation_id,
@@ -573,7 +559,7 @@ async def get_conversation_messages(conversation_id: uuid.UUID) -> ChatMessageLi
 async def delete_conversation(conversation_id: uuid.UUID) -> None:
     from sqlalchemy import update as sa_update
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         result = await session.execute(
             sa_update(Conversation)
             .where(
@@ -614,7 +600,7 @@ async def rename_conversation(
     """
     from sqlalchemy import update as sa_update
 
-    async with _m.get_session() as session:
+    async with runtime_state.get_session() as session:
         result = await session.execute(
             sa_update(Conversation)
             .where(

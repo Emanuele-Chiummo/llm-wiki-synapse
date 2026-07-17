@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys as _sys
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app import runtime_state
 from app.config import settings
 from app.ops_scheduler import OpsScheduler
 
@@ -25,20 +25,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── POST/GET /ops/backfill-domains — one-time bounded domain backfill (ADR-0054 §6) ──
 # Background asyncio task + 202, mirroring POST /research/start. Single-flight (409 while
@@ -649,7 +635,7 @@ async def get_ops_schedules() -> OpsSchedulesResponse:
     from app.config_overrides import get_effective  # noqa: PLC0415
     from app.ops_scheduler import _OP_NAMES  # noqa: PLC0415
 
-    scheduler = _m._ops_scheduler
+    scheduler = runtime_state.ops_scheduler()
 
     entries: list[OpsScheduleEntry] = []
     for op in _OP_NAMES:
@@ -737,7 +723,7 @@ async def run_ops_schedule_now(op: str) -> dict[str, str]:
                 ),
             )
 
-    scheduler = _m._ops_scheduler
+    scheduler = runtime_state.ops_scheduler()
     if scheduler is None:
         # Fallback: create a temporary scheduler (test environments that bypass lifespan).
         scheduler = OpsScheduler()

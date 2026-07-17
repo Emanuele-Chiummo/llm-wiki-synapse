@@ -284,11 +284,9 @@ async def cancel_env(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
                 raise
 
     monkeypatch.setattr("app.db.get_session", patched_get_session)
+    # The ingest router resolves get_session via app.runtime_state.get_session(), which reads
+    # app.main.get_session dynamically (BE-ARCH-3 seam) — patching app.main.get_session covers it.
     monkeypatch.setattr("app.main.get_session", patched_get_session)
-    monkeypatch.setattr(
-        "app.routers.ingest._m",
-        type("_M", (), {"get_session": staticmethod(patched_get_session)})(),
-    )
 
     from app.main import app
     from fastapi import FastAPI

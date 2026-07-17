@@ -51,7 +51,9 @@ def _resolve_searxng_url() -> str | None:
     ImportError is caught and we fall back to the env var.
     """
     try:
-        from app.main import _web_search_config_cache  # noqa: PLC0415
+        from app.runtime_state import (
+            web_search_config_cache as _web_search_config_cache,
+        )  # noqa: PLC0415
 
         return _web_search_config_cache.resolved_url()
     except (ImportError, AttributeError):

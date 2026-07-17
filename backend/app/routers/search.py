@@ -5,8 +5,6 @@ Per-domain APIRouter: GET /search (4-phase RAG retrieval, F5).
 from __future__ import annotations
 
 import logging
-import sys as _sys
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -17,20 +15,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-class _LazyMain:
-    """Lazy proxy to app.main; enables test patches via app.main.* to propagate."""
-
-    __slots__ = ()
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(_sys.modules["app.main"], name)
-
-    def __setattr__(self, name: str, value: object) -> None:
-        setattr(_sys.modules["app.main"], name, value)
-
-
-_m = _LazyMain()
 
 # ── GET /search Pydantic models (F5, ADR-0022 §2.5) ──────────────────────────
 
