@@ -397,9 +397,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── Domain exception taxonomy (BE-QUAL-1 partial) ─────────────────────────────
-# Translates app.errors.SynapseError subclasses to the SAME response shape FastAPI
-# already produces for HTTPException — no observable behaviour change (v1.9.2).
+# ── Stable JSON error envelope (ADR-0086, 2.0.0) ──────────────────────────────
+# Registers three handlers (SynapseError / RequestValidationError / raw HTTPException),
+# all emitting the one stable envelope {"error": {code, message, status, details}}.
+# This replaces the 1.9.2 passthrough-to-{"detail": ...} shape (breaking change).
 register_exception_handlers(app)
 
 # ── Auth + CORS middleware (ADR-0052 §2.4 — ORDER IS LOAD-BEARING) ─────────────
@@ -547,6 +548,57 @@ def _patched_openapi() -> dict[str, Any]:
         for method_obj in path_item.values():
             if isinstance(method_obj, dict):
                 method_obj["security"] = sec
+
+    # Stable error envelope (ADR-0086): document the shape and repoint the
+    # framework-generated 422 responses (which FastAPI wires to HTTPValidationError,
+    # the pre-2.0.0 {"detail": [...]} shape) at it. The runtime handlers in app.errors
+    # emit this envelope for EVERY error; FastAPI cannot introspect exception handlers,
+    # so this is where the schema is made to match the wire contract.
+    schemas: dict[str, Any] = components.setdefault("schemas", {})
+    schemas["ErrorEnvelope"] = {
+        "type": "object",
+        "title": "ErrorEnvelope",
+        "required": ["error"],
+        "description": "Stable error envelope for every error response (ADR-0086).",
+        "properties": {
+            "error": {
+                "type": "object",
+                "required": ["code", "message", "status", "details"],
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": (
+                            "Stable, machine-readable snake_case error code "
+                            "(e.g. not_found, validation_error). Public contract."
+                        ),
+                    },
+                    "message": {"type": "string", "description": "Human-readable message."},
+                    "status": {"type": "integer", "description": "HTTP status code."},
+                    "details": {
+                        "nullable": True,
+                        "description": (
+                            "Optional structured payload (field-level validation errors "
+                            "for 422s); null for simple errors."
+                        ),
+                    },
+                },
+            }
+        },
+    }
+    _envelope_ref = {"$ref": "#/components/schemas/ErrorEnvelope"}
+    for path_item in schema.get("paths", {}).values():
+        for method_obj in path_item.values():
+            if not isinstance(method_obj, dict):
+                continue
+            responses = method_obj.get("responses")
+            if not isinstance(responses, dict):
+                continue
+            for status_code, resp in responses.items():
+                if not (isinstance(status_code, str) and status_code.startswith(("4", "5"))):
+                    continue
+                content = resp.get("content") if isinstance(resp, dict) else None
+                if isinstance(content, dict) and "application/json" in content:
+                    content["application/json"]["schema"] = _envelope_ref
 
     app.openapi_schema = schema
     return schema
