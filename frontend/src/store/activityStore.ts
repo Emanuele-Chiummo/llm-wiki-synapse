@@ -23,6 +23,43 @@ import {
 } from "../api/ingestClient";
 import { createPollChain } from "./pollChain";
 
+// ─── Structural equality guard (FE-PERF-1) ───────────────────────────────────
+//
+// getIngestQueue() returns a fresh object on every poll tick even when nothing
+// changed server-side (no ETag/If-None-Match). Installing that fresh object into
+// the store unconditionally forces every subscriber selector (useActivityCounts,
+// useActivityTasks, useActivityBatch — all `useShallow`) to re-run its equality
+// check against a brand-new object graph, which re-renders HomeDashboard/ActivityBar
+// on every tick even when the snapshot is byte-for-byte identical to the last one.
+// A cheap deep-equal guard before set() skips that churn entirely (I3).
+//
+// The snapshot is plain JSON-shaped data (booleans/numbers/strings/arrays/nested
+// objects — see IngestQueueSnapshot/QueueTask) — no Dates, Maps, or functions —
+// so a small recursive structural comparison is sufficient and cheap relative to
+// the poll interval (≥1.5s).
+function deepEqualJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqualJson(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  const aRec = a as Record<string, unknown>;
+  const bRec = b as Record<string, unknown>;
+  const aKeys = Object.keys(aRec);
+  const bKeys = Object.keys(bRec);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const key of aKeys) {
+    if (!Object.prototype.hasOwnProperty.call(bRec, key)) return false;
+    if (!deepEqualJson(aRec[key], bRec[key])) return false;
+  }
+  return true;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Poll interval while there is active work (processing | pending | paused). */
@@ -105,6 +142,20 @@ export const useActivityStore = create<ActivityStore>((set, get) => ({
             const nextCancelling = new Set<string>();
             for (const id of s.cancellingIds) {
               if (currentIds.has(id)) nextCancelling.add(id);
+            }
+            // FE-PERF-1: skip the set() entirely when the new snapshot is structurally
+            // identical to the current one AND cancellingIds hasn't changed either —
+            // avoids a re-render burst on every idle poll tick (I3).
+            const cancellingUnchanged =
+              nextCancelling.size === s.cancellingIds.size &&
+              [...nextCancelling].every((id) => s.cancellingIds.has(id));
+            if (
+              s.error === null &&
+              cancellingUnchanged &&
+              s.snapshot !== null &&
+              deepEqualJson(s.snapshot, snap)
+            ) {
+              return s;
             }
             return { snapshot: snap, error: null, cancellingIds: nextCancelling };
           });

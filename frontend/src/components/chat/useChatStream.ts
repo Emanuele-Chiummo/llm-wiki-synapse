@@ -5,10 +5,20 @@
  * Partial-line buffering: accumulate across chunks; only JSON.parse on complete lines.
  *
  * Per-token work (I3):
- *   - token event  → appendToken(delta)   [cheap string append, no parse]
- *   - think event  → appendThink(delta)   [cheap string append, no parse]
- *   - done  event  → finalizeTurn()       [triggers parse ONCE in MarkdownView]
- *   - error event  → showToast + clearStream
+ *   - token event  → buffered locally, flushed via appendStreamDelta at most once per
+ *                    animation frame (FE-PERF-3) [cheap string append, no parse]
+ *   - think event  → same rAF-batched buffer as token
+ *   - done  event  → pending buffer is flushed SYNCHRONOUSLY first, then finalizeTurn()
+ *                    [triggers parse ONCE in MarkdownView]
+ *   - error event  → pending buffer discarded + showToast + clearStream
+ *
+ * FE-PERF-3: a fast local (Ollama) stream can emit many tokens per animation frame.
+ * Calling the store's set() once per token forces a re-render at token frequency.
+ * Deltas are accumulated in a ref between frames and flushed with ONE set() call
+ * (appendStreamDelta) per requestAnimationFrame tick — this changes the FREQUENCY of
+ * store writes only. It does NOT introduce any new parsing: the flushed value is still
+ * the raw, un-parsed buffer, and markdown/LaTeX parsing still happens exactly once, at
+ * stream end (I3 unchanged).
  *
  * INVARIANT I7: total_cost_usd is always logged to console (structured) and returned
  *   via lastUsage in the store for display.
@@ -38,33 +48,84 @@ export function useChatStream(): UseChatStreamReturn {
    */
   const generationRef = useRef(0);
 
-  const appendToken = useChatStore((s) => s.appendToken);
-  const appendThink = useChatStore((s) => s.appendThink);
+  const appendStreamDelta = useChatStore((s) => s.appendStreamDelta);
   const setIsStreaming = useChatStore((s) => s.setIsStreaming);
   const setStreamError = useChatStore((s) => s.setStreamError);
   const finalizeTurn = useChatStore((s) => s.finalizeTurn);
   const clearStream = useChatStore((s) => s.clearStream);
 
+  // ── FE-PERF-3: rAF-batched token/think flush ──────────────────────────────
+  // Deltas accumulate here between animation frames; a single appendStreamDelta()
+  // call flushes both buffers together at most once per frame.
+  const pendingContentRef = useRef("");
+  const pendingThinkRef = useRef("");
+  const rafIdRef = useRef<number | null>(null);
+
+  const cancelScheduledFlush = useCallback(() => {
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+  }, []);
+
+  /** Flush whatever is pending right now (synchronously) — cancels any scheduled rAF. */
+  const flushPendingSync = useCallback(() => {
+    cancelScheduledFlush();
+    const content = pendingContentRef.current;
+    const think = pendingThinkRef.current;
+    pendingContentRef.current = "";
+    pendingThinkRef.current = "";
+    if (content || think) appendStreamDelta(content, think);
+  }, [appendStreamDelta, cancelScheduledFlush]);
+
+  /** Discard whatever is pending (used on abort/error — the buffer is being thrown away). */
+  const discardPending = useCallback(() => {
+    cancelScheduledFlush();
+    pendingContentRef.current = "";
+    pendingThinkRef.current = "";
+  }, [cancelScheduledFlush]);
+
+  const scheduleFlush = useCallback(() => {
+    if (rafIdRef.current !== null) return; // already scheduled for this frame
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      const content = pendingContentRef.current;
+      const think = pendingThinkRef.current;
+      pendingContentRef.current = "";
+      pendingThinkRef.current = "";
+      if (content || think) appendStreamDelta(content, think);
+    });
+  }, [appendStreamDelta]);
+
   const abort = useCallback(() => {
     // F2/F3: delegate to store.abortStream() — it calls the registered fn (which aborts
     // the AbortController) and clears all streaming state in one atomic set().
+    // FE-PERF-3: also drop any not-yet-flushed buffer so a late rAF can't re-populate
+    // streamingContent after abortStream() already cleared it.
+    discardPending();
     useChatStore.getState().abortStream();
     abortRef.current = null;
-  }, []);
+  }, [discardPending]);
 
   // F3: abort in-flight stream on component unmount so a detached reader cannot keep
   // writing into the global store after the chat section is navigated away from.
   useEffect(() => {
     return () => {
+      discardPending();
       if (abortRef.current) {
         useChatStore.getState().abortStream();
         abortRef.current = null;
       }
     };
-  }, []);
+  }, [discardPending]);
 
   const send = useCallback(
     (req: ChatStreamRequest) => {
+      // FE-PERF-3: drop any buffered-but-not-yet-flushed deltas from a prior (now
+      // superseded) generation BEFORE abortStream() clears the store — otherwise a
+      // stale rAF flush scheduled by the previous stream could merge its leftover
+      // buffer into this new stream's content once it fires.
+      discardPending();
       // F2/F3: abort any in-flight stream via the store (clears stream state + calls the
       // registered abort fn for the old controller).
       useChatStore.getState().abortStream();
@@ -139,6 +200,10 @@ export function useChatStream(): UseChatStreamReturn {
           // F4: if superseded, the catch is a no-op — do NOT clear stream state that
           // belongs to the newer send() (avoids clearStream() clobbering stream #2).
           if (generationRef.current !== myGen) return;
+          // FE-PERF-3: discard any not-yet-flushed buffer — clearStream() below wipes
+          // the store's streamingContent/streamingThink; a late rAF flush must not
+          // re-populate them afterwards.
+          discardPending();
           if (err instanceof Error && err.name === "AbortError") {
             // User-initiated abort — clear stream, no toast
             clearStream();
@@ -156,16 +221,25 @@ export function useChatStream(): UseChatStreamReturn {
         if (generationRef.current !== myGen) return;
         switch (event.type) {
           case "token":
-            // I3: cheap string append only — no parse
-            appendToken(event.delta);
+            // FE-PERF-3: buffer locally; flushed via appendStreamDelta at most once
+            // per animation frame (I3: still a cheap string append, no parse).
+            pendingContentRef.current += event.delta;
+            scheduleFlush();
             break;
 
           case "think":
-            // I3: cheap string append only — no parse
-            appendThink(event.delta);
+            // FE-PERF-3: same rAF-batched buffer as "token" (I3: no parse).
+            pendingThinkRef.current += event.delta;
+            scheduleFlush();
             break;
 
           case "done": {
+            // FE-PERF-3: flush any buffered-but-not-yet-applied deltas synchronously
+            // BEFORE reading streamingContent/streamingThink below — otherwise the
+            // final message could be missing the tail tokens that arrived just
+            // before "done" but hadn't been flushed to the store by rAF yet.
+            flushPendingSync();
+
             // Stream end: finalize the turn. MarkdownView will parse ONCE (AC-G3-2).
             const usage = {
               inputTokens: event.input_tokens,
@@ -227,6 +301,9 @@ export function useChatStream(): UseChatStreamReturn {
               message: event.message,
               total_cost_usd: event.total_cost_usd,
             });
+            // FE-PERF-3: discard any not-yet-flushed buffer — clearStream() below wipes
+            // streamingContent/streamingThink; a late rAF flush must not undo that.
+            discardPending();
             setStreamError(event.message);
             clearStream();
             showToast(event.message, "error");
@@ -235,7 +312,15 @@ export function useChatStream(): UseChatStreamReturn {
         }
       }
     },
-    [appendToken, appendThink, setIsStreaming, setStreamError, finalizeTurn, clearStream],
+    [
+      discardPending,
+      flushPendingSync,
+      scheduleFlush,
+      setIsStreaming,
+      setStreamError,
+      finalizeTurn,
+      clearStream,
+    ],
   );
 
   return { send, abort };
