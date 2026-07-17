@@ -1,31 +1,19 @@
 """
-Ingest COMPATIBILITY FACADE + persistence primitives — the historical single seam through which
-files enter Postgres and Qdrant (ADR-0003, I6). NOT "v0.1 mechanical only": the full F17
-capability-aware ingest (analyze → generate → validate → retry, or delegated CLI loop) is live and
-lives in ``pipeline.py``; this module now plays two roles.
+Ingest persistence primitives — the low-level, incremental-index building blocks (ADR-0003, I6).
 
-1) COMPATIBILITY FACADE (in the process of being dissolved — target 2.0.0).
-   1.7.0 PR2 decomposed the ingest into cohesive siblings; this module re-exports their seams
-   (see the façade block at the end of the file) so every importer AND every monkeypatch of
-   ``app.ingest.orchestrator.<name>`` keeps resolving through this module unchanged:
-     • ``context.py``  — vault/ingest context assembly (``_load_ingest_context``, the existing-
-                         pages catalogue, the R7-6 folderContext hint).
-     • ``writer.py``   — the single shared write path (``write_wiki_page``) + slug / source-
-                         identity / entity canonical-key / ``related`` helpers.
-     • ``pipeline.py`` — ``ingest_file`` / ``delete_file``, ``run_ingest_pipeline`` (F17
-                         capability routing), the orchestrated/delegated route helpers, the
-                         source-summary guarantee, the language guard, the ingest_runs lifecycle.
-   The siblings deliberately reach every primitive/seam via ``orch.<name>`` (NOT direct imports)
-   so ``app.ingest.orchestrator`` remains the ONE monkeypatch surface. This mirror indirection is
-   currently LOAD-BEARING FOR THE TEST SUITE — 18 test modules bind ``orch`` to this module and
-   patch pipeline-internal functions (``_delegate_ingest`` /
-   ``_open_ingest_run`` / ``_finalize_ingest_run`` / …), the shared write path, the persistence
-   primitives, and the shared ``get_session`` / ``upsert_point`` seams ON THIS MODULE. Removing the
-   mirror, or moving the DB-touching primitives to a new module, silently bypasses those patches
-   (the get_session enumeration in those tests would miss the new module) and must therefore be
-   sequenced AFTER a dedicated test-decoupling pass — see docs/adr and the 1.9.2 recon notes.
+The full F17 capability-aware ingest (analyze → generate → validate → retry, or delegated CLI
+loop) lives in ``pipeline.py``; the shared write path lives in ``writer.py`` and vault/ingest
+context assembly in ``context.py``. This module owns ONLY the low-level primitives those siblings
+build on. The 2.0.0 dissolution of the historical compatibility facade removed the re-export block
+that used to mirror the siblings' seams back into this module's namespace: importers now pull
+``ingest_file`` / ``delete_file`` / ``run_ingest_pipeline`` from ``app.ingest.pipeline``,
+``write_wiki_page`` from ``app.ingest.writer``, and the context builders from ``app.ingest.context``
+directly. The siblings still reach the primitives kept HERE via ``orch.<name>`` (so those primitives
+remain a single patch surface for ``persist_metadata`` / ``upsert_vector`` / ``append_log`` /
+``bump_version`` / ``get_session`` / ``upsert_point``), but no longer route their own functions
+back through this module.
 
-2) PERSISTENCE PRIMITIVES kept here (the low-level, incremental-index building blocks — I1):
+PERSISTENCE PRIMITIVES kept here (the low-level, incremental-index building blocks — I1):
      persist_metadata          — Postgres ``pages`` upsert (INSERT or re-ingest UPDATE)
      upsert_vector             — embed via EmbeddingClient + Qdrant upsert (skip when disabled)
      append_log                — K4 append-only ``log.md`` line
@@ -34,9 +22,8 @@ lives in ``pipeline.py``; this module now plays two roles.
    plus the ``overview.md`` regeneration seam (``_update_overview`` & friends — F3) and the
    F18 domain/type auto-tag write-back (``apply_domain_tags`` / ``apply_page_type``).
 
-Public API (called by watcher.py and POST /ingest/trigger, via the façade re-exports):
-  ingest_file(file_path)  -> IngestResult   (K6, ADR-0001, ADR-0002)
-  delete_file(file_path)  -> None           (soft-delete, ADR-0005)
+The ingest public API (``ingest_file`` / ``delete_file`` — K6, ADR-0001/0002/0005) lives in
+``pipeline.py`` and is imported from there directly by watcher.py and POST /ingest/trigger.
 
 The mtime-then-hash gate (ADR-0001) lives in ``pipeline.py`` so the watcher and the REST
 endpoint share the same change-detection logic (I1 — no full rescan).
@@ -49,7 +36,6 @@ import hashlib
 import logging
 import re
 import uuid
-import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -974,6 +960,8 @@ async def _index_overview_file(file_text: str, title: str, tags: list[str] | Non
         source_mtime_ns=0,
     )
     # Embed the narrative body (frontmatter excluded) for retrieval parity with wiki pages.
+    from app.ingest.writer import _strip_leading_frontmatter  # noqa: PLC0415
+
     body_for_embedding = _strip_leading_frontmatter(file_text)
     await upsert_vector(
         page_id=page_id,
@@ -997,6 +985,8 @@ async def _index_aggregate_file(rel_path: str, page_type: str) -> None:
     graph node is additive — a failure here must not fail the run, D4 / I7 degrade-safe).
     """
     from sqlalchemy import select
+
+    from app.ingest.writer import _strip_leading_frontmatter  # noqa: PLC0415
 
     abs_path = settings.vault_root / rel_path
     if not abs_path.exists():
@@ -1096,6 +1086,8 @@ async def _index_bootstrap_file(
     Best-effort: a missing file is a no-op; caller wraps in try/except.
     """
     from sqlalchemy import select
+
+    from app.ingest.writer import _strip_leading_frontmatter  # noqa: PLC0415
 
     abs_path = vault_root / rel_path
     if not abs_path.exists():
@@ -1501,141 +1493,3 @@ def _parse_frontmatter(raw_bytes: bytes, rel_path: str) -> dict[str, object]:
                 )
 
     return meta
-
-
-# ── 1.7.0 PR2 decomposition re-exports ───────────────────────────────────────
-# ingest_file / write_wiki_page / the context builders now live in sibling modules
-# (context.py, writer.py, pipeline.py). They are re-exported here verbatim so every
-# existing importer of ``app.ingest.orchestrator.<name>`` AND every monkeypatch target
-# keeps resolving through this module unchanged (1.7.0 PR2 — pure extraction). __all__
-# names the extracted seams so the re-exports read as an intentional façade, not dead
-# imports; the module's own kept helpers stay importable by attribute as before.
-from app.ingest.context import (  # noqa: E402
-    _CATALOGUE_EXCLUDED_TYPES,
-    _CATALOGUE_MAX_CHARS,
-    _CATALOGUE_MAX_TITLES,
-    _FOLDER_CONTEXT_MAX_CHARS,
-    _FOLDER_CONTEXT_MAX_SEGMENTS,
-    _FOLDER_CONTEXT_ROOTS,
-    _folder_context,
-    _folder_context_block,
-    _load_existing_pages_catalogue,
-    _load_ingest_context,
-    _load_vault_context,
-)
-from app.ingest.pipeline import (  # noqa: E402
-    _LANGUAGE_GUARD_EXEMPT_TYPES,
-    IngestError,
-    IngestResult,
-    IngestRunResult,
-    _delegate_ingest,
-    _derive_run_status,
-    _drop_wrong_language_pages,
-    _enrich_wikilinks_for_delegated,
-    _ensure_source_summary,
-    _ensure_source_summary_for_delegated,
-    _finalize_ingest_run,
-    _is_raw_sources_page,
-    _open_ingest_run,
-    _page_type_counts,
-    _page_type_counts_for_ids,
-    _propose_reviews_for_delegated,
-    _purpose_suggestion_for_delegated,
-    _resolve_fallback_provider_config,
-    _resolve_ingest_provider_config,
-    _schema_suggestion_for_delegated,
-    _seed_accumulator,
-    _write_ingest_run,
-    delete_file,
-    ingest_file,
-    run_ingest_pipeline,
-)
-from app.ingest.writer import (  # noqa: E402
-    _ACRONYM_FOLD,
-    _CANON_PARENS_RE,
-    _CANON_PUNCT_RE,
-    _LEGAL_SUFFIX_TOKENS,
-    _RAW_SOURCES_MARKER,
-    _RAW_SOURCES_PREFIX,
-    _find_canonical_entity_page,
-    _is_owned_only_by_source,
-    _resolve_canonical_entity_key,
-    _resolve_related_slugs,
-    _source_identity,
-    _source_identity_stem,
-    _strip_leading_frontmatter,
-    write_wiki_page,
-)
-
-__all__ = [
-    "IngestError",
-    "IngestResult",
-    "IngestRunResult",
-    "_ACRONYM_FOLD",
-    "_CANON_PARENS_RE",
-    "_CANON_PUNCT_RE",
-    "_CATALOGUE_EXCLUDED_TYPES",
-    "_CATALOGUE_MAX_CHARS",
-    "_CATALOGUE_MAX_TITLES",
-    "_FOLDER_CONTEXT_MAX_CHARS",
-    "_FOLDER_CONTEXT_MAX_SEGMENTS",
-    "_FOLDER_CONTEXT_ROOTS",
-    "_LANGUAGE_GUARD_EXEMPT_TYPES",
-    "_LEGAL_SUFFIX_TOKENS",
-    "_RAW_SOURCES_MARKER",
-    "_RAW_SOURCES_PREFIX",
-    "_delegate_ingest",
-    "_derive_run_status",
-    "_drop_wrong_language_pages",
-    "_enrich_wikilinks_for_delegated",
-    "_ensure_source_summary",
-    "_ensure_source_summary_for_delegated",
-    "_finalize_ingest_run",
-    "_find_canonical_entity_page",
-    "_folder_context",
-    "_folder_context_block",
-    "_is_owned_only_by_source",
-    "_is_raw_sources_page",
-    "_load_existing_pages_catalogue",
-    "_load_ingest_context",
-    "_load_vault_context",
-    "_open_ingest_run",
-    "_page_type_counts",
-    "_page_type_counts_for_ids",
-    "_propose_reviews_for_delegated",
-    "_purpose_suggestion_for_delegated",
-    "_resolve_canonical_entity_key",
-    "_resolve_fallback_provider_config",
-    "_resolve_ingest_provider_config",
-    "_resolve_related_slugs",
-    "_schema_suggestion_for_delegated",
-    "_seed_accumulator",
-    "_source_identity",
-    "_source_identity_stem",
-    "_strip_leading_frontmatter",
-    "_write_ingest_run",
-    "delete_file",
-    "ingest_file",
-    "run_ingest_pipeline",
-    "write_wiki_page",
-]
-
-# W7 / 1.9.4 — compatibility-facade deprecation notice.
-# This module remains the single monkeypatch surface for 18+ test modules (see
-# module docstring §1) and is KEPT until 2.0.0 when the test-decoupling pass is
-# complete. Until then, this DeprecationWarning signals to callers that they
-# should migrate to the cohesive siblings:
-#   • app.ingest.pipeline   — ingest_file / delete_file / run_ingest_pipeline
-#   • app.ingest.writer     — write_wiki_page
-#   • app.ingest.context    — _load_ingest_context / vault context helpers
-# Production code within the backend already imports from the siblings directly
-# (mcp/server.py, routers/, etc.). External integrators importing this module will
-# see the warning unless they suppress DeprecationWarning (the default in CPython
-# for non-__main__ code; pytest surfaces it as a test warning, not a failure).
-warnings.warn(
-    "app.ingest.orchestrator is a compatibility facade scheduled for removal in "
-    "Synapse 2.0.0 (W7). Import directly from app.ingest.pipeline, "
-    "app.ingest.writer, or app.ingest.context instead.",
-    DeprecationWarning,
-    stacklevel=2,
-)

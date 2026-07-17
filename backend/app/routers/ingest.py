@@ -32,7 +32,7 @@ from sqlalchemy import func, select
 from app import runtime_state
 from app.config import settings
 from app.config_overrides import effective_float, effective_str
-from app.ingest.orchestrator import IngestResult, ingest_file
+from app.ingest.pipeline import IngestResult, ingest_file
 from app.models import IngestRun
 from app.rate_limit import rate_limit
 from app.upload import _SEP_RE, resolve_under_sources, safe_source_name

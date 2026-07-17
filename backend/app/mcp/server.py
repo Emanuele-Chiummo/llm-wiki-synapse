@@ -358,7 +358,7 @@ async def _write_page_body(
 
     # ── Write via the shared seam (ADR-0010 §2) ───────────────────────────────
     try:
-        from app.ingest.orchestrator import write_wiki_page
+        from app.ingest.writer import write_wiki_page
 
         page_row = await write_wiki_page(None, wiki_page, origin_source)
     except Exception as exc:  # noqa: BLE001

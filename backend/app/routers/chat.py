@@ -731,8 +731,8 @@ async def save_chat_to_wiki(body: SaveToWikiRequest) -> SaveToWikiResponse:
            the ingest provider (fire-and-forget, degrade-safe — no provider → skip).
       I7 — no orchestrated loop; enrichment is a single bounded call with its own caps + cost log.
     """
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     # Clean transport artifacts from content before writing to the wiki (G-P0-1)
     cleaned_content = _clean_chat_content(body.content)

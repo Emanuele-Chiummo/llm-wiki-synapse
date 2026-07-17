@@ -197,7 +197,7 @@ class _MarkdownHandler(FileSystemEventHandler):
     async def _on_ingest(self, src_path: str) -> None:
         """Delegate to the seam — no direct DB/Qdrant code here (ADR-0003)."""
         # Import here to avoid circular imports at module load time
-        from app.ingest.orchestrator import ingest_file
+        from app.ingest.pipeline import ingest_file
 
         try:
             result = await ingest_file(src_path)
@@ -215,7 +215,7 @@ class _MarkdownHandler(FileSystemEventHandler):
 
     async def _on_delete(self, src_path: str) -> None:
         """Delegate to the seam — no direct DB/Qdrant code here (ADR-0003)."""
-        from app.ingest.orchestrator import delete_file
+        from app.ingest.pipeline import delete_file
 
         try:
             await delete_file(src_path)

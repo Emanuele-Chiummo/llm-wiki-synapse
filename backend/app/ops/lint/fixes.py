@@ -383,7 +383,7 @@ async def _apply_missing_page(finding: LintFinding) -> str:
     """
     from fastapi import HTTPException
 
-    from app.ingest.orchestrator import write_wiki_page
+    from app.ingest.writer import write_wiki_page
     from app.ops.review import _run_generation
     from app.provider_config_service import ConfigNotFoundError, resolve_provider_config
 
@@ -631,8 +631,8 @@ async def _create_broken_link_stub(finding: LintFinding) -> str:
         or "Missing Page"
     )
 
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     stub_type = _infer_stub_page_type(stub_title)
 
@@ -972,8 +972,8 @@ async def _apply_contradiction(finding: LintFinding) -> str:
     """
     from fastapi import HTTPException
 
-    from app.ingest.orchestrator import write_wiki_page
     from app.ingest.schemas import PageType, WikiFrontmatter, WikiPage
+    from app.ingest.writer import write_wiki_page
 
     pages = await _resolve_contradiction_pages(finding)
     copy = await _phrase_contradiction_query(finding, pages)

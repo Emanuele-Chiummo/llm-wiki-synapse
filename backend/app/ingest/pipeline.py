@@ -20,7 +20,9 @@ from typing import Any, Literal
 import frontmatter
 import httpx
 
+import app.ingest.context as context
 import app.ingest.orchestrator as orch
+import app.ingest.writer as writer
 from app import runtime_state
 from app.config import settings
 from app.ingest.provider.base import InferenceProvider, ProviderTransientError, UsageAccumulator
@@ -114,7 +116,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     # (ADR-0003). When no provider_config row resolves, fall through to the v0.1
     # mechanical path (source-only indexing) — never silently pick a backend (I6).
     # ─────────────────────────────────────────────────────────────────────────
-    provider_cfg = await orch._resolve_ingest_provider_config()
+    provider_cfg = await _resolve_ingest_provider_config()
     if provider_cfg is not None:
         source_text = raw_bytes.decode("utf-8", errors="replace")
         # ── R8-2 / F12: vision captioning for image files ────────────────────────
@@ -173,7 +175,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
         # abs_source is the canonical queue key (ADR-0046 path-normalization fix).
         # path.resolve() is the absolute path; rel stays relative for DB storage (I1/I5).
         abs_source = str(path.resolve())
-        await orch.run_ingest_pipeline(
+        await run_ingest_pipeline(
             provider_config_row=provider_cfg,
             source_text=source_text,
             origin_source=rel,
@@ -460,7 +462,7 @@ async def run_ingest_pipeline(
     _queue_key: str = abs_source if abs_source is not None else str(Path(origin_source).resolve())
 
     # ── ADR-0046: open a "running" row + register with the queue manager ──────
-    run_id = await orch._open_ingest_run(
+    run_id = await _open_ingest_run(
         origin_source=origin_source,
         provider_name=caps.name,
         provider_type=caps.mode,
@@ -496,11 +498,11 @@ async def run_ingest_pipeline(
         # Threaded into BOTH the delegated (CLI) and orchestrated (API/Local) paths so the LLM
         # links to existing pages on every backend → one connected graph instead of isolated
         # islands (I6 — guidance is in the context STRING, never in provider code).
-        ingest_context = await orch._load_ingest_context()
+        ingest_context = await context._load_ingest_context()
         # R7-6: prepend the folderContext hint (subfolder topical context) so it reaches BOTH the
         # orchestrated analyze() vault_context and the delegated/CLI system_prompt (I6 — the hint
         # is in the STRING, not provider code). "" when the source has no subfolder path.
-        _folder_block = orch._folder_context_block(origin_source)
+        _folder_block = context._folder_context_block(origin_source)
         if _folder_block:
             ingest_context = (
                 f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
@@ -557,7 +559,7 @@ async def run_ingest_pipeline(
                     _cd_exc,
                 )
         # Finalize the run as cancelled (I7: cost incurred before abort still recorded)
-        await orch._finalize_ingest_run(
+        await _finalize_ingest_run(
             run_id=run_id,
             provider_name=caps.name,
             provider_type=caps.mode,
@@ -589,7 +591,7 @@ async def run_ingest_pipeline(
         # Persist a failed-run UPDATE (I7 ledger stays truthful: cost incurred before the failure is
         # still recorded) then re-raise so the caller's error handling is unchanged.
         finished_at = datetime.now(UTC)
-        await orch._finalize_ingest_run(
+        await _finalize_ingest_run(
             run_id=run_id,
             provider_name=caps.name,
             provider_type=caps.mode,
@@ -634,7 +636,7 @@ async def run_ingest_pipeline(
     total_cost_usd = round(accumulator.total_cost_usd, 4)
     cost_anomaly = total_cost_usd > orch.COST_ANOMALY_THRESHOLD_USD
 
-    await orch._finalize_ingest_run(
+    await _finalize_ingest_run(
         run_id=run_id,
         provider_name=caps.name,
         provider_type=caps.mode,
@@ -791,7 +793,7 @@ async def _run_orchestrated_blocks(
 
     # Source filename hint for the generation prompt (llm_wiki sourceFileName): the source
     # identity (raw/sources/ stripped) falls back to the bare basename.
-    source_filename = orch._source_identity(origin_source) or Path(origin_source).name
+    source_filename = writer._source_identity(origin_source) or Path(origin_source).name
 
     result = await block_loop.run_block_loop(
         provider=provider,
@@ -851,7 +853,7 @@ async def _run_orchestrated_blocks(
             async with orch.get_session() as _maps_sess:
                 _link_maps = await _build_link_maps(_maps_sess, settings.vault_id)
         for fallback_page in _ensure_source_summary([], None, origin_source):
-            written = await orch.write_wiki_page(
+            written = await writer.write_wiki_page(
                 None,
                 fallback_page,
                 origin_source,
@@ -958,7 +960,7 @@ async def _delegate_ingest(
     # lives in the context string, not in provider code). Falls back to purpose+schema only
     # when the caller omits it (keeps direct callers working without a DB round-trip).
     if system_prompt is None:
-        system_prompt = orch._load_vault_context()
+        system_prompt = context._load_vault_context()
     # ── MCP wiring seam (ADR-0010 §2) ──────────────────────────────────────────
     # Import lazily to avoid a circular import; app.mcp.server imports from orchestrator.
     # The CLI delegated path needs an IN-PROCESS SDK MCP server (McpSdkServerConfig dict), NOT
@@ -1115,10 +1117,10 @@ async def _ensure_source_summary_for_delegated(
         suggested_pages=[SuggestedPage(title="(delegated ingest)", type=PageType.SOURCE)],
         summary=None,
     )
-    fallback_pages = orch._ensure_source_summary([], synthesized, origin_source)
+    fallback_pages = _ensure_source_summary([], synthesized, origin_source)
     if not fallback_pages:
         return None
-    written = await orch.write_wiki_page(None, fallback_pages[0], origin_source)
+    written = await writer.write_wiki_page(None, fallback_pages[0], origin_source)
     logger.info(
         "delegated source-summary: agent omitted the source page — wrote fallback %r for %s "
         "(nashsu/llm_wiki hasSourceSummary parity)",
@@ -1348,7 +1350,7 @@ def _ensure_source_summary(
             return pages
 
     lang = analysis.language if analysis is not None else "en"
-    identity = orch._source_identity(origin_source) or Path(origin_source).stem
+    identity = writer._source_identity(origin_source) or Path(origin_source).stem
     title = f"Source: {identity}"
     analysis_text = (analysis.summary if analysis and analysis.summary else None) or (
         "(Analysis not available)"
