@@ -181,6 +181,15 @@ export interface ChatActions {
 
   /** Clear streaming state without persisting a message (on abort / error). */
   clearStream: () => void;
+
+  /**
+   * FE-UIUX-3: switch away from the active vault. Aborts any in-flight stream
+   * (never let a stream started against vault A write into vault B's message
+   * list) and clears every conversation/message/streaming field back to the
+   * initial state, so ConversationList/ChatSection re-fetch cleanly for the
+   * new vault with no stale conversation ids or messages visible.
+   */
+  resetForVault: () => void;
 }
 
 export type ChatStore = ChatState & ChatActions;
@@ -300,6 +309,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     });
     fn?.(); // Actually abort the fetch (may throw AbortError in the stream reader)
   },
+
+  // FE-UIUX-3
+  resetForVault: () => {
+    // Abort any in-flight stream first — it must never write into the new vault's state.
+    const fn = get().streamAbortFn;
+    fn?.();
+    set({ ...INITIAL });
+  },
 }));
 
 // ─── Typed selectors (I3) — import these in components, never the raw store ───
@@ -372,6 +389,10 @@ export const selectClearConversationsNeedRefresh = (
 export const selectAbortStream = (s: ChatStore): ChatActions["abortStream"] => s.abortStream;
 export const selectSetStreamAbortFn = (s: ChatStore): ChatActions["setStreamAbortFn"] =>
   s.setStreamAbortFn;
+
+// FE-UIUX-3
+export const selectResetForVault = (s: ChatStore): ChatActions["resetForVault"] =>
+  s.resetForVault;
 
 // ─── Shallow-equality hooks (I3) ─────────────────────────────────────────────
 

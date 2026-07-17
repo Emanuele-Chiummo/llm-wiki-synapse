@@ -121,6 +121,9 @@ interface ResearchActions {
   setResearchPrefill: (prefill: ResearchPrefill) => void;
   /** Clear the prefill slice (called when dialog opens, cancels, or confirms). */
   clearResearchPrefill: () => void;
+
+  /** FE-UIUX-3: clear all vault-scoped deep-research state on vault switch. */
+  resetForVault: () => void;
 }
 
 export type ResearchStore = ResearchState & ResearchActions;
@@ -280,6 +283,24 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
   // ── prefill (B5/D3) ───────────────────────────────────────────────────────
   setResearchPrefill: (prefill) => set({ prefill }),
   clearResearchPrefill: () => set({ prefill: null }),
+
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      runs: [],
+      total: 0,
+      offset: 0,
+      listLoading: false,
+      listError: null,
+      selectedRunId: null,
+      detail: null,
+      detailLoading: false,
+      detailError: null,
+      runningCount: 0,
+      starting: false,
+      startError: null,
+      prefill: null,
+    }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -355,6 +376,11 @@ export function selectClearResearchPrefill(
   s: ResearchStore,
 ): ResearchActions["clearResearchPrefill"] {
   return s.clearResearchPrefill;
+}
+export function selectResearchResetForVault(
+  s: ResearchStore,
+): ResearchActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 /** Hook: runs array — shallow equality (I3). */

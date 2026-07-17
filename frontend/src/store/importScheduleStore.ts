@@ -49,6 +49,8 @@ interface ImportScheduleActions {
   startPollingIfRunning: () => () => void;
   /** Clear transient errors/warnings. */
   clearErrors: () => void;
+  /** FE-UIUX-3: clear the schedule state when the active vault changes. */
+  resetForVault: () => void;
 }
 
 export type ImportScheduleStore = ImportScheduleState & ImportScheduleActions;
@@ -120,6 +122,19 @@ export const useImportScheduleStore = create<ImportScheduleStore>((set, get) => 
   },
 
   clearErrors: () => set({ error: null, saveError: null }),
+
+  // FE-UIUX-3
+  resetForVault: () =>
+    set({
+      schedule: null,
+      loading: false,
+      saving: false,
+      running: false,
+      error: null,
+      saveError: null,
+      dirOk: null,
+      dirMessage: null,
+    }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -138,6 +153,7 @@ export function selectFetchSchedule(s: ImportScheduleStore): ImportScheduleActio
 export function selectSaveSchedule(s: ImportScheduleStore): ImportScheduleActions["saveSchedule"] { return s.saveSchedule; }
 export function selectRunNow(s: ImportScheduleStore): ImportScheduleActions["runNow"] { return s.runNow; }
 export function selectStartPollingIfRunning(s: ImportScheduleStore): ImportScheduleActions["startPollingIfRunning"] { return s.startPollingIfRunning; }
+export function selectImportResetForVault(s: ImportScheduleStore): ImportScheduleActions["resetForVault"] { return s.resetForVault; }
 
 /** Hook: schedule object — shallow equality (I3). */
 export function useImportSchedule(): ImportSchedule | null {

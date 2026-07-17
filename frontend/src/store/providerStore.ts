@@ -54,6 +54,13 @@ interface ProviderActions {
   fetchVendorCatalog: (signal?: AbortSignal) => Promise<void>;
   /** v1.4: partial-update an existing config row, then re-derive active. */
   updateProvider: (id: string, body: UpdateProviderConfigBody, vaultId: string) => Promise<void>;
+  /**
+   * FE-UIUX-3: clear the derived active-provider item (and any transient error)
+   * on vault switch. `list` is the global provider_config table (not vault-
+   * filtered) and is kept — ProviderSelector's vaultId-effect re-derives
+   * `activeItem` for the new vault immediately after.
+   */
+  resetForVault: () => void;
 }
 
 export type ProviderStore = ProviderState & ProviderActions;
@@ -189,6 +196,9 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       throw err;
     }
   },
+
+  // FE-UIUX-3
+  resetForVault: () => set({ activeItem: null, error: null }),
 }));
 
 // ─── Typed selectors (I3) ─────────────────────────────────────────────────────
@@ -257,6 +267,10 @@ export function selectFetchVendorCatalog(s: ProviderStore): ProviderActions["fet
 
 export function selectUpdateProvider(s: ProviderStore): ProviderActions["updateProvider"] {
   return s.updateProvider;
+}
+
+export function selectProviderResetForVault(s: ProviderStore): ProviderActions["resetForVault"] {
+  return s.resetForVault;
 }
 
 // ─── Shallow hooks (I3) ───────────────────────────────────────────────────────

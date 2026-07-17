@@ -3,8 +3,16 @@
  *
  * Mirrors LLM Wiki's ⇄ Project Launcher: title + New Project / Open Project + Recent Projects.
  * Each project is a vault folder. Activating one switches the running service's active vault
- * (POST /projects/{id}/activate); on success we hard-reload so every store re-reads the new
- * vault (the active_vault_epoch changed server-side).
+ * (POST /projects/{id}/activate).
+ *
+ * FE-UIUX-3 (v1.9.3): switching used to hard-reload the page (window.location.reload()) so
+ * every store would re-read the new vault. That lost all UI state and was slow. Instead we
+ * now do a SOFT switch: reset every vault-scoped Zustand store (clearing the previous vault's
+ * data so nothing leaks across the boundary — the frontend equivalent of the backend's 1.9.1
+ * cross-vault leak fix), then adopt the new vaultId in appStore last. Every section's own
+ * vaultId-effect (SectionRouter only ever mounts ONE section at a time) re-fetches its data
+ * for the new vault the moment it next mounts; ActivityBar/reviewPending get an immediate
+ * one-shot refresh via refreshStatusNow() instead of waiting for the next poll tick.
  *
  * Folder paths are SERVER-SIDE (Synapse is self-hosted) → text inputs, not a browser file picker.
  */
@@ -20,6 +28,7 @@ import {
 } from "../../api/projectsClient";
 import { ErrorState } from "../common/ErrorState";
 import { NewProjectWizard } from "./NewProjectWizard";
+import { resetAllVaultStores } from "../../store/vaultSwitch";
 
 const WRAP: CSSProperties = {
   height: "100%",
@@ -113,18 +122,25 @@ export function ProjectLauncher() {
     };
   }, [refresh]);
 
-  const handleActivate = useCallback(async (id: string) => {
-    setBusyId(id);
-    setError(null);
-    try {
-      await activateProject(id);
-      // The active vault changed server-side — reload so every store re-reads it.
-      window.location.reload();
-    } catch (err) {
-      setBusyId(null);
-      setError(err);
-    }
-  }, []);
+  const handleActivate = useCallback(
+    async (id: string) => {
+      setBusyId(id);
+      setError(null);
+      try {
+        const res = await activateProject(id);
+        // FE-UIUX-3: soft switch — reset every vault-scoped store, then adopt the
+        // new vaultId. No window.location.reload(); no lost UI state.
+        resetAllVaultStores(res.project.id);
+        // Refresh the launcher's own list so the "active" checkmark moves immediately.
+        await refresh();
+      } catch (err) {
+        setError(err);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh],
+  );
 
   const handleOpen = useCallback(async () => {
     if (!openPath.trim()) return;

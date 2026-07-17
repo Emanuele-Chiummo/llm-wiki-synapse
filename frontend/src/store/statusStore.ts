@@ -108,6 +108,13 @@ interface StatusActions {
    * canonical single caller; ActivityBar is a pure subscriber of the store.
    */
   startPolling: () => () => void;
+  /**
+   * FE-UIUX-3: clear the per-vault fields (dataVersion, reviewPending) when the
+   * active vault changes, so stale-version-looking-fresh false negatives don't
+   * suppress a re-fetch in HomeDashboard/GraphViewer's data_version-watch effects.
+   * connectionState/backendVersion are backend-wide, not vault-specific, and are kept.
+   */
+  resetForVault: () => void;
 }
 
 export type StatusStore = StatusState & StatusActions;
@@ -160,6 +167,9 @@ export const useStatusStore = create<StatusStore>((set) => ({
     }
     return sharedStatusPollChain.subscribe();
   },
+
+  // FE-UIUX-3
+  resetForVault: () => set({ dataVersion: null, reviewPending: undefined }),
 }));
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
@@ -216,6 +226,10 @@ export function selectStartStatusPolling(s: StatusStore): StatusActions["startPo
   return s.startPolling;
 }
 
+export function selectStatusResetForVault(s: StatusStore): StatusActions["resetForVault"] {
+  return s.resetForVault;
+}
+
 /**
  * refreshDataVersion — fire-and-forget helper (RT-2).
  *
@@ -231,6 +245,30 @@ export function refreshDataVersion(): void {
   void fetchStatus()
     .then((res) => {
       useStatusStore.getState().setDataVersion(res.data_version);
+    })
+    .catch(() => {
+      // fire-and-forget: transient network errors are acceptable
+    });
+}
+
+/**
+ * refreshStatusNow — fire-and-forget full /status refresh (FE-UIUX-3).
+ *
+ * Called right after a vault switch so the reviewPending badge, dataVersion,
+ * and supportsVision gate reflect the NEW vault immediately instead of waiting
+ * for the next ActivityBar poll tick (up to STATUS_POLL_MS). Does not touch
+ * connectionState/backendVersion semantics beyond what the shared poll already
+ * does, and does not introduce a new polling interval (I7) — a single one-shot
+ * GET /status. Never awaited by the caller; errors are silently swallowed.
+ */
+export function refreshStatusNow(): void {
+  void fetchStatus()
+    .then((res) => {
+      useStatusStore.getState().setBackendVersion(res.version);
+      useStatusStore.getState().setReviewPending(res.review_pending);
+      useStatusStore.getState().setSupportsVision(res.supports_vision ?? false);
+      useStatusStore.getState().setDataVersion(res.data_version ?? null);
+      useStatusStore.getState().setUptimeSeconds(res.uptime_seconds);
     })
     .catch(() => {
       // fire-and-forget: transient network errors are acceptable
