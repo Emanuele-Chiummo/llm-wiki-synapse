@@ -9974,7 +9974,7 @@ added in migrations 0004 and 0005:</p>
 <p>Additionally, the header comment read <code>&lt;!-- Generated: v0.3 sprint 3 | 2026-06-28 --&gt;</code>,
 not reflecting the M4-GUX transition.</p>
 <h3 id="fix-applied">Fix applied<a class="headerlink" href="#fix-applied" title="Permanent link">&para;</a></h3>
-<p>Ran <code>/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_er.py</code>
+<p>Ran <code>[project-root]/.venv/bin/python backend/scripts/generate_er.py</code>
 which introspects live SQLAlchemy models (<code>backend/app/models.py</code>) and regenerates
 <code>docs/er/schema.mmd</code> from the authoritative source. Output confirmed by generator sanity check:
 "all 6 tables present (PAGES, VAULT_STATE, PROVIDER_CONFIG, INGEST_RUNS, LINKS, EDGES)".</p>
@@ -10068,7 +10068,7 @@ M4-GUX additions:</p>
 </tbody>
 </table>
 <h3 id="fix-applied_1">Fix applied<a class="headerlink" href="#fix-applied_1" title="Permanent link">&para;</a></h3>
-<p>Ran <code>/Users/emanuelechiummo/Desktop/LLM Wiki Project/.venv/bin/python backend/scripts/generate_openapi.py</code>
+<p>Ran <code>[project-root]/.venv/bin/python backend/scripts/generate_openapi.py</code>
 which imports <code>backend/app/main.py</code> (FastAPI app) and regenerates <code>docs/api/openapi.json</code>.
 Output confirmed by generator sanity check:
 "all 5 required endpoints present (including GET /graph)".</p>

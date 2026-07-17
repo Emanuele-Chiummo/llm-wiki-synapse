@@ -1123,10 +1123,10 @@ and does not affect any Phase 1 assertion.</p>
 <hr />
 <h2 id="9-new-tests-added-by-qa">9. New Tests Added by QA<a class="headerlink" href="#9-new-tests-added-by-qa" title="Permanent link">&para;</a></h2>
 <p>Two sets of tests were written and committed during this gate:</p>
-<p><strong><code>/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project/backend/tests/test_chat_endpoint.py</code></strong> (new file, 6 tests)
+<p><strong><code>backend/tests/test_chat_endpoint.py</code></strong> (new file, 6 tests)
 - <code>test_ac_f5_8_all_providers_receive_retrieval_context[local/api/cli]</code> — AC-F5-8
 - <code>test_ac_f5_8_done_event_carries_citations_for_all_providers[local/api/cli]</code> — AC-F5-8 + ADR-0022 §2.4</p>
-<p><strong><code>/Users/emanuelechiummo/Documents/00_Personal/00_Claude/LLM Wiki Project/backend/tests/test_code_quality.py</code></strong> (4 tests added to <code>TestRetrievalNoNewEmbeddingService</code> class)
+<p><strong><code>backend/tests/test_code_quality.py</code></strong> (4 tests added to <code>TestRetrievalNoNewEmbeddingService</code> class)
 - <code>test_retrieval_does_not_import_sentence_transformers</code> — AC-F5-3
 - <code>test_retrieval_does_not_create_new_qdrant_collection</code> — AC-F5-3
 - <code>test_retrieval_uses_existing_embedding_wrapper</code> — AC-F5-3
