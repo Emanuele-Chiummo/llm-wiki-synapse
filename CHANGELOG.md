@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.9.2] — 2026-07-17 — "real boundaries"
+
+Third release of the v2.0 train. Theme: finishing the module decomposition the 1.7.0 sprint
+started, behind compatibility facades — pure refactors, zero observable behavior change. Seven
+workstreams, zero migrations (deliberately: this release moves code, not schema).
+
+### Changed
+- **`app/runtime_state.py` extracted from `main.py`.** MCP source classification, PBKDF2 token
+  helpers, the four DB-backed config caches (remote-MCP flag, MCP auth, clip config, web-search
+  config), and the bearer-auth middleware now live in one module with typed accessors — no more
+  `_m.X: Any`. The 13 duplicated `_LazyMain` proxy classes across routers are gone. Temporary
+  `app.main.*` aliases remain for this release (dropped in 2.0.0) so existing test patches keep
+  working.
+- **`routers/config.py` (2,800 lines) split into a package** by domain: provider config,
+  provider-vendor probes, embedding, MCP, import-schedule, clip, web-search, CLI-auth, app-config —
+  plus `app/schemas/config.py` for the shared DTOs. OpenAPI is byte-identical before/after (verified
+  in review, not just claimed).
+- **`ops/review.py` (3,960 lines) split into a package**: `queue.py` (CRUD/status),
+  `propose.py` (LLM propose+sweep), `create.py` (the generation/stub-create engine),
+  `suggestions.py` (purpose/schema-suggestion apply), `prompts.py`. A subtlety found in review: many
+  tests patch private seams via the string path `app.ops.review.X`, called internally by sibling
+  functions now in different submodules — a static cross-module import would have silently made
+  those patches inert. Fixed with deferred (call-time) imports at the specific internal call sites,
+  and by routing all DB-session access through `from app import db as _db` so
+  `patch("app.db.get_session", ...)` keeps working regardless of which submodule calls it.
+- **`ops/lint.py` (2,666 lines) split into a package**: `detectors.py` (the 3 deterministic
+  structural checks — no LLM, I1), `fixes.py` (human-gated deterministic appliers, now dispatched
+  via a category→handler registry instead of an if/elif chain), `semantic.py` (the LLM-backed
+  opt-in pass, reusing 1.9.0's shared `app.ops._llm` plumbing), `persistence.py`.
+- **Domain exception taxonomy** (`app/errors.py`): a `SynapseError` hierarchy (NotFound, Conflict,
+  Validation, Upstream, and 9 others) with one global FastAPI handler that translates any of them to
+  the *exact* `HTTPException` response already produced today — same status code, same `{"detail":
+  ...}` shape, same headers (verified with 15 parametrized tests comparing against a plain-
+  `HTTPException` control route). The standardized error envelope itself is deferred to 2.0.0; this
+  release only lands the infrastructure plus a representative migration slice
+  (`create_page_from_review` and its stub-create path).
+- **Frontend**: a shared `createPollChain`/`usePollChain` abstraction (single setTimeout chain,
+  `AbortController`, refcounted subscribe) replacing 9 independent hand-rolled poll
+  implementations across 4 stores and 5 components/hooks; the `/status` poll moved from
+  `ActivityBar` (a presentation component) into `statusStore`, so it no longer stops if the bar
+  unmounts; `api/errors.ts` extracted from `graphClient.ts` (was used by 12 clients via an odd
+  import); `api/types.ts` (~1,100 lines) split into one file per domain behind a re-export barrel;
+  a new `appStore` (navigation/vault/selection) split out of `graphStore` (now graph-data-only);
+  `ReviewQueueView.tsx` (2,149 → 868 lines) had its inline subcomponents extracted (move-only,
+  zero test churn). `GraphViewer.tsx` and `HomeDashboard.tsx` monolith extraction is scoped but
+  not done — deferred to keep this release's diff reviewable.
+- **Import-linter layering enforcement** (`.importlinter` config in `pyproject.toml`, wired into
+  CI as a blocking lint step): four contracts encode the layer boundaries the decomposition above
+  just created — models → persistence → services → routers/mcp → main, each forbidding the reverse
+  direction. Baseline came back clean after fixing 4 lazy `app.main` imports to use the new
+  `runtime_state.graph_cache()` accessor; the one remaining genuine inversion
+  (`ingest.pipeline` → `mcp.server`, needed for the CLI-delegated ingest route per ADR-0010 §2) is
+  documented and allow-listed rather than forced under time pressure.
+
+### Known follow-ups (not in this release)
+- **BE-ARCH-1 (orchestrator facade dissolution) remains parked** (see 1.9.1's known-follow-ups).
+  Only a stale-docstring fix landed; the actual extraction needs a dedicated test-decoupling pass
+  first — the test suite's coupling to `app.ingest.orchestrator` as its universal monkeypatch
+  surface is deeper than a prior estimate found.
+- `GraphViewer.tsx` (3,624 lines) and `HomeDashboard.tsx` (3,107 lines) monolith extraction is
+  scoped (the same move-only approach used on `ReviewQueueView.tsx`) but not executed this release.
+- `app.projects` retains 2 lazy `app.main` imports outside the five layers the import-linter
+  contracts currently cover — not a violation of any defined contract, just unaddressed scope.
+
 ## [1.9.1] — 2026-07-17 — "fast paths"
 
 Second release of the v2.0 train. Theme: backend query/index performance, ingest-tail write
