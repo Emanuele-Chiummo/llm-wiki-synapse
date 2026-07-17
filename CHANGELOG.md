@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [1.9.3] — 2026-07-17 — "live wire"
+
+Fourth release of the v2.0 train, and the flagship of the refactor half: a real-time push
+channel replacing blind polling, the graph viewer's WebGL instance no longer resets itself
+mid-ingest, one unified UI kit, and two long-standing UX papercuts (full-page reload on vault
+switch, a command palette that could only navigate) closed out. Five workstreams, zero
+migrations.
+
+### Added
+- **`GET /events` SSE push channel** (flagship, FE-RT-2): a change-driven generator streams
+  `data_version` and ingest-queue counts to the browser instead of the client polling for them.
+  Heartbeat every 15s, hard 30-minute stream cap (I7-bounded), clean shutdown on client
+  disconnect. The frontend `eventsStore` uses a manual `fetch()` + `ReadableStream` reader rather
+  than native `EventSource` (which can't carry the Bearer/CF-Access auth headers), with
+  exponential-backoff reconnect and `Last-Event-ID` resume. This is purely additive: every
+  existing REST poller (`statusStore`, `activityStore`, and 6 others) keeps running at its normal
+  cadence forever — when the stream is healthy, `statusStore`/`activityStore` merely relax to
+  their idle interval instead of the active one. A single failed connection attempt changes
+  nothing; only after 3 consecutive failures does the cadence un-relax. Two pollers
+  (`data_version`, ingest-queue counts) are wired to the stream this release; the remaining six
+  (import-schedule, deep-research, Sources ingest-all, Convert, HomeDashboard synthesize-status,
+  the ingest run-list) are left on their existing cadence, unaffected and un-migrated.
+- **Command palette v2**: executable actions (new chat, import content, run lint scan, switch
+  project, switch theme, regenerate overview) alongside the existing page/section navigation —
+  each delegates to the same store/API call its own dedicated UI control already uses.
+
+### Changed
+- **`GraphViewer.tsx` (3,627 lines) had its 7 already-formed subcomponents extracted** (move-only,
+  FE-ARCH-1) into `components/graph/`: header, legend, centroid overlay, status bar, community
+  panel, node tooltip, edge-breakdown tooltip, plus a shared module for palette/halo-drawing
+  helpers.
+- **The sigma WebGL instance is no longer killed and rebuilt on every background data refresh**
+  (FE-RT-1). During a long ingest, the periodic `/graph` refetch used to tear down and recreate
+  the entire renderer — resetting the camera and losing hover/drag state every ~10s. It now diffs
+  the incoming payload into the already-mounted graphology graph in place (`sigma.refresh()`, no
+  `kill()`) and only rebuilds on a real theme/colorMode change or the true first mount. New nodes
+  appearing mid-ingest now animate into the existing view instead of triggering a full reset.
+- **Startup fan-out and re-render efficiency** (FE-PERF-1/2/3): the Home dashboard's "open
+  questions" block now asks the server to filter by page type (`GET /pages?type=query`) instead of
+  fetching 100 rows to find 5; four below-the-fold blocks (active jobs, review preview, cost
+  sparkline) defer their first fetch to `requestIdleCallback`, cutting the synchronous startup
+  burst from 14 calls to 9; `activityStore` skips its state update entirely when a poll snapshot
+  is structurally unchanged, so unrelated components stop re-rendering on no-op ticks; chat
+  streaming batches token/think deltas into one `requestAnimationFrame`-scheduled update per frame
+  instead of one per token (I3 unaffected — markdown/LaTeX are still parsed only once, at stream
+  end).
+- **One UI kit**: new `components/ui` primitives (Button, Chip, Card, Field, Notice, Skeleton)
+  replace both parallel button systems that had accumulated — the legacy `.syn-button` CSS classes
+  and the `BTN_PRIMARY`/`BTN_SECONDARY`/`INPUT_STYLE` inline-style consts (13 consumers across
+  Settings). A `--syn-font-*`/`--syn-space-*` token scale was added; 26 hand-rolled inline SVG
+  icons were replaced with `lucide-react` equivalents; the graph's community/domain palette
+  gained dark-theme variants (the near-black domain swatch is gone — never black, per brand);
+  skeleton loading + the shared `ErrorState` component were extended to the Sources/Lint/Review
+  list views.
+- **Switching the active vault no longer reloads the page** (FE-UIUX-3): `resetAllVaultStores()`
+  is the single choke point both the project launcher and the new-project wizard now call after
+  activation — it resets every vault-scoped store (graph, ingest, activity, chat, lint, review,
+  research, import-schedule, provider, status, app) and fires one status refresh; each section
+  view already refetches on its own `[vaultId]` effect, so no extra plumbing was needed.
+
+### Fixed
+- **A GraphViewer bug found during this release's own verification**: the live-diff effect
+  (above) merged the wrong attribute shape into the mounted sigma graph — raw
+  `type`/`community`/`domain` fields instead of the color/label/reducer attributes the mount
+  effect computes — which stripped every node's color on the very first background refresh after
+  mount and broke rendering. Caught by reproducing the CI E2E failure locally against a real
+  Postgres + Docker stack (not just the mocked unit tests, which don't exercise real sigma.js)
+  before merging.
+- **A persistent SSE connection was silently hanging the entire E2E suite**: `page.goto(...,
+  { waitUntil: "networkidle" })` can never resolve once a long-lived stream is open (Playwright's
+  networkidle waits for zero in-flight requests), which turned nearly every existing spec into a
+  30-second timeout the moment the SSE channel above was wired into `AppShell`. Fixed two ways:
+  the stream connection is deferred past the initial load burst (`requestIdleCallback`), and the
+  9 affected E2E spec files were switched from `networkidle` to `domcontentloaded` — every one of
+  them already re-verifies readiness with an explicit `waitForSelector` right after navigation, so
+  `networkidle` was never load-bearing for the assertions themselves.
+
+### Known follow-ups (not in this release)
+- `GraphViewer.tsx` is 1,565 lines post-extraction — above the ~800–1,000 target. The remainder is
+  the core sigma-mount/diff logic plus several small store-sync effects tightly coupled to the
+  persistent sigma ref; a further split needs its own pass.
+- FE-BUNDLE-1 (lazy-loading the inactive i18n locale) was scoped for this release but not
+  completed — deferred, matches the plan's own "partial" scope for this workstream.
+- The remaining 6 REST pollers not yet wired to the SSE channel (see Added, above) are candidates
+  for a future release once the two flagship consumers prove out in production.
+- SSE behavior through the real Cloudflare Tunnel + Access + Tailscale production path (heartbeat
+  timing, reconnect on idle-kill) was verified against a local Docker stack for this release, not
+  the live tunnel — see the release notes for this version.
+
 ## [1.9.2] — 2026-07-17 — "real boundaries"
 
 Third release of the v2.0 train. Theme: finishing the module decomposition the 1.7.0 sprint
