@@ -1126,11 +1126,17 @@ export const GraphViewer: React.FC = () => {
     if (!sigma) return; // Not mounted yet — the mount effect above owns the first build.
     if (nodes.length === 0) return;
 
-    const { rawGraph } = buildSigmaGraph(nodes, edges, colorMode);
+    // Diff against sigmaGraph (the transformed copy — color/hubLabel/nodeType/
+    // nodeCommunity/nodeDomain/isHub already computed), NOT rawGraph (plain
+    // type/community/domain, no color): liveGraph's node/edge attrs are already
+    // in the sigmaGraph shape (built by the mount effect above), so merging
+    // rawGraph's raw attrs here would strip color/hubLabel/isHub on the very
+    // next diff after mount and break sigma's node/edge reducers.
+    const { sigmaGraph: nextGraph } = buildSigmaGraph(nodes, edges, colorMode);
     const liveGraph = sigma.getGraph();
 
     // ── Nodes: add / update ──────────────────────────────────────────────
-    rawGraph.forEachNode((nodeKey, attrs) => {
+    nextGraph.forEachNode((nodeKey, attrs) => {
       if (liveGraph.hasNode(nodeKey)) {
         liveGraph.mergeNodeAttributes(nodeKey, attrs);
       } else {
@@ -1139,11 +1145,11 @@ export const GraphViewer: React.FC = () => {
     });
     // ── Nodes: remove any no longer present in the latest payload ────────
     liveGraph.forEachNode((nodeKey) => {
-      if (!rawGraph.hasNode(nodeKey)) liveGraph.dropNode(nodeKey);
+      if (!nextGraph.hasNode(nodeKey)) liveGraph.dropNode(nodeKey);
     });
 
     // ── Edges: add / update ──────────────────────────────────────────────
-    rawGraph.forEachEdge((_edgeKey, attrs, source, target) => {
+    nextGraph.forEachEdge((_edgeKey, attrs, source, target) => {
       if (!liveGraph.hasNode(source) || !liveGraph.hasNode(target)) return;
       if (liveGraph.hasEdge(source, target)) {
         liveGraph.mergeEdgeAttributes(source, target, attrs);
@@ -1153,7 +1159,7 @@ export const GraphViewer: React.FC = () => {
     });
     // ── Edges: remove any no longer present in the latest payload ────────
     liveGraph.forEachEdge((edgeKeyLive, _attrs, source, target) => {
-      if (!rawGraph.hasEdge(source, target)) liveGraph.dropEdge(edgeKeyLive);
+      if (!nextGraph.hasEdge(source, target)) liveGraph.dropEdge(edgeKeyLive);
     });
 
     // Positions/colors may have shifted (server FA2 recompute) — full refresh,
