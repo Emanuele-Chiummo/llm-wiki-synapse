@@ -12,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,9 +23,9 @@ import httpx
 import app.ingest.orchestrator as orch
 from app import runtime_state
 from app.config import settings
-from app.ingest.loop import IngestCancelled, LoopResult, run_orchestrated_loop
 from app.ingest.provider.base import InferenceProvider, ProviderTransientError, UsageAccumulator
 from app.ingest.schemas import Analysis, PageType, WikiFrontmatter, WikiPage
+from app.ingest.validate import IngestCancelled
 from app.models import IngestRun, Page, VaultState
 from app.wiki.summary import extract_first_paragraph_summary
 
@@ -332,7 +331,7 @@ async def delete_file(file_path: str | Path) -> None:
 class IngestRunResult:
     """Summary of one F17 ingest run (returned by run_ingest_pipeline)."""
 
-    route: Literal["orchestrated", "delegated"]
+    route: Literal["orchestrated"]
     pages_written: int
     total_tokens: int
     total_cost_usd: float
@@ -446,17 +445,12 @@ async def run_ingest_pipeline(
     caps = provider.capabilities()
 
     started_at = datetime.now(UTC)
-    pages: list[WikiPage] = []
     written_pages: list[Page] = []
-    delegated_page_ids: list[str] = []
-    analysis: Analysis | None = None
     iterations = 0
-    delegated_pages_written = 0
     converged = False
-    route: Literal["orchestrated", "delegated"] = "orchestrated"
+    route: Literal["orchestrated"] = "orchestrated"
     # 1.9.1 W5 (NC-1): last loop's non-convergence diagnostics ({stop_reason, iterations,
-    # last_errors, tokens_used, token_budget}); stays None on the delegated/CLI route (no bounded
-    # loop) and is persisted verbatim onto the ingest_runs row below.
+    # last_errors, tokens_used, token_budget}); persisted verbatim onto the ingest_runs row below.
     diagnostics: dict[str, object] | None = None
 
     # ── ADR-0046 path-normalization fix: derive the absolute queue key ────────
@@ -512,396 +506,27 @@ async def run_ingest_pipeline(
                 f"{_folder_block}\n\n{ingest_context}" if ingest_context else _folder_block
             )
 
-        # Resolve the pipeline format up front. In "blocks" mode ALL providers — including the
-        # agentic CLI — run the block loop via provider.complete() (nashsu/llm_wiki parity: its CLI
-        # is a TEXT transport, not an agent loop). The delegated agent loop is used only in "json"
-        # mode, where its wikilinks can dangle because the agent doesn't materialize every page it
-        # links (the exact gap the 1:1 E2E surfaced). ADR-0076.
-        from app.config_overrides import effective_str as _effective_str
-
-        _pipeline_format = (
-            _effective_str("ingest_pipeline_format", settings.ingest_pipeline_format) or "json"
+        # ── ADR-0076 / 2.0.0: block loop is the only surviving ingest path ──────────
+        # All providers (Local, API, CLI) run the block loop via provider.complete().
+        # The legacy JSON loop and the CLI delegated path were removed in 2.0.0 (ADR-0076).
+        converged, iterations, written_pages, diagnostics = await _run_orchestrated_blocks(
+            provider=provider,
+            accumulator=accumulator,
+            source_text=source_text,
+            origin_source=origin_source,
+            config_row=provider_config_row,
+            run_id=run_id,
+            cancel_event=cancel_event,
         )
-
-        if caps.supports_agentic_loop and _pipeline_format != "blocks":
-            route = "delegated"
-            orch.ingest_queue.set_route(run_id, route)
-            # Coarse phase for delegated/CLI runs (opaque agent loop — I6 forbids finer phases)
-            orch.ingest_queue.set_phase(run_id, "agent running")
-            # Give the CLI agent the SAME source-grounded generation guidance the orchestrated
-            # block path builds (ADR-0076): prompts.build_delegated_generation_guidance shares the
-            # _OTHER_RULES block (prominent [[wikilink]] cross-referencing, subject boundaries,
-            # naming) so the delegated/CLI route — the 1:1 E2E — links pages as densely as
-            # nashsu/llm_wiki, fixing the 1.6.0 regression on this path. It omits the FILE/REVIEW
-            # output-format contract (the agent writes via its MCP tools). Prompt text only (I6).
-            from app.ingest import prompts as _prompts
-
-            # F3 language parity: prefer the per-vault output_language (ADR-0081, migration 0032),
-            # falling back to the legacy overview_language setting. Threaded as a resolved display
-            # name so the MANDATORY OUTPUT LANGUAGE directive reads naturally; None → omitted.
-            _vault_lang_code = (
-                await _vault_output_language()
-                or (getattr(settings, "overview_language", "") or "").strip()
-                or None
+        # overview.md is not touched on the block path (ADR-0078 ownership change).
+        # D4 graph-node parity: upsert index/log Page rows.
+        try:
+            await orch._index_index_and_log_files()
+        except Exception as _il_b_exc:  # noqa: BLE001
+            logger.warning(
+                "run_ingest_pipeline: block-path index/log node hook failed " "(non-fatal): %s",
+                _il_b_exc,
             )
-            _lang_name = _prompts.language_prompt_name(_vault_lang_code)
-            _delegated_guidance = _prompts.build_delegated_generation_guidance(
-                source_filename=origin_source,
-                language_name=_lang_name,
-            )
-            _delegated_system_prompt = "\n\n".join(
-                part for part in (ingest_context, _delegated_guidance) if part
-            )
-            converged, delegated_pages_written, delegated_page_ids = await orch._delegate_ingest(
-                provider=provider,
-                source_text=source_text,
-                origin_source=origin_source,
-                system_prompt=_delegated_system_prompt,
-            )
-            # ── ADR-0046 §3: deferred cancel check for delegated route (I6) ──────────
-            # We cannot inject a cancel boundary into the provider's own agent loop (I6
-            # forbids touching provider internals). Check once after _delegate_ingest
-            # returns, BEFORE post-write hooks — if set, skip hooks and raise to the
-            # IngestCancelled handler above.
-            if cancel_event.is_set():
-                raise IngestCancelled(origin_source)
-
-            # ── F3 delegated-route source-summary guarantee (nashsu/llm_wiki parity) ────
-            # The orchestrated route guarantees exactly one source page via _ensure_source_summary
-            # before write; the delegated agent may omit it. llm_wiki runs the SAME deterministic
-            # fallback (ingest.ts:1209-1244 hasSourceSummary → writeFile) AFTER its ingest streams,
-            # so mirror it here: ADD a minimal source page only when none traceable to origin_source
-            # exists among the agent's writes. Additive, never mutates the agent's own writes
-            # (I6-safe) and never duplicates. Runs BEFORE overview/proposals so they see it. The
-            # new page's id is threaded into delegated_page_ids so downstream hooks include it.
-            try:
-                _src_pg = await orch._ensure_source_summary_for_delegated(
-                    vault_id=settings.vault_id,
-                    written_page_ids=delegated_page_ids,
-                    origin_source=origin_source,
-                )
-                if _src_pg is not None:
-                    delegated_page_ids.append(str(_src_pg.id))
-                    orch.ingest_queue.record_written(run_id, _src_pg.id)
-            except Exception as _src_d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: F3 delegated source-summary guarantee failed "
-                    "(non-fatal): %s",
-                    _src_d_exc,
-                )
-
-            # Delegated count = the pages actually captured by the MCP write seam (deduped), so
-            # pages_created agrees with page_type_counts (both derive from delegated_page_ids). The
-            # provider's self-reported write_page tool-call count can over-count on a failed/retried
-            # tool call, which is why we key off the recorded ids instead (I7 accounting truth).
-            delegated_pages_written = len(dict.fromkeys(delegated_page_ids))
-
-            # ── overview.md: ingest no longer regenerates overview.md (ADR-0078) ──────────
-            # overview.md is now a manual-op, triggered via POST /ops/overview/regenerate.
-            # ── D4 delegated-route index/log graph nodes (nashsu/llm_wiki parity) ────────
-            # The CLI agent's MCP write_page calls maintain index.md/log.md on disk (via the shared
-            # write_wiki_page seam); upsert their Page rows so they render as graph nodes on BOTH
-            # routes (wiki-graph.ts:182-209). Fire-and-forget: NEVER raises into ingest (D4/I7).
-            try:
-                await orch._index_index_and_log_files()
-            except Exception as _il_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: D4 delegated index/log node hook failed "
-                    "(non-fatal): %s",
-                    _il_exc,
-                )
-            # ── F4 delegated-route wikilink enrichment (ADR-0067; parity with orchestrated) ─
-            # The CLI agent writes prose that often omits [[wikilinks]]; without this the
-            # delegated pages are graph-sparse (no back-links / related:). Mirror the
-            # orchestrated enrich hook (below) so BOTH routes build the same link graph.
-            # Runs BEFORE the F9 proposals so proposals see the enriched links.
-            # Fire-and-forget: NEVER raises into the ingest critical path.
-            try:
-                await _enrich_wikilinks_for_delegated(
-                    vault_id=settings.vault_id,
-                    written_page_ids=delegated_page_ids,
-                )
-            except Exception as _enr_d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: F4 delegated wikilink-enrich hook failed "
-                    "(non-fatal): %s",
-                    _enr_d_exc,
-                )
-            # ── F9 delegated-route proposals (ADR-0044 §4.2, closes ADR-0034 §9 risk 1) ─
-            # Load the pages the CLI agent wrote through MCP write_page, synthesize a minimal
-            # Analysis, and drive the SAME bounded propose_reviews seam (≤1 provider call, same
-            # degrade). Empty record → early-return (its `if not written_pages` guard) → zero
-            # cost, zero proposals. Fire-and-forget: NEVER raises into ingest (Do-NOT #5).
-            # Capability-agnostic — no isinstance/provider_type branch (I6).
-            try:
-                await orch._propose_reviews_for_delegated(
-                    vault_id=settings.vault_id,
-                    written_page_ids=delegated_page_ids,
-                    origin_source=origin_source,
-                    source_text=source_text,
-                )
-            except Exception as _f9d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: F9 delegated propose_reviews hook failed "
-                    "(non-fatal): %s",
-                    _f9d_exc,
-                )
-            # Sweep on queue drain (ADR-0079 WS-C): sweep_reviews is now triggered ONCE
-            # when the queue drains via IngestQueueManager.on_drained (main.py lifespan),
-            # not after every individual run. Per-run sweep calls removed for parity with
-            # nashsu/llm_wiki (ingest-queue.ts:636 onQueueDrained).
-            # ── R9-3 delegated-route purpose drift check (F2, ADR §R9-3) ──────────────
-            # Bounded single provider call (max_tokens 300, no retry). Analysis is None on the
-            # delegated route → the seam degrades to titles-only. Fire-and-forget: any exception
-            # logs a WARNING and NEVER fails the ingest run (AC-R9-3-3).
-            try:
-                await orch._purpose_suggestion_for_delegated(
-                    vault_id=settings.vault_id,
-                    written_page_ids=delegated_page_ids,
-                    origin_source=origin_source,
-                )
-            except Exception as _ps_d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: R9-3 delegated purpose-suggestion hook failed "
-                    "(non-fatal): %s",
-                    _ps_d_exc,
-                )
-            # ── R9-4 delegated-route schema.md co-evolution check (K6, ADR §R9-4) ──────
-            # Runs AFTER the delegated purpose check. Bounded single provider call (max_tokens
-            # 400, no retry). DEFAULT OFF. Fire-and-forget: any exception logs a WARNING and
-            # NEVER fails the ingest run (AC-R9-4-3).
-            try:
-                await orch._schema_suggestion_for_delegated(
-                    vault_id=settings.vault_id,
-                    written_page_ids=delegated_page_ids,
-                    origin_source=origin_source,
-                )
-            except Exception as _ss_d_exc:  # noqa: BLE001
-                logger.warning(
-                    "run_ingest_pipeline: R9-4 delegated schema-suggestion hook failed "
-                    "(non-fatal): %s",
-                    _ss_d_exc,
-                )
-        else:
-            # route is already "orchestrated" (default above) — explicit for readers.
-            route = "orchestrated"
-            # ADR-0076: the orchestrated route runs EITHER the JSON loop (default) or the
-            # block-based pipeline, selected by the ingest_pipeline_format rollback lever (read
-            # override-else-env like every other config override). The flag chooses a CODE PATH,
-            # never a provider (I6-neutral). Default "json" ⇒ the block branch stays dormant and
-            # the JSON body below is byte-for-byte the pre-1.7.0-PR5c behaviour.
-            from app.config_overrides import effective_str as _effective_str
-
-            _pipeline_format = (
-                _effective_str("ingest_pipeline_format", settings.ingest_pipeline_format) or "json"
-            )
-            if _pipeline_format == "blocks":
-                converged, iterations, written_pages, diagnostics = await _run_orchestrated_blocks(
-                    provider=provider,
-                    accumulator=accumulator,
-                    source_text=source_text,
-                    origin_source=origin_source,
-                    config_row=provider_config_row,
-                    run_id=run_id,
-                    cancel_event=cancel_event,
-                )
-                # overview.md is not touched on the block path (ADR-0078 ownership change).
-                # D4 graph-node parity: upsert index/log Page rows.
-                try:
-                    await orch._index_index_and_log_files()
-                except Exception as _il_b_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: block-path index/log node hook failed "
-                        "(non-fatal): %s",
-                        _il_b_exc,
-                    )
-            else:
-                loop_result = await orch._run_orchestrated(
-                    provider=provider,
-                    accumulator=accumulator,
-                    source_text=source_text,
-                    origin_source=origin_source,
-                    config_row=provider_config_row,
-                    vault_context=ingest_context,
-                    cancel_event=cancel_event,
-                    on_phase=lambda p: orch.ingest_queue.set_phase(run_id, p),
-                )
-                pages = loop_result.pages
-                analysis = loop_result.analysis
-                iterations = loop_result.iterations
-                converged = loop_result.converged
-                diagnostics = loop_result.diagnostics()
-                # ── Feature 3 (ADR-0063 §5): wrong-language page drop ────────────────────
-                # Drop pages whose body script-family contradicts the resolved target language
-                # BEFORE the source-summary guarantee (so a batch dropped to empty still gets a
-                # source summary) and before write. Deterministic, no provider call. Exempt
-                # source/entity.
-                pages = _drop_wrong_language_pages(pages, analysis)
-                # Guarantee a source-summary page (F3) even if the provider omitted it (or the
-                # language guard dropped everything).
-                pages = orch._ensure_source_summary(pages, analysis, origin_source)
-                orch.ingest_queue.set_phase(run_id, "writing")
-                # BE-PERF-2: build the wikilink resolver maps ONCE for this document (one bulk
-                # query over all live pages) instead of once per generated page, and defer
-                # index.md regeneration + the data_version bump to a SINGLE call after the whole
-                # batch is written. write_wiki_page folds each page it writes into `_link_maps`
-                # in memory as it goes, so within-document forward links still resolve exactly as
-                # they did when the maps were re-queried from Postgres after every page (I1).
-                _link_maps = None
-                if pages:
-                    from app.wiki.links import build_resolver_maps as _build_link_maps
-
-                    async with orch.get_session() as _maps_sess:
-                        _link_maps = await _build_link_maps(_maps_sess, settings.vault_id)
-                for page in pages:
-                    # Feature 2 (ADR-0063 §4): pass the run's provider so write_wiki_page can
-                    # LLM-merge old+new bodies when the target page already exists (bounded,
-                    # degrade-safe, I6/I7).
-                    written_page = await orch.write_wiki_page(
-                        None,
-                        page,
-                        origin_source,
-                        provider=provider,
-                        resolver_maps=_link_maps,
-                        skip_index_update=True,
-                        skip_version_bump=True,
-                    )
-                    written_pages.append(written_page)
-                    # ADR-0046: record the page_id so cancel can cascade-delete it
-                    orch.ingest_queue.record_written(run_id, written_page.id)
-                if pages:
-                    # One index.md regeneration + one data_version bump for the whole document
-                    # (BE-PERF-2), matching the net effect of the prior per-page calls (index.md
-                    # ends up in the same final state either way; data_version still advances
-                    # exactly once per content-changing ingest run — I1).
-                    from app.wiki.index import update_index as _update_index_once
-
-                    async with orch.get_session() as _idx_sess:
-                        await _update_index_once(_idx_sess, settings.vault_root)
-                    await orch.bump_version()
-                # overview.md is not touched on the orchestrated path (ADR-0078 ownership change).
-                # ── D4 orchestrated-route index/log graph nodes (nashsu/llm_wiki parity) ─────
-                # write_wiki_page maintained index.md/log.md on disk (update_index / append_log);
-                # upsert their Page rows so they render as graph nodes (wiki-graph.ts:182-209).
-                # Fire-and-forget: NEVER raises into ingest (D4/I7).
-                try:
-                    await orch._index_index_and_log_files()
-                except Exception as _il_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: D4 index/log node hook failed (non-fatal): %s",
-                        _il_exc,
-                    )
-
-                # ── F18 post-write hook: domain auto-tag (ADR-0054 §3) ───────────────────
-                # Runs AFTER the write loop + overview (pages exist on disk + DB, I1) and BESIDE
-                # the ADR-0036 enrichment hook, BEFORE propose_reviews. Non-fatal: a classification
-                # failure leaves the page written+untagged and never fails the ingest (§3.4).
-                # Dormant vocabulary ⇒ zero provider calls (§3.2). Reuses the run-scoped
-                # accumulator bound above so the classification cost folds into this run's
-                # total_cost_usd (I7). No second data_version bump — apply_domain_tags writes tags
-                # without bumping (§3.2, Do-NOT #3).
-                try:
-                    await orch._auto_tag_written_pages(
-                        provider=provider,
-                        written_pages=written_pages,
-                        origin_source=origin_source,
-                    )
-                except Exception as _tag_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: F18 domain auto-tag hook failed (non-fatal): %s",
-                        _tag_exc,
-                    )
-
-                # ── F4 post-write hook: wikilink enrichment (ADR-0036) ───────────────────
-                # Runs BEFORE propose_reviews (so proposals see the enriched link graph) and AFTER
-                # all pages are written (so every just-written title is linkable). Fire-and-forget:
-                # NEVER raises into the ingest critical path — pages are already written and valid
-                # (ADR-0036 §4 / Do-NOT #9). Restores the F4 "direct link ×3" signal.
-                try:
-                    from app.ops.enrich_wikilinks import enrich_wikilinks as _enrich_wikilinks
-
-                    _enrich = await _enrich_wikilinks(written_pages, settings.vault_id)
-                    logger.info(
-                        "run_ingest_pipeline: wikilink enrichment pages=%d links=%d "
-                        "cost_usd=%.4f%s",
-                        _enrich.pages_enriched,
-                        _enrich.links_added,
-                        _enrich.total_cost_usd,
-                        f" (skipped: {_enrich.skipped_reason})" if _enrich.skipped_reason else "",
-                    )
-                except Exception as _enrich_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: wikilink enrichment hook failed (non-fatal): %s",
-                        _enrich_exc,
-                    )
-
-                # ── F9 post-write hook: propose_reviews + sweep_reviews (ADR-0034 §4/§6) ─
-                # Fire-and-forget: NEVER raises into the ingest critical path (Do-NOT #5, ADR-0034
-                # §10). Replaces _enqueue_review_items from ADR-0025. Runs only on the orchestrated
-                # branch (delegated/CLI path is a reserved follow-up — ADR-0034 §9 risk 1).
-                try:
-                    from app.ops.review import propose_reviews as _propose_reviews
-
-                    await _propose_reviews(
-                        vault_id=settings.vault_id,
-                        analysis=analysis,
-                        written_pages=written_pages,
-                        origin_source=origin_source,
-                        # llm_wiki parity: feed the RAW source text so the proposal step can quote
-                        # the document and spot in-scope/out-of-scope handoff gaps.
-                        source_text=source_text,
-                    )
-                except Exception as _f9_exc:  # noqa: BLE001
-                    # Intentionally swallowed: pages are written; queue is advisory (Do-NOT #5).
-                    logger.warning(
-                        "run_ingest_pipeline: F9 propose_reviews hook failed (non-fatal): %s",
-                        _f9_exc,
-                    )
-
-                # Sweep on queue drain (ADR-0079 WS-C): per-run sweep removed; see delegated
-                # route comment above — the drain callback handles it (main.py lifespan).
-
-                # ── R9-3 post-ingest purpose drift check (F2, ADR §R9-3) ──────────────────
-                # Bounded single provider call (max_tokens 300, no retry, cost logged). Compares
-                # the run's analysis topics/summary against vault purpose.md; on scope drift emits
-                # ONE purpose-suggestion ReviewItem (throttled: max 1 pending + ≥N sources since
-                # last check). Fire-and-forget: any exception logs a WARNING and NEVER fails ingest
-                # (AC-R9-3-3).
-                try:
-                    from app.ops.review import generate_purpose_suggestion as _gen_purpose_sugg
-
-                    await _gen_purpose_sugg(
-                        vault_id=settings.vault_id,
-                        analysis=analysis,
-                        written_pages=written_pages,
-                        origin_source=origin_source,
-                    )
-                except Exception as _ps_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: R9-3 purpose-suggestion hook failed (non-fatal): %s",
-                        _ps_exc,
-                    )
-
-                # ── R9-4 post-ingest schema.md co-evolution check (K6, ADR §R9-4) ─────────
-                # Runs AFTER the R9-3 purpose check (AC-R9-4-3). Bounded single provider call
-                # (max_tokens 400, no retry, cost logged). Compares the written pages' actual
-                # frontmatter/type/tag usage against vault schema.md; on a recurring un-codified
-                # convention emits ONE schema-suggestion ReviewItem (throttled: max 1 pending + ≥N
-                # sources since last check; DEFAULT OFF — see settings.schema_suggestion_enabled).
-                # Fire-and-forget: any exception logs a WARNING and NEVER fails ingest.
-                try:
-                    from app.ops.review import generate_schema_suggestion as _gen_schema_sugg
-
-                    await _gen_schema_sugg(
-                        vault_id=settings.vault_id,
-                        written_pages=written_pages,
-                        origin_source=origin_source,
-                    )
-                except Exception as _ss_exc:  # noqa: BLE001
-                    logger.warning(
-                        "run_ingest_pipeline: R9-4 schema-suggestion hook failed (non-fatal): %s",
-                        _ss_exc,
-                    )
     except IngestCancelled as _cancelled_exc:
         # ── ADR-0046 §3: cooperative cancel — cascade-delete partial output (I1) ──
         finished_at = datetime.now(UTC)
@@ -1000,19 +625,9 @@ async def run_ingest_pipeline(
 
     finished_at = datetime.now(UTC)
 
-    # Actual pages persisted this run: key off the RESOLVED route, not the provider capability.
-    # A CLI provider reports supports_agentic_loop=True but, with ingest_pipeline_format="blocks"
-    # (the default), it runs the ORCHESTRATED block path (route=="orchestrated"), populating
-    # written_pages while delegated_pages_written stays 0 — so keying off the capability reported
-    # 0 pages for every CLI+blocks run. route is "delegated" ONLY when the delegated branch
-    # actually ran (json + agentic); every orchestrated path (json loop OR blocks) counts
-    # written_pages.
-    pages_written = delegated_pages_written if route == "delegated" else len(written_pages)
-    page_type_counts = (
-        await _page_type_counts_for_ids(delegated_page_ids)
-        if route == "delegated"
-        else _page_type_counts(written_pages)
-    )
+    # Actual pages persisted this run (2.0.0: always the orchestrated block path).
+    pages_written = len(written_pages)
+    page_type_counts = _page_type_counts(written_pages)
 
     # ── Finalize accumulator → ingest_runs row UPDATE (I7, ADR-0008 §4 / ADR-0046 §2) ──────
     total_tokens = accumulator.total_tokens
@@ -1076,117 +691,7 @@ async def run_ingest_pipeline(
     )
 
 
-# Connection/timeout errors that engage the single bounded fallback (ADR-0009 §4).
-# httpx connect/timeout failures are subclasses of these in httpx, but we list the httpx
-# transport bases explicitly so a literal transport error (not just a stdlib TimeoutError)
-# also triggers the fallback. HTTPStatusError is handled separately (5xx only, see below).
-_FALLBACK_TRANSPORT_ERRORS: tuple[type[Exception], ...] = (
-    TimeoutError,
-    ConnectionError,
-    httpx.TimeoutException,
-    httpx.ConnectError,
-    httpx.NetworkError,
-)
-
-
-def _is_fallback_eligible(exc: BaseException) -> bool:
-    """
-    True if *exc* should engage the single bounded provider fallback (ADR-0009 §4).
-
-    Eligible: timeouts / connection failures, AND an HTTP 5xx from the provider endpoint
-    (e.g. a literal 503 from Ollama/Anthropic — a server-side / transient failure).
-    NOT eligible: HTTP 4xx (client errors / bad request) — those are real defects that must
-    surface, not be masked by a fallback (NB-1). Anything else also surfaces unchanged.
-    """
-    if isinstance(exc, _FALLBACK_TRANSPORT_ERRORS):
-        return True
-    if isinstance(exc, httpx.HTTPStatusError):
-        # 5xx → engage fallback; 4xx → surface (do NOT broaden to client errors).
-        return 500 <= exc.response.status_code < 600
-    return False
-
-
-async def _run_orchestrated(
-    *,
-    provider: InferenceProvider,
-    accumulator: UsageAccumulator,
-    source_text: str,
-    origin_source: str,
-    config_row: object,
-    vault_context: str | None = None,
-    cancel_event: asyncio.Event | None = None,
-    on_phase: Callable[[str], None] | None = None,
-) -> LoopResult:
-    """Run the bounded loop with optional single fallback (I7, ADR-0009 §4).
-
-    cancel_event is threaded from run_ingest_pipeline (ADR-0046 §3); passed to
-    run_orchestrated_loop so IngestCancelled is raised at loop boundaries only.
-    IngestCancelled propagates up — it is NOT a fallback-eligible exception.
-
-    vault_context is assembled by run_ingest_pipeline (F2/F3: purpose + schema +
-    existing-pages catalogue) and threaded in so the same context reaches primary AND fallback.
-    Falls back to purpose+schema only (no catalogue) when the caller omits it — this keeps
-    direct callers working without a DB round-trip.
-
-    on_phase: optional callback threaded from run_ingest_pipeline (phase reporting, pure
-    reporting — no loop semantics changed). Passed through to both the primary and fallback
-    run_orchestrated_loop calls so phases remain visible across the fallback transition.
-    """
-    max_iter = int(getattr(config_row, "max_iter", None) or 3)
-    token_budget = int(getattr(config_row, "token_budget", None) or 60_000)
-    if vault_context is None:
-        vault_context = orch._load_vault_context()
-    retrieval_context = ""  # F5 4-phase retrieval lands in v0.5; empty context for v0.2.
-
-    try:
-        return await run_orchestrated_loop(
-            provider=provider,
-            accumulator=accumulator,
-            source_text=source_text,
-            vault_context=vault_context,
-            retrieval_context=retrieval_context,
-            origin_source=origin_source,
-            max_iter=max_iter,
-            token_budget=token_budget,
-            cancel_event=cancel_event,
-            on_phase=on_phase,
-        )
-    except IngestCancelled:
-        # Cooperative cancel is not a provider fault — propagate directly without fallback.
-        raise
-    except Exception as exc:
-        # Provider fallback — bounded to EXACTLY ONCE (I7, ADR-0009 §4). Only timeouts,
-        # connection errors, and HTTP 5xx are eligible (NB-1); 4xx and anything else re-raise.
-        if not _is_fallback_eligible(exc):
-            raise
-        logger.warning("primary provider failed (%s) — attempting single fallback", exc)
-        fallback_row = await orch._resolve_fallback_provider_config()
-        if fallback_row is None:
-            raise IngestError("primary provider failed and no fallback configured") from exc
-        fallback = orch.resolve_provider(fallback_row)
-        fallback.bind_accumulator(accumulator)
-        try:
-            return await run_orchestrated_loop(
-                provider=fallback,
-                accumulator=accumulator,
-                source_text=source_text,
-                vault_context=vault_context,
-                retrieval_context=retrieval_context,
-                origin_source=origin_source,
-                max_iter=int(getattr(fallback_row, "max_iter", None) or 3),
-                token_budget=int(getattr(fallback_row, "token_budget", None) or 60_000),
-                cancel_event=cancel_event,
-                on_phase=on_phase,
-            )
-        except IngestCancelled:
-            raise
-        except Exception as exc2:  # no chains (AC-K2-7) — one attempt only
-            if not _is_fallback_eligible(exc2):
-                raise
-            raise IngestError("primary and fallback providers both failed") from exc2
-
-
-# ── ADR-0076: block-based orchestrated route (behind ingest_pipeline_format="blocks") ──────────
+# ── ADR-0076 / 2.0.0: block-based orchestrated route ────────────────────────────────────────────
 
 
 def _read_vault_root_file(name: str) -> str:
@@ -1801,7 +1306,7 @@ async def _resolve_fallback_provider_config() -> object | None:
     """
     Return the fallback ProviderConfig row (is_fallback=True) at the narrowest matching scope,
     or None if no fallback is configured (ADR-0009 §fallback). Bounded to exactly one attempt
-    by the caller (_run_orchestrated — I7).
+    by the caller (_run_orchestrated_blocks — I7).
     """
     from app.provider_config_service import resolve_fallback_provider_config
 
@@ -2037,8 +1542,7 @@ async def _finalize_ingest_run(
     write status="cancelled" directly without going through _derive_run_status.
 
     ``diagnostics`` (1.9.1 W5, NC-1): the loop's stop_reason/last_errors/token accounting
-    (:meth:`app.ingest.loop.LoopResult.diagnostics` /
-    :meth:`app.ingest.block_loop.BlockLoopResult.diagnostics`), surfaced to the UI so a
+    (:meth:`app.ingest.block_loop.BlockLoopResult.diagnostics`), surfaced to the UI so a
     ``converged_false`` run explains itself instead of a bare "not converged" label. ``None`` on
     the delegated/CLI route (no bounded loop to report).
 

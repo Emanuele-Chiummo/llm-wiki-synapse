@@ -872,9 +872,8 @@ class IngestRun(Base):
             "Ingest-loop non-convergence diagnostics surfaced to the UI (1.9.1 W5, NC-1): "
             "{stop_reason: 'converged'|'max_iter'|'token_budget', iterations: int, "
             "last_errors: list[str], tokens_used: int, token_budget: int}. Populated by the "
-            "orchestrated JSON loop (app.ingest.loop) and the block loop (app.ingest.block_loop) "
-            "on every terminal outcome (converged or not); NULL for the delegated/CLI route "
-            "(no bounded loop to report) and for legacy rows (migration 0035)."
+            "block loop (app.ingest.block_loop) "
+            "on every terminal outcome (converged or not); NULL for legacy rows (migration 0035)."
         ),
     )
 

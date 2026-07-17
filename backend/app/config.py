@@ -477,31 +477,10 @@ class Settings(BaseSettings):
     behaviour). Env var: INGEST_GENERATION_SOURCE_CHAR_BUDGET.
     """
 
-    # ── ADR-0076: block-based orchestrated ingest (nashsu/llm_wiki v0.6.3 parity) ─
-    # The 1.7.0 block pipeline is a faithful port of llm_wiki's markdown-analysis +
-    # FILE/REVIEW-block generation contract. As of 1.7.0 it is the DEFAULT ("blocks"); the
-    # legacy JSON loop (loop.py) remains reachable via ``ingest_pipeline_format="json"`` as a
-    # pure rollback lever (slated for removal in 1.8). The 1:1 E2E vs llm_wiki confirmed the
-    # block path reaches 12/12 parity bands where the JSON/delegated path dangled wikilinks.
-
-    ingest_pipeline_format: str = "blocks"
-    """
-    Orchestrated-ingest pipeline selector (ADR-0076) — the 1.7.0 rollback lever. One of:
-
-      • "blocks" — the nashsu/llm_wiki v0.6.3 block path (``block_loop.run_block_loop``):
-                   free-markdown analysis → FILE/REVIEW-block generation → block-specific
-                   validation → augment & retry, written via ``block_writer.write_block_page``
-                   (custom page types persist as the raw ``pages.type`` string). DEFAULT.
-      • "json"   — the legacy two-step JSON loop (``loop.run_orchestrated_loop``): analyze →
-                   generate (JSON WikiPage list) → validate → augment & retry. Rollback only.
-
-    In "blocks" mode ALL providers — Local, API, AND the agentic CLI — run the block loop via
-    ``provider.complete()`` (llm_wiki drives its CLI as a TEXT transport, not an agent loop). The
-    delegated/CLI agent loop is used ONLY in "json" mode, where its wikilinks can dangle because
-    the agent does not materialise every page it links (the exact gap the 1:1 E2E surfaced).
-    Read via ``config_overrides.effective_str`` (override-else-env). Env var:
-    INGEST_PIPELINE_FORMAT.
-    """
+    # ── ADR-0076 / 2.0.0: block-based orchestrated ingest (the only path) ─────────
+    # The block pipeline (nashsu/llm_wiki v0.6.3 parity) is the sole ingest path as of 2.0.0.
+    # The legacy JSON loop (loop.py) and the ``ingest_pipeline_format`` rollback lever were
+    # removed in 2.0.0 (ADR-0076). All providers run the block loop via provider.complete().
 
     ingest_context_char_budget: int = 204_800
     """
@@ -509,8 +488,7 @@ class Settings(BaseSettings):
     ``context-budget.ts`` default maxContextSize 204800). Governs the generation ``max_tokens``
     tier (8192 <128K, 16384 ≥128K, 24576 ≥256K, 32768 ≥512K chars) and the review-stage prompt's
     internal section/index caps. Larger windows earn a higher generation ceiling; smaller ones
-    stay bounded (I7). Only consulted when ``ingest_pipeline_format`` == "blocks".
-    Env var: INGEST_CONTEXT_CHAR_BUDGET.
+    stay bounded (I7). Env var: INGEST_CONTEXT_CHAR_BUDGET.
     """
 
     ingest_review_stage_min_chars: int = 10_000

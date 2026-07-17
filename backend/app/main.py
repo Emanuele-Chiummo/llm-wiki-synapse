@@ -94,7 +94,6 @@ from app.auth import SynapseAuthMiddleware
 from app.config import settings
 from app.config_overrides import (
     effective_bool,
-    effective_str,
     load_overrides,
 )
 from app.db import dispose_engine, get_session
@@ -241,21 +240,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     #     (EMBEDDINGS_ENABLED override) governs the startup embedding validation.
     async with get_session() as _co_session:
         await load_overrides(_co_session)
-
-    # 2c. Deprecation check: ingest_pipeline_format="json" (W7 / 1.9.4).
-    #     The JSON loop (app.ingest.loop / legacy orchestrator) is retained for rollback
-    #     safety but is scheduled for removal in 2.0.0. Warn operators early so they can
-    #     migrate to the blocks pipeline (the default since 1.7.0).
-    _effective_pipeline_fmt = (
-        effective_str("ingest_pipeline_format", settings.ingest_pipeline_format) or "blocks"
-    )
-    if _effective_pipeline_fmt == "json":
-        logger.warning(
-            "DEPRECATION (W7): ingest_pipeline_format='json' selects the legacy JSON-loop "
-            "ingest path which is scheduled for removal in Synapse 2.0.0. "
-            "Migrate to 'blocks' (the default) to avoid a breaking change. "
-            "See docs/adr/ for ADR-0076."
-        )
 
     # 3. Validate EMBEDDING_DIM vs live bge-m3 + ensure collection (ADR-0004).
     #    Skipped when EMBEDDINGS_ENABLED=false (ADR-0030 §2.5) so the app boots

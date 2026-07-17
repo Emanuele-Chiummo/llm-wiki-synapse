@@ -20,7 +20,6 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from app.ingest.loop import validate_pages
 from app.ingest.orchestrator import _ensure_source_summary
 from app.ingest.provider._common import (
     ANALYZE_SYSTEM,
@@ -29,6 +28,7 @@ from app.ingest.provider._common import (
     build_generate_prompt,
 )
 from app.ingest.schemas import Analysis, PageType, WikiFrontmatter, WikiPage
+from app.ingest.validate import validate_pages
 
 ORIGIN = "raw/sources/example.md"
 
@@ -226,105 +226,6 @@ def test_ensure_source_summary_source_page_for_other_origin_still_appends() -> N
     assert len(origin_source_pages) == 1
     # The unrelated source page is preserved.
     assert other in out
-
-
-# ── CLI/delegated route: scaffold reaches the agent's system_prompt (ADR-0063 §7) ──
-
-
-@pytest.mark.asyncio
-async def test_delegated_route_appends_scaffold_to_system_prompt(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """
-    The delegated (CLI) route appends the shared block-pipeline generation guidance
-    (prompts.build_delegated_generation_guidance, ADR-0076) to the agent's system_prompt so the
-    prominent [[wikilink]] cross-referencing + schema-routing reach the CLI backend (the link-fix on
-    the 1:1 E2E path). The base ingest context (schema.md + catalogue) is still prepended, and a
-    configured vault language reaches the prompt. Deterministic source-page guarantee stubbed.
-    """
-    import app.config_overrides as config_overrides
-    from app.ingest import orchestrator as orch
-
-    # The delegated/CLI route is taken ONLY in the "json" rollback mode; the 1.7.0 "blocks" default
-    # routes even agentic providers through the block loop. Pin json to exercise delegation here.
-    monkeypatch.setitem(config_overrides._cache, "ingest_pipeline_format", "json")
-
-    async def _fake_ingest_context() -> str:
-        return "# schema.md\n(rules)"
-
-    monkeypatch.setattr(orch, "_load_ingest_context", _fake_ingest_context)
-
-    captured: dict[str, Any] = {}
-
-    async def _fake_delegate(**kwargs: Any) -> tuple[bool, int, list[str]]:
-        captured["system_prompt"] = kwargs.get("system_prompt")
-        return True, 1, []
-
-    monkeypatch.setattr(orch, "_delegate_ingest", _fake_delegate)
-
-    # Agentic provider (delegated route).
-    provider = MagicMock()
-    caps = MagicMock()
-    caps.supports_agentic_loop = True
-    caps.name = "StubCliProvider"
-    caps.mode = "cli"
-    provider.capabilities = MagicMock(return_value=caps)
-    provider.bind_accumulator = MagicMock()
-    monkeypatch.setattr(orch, "resolve_provider", lambda _cfg: provider)
-    # F3 language parity: a configured vault language must reach the delegated system_prompt.
-    monkeypatch.setattr(orch.settings, "overview_language", "it")
-
-    # Persistence / finalize + fire-and-forget post-hooks stubbed so only routing runs.
-    monkeypatch.setattr(orch, "_open_ingest_run", AsyncMock(return_value=uuid.uuid4()))
-    monkeypatch.setattr(orch, "_finalize_ingest_run", AsyncMock())
-    monkeypatch.setattr(orch, "_update_overview", AsyncMock())
-    monkeypatch.setattr(orch, "_ensure_source_summary_for_delegated", AsyncMock(return_value=None))
-    monkeypatch.setattr(orch, "_propose_reviews_for_delegated", AsyncMock())
-    monkeypatch.setattr(orch, "_purpose_suggestion_for_delegated", AsyncMock())
-    monkeypatch.setattr(orch, "_schema_suggestion_for_delegated", AsyncMock())
-
-    handle = MagicMock()
-    handle.cancel_event = MagicMock()
-    handle.cancel_event.is_set = MagicMock(return_value=False)
-    monkeypatch.setattr(orch.ingest_queue, "open_run", MagicMock(return_value=handle))
-    monkeypatch.setattr(orch.ingest_queue, "set_route", MagicMock())
-    monkeypatch.setattr(orch.ingest_queue, "set_phase", MagicMock())
-    monkeypatch.setattr(orch.ingest_queue, "get_retry_count", MagicMock(return_value=0))
-
-    cfg_row = MagicMock()
-    cfg_row.model_id = "test-model"
-    cfg_row.max_iter = 1
-    cfg_row.token_budget = 1000
-
-    try:
-        await orch.run_ingest_pipeline(
-            provider_config_row=cfg_row,
-            source_text="hello world",
-            origin_source=ORIGIN,
-            abs_source="/tmp/doc.md",
-        )
-    except Exception:  # noqa: BLE001 — downstream hooks may fail on stubs; we captured already.
-        pass
-
-    sysprompt = captured.get("system_prompt")
-    assert sysprompt is not None
-    # The delegated guidance carries the prominent wikilink cross-referencing (the link fix) …
-    assert "Use [[wikilink]] syntax in the BODY for cross-references between pages" in sysprompt
-    assert "If the analysis found connections to existing pages, add cross-references" in sysprompt
-    # … the schema-routing authority and the source-filename traceability rule …
-    assert "Routing (AUTHORITATIVE)" in sysprompt
-    assert "MUST include this filename" in sysprompt
-    # … the six generation types are offered (via the base types line, not a JSON scaffold) …
-    for t in ("query", "comparison", "synthesis"):
-        assert t in sysprompt
-    # … it is tool-writing guidance, NOT the FILE-block output contract …
-    assert "---FILE:" not in sysprompt
-    assert "file-writing tools" in sysprompt
-    # … the base ingest context is still prepended (guidance appended, not replacing it) …
-    assert "schema.md" in sysprompt
-    # … and the configured vault language (overview_language='it') reached the prompt as the
-    # resolved display name in the MANDATORY OUTPUT LANGUAGE directive (repeated top and bottom).
-    assert sysprompt.count("MANDATORY OUTPUT LANGUAGE: Italian") == 2
 
 
 # ── CLI/delegated route: deterministic source-summary guarantee (llm_wiki parity) ──
