@@ -27,7 +27,7 @@ jobs:
   cut:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Verify version files agree with input
         run: |

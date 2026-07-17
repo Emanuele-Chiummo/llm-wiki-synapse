@@ -33,7 +33,7 @@ jobs:
     name: Lint (ruff + black)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # QA-DEBT-1 guard (1.9.0 W1): the repo lives in an iCloud-synced folder that
       # keeps spawning "name 2.ext" conflict duplicates. .gitignore blocks them from
@@ -88,7 +88,7 @@ jobs:
     name: Docker Build (backend image)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -117,7 +117,7 @@ jobs:
     name: Type Check (mypy)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -144,7 +144,7 @@ jobs:
     name: Unit Tests (pytest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -197,7 +197,7 @@ jobs:
     name: Dependency Audit (pip-audit + npm audit) — report-only
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -260,7 +260,7 @@ jobs:
     name: Frontend Tests (vitest + TypeScript + ESLint)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Node 20
         uses: actions/setup-node@v6
@@ -300,7 +300,7 @@ jobs:
     # mid-run (job timeout surfaces as "cancelled", not "failed").
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -511,7 +511,7 @@ jobs:
     name: Docs Gate (ER + OpenAPI + Mermaid)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -584,7 +584,7 @@ jobs:
     name: MkDocs Build (strict mode)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -619,7 +619,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -649,7 +649,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Node 20
         uses: actions/setup-node@v6
@@ -696,7 +696,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   if: github.event.inputs.run_integration == 'true'
   #   steps:
-  #     - uses: actions/checkout@v5
+  #     - uses: actions/checkout@v7
   #     - name: Start services (docker compose)
   #       run: docker compose up -d
   #     - name: Run integration tests
