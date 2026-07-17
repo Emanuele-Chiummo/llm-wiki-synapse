@@ -788,8 +788,10 @@ class TestI6NoIsinstanceBranching:
         """review.py must not use isinstance(provider, ...) or type checks (I6)."""
         from pathlib import Path
 
-        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
-        text = review_path.read_text(encoding="utf-8")
+        # BE-ARCH-2 (1.9.2): review.py was split into the app/ops/review/ package —
+        # scan every module in the package (concatenated) instead of a single file.
+        review_dir = Path(__file__).resolve().parent.parent / "app" / "ops" / "review"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(review_dir.glob("*.py")))
 
         # No provider-type branching
         assert "isinstance(provider" not in text, (
@@ -811,8 +813,10 @@ class TestADR0034PreGeneratedQueryDropped:
         """review.py must not access or assign pre_generated_query anywhere."""
         from pathlib import Path
 
-        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
-        text = review_path.read_text(encoding="utf-8")
+        # BE-ARCH-2 (1.9.2): review.py was split into the app/ops/review/ package —
+        # scan every module in the package (concatenated) instead of a single file.
+        review_dir = Path(__file__).resolve().parent.parent / "app" / "ops" / "review"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(review_dir.glob("*.py")))
 
         # Must not use attribute access or assignment for the dropped column
         assert (
@@ -826,8 +830,10 @@ class TestADR0034PreGeneratedQueryDropped:
         """generate_review_queries function is removed in ADR-0034 (§10 Do-NOT list)."""
         from pathlib import Path
 
-        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
-        text = review_path.read_text(encoding="utf-8")
+        # BE-ARCH-2 (1.9.2): review.py was split into the app/ops/review/ package —
+        # scan every module in the package (concatenated) instead of a single file.
+        review_dir = Path(__file__).resolve().parent.parent / "app" / "ops" / "review"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(review_dir.glob("*.py")))
 
         # The function must not be defined
         assert "def generate_review_queries" not in text, (

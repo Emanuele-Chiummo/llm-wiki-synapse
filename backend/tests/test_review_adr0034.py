@@ -1416,8 +1416,10 @@ class TestI6Compliance0034:
         """review.py must not use isinstance(provider, ...) or type checks (I6)."""
         from pathlib import Path
 
-        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
-        text = review_path.read_text(encoding="utf-8")
+        # BE-ARCH-2 (1.9.2): review.py was split into the app/ops/review/ package —
+        # scan every module in the package (concatenated) instead of a single file.
+        review_dir = Path(__file__).resolve().parent.parent / "app" / "ops" / "review"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(review_dir.glob("*.py")))
 
         assert (
             "isinstance(provider" not in text
@@ -1433,8 +1435,10 @@ class TestI6Compliance0034:
         """
         from pathlib import Path
 
-        review_path = Path(__file__).resolve().parent.parent / "app" / "ops" / "review.py"
-        text = review_path.read_text(encoding="utf-8")
+        # BE-ARCH-2 (1.9.2): review.py was split into the app/ops/review/ package —
+        # scan every module in the package (concatenated) instead of a single file.
+        review_dir = Path(__file__).resolve().parent.parent / "app" / "ops" / "review"
+        text = "\n".join(p.read_text(encoding="utf-8") for p in sorted(review_dir.glob("*.py")))
 
         # Should not appear as attribute access (item.pre_generated_query) or assignment
         assert ".pre_generated_query" not in text, (
