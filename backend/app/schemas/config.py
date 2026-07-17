@@ -981,3 +981,69 @@ class AppConfigPutBody(BaseModel):
             "Per-key validation rules: ADR-0053 §2.3."
         )
     )
+
+
+# ── PF-AUTH-1 (1.9.4 W4): scoped API tokens ───────────────────────────────────
+
+
+class ApiTokenCreateRequest(BaseModel):
+    """Request body for POST /config/api-tokens (PF-AUTH-1)."""
+
+    label: str = Field(
+        min_length=1,
+        max_length=200,
+        description="Human-readable description of what this token is used for.",
+    )
+    vault_id: str | None = Field(
+        default=None,
+        description=(
+            "NULL (default) = global token, valid for any vault this backend serves. "
+            "Non-NULL = the token is only accepted when it equals this backend instance's "
+            "settings.vault_id at request time; a mismatch is rejected as an invalid token."
+        ),
+    )
+    read_only: bool = Field(
+        default=False,
+        description=(
+            "True = the token may only be used for GET/HEAD/OPTIONS requests; any other "
+            "HTTP method is rejected with 403."
+        ),
+    )
+
+
+class ApiTokenCreateResponse(BaseModel):
+    """
+    Response body for POST /config/api-tokens (PF-AUTH-1).
+
+    ``token`` is the PLAINTEXT secret — shown exactly once, here, and never again. The
+    caller MUST copy it now; only its PBKDF2 hash is persisted (app.models.ApiToken).
+    """
+
+    id: uuid.UUID = Field(description="Row id — pass this to DELETE /config/api-tokens/{id}.")
+    label: str
+    vault_id: str | None
+    read_only: bool
+    created_at: datetime
+    token: str = Field(
+        description=(
+            "The plaintext bearer secret. Shown ONE TIME ONLY — copy it now. "
+            "NEVER returned again by any endpoint, NEVER logged."
+        )
+    )
+
+
+class ApiTokenListItem(BaseModel):
+    """One row in GET /config/api-tokens (PF-AUTH-1). NEVER includes the secret/hash."""
+
+    id: uuid.UUID
+    label: str
+    vault_id: str | None
+    read_only: bool
+    created_at: datetime
+    last_used_at: datetime | None
+
+
+class ApiTokenListResponse(BaseModel):
+    """Response body for GET /config/api-tokens (PF-AUTH-1)."""
+
+    tokens: list[ApiTokenListItem]

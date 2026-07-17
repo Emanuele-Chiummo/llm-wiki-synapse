@@ -55,6 +55,9 @@ Endpoints:
   PUT  /web-search/config          — set/clear SearXNG URL + categories + max_queries (ADR-0041)
   GET  /provider/cli-auth          — read-only CLI subscription OAuth token posture (ADR-0043)
   PUT  /provider/cli-auth          — set or clear the CLI subscription OAuth token (ADR-0043)
+  POST /config/api-tokens          — create a scoped API token; plaintext shown ONCE (PF-AUTH-1)
+  GET  /config/api-tokens          — list active tokens (no secret) (PF-AUTH-1)
+  DELETE /config/api-tokens/{id}   — revoke (soft-delete) a token (PF-AUTH-1)
 
 Startup sequence (ordered, per v0.1-architecture §2.5):
   1. Vault skeleton bootstrap (vault.py) — AC-K7-1, I5
@@ -128,6 +131,7 @@ logging.basicConfig(level=logging.INFO)
 # 2.0.0 — BE-ARCH-3).
 # Client-IP resolution lives in app.client_ip (shared with app.rate_limit / runtime_state).
 # Kept as a private alias for the historical app.main._resolve_source_ip test seam (2.0 removal).
+from app import runtime_state  # noqa: E402  (PF-AUTH-1: api_token_cache access)
 from app.client_ip import resolve_source_ip as _resolve_source_ip  # noqa: E402,F401
 from app.runtime_state import (  # noqa: E402,F401  (compat aliases for app.main.* seam)
     MCP_MOUNT_PATH,  # noqa: E402  (used by mount + /mcp/info)
@@ -224,6 +228,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _load_clip_config_cache()
     await _load_web_search_config_cache()
     await _load_cli_auth_config_cache()
+    await _load_api_token_cache()  # PF-AUTH-1 (1.9.4 W4)
     # P3-e (ADR-0071): decrypt UI-stored cloud web-search API keys into the sync cache.
     from app.ops.web_search.keys import load_cache_from_db as _load_ws_keys  # noqa: PLC0415
 
@@ -436,6 +441,9 @@ register_exception_handlers(app)
 app.add_middleware(
     SynapseAuthMiddleware,
     token=settings.auth_token,
+    # PF-AUTH-1 (1.9.4 W4): scoped api_tokens layered on top of the bootstrap token.
+    token_cache=runtime_state.api_token_cache,
+    vault_id=settings.vault_id,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -773,6 +781,34 @@ async def _load_mcp_auth_cache() -> None:
         allow_val,
         # NEVER log hash_val
     )
+
+
+async def _load_api_token_cache() -> None:
+    """
+    Load active (non-revoked) api_tokens rows into runtime_state.api_token_cache (PF-AUTH-1).
+
+    Called once in lifespan after _seed_vault_state(). Mirrors the _load_mcp_auth_cache
+    pattern: DB (api_tokens table) is source of truth; the in-process ApiTokenCache is
+    read O(1)-per-entry per request by SynapseAuthMiddleware. NEVER logs secret_hash.
+    """
+    from app.models import ApiToken  # noqa: PLC0415
+    from app.runtime_state import ApiTokenEntry  # noqa: PLC0415
+
+    async with get_session() as session:
+        rows = await session.execute(select(ApiToken).where(ApiToken.revoked_at.is_(None)))
+        entries = [
+            ApiTokenEntry(
+                id=str(row.id),
+                label=row.label,
+                secret_hash=row.secret_hash,
+                vault_id=row.vault_id,
+                read_only=row.read_only,
+            )
+            for row in rows.scalars().all()
+        ]
+
+    await runtime_state.api_token_cache.load(entries)
+    logger.info("ApiTokenCache loaded from DB: %d active token(s) (PF-AUTH-1)", len(entries))
 
 
 async def _load_clip_config_cache() -> None:

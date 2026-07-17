@@ -12,6 +12,7 @@ contract as before. Domain modules:
   web_search        — /web-search/config, /web-search/provider-keys (ADR-0041/0071)
   cli_auth          — /provider/cli-auth (ADR-0043)
   app_config        — /config/app (ADR-0053)
+  api_tokens        — /config/api-tokens CRUD (PF-AUTH-1, 1.9.4 W4)
 
 Shared Pydantic DTOs live in app.schemas.config.
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from app.routers.config import (
+    api_tokens,
     app_config,
     cli_auth,
     clip,
@@ -45,6 +47,7 @@ router.include_router(import_schedule.router)
 router.include_router(clip.router)
 router.include_router(web_search.router)
 router.include_router(app_config.router)
+router.include_router(api_tokens.router)
 
 # ── Backward-compatible re-exports (import seam preserved for one release) ─────
 # app.main re-exports EmbeddingConfigResponse + get_embedding_config from here; the

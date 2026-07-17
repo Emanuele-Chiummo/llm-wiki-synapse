@@ -29,6 +29,10 @@ Tables defined here:
                         stale-claim/missing-page/broken-wikilink); human-gated apply (ADR-0037 §3).
                         Alembic 0024: adds suggested_target (Text) + suggested_page_id (UUID FK).
                         (L2 / ADR-0037 B1)
+  - api_tokens        : 1.9.4 W4 scoped, revocable API tokens (PF-AUTH-1). Extends the single
+                        SYNAPSE_AUTH_TOKEN bootstrap with per-token secret_hash (PBKDF2, reuses
+                        app.runtime_state.hash_token), optional vault_id scope, read_only flag,
+                        soft-delete via revoked_at. Alembic migration 0036.
 
 provider_config + ingest_runs added in v0.2 (ADR-0008). links added in v0.2 (ADR-0008 §5).
 All three new tables ship in a single Alembic migration 0002 (one schema-change event).
@@ -2412,4 +2416,102 @@ class ImageCaption(Base):
         return (
             f"<ImageCaption id={self.id} vault={self.vault_id!r} "
             f"sha256={self.sha256[:12]!r}… provider={self.provider_type!r}>"
+        )
+
+
+class ApiToken(Base):
+    """
+    Scoped API tokens (PF-AUTH-1, 1.9.4 W4). Extends SynapseAuthMiddleware's single
+    bootstrap-token model (SYNAPSE_AUTH_TOKEN, app/auth.py) with per-token, revocable,
+    optionally vault-scoped, optionally read-only credentials — WITHOUT touching the
+    bootstrap token's own behaviour (non-breaking).
+
+    Secret storage: PBKDF2-SHA256 hash only (reuses app.runtime_state.hash_token /
+    verify_token — the same helper already used for vault_state.mcp_access_token_hash
+    and vault_state.clip_access_token). The plaintext is generated once at creation
+    time, returned in the POST response body, and NEVER stored or logged again.
+
+    Scope: vault_id NULL = global (valid for any vault this backend instance serves);
+    non-NULL = valid only when it matches the running instance's settings.vault_id
+    (single-vault-per-backend architecture — a mismatched vault_id is rejected exactly
+    like an invalid token, never silently ignored).
+
+    Revocation is soft-delete via revoked_at (never a hard DELETE — keeps an audit
+    trail and mirrors the review_items / lint_findings soft-status pattern).
+    """
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    label: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="Human-readable description set by the operator at creation time",
+    )
+
+    secret_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment=(
+            "PBKDF2-SHA256 hash of the token secret (app.runtime_state.hash_token). "
+            "NEVER the plaintext — the plaintext is shown once in the creation response "
+            "and is unrecoverable after that."
+        ),
+    )
+
+    vault_id: Mapped[str | None] = mapped_column(
+        String,
+        nullable=True,
+        comment=(
+            "NULL = global token (any vault this backend serves). Non-NULL = token is "
+            "valid only for that vault_id; a mismatch against settings.vault_id at request "
+            "time is treated as an auth failure, not a scope-filtered 403."
+        ),
+    )
+
+    read_only: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sa_text("false"),
+        comment=(
+            "True = token may only be used for read requests (GET/HEAD/OPTIONS); any other "
+            "HTTP method is rejected with 403 by SynapseAuthMiddleware."
+        ),
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    last_used_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        default=None,
+        comment="Timestamp of the most recent successful request authenticated with this token",
+    )
+
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        default=None,
+        comment="Soft-delete marker — set by DELETE /config/api-tokens/{id}; NULL = active",
+    )
+
+    __table_args__ = (Index("ix_api_tokens_vault_id", "vault_id"),)
+
+    def __repr__(self) -> str:
+        return (
+            f"<ApiToken id={self.id} label={self.label!r} vault_id={self.vault_id!r} "
+            f"read_only={self.read_only} revoked={self.revoked_at is not None}>"
         )
