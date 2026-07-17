@@ -119,21 +119,6 @@ const THEME_CYCLE: Theme[] = ["light", "dark", "system"];
 const ALL_ACTIONS: ActionEntry[] = [
   {
     kind: "action",
-    id: "new-page",
-    labelKey: "palette.action.newPage",
-    run: ({ setActiveSection }) => {
-      // Navigate to the wiki tree, then dispatch the event NavTree listens for
-      // to open its new-page modal — same pattern as synapse:openPalette.
-      setActiveSection("pages");
-      // Defer until next tick so SectionRouter has switched to the pages section
-      // (and NavTree is mounted) before the event fires.
-      setTimeout(() => {
-        window.dispatchEvent(new Event("synapse:newPage"));
-      }, 0);
-    },
-  },
-  {
-    kind: "action",
     id: "new-chat",
     labelKey: "palette.action.newChat",
     run: ({ vaultId, setActiveSection, t }) => {
@@ -214,6 +199,21 @@ const ALL_ACTIONS: ActionEntry[] = [
           const detail = err instanceof Error ? err.message : t("common.unknown");
           showToast(detail, "error");
         });
+    },
+  },
+  {
+    kind: "action",
+    id: "new-page",
+    labelKey: "palette.action.newPage",
+    run: ({ setActiveSection }) => {
+      // Navigate to the wiki tree, then dispatch the event NavTree listens for
+      // to open its new-page modal — same pattern as synapse:openPalette.
+      setActiveSection("pages");
+      // Defer until next tick so SectionRouter has switched to the pages section
+      // (and NavTree is mounted) before the event fires.
+      setTimeout(() => {
+        window.dispatchEvent(new Event("synapse:newPage"));
+      }, 0);
     },
   },
 ];
