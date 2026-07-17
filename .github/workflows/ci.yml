@@ -67,6 +67,14 @@ jobs:
         working-directory: backend
         run: black --check app tests
 
+      # BE-ARCH-4 (1.9.2 W2): import-graph layer boundaries (models -> persistence
+      # -> services -> routers/mcp -> main). Baseline is clean (0 violations, one
+      # documented `ignore_imports` exception — see pyproject.toml comments) so
+      # this is BLOCKING: any new commit that regresses a layer boundary fails CI.
+      - name: Import-linter (layer boundaries)
+        working-directory: backend
+        run: lint-imports --config pyproject.toml
+
   # ──────────────────────────────────────────────────────────────────────
   # Stage 2: Docker build validation
   # Validates that the Dockerfile builds without errors. Catches issues like:

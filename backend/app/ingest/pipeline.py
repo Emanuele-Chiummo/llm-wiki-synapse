@@ -22,6 +22,7 @@ import frontmatter
 import httpx
 
 import app.ingest.orchestrator as orch
+from app import runtime_state
 from app.config import settings
 from app.ingest.loop import IngestCancelled, LoopResult, run_orchestrated_loop
 from app.ingest.provider.base import InferenceProvider, UsageAccumulator
@@ -261,9 +262,9 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
     # has been initialised (lifespan). No-op in test envs without the lifespan.
     # DO NOT alter provider/loop logic here (NB-1/NB-4 guard).
     try:
-        from app.main import _graph_cache
+        _cache = runtime_state.graph_cache()
 
-        if _graph_cache is not None:
+        if _cache is not None:
             async with orch.get_session() as _vs_sess:
                 from sqlalchemy import select
 
@@ -272,7 +273,7 @@ async def ingest_file(file_path: str | Path) -> IngestResult:
                 )
                 _vs = _vs_row.scalar_one_or_none()
                 _new_version = _vs.data_version if _vs is not None else 0
-            _graph_cache.notify_bump(_new_version)
+            _cache.notify_bump(_new_version)
     except Exception:  # noqa: BLE001
         # Non-fatal: the graph cache will self-heal via the polling fallback
         logger.debug("ingest_file: graph cache notify_bump skipped (cache not ready)")

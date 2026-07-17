@@ -39,6 +39,7 @@ from datetime import UTC, datetime
 
 import frontmatter  # python-frontmatter
 
+from app import runtime_state
 from app.config import settings
 from app.db import get_session
 from app.models import Edge, Link, Page, VaultState
@@ -893,10 +894,10 @@ async def _bump_version_and_notify() -> int:
     # Notify GraphCache (debounced FA2 recompute fires on its own schedule — I2)
     # No-op if the cache has not been initialised (test environments without lifespan).
     try:
-        from app.main import _graph_cache
+        _cache = runtime_state.graph_cache()
 
-        if _graph_cache is not None:
-            _graph_cache.notify_bump(new_version)
+        if _cache is not None:
+            _cache.notify_bump(new_version)
     except Exception:  # noqa: BLE001
         logger.debug("cascade_delete: graph cache notify_bump skipped (cache not ready)")
 

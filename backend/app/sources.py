@@ -44,6 +44,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 
+from app import runtime_state
 from app.config import settings
 from app.upload import resolve_under_sources
 
@@ -1409,9 +1410,9 @@ async def _bump_version_no_derived() -> None:
 
     # Notify GraphCache (debounced FA2 recompute — I2)
     try:
-        from app.main import _graph_cache
+        _cache = runtime_state.graph_cache()
 
-        if _graph_cache is not None:
-            _graph_cache.notify_bump(new_version)
+        if _cache is not None:
+            _cache.notify_bump(new_version)
     except Exception:  # noqa: BLE001
         logger.debug("sources._bump_version_no_derived: graph cache notify skipped (not ready)")

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 
 from app import db as _db
+from app import runtime_state
 from app.config import settings
 from app.ingest.schemas import PageType
 from app.models import Page, ReviewItem, VaultState
@@ -574,9 +575,9 @@ async def _apply_suggestion_to_file(
 
     # Notify graph cache of the bump (best-effort; skipped when the cache is not ready).
     try:
-        from app.main import _graph_cache
+        _cache = runtime_state.graph_cache()
 
-        if _graph_cache is not None:
+        if _cache is not None:
             # Read ONLY data_version (portable column-scoped select — avoids ORM full-entity
             # selects that would require every VaultState column in narrow test schemas).
             async with _db.get_session() as session:
@@ -587,7 +588,7 @@ async def _apply_suggestion_to_file(
                         )
                     )
                 ).scalar_one_or_none() or 0
-            _graph_cache.notify_bump(new_version)
+            _cache.notify_bump(new_version)
     except Exception:  # noqa: BLE001
         logger.debug("%s: graph cache notify_bump skipped (cache not ready)", label)
 
