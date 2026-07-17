@@ -506,7 +506,7 @@ async def test_post_run_now_backfill_400_dormant() -> None:
         resp = await client.post("/ops/schedules/backfill/run-now")
 
     assert resp.status_code == 400
-    assert "vocabulary" in resp.json()["detail"].lower()
+    assert "vocabulary" in resp.json()["error"]["message"].lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

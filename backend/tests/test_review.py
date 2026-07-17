@@ -648,7 +648,7 @@ class TestReviewQueueEndpoints:
             f"/review/queue/{item_id}/deep-research?vault_id=test-vault"
         )
         assert resp.status_code == 503
-        assert "SEARXNG_URL" in resp.json()["detail"]
+        assert "SEARXNG_URL" in resp.json()["error"]["message"]
 
     async def test_deep_research_returns_2xx_with_run_id(
         self,

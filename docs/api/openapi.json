@@ -3286,7 +3286,7 @@
     "/config/app/{key}": {
       "put": {
         "summary": "Upsert one config override (ADR-0053)",
-        "description": "Sets or updates the DB override for one of the 13 allowed keys. Returns 204 on success. Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
+        "description": "Sets or updates the DB override for one of the 13 allowed keys. Returns 204 on success. Returns 400 with the stable error envelope (code='invalid_key', details.allowed=[...]) for a non-allowed key (ADR-0086). Returns 422 on value validation failure (per-key rules \u2014 ADR-0053 \u00a72.3). Auth: SynapseAuthMiddleware (ADR-0052). After write, the in-process cache is refreshed immediately so a subsequent GET /config/app reflects source='override' (ADR-0053 \u00a73.2).",
         "operationId": "put_app_config_config_app__key__put",
         "parameters": [
           {
@@ -3328,7 +3328,7 @@
       },
       "delete": {
         "summary": "Remove a config override \u2192 revert to env default (ADR-0053 \u00a73.3)",
-        "description": "Deletes the app_config row for *key*, reverting the setting to its env baseline. Returns 204 (idempotent \u2014 no-op if no row existed). Returns 400 {'error':'invalid_key','allowed':[...]} for a non-allowed key. Auth: SynapseAuthMiddleware (ADR-0052). Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 \u00a73.3). S7 overview_language: frontend sends DELETE for the '(auto)' choice (\u00a72.3).",
+        "description": "Deletes the app_config row for *key*, reverting the setting to its env baseline. Returns 204 (idempotent \u2014 no-op if no row existed). Returns 400 with the stable error envelope (code='invalid_key', details.allowed=[...]) for a non-allowed key (ADR-0086). Auth: SynapseAuthMiddleware (ADR-0052). Reset is DELETE, not PUT null: app_config.value is NOT NULL by design (ADR-0053 \u00a73.3). S7 overview_language: frontend sends DELETE for the '(auto)' choice (\u00a72.3).",
         "operationId": "delete_app_config_config_app__key__delete",
         "parameters": [
           {

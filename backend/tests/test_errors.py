@@ -166,9 +166,7 @@ async def test_headers_pass_through(client: AsyncClient) -> None:
     domain = await client.get("/domain-with-headers")
     http = await client.get("/http-with-headers")
     assert domain.status_code == http.status_code == 409
-    expected = {
-        "error": {"code": "conflict", "message": "locked", "status": 409, "details": None}
-    }
+    expected = {"error": {"code": "conflict", "message": "locked", "status": 409, "details": None}}
     assert domain.json() == http.json() == expected
     assert domain.headers.get("retry-after") == http.headers.get("retry-after") == "30"
 

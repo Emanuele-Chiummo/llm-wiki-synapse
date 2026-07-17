@@ -146,7 +146,7 @@ class TestGetPageContent:
         assert (
             resp.status_code == 410
         ), f"Expected 410 (file gone) but got {resp.status_code}: {resp.text}"
-        detail = resp.json()["detail"].lower()
+        detail = resp.json()["error"]["message"].lower()
         assert (
             "not present" in detail or "missing" in detail
         ), f"410 detail should mention file missing; got: {detail!r}"
@@ -287,7 +287,7 @@ class TestPutPageContent:
         assert (
             resp.status_code == 409
         ), f"Stale expected_hash must return 409; got {resp.status_code}: {resp.text}"
-        detail = resp.json()["detail"]
+        detail = resp.json()["error"]["message"]
         assert (
             "hash" in detail.lower() or "mismatch" in detail.lower()
         ), f"409 detail should mention hash mismatch; got: {detail!r}"
@@ -384,7 +384,7 @@ class TestPutPageContent:
         assert (
             resp.status_code == 422
         ), f"Invalid YAML frontmatter must return 422; got {resp.status_code}: {resp.text}"
-        detail = resp.json()["detail"].lower()
+        detail = resp.json()["error"]["message"].lower()
         assert (
             "frontmatter" in detail or "yaml" in detail or "parse" in detail
         ), f"422 detail should mention frontmatter or YAML; got: {detail!r}"

@@ -216,9 +216,18 @@ def code_for_status(status_code: int) -> str:
     return f"http_{status_code}"
 
 
-def _envelope(*, code: str, message: str, status: int, details: Any = None) -> dict[str, Any]:
-    """Build the stable error envelope body (ADR-0086 §1)."""
+def error_envelope(*, code: str, message: str, status: int, details: Any = None) -> dict[str, Any]:
+    """Build the stable error envelope body (ADR-0086 §1).
+
+    Public so the rare call site that returns a custom ``JSONResponse`` error (rather than
+    raising a ``SynapseError``) can emit the identical shape from the one definition — e.g.
+    ``/config/app`` returns an ``invalid_key`` 400 with an ``allowed`` list in ``details``.
+    """
     return {"error": {"code": code, "message": message, "status": status, "details": details}}
+
+
+# Internal alias kept for the handlers below.
+_envelope = error_envelope
 
 
 def _message_and_details(detail: Any) -> tuple[str, Any]:

@@ -726,7 +726,7 @@ async def test_research_start_503_when_neither_db_nor_env_configured() -> None:
     assert (
         resp.status_code == 503
     ), f"Expected 503 when no SearXNG configured, got {resp.status_code}: {resp.text}"
-    detail = resp.json().get("detail", "")
+    detail = resp.json().get("error", {}).get("message", "")
     assert (
         "SEARXNG_URL" in detail or "searxng" in detail.lower()
     ), f"503 detail should mention SEARXNG_URL, got: {detail!r}"

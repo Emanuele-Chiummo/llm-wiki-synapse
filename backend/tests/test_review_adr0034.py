@@ -709,7 +709,7 @@ class TestCreateAction0034:
             )
 
         assert resp.status_code == 409
-        assert "provider" in resp.json()["detail"].lower()
+        assert "provider" in resp.json()["error"]["message"].lower()
 
     async def test_create_page_from_review_409_not_pending(
         self,
@@ -912,7 +912,7 @@ class TestDeepResearchAction0034:
             f"/review/queue/{item_id}/deep-research?vault_id=test-vault"
         )
         assert resp.status_code == 503
-        assert "SEARXNG_URL" in resp.json()["detail"]
+        assert "SEARXNG_URL" in resp.json()["error"]["message"]
 
 
 # ── T-0034-014..016: Sweep ────────────────────────────────────────────────────

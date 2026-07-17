@@ -129,7 +129,7 @@ async def test_clip_missing_token(clip_env: dict[str, Any]) -> None:
     client = clip_env["client"]
     resp = await client.post("/clip", json=_VALID_BODY)
     assert resp.status_code == 401, resp.text
-    assert "token" in resp.json()["detail"].lower()
+    assert "token" in resp.json()["error"]["message"].lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ async def test_clip_bad_origin(clip_env: dict[str, Any]) -> None:
         },
     )
     assert resp.status_code == 403, resp.text
-    assert "allowlist" in resp.json()["detail"].lower()
+    assert "allowlist" in resp.json()["error"]["message"].lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

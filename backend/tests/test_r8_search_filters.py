@@ -573,8 +573,8 @@ async def test_search_endpoint_422_on_unknown_type() -> None:
 
     assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"
     body = resp.json()
-    assert "detail" in body
-    assert "badtype" in body["detail"] or "Unknown" in body["detail"]
+    assert "error" in body
+    assert "badtype" in body["error"]["message"] or "Unknown" in body["error"]["message"]
 
 
 @pytest.mark.asyncio
@@ -595,7 +595,7 @@ async def test_search_endpoint_422_on_unknown_sort() -> None:
 
     assert resp.status_code == 422, f"Expected 422, got {resp.status_code}: {resp.text}"
     body = resp.json()
-    assert "detail" in body
+    assert "error" in body
 
 
 # ── T-R85-010: type filter in lexical path (embeddings=False) ─────────────────

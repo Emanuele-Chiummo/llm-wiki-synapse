@@ -49,7 +49,7 @@ async def test_backfill_endpoint_400_when_dormant(
     monkeypatch.setattr("app.config_overrides.effective_domain_vocabulary", lambda: [])
     r = await client.post("/ops/backfill-domains", json={})
     assert r.status_code == 400
-    assert "dormant" in r.json()["detail"]
+    assert "dormant" in r.json()["error"]["message"]
 
 
 async def test_backfill_endpoint_409_when_running(
