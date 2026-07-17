@@ -17,6 +17,13 @@
  *
  * settingsStore / uiStore are intentionally NOT touched here: they hold GLOBAL client
  * preferences (theme, language, panel-open/closed, server URL) that are not vault-scoped.
+ *
+ * eventsStore is also intentionally excluded: it holds TRANSPORT-LEVEL connection state
+ * (the GET /events SSE stream and its reconnect backoff), not vault-scoped data. The
+ * stream is app-wide and carries server-push events for whatever the CURRENT vault is —
+ * interrupting and restarting it on every vault switch would cause an unnecessary
+ * reconnect. The store's `healthy` flag feeds back into the REST poll cadence (statusStore
+ * / activityStore) independently of which vault is active.
  */
 
 import { useAppStore } from "./appStore";
