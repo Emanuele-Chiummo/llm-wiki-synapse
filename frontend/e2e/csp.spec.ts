@@ -572,16 +572,7 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     console.log("[CSP][AC-CSP-7] KaTeX display-math rendered with 0 violations");
   });
 
-  // FIXME(2.1): fails deterministically (3/3 attempts, identical ~16s duration each time,
-  // not a probabilistic contention pattern) on the graph-panel/nav-tree wait, despite three
-  // separate fix attempts across PRs #104/#103 (graph-priming step, wider timeouts, scoped
-  // retry budget) that resolved the SAME class of flake for its light-theme sibling test.
-  // Quarantined rather than left blocking merges indefinitely — needs live Playwright trace
-  // inspection (the CI artifact traces were not accessible from this session) to find the
-  // real root cause, not another blind timeout/step guess. The CSP security property itself
-  // (script-src clean, zero violations) remains fully covered by 9 other tests in this file
-  // that have never flaked, including the light-theme KaTeX sibling.
-  test.skip("KaTeX math renders in dark theme without CSP violations", async ({ page }) => {
+  test("KaTeX math renders in dark theme without CSP violations", async ({ page }) => {
     const violations = collectCspViolations(page);
 
     const mathPageId = "csp-math-dark-00000000-0000-0000-0000-000000000001";
@@ -632,7 +623,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // Prime the graph store before navigating to "pages" — see the light-theme test
     // above for the rationale (matches the reliable AC-CSP-5 sweep pattern).
     await navTo(page, "graph");
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 15_000 });
+    // 25s — same CI-runner timing-variance fix as the light-theme sibling above (widened
+    // after ruling out a code-level cause via a full local repro of the CI sequence).
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 25_000 });
 
     await navTo(page, "pages");
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
