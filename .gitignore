@@ -38,6 +38,9 @@ docs/screens/*
 !docs/screens/*.png
 !docs/screens/v1.6.0/
 !docs/screens/v1.6.0/*.png
+# Track iOS 2.1 (ADR-0088): redesign Simulator screenshots (D5) are committed as visual proof.
+!docs/screens/ios/
+!docs/screens/ios/*.png
 
 # Playwright test output (transient — never committed)
 /frontend/playwright-report/
