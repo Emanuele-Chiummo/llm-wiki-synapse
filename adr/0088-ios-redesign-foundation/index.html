@@ -1589,6 +1589,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#addendum-fase-c-track-21-ga-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addendum — Fase C (Track 2.1, GA parity)
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1802,6 +1813,28 @@ Accepted. The rest of this ADR (native SwiftUI, design system, navigation) is Ac
    <code>Components.swift</code>.</li>
 <li>Wire the redesigned Home + Wiki to live API data (F18 home dashboard, F1/F4).</li>
 </ol>
+<h2 id="addendum-fase-c-track-21-ga-parity">Addendum — Fase C (Track 2.1, GA parity)<a class="headerlink" href="#addendum-fase-c-track-21-ga-parity" title="Permanent link">&para;</a></h2>
+<p>Fase C closed out parity: Graph, Review, Sources/Activity and a complete Settings
+(providers/vault/language) are live against the 2.0.0 backend, and the legacy
+<code>Theme.swift</code> + <code>Features/</code> tree from item 2 above is <strong>deleted</strong> — <code>SynColor</code> is now
+the sole visual language, so no pure-black token exists anywhere.</p>
+<p><strong>The graph-render decision remains <code>Proposed</code>, not <code>Accepted</code>.</strong> Fase C shipped the
+ADR's recommended <strong>native SwiftUI <code>Canvas</code></strong> renderer, but deliberately behind a
+<strong>swappable seam</strong>: <code>makeGraphRenderer(kind:)</code> (<code>Redesign/Graph/GraphRenderer.swift</code>)
+is the one place the concrete renderer is chosen, so a <code>.webViewSigma</code> case + a
+<code>SigmaWebGraphView</code> can replace it later without touching <code>GraphScreen</code>, the view
+model, or the DTOs. <strong>I2 holds</strong> either way — both consume the server-precomputed
+<code>GET /graph</code> coords; the Canvas never runs a layout.</p>
+<p>What is <strong>still owed by the owner before the decision can be marked Accepted</strong> (carried
+over unchanged from Fase A — no physical iOS device was reachable in Fase B or C
+either, Simulator only):</p>
+<ul>
+<li><strong>fps</strong> panning/zooming a realistic vault (hundreds–thousands of nodes) on device;</li>
+<li><strong>memory</strong> of the native renderer vs a WKWebView-sigma embed under the same graph;</li>
+<li><strong>gesture responsiveness</strong> (pinch/pan latency, momentum, haptics).</li>
+</ul>
+<p>If those numbers disappoint on a real device, flip the seam to the WKWebView fallback;
+the architecture already accommodates it at zero cost to the rest of the app.</p>
 
 
 
