@@ -90,6 +90,7 @@ import {
   savePageContent,
   fetchRelatedPages,
   fetchAllPages,
+  fetchPageBySlug,
 } from "../../api/pagesClient";
 import { refreshDataVersion } from "../../store/statusStore";
 import { ApiError } from "../../api/graphClient";
@@ -392,9 +393,16 @@ export function NoteView() {
         titleIndex.get(titleLower) ?? nodes.find((n) => n.title.toLowerCase() === titleLower)?.id;
       if (id) {
         selectPage(id, "tree");
-      } else {
-        showToast(t("noteView.wikilinkNotFound", { title: wikilinkTitle }), "error");
+        return;
       }
+      // Piped wikilinks ([[slug|Display]]) carry the slug, not the title, in data-wikilink —
+      // titleIndex/nodes only match by title, so fall back to the server's slug resolver
+      // before declaring the link broken.
+      fetchPageBySlug(wikilinkTitle)
+        .then((page) => selectPage(page.id, "tree"))
+        .catch(() => {
+          showToast(t("noteView.wikilinkNotFound", { title: wikilinkTitle }), "error");
+        });
     },
     [titleIndex, nodes, selectPage, t],
   );

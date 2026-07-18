@@ -44,6 +44,7 @@ vi.mock("../api/pagesClient", () => ({
   fetchAllPages: vi.fn().mockResolvedValue({ items: [] }),
   fetchStatus: vi.fn(),
   fetchRelatedPages: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  fetchPageBySlug: vi.fn().mockRejectedValue(new Error("not found")),
 }));
 
 vi.mock("../api/graphClient", () => ({
@@ -250,12 +251,44 @@ describe("NoteView — wikilink click→select resolution (Task A)", () => {
     const body = screen.getByTestId("note-view");
     const anchor = body.querySelector("a.wikilink") as HTMLElement;
 
-    act(() => {
+    await act(async () => {
       fireEvent.click(anchor);
+      // Let the fetchPageBySlug fallback (rejected) flush before asserting.
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(_mockSelectPage).not.toHaveBeenCalled();
     expect(mockShowToast).toHaveBeenCalledWith("Page not found: Temperature Scaling", "error");
+  });
+
+  // ── 3b. Piped wikilink (slug target, no title match) → resolves via fetchPageBySlug ──
+
+  it("falls back to fetchPageBySlug when the target is a slug, not a title", async () => {
+    // No node titled "temperature-scaling" — only the slugified-title mismatch case
+    // a piped [[slug|Display]] wikilink produces (data-wikilink carries the slug).
+    _nodes = [{ id: "page-other", title: "Completely Unrelated", type: "concept", x: 0, y: 0 }];
+    const mockedFetchBySlug = pagesClient.fetchPageBySlug as ReturnType<typeof vi.fn>;
+    mockedFetchBySlug.mockResolvedValueOnce({
+      id: "page-slug-target",
+      title: "Temperature Scaling",
+    });
+
+    await renderAndWaitReady();
+
+    const body = screen.getByTestId("note-view");
+    const anchor = body.querySelector("a.wikilink") as HTMLElement;
+    anchor.setAttribute("data-wikilink", "temperature-scaling");
+
+    await act(async () => {
+      fireEvent.click(anchor);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockedFetchBySlug).toHaveBeenCalledWith("temperature-scaling");
+    expect(_mockSelectPage).toHaveBeenCalledWith("page-slug-target", "tree");
+    expect(mockShowToast).not.toHaveBeenCalled();
   });
 
   // ── 4. Click on non-wikilink element → no selectPage ──────────────────────
