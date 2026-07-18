@@ -511,6 +511,10 @@ async def run_ingest_pipeline(
         # ── ADR-0076 / 2.0.0: block loop is the only surviving ingest path ──────────
         # All providers (Local, API, CLI) run the block loop via provider.complete().
         # The legacy JSON loop and the CLI delegated path were removed in 2.0.0 (ADR-0076).
+        # ADR-0085 §4 retry-with-context: pop any stored diagnostics from the queue manager
+        # so the block loop can inject them into the first-iteration generation prompt.
+        # pop_retry_context() returns None when no context was stored (normal / first run).
+        _prior_failure_context = orch.ingest_queue.pop_retry_context(_queue_key)
         converged, iterations, written_pages, diagnostics = await _run_orchestrated_blocks(
             provider=provider,
             accumulator=accumulator,
@@ -519,6 +523,7 @@ async def run_ingest_pipeline(
             config_row=provider_config_row,
             run_id=run_id,
             cancel_event=cancel_event,
+            prior_failure_context=_prior_failure_context,
         )
         # overview.md is not touched on the block path (ADR-0078 ownership change).
         # D4 graph-node parity: upsert index/log Page rows.
@@ -751,6 +756,7 @@ async def _run_orchestrated_blocks(
     config_row: object,
     run_id: uuid.UUID,
     cancel_event: asyncio.Event | None = None,
+    prior_failure_context: str | None = None,
 ) -> tuple[bool, int, list[Page], dict[str, object]]:
     """Block-based orchestrated ingest (ADR-0076, nashsu/llm_wiki v0.6.3 parity).
 
@@ -813,6 +819,7 @@ async def _run_orchestrated_blocks(
         max_context_chars=max_context_chars,
         review_stage_min_chars=review_min_chars,
         review_stage_min_file_blocks=review_min_blocks,
+        prior_failure_context=prior_failure_context,
     )
 
     written_pages: list[Page] = []

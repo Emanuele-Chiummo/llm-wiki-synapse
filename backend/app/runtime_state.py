@@ -803,3 +803,12 @@ def resolve_backend_version() -> str:
 def provider_config_model() -> type[ProviderConfig]:
     """The ProviderConfig ORM class via the ``app.main.ProviderConfig`` constructor seam."""
     return _main().ProviderConfig  # type: ignore[attr-defined, no-any-return]
+
+
+async def seed_vault_state() -> None:
+    """Seed the vault_state row for the current vault_id (delegates to app.main._seed_vault_state).
+
+    Bridge accessor so routers/projects.py can call this without a lazy ``app.main`` import.
+    The real implementation stays in ``app.main`` (test-monkeypatch seam per BE-ARCH-3 docstring).
+    """
+    await _main()._seed_vault_state()  # type: ignore[attr-defined]
