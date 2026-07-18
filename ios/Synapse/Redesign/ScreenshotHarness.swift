@@ -36,6 +36,8 @@ enum ScreenshotHarness {
         case "graph": WikiStack { GraphScreen() }
         case "more": NavigationStack { MoreScreen() }
         case "review": NavigationStack { ReviewScreen() }
+        case "sources": NavigationStack { SourcesScreen() }
+        case "activity": NavigationStack { ActivityScreen() }
         case "tokens": NavigationStack { TokensScreen() }
         default: RedesignRootView()
         }

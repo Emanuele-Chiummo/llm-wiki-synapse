@@ -22,6 +22,13 @@ struct MoreScreen: View {
                                ? "\(session.reviewPending) pending" : "Create · Deep-Research · Skip")
                 }
                 .badge(session.reviewPending)
+                NavigationLink { SourcesScreen() } label: {
+                    settingRow("tray.full", "Sources", "Raw ingest input (raw/sources/)")
+                }
+                NavigationLink { ActivityScreen() } label: {
+                    settingRow("waveform.path.ecg", "Activity", activitySubtitle)
+                }
+                .badge(session.queue.processing + session.queue.pending)
             }
 
             Section("Settings & operations") {
@@ -46,6 +53,12 @@ struct MoreScreen: View {
         .synScreenBackground()
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var activitySubtitle: String {
+        let running = session.queue.processing + session.queue.pending
+        if running > 0 { return "\(running) in the ingest queue" }
+        return "Ingest runs, phase & progress"
     }
 
     private var connectionCard: some View {

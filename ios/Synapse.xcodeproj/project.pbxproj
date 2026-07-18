@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		010A193597B8B14A5082ABE0 /* LaTeXUnicode.swift in Sources */ = {isa = PBXBuildFile; fileRef = E99988B0007E2C2E6EA67BF0 /* LaTeXUnicode.swift */; };
+		021435A326F27605968D93EB /* SourcesData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38CD85FE02444FA4EFA1468E /* SourcesData.swift */; };
 		035225762EF79982CFF31164 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20B2BBD710D55BC1564446E /* AppSettings.swift */; };
 		0487F81E9EC4B8A13C1C433E /* TokensScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBA6A272095B5EF5473B928 /* TokensScreen.swift */; };
 		05A920C040B6538B66B6F1F6 /* MarkdownBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA95CC724A9F6E6569E389DF /* MarkdownBody.swift */; };
@@ -34,6 +35,7 @@
 		4BDF2987CD5466A8DD38C462 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4D584EC9E7DBF630766A95 /* Theme.swift */; };
 		54C300C146EC4766146DC381 /* ReviewScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A363C46FF6122217784C28 /* ReviewScreen.swift */; };
 		54E46D7BC81B32C540304820 /* SynapseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DEDFFF62E7E324D661063C /* SynapseModels.swift */; };
+		59D7503F417122127E4232C5 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF4AA93067BB6768E068B00 /* ActivityScreen.swift */; };
 		66144D802D2C5CD2108F14C9 /* WikiDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EA21BFE56EC773E482674 /* WikiDetailView.swift */; };
 		675C1E08093FA9D9FEA3DD4A /* SynChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B33177AD33A68FD6BC9A9EE /* SynChip.swift */; };
 		6EF553D1509252AFCB0EA8D9 /* GraphRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D8C4C79EDAF5AA61513A97 /* GraphRenderer.swift */; };
@@ -45,6 +47,7 @@
 		9A97F45693024607BEE931EE /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21A7D9A58F0690E5DD39118 /* RootTabView.swift */; };
 		A68815923743789DA85D54E8 /* SynColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 064F5607420429D564FEA7A9 /* SynColor.swift */; };
 		AA12BFC10673B5BC00DDEE8E /* SynapseClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 977FEFFB7415C215753DE15E /* SynapseClient.swift */; };
+		AC725C70060DC976E9BD85E0 /* SourcesScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBA1A1AAA8455753048C42C3 /* SourcesScreen.swift */; };
 		B8BE8B43D73AEE9057B9ADB3 /* SynSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6222E89A70A1909A3A3B0962 /* SynSkeleton.swift */; };
 		B9A5410D0937D7913C924984 /* MoreScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4748C08E7D512B29292EE65 /* MoreScreen.swift */; };
 		CF101E8A4B3A788ADF200266 /* SynapseApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCACC88C6454277956726878 /* SynapseApp.swift */; };
@@ -75,6 +78,7 @@
 		12B05C011702D5236468CEDD /* Synapse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Synapse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		17B8161D6055245A391B8F25 /* ChatScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScreen.swift; sourceTree = "<group>"; };
 		23F02D95C6DCAD65A7FF58F7 /* SearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchScreen.swift; sourceTree = "<group>"; };
+		38CD85FE02444FA4EFA1468E /* SourcesData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesData.swift; sourceTree = "<group>"; };
 		3C981E5C340669CAA45420B2 /* WikiListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WikiListView.swift; sourceTree = "<group>"; };
 		4F67A35C2B5E7ED37763BEBB /* DTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTO.swift; sourceTree = "<group>"; };
 		53C2BA61D3DAB1E46EC6EA03 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
@@ -102,12 +106,14 @@
 		ACE49D212F5C91AC1136BCC0 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		AFBA6A272095B5EF5473B928 /* TokensScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokensScreen.swift; sourceTree = "<group>"; };
 		AFD5C388A615DF68E00B6B58 /* ResearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchView.swift; sourceTree = "<group>"; };
+		AFF4AA93067BB6768E068B00 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
 		B050659ACCE2E26312856277 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		B06C086B8DF1AEAD9C9504F0 /* SynAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynAPIError.swift; sourceTree = "<group>"; };
 		BED2D71C414CAB32BBBA4BD0 /* GraphData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphData.swift; sourceTree = "<group>"; };
 		C21A7D9A58F0690E5DD39118 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		C736C4D008F58F0A7D2F3CD9 /* MoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreView.swift; sourceTree = "<group>"; };
 		CB8BA24E7E55C8EF0A3530F0 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CBA1A1AAA8455753048C42C3 /* SourcesScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourcesScreen.swift; sourceTree = "<group>"; };
 		CC4D584EC9E7DBF630766A95 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D19EA21BFE56EC773E482674 /* WikiDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WikiDetailView.swift; sourceTree = "<group>"; };
 		D4F0D52ED4557DE794991673 /* ChatModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModel.swift; sourceTree = "<group>"; };
@@ -131,6 +137,7 @@
 				EF295DF63B3E9EFA2DB61E46 /* Data */,
 				DC1792D1F86FA4DCB413DD82 /* Graph */,
 				F0D928DA9101115867E27170 /* Review */,
+				E8E3FEA6B25624541F864B5C /* Sources */,
 				5A4F99F6BACA0BDF67F4F116 /* Support */,
 				17B8161D6055245A391B8F25 /* ChatScreen.swift */,
 				B050659ACCE2E26312856277 /* HomeScreen.swift */,
@@ -309,6 +316,16 @@
 			path = Graph;
 			sourceTree = "<group>";
 		};
+		E8E3FEA6B25624541F864B5C /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				AFF4AA93067BB6768E068B00 /* ActivityScreen.swift */,
+				38CD85FE02444FA4EFA1468E /* SourcesData.swift */,
+				CBA1A1AAA8455753048C42C3 /* SourcesScreen.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
 		EF295DF63B3E9EFA2DB61E46 /* Data */ = {
 			isa = PBXGroup;
 			children = (
@@ -404,6 +421,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DEAC40AD1D8B4984C824FD37 /* APIClient.swift in Sources */,
+				59D7503F417122127E4232C5 /* ActivityScreen.swift in Sources */,
 				09DA73CC207E34EEEBE3C7A7 /* AppModel.swift in Sources */,
 				035225762EF79982CFF31164 /* AppSettings.swift in Sources */,
 				E2C1EC55060AA2B6F3DAD615 /* BackHeader.swift in Sources */,
@@ -439,6 +457,8 @@
 				EC66939761E0E4C711480FF1 /* SearchScreen.swift in Sources */,
 				09E5E1606EA137497806DCEF /* SearchView.swift in Sources */,
 				0E5EFA8105644C45F7FBE25C /* SettingsView.swift in Sources */,
+				021435A326F27605968D93EB /* SourcesData.swift in Sources */,
+				AC725C70060DC976E9BD85E0 /* SourcesScreen.swift in Sources */,
 				24971A0CCAA2754266FCAE33 /* SynAPIError.swift in Sources */,
 				31ECB2B3E2DCF524BF9C9D18 /* SynButton.swift in Sources */,
 				85B494F4BDDD9A86FEAB62E6 /* SynCard.swift in Sources */,
