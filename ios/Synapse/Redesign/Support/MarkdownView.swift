@@ -39,9 +39,10 @@ struct MarkdownView: View {
                 .foregroundStyle(SynColor.text)
                 .padding(.top, level <= 2 ? SynSpace.x2 : 0)
         case .paragraph(let text):
+            // No .foregroundStyle here — it would override the per-run colors
+            // `inline()` bakes in (and silently kill wikilink tap-to-navigate).
             Text(text)
                 .font(SynFont.body)
-                .foregroundStyle(SynColor.text)
                 .lineSpacing(5)
                 .tint(SynColor.accent)
         case .bullet(let items):
@@ -71,7 +72,8 @@ struct MarkdownView: View {
         case .quote(let text):
             HStack(spacing: SynSpace.x4) {
                 RoundedRectangle(cornerRadius: 2).fill(SynColor.accent).frame(width: 3)
-                Text(text).font(SynFont.body).foregroundStyle(SynColor.textMuted)
+                // No .foregroundStyle — see the .paragraph case above.
+                Text(text).font(SynFont.body)
                     .lineSpacing(4)
                 Spacer(minLength: 0)
             }
@@ -89,7 +91,8 @@ struct MarkdownView: View {
             Text(marker)
                 .font(SynFont.body.monospacedDigit())
                 .foregroundStyle(SynColor.accent)
-            Text(text).font(SynFont.body).foregroundStyle(SynColor.text)
+            // No .foregroundStyle — see the .paragraph case above.
+            Text(text).font(SynFont.body)
                 .tint(SynColor.accent).lineSpacing(4)
             Spacer(minLength: 0)
         }
@@ -240,9 +243,11 @@ enum WikiMarkdownBlock {
         options.interpretedSyntax = .inlineOnlyPreservingWhitespace
         options.failurePolicy = .returnPartiallyParsedIfPossible
         if var attr = try? AttributedString(markdown: pre, options: options) {
-            // Tint links with the accent so wikilinks read as interactive.
-            for run in attr.runs where run.link != nil {
-                attr[run.range].foregroundColor = SynColor.accent
+            // Bake color into every run: links get the accent, everything else gets
+            // the standard text color. A `.foregroundStyle` view modifier on the
+            // enclosing Text would otherwise override per-run link colors.
+            for run in attr.runs {
+                attr[run.range].foregroundColor = run.link != nil ? SynColor.accent : SynColor.text
             }
             return attr
         }
