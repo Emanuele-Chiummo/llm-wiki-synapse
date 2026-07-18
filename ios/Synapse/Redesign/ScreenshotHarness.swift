@@ -35,6 +35,7 @@ enum ScreenshotHarness {
         case "chat": WikiStack { ChatScreen(autoOpenFirstConversation: true) }
         case "graph": WikiStack { GraphScreen() }
         case "more": NavigationStack { MoreScreen() }
+        case "review": NavigationStack { ReviewScreen() }
         case "tokens": NavigationStack { TokensScreen() }
         default: RedesignRootView()
         }

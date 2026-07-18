@@ -15,6 +15,15 @@ struct MoreScreen: View {
                     .listRowBackground(Color.clear)
             }
 
+            Section("Operations") {
+                NavigationLink { ReviewScreen() } label: {
+                    settingRow("checklist", "Review queue",
+                               session.reviewPending > 0
+                               ? "\(session.reviewPending) pending" : "Create · Deep-Research · Skip")
+                }
+                .badge(session.reviewPending)
+            }
+
             Section("Settings & operations") {
                 NavigationLink { ServerSettingsScreen() } label: {
                     settingRow("server.rack", "Server", session.serverURLString)
