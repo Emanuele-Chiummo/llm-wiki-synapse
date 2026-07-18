@@ -533,13 +533,13 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // "graph" first appears to settle some shared app-init state (dataVersion/SSE) that
     // NavTree's mount otherwise races under CI's concurrent-worker load.
     await navTo(page, "graph");
-    // 25s (not 15s): a local repro of this exact CI sequence (docker-compose.ci.yml +
-    // seed scripts + built preview, matching the workflow step-for-step) never failed —
-    // ruling out a deterministic app bug. The 3 CI failures observed all timed out at
-    // this same graph-panel wait, pointing to shared-runner WebGL/canvas rendering
-    // variance rather than a logic defect. Widening the budget rather than adding more
-    // retries, since retries already exhausted 2x without success.
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 25_000 });
+    // 40s (not 15s, not 25s): a local repro of this exact CI sequence (docker-compose.ci.yml
+    // + seed scripts + built preview, matching the workflow step-for-step) never failed —
+    // ruling out a deterministic app bug. 25s was ALSO insufficient in practice: CI logs show
+    // this wait actually taking ~25.8s-26.7s under load, i.e. right at or past the prior
+    // budget — not a probabilistic flake but a real, measured, shared-runner WebGL/canvas
+    // rendering cost this specific wait needs real headroom for, not another near-miss.
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 40_000 });
 
     // Navigate to the wiki/pages section.
     await navTo(page, "pages");
@@ -623,9 +623,10 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // Prime the graph store before navigating to "pages" — see the light-theme test
     // above for the rationale (matches the reliable AC-CSP-5 sweep pattern).
     await navTo(page, "graph");
-    // 25s — same CI-runner timing-variance fix as the light-theme sibling above (widened
-    // after ruling out a code-level cause via a full local repro of the CI sequence).
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 25_000 });
+    // 40s — same CI-runner timing fix as the light-theme sibling above, widened further after
+    // 25s STILL failed 3/3 in the first re-enable attempt (measured ~26-27s each run — a real,
+    // consistent cost under CI load, not a probabilistic flake).
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 40_000 });
 
     await navTo(page, "pages");
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
