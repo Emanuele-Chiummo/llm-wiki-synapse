@@ -6,12 +6,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { CheckCircle2, AlertTriangle, AlertCircle, RefreshCw } from "lucide-react";
 import { getHealthDetailed, type DetailedHealth } from "../../api/healthClient";
 import { formatUptime } from "./homeUtils";
 

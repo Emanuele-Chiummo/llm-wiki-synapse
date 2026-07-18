@@ -69,7 +69,14 @@ import { HomeGettingStarted } from "./HomeGettingStarted";
 import { readSetupState } from "../setup/setupState";
 import { providerVerificationFingerprint } from "../setup/providerVerification";
 import { usePollChain } from "../../hooks/usePollChain";
-import { formatCost, formatDate, DOMAIN_FILTER_KEY, GROUP_FILTER_KEY, NAV_FILTER_LABEL_KEY, NAV_FILTER_EVENT } from "./homeUtils";
+import {
+  formatCost,
+  formatDate,
+  DOMAIN_FILTER_KEY,
+  GROUP_FILTER_KEY,
+  NAV_FILTER_LABEL_KEY,
+  NAV_FILTER_EVENT,
+} from "./homeUtils";
 import { SystemStatusBlock } from "./SystemStatusBlock";
 import { ActiveJobsBlock } from "./ActiveJobsBlock";
 import { KpiCard, CompositionHero } from "./KpiSection";

@@ -11,10 +11,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Loader2, RefreshCw } from "lucide-react";
 import { fetchResearchRuns } from "../../api/researchClient";
-import {
-  getBackfillDomainStatus,
-  type BackfillDomainStatus,
-} from "../../api/statsClient";
+import { getBackfillDomainStatus, type BackfillDomainStatus } from "../../api/statsClient";
 import type { ResearchRunSummary } from "../../api/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -20,7 +20,8 @@ import i18n from "i18next";
 export async function loadLocale(lang: string): Promise<void> {
   if (lang === "en") return; // Always available — static import in i18n/index.ts
   // Guard: hasResourceBundle may not be defined when i18next is not initialized (e.g. tests).
-  if (typeof i18n.hasResourceBundle === "function" && i18n.hasResourceBundle(lang, "translation")) return; // Already loaded
+  if (typeof i18n.hasResourceBundle === "function" && i18n.hasResourceBundle(lang, "translation"))
+    return; // Already loaded
 
   if (lang === "it") {
     // Dynamic import produces a separate chunk (FE-BUNDLE-1).
