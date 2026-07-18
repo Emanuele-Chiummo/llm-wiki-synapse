@@ -38,6 +38,8 @@ enum ScreenshotHarness {
         case "review": NavigationStack { ReviewScreen() }
         case "sources": NavigationStack { SourcesScreen() }
         case "activity": NavigationStack { ActivityScreen() }
+        case "providers": NavigationStack { ProvidersScreen() }
+        case "vaults": NavigationStack { ProjectsScreen() }
         case "tokens": NavigationStack { TokensScreen() }
         default: RedesignRootView()
         }
