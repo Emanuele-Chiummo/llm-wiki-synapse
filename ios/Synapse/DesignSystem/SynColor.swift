@@ -9,8 +9,9 @@ import SwiftUI
 ///
 /// Brand rules honoured here (CLAUDE.md): accent is brand blue `#2563eb`;
 /// **never pure black** — light ink is `#0f1729`, the dark ground is deep-navy
-/// `#0b1120`. This supersedes the legacy `Theme.swift`, whose Apple-indigo accent
-/// and literal `#000000` tokens predate the desktop v1.7.0 brand.
+/// `#0b1120`. This is now the SOLE source of colour: Fase C retired the legacy
+/// `Theme.swift` (Apple-indigo accent + literal `#000000`), so no pure-black
+/// token exists anywhere in the app.
 enum SynColor {
 
     // MARK: Surfaces
@@ -130,5 +131,18 @@ enum SynColor {
         Color(UIColor { traits in
             UIColor(Color(hex: traits.userInterfaceStyle == .dark ? dark : light))
         })
+    }
+}
+
+extension Color {
+    /// Build a colour from a 24-bit `0xRRGGBB` literal. Lives here in the design
+    /// system since Fase C retired the legacy `Theme.swift` that used to define it.
+    init(hex: UInt32, alpha: Double = 1) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: alpha)
     }
 }

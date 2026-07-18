@@ -23,8 +23,12 @@ struct APIClient {
     var session: URLSession = .shared
 
     // MARK: Request building
+    // These three helpers are `internal` (not `private`) so per-surface endpoint
+    // extensions in other files (Graph / Review / Sources / Settings, Fase C)
+    // reuse this exact request-building + single error-decoding path — never
+    // ad-hoc parsing (ADR-0086). They are not part of any public API.
 
-    private func request(
+    func request(
         _ path: String,
         query: [URLQueryItem] = [],
         method: String = "GET",
@@ -61,7 +65,7 @@ struct APIClient {
 
     // MARK: Core send (the one error-decoding path)
 
-    private func send<T: Decodable>(_ req: URLRequest, as type: T.Type) async throws -> T {
+    func send<T: Decodable>(_ req: URLRequest, as type: T.Type) async throws -> T {
         let data = try await sendRaw(req)
         do {
             return try API.decoder.decode(T.self, from: data)
@@ -71,7 +75,7 @@ struct APIClient {
     }
 
     @discardableResult
-    private func sendRaw(_ req: URLRequest) async throws -> Data {
+    func sendRaw(_ req: URLRequest) async throws -> Data {
         let data: Data
         let response: URLResponse
         do {

@@ -15,9 +15,31 @@ struct MoreScreen: View {
                     .listRowBackground(Color.clear)
             }
 
-            Section("Settings & operations") {
+            Section("Operations") {
+                NavigationLink { ReviewScreen() } label: {
+                    settingRow("checklist", "Review queue",
+                               session.reviewPending > 0
+                               ? "\(session.reviewPending) pending" : "Create · Deep-Research · Skip")
+                }
+                .badge(session.reviewPending)
+                NavigationLink { SourcesScreen() } label: {
+                    settingRow("tray.full", "Sources", "Raw ingest input (raw/sources/)")
+                }
+                NavigationLink { ActivityScreen() } label: {
+                    settingRow("waveform.path.ecg", "Activity", activitySubtitle)
+                }
+                .badge(session.queue.processing + session.queue.pending)
+            }
+
+            Section("Settings") {
                 NavigationLink { ServerSettingsScreen() } label: {
                     settingRow("server.rack", "Server", session.serverURLString)
+                }
+                NavigationLink { ProjectsScreen() } label: {
+                    settingRow("tray.2.fill", "Vault", session.vaultID)
+                }
+                NavigationLink { ProvidersScreen() } label: {
+                    settingRow("cpu", "Providers", "Local · API · CLI routing (F17)")
                 }
                 NavigationLink { TokensScreen() } label: {
                     settingRow("key.fill", "Device tokens", "Scoped, revocable per-device access")
@@ -25,14 +47,13 @@ struct MoreScreen: View {
                 NavigationLink { AppearanceScreen() } label: {
                     settingRow("circle.lefthalf.filled", "Appearance", session.appearance.label)
                 }
-                NavigationLink { GraphScreen() } label: {
-                    settingRow("point.3.connected.trianglepath.dotted", "Knowledge graph",
-                               "Arrives in Fase C")
+                NavigationLink { LanguageScreen() } label: {
+                    settingRow("globe", "Language", session.language.label)
                 }
             }
 
             Section {
-                Text("Synapse for iOS — redesign (Track 2.1, Fase B). Server \(session.serverVersion ?? "—").")
+                Text("Synapse for iOS — redesign (Track 2.1, Fase C). Server \(session.serverVersion ?? "—").")
                     .font(SynFont.caption).foregroundStyle(SynColor.textDim)
                     .listRowBackground(Color.clear)
             }
@@ -41,6 +62,12 @@ struct MoreScreen: View {
         .synScreenBackground()
         .navigationTitle("More")
         .navigationBarTitleDisplayMode(.large)
+    }
+
+    private var activitySubtitle: String {
+        let running = session.queue.processing + session.queue.pending
+        if running > 0 { return "\(running) in the ingest queue" }
+        return "Ingest runs, phase & progress"
     }
 
     private var connectionCard: some View {
