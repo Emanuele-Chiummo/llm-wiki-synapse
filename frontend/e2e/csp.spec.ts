@@ -517,6 +517,13 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     await gotoApp(page);
     await setTheme(page, "light");
 
+    // Prime the graph store before navigating to "pages" — matches the pattern proven
+    // reliable by the AC-CSP-5 sweep test below (which never flakes here); visiting
+    // "graph" first appears to settle some shared app-init state (dataVersion/SSE) that
+    // NavTree's mount otherwise races under CI's concurrent-worker load.
+    await navTo(page, "graph");
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 8_000 });
+
     // Navigate to the wiki/pages section.
     await navTo(page, "pages");
     const navTree = page.getByTestId("nav-tree").first();
@@ -595,6 +602,11 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
 
     await gotoApp(page);
     await setTheme(page, "dark");
+
+    // Prime the graph store before navigating to "pages" — see the light-theme test
+    // above for the rationale (matches the reliable AC-CSP-5 sweep pattern).
+    await navTo(page, "graph");
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 8_000 });
 
     await navTo(page, "pages");
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
