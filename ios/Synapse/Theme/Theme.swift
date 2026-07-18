@@ -1,6 +1,15 @@
 import SwiftUI
 
-/// Design tokens ported from the Synapse mobile design handoff (`Synapse.dc.html`).
+/// LEGACY design tokens (ported from the old `Synapse.dc.html` handoff).
+///
+/// ⚠️ Superseded by `DesignSystem/SynColor.swift` (ADR-0088, Track iOS 2.1). This
+/// enum's accent is Apple-system indigo `#4F46E5` and it uses literal pure black
+/// (`#000000`) for label/background — both predate and violate the current
+/// Synapse brand (accent `#2563eb`, never pure black). It is kept only so the
+/// *existing* feature screens keep compiling; the redesign shell renders `SynColor`
+/// exclusively. Fase B migrates the remaining screens onto `SynColor` and deletes
+/// this file. Do NOT use `Theme` in new redesign code — use `SynColor`.
+///
 /// Colors are defined as dynamic (light/dark) so they resolve against the
 /// environment's `colorScheme` automatically — matching iOS system behaviour.
 enum Theme {
