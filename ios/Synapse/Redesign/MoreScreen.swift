@@ -25,10 +25,6 @@ struct MoreScreen: View {
                 NavigationLink { AppearanceScreen() } label: {
                     settingRow("circle.lefthalf.filled", "Appearance", session.appearance.label)
                 }
-                NavigationLink { GraphScreen() } label: {
-                    settingRow("point.3.connected.trianglepath.dotted", "Knowledge graph",
-                               "Arrives in Fase C")
-                }
             }
 
             Section {

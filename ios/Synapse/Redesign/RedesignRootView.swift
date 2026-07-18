@@ -25,7 +25,7 @@ struct RedesignRootView: View {
                 .tabItem { Label("Chat", systemImage: "bubble.left.and.text.bubble.right.fill") }
                 .tag(Tab.chat)
 
-            NavigationStack { GraphScreen() }
+            WikiStack { GraphScreen() }
                 .tabItem { Label("Graph", systemImage: "point.3.connected.trianglepath.dotted") }
                 .tag(Tab.graph)
 

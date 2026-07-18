@@ -33,7 +33,7 @@ enum ScreenshotHarness {
         case "search":
             WikiStack { SearchScreen(initialQuery: extraArg ?? "network") }
         case "chat": WikiStack { ChatScreen(autoOpenFirstConversation: true) }
-        case "graph": NavigationStack { GraphScreen() }
+        case "graph": WikiStack { GraphScreen() }
         case "more": NavigationStack { MoreScreen() }
         case "tokens": NavigationStack { TokensScreen() }
         default: RedesignRootView()
