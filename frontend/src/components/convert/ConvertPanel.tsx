@@ -55,12 +55,15 @@ import {
 import { isTauri } from "../../api/base";
 import { selectSetActiveSection, useAppStore } from "../../store/appStore";
 import { usePollChain } from "../../hooks/usePollChain";
+import { useEventsStore } from "../../store/eventsStore";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const MAX_FILES = 10;
 const ICON_SIZE = 16;
 const POLL_INTERVAL_MS = 2_500;
+/** Slower cadence when SSE is live (I3). */
+const CONVERT_POLL_IDLE_MS = 15_000;
 const MAX_HISTORY = 50;
 
 /** localStorage key for the per-machine Marker start command. [R12-6] */
@@ -273,7 +276,12 @@ export function ConvertPanel() {
         });
       }
     },
-    intervalFor: (status) => (status.running ? POLL_INTERVAL_MS : null),
+    intervalFor: (status) =>
+      status.running
+        ? useEventsStore.getState().healthy
+          ? CONVERT_POLL_IDLE_MS
+          : POLL_INTERVAL_MS
+        : null,
     // Network hiccup — keep retrying at the same cadence rather than giving up.
     errorIntervalFor: () => POLL_INTERVAL_MS,
     initialDelayMs: 0,

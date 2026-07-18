@@ -486,14 +486,25 @@ jobs:
           # longtask gate would measure the software rasterizer, not the
           # product. The strict gate runs on real-hardware manual sessions.
           E2E_SOFTWARE_GL: "1"
-        run: npx playwright test e2e/ --reporter=list
+        # No --reporter override: the CLI flag REPLACES (not merges with) the config's
+        # reporter array, which is why `playwright-report/` — the only path the next
+        # step uploads — was always empty on failure. playwright.config.ts already
+        # configures both "list" (console output, same as before) and "html" (the
+        # artifact this step uploads), so dropping the override fixes the upload
+        # without changing the console output CI shows.
+        run: npx playwright test e2e/
 
       - name: Upload Playwright report on failure
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
-          path: frontend/playwright-report/
+          # test-results/ holds the raw per-test trace.zip files (the html report links
+          # to them but doesn't embed them) — upload both so a failure can actually be
+          # inspected with `npx playwright show-trace`.
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
           retention-days: 7
           if-no-files-found: warn
 

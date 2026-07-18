@@ -15,7 +15,7 @@
 
 import type { ConversationSummary, ChatMessage, CitationRef, WebCitationRef } from "./types/chat";
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { checkResponse } from "./errors";
 // Re-export the shared chat domain types so existing import sites (e.g. MessageList.tsx
 // importing WebCitationRef from api/chatClient) continue to work unchanged.
 export type { WebCitationRef, ConversationSummary, ChatMessage, CitationRef } from "./types/chat";
@@ -42,7 +42,7 @@ export async function fetchConversations(
   if (params?.offset !== undefined) qs.set("offset", String(params.offset));
   const url = `${apiBase()}/conversations${qs.toString() ? "?" + qs.toString() : ""}`;
   const res = await apiFetch(url, { signal: signal ?? null });
-  if (!res.ok) throw new Error(`GET /conversations: ${res.status}`);
+  await checkResponse(res);
   return res.json() as Promise<ConversationListResponse>;
 }
 
@@ -56,7 +56,7 @@ export async function createConversation(
     body: JSON.stringify(body),
     signal: signal ?? null,
   });
-  if (!res.ok) throw new Error(`POST /conversations: ${res.status}`);
+  await checkResponse(res);
   return res.json() as Promise<ConversationSummary>;
 }
 
@@ -67,7 +67,7 @@ export async function fetchMessages(
   const res = await apiFetch(`${apiBase()}/conversations/${conversationId}/messages`, {
     signal: signal ?? null,
   });
-  if (!res.ok) throw new Error(`GET /conversations/${conversationId}/messages: ${res.status}`);
+  await checkResponse(res);
   const data = (await res.json()) as MessageListResponse;
   // Normalize: messages loaded from the API may predate the citations column (ADR-0022 §2.4).
   // Ensure citations is always an array so the rest of the UI can rely on it without null checks.
@@ -88,7 +88,7 @@ export async function deleteConversation(
     method: "DELETE",
     signal: signal ?? null,
   });
-  if (!res.ok && res.status !== 204) throw new Error(`DELETE /conversations: ${res.status}`);
+  await checkResponse(res);
 }
 
 /**
@@ -107,7 +107,7 @@ export async function renameConversation(
     body: JSON.stringify({ title }),
     signal: signal ?? null,
   });
-  if (!res.ok) throw new Error(`PATCH /conversations/${conversationId}: ${res.status}`);
+  await checkResponse(res);
   return res.json() as Promise<ConversationSummary>;
 }
 
@@ -234,9 +234,7 @@ export async function openChatStream(
     body: JSON.stringify(body),
     signal,
   });
-  if (!res.ok) {
-    throw new Error(`POST /chat/stream: ${res.status}`);
-  }
+  await checkResponse(res);
   return res;
 }
 
@@ -277,16 +275,7 @@ export async function saveToWiki(
     body: JSON.stringify(body),
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const payload = await res.json();
-      detail = errorMessageFromBody(payload) ?? detail;
-    } catch {
-      // ignore JSON parse error; use status code as message
-    }
-    throw new Error(detail);
-  }
+  await checkResponse(res);
   return res.json() as Promise<SaveToWikiResponse>;
 }
 
@@ -343,15 +332,6 @@ export async function saveToWikiV2(
     body: JSON.stringify(req),
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const payload = await res.json();
-      detail = errorMessageFromBody(payload) ?? detail;
-    } catch {
-      // ignore JSON parse error; use status code as message
-    }
-    throw new Error(detail);
-  }
+  await checkResponse(res);
   return res.json() as Promise<SaveToWikiV2Response>;
 }

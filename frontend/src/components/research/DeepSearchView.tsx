@@ -49,6 +49,9 @@ import {
   isTerminal,
 } from "../../store/researchStore";
 import { selectVaultId, useAppStore } from "../../store/appStore";
+import { useStatusStore, selectStatusDataVersion } from "../../store/statusStore";
+import { Skeleton } from "../ui/Skeleton";
+import { EmptyState } from "../common/EmptyState";
 import { formatCost, formatRelativeTime } from "../ingest/IngestRunList";
 import type { ResearchRunSummary, ResearchRunDetail, ResearchSource } from "../../api/types";
 
@@ -245,17 +248,11 @@ function RunDetailPanel({ runId, detail, loading, error }: RunDetailPanelProps) 
 
   if (loading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "var(--syn-text-muted)",
-          fontSize: 13,
-        }}
-      >
-        {t("common.loading")}
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <Skeleton height={24} width="60%" />
+        <Skeleton height={16} width="40%" />
+        <Skeleton height={80} />
+        <Skeleton height={80} />
       </div>
     );
   }
@@ -507,24 +504,18 @@ function ResearchRunList({ vaultId }: RunListProps) {
     overscan: 5,
   });
 
-  if (runs.length === 0 && !loading) {
+  if (runs.length === 0 && loading) {
     return (
-      <div
-        data-testid="research-run-list-empty"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "var(--syn-text-dim)",
-          fontSize: 13,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        {t("research.empty")}
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <Skeleton height={ROW_HEIGHT} />
+        <Skeleton height={ROW_HEIGHT} />
+        <Skeleton height={ROW_HEIGHT} />
       </div>
     );
+  }
+
+  if (runs.length === 0 && !loading) {
+    return <EmptyState testId="research-run-list-empty" title={t("research.empty")} />;
   }
 
   const totalHeight = virtualizer.getTotalSize();
@@ -611,12 +602,22 @@ export function DeepSearchView() {
   const stopPollRef = useRef<(() => void) | null>(null);
   const topicInputRef = useRef<HTMLInputElement>(null);
 
+  // SSE data version for fetch-on-event
+  const dataVersion = useStatusStore(selectStatusDataVersion);
+
   // Initial fetch on mount
   useEffect(() => {
     const ctrl = new AbortController();
     void fetchFresh(vaultId, ctrl.signal);
     return () => ctrl.abort();
   }, [vaultId, fetchFresh]);
+
+  // Fetch-on-event: re-fetch the run list whenever a data_version bump arrives over SSE.
+  // dataVersion is null on vault switch (resetForVault) — skip that tick.
+  useEffect(() => {
+    if (dataVersion === null) return;
+    void fetchFresh(vaultId);
+  }, [dataVersion, vaultId, fetchFresh]);
 
   // Start polling whenever selected run is "running"
   useEffect(() => {

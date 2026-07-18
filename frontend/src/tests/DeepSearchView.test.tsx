@@ -304,7 +304,7 @@ describe("DeepSearchView — run detail (AC-F10-8d)", () => {
     expect(screen.getByText(/# Summary/)).toBeDefined();
   });
 
-  it("shows loading spinner when detailLoading is true", () => {
+  it("shows loading skeleton when detailLoading is true", () => {
     useResearchStore.setState({
       selectedRunId: "r1",
       detail: null,
@@ -312,7 +312,9 @@ describe("DeepSearchView — run detail (AC-F10-8d)", () => {
     });
 
     render(<DeepSearchView />);
-    expect(screen.getByText("Loading…")).toBeDefined();
+    // Skeleton replaces bare "Loading…" text (Item 3 rollout)
+    const skeletons = document.querySelectorAll(".syn-skeleton");
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 
   it("shows error message when detailError is set", () => {

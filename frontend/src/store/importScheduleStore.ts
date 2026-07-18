@@ -18,10 +18,13 @@ import type {
 } from "../api/types";
 import { getImportSchedule, putImportSchedule, runImportNow } from "../api/importScheduleClient";
 import { createPollChain } from "./pollChain";
+import { useEventsStore } from "./eventsStore";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 3_000; // poll every 3s while status === "running"
+/** When SSE is live, back off to avoid redundant REST calls (I3). */
+const POLL_IDLE_MS = 15_000;
 
 // ─── State / Actions ─────────────────────────────────────────────────────────
 
@@ -116,7 +119,12 @@ export const useImportScheduleStore = create<ImportScheduleStore>((set, get) => 
       shouldContinue: () => get().schedule?.last_status === "running", // bounded: stop when done
       fetch: (signal) => getImportSchedule(signal),
       onResult: (s) => set({ schedule: s }),
-      intervalFor: (s) => (s.last_status === "running" ? POLL_INTERVAL_MS : null),
+      intervalFor: (s) =>
+        s.last_status === "running"
+          ? useEventsStore.getState().healthy
+            ? POLL_IDLE_MS
+            : POLL_INTERVAL_MS
+          : null,
       initialDelayMs: POLL_INTERVAL_MS,
       // stop polling on error (errorIntervalFor omitted)
     });

@@ -239,6 +239,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
   const [loading, setLoading] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  // Capture the element that had focus before the palette opened so it can be restored on close.
+  const returnFocusRef = useRef<Element | null>(null);
   // In-flight guard: abort any previous fetch when a new open happens.
   const fetchAbortRef = useRef<AbortController | null>(null);
   // Guard: track the vaultId for which we already fetched (reset when palette closes).
@@ -254,8 +256,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
       fetchedForVaultRef.current = null;
       fetchAbortRef.current?.abort();
       fetchAbortRef.current = null;
+      // Restore focus to the element that was active before the palette opened (FE-A11Y-2).
+      if (returnFocusRef.current instanceof HTMLElement) {
+        returnFocusRef.current.focus();
+      }
       return;
     }
+
+    // Save the currently-focused element so it can be restored when the palette closes.
+    returnFocusRef.current = document.activeElement;
 
     // Autofocus input.
     // Use rAF to ensure the dialog is in the DOM first.
@@ -355,6 +364,20 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps): ReactNod
     },
     [results, clampedIdx, openEntry, onClose],
   );
+
+  // Focus trap: when the palette is open, Tab must not let focus escape to the page behind it.
+  // The only interactive element in the palette is the search input; Tab simply stays there.
+  useEffect(() => {
+    if (!open) return;
+    function trapTab(e: globalThis.KeyboardEvent) {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", trapTab);
+    return () => window.removeEventListener("keydown", trapTab);
+  }, [open]);
 
   // Reset selection when query changes.
   const handleQueryChange = useCallback((v: string) => {

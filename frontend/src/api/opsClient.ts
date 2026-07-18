@@ -17,7 +17,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { checkResponse } from "./errors";
 
 /** Generic response envelope for ops trigger endpoints. */
 export interface OpsTriggerResponse {
@@ -39,16 +39,7 @@ async function postOp(path: string, signal?: AbortSignal): Promise<OpsTriggerRes
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(`POST ${path}: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<OpsTriggerResponse>;
 }
 
@@ -64,16 +55,7 @@ async function postJsonOp(
     body: JSON.stringify(body),
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const responseBody = await res.json();
-      detail = errorMessageFromBody(responseBody) ?? detail;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(`POST ${path}: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<OpsTriggerResponse>;
 }
 
@@ -143,16 +125,7 @@ export async function triggerRegenerateOverview(
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(`POST /ops/overview/regenerate: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<OverviewRegenerateResponse>;
 }
 
@@ -180,7 +153,7 @@ export interface SystemUpdateResponse {
 export async function fetchUpdateStatus(signal?: AbortSignal): Promise<UpdateStatus> {
   const url = `${apiBase()}/ops/update-status`;
   const res = await apiFetch(url, { ...(signal !== undefined ? { signal } : {}) });
-  if (!res.ok) throw new Error(`GET /ops/update-status: ${res.status}`);
+  await checkResponse(res);
   return res.json() as Promise<UpdateStatus>;
 }
 
@@ -197,15 +170,6 @@ export async function triggerSystemUpdate(signal?: AbortSignal): Promise<SystemU
     method: "POST",
     ...(signal !== undefined ? { signal } : {}),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(`POST /ops/system-update: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<SystemUpdateResponse>;
 }

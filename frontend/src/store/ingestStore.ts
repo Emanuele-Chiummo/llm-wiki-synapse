@@ -25,10 +25,13 @@ import type { IngestRunItem, IngestStatus } from "../api/types";
 import { fetchIngestRuns, cancelIngestRun } from "../api/ingestClient";
 import { isTauri } from "../api/base";
 import { createPollChain } from "./pollChain";
+import { useEventsStore } from "./eventsStore";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 5_000;
+/** When SSE is live, back off to avoid redundant REST calls (I3). */
+const INGEST_POLL_IDLE_MS = 30_000;
 const PAGE_LIMIT = 20;
 
 // ─── State / Actions ─────────────────────────────────────────────────────────
@@ -272,7 +275,12 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
           }
         }
       },
-      intervalFor: ({ running }) => (running > 0 ? POLL_INTERVAL_MS : null),
+      intervalFor: ({ running }) =>
+        running > 0
+          ? useEventsStore.getState().healthy
+            ? INGEST_POLL_IDLE_MS
+            : POLL_INTERVAL_MS
+          : null,
       initialDelayMs: POLL_INTERVAL_MS,
       // Stop polling on error — user can manually refresh (errorIntervalFor omitted).
     });
