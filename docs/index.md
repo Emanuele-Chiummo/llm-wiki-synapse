@@ -11,10 +11,12 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 
 </div>
 
-!!! tip "New in v1.3.11"
-    A refreshed dashboard and graph, WCAG-AA contrast, and a fully rewritten
-    **[User Guide](USER.md)** — including a detailed section on reaching Synapse from
-    outside your network with **Tailscale** and **Cloudflare Access**.
+!!! tip "What's new in v2.0.0"
+    The v2.0 "one engine" release removes the legacy JSON ingest pipeline (the block-based
+    pipeline is now the sole ingest engine), dissolves the compatibility facades introduced in
+    1.7.0, and ships a stable JSON error envelope as a public API contract. See
+    **[v2.0.0 release notes](release-notes/v2.0.0.md)** for full details and upgrade
+    instructions, or browse the **[full changelog](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/CHANGELOG.md)**.
 
 ---
 
@@ -67,7 +69,8 @@ FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vit
 - **[Architecture](architecture/index.md)** — C4 diagrams (system context, containers, components)
 - **[ADRs](adr/index.md)** — Architecture Decision Records documenting design choices
 - **[API Reference](api/index.md)** — OpenAPI specification of all endpoints
-- **[Roadmap](reference/ROADMAP-v0.7-v1.0.md)** — feature roadmap and development status
+- **[Release Notes](release-notes/v2.0.0.md)** — per-release changelogs from v1.2 onward
+- **[Roadmap](reference/ROADMAP-v1.3-v2.0.md)** — v1.3 → v2.0 feature roadmap and development status
 
 ---
 
