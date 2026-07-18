@@ -60,6 +60,35 @@ final class SynapseSession {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Keys.appearance) }
     }
 
+    /// UI language (F16 i18n — IT/EN, or follow the device). `System` defers to
+    /// the device's preferred locale; the explicit choices override it app-wide.
+    /// The picker + locale plumbing are in place; progressive IT translation of
+    /// the redesign's own copy is tracked as follow-up (the legacy IT strings
+    /// lived on the now-retired Feature screens).
+    enum Language: String, CaseIterable, Identifiable {
+        case system, en, it
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .system: return "System"
+            case .en: return "English"
+            case .it: return "Italiano"
+            }
+        }
+        var locale: Locale? {
+            switch self {
+            case .system: return nil
+            case .en: return Locale(identifier: "en")
+            case .it: return Locale(identifier: "it")
+            }
+        }
+    }
+    var language: Language {
+        didSet { UserDefaults.standard.set(language.rawValue, forKey: Keys.language) }
+    }
+    /// The locale override to apply app-wide, or nil to follow the device.
+    var localeOverride: Locale? { language.locale }
+
     // MARK: Live state (fed by SSE + a status probe)
     var reachability: Reachability = .unknown
     var serverVersion: String?
@@ -77,6 +106,7 @@ final class SynapseSession {
         static let vault = "syn.redesign.vaultID"
         static let cfID = "syn.redesign.cfClientID"
         static let appearance = "syn.redesign.appearance"
+        static let language = "syn.redesign.language"
     }
 
     init() {
@@ -92,6 +122,7 @@ final class SynapseSession {
         }
         self.cfAccessClientID = d.string(forKey: Keys.cfID) ?? ""
         self.appearance = Appearance(rawValue: d.string(forKey: Keys.appearance) ?? "") ?? .system
+        self.language = Language(rawValue: d.string(forKey: Keys.language) ?? "") ?? .system
         self.token = Keychain.get(account: Keychain.Account.apiToken) ?? ""
         self.cfAccessClientSecret = Keychain.get(account: Keychain.Account.cfAccessSecret) ?? ""
     }

@@ -35,6 +35,16 @@ struct SynapseApp: App {
                 .environment(session)
                 .tint(SynColor.accent)
                 .preferredColorScheme(session.appearance.colorScheme)
+                .modifier(LocaleOverride(locale: session.localeOverride))
+        }
+    }
+
+    /// Applies the user's language override (F16) app-wide, or leaves the device
+    /// locale untouched when following the system.
+    private struct LocaleOverride: ViewModifier {
+        let locale: Locale?
+        func body(content: Content) -> some View {
+            if let locale { content.environment(\.locale, locale) } else { content }
         }
     }
 

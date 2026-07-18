@@ -31,9 +31,15 @@ struct MoreScreen: View {
                 .badge(session.queue.processing + session.queue.pending)
             }
 
-            Section("Settings & operations") {
+            Section("Settings") {
                 NavigationLink { ServerSettingsScreen() } label: {
                     settingRow("server.rack", "Server", session.serverURLString)
+                }
+                NavigationLink { ProjectsScreen() } label: {
+                    settingRow("tray.2.fill", "Vault", session.vaultID)
+                }
+                NavigationLink { ProvidersScreen() } label: {
+                    settingRow("cpu", "Providers", "Local · API · CLI routing (F17)")
                 }
                 NavigationLink { TokensScreen() } label: {
                     settingRow("key.fill", "Device tokens", "Scoped, revocable per-device access")
@@ -41,10 +47,13 @@ struct MoreScreen: View {
                 NavigationLink { AppearanceScreen() } label: {
                     settingRow("circle.lefthalf.filled", "Appearance", session.appearance.label)
                 }
+                NavigationLink { LanguageScreen() } label: {
+                    settingRow("globe", "Language", session.language.label)
+                }
             }
 
             Section {
-                Text("Synapse for iOS — redesign (Track 2.1, Fase B). Server \(session.serverVersion ?? "—").")
+                Text("Synapse for iOS — redesign (Track 2.1, Fase C). Server \(session.serverVersion ?? "—").")
                     .font(SynFont.caption).foregroundStyle(SynColor.textDim)
                     .listRowBackground(Color.clear)
             }

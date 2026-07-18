@@ -28,6 +28,7 @@
 		25D198AC6F5E25FE0A12A711 /* SynEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2B8CDDDB006C6E90E4DCB3 /* SynEmptyState.swift */; };
 		306F86D0557CF00663C542EA /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE49D212F5C91AC1136BCC0 /* Components.swift */; };
 		31ECB2B3E2DCF524BF9C9D18 /* SynButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8203A87D1DD24552FAF65E78 /* SynButton.swift */; };
+		325563BAA4883568197270ED /* SettingsScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00DDFFE3C8E087E87A6DE7D /* SettingsScreens.swift */; };
 		34BD08BBE89ED0C4C4A1758A /* ChatStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDC6FB27115A9E089BA7285 /* ChatStream.swift */; };
 		3BC3404E9BC7AB460C80CF49 /* WikiScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 008826957142517A8F5B50A2 /* WikiScreen.swift */; };
 		4887DDC55F036590EC9EA992 /* RedesignRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 074F24E8F5C89E1AFED7CF95 /* RedesignRootView.swift */; };
@@ -59,6 +60,7 @@
 		E7C80F6F4FFAD59CC2AAD4C5 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5985B7870E237E7FBE170BB2 /* GraphView.swift */; };
 		EA9FB90D7CC0DAFCC6EA61F5 /* GraphScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA566467DDC6F003E6624072 /* GraphScreen.swift */; };
 		EC66939761E0E4C711480FF1 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23F02D95C6DCAD65A7FF58F7 /* SearchScreen.swift */; };
+		ECD68EEA296D5E3EA1F1B0C3 /* ProviderData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71320B3C72D2F6FA9184F134 /* ProviderData.swift */; };
 		F13068C9BE98BB41960BE723 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7DD0BD62B4DCEB5415CE16 /* ReviewView.swift */; };
 		F130A3AE3317CD34B8419BAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB8BA24E7E55C8EF0A3530F0 /* Assets.xcassets */; };
 		F219E01330DF274E3B686EC2 /* MarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8586533ADD1A60CAA4DE0EA /* MarkdownView.swift */; };
@@ -91,6 +93,7 @@
 		653C27B9037CD05DDC966699 /* FlowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayout.swift; sourceTree = "<group>"; };
 		679BB655A2B1D00305FE433C /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		6F19B2AB0665F93783DA4BF0 /* SynListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynListRow.swift; sourceTree = "<group>"; };
+		71320B3C72D2F6FA9184F134 /* ProviderData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderData.swift; sourceTree = "<group>"; };
 		7373E015F8BA5E4C10D17571 /* EventsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsClient.swift; sourceTree = "<group>"; };
 		74D8C4C79EDAF5AA61513A97 /* GraphRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphRenderer.swift; sourceTree = "<group>"; };
 		7871099CA86ECDA79A4E3C46 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -107,6 +110,7 @@
 		AFBA6A272095B5EF5473B928 /* TokensScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokensScreen.swift; sourceTree = "<group>"; };
 		AFD5C388A615DF68E00B6B58 /* ResearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchView.swift; sourceTree = "<group>"; };
 		AFF4AA93067BB6768E068B00 /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
+		B00DDFFE3C8E087E87A6DE7D /* SettingsScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreens.swift; sourceTree = "<group>"; };
 		B050659ACCE2E26312856277 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
 		B06C086B8DF1AEAD9C9504F0 /* SynAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynAPIError.swift; sourceTree = "<group>"; };
 		BED2D71C414CAB32BBBA4BD0 /* GraphData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphData.swift; sourceTree = "<group>"; };
@@ -137,6 +141,7 @@
 				EF295DF63B3E9EFA2DB61E46 /* Data */,
 				DC1792D1F86FA4DCB413DD82 /* Graph */,
 				F0D928DA9101115867E27170 /* Review */,
+				ED157B803194094E04E52DFC /* Settings */,
 				E8E3FEA6B25624541F864B5C /* Sources */,
 				5A4F99F6BACA0BDF67F4F116 /* Support */,
 				17B8161D6055245A391B8F25 /* ChatScreen.swift */,
@@ -326,6 +331,15 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
+		ED157B803194094E04E52DFC /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				71320B3C72D2F6FA9184F134 /* ProviderData.swift */,
+				B00DDFFE3C8E087E87A6DE7D /* SettingsScreens.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		EF295DF63B3E9EFA2DB61E46 /* Data */ = {
 			isa = PBXGroup;
 			children = (
@@ -446,6 +460,7 @@
 				F219E01330DF274E3B686EC2 /* MarkdownView.swift in Sources */,
 				B9A5410D0937D7913C924984 /* MoreScreen.swift in Sources */,
 				1BE64C1C7CFCF3A5C42960AA /* MoreView.swift in Sources */,
+				ECD68EEA296D5E3EA1F1B0C3 /* ProviderData.swift in Sources */,
 				8AB04A72662C289D87664D39 /* RedesignMockData.swift in Sources */,
 				4887DDC55F036590EC9EA992 /* RedesignRootView.swift in Sources */,
 				DC3137997AEA21EE90EDC0B5 /* ResearchView.swift in Sources */,
@@ -456,6 +471,7 @@
 				495EB024F7DF04DCD0CF8531 /* ScreenshotHarness.swift in Sources */,
 				EC66939761E0E4C711480FF1 /* SearchScreen.swift in Sources */,
 				09E5E1606EA137497806DCEF /* SearchView.swift in Sources */,
+				325563BAA4883568197270ED /* SettingsScreens.swift in Sources */,
 				0E5EFA8105644C45F7FBE25C /* SettingsView.swift in Sources */,
 				021435A326F27605968D93EB /* SourcesData.swift in Sources */,
 				AC725C70060DC976E9BD85E0 /* SourcesScreen.swift in Sources */,
