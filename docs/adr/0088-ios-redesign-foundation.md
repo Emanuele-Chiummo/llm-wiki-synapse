@@ -176,3 +176,29 @@ Accepted. The rest of this ADR (native SwiftUI, design system, navigation) is Ac
    Settings) onto `SynColor` + the new components; then delete `Theme.swift` / legacy
    `Components.swift`.
 3. Wire the redesigned Home + Wiki to live API data (F18 home dashboard, F1/F4).
+
+## Addendum — Fase C (Track 2.1, GA parity)
+
+Fase C closed out parity: Graph, Review, Sources/Activity and a complete Settings
+(providers/vault/language) are live against the 2.0.0 backend, and the legacy
+`Theme.swift` + `Features/` tree from item 2 above is **deleted** — `SynColor` is now
+the sole visual language, so no pure-black token exists anywhere.
+
+**The graph-render decision remains `Proposed`, not `Accepted`.** Fase C shipped the
+ADR's recommended **native SwiftUI `Canvas`** renderer, but deliberately behind a
+**swappable seam**: `makeGraphRenderer(kind:)` (`Redesign/Graph/GraphRenderer.swift`)
+is the one place the concrete renderer is chosen, so a `.webViewSigma` case + a
+`SigmaWebGraphView` can replace it later without touching `GraphScreen`, the view
+model, or the DTOs. **I2 holds** either way — both consume the server-precomputed
+`GET /graph` coords; the Canvas never runs a layout.
+
+What is **still owed by the owner before the decision can be marked Accepted** (carried
+over unchanged from Fase A — no physical iOS device was reachable in Fase B or C
+either, Simulator only):
+
+- **fps** panning/zooming a realistic vault (hundreds–thousands of nodes) on device;
+- **memory** of the native renderer vs a WKWebView-sigma embed under the same graph;
+- **gesture responsiveness** (pinch/pan latency, momentum, haptics).
+
+If those numbers disappoint on a real device, flip the seam to the WKWebView fallback;
+the architecture already accommodates it at zero cost to the rest of the app.
