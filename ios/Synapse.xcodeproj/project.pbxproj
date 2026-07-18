@@ -16,11 +16,14 @@
 		12C312FC05DD7E7613068A8E /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C2BA61D3DAB1E46EC6EA03 /* ChatView.swift */; };
 		1BE64C1C7CFCF3A5C42960AA /* MoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C736C4D008F58F0A7D2F3CD9 /* MoreView.swift */; };
 		1C8B2EA5C67FE0D1924D7C4E /* WikiListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C981E5C340669CAA45420B2 /* WikiListView.swift */; };
+		1E7A92C34E857638CE7F8164 /* SynapseSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A337AA6647E79DEAF57C7C76 /* SynapseSession.swift */; };
 		1F3F8E4F39BB1A39D9A5FA7A /* SynMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 021C0855AEC659FD0C5D6733 /* SynMetrics.swift */; };
 		227975BF9A0A799E139C59A3 /* FlowLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 653C27B9037CD05DDC966699 /* FlowLayout.swift */; };
+		24971A0CCAA2754266FCAE33 /* SynAPIError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B06C086B8DF1AEAD9C9504F0 /* SynAPIError.swift */; };
 		25D198AC6F5E25FE0A12A711 /* SynEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2B8CDDDB006C6E90E4DCB3 /* SynEmptyState.swift */; };
 		306F86D0557CF00663C542EA /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE49D212F5C91AC1136BCC0 /* Components.swift */; };
 		31ECB2B3E2DCF524BF9C9D18 /* SynButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8203A87D1DD24552FAF65E78 /* SynButton.swift */; };
+		34BD08BBE89ED0C4C4A1758A /* ChatStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDC6FB27115A9E089BA7285 /* ChatStream.swift */; };
 		3BC3404E9BC7AB460C80CF49 /* WikiScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 008826957142517A8F5B50A2 /* WikiScreen.swift */; };
 		4887DDC55F036590EC9EA992 /* RedesignRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 074F24E8F5C89E1AFED7CF95 /* RedesignRootView.swift */; };
 		495EB024F7DF04DCD0CF8531 /* ScreenshotHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 599FD1BB78F8C01D574EAB1E /* ScreenshotHarness.swift */; };
@@ -28,6 +31,8 @@
 		54E46D7BC81B32C540304820 /* SynapseModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92DEDFFF62E7E324D661063C /* SynapseModels.swift */; };
 		66144D802D2C5CD2108F14C9 /* WikiDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D19EA21BFE56EC773E482674 /* WikiDetailView.swift */; };
 		675C1E08093FA9D9FEA3DD4A /* SynChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B33177AD33A68FD6BC9A9EE /* SynChip.swift */; };
+		7C78B3FEF3093F086C195943 /* EventsClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7373E015F8BA5E4C10D17571 /* EventsClient.swift */; };
+		8089B250F7BEF90B77D3F423 /* DTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F67A35C2B5E7ED37763BEBB /* DTO.swift */; };
 		85B494F4BDDD9A86FEAB62E6 /* SynCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C14A7DC74A8656513039CF /* SynCard.swift */; };
 		8AB04A72662C289D87664D39 /* RedesignMockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 126EF52B7DD0B9E1ACFC6D96 /* RedesignMockData.swift */; };
 		92C9C4D0B574A64FB659A1D2 /* HomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050659ACCE2E26312856277 /* HomeScreen.swift */; };
@@ -39,11 +44,13 @@
 		D30463020E3F8D809FF6FE9F /* ChatModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F0D52ED4557DE794991673 /* ChatModel.swift */; };
 		D4951A64AAC29A5FCC770359 /* IngestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF07C7075745404B7B02F6F2 /* IngestView.swift */; };
 		DC3137997AEA21EE90EDC0B5 /* ResearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD5C388A615DF68E00B6B58 /* ResearchView.swift */; };
+		DEAC40AD1D8B4984C824FD37 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E4764C57B5F01944815454A /* APIClient.swift */; };
 		E2C1EC55060AA2B6F3DAD615 /* BackHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = E23082B4EC953A18E4451B8C /* BackHeader.swift */; };
 		E7C80F6F4FFAD59CC2AAD4C5 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5985B7870E237E7FBE170BB2 /* GraphView.swift */; };
 		F13068C9BE98BB41960BE723 /* ReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB7DD0BD62B4DCEB5415CE16 /* ReviewView.swift */; };
 		F130A3AE3317CD34B8419BAA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = CB8BA24E7E55C8EF0A3530F0 /* Assets.xcassets */; };
 		F158CD639D214E3F7B21E034 /* PlaceholderScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C58E501C4EE53BD5C009F6 /* PlaceholderScreens.swift */; };
+		F4D2A6BA6FAF956DA0570702 /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 679BB655A2B1D00305FE433C /* Keychain.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +62,7 @@
 		126EF52B7DD0B9E1ACFC6D96 /* RedesignMockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RedesignMockData.swift; sourceTree = "<group>"; };
 		12B05C011702D5236468CEDD /* Synapse.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Synapse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3C981E5C340669CAA45420B2 /* WikiListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WikiListView.swift; sourceTree = "<group>"; };
+		4F67A35C2B5E7ED37763BEBB /* DTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTO.swift; sourceTree = "<group>"; };
 		53C2BA61D3DAB1E46EC6EA03 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		5985B7870E237E7FBE170BB2 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		599FD1BB78F8C01D574EAB1E /* ScreenshotHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotHarness.swift; sourceTree = "<group>"; };
@@ -63,16 +71,22 @@
 		61C14A7DC74A8656513039CF /* SynCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynCard.swift; sourceTree = "<group>"; };
 		6222E89A70A1909A3A3B0962 /* SynSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynSkeleton.swift; sourceTree = "<group>"; };
 		653C27B9037CD05DDC966699 /* FlowLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowLayout.swift; sourceTree = "<group>"; };
+		679BB655A2B1D00305FE433C /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 		6F19B2AB0665F93783DA4BF0 /* SynListRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynListRow.swift; sourceTree = "<group>"; };
+		7373E015F8BA5E4C10D17571 /* EventsClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventsClient.swift; sourceTree = "<group>"; };
 		7871099CA86ECDA79A4E3C46 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		8203A87D1DD24552FAF65E78 /* SynButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynButton.swift; sourceTree = "<group>"; };
 		92DEDFFF62E7E324D661063C /* SynapseModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynapseModels.swift; sourceTree = "<group>"; };
 		943051B9A498615CED6CC8E3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		977FEFFB7415C215753DE15E /* SynapseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynapseClient.swift; sourceTree = "<group>"; };
+		9DDC6FB27115A9E089BA7285 /* ChatStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStream.swift; sourceTree = "<group>"; };
+		9E4764C57B5F01944815454A /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A337AA6647E79DEAF57C7C76 /* SynapseSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynapseSession.swift; sourceTree = "<group>"; };
 		AA95CC724A9F6E6569E389DF /* MarkdownBody.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBody.swift; sourceTree = "<group>"; };
 		ACE49D212F5C91AC1136BCC0 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		AFD5C388A615DF68E00B6B58 /* ResearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchView.swift; sourceTree = "<group>"; };
 		B050659ACCE2E26312856277 /* HomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreen.swift; sourceTree = "<group>"; };
+		B06C086B8DF1AEAD9C9504F0 /* SynAPIError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SynAPIError.swift; sourceTree = "<group>"; };
 		C21A7D9A58F0690E5DD39118 /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		C2C58E501C4EE53BD5C009F6 /* PlaceholderScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderScreens.swift; sourceTree = "<group>"; };
 		C736C4D008F58F0A7D2F3CD9 /* MoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreView.swift; sourceTree = "<group>"; };
@@ -92,6 +106,7 @@
 		131129A65ACBACA30A72B5EF /* Redesign */ = {
 			isa = PBXGroup;
 			children = (
+				EF295DF63B3E9EFA2DB61E46 /* Data */,
 				B050659ACCE2E26312856277 /* HomeScreen.swift */,
 				C2C58E501C4EE53BD5C009F6 /* PlaceholderScreens.swift */,
 				126EF52B7DD0B9E1ACFC6D96 /* RedesignMockData.swift */,
@@ -246,6 +261,20 @@
 			path = Shared;
 			sourceTree = "<group>";
 		};
+		EF295DF63B3E9EFA2DB61E46 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				9E4764C57B5F01944815454A /* APIClient.swift */,
+				9DDC6FB27115A9E089BA7285 /* ChatStream.swift */,
+				4F67A35C2B5E7ED37763BEBB /* DTO.swift */,
+				7373E015F8BA5E4C10D17571 /* EventsClient.swift */,
+				679BB655A2B1D00305FE433C /* Keychain.swift */,
+				B06C086B8DF1AEAD9C9504F0 /* SynAPIError.swift */,
+				A337AA6647E79DEAF57C7C76 /* SynapseSession.swift */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -317,16 +346,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DEAC40AD1D8B4984C824FD37 /* APIClient.swift in Sources */,
 				09DA73CC207E34EEEBE3C7A7 /* AppModel.swift in Sources */,
 				035225762EF79982CFF31164 /* AppSettings.swift in Sources */,
 				E2C1EC55060AA2B6F3DAD615 /* BackHeader.swift in Sources */,
 				D30463020E3F8D809FF6FE9F /* ChatModel.swift in Sources */,
+				34BD08BBE89ED0C4C4A1758A /* ChatStream.swift in Sources */,
 				12C312FC05DD7E7613068A8E /* ChatView.swift in Sources */,
 				306F86D0557CF00663C542EA /* Components.swift in Sources */,
+				8089B250F7BEF90B77D3F423 /* DTO.swift in Sources */,
+				7C78B3FEF3093F086C195943 /* EventsClient.swift in Sources */,
 				227975BF9A0A799E139C59A3 /* FlowLayout.swift in Sources */,
 				E7C80F6F4FFAD59CC2AAD4C5 /* GraphView.swift in Sources */,
 				92C9C4D0B574A64FB659A1D2 /* HomeScreen.swift in Sources */,
 				D4951A64AAC29A5FCC770359 /* IngestView.swift in Sources */,
+				F4D2A6BA6FAF956DA0570702 /* Keychain.swift in Sources */,
 				05A920C040B6538B66B6F1F6 /* MarkdownBody.swift in Sources */,
 				1BE64C1C7CFCF3A5C42960AA /* MoreView.swift in Sources */,
 				F158CD639D214E3F7B21E034 /* PlaceholderScreens.swift in Sources */,
@@ -338,6 +372,7 @@
 				495EB024F7DF04DCD0CF8531 /* ScreenshotHarness.swift in Sources */,
 				09E5E1606EA137497806DCEF /* SearchView.swift in Sources */,
 				0E5EFA8105644C45F7FBE25C /* SettingsView.swift in Sources */,
+				24971A0CCAA2754266FCAE33 /* SynAPIError.swift in Sources */,
 				31ECB2B3E2DCF524BF9C9D18 /* SynButton.swift in Sources */,
 				85B494F4BDDD9A86FEAB62E6 /* SynCard.swift in Sources */,
 				675C1E08093FA9D9FEA3DD4A /* SynChip.swift in Sources */,
@@ -349,6 +384,7 @@
 				CF101E8A4B3A788ADF200266 /* SynapseApp.swift in Sources */,
 				AA12BFC10673B5BC00DDEE8E /* SynapseClient.swift in Sources */,
 				54E46D7BC81B32C540304820 /* SynapseModels.swift in Sources */,
+				1E7A92C34E857638CE7F8164 /* SynapseSession.swift in Sources */,
 				4BDF2987CD5466A8DD38C462 /* Theme.swift in Sources */,
 				66144D802D2C5CD2108F14C9 /* WikiDetailView.swift in Sources */,
 				1C8B2EA5C67FE0D1924D7C4E /* WikiListView.swift in Sources */,
