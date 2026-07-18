@@ -1304,17 +1304,6 @@ async def _schema_suggestion_for_delegated(
     )
 
 
-async def _resolve_fallback_provider_config() -> object | None:
-    """
-    Return the fallback ProviderConfig row (is_fallback=True) at the narrowest matching scope,
-    or None if no fallback is configured (ADR-0009 §fallback). Bounded to exactly one attempt
-    by the caller (_run_orchestrated_blocks — I7).
-    """
-    from app.provider_config_service import resolve_fallback_provider_config
-
-    return await resolve_fallback_provider_config()
-
-
 def _ensure_source_summary(
     pages: list[WikiPage], analysis: Analysis | None, origin_source: str
 ) -> list[WikiPage]:

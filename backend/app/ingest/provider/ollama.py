@@ -174,8 +174,22 @@ class OllamaProvider(InferenceProvider):
                 total_cost_usd=0.0,
             )
         )
-        content = payload.get("message", {}).get("content", "")
+        message = payload.get("message", {})
+        content = message.get("content", "")
         if not isinstance(content, str) or not content.strip():
+            # R7-10(b): reasoning-capable models (e.g. qwen3, deepseek-r1) can exhaust the
+            # num_predict budget entirely on the thinking trace, leaving content empty.
+            # Returning the thinking trace AS the answer would corrupt the FILE-block output
+            # contract the block loop expects, so we raise — but with a targeted, actionable
+            # message rather than the generic one, to guide the user toward the real fix.
+            thinking = message.get("thinking", "")
+            if isinstance(thinking, str) and thinking.strip():
+                raise ValueError(
+                    "Ollama returned only a reasoning trace (thinking) with no answer in "
+                    "'content'. The model exhausted the num_predict budget before producing "
+                    "output. Raise max_tokens / num_predict in the provider config for "
+                    f"reasoning-capable models (model={self._model!r})."
+                )
             raise ValueError("Ollama returned an empty message content")
         return content
 
