@@ -1,0 +1,1867 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted AI wiki that organizes itself.">
+      
+      
+        <meta name="author" content="Emanuele Chiummo">
+      
+      
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0088-ios-redesign-foundation/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/synapse-appicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>ADR-0088 — iOS app redesign foundation: native SwiftUI, brand-aligned design system, graph-render spike (Track iOS 2.1, Fase A) - Synapse</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#adr-0088-ios-app-redesign-foundation-native-swiftui-brand-aligned-design-system-graph-render-spike-track-ios-21-fase-a" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Synapse" class="md-header__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Synapse
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              ADR-0088 — iOS app redesign foundation: native SwiftUI, brand-aligned design system, graph-render spike (Track iOS 2.1, Fase A)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Synapse" class="md-nav__button md-logo" aria-label="Synapse" data-md-component="logo">
+      
+  <img src="../../assets/synapse-appicon.svg" alt="logo">
+
+    </a>
+    Synapse
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../USER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DEPLOY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploy Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADRs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../sequences/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3 → v2.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v0.7 → v1.0 (complete)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release Notes
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Release Notes
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.0.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.9.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.9.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.9.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.9.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.9.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.8.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.8.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.7.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.7.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.7.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.7.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.7.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.6.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.6.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.11
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.9
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.8
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.7
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.3
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.3.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.5
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v1.2.1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-1-native-swiftui-is-confirmed-as-the-platform-not-tauri-web-wrapper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 1 — Native SwiftUI is confirmed as the platform (not Tauri / web-wrapper)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-2-brand-aligned-swiftui-design-system-supersedes-the-legacy-themeswift" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 2 — Brand-aligned SwiftUI design system (supersedes the legacy Theme.swift)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decision-3-navigation-native-5-tab-shell-home-wiki-chat-graph-more" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decision 3 — Navigation: native 5-tab shell (Home · Wiki · Chat · Graph · More)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#graph-rendering-documented-spike-i2-preserving-either-way" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph rendering — documented spike (I2-preserving either way)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Graph rendering — documented spike (I2-preserving either way)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-i-could-not-verify-needs-the-owners-sign-off-before-fase-b-locks-the-choice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What I could NOT verify — needs the owner's sign-off before Fase B locks the choice
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#consequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Consequences
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification-fase-a" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verification (Fase A)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#future-work-fase-b-and-beyond" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Future work (Fase B and beyond)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="adr-0088-ios-app-redesign-foundation-native-swiftui-brand-aligned-design-system-graph-render-spike-track-ios-21-fase-a">ADR-0088 — iOS app redesign foundation: native SwiftUI, brand-aligned design system, graph-render spike (Track iOS 2.1, Fase A)<a class="headerlink" href="#adr-0088-ios-app-redesign-foundation-native-swiftui-brand-aligned-design-system-graph-render-spike-track-ios-21-fase-a" title="Permanent link">&para;</a></h1>
+<ul>
+<li><strong>Status:</strong> Accepted (foundation) — graph-render choice is <strong>Proposed, pending on-device verification</strong> (see §Graph rendering)</li>
+<li><strong>Date:</strong> 2026-07-18</li>
+<li><strong>Invariants touched:</strong> I2 (graph layout stays server-side / FA2-precomputed — the redesign consumes <code>GET /graph</code> coords, it does <strong>not</strong> run a client force layout), I8 (this ADR + branch is the D7 artefact for Fase A)</li>
+<li><strong>Feature refs:</strong> F1 (app shell / navigation), F4 (graph viewer), F15 (cross-platform — native iOS client), F16 (theming, light/dark parity)</li>
+<li><strong>Workstream:</strong> 2.1 — Track iOS 2.0, <strong>Fase A (design foundation)</strong></li>
+</ul>
+<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
+<p>The owner's directive (explicit, not inferred): the iOS app needs a <strong>complete redesign</strong> —
+graphics, performance, usability — and must end up <strong>at least comparable to the desktop app</strong>.
+This is <em>not</em> an API refresh of the existing client.</p>
+<p>State of play at the start of Fase A:</p>
+<ul>
+<li>A native SwiftUI app already lives in <code>ios/</code> (<code>Synapse.xcodeproj</code>, XcodeGen-generated from
+  <code>project.yml</code>, bundle id <code>ai.synapse.mobile</code>). It is functional but built against a pre-2.0
+  API and — critically — its design tokens (<code>ios/Synapse/Theme/Theme.swift</code>) were ported from
+  an <strong>old</strong> mobile design handoff (<code>Synapse.dc.html</code>). Those tokens use Apple-system indigo
+  (<code>#4F46E5</code>) as the accent and <strong>literal pure black</strong> (<code>#000000</code>) for primary label and dark
+  background. Both violate the current Synapse brand: the desktop v1.7.0 / 1.9.3 "UI kit" uses
+  brand blue <code>#2563eb</code> as the accent and <strong>never</strong> pure black (light ink <code>#0f1729</code>, dark ground
+  deep-navy <code>#0b1120</code>). The iOS visual language had drifted from the desktop's.</li>
+<li>Three stale branches were inspected before starting:</li>
+<li><code>feature/ios-target</code> — an <strong>abandoned Tauri v2 web-wrapper</strong> iOS attempt. Parked. Its
+    <code>ios/</code> tree is a net <em>deletion</em> vs <code>main</code> (main is far ahead). <strong>Not resurrected</strong> — see
+    the platform decision below for why a web wrapper is the wrong tool for this redesign.</li>
+<li><code>feat/ios-native-app</code> — the <em>original</em> native-app commit. Its <code>ios/</code> diff vs <code>main</code> is a
+    net deletion: <code>main</code> already contains it plus every subsequent refinement. Superseded.</li>
+<li><code>feature/ios-neural-refresh</code> — an early "neural" visual pass (the <code>NeuralMotif</code> /
+    <code>AuroraBackground</code> motifs). Also a net deletion vs <code>main</code>: those motifs already live in
+    <code>main</code>'s <code>ios/Synapse/Shared/Components.swift</code>. Superseded.</li>
+<li><strong>Conclusion: nothing to salvage.</strong> <code>main</code> is the most advanced iOS state; all three
+    branches are behind it. Fase A builds forward from <code>main</code>, it does not merge any of them.</li>
+</ul>
+<p>Fase A is the <strong>design foundation</strong>: it must land (1) this ADR, (2) a brand-aligned SwiftUI
+design system as real views, (3) a real, demoable navigation skeleton, and (4) mock Home + Wiki
+screens in light and dark — so the owner can approve the visual direction <strong>before</strong> Fase B
+wires real API-backed surfaces onto the new shell.</p>
+<h2 id="decision-1-native-swiftui-is-confirmed-as-the-platform-not-tauri-web-wrapper">Decision 1 — Native SwiftUI is confirmed as the platform (not Tauri / web-wrapper)<a class="headerlink" href="#decision-1-native-swiftui-is-confirmed-as-the-platform-not-tauri-web-wrapper" title="Permanent link">&para;</a></h2>
+<p>The redesign target — "at least comparable to the desktop app" <em>on mobile</em> — is a UX target,
+not a "render the same pixels" target. Meeting it requires <strong>mobile-native interaction
+patterns</strong> that a web wrapper cannot deliver convincingly:</p>
+<ul>
+<li><strong>Native navigation</strong>: a real <code>TabView</code> + <code>NavigationStack</code> with the system push/pop
+  transitions, large-title collapse, swipe-back edge gesture, and toolbar semantics. A web
+  wrapper reimplements these in JS and always feels a step behind.</li>
+<li><strong>Gestures &amp; haptics</strong>: swipe actions on list rows, pull-to-refresh, context menus,
+  <code>sensoryFeedback</code>. These are first-class in SwiftUI and awkward-to-impossible to make feel
+  right in a WKWebView shell.</li>
+<li><strong>Performance &amp; memory</strong>: a native list (<code>List</code> / <code>LazyVStack</code>) with cell reuse beats a
+  DOM/virtualised web list inside a webview for scroll smoothness and memory on a phone.</li>
+<li><strong>System integration</strong>: Dynamic Type, SF Symbols, safe-area handling, Reduce Motion,
+  light/dark following the system — all free and correct natively.</li>
+<li><strong>Head start</strong>: the existing native app is a <em>real</em> asset (networking layer, Codable models,
+  feature screens). A web wrapper would throw that away to re-embed the desktop SPA, which is
+  explicitly the layout we do <strong>not</strong> want to copy literally on a phone.</li>
+</ul>
+<p>The desktop's own responsive CSS (ADR-0057, the <code>≤767px</code> tier) already proves the web UI <em>can</em>
+run on a phone — but that is the <em>fallback</em>, a shrunk desktop. The whole point of this track is
+to go past that to a genuinely native experience. <strong>Tauri/web-wrapper is rejected for the
+Synapse iOS app.</strong> <code>feature/ios-target</code> stays parked.</p>
+<h2 id="decision-2-brand-aligned-swiftui-design-system-supersedes-the-legacy-themeswift">Decision 2 — Brand-aligned SwiftUI design system (supersedes the legacy <code>Theme.swift</code>)<a class="headerlink" href="#decision-2-brand-aligned-swiftui-design-system-supersedes-the-legacy-themeswift" title="Permanent link">&para;</a></h2>
+<p>A new <code>ios/Synapse/DesignSystem/</code> package is the source of truth for the redesign's visual
+language, ported <strong>faithfully from the desktop <code>frontend/src/styles/theme.css</code></strong> (the 1.9.3 UI
+kit), translated to native iOS idioms:</p>
+<ul>
+<li><strong>Color tokens</strong> (<code>SynColor</code>) — light/dark dynamic colours resolved against the system
+  <code>colorScheme</code>, matching the desktop token-for-token:</li>
+<li>accent <code>#2563eb</code> (light) / <code>#58a6ff</code> (dark); accent-strong, accent-soft.</li>
+<li>ink <code>#0f1729</code> (light) / <code>#e7ecf7</code> (dark) — <strong>never <code>#000000</code></strong>; ground <code>#ffffff</code> (light) /
+    <code>#0b1120</code> deep-navy (dark) — <strong>never <code>#000000</code></strong>.</li>
+<li>the per-type jewel-tone palette (concept violet, entity blue, source teal, synthesis
+    indigo, comparison copper, query amber), lightened for the navy ground in dark, matching
+    the desktop <code>--syn-type-*</code> values.</li>
+<li>the brand gradient <code>#1d4ed8 → #4338ca → #7c3aed</code>, used with restraint (wordmark, hero,
+    primary CTA).</li>
+<li><strong>Type scale</strong> (<code>SynFont</code>) — built on the native text styles so <strong>Dynamic Type</strong> works,
+  with the wordmark tightened (<code>-0.02em</code> tracking) to echo the desktop Geist wordmark.</li>
+<li><strong>Spacing / radius tokens</strong> (<code>SynSpace</code>, <code>SynRadius</code>) — the desktop 4/6/8/10/12/16 spacing
+  ramp and 7/9/12/pill radii.</li>
+<li><strong>Core components as real views</strong>: <code>SynButton</code> (primary/secondary/ghost/destructive),
+  <code>SynCard</code>, <code>SynChip</code>, <code>SynListRow</code>, <code>SynEmptyState</code>, <code>SynSkeleton</code> (shimmer honouring Reduce
+  Motion). Icons use <strong>SF Symbols</strong> chosen per meaning rather than transliterating the desktop
+  lucide set.</li>
+</ul>
+<p>The legacy <code>Theme.swift</code> / <code>Components.swift</code> are <strong>not deleted</strong> (the existing feature screens
+still compile against them, so nothing is lost for Fase B to port), but they are marked legacy:
+the redesign shell renders <strong>only</strong> <code>SynColor</code>, so no pure-black token is ever painted in the
+new experience. Migrating the remaining real screens off <code>Theme</code> onto <code>SynColor</code> is Fase B work.</p>
+<h2 id="decision-3-navigation-native-5-tab-shell-home-wiki-chat-graph-more">Decision 3 — Navigation: native 5-tab shell (Home · Wiki · Chat · Graph · More)<a class="headerlink" href="#decision-3-navigation-native-5-tab-shell-home-wiki-chat-graph-more" title="Permanent link">&para;</a></h2>
+<p>The desktop's 3-panel shell (tree / chat / preview) is <strong>not</strong> copied literally — that layout
+is wrong for a phone. Instead a native <code>TabView</code> exposes the five primary destinations, each an
+independent <code>NavigationStack</code>. This is the demoable skeleton: Home and Wiki carry realistic mock
+content; Chat, Graph and More are honest placeholders built from the design system. <code>Home</code> is
+new relative to the old shell (which led with Wiki) and becomes the landing surface (F18 home
+dashboard lineage). The app entry (<code>SynapseApp</code>) now presents the redesign root; the old
+<code>RootTabView</code> and its screens remain compiled (available for Fase B to port) but are not the
+runtime entry.</p>
+<h2 id="graph-rendering-documented-spike-i2-preserving-either-way">Graph rendering — documented spike (I2-preserving either way)<a class="headerlink" href="#graph-rendering-documented-spike-i2-preserving-either-way" title="Permanent link">&para;</a></h2>
+<p>The knowledge graph (F4) is the one surface where "native vs embed" is a genuine engineering
+fork. Both candidates <strong>consume the server-side, FA2-precomputed coordinates from <code>GET /graph</code></strong>
+— neither runs a force layout on the device, so <strong>I2 holds in both cases</strong>. The question is only
+<em>who draws the precomputed points</em>.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>(a) WKWebView embed of the sigma.js viewer</th>
+<th>(b) Native renderer (Canvas / SpriteKit / Metal)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>I2 compliance</strong></td>
+<td>✅ coords server-side, sigma just renders</td>
+<td>✅ coords server-side, native code just renders</td>
+</tr>
+<tr>
+<td><strong>Engineering cost</strong></td>
+<td>~none — reuse the shipped web viewer</td>
+<td>High — build + maintain a <em>second</em> renderer</td>
+</tr>
+<tr>
+<td><strong>Native feel</strong></td>
+<td>Poor — a webview island inside a native app; gestures/haptics/theming don't match the rest</td>
+<td>Excellent — real pinch/pan, momentum, haptics, SF-styled controls, exact theme match</td>
+</tr>
+<tr>
+<td><strong>Maintenance</strong></td>
+<td>Follows the web viewer for free</td>
+<td>Diverges; every graph feature done twice</td>
+</tr>
+<tr>
+<td><strong>Perf on device</strong></td>
+<td>Sigma is WebGL, usually fine; webview bridge + memory overhead unknown on older phones</td>
+<td>Potentially best (SpriteKit/Metal), but unproven until built and measured</td>
+</tr>
+<tr>
+<td><strong>Consistency w/ redesign goal</strong></td>
+<td>Undercuts "at least comparable to desktop" — it <em>is</em> the desktop, embedded</td>
+<td>Fully delivers the redesign intent</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation: (b) a native renderer — but staged.</strong> For Fase A the Graph tab is a
+placeholder. The recommendation is to build the native renderer in Fase B starting with the
+lightest technology that meets the bar — <strong>SwiftUI <code>Canvas</code> first</strong> (draw the precomputed nodes
+/ edges, add <code>MagnificationGesture</code> + <code>DragGesture</code> for pinch/pan), escalating to <strong>SpriteKit</strong>
+only if <code>Canvas</code> can't hold frame rate on a large vault, and to <strong>Metal</strong> only if SpriteKit
+can't. This keeps the second renderer as small as the performance target allows.</p>
+<p><strong>Pragmatic hedge:</strong> ship <strong>(a) the WKWebView embed as a fallback / behind a flag</strong> in early
+Fase B so the Graph tab is functional while (b) is built and measured. If on-device numbers for
+(b) disappoint, (a) is the safety net — I2 is satisfied either way, so this hedge costs nothing
+architecturally.</p>
+<h3 id="what-i-could-not-verify-needs-the-owners-sign-off-before-fase-b-locks-the-choice">What I could NOT verify — needs the owner's sign-off before Fase B locks the choice<a class="headerlink" href="#what-i-could-not-verify-needs-the-owners-sign-off-before-fase-b-locks-the-choice" title="Permanent link">&para;</a></h3>
+<p>A <strong>physical-device performance check is a prerequisite</strong> before committing to (b), and I
+<strong>cannot</strong> perform it from this environment (no physical iOS device; only the Simulator is
+reachable). The following must be measured on a real device against a real vault and signed off
+by the owner:</p>
+<ul>
+<li><strong>fps</strong> panning/zooming a realistic graph (hundreds–thousands of nodes) — target a smooth
+  ~60 fps (120 on ProMotion) with no hitching.</li>
+<li><strong>memory footprint</strong> of the native renderer vs the webview embed under the same graph.</li>
+<li><strong>gesture responsiveness</strong> — pinch/pan latency, momentum feel, haptic timing.</li>
+</ul>
+<p>Until those numbers exist and the owner approves, the graph-render decision is <strong>Proposed</strong>, not
+Accepted. The rest of this ADR (native SwiftUI, design system, navigation) is Accepted.</p>
+<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The redesign has a brand-correct foundation: the new shell can never paint pure black and its
+  accent is the real brand blue, matching the desktop token-for-token.</li>
+<li>The existing native app is preserved (compiles, not deleted) so Fase B ports real data into
+  the new shell screen-by-screen with the old screens as reference — no big-bang rewrite.</li>
+<li>Two visual languages coexist transiently (legacy <code>Theme</code> vs new <code>SynColor</code>). This is an
+  accepted, time-boxed state; Fase B's exit criterion includes deleting <code>Theme.swift</code> once the
+  last real screen is migrated.</li>
+<li>The graph renderer is deliberately left open with an I2-safe fallback, so Fase A does not
+  gamble on an unverified performance assumption.</li>
+</ul>
+<h2 id="verification-fase-a">Verification (Fase A)<a class="headerlink" href="#verification-fase-a" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Build:</strong> <code>xcodegen generate</code> (project regenerated to include the new files) + a Simulator
+  build (<code>xcodebuild … -destination 'platform=iOS Simulator,name=iPhone 17'</code>). What was actually
+  run in this environment, and what still needs a human on a real Mac/device, is recorded in the
+  PR description under "Verified locally vs needs owner". The honest posture per the track's
+  "chiedere, non aggirare" mantra: Simulator evidence is not device evidence.</li>
+</ul>
+<h2 id="future-work-fase-b-and-beyond">Future work (Fase B and beyond)<a class="headerlink" href="#future-work-fase-b-and-beyond" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Build the native graph renderer (Canvas → SpriteKit → Metal escalation), keep the WKWebView
+   embed behind a flag as the fallback, run the on-device perf check, get owner sign-off.</li>
+<li>Migrate the real feature screens (Wiki list/detail, Search, Chat, Review, Ingest, Research,
+   Settings) onto <code>SynColor</code> + the new components; then delete <code>Theme.swift</code> / legacy
+   <code>Components.swift</code>.</li>
+<li>Wire the redesigned Home + Wiki to live API data (F18 home dashboard, F1/F4).</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.instant", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

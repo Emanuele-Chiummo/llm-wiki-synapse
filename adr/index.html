@@ -494,6 +494,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ios-redesign-track-ios-21-adr-0088-onward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iOS redesign (Track iOS 2.1 — ADR-0088 onward)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#navigation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1723,6 +1734,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ios-redesign-track-ios-21-adr-0088-onward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iOS redesign (Track iOS 2.1 — ADR-0088 onward)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#navigation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2287,6 +2309,24 @@
 <td><strong>0087</strong></td>
 <td><a href="0087-csp-policy/">Content Security Policy (SEC-CSP-1 / 2.0.0) — <code>script-src 'self'</code> + <code>style-src 'self' 'unsafe-inline'</code>; <code>unsafe-inline</code> for styles required by KaTeX HTML+MathML output (inline span style attrs), React inline style={{}} props (1 765 occurrences), and index.html inline <code>&lt;style&gt;</code> block; dev/CI Vite headers broaden <code>connect-src</code> for cross-origin localhost; Playwright E2E suite in <code>e2e/csp.spec.ts</code> verifies zero violations in both themes across Chat/Search/Graph/Settings/KaTeX</a></td>
 <td>Accepted</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ios-redesign-track-ios-21-adr-0088-onward">iOS redesign (Track iOS 2.1 — ADR-0088 onward)<a class="headerlink" href="#ios-redesign-track-ios-21-adr-0088-onward" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Title</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0088</strong></td>
+<td><a href="0088-ios-redesign-foundation/">iOS app redesign foundation (Track iOS 2.1, Fase A) — native SwiftUI confirmed over Tauri/web-wrapper; brand-aligned <code>DesignSystem/</code> (<code>SynColor</code>/<code>SynFont</code>/<code>SynSpace</code> ported from desktop <code>theme.css</code>, accent <code>#2563eb</code>, never pure black) supersedes the legacy Apple-indigo/<code>#000</code> <code>Theme.swift</code>; native 5-tab shell (Home·Wiki·Chat·Graph·More); documented graph-render spike (WKWebView sigma embed vs native Canvas/SpriteKit/Metal, both I2-safe) — native recommended but <strong>Proposed pending on-device perf sign-off</strong></a></td>
+<td>Accepted (foundation); graph-render <strong>Proposed</strong></td>
 </tr>
 </tbody>
 </table>
