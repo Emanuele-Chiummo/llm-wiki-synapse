@@ -533,7 +533,13 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // "graph" first appears to settle some shared app-init state (dataVersion/SSE) that
     // NavTree's mount otherwise races under CI's concurrent-worker load.
     await navTo(page, "graph");
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 15_000 });
+    // 25s (not 15s): a local repro of this exact CI sequence (docker-compose.ci.yml +
+    // seed scripts + built preview, matching the workflow step-for-step) never failed —
+    // ruling out a deterministic app bug. The 3 CI failures observed all timed out at
+    // this same graph-panel wait, pointing to shared-runner WebGL/canvas rendering
+    // variance rather than a logic defect. Widening the budget rather than adding more
+    // retries, since retries already exhausted 2x without success.
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 25_000 });
 
     // Navigate to the wiki/pages section.
     await navTo(page, "pages");
