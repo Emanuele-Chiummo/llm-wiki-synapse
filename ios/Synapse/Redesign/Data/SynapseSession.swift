@@ -16,6 +16,25 @@ final class SynapseSession {
         case unknown, connecting, online, offline(String)
     }
 
+    enum Appearance: String, CaseIterable, Identifiable {
+        case system, light, dark
+        var id: String { rawValue }
+        var colorScheme: ColorScheme? {
+            switch self {
+            case .system: return nil
+            case .light: return .light
+            case .dark: return .dark
+            }
+        }
+        var label: String {
+            switch self {
+            case .system: return "System"
+            case .light: return "Light"
+            case .dark: return "Dark"
+            }
+        }
+    }
+
     // MARK: Persisted, non-secret config
     var serverURLString: String {
         didSet { UserDefaults.standard.set(serverURLString, forKey: Keys.server) }
@@ -36,6 +55,11 @@ final class SynapseSession {
         didSet { Keychain.set(cfAccessClientSecret, account: Keychain.Account.cfAccessSecret) }
     }
 
+    // MARK: Appearance (non-secret)
+    var appearance: Appearance {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Keys.appearance) }
+    }
+
     // MARK: Live state (fed by SSE + a status probe)
     var reachability: Reachability = .unknown
     var serverVersion: String?
@@ -52,13 +76,22 @@ final class SynapseSession {
         static let server = "syn.redesign.serverURL"
         static let vault = "syn.redesign.vaultID"
         static let cfID = "syn.redesign.cfClientID"
+        static let appearance = "syn.redesign.appearance"
     }
 
     init() {
         let d = UserDefaults.standard
         self.serverURLString = d.string(forKey: Keys.server) ?? "http://localhost:8000"
-        self.vaultID = d.string(forKey: Keys.vault) ?? "default"
+        // `-synVault <id>` launch override (screenshot harness / testing only);
+        // otherwise the persisted vault, defaulting to "default".
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-synVault"), i + 1 < args.count {
+            self.vaultID = args[i + 1]
+        } else {
+            self.vaultID = d.string(forKey: Keys.vault) ?? "default"
+        }
         self.cfAccessClientID = d.string(forKey: Keys.cfID) ?? ""
+        self.appearance = Appearance(rawValue: d.string(forKey: Keys.appearance) ?? "") ?? .system
         self.token = Keychain.get(account: Keychain.Account.apiToken) ?? ""
         self.cfAccessClientSecret = Keychain.get(account: Keychain.Account.cfAccessSecret) ?? ""
     }

@@ -1,28 +1,27 @@
 import SwiftUI
 
-/// The redesigned app shell (ADR-0088, Track iOS 2.1 Fase A).
-///
-/// A native `TabView` exposing the five primary destinations — Home · Wiki ·
-/// Chat · Graph · More — each its own `NavigationStack`. The desktop 3-panel
-/// layout is deliberately NOT copied; this is a phone-native structure. Home and
-/// Wiki carry realistic mock content (see `RedesignMock`); Chat, Graph and More
-/// are honest placeholders built from the design system so the skeleton builds
-/// and demos. Fase B wires live API data onto these surfaces.
+/// The redesigned app shell (ADR-0088). A native `TabView` over the five primary
+/// destinations — Home · Wiki · Chat · Graph · More. Fase B wires live,
+/// API-backed data onto Home / Wiki / Chat (and Search, reached from the Wiki
+/// toolbar); Graph stays the honest Fase C placeholder (its renderer is gated on
+/// an on-device perf check). Home, Wiki and Chat each run inside a `WikiStack`
+/// so a citation / wikilink / recent-item tap pushes the shared reading view.
 struct RedesignRootView: View {
+    @Environment(SynapseSession.self) private var session
     enum Tab: Hashable { case home, wiki, chat, graph, more }
     @State private var selection: Tab = .home
 
     var body: some View {
         TabView(selection: $selection) {
-            NavigationStack { HomeScreen() }
+            WikiStack { HomeScreen() }
                 .tabItem { Label("Home", systemImage: "house.fill") }
                 .tag(Tab.home)
 
-            NavigationStack { WikiScreen() }
+            WikiStack { WikiScreen() }
                 .tabItem { Label("Wiki", systemImage: "books.vertical.fill") }
                 .tag(Tab.wiki)
 
-            NavigationStack { ChatScreen() }
+            WikiStack { ChatScreen() }
                 .tabItem { Label("Chat", systemImage: "bubble.left.and.text.bubble.right.fill") }
                 .tag(Tab.chat)
 
@@ -32,16 +31,10 @@ struct RedesignRootView: View {
 
             NavigationStack { MoreScreen() }
                 .tabItem { Label("More", systemImage: "ellipsis") }
+                .badge(session.reviewPending)
                 .tag(Tab.more)
         }
         .tint(SynColor.accent)
+        .task { await session.connect() }
     }
-}
-
-#Preview("Redesign — light") {
-    RedesignRootView().preferredColorScheme(.light)
-}
-
-#Preview("Redesign — dark") {
-    RedesignRootView().preferredColorScheme(.dark)
 }
