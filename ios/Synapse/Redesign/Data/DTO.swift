@@ -1,10 +1,9 @@
 import Foundation
 
 /// Wire DTOs for the Synapse **2.0.0** API, consumed by the redesigned surfaces
-/// (Track iOS 2.1, Fase B). Namespaced under `API.*` so they never collide with
-/// the legacy `Networking/SynapseModels.swift` types (same module) — the legacy
-/// client stays compiling for not-yet-migrated screens, exactly as ADR-0088
-/// keeps `Theme.swift` alongside `SynColor`.
+/// (Track iOS 2.1). Namespaced under `API.*`. These were introduced in Fase B
+/// alongside a legacy `Networking/` model set; Fase C retired that legacy tree,
+/// so `API.*` is now the app's only model layer.
 ///
 /// Field names and `CodingKeys` are taken verbatim from `docs/api/openapi.json`
 /// and the router/schema source. Watch-outs honoured: the backend serialises

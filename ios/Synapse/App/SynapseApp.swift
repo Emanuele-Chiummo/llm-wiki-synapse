@@ -2,11 +2,9 @@ import SwiftUI
 
 @main
 struct SynapseApp: App {
-    // Legacy connection/appearance state, still consumed by the not-yet-migrated
-    // Feature/ screens (kept compiling per ADR-0088).
-    @StateObject private var settings = AppSettings()
-    @StateObject private var app = AppModel()
-    // The redesign's own connection + live-state source (Track 2.1, Fase B).
+    // The redesign's connection + live-state source (Track 2.1). Since Fase C
+    // retired the legacy Theme/Feature screens, this is the ONLY app state — there
+    // is no second visual language or connection stack left.
     @State private var session = SynapseSession()
 
     init() {
@@ -30,8 +28,6 @@ struct SynapseApp: App {
             // Track iOS 2.1 (ADR-0088): the redesigned native shell is the runtime
             // entry. Fase B wires it to live API data via `SynapseSession`.
             rootView
-                .environmentObject(settings)
-                .environmentObject(app)
                 .environment(session)
                 .tint(SynColor.accent)
                 .preferredColorScheme(session.appearance.colorScheme)
