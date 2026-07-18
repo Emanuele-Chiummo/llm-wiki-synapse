@@ -438,6 +438,12 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
   test("KaTeX $$display math$$ renders in NoteView without style-src CSP violations", async ({
     page,
   }) => {
+    // The suite-wide default test timeout (playwright.config.ts: 30_000ms) was the REAL
+    // ceiling here, not the inner toBeVisible() timeout below it — every failure in CI logs
+    // an identical ~30.1s duration regardless of how far the assertion timeout was widened
+    // (25s, then 40s), because the whole test aborts at 30s first. Raising the per-test
+    // timeout is the actual fix; the assertion timeout just needs to stay under it.
+    test.setTimeout(60_000);
     const violations = collectCspViolations(page);
 
     // Mock page-list and page-content to inject a math-containing page.
@@ -573,6 +579,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
   });
 
   test("KaTeX math renders in dark theme without CSP violations", async ({ page }) => {
+    // See the light-theme sibling above: the suite-wide default test timeout (30_000ms) was
+    // the real ceiling, not the inner assertion timeout — raising it is the actual fix.
+    test.setTimeout(60_000);
     const violations = collectCspViolations(page);
 
     const mathPageId = "csp-math-dark-00000000-0000-0000-0000-000000000001";
