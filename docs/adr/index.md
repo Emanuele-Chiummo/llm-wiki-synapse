@@ -150,6 +150,14 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 
 ---
 
+## iOS redesign (Track iOS 2.1 — ADR-0088 onward)
+
+| # | Title | Status |
+|---|-------|--------|
+| **0088** | [iOS app redesign foundation (Track iOS 2.1, Fase A) — native SwiftUI confirmed over Tauri/web-wrapper; brand-aligned `DesignSystem/` (`SynColor`/`SynFont`/`SynSpace` ported from desktop `theme.css`, accent `#2563eb`, never pure black) supersedes the legacy Apple-indigo/`#000` `Theme.swift`; native 5-tab shell (Home·Wiki·Chat·Graph·More); documented graph-render spike (WKWebView sigma embed vs native Canvas/SpriteKit/Metal, both I2-safe) — native recommended but **Proposed pending on-device perf sign-off**](0088-ios-redesign-foundation.md) | Accepted (foundation); graph-render **Proposed** |
+
+---
+
 ## Navigation
 
 - **Home:** [docs/index.md](../index.md)
