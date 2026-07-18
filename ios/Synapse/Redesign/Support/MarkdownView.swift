@@ -19,6 +19,13 @@ import SwiftUI
 struct MarkdownView: View {
     let blocks: [WikiMarkdownBlock]
 
+    // Wikilink taps are handled by LinkableText (a UITextView bridge — see its doc comment
+    // for why plain SwiftUI Text doesn't reliably dispatch AttributedString link taps here).
+    // Reading this environment value directly and forwarding it to LinkableText's onLinkTap
+    // reuses the SAME `.environment(\.openURL, OpenURLAction { ... })` interception that
+    // WikiReadingScreen already registers — no change needed there.
+    @Environment(\.openURL) private var openURL
+
     init(_ raw: String) { self.blocks = WikiMarkdownBlock.parse(raw) }
     init(blocks: [WikiMarkdownBlock]) { self.blocks = blocks }
 
@@ -39,12 +46,11 @@ struct MarkdownView: View {
                 .foregroundStyle(SynColor.text)
                 .padding(.top, level <= 2 ? SynSpace.x2 : 0)
         case .paragraph(let text):
-            // No .foregroundStyle here — it would override the per-run colors
-            // `inline()` bakes in (and silently kill wikilink tap-to-navigate).
-            Text(text)
-                .font(SynFont.body)
-                .lineSpacing(5)
-                .tint(SynColor.accent)
+            LinkableText(
+                attributedString: text,
+                font: .preferredFont(forTextStyle: .body),
+                onLinkTap: { openURL($0) }
+            )
         case .bullet(let items):
             VStack(alignment: .leading, spacing: SynSpace.x3) {
                 ForEach(Array(items.enumerated()), id: \.offset) { _, item in
@@ -72,9 +78,11 @@ struct MarkdownView: View {
         case .quote(let text):
             HStack(spacing: SynSpace.x4) {
                 RoundedRectangle(cornerRadius: 2).fill(SynColor.accent).frame(width: 3)
-                // No .foregroundStyle — see the .paragraph case above.
-                Text(text).font(SynFont.body)
-                    .lineSpacing(4)
+                LinkableText(
+                    attributedString: text,
+                    font: .preferredFont(forTextStyle: .body),
+                    onLinkTap: { openURL($0) }
+                )
                 Spacer(minLength: 0)
             }
         case .math(let latex):
@@ -91,9 +99,11 @@ struct MarkdownView: View {
             Text(marker)
                 .font(SynFont.body.monospacedDigit())
                 .foregroundStyle(SynColor.accent)
-            // No .foregroundStyle — see the .paragraph case above.
-            Text(text).font(SynFont.body)
-                .tint(SynColor.accent).lineSpacing(4)
+            LinkableText(
+                attributedString: text,
+                font: .preferredFont(forTextStyle: .body),
+                onLinkTap: { openURL($0) }
+            )
             Spacer(minLength: 0)
         }
     }
