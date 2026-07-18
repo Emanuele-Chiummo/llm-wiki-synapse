@@ -80,18 +80,69 @@ pagamento (99 €/anno).
 
 ---
 
+## TestFlight (distribuzione beta) — ⚠️ richiede azione del proprietario
+
+La pipeline TestFlight è **predisposta ma non eseguibile in questo ambiente**: manca
+un account **Apple Developer Program a pagamento** e una **App Store Connect API
+key**. Nessuna credenziale è stata inventata (mantra "chiedere, non aggirare"). Lo
+script `ios/scripts/testflight.sh` si **rifiuta di partire** finché i segreti non
+sono presenti, invece di fingere un caricamento.
+
+### Cosa serve dal proprietario (una tantum)
+1. **Apple Developer Program a pagamento** (99 €/anno). Il team attuale in
+   `project.yml` (`DEVELOPMENT_TEAM: 4SUH9X5QWS`) è un *Personal Team* gratuito, che
+   **non può** caricare su TestFlight. Sostituirlo con il team id a pagamento.
+2. **App identifier registrato**: `ai.synapse.mobile` in
+   [Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources).
+3. **App Store Connect API key** ([Users and Access → Integrations → App Store
+   Connect API](https://appstoreconnect.apple.com/access/integrations/api)):
+   scaricare il file `AuthKey_<KEYID>.p8` e annotare **Key ID** e **Issuer ID**.
+4. Un record **App** creato in App Store Connect con quel bundle id.
+
+### Come pubblicare una build (una volta ottenute le credenziali)
+```bash
+# aggiornare teamID in ios/ExportOptions-AppStore.plist (o passarlo via TEAM_ID)
+ASC_KEY_ID=XXXXXXXXXX \
+ASC_ISSUER_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+ASC_KEY_P8=~/private_keys/AuthKey_XXXXXXXXXX.p8 \
+TEAM_ID=YOURPAIDTEAM \
+ios/scripts/testflight.sh
+```
+Lo script rigenera il progetto, archivia in Release, esporta l'`.ipa` con
+`ExportOptions-AppStore.plist` (metodo `app-store-connect`, firma automatica) e lo
+carica con `xcrun altool`. La build appare in **App Store Connect → TestFlight**
+dopo l'elaborazione; da lì si assegnano i tester.
+
+> Le stesse variabili possono alimentare un job CI (GitHub Actions) in futuro,
+> conservando la `.p8` come secret del repo. Non incluso qui: senza le credenziali
+> reali il workflow non è verificabile.
+
+---
+
 ## Struttura del progetto
+
+Il redesign (Track 2.1) è l'unica esperienza: shell nativa a 5 tab
+(Home · Wiki · Chat · Graph · More) su `SynapseSession` + client 2.0.0. Il vecchio
+tema (`Theme.swift`, accento Apple-indigo + nero pieno) e le `Features/` legacy sono
+stati **ritirati in Fase C** — resta un solo linguaggio visivo (`SynColor`).
 
 ```
 ios/
 ├── project.yml                 # spec XcodeGen (fonte di verità)
+├── ExportOptions-AppStore.plist# export TestFlight (teamID da compilare)
+├── scripts/testflight.sh       # pipeline TestFlight (richiede credenziali owner)
 ├── Synapse.xcodeproj           # progetto generato (committato per comodità)
 └── Synapse/
-    ├── App/                    # entry point, RootTabView, AppModel
-    ├── Networking/             # SynapseClient, modelli Codable, AppSettings
-    ├── Theme/                  # design tokens (colori, tipi pagina)
-    ├── Shared/                 # componenti riutilizzabili (card, header, flow)
-    └── Features/               # Wiki · Search · Chat · Graph · More/Settings
+    ├── App/SynapseApp.swift    # entry point (root = redesign shell)
+    ├── DesignSystem/           # SynColor/SynMetrics + SynButton/Card/Chip/…
+    ├── Redesign/
+    │   ├── Data/               # APIClient (2.0.0), SynapseSession, SSE, DTO, Keychain
+    │   ├── Graph/              # Graph tab: renderer swappable + Canvas nativo
+    │   ├── Review/             # coda di revisione (F9)
+    │   ├── Sources/            # browser sorgenti + attività ingest
+    │   ├── Settings/           # provider (F17), vault, lingua
+    │   └── *.swift             # Home · Wiki · Chat · Search · More · Tokens
+    └── Shared/FlowLayout.swift # layout a scorrimento riusato dalla chat
 ```
 
 Per rigenerare il progetto dopo aver modificato `project.yml`:

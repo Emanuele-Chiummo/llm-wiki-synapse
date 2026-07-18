@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ExportOptions for an App Store Connect / TestFlight export.
+  Consumed by: xcodebuild -exportArchive -exportOptionsPlist ExportOptions-AppStore.plist
+  See ios/scripts/testflight.sh and the "TestFlight" section of ios/README.md.
+
+  teamID must be a paid Apple Developer Program team (the current project.yml
+  DEVELOPMENT_TEAM "4SUH9X5QWS" is a free Personal Team, which CANNOT upload to
+  TestFlight — see README). Replace it with the paid team id when available.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>REPLACE_WITH_PAID_TEAM_ID</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>generateAppStoreInformation</key>
+    <true/>
+</dict>
+</plist>
