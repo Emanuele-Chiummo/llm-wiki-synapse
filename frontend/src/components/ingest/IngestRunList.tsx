@@ -25,6 +25,8 @@ import {
   selectCancelRun,
 } from "../../store/ingestStore";
 import { StatusBadge } from "./StatusBadge";
+import { Skeleton } from "../ui/Skeleton";
+import { EmptyState } from "../common/EmptyState";
 import { showToast } from "../common/Toast";
 import type { IngestRunItem } from "../../api/types";
 
@@ -86,23 +88,18 @@ export function IngestRunList({ vaultId }: IngestRunListProps) {
     overscan: 5,
   });
 
-  if (runs.length === 0 && !loading) {
+  if (runs.length === 0 && loading) {
     return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          color: "var(--syn-text-dim)",
-          fontSize: 13,
-          padding: 24,
-          textAlign: "center",
-        }}
-      >
-        {t("ingest.empty")}
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <Skeleton height={ROW_HEIGHT} />
+        <Skeleton height={ROW_HEIGHT} />
+        <Skeleton height={ROW_HEIGHT} />
       </div>
     );
+  }
+
+  if (runs.length === 0 && !loading) {
+    return <EmptyState testId="ingest-run-list-empty" title={t("ingest.empty")} />;
   }
 
   const totalHeight = virtualizer.getTotalSize();

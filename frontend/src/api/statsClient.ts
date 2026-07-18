@@ -20,7 +20,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { checkResponse } from "./errors";
 
 // ─── Response types (ADR-0054 §5.1) ───────────────────────────────────────────
 
@@ -195,16 +195,7 @@ export async function getStatsOverview(signal?: AbortSignal): Promise<StatsOverv
     const url = `${apiBase()}/stats/overview`;
     const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
     if (res.status === 404) return null;
-    if (!res.ok) {
-      let detail = `${res.status}`;
-      try {
-        const body = await res.json();
-        detail = errorMessageFromBody(body) ?? detail;
-      } catch {
-        // ignore parse error
-      }
-      throw new Error(`GET /stats/overview: ${detail}`);
-    }
+    await checkResponse(res);
     return (await res.json()) as StatsOverview;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw err;
@@ -227,16 +218,7 @@ export async function getStatsSections(signal?: AbortSignal): Promise<StatsSecti
     const url = `${apiBase()}/stats/sections`;
     const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
     if (res.status === 404) return null;
-    if (!res.ok) {
-      let detail = `${res.status}`;
-      try {
-        const body = await res.json();
-        detail = errorMessageFromBody(body) ?? detail;
-      } catch {
-        // ignore parse error
-      }
-      throw new Error(`GET /stats/sections: ${detail}`);
-    }
+    await checkResponse(res);
     return (await res.json()) as StatsSections;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") throw err;

@@ -85,6 +85,7 @@ import { ErrorState } from "../common/ErrorState";
 import { Skeleton } from "../ui/Skeleton";
 import { showToast } from "../common/Toast";
 import { usePollChain } from "../../hooks/usePollChain";
+import { useEventsStore } from "../../store/eventsStore";
 import type { IngestAllStatusResponse } from "../../api/sourcesClient";
 
 // ─── Category icon helper ─────────────────────────────────────────────────────
@@ -199,6 +200,8 @@ const FOLDER_ROW_H = 30;
 const FILE_ROW_H = 30;
 const DISARM_DELAY = 5000; // ms
 const INGEST_ALL_POLL_MS = 1500; // I3: single setTimeout chain interval
+/** Slower cadence when SSE is live — ingest-all progress still refreshes, just less frequently. */
+const INGEST_ALL_POLL_IDLE_MS = 5_000;
 
 // ─── Accepted extensions (mirrors UploadZone) ─────────────────────────────────
 
@@ -321,7 +324,12 @@ export function SourcesView() {
         void fetchSources();
       }
     },
-    intervalFor: (status) => (status.running ? INGEST_ALL_POLL_MS : null),
+    intervalFor: (status) =>
+      status.running
+        ? useEventsStore.getState().healthy
+          ? INGEST_ALL_POLL_IDLE_MS
+          : INGEST_ALL_POLL_MS
+        : null,
     onError: () => setIngestAllProgress(null),
     initialDelayMs: INGEST_ALL_POLL_MS,
   });

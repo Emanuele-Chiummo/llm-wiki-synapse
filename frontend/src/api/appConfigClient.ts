@@ -20,7 +20,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { checkResponse } from "./errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -88,16 +88,7 @@ export type AppConfigKey =
 export async function getAppConfig(signal?: AbortSignal): Promise<AppConfigResponse> {
   const url = `${apiBase()}/config/app`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(`GET /config/app: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<AppConfigResponse>;
 }
 
@@ -116,16 +107,7 @@ export async function putAppConfig(key: AppConfigKey, value: string): Promise<vo
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ value }),
   });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(`PUT /config/app/${key}: ${detail}`);
-  }
+  await checkResponse(res);
   // 204 No Content — no body to parse
 }
 
@@ -137,15 +119,6 @@ export async function putAppConfig(key: AppConfigKey, value: string): Promise<vo
 export async function resetAppConfig(key: AppConfigKey): Promise<void> {
   const url = `${apiBase()}/config/app/${encodeURIComponent(key)}`;
   const res = await apiFetch(url, { method: "DELETE" });
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(`DELETE /config/app/${key}: ${detail}`);
-  }
+  await checkResponse(res);
   // 204 No Content
 }

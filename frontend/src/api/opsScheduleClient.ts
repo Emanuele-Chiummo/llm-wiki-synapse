@@ -21,7 +21,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { ApiError, checkResponse, errorCodeFromBody, errorMessageFromBody } from "./errors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,17 +89,7 @@ export async function getOpsSchedules(signal?: AbortSignal): Promise<OpsSchedule
     return null;
   }
 
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(`GET /ops/schedules: ${detail}`);
-  }
-
+  await checkResponse(res);
   return res.json() as Promise<OpsSchedulesResponse>;
 }
 
@@ -119,9 +109,10 @@ export async function runOpNow(op: OpsScheduleOp): Promise<RunOpNowResponse> {
   }
 
   let detail = `${res.status}`;
+  let parsedBody: unknown;
   try {
-    const body = await res.json();
-    detail = errorMessageFromBody(body) ?? detail;
+    parsedBody = await res.json();
+    detail = errorMessageFromBody(parsedBody) ?? detail;
   } catch {
     // ignore parse error
   }
@@ -131,5 +122,9 @@ export async function runOpNow(op: OpsScheduleOp): Promise<RunOpNowResponse> {
     throw new RunOpNowError(res.status, `POST /ops/schedules/${op}/run-now: ${detail}`);
   }
 
-  throw new Error(`POST /ops/schedules/${op}/run-now: ${detail}`);
+  throw new ApiError(
+    res.status,
+    `POST /ops/schedules/${op}/run-now: ${detail}`,
+    errorCodeFromBody(parsedBody),
+  );
 }

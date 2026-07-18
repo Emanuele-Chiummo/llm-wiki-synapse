@@ -25,6 +25,7 @@ import {
   selectIngestLoading,
 } from "../../store/ingestStore";
 import { selectVaultId, selectSetActiveSection, useAppStore } from "../../store/appStore";
+import { useStatusStore, selectStatusDataVersion } from "../../store/statusStore";
 import { triggerIngest } from "../../api/ingestClient";
 import { IngestRunList } from "./IngestRunList";
 import { UploadZone } from "./UploadZone";
@@ -37,6 +38,7 @@ export function IngestView() {
   const vaultId = useAppStore(selectVaultId);
   const setActiveSection = useAppStore(selectSetActiveSection);
   const fetchFresh = useIngestStore(selectFetchFresh);
+  const dataVersion = useStatusStore(selectStatusDataVersion);
   const startPolling = useIngestStore(selectStartPolling);
   const runningCount = useIngestStore(selectRunningCount);
   const storeError = useIngestStore(selectIngestError);
@@ -56,6 +58,13 @@ export function IngestView() {
     void fetchFresh(vaultId, ctrl.signal);
     return () => ctrl.abort();
   }, [vaultId, fetchFresh]);
+
+  // Fetch-on-event: re-fetch the run list whenever a data_version bump arrives over SSE.
+  // dataVersion is null on vault switch (resetForVault) — skip that tick to avoid double fetch.
+  useEffect(() => {
+    if (dataVersion === null) return;
+    void fetchFresh(vaultId);
+  }, [dataVersion, vaultId, fetchFresh]);
 
   // Start polling whenever there are running runs
   const stopPollRef = useRef<(() => void) | null>(null);

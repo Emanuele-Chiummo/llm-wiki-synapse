@@ -56,6 +56,8 @@ import {
 import { startNewConversation } from "../../store/chatActions";
 import { selectVaultId, useAppStore } from "../../store/appStore";
 import { showToast } from "../common/Toast";
+import { Skeleton } from "../ui/Skeleton";
+import { EmptyState } from "../common/EmptyState";
 
 // Virtualize when list exceeds this threshold (I4)
 const VIRTUAL_THRESHOLD = 50;
@@ -315,8 +317,10 @@ export function ConversationList({
 
       {/* Loading state */}
       {loading && (
-        <div style={{ padding: "12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
-          {t("common.loading")}
+        <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+          <Skeleton height={40} />
+          <Skeleton height={40} />
+          <Skeleton height={40} />
         </div>
       )}
 
@@ -334,9 +338,10 @@ export function ConversationList({
             />
           ))}
           {filteredConversations.length === 0 && !loading && (
-            <div style={{ padding: "16px 12px", color: "var(--syn-text-dim)", fontSize: 12 }}>
-              {filter ? t("chat.noMatchingConversations") : t("chat.noConversations")}
-            </div>
+            <EmptyState
+              testId={filter ? "conv-list-no-match" : "conv-list-empty"}
+              title={filter ? t("chat.noMatchingConversations") : t("chat.noConversations")}
+            />
           )}
         </div>
       )}

@@ -58,8 +58,20 @@ export function ResearchTopicDialog({ seedTopic, onConfirm, onCancel }: Research
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const topicRef = useRef<HTMLTextAreaElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<Element | null>(null);
   const titleId = "research-topic-dialog-title";
   const abortRef = useRef<AbortController | null>(null);
+
+  // ── Save + restore focus (FE-A11Y-2) ─────────────────────────────────────
+  useEffect(() => {
+    returnFocusRef.current = document.activeElement;
+    return () => {
+      if (returnFocusRef.current instanceof HTMLElement) {
+        returnFocusRef.current.focus();
+      }
+    };
+  }, []);
 
   // ── Optimize on mount (I3 — once, not per-render) ─────────────────────────
   useEffect(() => {
@@ -99,12 +111,36 @@ export function ResearchTopicDialog({ seedTopic, onConfirm, onCancel }: Research
     }
   }, [optimizing]);
 
-  // ── Escape key ───────────────────────────────────────────────────────────
+  // ── Escape key + focus trap ──────────────────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
         onCancel();
+        return;
+      }
+      // Tab cycling: keep focus inside the dialog (FE-A11Y-2).
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), textarea:not([disabled]), input:not([disabled])",
+          ),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0] as HTMLElement;
+        const last = focusable[focusable.length - 1] as HTMLElement;
+        const focused = document.activeElement;
+        if (e.shiftKey) {
+          if (focused === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (focused === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
       }
     }
     window.addEventListener("keydown", handleKeyDown);
@@ -179,6 +215,7 @@ export function ResearchTopicDialog({ seedTopic, onConfirm, onCancel }: Research
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
