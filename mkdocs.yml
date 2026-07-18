@@ -60,3 +60,35 @@ nav:
   - Roadmap:
       - v1.3 → v2.0: reference/ROADMAP-v1.3-v2.0.md
       - v0.7 → v1.0 (complete): reference/ROADMAP-v0.7-v1.0.md
+  - Release Notes:
+      - v2.0.0: release-notes/v2.0.0.md
+      - v1.9.4: release-notes/v1.9.4.md
+      - v1.9.3: release-notes/v1.9.3.md
+      - v1.9.2: release-notes/v1.9.2.md
+      - v1.9.1: release-notes/v1.9.1.md
+      - v1.9.0: release-notes/v1.9.0.md
+      - v1.8.1: release-notes/v1.8.1.md
+      - v1.8.0: release-notes/v1.8.0.md
+      - v1.7.4: release-notes/v1.7.4.md
+      - v1.7.3: release-notes/v1.7.3.md
+      - v1.7.2: release-notes/v1.7.2.md
+      - v1.7.1: release-notes/v1.7.1.md
+      - v1.7.0: release-notes/v1.7.0.md
+      - v1.6.1: release-notes/v1.6.1.md
+      - v1.6.0: release-notes/v1.6.0.md
+      - v1.3.11: release-notes/v1.3.11.md
+      - v1.3.10: release-notes/v1.3.10.md
+      - v1.3.9: release-notes/v1.3.9.md
+      - v1.3.8: release-notes/v1.3.8.md
+      - v1.3.7: release-notes/v1.3.7.md
+      - v1.3.6: release-notes/v1.3.6.md
+      - v1.3.5: release-notes/v1.3.5.md
+      - v1.3.4: release-notes/v1.3.4.md
+      - v1.3.3: release-notes/v1.3.3.md
+      - v1.3.2: release-notes/v1.3.2.md
+      - v1.3.1: release-notes/v1.3.1.md
+      - v1.3.0: release-notes/v1.3.0.md
+      - v1.2.6: release-notes/v1.2.6.md
+      - v1.2.5: release-notes/v1.2.5.md
+      - v1.2.4: release-notes/v1.2.4.md
+      - v1.2.1: release-notes/v1.2.1.md
