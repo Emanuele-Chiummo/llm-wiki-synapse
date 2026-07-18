@@ -317,7 +317,7 @@ extension API {
     }
 
     /// Create response — `token` is the plaintext secret, returned EXACTLY ONCE.
-    struct TokenCreateResponse: Decodable {
+    struct TokenCreateResponse: Decodable, Identifiable {
         let id: String
         let label: String
         let vaultID: String?
