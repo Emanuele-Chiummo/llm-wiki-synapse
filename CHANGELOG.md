@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.0] — 2026-07-18 — "iOS redesign + close-out"
+
+The flagship item deferred from 2.0.0 — the **complete native iOS redesign** — plus the
+backend/frontend cleanup batch that closes out the items 2.0.0's own audit flagged as follow-up.
+No schema migrations.
+
+### Added
+
+- **Track iOS 2.1 — complete native redesign (flagship, #102, #105, #106)**: the iOS app is
+  rebuilt from the ground up in native SwiftUI, targeting parity with the desktop experience.
+  - **Fase A — design foundation** (ADR-0088): a brand-aligned design system
+    (`ios/Synapse/DesignSystem/`) ported token-for-token from the desktop theme (accent
+    `#2563eb`, per-type jewel tones, light/dark parity, never pure black), a native 5-tab shell
+    (Home · Wiki · Chat · Graph · More), and a documented graph-rendering spike (WKWebView sigma
+    embed vs native Canvas/SpriteKit — both consume the same server-side FA2 coordinates, so I2
+    holds either way).
+  - **Fase B — core surfaces**: Home, Wiki reading, Chat (streaming + citations), and Search
+    rebuilt as real API-backed screens against the 2.0.0 backend (error envelope, SSE).
+  - **Fase C — parity & GA**: Graph, Review queue, Sources/Activity, and Settings brought to
+    parity; the legacy pre-redesign theme retired; TestFlight distribution wired up.
+- **Retry-with-context** (ADR-0085 §4, #108): retrying a "did not converge" ingest run now
+  injects the prior run's validation-failure diagnostics into the first regeneration attempt,
+  instead of starting the retry blind.
+- **Coverage ratchet** (#108): `pytest-cov` now enforces a `fail_under = 82` floor in CI (measured
+  baseline).
+- **Focus-trap** for `CascadeDeleteModal`, `CommandPalette`, and `ResearchTopicDialog` (#109,
+  #112) — Tab now cycles within the dialog and focus returns to the trigger on close, matching
+  the pattern already used elsewhere.
+- **FE-BUNDLE-1** (#112): the Italian locale is now a separate, dynamically-imported chunk
+  (`dist/assets/it-*.js`, ~70kB) instead of a static bundle import — English-only sessions no
+  longer download it.
+
+### Fixed
+
+- **Web wikilink navigation** (#107): `[[slug|Display Text]]` piped wikilinks — the format the
+  ingest LLM actually emits — carry the page *slug*, not its title, in `data-wikilink`. The click
+  handler only ever checked a title-keyed index, so these links always failed with "page not
+  found" even when the target existed. It now falls back to `GET /pages/by-slug/{slug}` before
+  giving up.
+- **`OllamaProvider` silent empty responses on reasoning models** (#103): `complete()` didn't
+  account for the `thinking` field some reasoning-capable models (e.g. qwen3.5) emit alongside
+  `content` — a response could come back empty if the token budget was consumed by reasoning
+  output before any content was generated.
+- **CI E2E artifact upload was silently broken** (#110): the Playwright run step passed
+  `--reporter=list` on the CLI, which *replaces* rather than merges with `playwright.config.ts`'s
+  configured `[["list"], ["html", ...]]` reporter array — so the HTML report never ran and
+  `frontend/playwright-report/` (the only path previously uploaded) was empty on every prior
+  flake investigation. Fixed by dropping the override and also uploading
+  `frontend/test-results/`, where the actual per-test trace files live.
+- **CSP dark-theme KaTeX flake, resolved** (#104, #113): after an initial pattern fix, the
+  dark-theme test still flaked under CI-only timing variance. Root cause: `playwright.config.ts`
+  carries a suite-wide 30s default *per-test* timeout, independent of the 10s default
+  *per-assertion* timeout — so widening an individual `expect(...)` call's timeout alone did
+  nothing once it exceeded the outer ceiling. Fixed with an explicit `test.setTimeout(60_000)` in
+  the test body, raising the ceiling itself.
+
+### Changed
+
+- **`GraphViewer.tsx`** split further, 1588→1075 lines (#111); **`HomeDashboard.tsx`** split for
+  the first time, 3119→812 lines (#112) — both extractions are move-only, with the sigma-mount
+  and in-place graphology-diff effects (I2/I3) kept intact.
+- **Backend layering**: two remaining lazy `app.main` imports in `app/projects.py` replaced with
+  `runtime_state` bridge accessors (#108).
+- Seven frontend API clients migrated to the shared `ApiError`/`checkResponse` pattern; several
+  store/view pairs (ingest, research, import-schedule) moved from timer-driven polling to
+  fetch-on-SSE-event with poll as a fallback; run lists and search views gained
+  Skeleton/EmptyState treatment (#109).
+
+### Known follow-ups
+
+- **iOS wikilink tap-to-navigate** (draft PR #114, unmerged): SwiftUI's `Text(AttributedString)`
+  does not reliably dispatch link taps to `.environment(\.openURL, ...)` in this app's view
+  hierarchy — root-caused via live Simulator instrumentation, not an app-logic bug. Fix
+  (`LinkableText.swift`, a `UITextView`-backed `UIViewRepresentable` bridge) is implemented but
+  not yet confirmed working live: Simulator interaction was blocked for the remainder of the
+  session by a recurring Notification Center overlay issue unrelated to the app itself. Needs a
+  manual tap-to-navigate check before merge.
+- **ADR-0083 parity harness**: not re-run against the 1.9.4 review-create block-loop migration —
+  requires `/Applications/LLM Wiki.app` (not installed on this machine) or an approved
+  alternative gold fixture. Pending for three releases now.
+
 ## [2.0.0] — 2026-07-17 — "one engine"
 
 The v2.0 train's destination release — three intentional, SemVer-major breaking changes that
