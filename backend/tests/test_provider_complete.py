@@ -131,9 +131,7 @@ async def test_ollama_complete_thinking_only_raises_actionable_error(
         },
     )
     provider = OllamaProvider(
-        ProviderSettings(
-            provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434"
-        )
+        ProviderSettings(provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434")
     )
     acc = UsageAccumulator()
     provider.bind_accumulator(acc)
@@ -170,9 +168,7 @@ async def test_ollama_complete_content_present_alongside_thinking_succeeds(
         },
     )
     provider = OllamaProvider(
-        ProviderSettings(
-            provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434"
-        )
+        ProviderSettings(provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434")
     )
     acc = UsageAccumulator()
     provider.bind_accumulator(acc)
