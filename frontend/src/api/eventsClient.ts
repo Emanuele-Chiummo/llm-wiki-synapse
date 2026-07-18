@@ -13,6 +13,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
+import { checkResponse } from "./errors";
 
 /**
  * openEventsStream — open the SSE connection, carrying `Last-Event-ID` when
@@ -26,8 +27,6 @@ export async function openEventsStream(
   const headers: Record<string, string> = { Accept: "text/event-stream" };
   if (lastEventId) headers["Last-Event-ID"] = lastEventId;
   const res = await apiFetch(`${apiBase()}/events`, { headers, signal });
-  if (!res.ok) {
-    throw new Error(`GET /events: ${res.status}`);
-  }
+  await checkResponse(res);
   return res;
 }
