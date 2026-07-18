@@ -31,10 +31,14 @@
  *   TYPE_COLORS below uses hex values that exactly match the --syn-type-* tokens
  *   defined in theme.css. This is the ONE allowed exception to "tokens only"
  *   (documented in ADR-0015 §CVD-SAFE): sigma cannot resolve CSS vars at draw time.
+ *
+ * 2.1 pass-2 extraction: buildSigmaGraph, useGraphDataFetch, useGraphFilterSync,
+ * useGraphThemeObserver, useGraphCameraControls, useGraphRegenerate, GraphZoomControls,
+ * useInsightCount, useSelectedNodeAnnouncement moved to components/graph/*.
+ * The sigma mount effect (I2/I3 core) and the in-place diff effect stay here intact.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   colorForCommunity,
@@ -53,18 +57,13 @@ import Sigma from "sigma";
 import type { Attributes } from "graphology-types";
 import type { Settings } from "sigma/settings";
 import type { NodeDisplayData } from "sigma/types";
-import { buildGraphologyGraph } from "../api/graphTransform";
-import { computeGraphInsights } from "./graph/graphInsights";
-import { fetchGraph, patchNodePosition, recomputeGraph } from "../api/graphClient";
+import { patchNodePosition } from "../api/graphClient";
 import type { EdgeDetail } from "../api/graphClient";
 import type { GraphEdge, GraphNode } from "../api/types";
 import {
   selectCommunities,
   selectEdges,
   selectNodes,
-  selectSetError,
-  selectSetGraph,
-  selectSetLoading,
   selectFilterNodeTypes,
   selectToggleFilterNodeType,
   selectClearFilterNodeTypes,
@@ -87,14 +86,12 @@ import {
 import {
   selectSelectedNodeId,
   selectSetSelectedNodeId,
-  selectVaultId,
   selectSelectPage,
   selectSetActiveSection,
   selectShowInsightsPanel,
   selectSetShowInsightsPanel,
   useAppStore,
 } from "../store/appStore";
-import { useStatusStore, selectStatusDataVersion } from "../store/statusStore";
 import { GraphHeader } from "./graph/GraphHeader";
 import { GraphLegend } from "./graph/GraphLegend";
 import { CentroidOverlay } from "./graph/CentroidOverlay";
@@ -102,10 +99,10 @@ import { StatusBar } from "./graph/StatusBar";
 import { CommunityPanel } from "./graph/CommunityPanel";
 import { NodeTooltip } from "./graph/NodeTooltip";
 import { EdgeBreakdownTooltip } from "./graph/EdgeBreakdownTooltip";
+import { GraphZoomControls } from "./graph/GraphZoomControls";
 import {
   reducedMotion,
   readSigmaThemeColors,
-  colorForType,
   deepenColor,
   DEFAULT_NODE_COLOR,
   makeDrawHaloNodeLabel,
@@ -113,13 +110,14 @@ import {
   META_NODE_TYPES,
 } from "./graph/graphViewerShared";
 import type { SigmaThemeColors } from "./graph/graphViewerShared";
-
-// ─── RT-3: minimum interval between version-driven graph re-fetches ───────────
-// During a long ingest the data_version can bump on every poll tick (3s cadence).
-// Re-fetching the full graph on every bump is jittery and wasteful; a 10s minimum
-// interval means we update the graph at most 6×/minute. HomeDashboard stats are
-// cheap JSON and are NOT throttled (still re-fetch on every bump).
-const GRAPH_REFETCH_MIN_MS = 10_000;
+import { buildSigmaGraph as buildSigmaGraphFn } from "./graph/buildSigmaGraph";
+import { useGraphDataFetch } from "./graph/useGraphDataFetch";
+import { useGraphFilterSync } from "./graph/useGraphFilterSync";
+import { useGraphThemeObserver } from "./graph/useGraphThemeObserver";
+import { useGraphCameraControls } from "./graph/useGraphCameraControls";
+import { useGraphRegenerate } from "./graph/useGraphRegenerate";
+import { useInsightCount } from "./graph/useInsightCount";
+import { useSelectedNodeAnnouncement } from "./graph/useSelectedNodeAnnouncement";
 
 // ─── Re-export community/domain palette + centroid utilities for test isolation ─
 // These are all imported from pure modules (no sigma dependency) so they can be
@@ -176,6 +174,12 @@ interface TooltipState {
   neighborCount: number;
 }
 
+interface EdgeTooltipState {
+  srcId: string;
+  tgtId: string;
+  position: { x: number; y: number };
+}
+
 /**
  * GraphViewer — Obsidian-style sigma.js WebGL knowledge-graph viewer.
  *
@@ -197,32 +201,17 @@ export const GraphViewer: React.FC = () => {
   const nodes = useGraphStore(selectNodes);
   const edges = useGraphStore(selectEdges);
   const communities = useGraphStore(selectCommunities);
-  const vaultId = useAppStore(selectVaultId);
   const selectedNodeId = useAppStore(selectSelectedNodeId);
-  const setGraph = useGraphStore(selectSetGraph);
-  const setLoading = useGraphStore(selectSetLoading);
-  const setError = useGraphStore(selectSetError);
   const setSelectedNodeId = useAppStore(selectSetSelectedNodeId);
   // GR3: node-type filter from store (I2-safe: visibility only, never re-layout)
-  // Use a ref so the sigma reducers always read the latest filter without rebuilding sigma.
   const filterNodeTypes = useGraphStore(selectFilterNodeTypes);
-  const filterNodeTypesRef = useRef<Set<string>>(filterNodeTypes);
-  // GI-2 (v1.3.14): extended filter state from store — declared BEFORE the refs below
-  // that capture them, to avoid a temporal-dead-zone (the refs' initial useRef(...) reads
-  // these values). Live-preview caught this ordering bug in the initial GI-2 draft.
+  // GI-2 (v1.3.14): extended filter state from store
   const hideMetaTypes = useGraphStore(selectHideMetaTypes);
   const hideIsolated = useGraphStore(selectHideIsolated);
   const minLinks = useGraphStore(selectMinLinks);
   const maxLinks = useGraphStore(selectMaxLinks);
   const nodeSizeScale = useGraphStore(selectNodeSizeScale);
   const spacingScale = useGraphStore(selectSpacingScale);
-  // GI-2: refs for extended filter state so sigma reducers always read latest values
-  // without rebuilding sigma on every filter change (I3: no re-render per frame).
-  const hideMetaTypesRef = useRef<boolean>(hideMetaTypes);
-  const hideIsolatedRef = useRef<boolean>(hideIsolated);
-  const minLinksRef = useRef<number | null>(minLinks);
-  const maxLinksRef = useRef<number | null>(maxLinks);
-  const nodeSizeScaleRef = useRef<number>(nodeSizeScale);
   // Persistent selection: nodeReducer reads this ref so the clicked node keeps a
   // ring + label at rest (not just on hover). Ref (not state) so the reducer sees
   // the latest value without rebuilding sigma — same pattern as filterNodeTypesRef.
@@ -242,26 +231,6 @@ export const GraphViewer: React.FC = () => {
   const selectPage = useAppStore(selectSelectPage);
   // Click-to-open: navigate to the wiki pages section for the clicked node (Obsidian-style).
   const setActiveSection = useAppStore(selectSetActiveSection);
-
-  // WS-A [F4/F16]: subscribe to data_version from the ActivityBar's existing GET /status poll.
-  // When the version bumps, we re-fetch GET /graph (precomputed coords from server — I2).
-  // INVARIANT I3: no re-render on every poll tick; only triggers when the value changes.
-  // INVARIANT I2: we NEVER run a layout algorithm — we only refetch server-computed coords.
-  // INVARIANT AC-WS-A-4: no new poller; ActivityBar's STATUS_POLL_MS is the sole driver.
-  const statusDataVersion = useStatusStore(selectStatusDataVersion);
-
-  // Track which data_version the current graph data corresponds to so we only
-  // refetch when the server version actually advances (AC-WS-A-3).
-  const lastFetchedGraphVersionRef = useRef<number | null>(null);
-
-  // RT-3: timestamp of the last version-driven graph re-fetch (milliseconds).
-  // Prevents re-fetching on every version bump during a long ingest — throttled
-  // to at most once per GRAPH_REFETCH_MIN_MS. The initial mount fetch is exempt.
-  const lastGraphRefetchTimeRef = useRef<number>(0);
-
-  // UX-1: true only while a version-bump-triggered graph re-fetch is in-flight
-  // (NOT during the initial mount fetch which shows its own skeleton).
-  const [isGraphRefetching, setIsGraphRefetching] = useState(false);
 
   // Graph container ref — used for fullscreen API (GR7)
   const graphRootRef = useRef<HTMLDivElement>(null);
@@ -290,31 +259,18 @@ export const GraphViewer: React.FC = () => {
 
   // Color-mode toggle: "community" (default — colors by Louvain community id, one distinct
   // color per cluster from COMMUNITY_PALETTE) or "type" (colors by page type).
-  // Community names in legend + centroid overlay use communityDisplayName(c) which forms
-  // "{dominant_domain} · {top_page_subtopic}" — unique per cluster, no duplicate SAM rows.
   const [colorMode, setColorMode] = useState<ColorMode>("type");
 
-  // Resolved app theme discriminant (W4 audit FE-GRAPH-1) — selects the light or dark
-  // community/domain palette (graphPalette.ts) for the legend + centroid overlay so
-  // colors stay legible on the dark canvas instead of washing out. Kept in sync with
-  // sigmaThemeColors by the same MutationObserver below.
+  // Resolved app theme discriminant (W4 audit FE-GRAPH-1)
   const [graphTheme, setGraphTheme] = React.useState<GraphTheme>(() =>
     document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
   );
 
   // Tooltip state (React state — triggers re-render to show/hide tooltip)
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
-  // Aria-live announcement text
-  const [announcement, setAnnouncement] = useState<string>("");
 
   // ── Community centroid map (I3 — memoized; recomputed only when nodes/communities change)
-  // Active in "community" color mode. Groups nodes by Louvain community id (server-provided).
-  // Labels come from communityDisplayName(c) — unique "{domain} · {subtopic}" names.
-  // INVARIANT I2: only reads server-provided x/y and community field — never mutates coords.
-  // INVARIANT I3: computed once per nodes/communities change, NOT per sigma frame.
   const communityCentroids = useMemo(() => {
-    // Convert number-keyed Map<number, CommunityCentroid> → string-keyed Map<string, CommunityCentroid>
-    // because CentroidOverlay uses string keys (supports both community and domain modes).
     const raw = computeCommunityCentroids(nodes, communities, graphTheme);
     const result = new Map<string, CommunityCentroid>();
     for (const [cid, centroid] of raw) {
@@ -327,11 +283,6 @@ export const GraphViewer: React.FC = () => {
   const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
 
   // ── R9-5: Edge breakdown tooltip state ──────────────────────────────────
-  interface EdgeTooltipState {
-    srcId: string;
-    tgtId: string;
-    position: { x: number; y: number };
-  }
   const [edgeTooltip, setEdgeTooltip] = useState<EdgeTooltipState | null>(null);
   // Per-pair cache: key = "srcId__tgtId" or "tgtId__srcId"
   const edgeDetailCache = useRef<Map<string, EdgeDetail>>(new Map());
@@ -340,304 +291,78 @@ export const GraphViewer: React.FC = () => {
     edgeDetailCache.current.set(key, detail);
   }, []);
 
-  // Regenerate-graph control state (reresolve links + recompute FA2, then refetch coords)
-  const [regenerating, setRegenerating] = useState(false);
-  const [regenMsg, setRegenMsg] = useState<string | null>(null);
+  // ── Extracted hooks ──────────────────────────────────────────────────────
 
-  // ── Regenerate graph: reconnect cross-ingest links → server recomputes FA2 → refetch ──
-  const handleRegenerate = useCallback(async () => {
-    if (regenerating) return;
-    setRegenerating(true);
-    setRegenMsg(null);
-    try {
-      // 1. Reconnect cross-ingest links + FORCE a fresh server-side FA2 recompute (I2).
-      //    Forcing (not just reresolve) guarantees the layout re-runs — so the outlier
-      //    clamp takes effect and the graph stops collapsing to a dot.
-      const result = await recomputeGraph();
-      // 2. Refetch the freshly-computed precomputed coords (I2 — layout stays server-side).
-      const { data, cacheStatus } = await fetchGraph(vaultId);
-      setGraph(
-        data.nodes,
-        data.edges,
-        data.data_version,
-        cacheStatus,
-        data.communities ?? [],
-        data.total_nodes ?? null,
-        data.total_edges ?? null,
-      );
-      setRegenMsg(
-        result.reconnected > 0
-          ? t("graph.regenerateDone", { count: result.reconnected })
-          : t("graph.regenerateNone"),
-      );
-    } catch (err: unknown) {
-      setRegenMsg(t("graph.regenerateError"));
-      if (err instanceof Error && err.name !== "AbortError") {
-        setError(err.message);
-      }
-    } finally {
-      setRegenerating(false);
-    }
-  }, [regenerating, vaultId, setGraph, setError, t]);
+  // Data fetch: mount/vaultId-change fetch + WS-A version-bump refetch (throttled)
+  const { isGraphRefetching } = useGraphDataFetch();
 
-  // ── Fetch graph on mount / vaultId change ────────────────────────────────
-  //
-  // P2 — skip redundant fetch when the Zustand store already holds current data.
-  //
-  // On a REVISIT (navigate away → navigate back), the component unmounts/remounts
-  // but the graphStore retains its nodes + dataVersion from the previous fetch.
-  // If the store's dataVersion matches the latest statusDataVersion (from the
-  // ActivityBar's existing /status poll), the data is already current and we can
-  // rebuild sigma directly from the store without a network round-trip.
-  //
-  // Guards:
-  //  - storeNodes.length > 0        : store actually has data (not first load)
-  //  - storeDataVersion !== null     : store knows its version
-  //  - currentStatusVersion !== null : status store has polled at least once
-  //  - versions match                : data is confirmed current
-  //
-  // Read store state imperatively via .getState() — this avoids adding reactive
-  // deps to the effect and keeps I3 clean (no extra subscriptions).
-  //
-  // INVARIANT I2: no layout algorithm invoked — sigma rebuilds from precomputed
-  // server coords stored in the Zustand nodes array (unchanged).
+  // Filter ref sync: GR3 + GI-2 filter refs + spacing-scale effect
+  // Returns stable refs closed over by the sigma mount effect's nodeReducer/edgeReducer.
+  const {
+    filterNodeTypesRef,
+    hideMetaTypesRef,
+    hideIsolatedRef,
+    minLinksRef,
+    maxLinksRef,
+    nodeSizeScaleRef,
+  } = useGraphFilterSync({
+    filterNodeTypes,
+    hideMetaTypes,
+    hideIsolated,
+    minLinks,
+    maxLinks,
+    nodeSizeScale,
+    spacingScale,
+    nodes,
+    sigmaRef,
+  });
 
-  useEffect(() => {
-    // P2: cache-hit check — skip fetch when store data is already at the current version.
-    const { nodes: storeNodes, dataVersion: storeDataVersion } = useGraphStore.getState();
-    const currentStatusVersion = useStatusStore.getState().dataVersion;
+  // Theme observer: MutationObserver on data-theme → re-read sigma render properties
+  useGraphThemeObserver(setSigmaThemeColors, setGraphTheme);
 
-    if (
-      storeNodes.length > 0 &&
-      storeDataVersion !== null &&
-      currentStatusVersion !== null &&
-      storeDataVersion === currentStatusVersion
-    ) {
-      // Store data is current. Sigma will rebuild from the existing nodes array.
-      // Initialise the WS-A ref so a same-version status tick doesn't trigger a
-      // redundant re-fetch via the WS-A effect below (AC-WS-A-3).
-      lastFetchedGraphVersionRef.current = storeDataVersion;
-      return; // no AbortController cleanup needed
-    }
+  // Regenerate graph: reconnect links → server FA2 recompute → refetch precomputed coords
+  const { regenerating, regenMsg, handleRegenerate } = useGraphRegenerate();
 
-    const ctrl = new AbortController();
-    setLoading(true);
-
-    fetchGraph(vaultId, ctrl.signal)
-      .then(({ data, cacheStatus }) => {
-        setGraph(
-          data.nodes,
-          data.edges,
-          data.data_version,
-          cacheStatus,
-          data.communities ?? [],
-          data.total_nodes ?? null,
-          data.total_edges ?? null,
-        );
-        // WS-A: record the server version just fetched so we don't re-fetch on same-version ticks.
-        lastFetchedGraphVersionRef.current = data.data_version;
-      })
-      .catch((err: unknown) => {
-        if (err instanceof Error && err.name !== "AbortError") {
-          setError(err.message);
-        }
-      });
-
-    return () => ctrl.abort();
-  }, [vaultId, setGraph, setLoading, setError]);
-
-  // ── WS-A [AC-WS-A-2, AC-WS-A-3]: re-fetch graph when data_version bumps ──
-  // Polls via the existing ActivityBar /status cadence — no new interval (AC-WS-A-4).
-  // Skips re-fetch if the version hasn't changed from last graph fetch (AC-WS-A-3).
-  // INVARIANT I2: only calls fetchGraph; NEVER runs FA2 or any layout algorithm.
-  // INVARIANT I3: effect deps are the version scalar; no per-tick re-render when unchanged.
-  // RT-3: throttled to at most once per GRAPH_REFETCH_MIN_MS to prevent jitter during
-  // long ingests (status poll cadence = 3s; many bumps in a row → skip intermediate ones).
-  useEffect(() => {
-    if (statusDataVersion === null) return;
-    if (statusDataVersion === lastFetchedGraphVersionRef.current) return;
-    // RT-3: enforce minimum interval between version-driven re-fetches (not initial mount).
-    const now = Date.now();
-    if (now - lastGraphRefetchTimeRef.current < GRAPH_REFETCH_MIN_MS) return;
-    lastGraphRefetchTimeRef.current = now;
-    // Version has advanced past the throttle window — refetch precomputed coords (AC-WS-A-2).
-    const ctrl = new AbortController();
-    setIsGraphRefetching(true); // UX-1: show "updating…" pill while in-flight
-    fetchGraph(vaultId, ctrl.signal)
-      .then(({ data, cacheStatus }) => {
-        setGraph(
-          data.nodes,
-          data.edges,
-          data.data_version,
-          cacheStatus,
-          data.communities ?? [],
-          data.total_nodes ?? null,
-          data.total_edges ?? null,
-        );
-        lastFetchedGraphVersionRef.current = data.data_version;
-      })
-      .catch((err: unknown) => {
-        // Transient errors (network hiccup) — don't surface to the user, just log.
-        if (err instanceof Error && err.name !== "AbortError") {
-          console.warn("[WS-A] graph freshness re-fetch failed:", err.message);
-        }
-      })
-      .finally(() => {
-        setIsGraphRefetching(false);
-      });
-    return () => ctrl.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusDataVersion]); // vaultId, setGraph intentionally omitted: mount effect owns initial fetch
-
-  // ── GR3: sync filterNodeTypes ref and refresh sigma on filter change ─────
-  // The ref lets the existing sigma reducers always see the latest filter value
-  // without tearing down and rebuilding sigma on every toggle (I3: no heavy
-  // work per frame; I2: no coords touched, only sigma's hidden flag is changed).
-  useEffect(() => {
-    filterNodeTypesRef.current = filterNodeTypes;
-    // Trigger a visual refresh so sigma re-evaluates nodeReducer/edgeReducer
-    // with the updated filter. skipIndexation: layout is not touched (I2).
-    sigmaRef.current?.refresh({ skipIndexation: true });
-  }, [filterNodeTypes]);
-
-  // ── GI-2: sync filter refs and trigger visual refresh when visibility filters change ──
-  // I2-safe: only sets hidden flags in reducers; never touches node coordinates.
-  // I3-safe: updates refs (not state) so no re-render is triggered; sigma.refresh once.
-  useEffect(() => {
-    hideMetaTypesRef.current = hideMetaTypes;
-    hideIsolatedRef.current = hideIsolated;
-    minLinksRef.current = minLinks;
-    maxLinksRef.current = maxLinks;
-    sigmaRef.current?.refresh({ skipIndexation: true });
-  }, [hideMetaTypes, hideIsolated, minLinks, maxLinks]);
-
-  // ── GI-2: node size scale — visual multiplier applied in nodeReducer via ref ───────
-  useEffect(() => {
-    nodeSizeScaleRef.current = nodeSizeScale;
-    sigmaRef.current?.refresh({ skipIndexation: true });
-  }, [nodeSizeScale]);
-
-  // ── GI-2: spacing scale — translate sigma node positions around the centroid ────────
-  // Uses original `nodes` from store as source of truth for positions (I2: precomputed
-  // by server; pure arithmetic scale around centroid — no FA2, no force iteration).
-  // skipIndexation:false so sigma re-indexes the rescaled positions into camera space.
-  useEffect(() => {
-    const sigma = sigmaRef.current;
-    if (!sigma || nodes.length === 0) return;
-    const sigmaGraph = sigma.getGraph();
-    if (sigmaGraph.order === 0) return;
-
-    // Build O(n) position lookup from server-side positions (never mutated by client)
-    let sumX = 0;
-    let sumY = 0;
-    const origPos = new Map<string, { x: number; y: number }>();
-    for (const n of nodes) {
-      origPos.set(n.id, { x: n.x, y: n.y });
-      sumX += n.x;
-      sumY += n.y;
-    }
-    const cx = sumX / nodes.length;
-    const cy = sumY / nodes.length;
-
-    // Scale each node position around the centroid (pure arithmetic — I2)
-    sigmaGraph.forEachNode((nodeKey) => {
-      const orig = origPos.get(nodeKey);
-      if (!orig) return;
-      sigmaGraph.setNodeAttribute(nodeKey, "x", cx + (orig.x - cx) * spacingScale);
-      sigmaGraph.setNodeAttribute(nodeKey, "y", cy + (orig.y - cy) * spacingScale);
+  // Camera controls: zoom in/out/fit + search + reset + fullscreen
+  const { handleZoomIn, handleZoomOut, handleFit, handleSearch, handleReset, handleFullscreen } =
+    useGraphCameraControls({
+      sigmaRef,
+      graphRootRef,
+      selectPage,
+      setSelectedNodeId,
+      clearAllGraphFilters,
     });
 
-    sigma.refresh({ skipIndexation: false });
-  }, [spacingScale, nodes]);
+  // Insights panel state (toggle + count)
+  const showInsightsPanel = useAppStore(selectShowInsightsPanel);
+  const setShowInsightsPanel = useAppStore(selectSetShowInsightsPanel);
+  const handleToggleInsights = useCallback(() => {
+    setShowInsightsPanel(!showInsightsPanel);
+  }, [showInsightsPanel, setShowInsightsPanel]);
+  const insightCount = useInsightCount(showInsightsPanel, nodes, edges, communities);
 
-  // ── Watch resolved theme changes, re-read sigma render properties (ADR-0048 §T1) ──
-  // Observes data-theme on <html>; on change, reads the new CSS vars and updates
-  // sigmaThemeColors, which is in the sigma-mount effect deps → sigma rebuilds with
-  // the new colors. This is a render-property update ONLY — no layout/coords touched (I2).
+  // Selected-node → aria-live announcement + selectedNodeIdRef sync
+  const { announcement, clearAnnouncement } = useSelectedNodeAnnouncement({
+    selectedNodeId,
+    selectedNodeIdRef,
+    sigmaRef,
+    t,
+  });
 
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setSigmaThemeColors(readSigmaThemeColors());
-      setGraphTheme(
-        document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
-      );
-    });
-    observer.observe(document.documentElement, { attributeFilter: ["data-theme"] });
-    return () => observer.disconnect();
-  }, []);
+  const handleTooltipClose = useCallback(() => {
+    setSelectedNodeId(null);
+    setTooltip(null);
+    clearAnnouncement();
+  }, [setSelectedNodeId, clearAnnouncement]);
 
   // ── FE-RT-1: build a sigma-ready graphology graph from CURRENT nodes/edges ──
   // Shared by both the mount/rebuild effect and the data-diff effect below so the
   // node/edge attribute derivation (colors, hub labels, GL1 hidden flags, …) is
-  // computed identically whichever path constructs it. I2: buildGraphologyGraph
+  // computed identically whichever path constructs it. I2: buildSigmaGraphFn
   // only copies server-provided x/y — no layout call, ever.
   const buildSigmaGraph = useCallback(
-    (srcNodes: GraphNode[], srcEdges: GraphEdge[], mode: ColorMode) => {
-      const isDarkTheme = document.documentElement.getAttribute("data-theme") === "dark";
-      const rawGraph = buildGraphologyGraph(srcNodes, srcEdges, isDarkTheme ? "dark" : "light");
-
-      // Build a plain Attributes graphology graph for sigma.
-      // Copy all node/edge attributes (including server x/y) into the sigma graph.
-      const SigmaGraphCtor = rawGraph.constructor as new (opts: {
-        multi: boolean;
-        type: string;
-      }) => import("graphology").default;
-      const sigmaGraph = new SigmaGraphCtor({ multi: false, type: "undirected" });
-
-      rawGraph.forEachNode((nodeKey, rawAttrs) => {
-        // Cast to Attributes (Record<string,unknown>) so dynamic key access is type-safe.
-        const attrs = rawAttrs as Attributes;
-        const nodeType = attrs["type"] as string | null | undefined;
-        // Community id — -1 when unassigned or from older servers (non-breaking, set in graphTransform)
-        const nodeCommunity = (attrs["community"] as number | undefined) ?? -1;
-        // Domain name — null when untagged or from older servers (non-breaking).
-        // I2: value comes from the server (GraphNode.domain); never computed client-side.
-        const nodeDomain = (attrs["domain"] as string | null | undefined) ?? null;
-        // Color is determined by active color-mode (I2: all values come from server).
-        // "community" mode colors by Louvain community id — one distinct color per cluster
-        // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
-        // "type" mode colors by page type (concept, entity, source, …).
-        const nodeColor =
-          mode === "community"
-            ? colorForCommunity(nodeCommunity, isDarkTheme ? "dark" : "light")
-            : colorForType(nodeType ?? null);
-        sigmaGraph.addNode(nodeKey, {
-          x: attrs["x"] as number,
-          y: attrs["y"] as number,
-          label: attrs["label"] as string,
-          // GL2: pre-truncated hub label; nodeReducer swaps this in for hub nodes at rest
-          hubLabel: (attrs["hubLabel"] as string | undefined) ?? (attrs["label"] as string),
-          size: attrs["size"] as number,
-          color: nodeColor,
-          // Store degree for reducers
-          degree: attrs["degree"] as number,
-          // Store type for reducers
-          nodeType: nodeType ?? null,
-          // Store community for reducers / tooltip
-          nodeCommunity,
-          // Store domain for reducers (I2: from server)
-          nodeDomain,
-          // GL2: hub flag — nodeReducer uses this to force permanent truncated label on top-K hubs
-          isHub: (attrs["forceLabel"] as boolean | undefined) ?? false,
-        });
-      });
-
-      rawGraph.forEachEdge((_edgeKey, attrs, source, target) => {
-        if (!sigmaGraph.hasEdge(source, target)) {
-          sigmaGraph.addEdge(source, target, {
-            weight: attrs["weight"] as number,
-            color: attrs["color"] as string,
-            size: attrs["size"] as number,
-            // GL1: pass through normalizedWeight so edgeReducer can check it on hover
-            normalizedWeight: attrs["normalizedWeight"] as number,
-            // GL1: resting hidden flag (weak edges culled at rest, revealed on hover)
-            hidden: attrs["hidden"] as boolean,
-          });
-        }
-      });
-
-      return { rawGraph, sigmaGraph };
-    },
+    (srcNodes: GraphNode[], srcEdges: GraphEdge[], mode: ColorMode) =>
+      buildSigmaGraphFn(srcNodes, srcEdges, mode),
     [],
   );
 
@@ -1187,149 +912,6 @@ export const GraphViewer: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, buildSigmaGraph]);
 
-  // ── Sync selectedNodeId from store → announcement (aria-live) ────────────
-
-  useEffect(() => {
-    // Keep the reducer's ref in sync so the persistent selection ring follows the store.
-    selectedNodeIdRef.current = selectedNodeId;
-    if (!selectedNodeId) {
-      setAnnouncement("");
-      // Clear the ring: re-run reducers now that nothing is selected.
-      sigmaRef.current?.refresh({ skipIndexation: true });
-      return;
-    }
-    if (!sigmaRef.current) return;
-
-    const graph = sigmaRef.current.getGraph();
-    const attrs = graph.getNodeAttributes(selectedNodeId) as Attributes & {
-      label?: string;
-      nodeType?: string | null;
-      degree?: number;
-    };
-
-    const title = attrs["label"] ?? selectedNodeId;
-    const type = attrs["nodeType"] ?? "unknown type";
-    const neighborCount = graph.neighbors(selectedNodeId).length;
-
-    // F8: use i18n for screen-reader announcement (was hardcoded English)
-    setAnnouncement(t("graph.nodeSelected", { title, type, count: neighborCount }));
-
-    // Trigger a refresh so sigma re-applies reducers with updated selectedNode
-    sigmaRef.current.refresh({ skipIndexation: true });
-  }, [selectedNodeId, t]);
-
-  const handleTooltipClose = useCallback(() => {
-    setSelectedNodeId(null);
-    setTooltip(null);
-    setAnnouncement("");
-  }, [setSelectedNodeId]);
-
-  // ── Camera controls — zoom in / out / fit ─────────────────────────────────
-  // These are simple camera calls; I2 is preserved (no layout algorithm invoked).
-  // reducedMotion is read from the module-level const declared above the component.
-
-  const handleZoomIn = useCallback(() => {
-    sigmaRef.current?.getCamera().animatedZoom({ duration: reducedMotion ? 0 : 200 });
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    sigmaRef.current?.getCamera().animatedUnzoom({ duration: reducedMotion ? 0 : 200 });
-  }, []);
-
-  const handleFit = useCallback(() => {
-    sigmaRef.current?.getCamera().animatedReset({ duration: reducedMotion ? 0 : 300 });
-  }, []);
-
-  // ── GR2: In-graph search — find node by title substring, select + camera center ──
-  // Client-side only; nodes are already in the store (I3: computed on change, not per frame).
-  const handleSearch = useCallback(
-    (query: string) => {
-      if (!query.trim() || !sigmaRef.current) return;
-      const q = query.toLowerCase();
-      // Find first matching node in the sigma graph
-      const sigma = sigmaRef.current;
-      const graph = sigma.getGraph();
-      let matchKey: string | null = null;
-      graph.forEachNode((key, attrs) => {
-        if (matchKey !== null) return;
-        const label = ((attrs["label"] as string | undefined) ?? "").toLowerCase();
-        if (label.includes(q)) matchKey = key;
-      });
-      if (matchKey === null) return;
-      // Select the node (triggers aria announcement + tree sync)
-      selectPage(matchKey, "graph");
-      setSelectedNodeId(matchKey);
-      // Animate camera to center on the found node's precomputed coords (I2-safe: read-only)
-      const attrs = graph.getNodeAttributes(matchKey);
-      const x = attrs["x"] as number;
-      const y = attrs["y"] as number;
-      sigma.getCamera().animate({ x, y, ratio: 0.3 }, { duration: reducedMotion ? 0 : 400 });
-    },
-    [selectPage, setSelectedNodeId],
-  );
-
-  // ── GR4: Reset — clear ALL filters (type + GI-2) + fit camera ───────────────
-  const handleReset = useCallback(() => {
-    clearAllGraphFilters(); // clears filterNodeTypes + hideMetaTypes/hideIsolated/minLinks/maxLinks/nodeSizeScale/spacingScale
-    handleFit();
-  }, [clearAllGraphFilters, handleFit]);
-
-  // ── GR7: Fullscreen — Fullscreen API on the graph root container ───────────
-  const handleFullscreen = useCallback(() => {
-    const el = graphRootRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen().catch((err: unknown) => {
-        if (err instanceof Error) console.warn("[GraphViewer] fullscreen failed:", err.message);
-      });
-    } else {
-      document.exitFullscreen().catch(() => {
-        /* ignore */
-      });
-    }
-  }, []);
-
-  // ── Insights panel toggle — shared via graphStore (sibling GraphInsightsPanel reads it)
-  const showInsightsPanel = useAppStore(selectShowInsightsPanel);
-  const setShowInsightsPanel = useAppStore(selectSetShowInsightsPanel);
-
-  const handleToggleInsights = useCallback(() => {
-    setShowInsightsPanel(!showInsightsPanel);
-  }, [showInsightsPanel, setShowInsightsPanel]);
-
-  // ── insightCount — computed from current nodes/edges/communities (I3: memoized, not per-frame)
-  // I3 / AC-F4-6: computeGraphInsights scans the whole graph (surprising connections +
-  // knowledge gaps) — a >50ms main-thread task on large graphs. It MUST NOT run on the
-  // load/render critical path (it would trip the long-task budget). Compute the toolbar
-  // badge count lazily — only once the user opens the Insights panel — and even then at
-  // idle time. Before first open the badge shows no number; the initial graph render
-  // stays long-task-free.
-  const [insightCount, setInsightCount] = useState(0);
-  useEffect(() => {
-    if (!showInsightsPanel || nodes.length === 0) {
-      return;
-    }
-    let cancelled = false;
-    const compute = () => {
-      if (!cancelled) setInsightCount(computeGraphInsights(nodes, edges, communities).total);
-    };
-    const w = window as typeof window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-      cancelIdleCallback?: (h: number) => void;
-    };
-    let handle: number;
-    if (typeof w.requestIdleCallback === "function") {
-      handle = w.requestIdleCallback(compute, { timeout: 1000 });
-    } else {
-      handle = window.setTimeout(compute, 300);
-    }
-    return () => {
-      cancelled = true;
-      if (typeof w.cancelIdleCallback === "function") w.cancelIdleCallback(handle);
-      else window.clearTimeout(handle);
-    };
-  }, [showInsightsPanel, nodes, edges, communities]);
-
   return (
     // I4: this container holds sigma's single <canvas> + a handful of overlay divs.
     // Total DOM nodes inside: <div#sigma-container> + <canvas> + aria-live + overlays = ~10 → well under 20.
@@ -1423,91 +1005,8 @@ export const GraphViewer: React.FC = () => {
           {announcement}
         </div>
 
-        {/* Zoom / fit control cluster — top-right of canvas area (reference layout) */}
-        <div
-          className="syn-card"
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            padding: "4px",
-            zIndex: 5,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 2,
-            userSelect: "none",
-          }}
-          aria-label={t("graph.zoomControlsLabel")}
-          data-testid="graph-zoom-controls"
-        >
-          <button
-            type="button"
-            onClick={handleZoomIn}
-            data-testid="graph-zoom-in"
-            aria-label={t("graph.zoomIn")}
-            title={t("graph.zoomIn")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 28,
-              height: 28,
-              border: "1px solid var(--syn-border)",
-              borderRadius: 3,
-              background: "var(--syn-surface)",
-              color: "var(--syn-text-muted)",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            <ZoomIn size={14} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleZoomOut}
-            data-testid="graph-zoom-out"
-            aria-label={t("graph.zoomOut")}
-            title={t("graph.zoomOut")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 28,
-              height: 28,
-              border: "1px solid var(--syn-border)",
-              borderRadius: 3,
-              background: "var(--syn-surface)",
-              color: "var(--syn-text-muted)",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            <ZoomOut size={14} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={handleFit}
-            data-testid="graph-fit"
-            aria-label={t("graph.fit")}
-            title={t("graph.fit")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 28,
-              height: 28,
-              border: "1px solid var(--syn-border)",
-              borderRadius: 3,
-              background: "var(--syn-surface)",
-              color: "var(--syn-text-muted)",
-              cursor: "pointer",
-              padding: 0,
-            }}
-          >
-            <Maximize2 size={14} strokeWidth={1.8} aria-hidden="true" />
-          </button>
-        </div>
+        {/* Zoom / fit control cluster — top-right of canvas area */}
+        <GraphZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} onFit={handleFit} />
 
         {/* Status bar overlay — bottom-center so it doesn't conflict with zoom controls top-right */}
         <StatusBar isRefetching={isGraphRefetching} />
@@ -1530,12 +1029,7 @@ export const GraphViewer: React.FC = () => {
             : {})}
         />
 
-        {/* Community centroid labels overlay (community mode).
-          "Comunità" toggle = per-Louvain-community grouping: one label per cluster at its
-          nodes' centroid. Label = communityDisplayName(c) truncated to OVERLAY_LABEL_MAX_CHARS.
-          Uses CentroidOverlay (string-keyed Map) with communityCentroids (memoized, I3).
-          INVARIANT I2: reads server-provided x/y only; never mutates node positions or runs layout.
-          INVARIANT I3: communityCentroids memoized via useMemo; only viewport projection per frame. */}
+        {/* Community centroid labels overlay (community mode). */}
         <CentroidOverlay
           centroids={communityCentroids}
           sigmaRef={sigmaRef}
