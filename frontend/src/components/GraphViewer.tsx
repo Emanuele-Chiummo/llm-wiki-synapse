@@ -298,18 +298,24 @@ export const GraphViewer: React.FC = () => {
 
   // Filter ref sync: GR3 + GI-2 filter refs + spacing-scale effect
   // Returns stable refs closed over by the sigma mount effect's nodeReducer/edgeReducer.
-  const { filterNodeTypesRef, hideMetaTypesRef, hideIsolatedRef, minLinksRef, maxLinksRef, nodeSizeScaleRef } =
-    useGraphFilterSync({
-      filterNodeTypes,
-      hideMetaTypes,
-      hideIsolated,
-      minLinks,
-      maxLinks,
-      nodeSizeScale,
-      spacingScale,
-      nodes,
-      sigmaRef,
-    });
+  const {
+    filterNodeTypesRef,
+    hideMetaTypesRef,
+    hideIsolatedRef,
+    minLinksRef,
+    maxLinksRef,
+    nodeSizeScaleRef,
+  } = useGraphFilterSync({
+    filterNodeTypes,
+    hideMetaTypes,
+    hideIsolated,
+    minLinks,
+    maxLinks,
+    nodeSizeScale,
+    spacingScale,
+    nodes,
+    sigmaRef,
+  });
 
   // Theme observer: MutationObserver on data-theme → re-read sigma render properties
   useGraphThemeObserver(setSigmaThemeColors, setGraphTheme);
