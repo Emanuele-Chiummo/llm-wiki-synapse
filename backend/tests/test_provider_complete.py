@@ -110,6 +110,81 @@ async def test_ollama_complete_empty_content_raises(monkeypatch: pytest.MonkeyPa
         await provider.complete("s", "p", max_tokens=1000)
 
 
+@pytest.mark.asyncio
+async def test_ollama_complete_thinking_only_raises_actionable_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R7-10(b): when a thinking-capable model exhausts num_predict on its CoT trace, Ollama
+    returns thinking non-empty but content empty/absent. complete() must raise a clear, actionable
+    error — NOT silently return the reasoning trace (which would corrupt the FILE-block contract).
+    The error message must name the cause (budget exhaustion) and the remedy (raise max_tokens)."""
+    _patch_client(
+        monkeypatch,
+        "app.ingest.provider.ollama",
+        {
+            "message": {
+                "thinking": "Let me reason about this carefully... <extensive CoT>",
+                "content": "",
+            },
+            "prompt_eval_count": 200,
+            "eval_count": 500,
+        },
+    )
+    provider = OllamaProvider(
+        ProviderSettings(
+            provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434"
+        )
+    )
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+
+    with pytest.raises(ValueError, match="reasoning trace") as exc_info:
+        await provider.complete("SYS", "PROMPT", max_tokens=512)
+
+    msg = str(exc_info.value)
+    assert "num_predict" in msg, "error should mention num_predict as the remedy"
+    assert "qwen3:8b" in msg, "error should include the model name for actionability"
+    # Usage must still be recorded even when the error is raised (I7 cost ledger truthfulness)
+    assert acc.input_tokens == 200
+    assert acc.output_tokens == 500
+
+
+@pytest.mark.asyncio
+async def test_ollama_complete_content_present_alongside_thinking_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R7-10(b): when thinking AND content are both present (model produced a real answer),
+    complete() must return the content field unchanged — not reject the response, not prepend
+    the thinking trace (which would inject CoT tokens into the FILE-block output)."""
+    expected = "---FILE: wiki/sources/x.md---\nbody\n---END FILE---"
+    _patch_client(
+        monkeypatch,
+        "app.ingest.provider.ollama",
+        {
+            "message": {
+                "thinking": "I need to analyze this source and produce structured output.",
+                "content": expected,
+            },
+            "prompt_eval_count": 300,
+            "eval_count": 80,
+        },
+    )
+    provider = OllamaProvider(
+        ProviderSettings(
+            provider_type="local", model_id="qwen3:8b", base_url="http://ollama:11434"
+        )
+    )
+    acc = UsageAccumulator()
+    provider.bind_accumulator(acc)
+
+    out = await provider.complete("SYS", "PROMPT", max_tokens=8192)
+
+    # Must return content verbatim — no thinking prefix, no corruption
+    assert out == expected
+    assert acc.input_tokens == 300
+    assert acc.output_tokens == 80
+
+
 # ── API — Anthropic-native ────────────────────────────────────────────────────────
 
 
