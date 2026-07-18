@@ -17,7 +17,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { errorMessageFromBody, checkResponse } from "./errors";
 
 // ─── Batch-submit response (POST 202) ─────────────────────────────────────────
 
@@ -172,17 +172,7 @@ export async function getConvertStatus(signal?: AbortSignal): Promise<ConvertSta
   const url = `${apiBase()}/ingest/convert-marker/status`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
 
-  if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(`${res.status} ${detail}`);
-  }
-
+  await checkResponse(res);
   return (await res.json()) as ConvertStatusResponse;
 }
 

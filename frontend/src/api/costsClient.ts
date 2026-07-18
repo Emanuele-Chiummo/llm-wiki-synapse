@@ -6,7 +6,7 @@
  */
 
 import { apiBase, apiFetch } from "./base";
-import { errorMessageFromBody } from "./errors";
+import { checkResponse } from "./errors";
 
 // ─── Response shape (mirrors backend GET /costs/summary) ─────────────────────
 
@@ -54,15 +54,6 @@ export async function fetchCostsSummary(
   const qs = month ? `?month=${encodeURIComponent(month)}` : "";
   const url = `${apiBase()}/costs/summary${qs}`;
   const res = await apiFetch(url, signal !== undefined ? { signal } : undefined);
-  if (!res.ok) {
-    let detail = `${res.status}`;
-    try {
-      const body = await res.json();
-      detail = errorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore
-    }
-    throw new Error(`GET /costs/summary: ${detail}`);
-  }
+  await checkResponse(res);
   return res.json() as Promise<CostsSummary>;
 }

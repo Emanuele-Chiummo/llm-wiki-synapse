@@ -20,10 +20,13 @@ import { useShallow } from "zustand/react/shallow";
 import type { ResearchRunSummary, ResearchRunDetail } from "../api/types";
 import { fetchResearchRuns, fetchResearchRunDetail, startResearch } from "../api/researchClient";
 import { createPollChain } from "./pollChain";
+import { useEventsStore } from "./eventsStore";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 5_000;
+/** When SSE is live, back off to avoid redundant REST calls (I3). */
+const POLL_IDLE_MS = 30_000;
 const PAGE_LIMIT = 20;
 
 /** Statuses that mean the run is finished; polling MUST stop. */
@@ -261,7 +264,13 @@ export const useResearchStore = create<ResearchStore>((set, get) => ({
         }));
       },
       // Schedule next tick ONLY if still running (I3 — no tight loop)
-      intervalFor: (updated) => (isTerminal(updated.status) ? null : POLL_INTERVAL_MS),
+      // Back off to POLL_IDLE_MS when SSE is live; keep POLL_INTERVAL_MS otherwise.
+      intervalFor: (updated) =>
+        isTerminal(updated.status)
+          ? null
+          : useEventsStore.getState().healthy
+            ? POLL_IDLE_MS
+            : POLL_INTERVAL_MS,
       initialDelayMs: POLL_INTERVAL_MS,
       // Stop polling on error — user can retry by re-selecting (errorIntervalFor omitted).
     });
