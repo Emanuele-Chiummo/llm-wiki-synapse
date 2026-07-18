@@ -16,7 +16,7 @@
  * No hardcoded values.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { previewCascadeDelete, cascadeDelete } from "../../api/cascadeDeleteClient";
@@ -240,6 +240,10 @@ export function CascadeDeleteModal({
   const [deleteInFlight, setDeleteInFlight] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Ref to the dialog panel (for Tab cycling) and return-focus target (FE-A11Y-2).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<Element | null>(null);
+
   // ── Load preview on mount ──────────────────────────────────────────────────
 
   useEffect(() => {
@@ -296,11 +300,50 @@ export function CascadeDeleteModal({
     }
   }, [pageId, onDeleted, t]);
 
-  // ── Keyboard ESC to cancel ────────────────────────────────────────────────
+  // ── Focus capture + restore (FE-A11Y-2) ──────────────────────────────────
+  // Save the element that had focus before this modal opened so we can restore it
+  // on close — the same pattern used by ResearchTopicDialog and CommandPalette.
+
+  useEffect(() => {
+    returnFocusRef.current = document.activeElement;
+    return () => {
+      if (returnFocusRef.current instanceof HTMLElement) {
+        returnFocusRef.current.focus();
+      }
+    };
+  }, []);
+
+  // ── Keyboard ESC + Tab focus-trap ─────────────────────────────────────────
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && !deleteInFlight) onCancel();
+      if (e.key === "Escape" && !deleteInFlight) {
+        onCancel();
+        return;
+      }
+      // Tab cycling: keep focus inside the dialog (FE-A11Y-2).
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+          ),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0] as HTMLElement;
+        const last = focusable[focusable.length - 1] as HTMLElement;
+        const focused = document.activeElement;
+        if (e.shiftKey) {
+          if (focused === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (focused === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -321,7 +364,7 @@ export function CascadeDeleteModal({
         if (e.target === e.currentTarget && !deleteInFlight) onCancel();
       }}
     >
-      <div style={S.dialog} data-testid="cascade-delete-modal">
+      <div ref={dialogRef} style={S.dialog} data-testid="cascade-delete-modal">
         {/* Header */}
         <div style={S.header}>
           <h2 style={S.headerTitle} data-testid="cascade-delete-modal-title">

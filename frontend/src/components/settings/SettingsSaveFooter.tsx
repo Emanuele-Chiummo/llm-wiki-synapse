@@ -16,6 +16,7 @@ import {
   selectCommitDraft,
   selectDiscardDraft,
 } from "../../store/settingsStore";
+import { loadLocale } from "../../i18n/loadLocale";
 
 export function SettingsSaveFooter() {
   const { t, i18n } = useTranslation();
@@ -30,8 +31,9 @@ export function SettingsSaveFooter() {
     // Capture before commit (commit resets drafts to match committed)
     const lang = draftLanguage;
     commitDraft();
-    // Apply i18n language switch after commit so the language key is persisted first
-    void i18n.changeLanguage(lang);
+    // FE-BUNDLE-1: lazily load the target locale bundle before switching, so
+    // react-i18next has all strings available by the time it re-renders.
+    void loadLocale(lang).then(() => i18n.changeLanguage(lang));
   };
 
   return (

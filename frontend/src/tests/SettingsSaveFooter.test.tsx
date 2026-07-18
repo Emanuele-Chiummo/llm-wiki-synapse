@@ -10,8 +10,16 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { SettingsSaveFooter } from "../components/settings/SettingsSaveFooter";
+
+// ─── Mock loadLocale (FE-BUNDLE-1) ───────────────────────────────────────────
+// loadLocale does a dynamic import + i18n.addResourceBundle which requires a fully
+// initialized i18next instance. In unit tests we just want it to be a no-op.
+
+vi.mock("../i18n/loadLocale", () => ({
+  loadLocale: vi.fn().mockResolvedValue(undefined),
+}));
 
 // ─── Mock i18n ─────────────────────────────────────────────────────────────────
 
@@ -154,10 +162,14 @@ describe("SettingsSaveFooter — save action", () => {
     expect(mockDiscardDraft).not.toHaveBeenCalled();
   });
 
-  it("clicking Save calls i18n.changeLanguage with the draft language", () => {
+  it("clicking Save calls i18n.changeLanguage with the draft language", async () => {
+    // FE-BUNDLE-1: handleSave now calls loadLocale(lang) before changeLanguage,
+    // so the changeLanguage call is asynchronous. Wrap in act() to flush microtasks.
     mockState.draftLanguage = "it";
     render(<SettingsSaveFooter />);
-    fireEvent.click(screen.getByTestId("settings-save-btn"));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("settings-save-btn"));
+    });
     expect(mockChangeLanguage).toHaveBeenCalledWith("it");
   });
 });
