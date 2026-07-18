@@ -438,6 +438,12 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
   test("KaTeX $$display math$$ renders in NoteView without style-src CSP violations", async ({
     page,
   }) => {
+    // The suite-wide default test timeout (playwright.config.ts: 30_000ms) was the REAL
+    // ceiling here, not the inner toBeVisible() timeout below it — every failure in CI logs
+    // an identical ~30.1s duration regardless of how far the assertion timeout was widened
+    // (25s, then 40s), because the whole test aborts at 30s first. Raising the per-test
+    // timeout is the actual fix; the assertion timeout just needs to stay under it.
+    test.setTimeout(60_000);
     const violations = collectCspViolations(page);
 
     // Mock page-list and page-content to inject a math-containing page.
@@ -533,13 +539,13 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // "graph" first appears to settle some shared app-init state (dataVersion/SSE) that
     // NavTree's mount otherwise races under CI's concurrent-worker load.
     await navTo(page, "graph");
-    // 25s (not 15s): a local repro of this exact CI sequence (docker-compose.ci.yml +
-    // seed scripts + built preview, matching the workflow step-for-step) never failed —
-    // ruling out a deterministic app bug. The 3 CI failures observed all timed out at
-    // this same graph-panel wait, pointing to shared-runner WebGL/canvas rendering
-    // variance rather than a logic defect. Widening the budget rather than adding more
-    // retries, since retries already exhausted 2x without success.
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 25_000 });
+    // 40s (not 15s, not 25s): a local repro of this exact CI sequence (docker-compose.ci.yml
+    // + seed scripts + built preview, matching the workflow step-for-step) never failed —
+    // ruling out a deterministic app bug. 25s was ALSO insufficient in practice: CI logs show
+    // this wait actually taking ~25.8s-26.7s under load, i.e. right at or past the prior
+    // budget — not a probabilistic flake but a real, measured, shared-runner WebGL/canvas
+    // rendering cost this specific wait needs real headroom for, not another near-miss.
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 40_000 });
 
     // Navigate to the wiki/pages section.
     await navTo(page, "pages");
@@ -572,16 +578,10 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     console.log("[CSP][AC-CSP-7] KaTeX display-math rendered with 0 violations");
   });
 
-  // FIXME(2.1): fails deterministically (3/3 attempts, identical ~16s duration each time,
-  // not a probabilistic contention pattern) on the graph-panel/nav-tree wait, despite three
-  // separate fix attempts across PRs #104/#103 (graph-priming step, wider timeouts, scoped
-  // retry budget) that resolved the SAME class of flake for its light-theme sibling test.
-  // Quarantined rather than left blocking merges indefinitely — needs live Playwright trace
-  // inspection (the CI artifact traces were not accessible from this session) to find the
-  // real root cause, not another blind timeout/step guess. The CSP security property itself
-  // (script-src clean, zero violations) remains fully covered by 9 other tests in this file
-  // that have never flaked, including the light-theme KaTeX sibling.
-  test.skip("KaTeX math renders in dark theme without CSP violations", async ({ page }) => {
+  test("KaTeX math renders in dark theme without CSP violations", async ({ page }) => {
+    // See the light-theme sibling above: the suite-wide default test timeout (30_000ms) was
+    // the real ceiling, not the inner assertion timeout — raising it is the actual fix.
+    test.setTimeout(60_000);
     const violations = collectCspViolations(page);
 
     const mathPageId = "csp-math-dark-00000000-0000-0000-0000-000000000001";
@@ -632,7 +632,10 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // Prime the graph store before navigating to "pages" — see the light-theme test
     // above for the rationale (matches the reliable AC-CSP-5 sweep pattern).
     await navTo(page, "graph");
-    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 15_000 });
+    // 40s — same CI-runner timing fix as the light-theme sibling above, widened further after
+    // 25s STILL failed 3/3 in the first re-enable attempt (measured ~26-27s each run — a real,
+    // consistent cost under CI load, not a probabilistic flake).
+    await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 40_000 });
 
     await navTo(page, "pages");
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
