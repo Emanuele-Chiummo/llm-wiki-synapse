@@ -115,6 +115,22 @@ def _augment_generation_user(user: str, errors: list[str]) -> str:
     )
 
 
+def _augment_prior_failure_context(user: str, context: str) -> str:
+    """Append diagnostics from a PRIOR ingest run to the first-iteration generation user message.
+
+    Called only on retry (``prior_failure_context`` is non-None), and only on the first
+    iteration of the new run (iteration 1, before any within-run errors accumulate).
+    This gives the model the stop reason, iteration count, and last validation errors from
+    the previous run so it can avoid repeating the same mistakes — the retry-with-context
+    feature described in ADR-0085 §4.
+    """
+    return (
+        f"{user}\n\n"
+        "# Context from a previous ingest attempt — avoid repeating these mistakes:\n"
+        f"{context}\n"
+    )
+
+
 async def _complete_with_retry(
     provider: InferenceProvider,
     system: str,
@@ -354,6 +370,7 @@ async def run_block_loop(
     max_context_chars: int = 204_800,
     review_stage_min_chars: int = 10_000,
     review_stage_min_file_blocks: int = 4,
+    prior_failure_context: str | None = None,
 ) -> BlockLoopResult:
     """Run analysis → bounded generation → conditional review stage (ADR-0076).
 
@@ -429,6 +446,12 @@ async def run_block_loop(
         )
         if errors:
             generation_user = _augment_generation_user(generation_user, errors)
+        elif i == 1 and prior_failure_context:
+            # Retry-with-context (ADR-0085 §4): on the FIRST iteration of a retry run, inject
+            # the diagnostics from the previous failed run so the model avoids repeating the same
+            # mistakes. Uses `elif` (not `if`) so within-run errors (iteration 2+) take precedence
+            # over the cross-run context and the two augmenters never double-fire.
+            generation_user = _augment_prior_failure_context(generation_user, prior_failure_context)
 
         generation_text = await _complete_with_retry(
             provider,

@@ -24,6 +24,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app import runtime_state
 from app.config import settings
 from app.project_registry import (
     Project,
@@ -133,18 +134,15 @@ async def _apply_active_vault(project: Project) -> None:
         logger.exception("projects: watcher restart failed during activate")
 
     try:
-        from app import main as _m  # noqa: PLC0415
-
-        if _m._graph_cache is not None:
-            _m._graph_cache.stop_background_loop()
-        _m._graph_cache = None  # re-created lazily for the new vault_id by GET /graph
+        _cache = runtime_state.graph_cache()
+        if _cache is not None:
+            _cache.stop_background_loop()
+        runtime_state.set_graph_cache(None)  # re-created lazily for the new vault_id by GET /graph
     except Exception:  # noqa: BLE001
         logger.exception("projects: graph-cache invalidation failed during activate")
 
     try:
-        from app.main import _seed_vault_state  # noqa: PLC0415
-
-        await _seed_vault_state()
+        await runtime_state.seed_vault_state()
     except Exception:  # noqa: BLE001
         logger.exception("projects: vault_state seed failed during activate")
 

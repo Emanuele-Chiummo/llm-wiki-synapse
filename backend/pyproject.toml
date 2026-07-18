@@ -158,7 +158,19 @@ markers = [
 # (the `unit` job's plain `python -m pytest -q`). This default excludes them; the on-demand
 # live-smoke workflow (.github/workflows/live-smoke.yml) overrides with an explicit `-m live`
 # on its own command line (pytest's `-m` flag is store-not-append, so the last one wins).
-addopts = "-m 'not live'"
+# 2.1 (BE-COV-1): --cov=app enables coverage measurement on every run; --cov-report=term
+# prints a summary but does not block CI — the fail_under gate in [tool.coverage.report]
+# enforces the regression floor.
+addopts = "-m 'not live' --cov=app --cov-report=term"
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+# Current coverage measured 2026-07-18: 84%.
+# Gate set 2 points below (82%) to catch regressions without blocking on pre-existing gaps.
+# Raise this floor when coverage genuinely improves; never lower it.
+fail_under = 82
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

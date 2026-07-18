@@ -1289,6 +1289,37 @@ async def _compute_avg_duration_by_route() -> dict[str, float]:
 # ADR-0046 §6 — live activity queue endpoints
 
 
+def _format_retry_failure_context(diagnostics: dict[str, Any] | None) -> str | None:
+    """Format ``ingest_runs.diagnostics`` as a human-readable prior-failure context string.
+
+    Returns None when there is nothing actionable to inject (no diagnostics, no last_errors,
+    or the run converged — in which case a retry is unusual and the context would be misleading).
+    ADR-0085 §4 retry-with-context: this string is stored in the queue manager and injected
+    into the block loop's first-iteration generation user message on the retry run.
+    """
+    if not diagnostics:
+        return None
+    stop_reason = diagnostics.get("stop_reason", "unknown")
+    # Only inject context when the run actually failed to converge; a converged run that is
+    # being retried for other reasons should start fresh (no stale "errors from last time").
+    if stop_reason == "converged":
+        return None
+    last_errors: list[str] = diagnostics.get("last_errors", []) or []
+    if not last_errors:
+        # Non-convergence with no captured validation errors (e.g. token_budget exhausted
+        # on the very first iteration before any validation ran) — nothing specific to inject.
+        return None
+    iterations = diagnostics.get("iterations", 0)
+    tokens_used = diagnostics.get("tokens_used", 0)
+    token_budget = diagnostics.get("token_budget", 0)
+    error_lines = "\n".join(f"- {e}" for e in last_errors)
+    return (
+        f"Stop reason: {stop_reason} after {iterations} iteration(s) "
+        f"({tokens_used}/{token_budget} tokens used)\n"
+        f"Validation errors from the last iteration:\n{error_lines}"
+    )
+
+
 @router.get(
     "/ingest/queue",
     response_model=QueueSnapshotResponse,
@@ -1547,11 +1578,33 @@ async def delete_ingest_run(run_id: uuid.UUID) -> JSONResponse:
     },
 )
 async def retry_ingest_run(run_id: uuid.UUID) -> QueueRetryResponse:
-    """POST /ingest/runs/{id}/retry — re-dispatch a failed source file (ADR-0046 §5)."""
+    """POST /ingest/runs/{id}/retry — re-dispatch a failed source file (ADR-0046 §5).
+
+    ADR-0085 §4 (retry-with-context): reads ``ingest_runs.diagnostics`` for the failed run
+    and, when validation errors are present, formats them as a ``prior_failure_context`` string
+    that is stored in the queue manager and injected into the block loop's first-iteration
+    generation user message on the retry run — so the model sees what went wrong last time.
+    """
     from app.ingest.queue_manager import ingest_queue as _iq
 
+    # ── ADR-0085 §4: read diagnostics from the failed run (best-effort) ─────────
+    prior_failure_context: str | None = None
     try:
-        result = _iq.request_retry(run_id)
+        from sqlalchemy import text as _sa_text  # noqa: PLC0415
+
+        async with runtime_state.get_session() as _sess:
+            _res = await _sess.execute(
+                _sa_text("SELECT diagnostics FROM ingest_runs WHERE CAST(id AS TEXT) = :rid"),
+                {"rid": str(run_id)},
+            )
+            _row = _res.fetchone()
+            if _row is not None and _row[0] is not None:
+                prior_failure_context = _format_retry_failure_context(_row[0])
+    except Exception:  # noqa: BLE001 — best-effort; retry proceeds even without context
+        logger.debug("retry: could not load diagnostics for run_id=%s (non-fatal)", run_id)
+
+    try:
+        result = _iq.request_retry(run_id, prior_failure_context=prior_failure_context)
     except ValueError as exc:
         detail = str(exc)
         if detail == "max_retries_exceeded":

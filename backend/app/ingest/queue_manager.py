@@ -162,6 +162,12 @@ class IngestQueueManager:
         # source_path → retries so far (cleared on success, I7)
         self._retry_counts: dict[str, int] = {}
 
+        # source_path → prior failure context string (ADR-0085 §4 retry-with-context).
+        # Set by request_retry when the caller supplies diagnostics from the failed run;
+        # consumed (popped) once by run_ingest_pipeline at the start of the retry run.
+        # None-valued entries are never stored; absence == no context available.
+        self._retry_context: dict[str, str] = {}
+
         # source_path → FailedEntry (retained for retry, dropped on retry/success)
         self._recent_failed: dict[str, FailedEntry] = {}
 
@@ -431,7 +437,11 @@ class IngestQueueManager:
 
     # ── Retry ──────────────────────────────────────────────────────────────────
 
-    def request_retry(self, run_id: uuid.UUID) -> tuple[str, int] | None:
+    def request_retry(
+        self,
+        run_id: uuid.UUID,
+        prior_failure_context: str | None = None,
+    ) -> tuple[str, int] | None:
         """
         Increment retry counter and re-dispatch the failed source_path (ADR-0046 §5).
 
@@ -439,6 +449,11 @@ class IngestQueueManager:
         Returns None if run_id unknown.
         Raises ValueError("max_retries_exceeded") if count >= MAX_INGEST_RETRIES.
         Raises ValueError("not_retryable") if run is not in _recent_failed (e.g. still running).
+
+        ``prior_failure_context`` (ADR-0085 §4 retry-with-context): when the caller provides a
+        formatted string of diagnostics from the failed run, it is stored keyed by source_path
+        and consumed (popped) once by ``run_ingest_pipeline`` at the start of the retry run so
+        the block loop can inject it into the first-iteration generation user message.
         """
         # Find entry — either in _recent_failed (normal path) or active (sanity)
         source_path: str | None = None
@@ -463,6 +478,10 @@ class IngestQueueManager:
         self._retry_counts[source_path] = new_count
         self._recent_failed.pop(source_path, None)
 
+        # ADR-0085 §4 retry-with-context: store diagnostics for the pipeline to pick up.
+        if prior_failure_context:
+            self._retry_context[source_path] = prior_failure_context
+
         # Re-dispatch via the watcher _arm seam
         if self._watcher_handler is not None:
             self._watcher_handler._arm(source_path, "ingest")
@@ -484,6 +503,22 @@ class IngestQueueManager:
     def get_retry_count(self, source_path: str) -> int:
         """Return the current retry count for a source_path (0 if absent)."""
         return self._retry_counts.get(source_path, 0)
+
+    def pop_retry_context(self, source_path: str) -> str | None:
+        """Pop and return the prior-failure context for *source_path* (ADR-0085 §4).
+
+        Called once by ``run_ingest_pipeline`` at the very start of a retry run.  Popping
+        (rather than peeking) ensures the context is consumed exactly once: if the retry
+        itself fails the next retry starts without stale context from two runs ago.
+        Returns None when no context was stored (first-ever run, or a non-validation failure).
+
+        Uses ``getattr`` for defensive access so instances created via ``__new__`` (bypassing
+        ``__init__``, as some tests do) return None rather than raising AttributeError.
+        """
+        ctx: dict[str, str] | None = getattr(self, "_retry_context", None)
+        if ctx is None:
+            return None
+        return ctx.pop(source_path, None)
 
     # ── Pause / resume ─────────────────────────────────────────────────────────
 
