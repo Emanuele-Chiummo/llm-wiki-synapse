@@ -328,11 +328,10 @@ def build_generation_prompt(
             "explicitly compares commensurable subjects or gives directly comparable evidence.",
             "6. Synthesis pages (type=synthesis, wiki/synthesis/) ONLY when the source integrates "
             "multiple claims or findings into a cross-cutting conclusion.",
-            "7. A log entry for wiki/log.md (just the new entry to append, format: "
-            "## [YYYY-MM-DD] ingest | Title)",
-            "Do not generate wiki/index.md or wiki/overview.md. The application maintains "
-            "aggregate navigation separately so large wikis are never rewritten through model "
-            "output.",
+            "Do not generate wiki/index.md, wiki/overview.md, or wiki/log.md. The application "
+            "maintains aggregate navigation and the ingest log separately (one entry is appended "
+            "to wiki/log.md automatically for every page written) so large wikis are never "
+            "rewritten through model output and the log is never at risk of a malformed entry.",
             "",
             "## Frontmatter Rules (CRITICAL — parser is strict)",
             "",
