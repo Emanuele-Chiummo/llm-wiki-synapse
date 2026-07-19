@@ -85,39 +85,6 @@ async function navTo(page: Page, section: string): Promise<void> {
   await btn.click();
 }
 
-/**
- * Neutralise the production service worker registration for this page (vite-plugin-pwa /
- * Workbox — see src/main.tsx). Call before gotoApp().
- *
- * The KaTeX tests below reload the page mid-test (setTheme()) after registering several
- * page.route() mocks. That reload gives the SW (registered async on window 'load') time to
- * activate and start intercepting fetches on the reloaded page, racing its own in-flight
- * precache fetch of the GraphPanel chunk against the app's own dynamic import() of the same
- * asset — observed in CI as a real, reproducible "Failed to fetch dynamically imported
- * module" app error (SectionErrorBoundary), not a rendering-speed flake.
- *
- * An earlier fix attempt removed the reload entirely (page.addInitScript() to set the theme
- * before the first navigation) — that eliminated the SW race but traded it for a WORSE one:
- * without the reload's extra settle time, clicking a nav button immediately after
- * gotoApp()'s app-shell/nav-rail visibility check raced the app's own async init (e.g.
- * config/status fetch resolving after mount) and silently stayed on Home instead of
- * switching section (100% reproducible in CI). The reload is load-bearing for app-init
- * stability here, not just theme application — so keep it, and remove the SW instead, which
- * is the actual source of the original race and has no bearing on what these tests assert
- * (CSP violations + KaTeX rendering + graph-panel visibility, none of which depend on the SW).
- * main.tsx already .catch()es a failed registration and logs a warning — harmless under test.
- */
-async function disableServiceWorker(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    if ("serviceWorker" in navigator) {
-      Object.defineProperty(navigator.serviceWorker, "register", {
-        configurable: true,
-        value: () => Promise.reject(new Error("SW registration disabled for this E2E test")),
-      });
-    }
-  });
-}
-
 async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
   await page.evaluate((t) => {
     localStorage.setItem("synapse.theme", t);
@@ -534,8 +501,23 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    // Intercept /graph so the graph store can prime (returns empty graph).
-    await page.route("**/graph**", async (route) => {
+    // Intercept GET /graph so the graph store can prime (returns empty graph).
+    //
+    // Root cause of the "graph-panel never appears" flake (found via a locally-reproduced
+    // trace, not CI-only guesswork): "**/graph**" is a broad glob — it matches the literal
+    // substring "graph" ANYWHERE in a URL, on ANY origin, not just the intended
+    // http://localhost:8000/graph API call. Vite's code-split output for this app includes a
+    // separate lazy chunk literally named graphClient-<hash>.js (the graph API client module,
+    // imported alongside the Graph section's own component chunk) — its URL
+    // (http://localhost:5173/assets/graphClient-<hash>.js) also contains "graph" as a
+    // substring and was being caught by this same route, fulfilled with a JSON body instead
+    // of real JS. The browser then refused to execute it ("Failed to load module script:
+    // ... MIME type of 'application/json'"), breaking the Graph section's own module graph —
+    // sometimes surfacing as a caught dynamic-import error, sometimes just leaving the section
+    // switch silently incomplete, depending on where in that broken promise chain the failure
+    // landed. Anchor the pattern to the actual API path (a "/graph" segment followed by the
+    // end of the path or a query string) so it can never match a *.js asset filename.
+    await page.route(/\/graph(\?|$)/, async (route) => {
       if (route.request().method() !== "GET") {
         await route.continue();
         return;
@@ -547,7 +529,6 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await disableServiceWorker(page);
     await gotoApp(page);
     await setTheme(page, "light");
 
@@ -666,7 +647,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await page.route("**/graph**", async (route) => {
+    // See the light-theme sibling above for why this must be a path-anchored regex, not
+    // the broad "**/graph**" glob it replaced.
+    await page.route(/\/graph(\?|$)/, async (route) => {
       if (route.request().method() !== "GET") {
         await route.continue();
         return;
@@ -678,7 +661,6 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await disableServiceWorker(page);
     await gotoApp(page);
     await setTheme(page, "dark");
 
