@@ -206,12 +206,25 @@ def _folder_context_block(origin_source: str) -> str:
     """
     Build the folderContext section appended to the ingest context (R7-6), or "" when there is
     no subfolder hint. Phrased as an explicit topical hint for the analysis/classification step.
+
+    2.1.1 fix: the original wording ("...when classifying the document and naming/linking
+    pages") was ambiguous enough that a model would sometimes mirror the raw subfolder into a
+    generated page's FILE path — most visibly a type=source page landing at
+    "wiki/sources/<raw-subfolder>/<name>.md" instead of the required flat
+    "wiki/sources/<name>.md" (K6), a schema-routing violation that then persisted across all
+    retry iterations because the folderContext hint was re-injected unchanged every time. This
+    hint is topical ONLY: it must never influence a page's file path, which the routing table
+    (and, for the source page, the exact path given above) always decides.
     """
     fc = _folder_context(origin_source)
     if not fc:
         return ""
     return (
         "# folderContext\n"
-        f"This document comes from the folder path: {fc} — use it as topical context when "
-        "classifying the document and naming/linking pages."
+        f"This document comes from the folder path: {fc} — use it ONLY as topical context for "
+        "classification and for choosing which existing pages to link to. It must NOT change "
+        "any page's file path: the source summary page always uses the exact path given "
+        "elsewhere in this prompt, and entity/concept pages still route only through the "
+        "project schema's directories (or wiki/entities/ · wiki/concepts/) — never a new "
+        "directory that mirrors this folder path."
     )

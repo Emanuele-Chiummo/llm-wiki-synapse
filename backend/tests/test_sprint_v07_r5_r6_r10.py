@@ -282,6 +282,17 @@ class TestR76FolderContext:
         assert "servicenow / itam" in block
         assert "comes from the folder path" in block
 
+    def test_folder_context_block_forbids_path_mirroring(self) -> None:
+        """2.1.1 regression (NC observed live): a model mirrored this hint into a page's FILE
+        path — a type=source page landed at "wiki/sources/<raw-subfolder>/<name>.md" instead of
+        the required flat "wiki/sources/<name>.md" (K6), and the SAME violation persisted across
+        every retry iteration since the ambiguous hint was re-injected unchanged each time. The
+        block must explicitly rule out using folderContext to decide a page's file path."""
+        from app.ingest.context import _folder_context_block
+
+        block = _folder_context_block("raw/sources/servicenow/itam/foo.md")
+        assert "must NOT change any page's file path" in block
+
     def test_folder_context_block_empty_when_no_subfolder(self) -> None:
         from app.ingest.context import _folder_context_block
 
