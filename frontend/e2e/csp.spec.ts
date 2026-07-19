@@ -86,20 +86,36 @@ async function navTo(page: Page, section: string): Promise<void> {
 }
 
 /**
- * Set the theme BEFORE the app's first navigation, instead of setting localStorage after
- * load and forcing a page.reload() to pick it up (see setTheme() below). Use this ahead of
- * gotoApp() when the test also registers page.route() mocks: a mid-test reload gives the
- * production service worker (registered async on window 'load', vite-plugin-pwa/Workbox —
- * see src/main.tsx) extra time to activate and start intercepting fetches on the reloaded
- * page, racing its own in-flight precache fetch of a chunk the app is about to dynamically
- * import (e.g. a lazy section panel) — observed in CI as a real, reproducible
- * "Failed to fetch dynamically imported module" app error, not a rendering-speed flake.
- * addInitScript avoids the second navigation entirely, removing that race window.
+ * Neutralise the production service worker registration for this page (vite-plugin-pwa /
+ * Workbox — see src/main.tsx). Call before gotoApp().
+ *
+ * The KaTeX tests below reload the page mid-test (setTheme()) after registering several
+ * page.route() mocks. That reload gives the SW (registered async on window 'load') time to
+ * activate and start intercepting fetches on the reloaded page, racing its own in-flight
+ * precache fetch of the GraphPanel chunk against the app's own dynamic import() of the same
+ * asset — observed in CI as a real, reproducible "Failed to fetch dynamically imported
+ * module" app error (SectionErrorBoundary), not a rendering-speed flake.
+ *
+ * An earlier fix attempt removed the reload entirely (page.addInitScript() to set the theme
+ * before the first navigation) — that eliminated the SW race but traded it for a WORSE one:
+ * without the reload's extra settle time, clicking a nav button immediately after
+ * gotoApp()'s app-shell/nav-rail visibility check raced the app's own async init (e.g.
+ * config/status fetch resolving after mount) and silently stayed on Home instead of
+ * switching section (100% reproducible in CI). The reload is load-bearing for app-init
+ * stability here, not just theme application — so keep it, and remove the SW instead, which
+ * is the actual source of the original race and has no bearing on what these tests assert
+ * (CSP violations + KaTeX rendering + graph-panel visibility, none of which depend on the SW).
+ * main.tsx already .catch()es a failed registration and logs a warning — harmless under test.
  */
-async function setThemeBeforeLoad(page: Page, theme: "light" | "dark"): Promise<void> {
-  await page.addInitScript((t) => {
-    localStorage.setItem("synapse.theme", t);
-  }, theme);
+async function disableServiceWorker(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if ("serviceWorker" in navigator) {
+      Object.defineProperty(navigator.serviceWorker, "register", {
+        configurable: true,
+        value: () => Promise.reject(new Error("SW registration disabled for this E2E test")),
+      });
+    }
+  });
 }
 
 async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
@@ -531,8 +547,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await setThemeBeforeLoad(page, "light");
+    await disableServiceWorker(page);
     await gotoApp(page);
+    await setTheme(page, "light");
 
     // Prime the graph store before navigating to "pages" — matches the pattern proven
     // reliable by the AC-CSP-5 sweep test below (which never flakes here); visiting
@@ -661,8 +678,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    await setThemeBeforeLoad(page, "dark");
+    await disableServiceWorker(page);
     await gotoApp(page);
+    await setTheme(page, "dark");
 
     // Prime the graph store before navigating to "pages" — see the light-theme test
     // above for the rationale (matches the reliable AC-CSP-5 sweep pattern).
