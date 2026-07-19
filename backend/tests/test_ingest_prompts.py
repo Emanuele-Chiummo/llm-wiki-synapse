@@ -162,10 +162,20 @@ def test_generation_prompt_schema_routing_authoritative_conditional() -> None:
 
 def test_generation_prompt_output_format_is_last_and_no_index_overview_emit() -> None:
     p = build_generation_prompt(source_filename="foo.md", today=_FIXED)
-    assert "Do not generate wiki/index.md or wiki/overview.md" in p
+    assert "Do not generate wiki/index.md, wiki/overview.md, or wiki/log.md" in p
     # Output Format must be the final major section (models weight recent instructions highest);
     # the language directive is repeated after it, so assert Output Format precedes the tail.
     assert p.index("## Output Format") > p.index("## What to generate")
+
+
+def test_generation_prompt_does_not_ask_for_a_log_entry() -> None:
+    """2.1.1 regression (NC observed live): asking the model to "also" emit a log.md entry —
+    on top of the append_log() the server already does for every page written — occasionally
+    made a model invent a non-matching filename (e.g. "wiki/log-entry.txt") for it, which slipped
+    past block_loop's exact-filename skip-guard and failed frontmatter validation, non-converging
+    the run. The prompt must not ask for one; it only needs to say the app owns wiki/log.md."""
+    p = build_generation_prompt(source_filename="foo.md", today=_FIXED)
+    assert "log entry" not in p.lower()
 
 
 def test_generation_prompt_language_directive_repeated_top_and_bottom() -> None:

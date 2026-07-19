@@ -193,9 +193,12 @@ def _validate_block_batch(file_blocks: list[FileBlock], routing: dict[str, str])
     errors: list[str] = []
     for fb in file_blocks:
         # App-managed aggregates (index/log/overview) are maintained by the pipeline, not the
-        # model: the writer deliberately DROPS any such block. The prompt still asks for a log
-        # entry, so the model emits one — that is EXPECTED, never a validation failure. Skipping
-        # them here prevents a never-converging retry loop (the model re-emits log.md each turn).
+        # model: the writer deliberately DROPS any such block. The generation prompt no longer
+        # asks for a log entry (2.1.1 — asking for one caused a model to occasionally invent a
+        # non-matching filename like "wiki/log-entry.txt" for it, which slipped past this exact
+        # guard and failed frontmatter validation, non-converging the run), but a model may still
+        # emit one out of habit — skipping it here (rather than failing it) keeps that harmless
+        # and prevents a never-converging retry loop either way.
         _base = fb.path.rsplit("/", 1)[-1].lower()
         if _base in {"index.md", "log.md", "overview.md"}:
             continue
