@@ -58,9 +58,10 @@ nav:
   - API Reference: api/index.md
   - Sequences: sequences/index.md
   - Roadmap:
-      - v1.3 → v2.0: reference/ROADMAP-v1.3-v2.0.md
+      - v1.3 → v2.0 (complete): reference/ROADMAP-v1.3-v2.0.md
       - v0.7 → v1.0 (complete): reference/ROADMAP-v0.7-v1.0.md
   - Release Notes:
+      - v2.1.0: release-notes/v2.1.0.md
       - v2.0.0: release-notes/v2.0.0.md
       - v1.9.4: release-notes/v1.9.4.md
       - v1.9.3: release-notes/v1.9.3.md

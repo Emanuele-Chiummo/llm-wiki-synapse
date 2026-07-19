@@ -11,12 +11,12 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 
 </div>
 
-!!! tip "What's new in v2.0.0"
-    The v2.0 "one engine" release removes the legacy JSON ingest pipeline (the block-based
-    pipeline is now the sole ingest engine), dissolves the compatibility facades introduced in
-    1.7.0, and ships a stable JSON error envelope as a public API contract. See
-    **[v2.0.0 release notes](release-notes/v2.0.0.md)** for full details and upgrade
-    instructions, or browse the **[full changelog](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/CHANGELOG.md)**.
+!!! tip "What's new in v2.1.0"
+    The native iOS app was rebuilt from the ground up — a brand-matched design system and a
+    native 5-tab shell (Home · Wiki · Chat · Graph · More) — plus a backend/frontend cleanup
+    batch (retry-with-context for non-converged ingest runs, further component splits, CSP
+    flake fixed at its root cause). See **[v2.1.0 release notes](release-notes/v2.1.0.md)**
+    for full details, or browse the **[full changelog](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/CHANGELOG.md)**.
 
 ---
 
@@ -31,7 +31,9 @@ builds a weighted knowledge graph, and lets you chat with your own knowledge bas
 | 🧑‍⚖️ **Human in the loop** | Review queue for AI proposals, bounded lint-fix loop with human-gated apply, cascade delete with dry-run. |
 | 🔌 **Bring your own AI** | Pluggable inference provider: **Local** (Ollama), **API** (Anthropic / OpenAI-compatible), **CLI** (claude-agent-sdk). Switch per vault or per operation. |
 | 📦 **Obsidian-compatible** | The `wiki/` folder is a valid Obsidian vault: YAML frontmatter, `[[wikilinks]]`, auto-generated `.obsidian/`. |
+| 🤖 **MCP server** | Nine read/write tools (search, get/write page, graph neighborhood, review queue, ...) exposed over stdio and HTTP — talk to your wiki from Claude Desktop, Claude Code, or any MCP client. |
 | 🖥️ **Desktop app** | Native macOS/Windows app (Tauri v2, ~6 MB) with auto-update from GitHub Releases. Point it at your server and go. |
+| 📱 **iOS app** | Native SwiftUI client (iOS 17+) — Home, Wiki, Chat, Graph, and review queue against your own server, brand-matched to the desktop UI. |
 
 ---
 
@@ -56,9 +58,19 @@ First launch: enter your backend URL (local servers are auto-detected). Builds a
 
 ---
 
+## iOS app
+
+Native SwiftUI client, source in [`ios/`](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/tree/main/ios).
+Not on the App Store yet: build and run it yourself with Xcode (free Apple ID, 7-day install),
+or produce an unsigned `.ipa` with `ios/build-unsigned-ipa.sh` to sideload via AltStore or
+Sideloadly. TestFlight distribution is wired up but not yet live — it needs a paid Apple
+Developer Program enrollment. See [User Guide §17](USER.md#ios-app) for the full walkthrough.
+
+---
+
 ## Stack
 
-FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vite · CodeMirror 6 · sigma.js · Zustand — Tauri v2.
+FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 · FastMCP — React 19 · Vite · CodeMirror 6 · sigma.js · Zustand — Tauri v2 · Swift/SwiftUI.
 
 ---
 
@@ -69,8 +81,8 @@ FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vit
 - **[Architecture](architecture/index.md)** — C4 diagrams (system context, containers, components)
 - **[ADRs](adr/index.md)** — Architecture Decision Records documenting design choices
 - **[API Reference](api/index.md)** — OpenAPI specification of all endpoints
-- **[Release Notes](release-notes/v2.0.0.md)** — per-release changelogs from v1.2 onward
-- **[Roadmap](reference/ROADMAP-v1.3-v2.0.md)** — v1.3 → v2.0 feature roadmap and development status
+- **[Release Notes](release-notes/v2.1.0.md)** — per-release changelogs from v1.2 onward
+- **[Roadmap](reference/ROADMAP-v1.3-v2.0.md)** — v1.3 → v2.0 feature roadmap (complete)
 
 ---
 
