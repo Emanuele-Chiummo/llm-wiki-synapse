@@ -56,10 +56,7 @@ const VIEWPORT = { width: 1440, height: 900 };
 function collectCspViolations(page: Page): string[] {
   const violations: string[] = [];
   page.on("console", (msg) => {
-    if (
-      msg.type() === "error" &&
-      msg.text().toLowerCase().includes("content security policy")
-    ) {
+    if (msg.type() === "error" && msg.text().toLowerCase().includes("content security policy")) {
       violations.push(msg.text());
     }
   });
@@ -164,36 +161,33 @@ test.describe("CSP header — presence and required directives (AC-CSP-1..4)", (
     console.log(`[CSP] script-src check passed. Full CSP: ${cspHeader}`);
   });
 
-  test(
-    "CSP header contains style-src 'self' 'unsafe-inline' (AC-CSP-3 — KaTeX requirement)",
-    async ({ page }) => {
-      let cspHeader = "";
-      page.on("response", (response) => {
-        const url = response.url();
-        if (url === FRONTEND_URL || url === `${FRONTEND_URL}/`) {
-          const hdr = response.headers()["content-security-policy"];
-          if (hdr) cspHeader = hdr;
-        }
-      });
-      await page.setViewportSize(VIEWPORT);
-      await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" });
+  test("CSP header contains style-src 'self' 'unsafe-inline' (AC-CSP-3 — KaTeX requirement)", async ({
+    page,
+  }) => {
+    let cspHeader = "";
+    page.on("response", (response) => {
+      const url = response.url();
+      if (url === FRONTEND_URL || url === `${FRONTEND_URL}/`) {
+        const hdr = response.headers()["content-security-policy"];
+        if (hdr) cspHeader = hdr;
+      }
+    });
+    await page.setViewportSize(VIEWPORT);
+    await page.goto(FRONTEND_URL, { waitUntil: "domcontentloaded" });
 
-      expect(cspHeader, "CSP header must be present").toBeTruthy();
+    expect(cspHeader, "CSP header must be present").toBeTruthy();
 
-      // style-src 'unsafe-inline' is REQUIRED — see ADR-0087 finding:
-      // KaTeX's HTML+MathML output generates inline style attributes on every rendered span;
-      // React inline style={{}} props are used throughout the app; the index.html <style>
-      // block also requires it. Removing this would require major refactoring.
-      expect(cspHeader, "style-src must contain 'unsafe-inline'").toContain(
-        "'unsafe-inline'",
-      );
-      expect(cspHeader, "style-src 'self' must be present").toContain("style-src");
+    // style-src 'unsafe-inline' is REQUIRED — see ADR-0087 finding:
+    // KaTeX's HTML+MathML output generates inline style attributes on every rendered span;
+    // React inline style={{}} props are used throughout the app; the index.html <style>
+    // block also requires it. Removing this would require major refactoring.
+    expect(cspHeader, "style-src must contain 'unsafe-inline'").toContain("'unsafe-inline'");
+    expect(cspHeader, "style-src 'self' must be present").toContain("style-src");
 
-      console.log(
-        "[CSP] style-src 'unsafe-inline' confirmed (ADR-0087: required by KaTeX, React, index.html)",
-      );
-    },
-  );
+    console.log(
+      "[CSP] style-src 'unsafe-inline' confirmed (ADR-0087: required by KaTeX, React, index.html)",
+    );
+  });
 
   test("CSP header contains frame-ancestors 'none' (AC-CSP-4)", async ({ page }) => {
     let cspHeader = "";
@@ -230,10 +224,7 @@ test.describe("CSP violations — LIGHT theme (AC-CSP-5)", () => {
     await expect(page.getByTestId("section-chat")).toBeVisible({ timeout: 8_000 });
     await page.waitForTimeout(500);
 
-    expect(
-      violations,
-      `CSP violations in Chat (light): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Chat (light): ${violations.join("\n")}`).toHaveLength(0);
     console.log("[CSP][light] Chat section: 0 violations");
   });
 
@@ -251,10 +242,9 @@ test.describe("CSP violations — LIGHT theme (AC-CSP-5)", () => {
       await page.waitForTimeout(300);
     }
 
-    expect(
-      violations,
-      `CSP violations in Search (light): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Search (light): ${violations.join("\n")}`).toHaveLength(
+      0,
+    );
     console.log("[CSP][light] Search section: 0 violations");
   });
 
@@ -295,16 +285,13 @@ test.describe("CSP violations — LIGHT theme (AC-CSP-5)", () => {
       await page.waitForTimeout(500);
     }
 
-    expect(
-      violations,
-      `CSP violations in Settings (light): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Settings (light): ${violations.join("\n")}`).toHaveLength(
+      0,
+    );
     console.log("[CSP][light] Settings section: 0 violations");
   });
 
-  test("Wiki / pages section loads with ZERO CSP violations in light theme", async ({
-    page,
-  }) => {
+  test("Wiki / pages section loads with ZERO CSP violations in light theme", async ({ page }) => {
     const violations = collectCspViolations(page);
     await gotoApp(page);
     await setTheme(page, "light");
@@ -312,9 +299,12 @@ test.describe("CSP violations — LIGHT theme (AC-CSP-5)", () => {
     // Prime graph store so nav-tree has data.
     await navTo(page, "graph");
     await expect(page.getByTestId("graph-panel")).toBeVisible({ timeout: 8_000 });
-    await page.locator("[aria-label='Graph statistics']").waitFor({ timeout: 15_000 }).catch(() => {
-      console.log("[CSP][light] graph-statistics not found — proceeding anyway");
-    });
+    await page
+      .locator("[aria-label='Graph statistics']")
+      .waitFor({ timeout: 15_000 })
+      .catch(() => {
+        console.log("[CSP][light] graph-statistics not found — proceeding anyway");
+      });
 
     await navTo(page, "pages");
     const navTree = page.getByTestId("nav-tree").first();
@@ -351,10 +341,7 @@ test.describe("CSP violations — DARK theme (AC-CSP-6)", () => {
     await expect(page.getByTestId("section-chat")).toBeVisible({ timeout: 8_000 });
     await page.waitForTimeout(500);
 
-    expect(
-      violations,
-      `CSP violations in Chat (dark): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Chat (dark): ${violations.join("\n")}`).toHaveLength(0);
     console.log("[CSP][dark] Chat section: 0 violations");
   });
 
@@ -367,10 +354,7 @@ test.describe("CSP violations — DARK theme (AC-CSP-6)", () => {
     await expect(page.getByTestId("section-search")).toBeVisible({ timeout: 8_000 });
     await page.waitForTimeout(300);
 
-    expect(
-      violations,
-      `CSP violations in Search (dark): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Search (dark): ${violations.join("\n")}`).toHaveLength(0);
     console.log("[CSP][dark] Search section: 0 violations");
   });
 
@@ -404,10 +388,9 @@ test.describe("CSP violations — DARK theme (AC-CSP-6)", () => {
     await expect(page.getByTestId("settings-panel")).toBeVisible({ timeout: 8_000 });
     await page.waitForTimeout(500);
 
-    expect(
-      violations,
-      `CSP violations in Settings (dark): ${violations.join("\n")}`,
-    ).toHaveLength(0);
+    expect(violations, `CSP violations in Settings (dark): ${violations.join("\n")}`).toHaveLength(
+      0,
+    );
     console.log("[CSP][dark] Settings section: 0 violations");
   });
 });
@@ -518,8 +501,23 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       });
     });
 
-    // Intercept /graph so the graph store can prime (returns empty graph).
-    await page.route("**/graph**", async (route) => {
+    // Intercept GET /graph so the graph store can prime (returns empty graph).
+    //
+    // Root cause of the "graph-panel never appears" flake (found via a locally-reproduced
+    // trace, not CI-only guesswork): "**/graph**" is a broad glob — it matches the literal
+    // substring "graph" ANYWHERE in a URL, on ANY origin, not just the intended
+    // http://localhost:8000/graph API call. Vite's code-split output for this app includes a
+    // separate lazy chunk literally named graphClient-<hash>.js (the graph API client module,
+    // imported alongside the Graph section's own component chunk) — its URL
+    // (http://localhost:5173/assets/graphClient-<hash>.js) also contains "graph" as a
+    // substring and was being caught by this same route, fulfilled with a JSON body instead
+    // of real JS. The browser then refused to execute it ("Failed to load module script:
+    // ... MIME type of 'application/json'"), breaking the Graph section's own module graph —
+    // sometimes surfacing as a caught dynamic-import error, sometimes just leaving the section
+    // switch silently incomplete, depending on where in that broken promise chain the failure
+    // landed. Anchor the pattern to the actual API path (a "/graph" segment followed by the
+    // end of the path or a query string) so it can never match a *.js asset filename.
+    await page.route(/\/graph(\?|$)/, async (route) => {
       if (route.request().method() !== "GET") {
         await route.continue();
         return;
@@ -591,39 +589,76 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
       "$$\\frac{d}{dx}\\left(\\int_{a}^{x} f(t)\\,dt\\right) = f(x)$$\n";
 
     await page.route("**/pages?**", async (route) => {
-      if (route.request().method() !== "GET") { await route.continue(); return; }
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          items: [{ id: mathPageId, title: "CSP KaTeX Dark Test", type: "concept",
-            file_path: "wiki/concepts/csp-katex-dark-test.md", source_count: 0,
-            updated_at: "2026-01-01T00:00:00Z" }],
-          total: 1, limit: 100, offset: 0,
+          items: [
+            {
+              id: mathPageId,
+              title: "CSP KaTeX Dark Test",
+              type: "concept",
+              file_path: "wiki/concepts/csp-katex-dark-test.md",
+              source_count: 0,
+              updated_at: "2026-01-01T00:00:00Z",
+            },
+          ],
+          total: 1,
+          limit: 100,
+          offset: 0,
         }),
       });
     });
 
     await page.route(`**/pages/${mathPageId}/content`, async (route) => {
-      if (route.request().method() !== "GET") { await route.continue(); return; }
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ id: mathPageId, title: "CSP KaTeX Dark Test", type: "concept",
-          file_path: "wiki/concepts/csp-katex-dark-test.md", source_count: 0,
-          content: mathContent, updated_at: "2026-01-01T00:00:00Z", sources: [] }),
+        body: JSON.stringify({
+          id: mathPageId,
+          title: "CSP KaTeX Dark Test",
+          type: "concept",
+          file_path: "wiki/concepts/csp-katex-dark-test.md",
+          source_count: 0,
+          content: mathContent,
+          updated_at: "2026-01-01T00:00:00Z",
+          sources: [],
+        }),
       });
     });
 
     await page.route(`**/pages/${mathPageId}/related**`, async (route) => {
-      if (route.request().method() !== "GET") { await route.continue(); return; }
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      });
     });
 
-    await page.route("**/graph**", async (route) => {
-      if (route.request().method() !== "GET") { await route.continue(); return; }
-      await route.fulfill({ status: 200, contentType: "application/json",
-        body: JSON.stringify({ nodes: [], edges: [], data_version: 0 }) });
+    // See the light-theme sibling above for why this must be a path-anchored regex, not
+    // the broad "**/graph**" glob it replaced.
+    await page.route(/\/graph(\?|$)/, async (route) => {
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ nodes: [], edges: [], data_version: 0 }),
+      });
     });
 
     await gotoApp(page);
@@ -643,9 +678,9 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     const mathRow = page.locator(".nav-tree__page-row").first();
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mathRow.click();
-      await expect(
-        page.getByTestId("note-view").first().locator(".katex").first(),
-      ).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByTestId("note-view").first().locator(".katex").first()).toBeVisible({
+        timeout: 8_000,
+      });
       await page.waitForTimeout(800);
     }
 
@@ -704,8 +739,6 @@ test.describe("CSP full-surface sweep — both themes back-to-back", () => {
       violations,
       `CSP violations found during full-surface sweep (both themes):\n${violations.join("\n")}`,
     ).toHaveLength(0);
-    console.log(
-      "[CSP] Full-surface sweep (light + dark, all sections): 0 violations",
-    );
+    console.log("[CSP] Full-surface sweep (light + dark, all sections): 0 violations");
   });
 });

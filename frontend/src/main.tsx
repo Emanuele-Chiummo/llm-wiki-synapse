@@ -25,6 +25,27 @@ if (!rootEl) {
   throw new Error("[Synapse] Root element #root not found. Check index.html.");
 }
 
+/**
+ * Recover once from a failed lazy-chunk fetch (Vite's documented `vite:preloadError` pattern:
+ * https://vitejs.dev/guide/build.html#load-error-handling).
+ *
+ * A dynamic import() can fail with "Failed to fetch dynamically imported module" when a chunk
+ * genuinely 404s after a new deploy — but it can also fail transiently, e.g. a race between the
+ * PWA service worker's own precache fetch of that chunk (registered below) and the app's import()
+ * of the same asset. Observed in CI (2.1.0 release investigation): the fetch itself later
+ * succeeds, yet the already-rejected import() promise leaves SectionErrorBoundary showing a dead
+ * "Riprova" button with no automatic recovery. A single reload re-requests the chunk fresh; the
+ * sessionStorage flag prevents a reload loop if the chunk is genuinely missing.
+ */
+window.addEventListener("vite:preloadError", (event) => {
+  const key = "synapse.preloadErrorReloaded";
+  if (!sessionStorage.getItem(key)) {
+    sessionStorage.setItem(key, "1");
+    event.preventDefault();
+    window.location.reload();
+  }
+});
+
 // React 19 concurrent root
 createRoot(rootEl).render(
   <React.StrictMode>
