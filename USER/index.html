@@ -1386,7 +1386,7 @@
   <span class="md-ellipsis">
     
   
-    v1.3 → v2.0
+    v1.3 → v2.0 (complete)
   
 
     
@@ -1486,6 +1486,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-notes/v2.1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3259,11 +3287,14 @@
 
 
 <h1 id="synapse-user-guide">Synapse User Guide<a class="headerlink" href="#synapse-user-guide" title="Permanent link">&para;</a></h1>
-<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+<!-- Updated: v2.1.0 | 2026-07-19 -->
 
 <blockquote>
-<p>Version: v2.0.0
+<p>Version: v2.1.0
 Language toggle: English / Italian available in Settings.</p>
+<p><strong>2.1.0 note:</strong> The native iOS app was rebuilt from the ground up (§17) — a new 5-tab shell
+(Home · Wiki · Chat · Graph · More) and a brand-matched design system, replacing the prior
+Wiki-first layout. No API or deploy changes since 2.0.0.</p>
 <p><strong>2.0.0 note:</strong> The JSON ingest pipeline ("json" mode) has been removed. Ingest always uses the
 block-based engine. API error responses now use the stable envelope <code>{"error": {"code": "...",
 "message": "...", "status": N, "details": null}}</code> — if you have scripts that parsed <code>{"detail":
@@ -4730,8 +4761,10 @@ servers triggers a full page reload to flush any cross-server cached state.</p>
 </table>
 <hr />
 <h2 id="ios-app">17. Native iOS app<a class="headerlink" href="#ios-app" title="Permanent link">&para;</a></h2>
-<p>As of v1.3.8, Synapse ships a native <strong>SwiftUI</strong> iOS app (iOS 17+) in <code>ios/</code>. It
-connects to the same backend REST API and provides five tabs:</p>
+<p>Synapse ships a native <strong>SwiftUI</strong> iOS app (iOS 17+) in <code>ios/</code>. As of v2.1.0 the app has
+been rebuilt as <strong>Track iOS 2.1</strong> — a from-scratch redesign with a brand-matched design
+system (same accent, jewel tones, and light/dark tokens as the desktop UI, never pure
+black) and a native 5-tab shell:</p>
 <table>
 <thead>
 <tr>
@@ -4741,33 +4774,35 @@ connects to the same backend REST API and provides five tabs:</p>
 </thead>
 <tbody>
 <tr>
-<td><strong>Wiki</strong></td>
-<td>Vault stats, recent and all pages, page detail (Markdown body, links, mini-graph)</td>
+<td><strong>Home</strong></td>
+<td>Vault stats (pages/sources/links), section counts, recently-updated pages</td>
 </tr>
 <tr>
-<td><strong>Search</strong></td>
-<td>4-phase RAG search with type filters</td>
+<td><strong>Wiki</strong></td>
+<td>Page browser and reader (Markdown, wikilinks, mini-graph); search is one tap away from here</td>
 </tr>
 <tr>
 <td><strong>Chat</strong></td>
-<td>Streaming NDJSON chat with tappable citations</td>
+<td>Streaming chat with tappable <code>[n]</code> citations</td>
 </tr>
 <tr>
 <td><strong>Graph</strong></td>
-<td>Interactive knowledge graph with pan/zoom</td>
+<td>Interactive knowledge graph, pan/zoom/tap-to-select</td>
 </tr>
 <tr>
 <td><strong>More</strong></td>
-<td>Review queue, import, deep research, settings (server URL + token, appearance, provider)</td>
+<td>Review queue, source browser, ingest activity, and settings (server, vault switch, provider, per-device tokens, appearance, language)</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Distribution.</strong> The app is <strong>not on the App Store</strong>. Each GitHub release includes
-an unsigned <code>.ipa</code> file (<code>Synapse-&lt;version&gt;-unsigned.ipa</code>). You sign it with your
-Apple ID using AltStore, Sideloadly, or Xcode. With a free Apple developer account,
-the signed app is valid for 7 days; with a paid account, 1 year.</p>
-<p><strong>Cloudflare Access.</strong> As of v1.3.9, the iOS app supports Cloudflare Access service
-tokens. Configure the Client ID and Client Secret in the app's Settings screen.</p>
+<p><strong>Distribution.</strong> The app is <strong>not on the App Store</strong>. Build and run it yourself with
+Xcode (a free Apple ID gets you a 7-day install, renewed on every rebuild — see
+<code>ios/README.md</code>), or produce an unsigned <code>.ipa</code> with <code>ios/build-unsigned-ipa.sh</code> to
+sideload via AltStore or Sideloadly. TestFlight distribution is wired up
+(<code>ios/scripts/testflight.sh</code>) but requires a paid Apple Developer Program enrollment,
+which is not yet in place — it is not currently a live distribution channel.</p>
+<p><strong>Cloudflare Access.</strong> The iOS app supports Cloudflare Access service tokens.
+Configure the Client ID and Client Secret in <strong>More → Settings → Server</strong>.</p>
 <p>Build instructions: <code>ios/README.md</code> and <code>ios/build-unsigned-ipa.sh</code>.</p>
 <hr />
 <h2 id="18-status-bar">18. Status bar<a class="headerlink" href="#18-status-bar" title="Permanent link">&para;</a></h2>

@@ -1941,7 +1941,7 @@
   <span class="md-ellipsis">
     
   
-    v1.3 → v2.0
+    v1.3 → v2.0 (complete)
   
 
     
@@ -2041,6 +2041,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-notes/v2.1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -4369,13 +4397,16 @@
 
 
 <h1 id="synapse-deployment-guide">Synapse Deployment Guide<a class="headerlink" href="#synapse-deployment-guide" title="Permanent link">&para;</a></h1>
-<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+<!-- Updated: v2.1.0 | 2026-07-19 -->
 
 <blockquote>
 <p>Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-Version: v2.0.0
-Status: CURRENT — updated for 2.0.0 release</p>
-<p><strong>2.0.0 breaking changes for operators:</strong></p>
+Version: v2.1.0
+Status: CURRENT — updated for 2.1.0 release</p>
+<p><strong>2.1.0 note:</strong> No schema migrations, no deploy-relevant or breaking changes since 2.0.0.
+The flagship of this release is the iOS app redesign (see <code>docs/USER.md §17</code>), which doesn't
+touch the server deployment described below.</p>
+<p><strong>2.0.0 breaking changes for operators</strong> (still apply if you're upgrading from before 2.0.0):</p>
 <ol>
 <li>
 <p><strong><code>ingest_pipeline_format</code> env var removed.</strong> If you had this set to <code>"json"</code> as a rollback

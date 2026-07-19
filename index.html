@@ -329,6 +329,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ios-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iOS app
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#stack" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -597,7 +608,7 @@
   <span class="md-ellipsis">
     
   
-    v1.3 → v2.0
+    v1.3 → v2.0 (complete)
   
 
     
@@ -697,6 +708,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="release-notes/v2.1.0/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.0
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1633,6 +1672,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#ios-app" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iOS app
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#stack" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1690,12 +1740,12 @@
 builds a weighted knowledge graph, and lets you chat with your own knowledge base, with citations.</p>
 </div>
 <div class="admonition tip">
-<p class="admonition-title">What's new in v2.0.0</p>
-<p>The v2.0 "one engine" release removes the legacy JSON ingest pipeline (the block-based
-pipeline is now the sole ingest engine), dissolves the compatibility facades introduced in
-1.7.0, and ships a stable JSON error envelope as a public API contract. See
-<strong><a href="release-notes/v2.0.0/">v2.0.0 release notes</a></strong> for full details and upgrade
-instructions, or browse the <strong><a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/CHANGELOG.md">full changelog</a></strong>.</p>
+<p class="admonition-title">What's new in v2.1.0</p>
+<p>The native iOS app was rebuilt from the ground up — a brand-matched design system and a
+native 5-tab shell (Home · Wiki · Chat · Graph · More) — plus a backend/frontend cleanup
+batch (retry-with-context for non-converged ingest runs, further component splits, CSP
+flake fixed at its root cause). See <strong><a href="release-notes/v2.1.0/">v2.1.0 release notes</a></strong>
+for full details, or browse the <strong><a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/blob/main/CHANGELOG.md">full changelog</a></strong>.</p>
 </div>
 <hr />
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
@@ -1736,8 +1786,16 @@ instructions, or browse the <strong><a href="https://github.com/Emanuele-Chiummo
 <td>The <code>wiki/</code> folder is a valid Obsidian vault: YAML frontmatter, <code>[[wikilinks]]</code>, auto-generated <code>.obsidian/</code>.</td>
 </tr>
 <tr>
+<td>🤖 <strong>MCP server</strong></td>
+<td>Nine read/write tools (search, get/write page, graph neighborhood, review queue, ...) exposed over stdio and HTTP — talk to your wiki from Claude Desktop, Claude Code, or any MCP client.</td>
+</tr>
+<tr>
 <td>🖥️ <strong>Desktop app</strong></td>
 <td>Native macOS/Windows app (Tauri v2, ~6 MB) with auto-update from GitHub Releases. Point it at your server and go.</td>
+</tr>
+<tr>
+<td>📱 <strong>iOS app</strong></td>
+<td>Native SwiftUI client (iOS 17+) — Home, Wiki, Chat, Graph, and review queue against your own server, brand-matched to the desktop UI.</td>
 </tr>
 </tbody>
 </table>
@@ -1755,8 +1813,15 @@ Requires: Docker, plus the services you already run — Ollama (inference/embedd
 <p>Download the latest <strong><code>.dmg</code> (macOS)</strong> or <strong><code>.exe</code> (Windows)</strong> from <a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/latest">Releases</a>.
 First launch: enter your backend URL (local servers are auto-detected). Builds are unsigned for now — macOS: right-click → Open; Windows: "More info" → "Run anyway". The app checks GitHub for updates at startup and offers to install them.</p>
 <hr />
+<h2 id="ios-app">iOS app<a class="headerlink" href="#ios-app" title="Permanent link">&para;</a></h2>
+<p>Native SwiftUI client, source in <a href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/tree/main/ios"><code>ios/</code></a>.
+Not on the App Store yet: build and run it yourself with Xcode (free Apple ID, 7-day install),
+or produce an unsigned <code>.ipa</code> with <code>ios/build-unsigned-ipa.sh</code> to sideload via AltStore or
+Sideloadly. TestFlight distribution is wired up but not yet live — it needs a paid Apple
+Developer Program enrollment. See <a href="USER/#ios-app">User Guide §17</a> for the full walkthrough.</p>
+<hr />
 <h2 id="stack">Stack<a class="headerlink" href="#stack" title="Permanent link">&para;</a></h2>
-<p>FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 — React 19 · Vite · CodeMirror 6 · sigma.js · Zustand — Tauri v2.</p>
+<p>FastAPI · SQLAlchemy 2 · PostgreSQL 16 · Qdrant · bge-m3 · FastMCP — React 19 · Vite · CodeMirror 6 · sigma.js · Zustand — Tauri v2 · Swift/SwiftUI.</p>
 <hr />
 <h2 id="resources">Resources<a class="headerlink" href="#resources" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1765,8 +1830,8 @@ First launch: enter your backend URL (local servers are auto-detected). Builds a
 <li><strong><a href="architecture/">Architecture</a></strong> — C4 diagrams (system context, containers, components)</li>
 <li><strong><a href="adr/">ADRs</a></strong> — Architecture Decision Records documenting design choices</li>
 <li><strong><a href="api/">API Reference</a></strong> — OpenAPI specification of all endpoints</li>
-<li><strong><a href="release-notes/v2.0.0/">Release Notes</a></strong> — per-release changelogs from v1.2 onward</li>
-<li><strong><a href="reference/ROADMAP-v1.3-v2.0/">Roadmap</a></strong> — v1.3 → v2.0 feature roadmap and development status</li>
+<li><strong><a href="release-notes/v2.1.0/">Release Notes</a></strong> — per-release changelogs from v1.2 onward</li>
+<li><strong><a href="reference/ROADMAP-v1.3-v2.0/">Roadmap</a></strong> — v1.3 → v2.0 feature roadmap (complete)</li>
 </ul>
 <hr />
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">&para;</a></h2>
