@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.1] — 2026-07-19 — "non-convergence fixes"
+
+Patch release fixing two related, live-observed ingest non-convergence bugs. No schema
+migrations, no other changes since 2.1.0.
+
+### Fixed
+
+- **Non-convergent ingest runs for sources in a raw subfolder**: when a source document's raw
+  file lived under a subfolder (e.g. `raw/sources/Cloud Licensing/doc.md`), the `folderContext`
+  prompt hint (R7-6) — meant purely as topical context — was worded ambiguously enough
+  ("...when classifying the document **and naming/linking pages**") that the model would mirror
+  the raw subfolder into the generated source page's file path (`wiki/sources/Cloud
+  Licensing/doc.md`) instead of the required flat `wiki/sources/doc.md` (K6). Because
+  retry-with-context re-injects the same hint unchanged on every iteration, the model repeated
+  the identical mistake across all attempts and the run burned its full iteration/token budget
+  non-convergent. Reworded the hint to state plainly that it must never influence a page's file
+  path — source pages always use the exact path given elsewhere in the prompt; entity/concept
+  pages still route only through the schema table or `wiki/entities/`/`wiki/concepts/`.
+- **Non-convergent ingest runs from a spurious `wiki/log.md` FILE block**: the generation prompt
+  asked the model to "also" emit a log entry for `wiki/log.md`, even though `append_log()`
+  already appends one automatically for every page written (K4) — fully server-managed. The
+  block-loop validator already anticipated a model emitting a `log.md` block and skips it by
+  exact filename, but a model would sometimes satisfy the redundant instruction with a
+  differently-named file (e.g. `wiki/log-entry.txt`), which slipped past that guard and failed
+  frontmatter validation identically on every retry. Removed the instruction — the model has no
+  legitimate reason to touch `wiki/log.md` at all.
+
 ## [2.1.0] — 2026-07-18 — "iOS redesign + close-out"
 
 The flagship item deferred from 2.0.0 — the **complete native iOS redesign** — plus the
