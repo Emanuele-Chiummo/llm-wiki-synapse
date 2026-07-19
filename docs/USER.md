@@ -1,9 +1,13 @@
 # Synapse User Guide
 
-<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+<!-- Updated: v2.1.0 | 2026-07-19 -->
 
-> Version: v2.0.0
+> Version: v2.1.0
 > Language toggle: English / Italian available in Settings.
+>
+> **2.1.0 note:** The native iOS app was rebuilt from the ground up (§17) — a new 5-tab shell
+> (Home · Wiki · Chat · Graph · More) and a brand-matched design system, replacing the prior
+> Wiki-first layout. No API or deploy changes since 2.0.0.
 >
 > **2.0.0 note:** The JSON ingest pipeline ("json" mode) has been removed. Ingest always uses the
 > block-based engine. API error responses now use the stable envelope `{"error": {"code": "...",
@@ -1243,24 +1247,28 @@ servers triggers a full page reload to flush any cross-server cached state.
 
 ## 17. Native iOS app {#ios-app}
 
-As of v1.3.8, Synapse ships a native **SwiftUI** iOS app (iOS 17+) in `ios/`. It
-connects to the same backend REST API and provides five tabs:
+Synapse ships a native **SwiftUI** iOS app (iOS 17+) in `ios/`. As of v2.1.0 the app has
+been rebuilt as **Track iOS 2.1** — a from-scratch redesign with a brand-matched design
+system (same accent, jewel tones, and light/dark tokens as the desktop UI, never pure
+black) and a native 5-tab shell:
 
 | Tab | Contents |
 |-----|----------|
-| **Wiki** | Vault stats, recent and all pages, page detail (Markdown body, links, mini-graph) |
-| **Search** | 4-phase RAG search with type filters |
-| **Chat** | Streaming NDJSON chat with tappable citations |
-| **Graph** | Interactive knowledge graph with pan/zoom |
-| **More** | Review queue, import, deep research, settings (server URL + token, appearance, provider) |
+| **Home** | Vault stats (pages/sources/links), section counts, recently-updated pages |
+| **Wiki** | Page browser and reader (Markdown, wikilinks, mini-graph); search is one tap away from here |
+| **Chat** | Streaming chat with tappable `[n]` citations |
+| **Graph** | Interactive knowledge graph, pan/zoom/tap-to-select |
+| **More** | Review queue, source browser, ingest activity, and settings (server, vault switch, provider, per-device tokens, appearance, language) |
 
-**Distribution.** The app is **not on the App Store**. Each GitHub release includes
-an unsigned `.ipa` file (`Synapse-<version>-unsigned.ipa`). You sign it with your
-Apple ID using AltStore, Sideloadly, or Xcode. With a free Apple developer account,
-the signed app is valid for 7 days; with a paid account, 1 year.
+**Distribution.** The app is **not on the App Store**. Build and run it yourself with
+Xcode (a free Apple ID gets you a 7-day install, renewed on every rebuild — see
+`ios/README.md`), or produce an unsigned `.ipa` with `ios/build-unsigned-ipa.sh` to
+sideload via AltStore or Sideloadly. TestFlight distribution is wired up
+(`ios/scripts/testflight.sh`) but requires a paid Apple Developer Program enrollment,
+which is not yet in place — it is not currently a live distribution channel.
 
-**Cloudflare Access.** As of v1.3.9, the iOS app supports Cloudflare Access service
-tokens. Configure the Client ID and Client Secret in the app's Settings screen.
+**Cloudflare Access.** The iOS app supports Cloudflare Access service tokens.
+Configure the Client ID and Client Secret in **More → Settings → Server**.
 
 Build instructions: `ios/README.md` and `ios/build-unsigned-ipa.sh`.
 

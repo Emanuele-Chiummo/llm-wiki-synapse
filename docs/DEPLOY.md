@@ -1,12 +1,16 @@
 # Synapse Deployment Guide
 
-<!-- Updated: v2.0.0 docs/2.0.0-veritieri | 2026-07-17 -->
+<!-- Updated: v2.1.0 | 2026-07-19 -->
 
 > Target: TrueNAS SCALE 25.10 "Goldeye" + Docker Compose (backend) + PWA or Tauri v2 desktop (client)
-> Version: v2.0.0
-> Status: CURRENT — updated for 2.0.0 release
+> Version: v2.1.0
+> Status: CURRENT — updated for 2.1.0 release
 >
-> **2.0.0 breaking changes for operators:**
+> **2.1.0 note:** No schema migrations, no deploy-relevant or breaking changes since 2.0.0.
+> The flagship of this release is the iOS app redesign (see `docs/USER.md §17`), which doesn't
+> touch the server deployment described below.
+>
+> **2.0.0 breaking changes for operators** (still apply if you're upgrading from before 2.0.0):
 >
 > 1. **`ingest_pipeline_format` env var removed.** If you had this set to `"json"` as a rollback
 >    lever, remove the env var. There is only one pipeline now (block-based, ADR-0076). The JSON
