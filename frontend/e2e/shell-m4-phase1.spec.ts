@@ -153,8 +153,13 @@ test.describe("CHECK-2 — 3-panel shell renders correctly (F1 / ADR-0017)", () 
   });
 
   test("selection wiring: clicking tree row populates PreviewPanel", async ({ page }) => {
-    // Click the first visible page row
-    const pageRow = page.locator(".nav-tree__page-row").first();
+    // Click the first visible CONTENT page row. "Synapse Overview" is deliberately excluded
+    // from the knowledge graph (it's a navigational singleton entry-point, not a content
+    // node — see useNavTreeData.ts SECTION_ORDER comment) so PreviewPanel's "Connections"
+    // view — which resolves purely from graph nodes — has nothing to show for it. It now
+    // sorts first in the tree (2.1.3 fix: boot vault indexes overview.md at startup), so
+    // exclude it here rather than assert graph-derived content for a non-graph row.
+    const pageRow = page.locator(".nav-tree__page-row").filter({ hasNotText: "Synapse Overview" }).first();
     await expect(pageRow).toBeVisible();
     const pageTitle = await pageRow.getAttribute("aria-label");
     console.log(`[CHECK-2] Clicking tree row: "${pageTitle}"`);

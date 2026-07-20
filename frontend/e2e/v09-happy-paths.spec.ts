@@ -238,8 +238,11 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
     const navTree = page.getByTestId("nav-tree").first();
     await expect(navTree).toBeVisible({ timeout: 10_000 });
 
-    // Wait for first page row to be present.
-    const firstRow = page.locator(".nav-tree__page-row").first();
+    // Wait for first CONTENT page row to be present. "Synapse Overview" sorts first in the
+    // tree (2.1.3: boot vault indexes overview.md at startup) but is deliberately excluded
+    // from the knowledge graph (navigational singleton, not a content node), so PreviewPanel's
+    // graph-derived "Connections" view has nothing to show for it — exclude it here.
+    const firstRow = page.locator(".nav-tree__page-row").filter({ hasNotText: "Synapse Overview" }).first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
     const pageTitle = await firstRow.getAttribute("aria-label");
     await firstRow.click();
@@ -258,7 +261,9 @@ test.describe("WIKI (pages section) — tree, page content, related panel", () =
 
     // PanelGroup renders two NavTree + two PreviewPanel instances; use .first() (PanelGroup.tsx).
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 10_000 });
-    const firstRow = page.locator(".nav-tree__page-row").first();
+    // "Synapse Overview" is excluded from the knowledge graph (navigational singleton) and
+    // now sorts first (2.1.3: boot vault indexes it at startup) — pick a graph-backed row.
+    const firstRow = page.locator(".nav-tree__page-row").filter({ hasNotText: "Synapse Overview" }).first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
     await firstRow.click();
 
@@ -839,7 +844,9 @@ test.describe("D5 screenshots at 1440x900 (I8 / AC-R9-6-3)", () => {
     await navTo(page, "pages");
     // PanelGroup renders two NavTree + two PreviewPanel instances; use .first() (PanelGroup.tsx).
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 10_000 });
-    const firstRow = page.locator(".nav-tree__page-row").first();
+    // "Synapse Overview" is excluded from the knowledge graph (navigational singleton) and
+    // now sorts first (2.1.3: boot vault indexes it at startup) — pick a graph-backed row.
+    const firstRow = page.locator(".nav-tree__page-row").filter({ hasNotText: "Synapse Overview" }).first();
     await expect(firstRow).toBeVisible({ timeout: 8_000 });
     await firstRow.click();
     // Wait for preview to populate.
