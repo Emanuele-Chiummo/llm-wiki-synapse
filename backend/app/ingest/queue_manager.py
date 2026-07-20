@@ -500,6 +500,31 @@ class IngestQueueManager:
 
         return source_path, new_count
 
+    def register_converged_false_for_retry(
+        self,
+        run_id: uuid.UUID,
+        source_path: str,
+    ) -> None:
+        """
+        Register a converged_false run as retryable so request_retry() can find it.
+
+        converged_false runs are treated as successes by finalize_run() and are NOT
+        stored in _recent_failed.  When a user explicitly retries a converged_false
+        run the router calls this method (after DB-verifying the status) to insert a
+        FailedEntry, then immediately calls request_retry() — which proceeds normally.
+
+        Idempotent: if source_path is already in _recent_failed (e.g. a subsequent
+        failed attempt was tracked) this is a no-op so the existing entry wins.
+        """
+        if source_path not in self._recent_failed:
+            self._recent_failed[source_path] = FailedEntry(
+                run_id=run_id,
+                source_path=source_path,
+                error=None,
+                retry_count=self._retry_counts.get(source_path, 0),
+                started_at=None,
+            )
+
     def get_retry_count(self, source_path: str) -> int:
         """Return the current retry count for a source_path (0 if absent)."""
         return self._retry_counts.get(source_path, 0)

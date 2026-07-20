@@ -10,17 +10,46 @@
 
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
+import { useState, useCallback } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { IngestRunDiagnostics } from "../../api/types";
-import { useIngestStore, selectRuns, selectSelectedRunId } from "../../store/ingestStore";
+import {
+  useIngestStore,
+  selectRuns,
+  selectSelectedRunId,
+  selectRetryRun,
+} from "../../store/ingestStore";
+import { MaxRetriesExceededError } from "../../api/ingestClient";
+import { showToast } from "../common/Toast";
 import { formatCost } from "./IngestRunList";
 
-export function IngestRunDetail() {
+export function IngestRunDetail({ vaultId }: { vaultId?: string } = {}) {
   const { t } = useTranslation();
   const runs = useIngestStore(useShallow(selectRuns));
   const selectedRunId = useIngestStore(selectSelectedRunId);
+  const retryRun = useIngestStore(selectRetryRun);
+
+  const [retrying, setRetrying] = useState(false);
 
   const run = runs.find((r) => r.id === selectedRunId) ?? null;
+
+  const handleRetry = useCallback(async () => {
+    if (!run) return;
+    setRetrying(true);
+    try {
+      const res = await retryRun(run.id, vaultId);
+      showToast(t("ingest.toastRetryQueued", { file: res.source_path }), "success");
+    } catch (err: unknown) {
+      if (err instanceof MaxRetriesExceededError) {
+        showToast(t("ingest.toastRetryMaxRetries"), "error");
+      } else {
+        const detail = err instanceof Error ? err.message : t("common.unknown");
+        showToast(t("ingest.toastRetryError", { detail }), "error");
+      }
+    } finally {
+      setRetrying(false);
+    }
+  }, [run, retryRun, vaultId, t]);
 
   if (!run) {
     return (
@@ -62,19 +91,48 @@ export function IngestRunDetail() {
           flexShrink: 0,
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
-          {t("ingest.manifest")}
-        </h3>
-        <p
-          style={{
-            margin: "2px 0 0",
-            fontSize: 11,
-            color: "var(--syn-text-muted)",
-            fontFamily: "var(--syn-font-mono)",
-          }}
-        >
-          {run.id.slice(0, 8)}…
-        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--syn-text)" }}>
+              {t("ingest.manifest")}
+            </h3>
+            <p
+              style={{
+                margin: "2px 0 0",
+                fontSize: 11,
+                color: "var(--syn-text-muted)",
+                fontFamily: "var(--syn-font-mono)",
+              }}
+            >
+              {run.id.slice(0, 8)}…
+            </p>
+          </div>
+          {/* Retry button — shown only for retryable terminal states */}
+          {(run.status === "converged_false" || run.status === "failed") && (
+            <button
+              data-testid="ingest-run-retry"
+              onClick={() => void handleRetry()}
+              disabled={retrying}
+              aria-label={t("ingest.retryRun")}
+              title={t("ingest.retryRun")}
+              style={{
+                background: "none",
+                border: "1px solid var(--syn-border)",
+                borderRadius: 4,
+                padding: "4px 10px",
+                cursor: retrying ? "wait" : "pointer",
+                color: "var(--syn-accent)",
+                fontSize: 12,
+                fontWeight: 500,
+                lineHeight: 1.4,
+                flexShrink: 0,
+                opacity: retrying ? 0.5 : 1,
+              }}
+            >
+              {retrying ? "…" : t("ingest.retryRun")}
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Body */}

@@ -1587,21 +1587,33 @@ async def retry_ingest_run(run_id: uuid.UUID) -> QueueRetryResponse:
     """
     from app.ingest.queue_manager import ingest_queue as _iq
 
-    # ── ADR-0085 §4: read diagnostics from the failed run (best-effort) ─────────
+    # ── ADR-0085 §4: read diagnostics (and status/source_path for converged_false) ─
     prior_failure_context: str | None = None
+    _db_status: str | None = None
+    _db_source_path: str | None = None
     try:
         from sqlalchemy import text as _sa_text  # noqa: PLC0415
 
         async with runtime_state.get_session() as _sess:
             _res = await _sess.execute(
-                _sa_text("SELECT diagnostics FROM ingest_runs WHERE CAST(id AS TEXT) = :rid"),
+                _sa_text(
+                    "SELECT diagnostics, status, source_path"
+                    " FROM ingest_runs WHERE CAST(id AS TEXT) = :rid"
+                ),
                 {"rid": str(run_id)},
             )
             _row = _res.fetchone()
-            if _row is not None and _row[0] is not None:
-                prior_failure_context = _format_retry_failure_context(_row[0])
+            if _row is not None:
+                _diag, _db_status, _db_source_path = _row[0], _row[1], _row[2]
+                if _diag is not None:
+                    prior_failure_context = _format_retry_failure_context(_diag)
     except Exception:  # noqa: BLE001 — best-effort; retry proceeds even without context
-        logger.debug("retry: could not load diagnostics for run_id=%s (non-fatal)", run_id)
+        logger.debug("retry: could not load run row for run_id=%s (non-fatal)", run_id)
+
+    # ── converged_false runs are tracked as successes in the queue manager and are
+    # NOT in _recent_failed.  Register them so request_retry() can find them. ────
+    if _db_status == "converged_false" and _db_source_path is not None:
+        _iq.register_converged_false_for_retry(run_id, _db_source_path)
 
     try:
         result = _iq.request_retry(run_id, prior_failure_context=prior_failure_context)
