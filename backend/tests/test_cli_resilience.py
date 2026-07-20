@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import sys
 import types
+from pathlib import Path
 from typing import Any
 
 import app.ingest.block_loop as block_loop_mod
@@ -186,6 +187,69 @@ async def test_complete_bounds_max_thinking_tokens(monkeypatch: pytest.MonkeyPat
     assert (
         0 < captured["max_thinking_tokens"] <= 4_096
     ), f"max_thinking_tokens must leave headroom for the answer, got {captured.get('max_thinking_tokens')!r}"
+
+
+@pytest.mark.asyncio
+async def test_complete_routes_system_prompt_through_temp_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    2.1.5 regression: claude-agent-sdk puts a plain-string ``system_prompt`` directly onto the
+    spawned `claude` CLI's argv (--system-prompt <text>). Synapse's block-loop system prompt
+    folds in schema.md/purpose.md/index.md, and index.md is UNBOUNDED by design (grows with every
+    page ever ingested) — so a large enough vault trips the kernel's ARG_MAX and the child
+    process fails with "Argument list too long" (E2BIG), aborting the whole ingest run. Live
+    evidence: exactly this error reported during ingest. ``complete()`` must pass system_prompt as
+    a SystemPromptFile ({"type": "file", "path": ...}) instead of the raw string, and the file's
+    contents must round-trip the original text.
+    """
+    captured: dict[str, Any] = {}
+    captured_file_contents: dict[str, str] = {}
+    text_msg = _FakeUsageMsg()
+    text_msg.content = [type("Block", (), {"text": "---FILE: wiki/x.md---\nhi\n---END FILE---"})()]
+
+    class _CapturingClient:
+        def __init__(self, options: Any) -> None:
+            captured.update(options)
+            # Read the temp file's contents NOW (while the `with _system_prompt_file(...)` block
+            # in complete() is still open) — it is unlinked as soon as that block exits, before
+            # complete() returns, so reading it after the fact would always see it already gone.
+            sp = options.get("system_prompt")
+            if isinstance(sp, dict) and sp.get("type") == "file":
+                captured_file_contents["text"] = Path(sp["path"]).read_text(encoding="utf-8")
+
+        async def __aenter__(self) -> _CapturingClient:
+            return self
+
+        async def __aexit__(self, *exc: object) -> None:
+            return None
+
+        async def query(self, prompt: str) -> None:
+            return None
+
+        async def receive_response(self):  # type: ignore[no-untyped-def]
+            yield text_msg
+
+    fake = types.ModuleType("claude_agent_sdk")
+    fake.ClaudeSDKClient = _CapturingClient  # type: ignore[attr-defined]
+    fake.ClaudeAgentOptions = lambda **kw: kw  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "claude_agent_sdk", fake)
+
+    huge_system_prompt = "schema.md content\n" + ("x" * 2_000_000)  # would blow argv/ARG_MAX raw
+    provider = CliAgentProvider(_settings())
+    provider.bind_accumulator(UsageAccumulator())
+    text = await provider.complete(huge_system_prompt, "prompt", max_tokens=8_192)
+
+    assert text == "---FILE: wiki/x.md---\nhi\n---END FILE---"
+    system_prompt_option = captured.get("system_prompt")
+    assert isinstance(system_prompt_option, dict), (
+        f"system_prompt must be a SystemPromptFile dict, not a raw string (argv/E2BIG risk); "
+        f"got {type(system_prompt_option)!r}"
+    )
+    assert system_prompt_option.get("type") == "file"
+    assert captured_file_contents.get("text") == huge_system_prompt
+    # The temp file must be cleaned up once the session (the `with` block in complete()) exits.
+    assert not Path(system_prompt_option["path"]).exists()
 
 
 @pytest.mark.asyncio
