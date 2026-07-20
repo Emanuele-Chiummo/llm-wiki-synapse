@@ -104,6 +104,7 @@ class SweepResult:
     rule_resolved: int
     llm_resolved: int
     kept: int
+    corpus_proposed: int = 0  # SC-D3: synthesis/comparison proposals seeded in Pass 3
 
 
 # ── AI seam implementations (ADR-0034 §11.2) ─────────────────────────────────
@@ -431,6 +432,139 @@ async def propose_corpus_shape_review(
             exc,
         )
         return None
+
+
+async def _sweep_corpus_shape_proposals(vault_id: str, max_clusters: int) -> int:
+    """
+    Pass 3 of sweep_reviews (SC-D3): seed synthesis/comparison REVIEW proposals from the
+    4-signal graph without requiring the user to explicitly trigger /ops/synthesize.
+
+    Deterministic cluster heuristic (same one synthesize._run_inner uses): 2 indexed SQL reads
+    + pure Python.  NO provider call, NO vault walk — purely rule-based and cheap (I1/I2/I9).
+
+    Only the REVIEW band is surfaced here: [REVIEW_CONFIDENCE_FLOOR, AUTO_CONFIDENCE_THRESHOLD).
+    * Clusters above AUTO_CONFIDENCE_THRESHOLD belong to /ops/synthesize auto-write.
+    * Clusters below REVIEW_CONFIDENCE_FLOOR are noise — skip (never spam the queue).
+
+    Idempotent: each proposal carries ``content_key = generation_key``, so ``enqueue_review``
+    upserts-on-(vault_id, content_key) — a second sweep (or a later /ops/synthesize run in
+    review-only mode) does NOT create a duplicate row.
+
+    Bounded at ``max_clusters`` (I7). Returns count of proposals successfully enqueued (≥0).
+    Never raises — any failure is logged as WARNING (non-fatal complement to the sweep passes).
+
+    Deferred imports from ``app.ops.synthesize`` avoid the circular-at-module-level import
+    (synthesize.py imports ``app.ops.review`` at call time too — the same deferred pattern).
+    """
+    # Deferred import — synthesize imports app.ops.review at call time, so a top-level import
+    # here would create a circular dependency at module load. This matches the monkeypatch-compat
+    # pattern used throughout this file (see module docstring).
+    try:
+        from app.ops.synthesize import (  # noqa: PLC0415
+            AUTO_CONFIDENCE_THRESHOLD,
+            REVIEW_CONFIDENCE_FLOOR,
+            _build_clusters,
+            _default_title,
+            _generation_key,
+            _generation_key_exists,
+            _load_graph_data,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_corpus_shape_proposals: synthesize import failed (non-fatal): %s", exc
+        )
+        return 0
+
+    try:
+        pages, links = await _load_graph_data(vault_id)
+        clusters = _build_clusters(pages, links)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "_sweep_corpus_shape_proposals: cluster seeding failed (vault=%s, non-fatal): %s",
+            vault_id,
+            exc,
+        )
+        return 0
+
+    proposed = 0
+    evaluated = 0
+    for cluster in clusters:
+        if evaluated >= max_clusters:
+            logger.debug(
+                "_sweep_corpus_shape_proposals: reached max_clusters=%d (vault=%s)",
+                max_clusters,
+                vault_id,
+            )
+            break
+        evaluated += 1
+
+        # Only the REVIEW band — auto-write candidates belong to /ops/synthesize.
+        if cluster.confidence < REVIEW_CONFIDENCE_FLOOR:
+            continue
+        if cluster.confidence >= AUTO_CONFIDENCE_THRESHOLD:
+            continue
+
+        # Skip clusters already covered by an existing auto-written synthesis/comparison page
+        # (a previous /ops/synthesize run may have written it since the last sweep).
+        try:
+            gkey = _generation_key(cluster)
+            if await _generation_key_exists(vault_id, gkey):
+                logger.debug(
+                    "_sweep_corpus_shape_proposals: cluster already written (key=%s, vault=%s)",
+                    gkey,
+                    vault_id,
+                )
+                continue
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_sweep_corpus_shape_proposals: generation_key_exists failed (non-fatal): %s", exc
+            )
+            continue
+
+        title = _default_title(cluster)
+        rationale = (
+            f"Graph signals suggest a {cluster.kind} across "
+            f"{', '.join(cluster.titles[:4])}"
+            f"{' and others' if len(cluster.titles) > 4 else ''} "
+            f"(shared-source overlap; confidence={cluster.confidence:.2f}). "
+            "Review and Create to author it, or Skip."
+        )
+
+        try:
+            item = await propose_corpus_shape_review(
+                vault_id=vault_id,
+                kind=cluster.kind,
+                proposed_title=title,
+                cluster_page_ids=list(cluster.page_ids),
+                rationale=rationale,
+                generation_key=gkey,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "_sweep_corpus_shape_proposals: propose failed (vault=%s kind=%s): %s",
+                vault_id,
+                cluster.kind,
+                exc,
+            )
+            continue
+
+        if item is not None:
+            proposed += 1
+            logger.debug(
+                "_sweep_corpus_shape_proposals: proposed %s %r (vault=%s conf=%.2f)",
+                cluster.kind,
+                title,
+                vault_id,
+                cluster.confidence,
+            )
+
+    logger.info(
+        "_sweep_corpus_shape_proposals: vault=%s evaluated=%d proposed=%d",
+        vault_id,
+        evaluated,
+        proposed,
+    )
+    return proposed
 
 
 def _rule_missing_page_search_queries(
@@ -1128,6 +1262,22 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
         except Exception as exc:  # noqa: BLE001
             logger.warning("sweep_reviews: Pass-2 failed (non-fatal): %s", exc)
 
+    # ── Pass 3: corpus-shape proposal seeding (SC-D3) ────────────────────────
+    # Deterministic, provider-free: seeds synthesis/comparison review items for the REVIEW
+    # band clusters the graph detects, so they surface in normal operation (not only when
+    # /ops/synthesize is explicitly triggered). Idempotent via content_key dedup.
+    corpus_proposed = 0
+    corpus_shape_enabled = bool(getattr(settings, "review_corpus_shape_enabled", True))
+    if corpus_shape_enabled:
+        try:
+            _max_clusters = max(
+                1,
+                int(getattr(settings, "review_corpus_shape_max_clusters", 40)),
+            )
+            corpus_proposed = await _sweep_corpus_shape_proposals(vault_id, _max_clusters)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("sweep_reviews: Pass-3 corpus-shape failed (non-fatal): %s", exc)
+
     # Count kept (still pending after both passes)
     try:
         async with _db.get_session() as session:
@@ -1145,10 +1295,16 @@ async def sweep_reviews(vault_id: str) -> SweepResult:
         kept_count = 0
 
     logger.info(
-        "sweep_reviews: vault=%s rule_resolved=%d llm_resolved=%d kept=%d",
+        "sweep_reviews: vault=%s rule_resolved=%d llm_resolved=%d kept=%d corpus_proposed=%d",
         vault_id,
         rule_resolved,
         llm_resolved,
         kept_count,
+        corpus_proposed,
     )
-    return SweepResult(rule_resolved=rule_resolved, llm_resolved=llm_resolved, kept=kept_count)
+    return SweepResult(
+        rule_resolved=rule_resolved,
+        llm_resolved=llm_resolved,
+        kept=kept_count,
+        corpus_proposed=corpus_proposed,
+    )
