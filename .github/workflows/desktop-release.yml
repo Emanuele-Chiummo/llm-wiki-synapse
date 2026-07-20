@@ -220,6 +220,7 @@ jobs:
       # result in a shipped build missing the changelog. [F15]
       - name: Verify CHANGELOG in built frontend
         if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         run: |
           CHANGELOG_PATH="frontend/dist/CHANGELOG.md"
           if [ ! -f "$CHANGELOG_PATH" ] || [ ! -s "$CHANGELOG_PATH" ]; then
