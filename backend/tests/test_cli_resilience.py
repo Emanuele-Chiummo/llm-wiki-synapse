@@ -142,6 +142,53 @@ async def test_complete_clean_empty_raises_empty_output(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
+async def test_complete_bounds_max_thinking_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    2.1.4 regression: a reasoning-heavy single turn (max_turns=1, no tools) can spend its
+    ENTIRE budget on internal thinking and emit zero visible FILE-block text — the SDK reports
+    no error, so this was previously indistinguishable from a genuine clean no-op, and the
+    block loop just retried with an even bigger (error-augmented) prompt every time. Live
+    evidence: "generation produced no FILE blocks (0 parsed)" repeating for all 3 iterations of
+    a run. ClaudeAgentOptions.max_thinking_tokens must be set and bounded so headroom for the
+    actual answer always remains, regardless of max_turns.
+    """
+    captured: dict[str, Any] = {}
+    text_msg = _FakeUsageMsg()
+    text_msg.content = [type("Block", (), {"text": "---FILE: wiki/x.md---\nhi\n---END FILE---"})()]
+
+    class _CapturingClient:
+        def __init__(self, options: Any) -> None:
+            captured.update(options)
+
+        async def __aenter__(self) -> _CapturingClient:
+            return self
+
+        async def __aexit__(self, *exc: object) -> None:
+            return None
+
+        async def query(self, prompt: str) -> None:
+            return None
+
+        async def receive_response(self):  # type: ignore[no-untyped-def]
+            yield text_msg
+
+    fake = types.ModuleType("claude_agent_sdk")
+    fake.ClaudeSDKClient = _CapturingClient  # type: ignore[attr-defined]
+    fake.ClaudeAgentOptions = lambda **kw: kw  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "claude_agent_sdk", fake)
+
+    provider = CliAgentProvider(_settings())
+    provider.bind_accumulator(UsageAccumulator())
+    text = await provider.complete("sys", "prompt", max_tokens=8_192)
+
+    assert text == "---FILE: wiki/x.md---\nhi\n---END FILE---"
+    assert captured.get("max_thinking_tokens") is not None
+    assert (
+        0 < captured["max_thinking_tokens"] <= 4_096
+    ), f"max_thinking_tokens must leave headroom for the answer, got {captured.get('max_thinking_tokens')!r}"
+
+
+@pytest.mark.asyncio
 async def test_complete_records_usage_even_when_sdk_raises_midstream(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
