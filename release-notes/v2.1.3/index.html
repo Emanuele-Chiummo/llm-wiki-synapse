@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0081-onboarding-wizard-and-output-language/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.3/">
       
       
+        <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
+      
+      
+        <link rel="next" href="../v2.1.2/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0081 — New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0) - Synapse</title>
+        <title>v2.1.3 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0081-new-vault-onboarding-wizard-scenario-templates-and-per-vault-output-language-v170" class="md-skip">
+        <a href="#synapse-v213-overview-at-boot" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0081 — New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0)
+              v2.1.3
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -535,8 +539,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -547,11 +553,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
           <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
@@ -572,7 +578,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -587,10 +593,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.3
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -606,6 +639,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -618,7 +693,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -646,7 +721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -674,7 +749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -702,7 +777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -730,7 +805,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -758,7 +833,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -786,7 +861,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -814,7 +889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -842,7 +917,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -870,7 +945,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -898,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -926,7 +1001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -954,7 +1029,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -982,7 +1057,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1010,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1038,7 +1113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1066,7 +1141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1094,7 +1169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1122,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1150,7 +1225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1178,7 +1253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1206,7 +1281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1234,7 +1309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1262,7 +1337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1290,7 +1365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1318,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1346,7 +1421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1374,7 +1449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1402,7 +1477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1430,7 +1505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1458,7 +1533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1486,7 +1561,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1514,7 +1589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1542,7 +1617,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1597,10 +1672,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Fixed
       
     </span>
   </a>
@@ -1608,71 +1683,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Decision">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-scenario-templates-carry-structure-not-just-prose" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Scenario templates carry structure, not just prose
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-scaffold-applies-the-scenario-at-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Scaffold applies the scenario at creation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-per-vault-output-language-is-stored-not-re-detected" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Per-vault output language is stored, not re-detected
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-onboarding-is-a-wizard-that-auto-activates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Onboarding is a wizard that auto-activates
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
+        Upgrade notes
       
     </span>
   </a>
@@ -1696,59 +1710,32 @@
 
 
 
-<h1 id="adr-0081-new-vault-onboarding-wizard-scenario-templates-and-per-vault-output-language-v170">ADR-0081 — New-vault onboarding wizard, scenario templates, and per-vault output language (v1.7.0)<a class="headerlink" href="#adr-0081-new-vault-onboarding-wizard-scenario-templates-and-per-vault-output-language-v170" title="Permanent link">&para;</a></h1>
+<h1 id="synapse-v213-overview-at-boot">Synapse v2.1.3 — "overview at boot"<a class="headerlink" href="#synapse-v213-overview-at-boot" title="Permanent link">&para;</a></h1>
+<p>Patch release fixing a freshly-booted default vault's Overview section being permanently
+stuck at 0 in the NavTree. No schema migrations.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> Accepted</li>
-<li><strong>Date:</strong> 2026-07-14</li>
-<li><strong>Amends:</strong> ADR-0082 (multi-vault Project Launcher)</li>
-<li><strong>Migration:</strong> 0032 (<code>vault_state.output_language</code>, nullable)</li>
-<li><strong>Invariants touched:</strong> I5, I6, I8</li>
-<li><strong>Reference:</strong> <code>docs/reference/LLMWIKI-CORE-LOGIC-v0.6.3.md</code> §4</li>
+<li><strong>Boot vault never indexed overview.md/index.md/log.md</strong>: <code>index_bootstrap_meta_files()</code>
+  (added in an earlier release, NC-3) was only ever wired into <code>POST /projects</code>, so a
+  newly-created project vault got its 3 meta files indexed as Page rows immediately. The
+  <strong>boot vault</strong> (<code>settings.vault_root</code>, bootstrapped by <code>bootstrap_vault()</code> in the app's
+  lifespan startup — what a single-vault install actually uses) never got the same call:
+  overview.md/index.md/log.md existed on disk but had zero Page rows until an ingest
+  queue-drain happened to touch overview.md (2.1.2, ADR-0089). A freshly-booted default vault
+  therefore showed a permanent "OVERVIEW: 0" in the NavTree with no way to make it appear
+  short of running an ingest. Fixed by calling the same indexer for the boot vault right after
+  <code>_seed_vault_state()</code> in lifespan startup — idempotent and I1-compliant (targeted 3-file
+  index, no vault scan).</li>
+<li><strong>E2E test-locator regression surfaced by the fix above (not a product bug)</strong>: since
+  overview.md is now indexed at boot and — by design — always sorts first in the tree (a
+  singleton entry-point, deliberately excluded from the knowledge graph), 6 E2E locators
+  across <code>csp.spec.ts</code>/<code>shell-m4-phase1.spec.ts</code>/<code>v09-happy-paths.spec.ts</code> that picked "the
+  first page row" assuming it would be a normal graph-backed content page needed to exclude
+  it explicitly.</li>
 </ul>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>nashsu/llm_wiki's create-project dialog asks for <strong>Name + AI Output Language (mandatory, "auto"
-excluded) + Parent Directory + Template</strong>, then scaffolds the vault and overwrites <code>schema.md</code> /
-<code>purpose.md</code> from the chosen template (which also creates template-specific extra directories and
-custom page types). Synapse's launcher asked only name + path, did <strong>not</strong> auto-activate the new
-vault (the user had to click the row → hard reload), and kept scenario templates siloed in
-Settings ("Modelli di scenario") applying only to the already-active vault. There was no per-vault
-output language — ingest detected it per source.</p>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<h3 id="1-scenario-templates-carry-structure-not-just-prose">1. Scenario templates carry structure, not just prose<a class="headerlink" href="#1-scenario-templates-carry-structure-not-just-prose" title="Permanent link">&para;</a></h3>
-<p><code>scenarios_data.py</code> ports llm_wiki's 5 templates (research, reading, personal-growth, business,
-general) with a proper <code>## Page Types</code> table (base 6 rows + the template's custom types in
-<code>wiki/&lt;dir&gt;/</code> form, consumed by ADR-0077 routing) and an <code>extra_dirs</code> list. A short Synapse
-addendum ("content pages must carry a non-empty <code>sources:</code>") is appended rather than editing the
-verbatim body.</p>
-<h3 id="2-scaffold-applies-the-scenario-at-creation">2. Scaffold applies the scenario at creation<a class="headerlink" href="#2-scaffold-applies-the-scenario-at-creation" title="Permanent link">&para;</a></h3>
-<p><code>bootstrap_vault_at(vault, *, scenario_id=None, output_language=None)</code> overwrites root
-<code>schema.md</code> / <code>purpose.md</code> from the template, creates its <code>extra_dirs</code>, seeds <code>index.md</code> with
-per-type sections plus a code-owned empty <code>## Recently Updated</code> section (the bounded catalogue
-that ingest appends to — WS-B), and writes <code>log.md</code>'s first <code>- Project created</code> entry.
-<code>POST /projects</code> accepts <code>scenario</code> and <code>output_language</code> (400 on an unknown scenario) and
-persists <code>output_language</code> into the new vault's <code>vault_state</code> row. <code>apply_scenario</code> (Settings
-re-apply) now also creates <code>extra_dirs</code>.</p>
-<h3 id="3-per-vault-output-language-is-stored-not-re-detected">3. Per-vault output language is stored, not re-detected<a class="headerlink" href="#3-per-vault-output-language-is-stored-not-re-detected" title="Permanent link">&para;</a></h3>
-<p>Migration 0032 adds nullable <code>vault_state.output_language</code> (ISO-639-1; NULL = auto / pre-1.7.0
-vault). The block ingest prompts (ADR-0076) read it to emit the MANDATORY OUTPUT LANGUAGE
-directive; when NULL they fall back to per-source detection. <code>GET</code>/<code>PUT /vault/meta/output-language</code>
-expose it for later editing in Settings.</p>
-<h3 id="4-onboarding-is-a-wizard-that-auto-activates">4. Onboarding is a wizard that auto-activates<a class="headerlink" href="#4-onboarding-is-a-wizard-that-auto-activates" title="Permanent link">&para;</a></h3>
-<p>The frontend <code>NewProjectWizard</code> (modal, reusing the <code>FirstRunWizard</code> pattern) walks Name +
-Parent Directory → mandatory Output Language ("auto" excluded) → Template (5 cards, general
-default) → Create, then <strong>activates the new vault and reloads</strong> — closing the no-auto-activate
-gap. The Settings scenario cards remain for re-applying to an existing vault.</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<ul>
-<li>New-vault UX matches llm_wiki: language and scenario are chosen up front and take effect at
-  scaffold time, and the vault is immediately usable.</li>
-<li>I6 preserved: <code>output_language</code> is data read by the provider-neutral prompt builders, not a
-  provider branch. I5 preserved: templates keep <code>wiki/</code> a valid Obsidian vault.</li>
-<li>Existing vaults are unaffected (output_language NULL → prior auto behavior; no page rewrite).</li>
-<li>I8: this ADR, migration 0032 + regenerated ER (D2), the regenerated OpenAPI (D4), and
-  <code>test_projects_create_scenario.py</code> (30 cases) satisfy the docs gate; the frontend wizard adds
-  D5 screenshots in a later PR.</li>
-</ul>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>No schema migrations. On upgrade, a freshly-booted default vault will show pages under
+Overview immediately rather than only after the first ingest run.</p>
 
 
 
