@@ -214,6 +214,21 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
+
+      # Verify CHANGELOG.md was copied into the frontend dist build.
+      # This catches silent failures in copy-changelog.mjs that could
+      # result in a shipped build missing the changelog. [F15]
+      - name: Verify CHANGELOG in built frontend
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          CHANGELOG_PATH="frontend/dist/CHANGELOG.md"
+          if [ ! -f "$CHANGELOG_PATH" ] || [ ! -s "$CHANGELOG_PATH" ]; then
+            echo "ERROR: $CHANGELOG_PATH not found or empty after build"
+            echo "This likely indicates copy-changelog.mjs failed silently"
+            exit 1
+          fi
+          echo "✓ CHANGELOG.md present in frontend/dist ($(wc -l < "$CHANGELOG_PATH") lines)"
+
       # Portable Windows build: the raw, self-contained Tauri executable (the whole
       # frontend is embedded). No installer, no registry — runs from any folder / USB
       # stick; only needs the WebView2 runtime (present on Win10 21H2+/Win11). Does NOT

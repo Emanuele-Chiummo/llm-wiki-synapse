@@ -94,6 +94,37 @@ fn main() {
                     .build(app)?;
             }
 
+            // macOS window close-to-hide: on macOS, closing the window should hide it and
+            // keep the app running (standard macOS convention). On Windows/Linux, close
+            // actually closes the app. [F15 cross-platform]
+            {
+                use tauri::Manager;
+                use tauri::WindowEvent;
+
+                if let Some(main_window) = app.get_webview_window("main") {
+                    main_window.on_window_event({
+                        let app_handle = app.app_handle().clone();
+                        move |event| {
+                            if let WindowEvent::CloseRequested { api, .. } = event {
+                                #[cfg(target_os = "macos")]
+                                {
+                                    // On macOS: prevent the default close action and hide instead
+                                    api.prevent_close();
+                                    if let Some(w) = app_handle.get_webview_window("main") {
+                                        let _ = w.hide();
+                                    }
+                                }
+                                #[cfg(not(target_os = "macos"))]
+                                {
+                                    // On Windows/Linux, allow close to proceed normally
+                                    // (don't call prevent_close())
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
