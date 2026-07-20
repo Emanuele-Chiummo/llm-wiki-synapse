@@ -553,8 +553,12 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     // the graph-canvas wait elsewhere in this same suite (AC-CSP-8).
     await expect(navTree).toBeVisible({ timeout: 20_000 });
 
-    // Click the math test page row.
-    const mathRow = page.locator(".nav-tree__page-row").first();
+    // Click the math test page row. Exclude "Synapse Overview" — it now sorts first (2.1.3:
+    // boot vault indexes it at startup) but has no math content to render.
+    const mathRow = page
+      .locator(".nav-tree__page-row")
+      .filter({ hasNotText: "Synapse Overview" })
+      .first();
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mathRow.click();
       // Wait for NoteView (the center content pane, NOT the unrelated right-side
@@ -675,7 +679,12 @@ test.describe("KaTeX math rendering under CSP (AC-CSP-7)", () => {
     await navTo(page, "pages");
     await expect(page.getByTestId("nav-tree").first()).toBeVisible({ timeout: 20_000 });
 
-    const mathRow = page.locator(".nav-tree__page-row").first();
+    // Exclude "Synapse Overview" — it now sorts first (2.1.3: boot vault indexes it at
+    // startup) but has no math content to render.
+    const mathRow = page
+      .locator(".nav-tree__page-row")
+      .filter({ hasNotText: "Synapse Overview" })
+      .first();
     if (await mathRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await mathRow.click();
       await expect(page.getByTestId("note-view").first().locator(".katex").first()).toBeVisible({
