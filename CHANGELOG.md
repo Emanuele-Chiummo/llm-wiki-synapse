@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.5] — 2026-07-20 — "no more argv"
+
+Patch release fixing a live-observed ingest failure on large vaults. No schema migrations.
+
+### Fixed
+
+- **CLI provider ingest could fail with "Argument list too long" on large vaults**: live
+  evidence — a ~150-file ingest run processed roughly 30 files cleanly, then every subsequent
+  file failed the same way. Root cause: `claude-agent-sdk` passes a plain-string
+  `ClaudeAgentOptions.system_prompt` directly as a `claude` CLI command-line argument, not via
+  stdin. Synapse's block-loop system prompt (the default ingest path) folds in
+  `schema.md`/`purpose.md`/`wiki/index.md`, and `index.md` is unbounded by design — it grows
+  by one entry per page ever ingested — so as the vault (and thus the prompt) grows, the
+  argument list eventually exceeds the kernel's `ARG_MAX`, and the spawned `claude` process
+  fails to start (`E2BIG`) before a single message is exchanged. This explains why early files
+  in a large ingest run succeed and later ones deterministically fail once the vault crosses
+  the size threshold. Fixed by routing `system_prompt` through the SDK's `SystemPromptFile`
+  option (a scoped temp file) at all three `CliAgentProvider` call sites (chat, delegated
+  ingest, block-loop completion) instead of passing it as a raw argument.
+- **`wiki/index.md`'s contribution to the block-loop prompt was uncapped**: as a complementary
+  hardening (independent of the CLI-transport fix above, so it also bounds prompt size/cost on
+  the API and Local provider backends), `index.md` is now capped in the analysis/generation
+  system prompt the same way the review-stage prompt already caps its equivalent section.
+
 ## [2.1.4] — 2026-07-20 — "room to think"
 
 Patch release fixing a live-observed CLI-provider non-convergence mode. No schema migrations.
