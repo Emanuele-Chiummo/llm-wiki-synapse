@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.4] — 2026-07-20 — "room to think"
+
+Patch release fixing a live-observed CLI-provider non-convergence mode. No schema migrations.
+
+### Fixed
+
+- **CLI provider could emit zero visible text on a reasoning-heavy generation turn**: live
+  evidence — a run on the CLI provider stopped non-convergent after all 3 iterations, with
+  "generation produced no FILE blocks (0 parsed)" as the terminal validation error every time
+  (~43k/60k tokens spent). `CliAgentProvider.complete()` runs a `max_turns=1`,
+  `allowed_tools=[]` single-shot text generation but never bounded
+  `ClaudeAgentOptions.max_thinking_tokens` — the installed SDK does expose this field (a
+  stale code comment had claimed otherwise). A reasoning-heavy turn (a long/complex source, or
+  a retry whose prompt has grown with prior validation errors) could spend the ENTIRE turn's
+  budget on internal thinking and emit zero visible text; the SDK reports no error for this,
+  so it was indistinguishable from a genuine clean no-op, and because each retry's prompt only
+  grows (augmented with the prior "0 FILE blocks" error), the failure never self-corrected
+  across iterations. Fixed by bounding `max_thinking_tokens` so headroom for the actual
+  FILE-block answer always remains, regardless of `max_turns`.
+
 ## [2.1.3] — 2026-07-20 — "overview at boot"
 
 Patch release fixing a freshly-booted default vault's Overview section being permanently
