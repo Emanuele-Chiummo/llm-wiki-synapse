@@ -202,6 +202,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 2. Seed vault_state (ADR-0005, AC-F16dv-1) + load runtime caches
     #    (ADR-0032/0033/0040/0041/0072)
     await _seed_vault_state()
+
+    # 2a. Index the 3 bootstrap meta files (overview/index/log) for the BOOT vault (NC-3
+    #     follow-up, 2.1.3). index_bootstrap_meta_files() was only ever wired into the
+    #     POST /projects flow (projects.py) — the boot vault (settings.vault_root, created by
+    #     bootstrap_vault() above) never got the same treatment, so overview.md/index.md/log.md
+    #     existed on disk but had zero Page rows until the first ingest queue-drain happened to
+    #     touch them. Idempotent (upsert by (vault_id, file_path)) and I1-compliant (targeted
+    #     3-file index, no vault scan) — safe to call on every boot.
+    from app.ingest.orchestrator import index_bootstrap_meta_files  # noqa: PLC0415
+
+    await index_bootstrap_meta_files(vault_root=settings.vault_root, vault_id=settings.vault_id)
+
     await _load_remote_mcp_flag()
     await _load_mcp_write_flag()  # ADR-0072 §2: DB-wins-else-env precedence
     await _load_mcp_auth_cache()
