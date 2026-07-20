@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.3] — 2026-07-20 — "overview at boot"
+
+Patch release fixing a freshly-booted default vault's Overview section being permanently
+stuck at 0 in the NavTree. No schema migrations.
+
+### Fixed
+
+- **Boot vault never indexed overview.md/index.md/log.md**: `index_bootstrap_meta_files()`
+  (added in an earlier release, NC-3) was only ever wired into `POST /projects`, so a
+  newly-created project vault got its 3 meta files indexed as Page rows immediately. The
+  **boot vault** (`settings.vault_root`, bootstrapped by `bootstrap_vault()` in the app's
+  lifespan startup — what a single-vault install actually uses) never got the same call:
+  overview.md/index.md/log.md existed on disk but had zero Page rows until an ingest
+  queue-drain happened to touch overview.md (2.1.2, ADR-0089). A freshly-booted default vault
+  therefore showed a permanent "OVERVIEW: 0" in the NavTree with no way to make it appear
+  short of running an ingest. Fixed by calling the same indexer for the boot vault right after
+  `_seed_vault_state()` in lifespan startup — idempotent and I1-compliant (targeted 3-file
+  index, no vault scan).
+- **E2E test-locator regression surfaced by the fix above (not a product bug)**: since
+  overview.md is now indexed at boot and — by design — always sorts first in the tree (a
+  singleton entry-point, deliberately excluded from the knowledge graph), 6 E2E locators
+  across `csp.spec.ts`/`shell-m4-phase1.spec.ts`/`v09-happy-paths.spec.ts` that picked "the
+  first page row" assuming it would be a normal graph-backed content page needed to exclude
+  it explicitly.
+
 ## [2.1.2] — 2026-07-20 — "real root cause + live loose ends"
 
 Patch release fixing the actual root cause behind non-convergent ingest runs that kept
