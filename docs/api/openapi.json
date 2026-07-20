@@ -12096,6 +12096,12 @@
             "type": "integer",
             "title": "Kept",
             "description": "Items that remain pending after the sweep"
+          },
+          "corpus_proposed": {
+            "type": "integer",
+            "title": "Corpus Proposed",
+            "description": "Synthesis/comparison suggestions seeded from the graph in Pass-3 (SC-D3)",
+            "default": 0
           }
         },
         "type": "object",
