@@ -670,6 +670,14 @@ class CliAgentProvider(InferenceProvider):
             permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
             allowed_tools=[],  # NO tools — pure text generation (FILE blocks), never an agent loop
             max_turns=1,  # single-shot generation, like llm_wiki's text transport (I7)
+            # 2.1.4 fix: bound extended-thinking tokens so a reasoning-heavy turn (a long/complex
+            # source, or a retry whose prompt has grown with prior validation errors) cannot
+            # consume the ENTIRE single turn on internal thinking and emit zero visible FILE-block
+            # text — a clean (non-error) empty completion the SDK reports with no error signal,
+            # observed live as "generation produced no FILE blocks (0 parsed)" repeating across
+            # every retry iteration (the augmented prompt only grows, making it worse each time).
+            # Capping thinking guarantees headroom for the actual answer regardless of max_turns.
+            max_thinking_tokens=min(4_096, max(1_024, max_tokens // 2)),
         )
 
         parts: list[str] = []
@@ -698,8 +706,10 @@ class CliAgentProvider(InferenceProvider):
             # (I6): an empty completion coinciding with an error result (api_error_status / is_error
             # / error subtype) is transient (rate-limit / overloaded / execution error →
             # retry-with-backoff or single fallback); a clean empty is a genuine no-op.
-            # NOTE: max_tokens is advisory on the CLI backend — the installed ClaudeAgentOptions
-            # has no per-call output-token field; output is bounded by max_turns=1 + token_budget.
+            # NOTE: max_tokens is still advisory on the CLI backend — ClaudeAgentOptions has no
+            # per-call TOTAL output-token field; output is bounded by max_turns=1 + token_budget.
+            # max_thinking_tokens (2.1.4, set above) bounds only the reasoning portion, guarding
+            # against the specific failure this classifies as a "clean empty" below.
             reason = _sdk_result_error(result_message)
             if reason is not None:
                 raise ProviderTransientError(f"CliAgentProvider.complete(): {reason}")
