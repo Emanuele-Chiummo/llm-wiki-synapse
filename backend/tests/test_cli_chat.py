@@ -23,6 +23,7 @@ import logging
 import sys
 import types
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -96,6 +97,11 @@ class _Recorder:
     def __init__(self) -> None:
         self.options: dict[str, Any] | None = None
         self.prompt: str | None = None
+        # 2.1.5: system_prompt is now a SystemPromptFile ({"type": "file", "path": ...}), not a
+        # raw string (E2BIG/argv guard) — the temp file is unlinked as soon as the provider's
+        # `with _system_prompt_file(...)` block exits, so its content must be read out HERE, at
+        # _FakeClient construction time, while the file still exists.
+        self.system_prompt_text: str | None = None
 
 
 def _install_fake_sdk(
@@ -108,6 +114,9 @@ def _install_fake_sdk(
     class _FakeClient:
         def __init__(self, options: Any) -> None:
             recorder.options = options
+            sp = options.get("system_prompt")
+            if isinstance(sp, dict) and sp.get("type") == "file":
+                recorder.system_prompt_text = Path(sp["path"]).read_text(encoding="utf-8")
 
         async def __aenter__(self) -> _FakeClient:
             return self
@@ -177,9 +186,11 @@ async def test_chat_streams_text_deltas_and_injects_context(
 
     # Streamed verbatim text deltas, in order.
     assert deltas == ["Hello ", "world"]
-    # retrieval_context injected as the SDK system_prompt (AC-F17-CHAT-1b).
+    # retrieval_context injected as the SDK system_prompt (AC-F17-CHAT-1b), routed through a temp
+    # file rather than raw argv text (2.1.5, E2BIG guard) — see _Recorder above.
     assert recorder.options is not None
-    assert recorder.options["system_prompt"] == "PURPOSE+RETRIEVED-CONTEXT-MARKER"
+    assert recorder.options["system_prompt"]["type"] == "file"
+    assert recorder.system_prompt_text == "PURPOSE+RETRIEVED-CONTEXT-MARKER"
     # READ-ONLY chat: no write_page / fs-write tools granted.
     assert recorder.options["allowed_tools"] == []
     # model from provider_config (I6), never hardcoded.

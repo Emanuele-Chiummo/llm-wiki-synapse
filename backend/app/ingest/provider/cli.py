@@ -57,7 +57,10 @@ from collections.abc import AsyncIterator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from claude_agent_sdk.types import SystemPromptFile
 
 from app.ingest.provider._common import CAPTION_INSTRUCTION, resolve_image_bytes_and_media_type
 from app.ingest.provider.base import (
@@ -211,6 +214,31 @@ def _cli_subscription_env_scope(subscription_token: str | None) -> Iterator[None
         yield
 
 
+@contextmanager
+def _system_prompt_file(text: str) -> Iterator[SystemPromptFile]:
+    """
+    Write `text` to a scoped temp file and yield the SDK's SystemPromptFile option
+    (``{"type": "file", "path": ...}``) instead of passing the raw string.
+
+    claude-agent-sdk puts a plain-string ``system_prompt`` directly onto the spawned `claude`
+    CLI's argv (``--system-prompt <text>``, see the installed SDK's
+    ``_internal/transport/subprocess_cli.py:_build_command``). Synapse's system prompts fold in
+    schema.md/purpose.md/index.md (block-loop path) or the full retrieval context (chat) —
+    index.md in particular is UNBOUNDED by design, growing with every page ever ingested — so on
+    a large enough vault the argv (shared with the whole env block) trips the kernel's ARG_MAX
+    and the child `claude` process fails to spawn with "Argument list too long" (E2BIG). Routing
+    the text through a temp file keeps argv to a short path regardless of vault size.
+    """
+    fd, name = tempfile.mkstemp(suffix=".txt", prefix="synapse_system_prompt_")
+    path = Path(name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        yield {"type": "file", "path": str(path)}
+    finally:
+        path.unlink(missing_ok=True)
+
+
 @dataclass
 class DelegatedIngestResult:
     """Outcome of a CLI delegated ingest run (consumed by the orchestrator)."""
@@ -357,18 +385,6 @@ class CliAgentProvider(InferenceProvider):
         # Materialize any attached images to a scoped temp dir (empty list when none / vision off).
         image_paths, tmp_dir = _materialize_chat_images(messages, vision)
         allowed_tools = ["Read"] if image_paths else []  # scoped Read ONLY when images present
-        base_kwargs: dict[str, Any] = {
-            "model": self._model,  # from provider_config (I6)
-            "system_prompt": retrieval_context,  # light header + retrieved context (ADR-0022 §2.7)
-            "permission_mode": "acceptEdits",  # non-interactive (CLAUDE.md §5)
-            "allowed_tools": allowed_tools,  # [] text-only; ["Read"] scoped to tmp_dir for images
-            "max_turns": max_turns,  # third I7 bound (CHAT_AGENT_MAX_TURNS)
-        }
-        if tmp_dir is not None:
-            base_kwargs["cwd"] = tmp_dir  # scope Read to the temp dir
-        # v1.3.10: enable token-by-token partial-message streaming (SDK-version-guarded — see
-        # _build_chat_stream_options). This is the CHAT session only; delegate_ingest is untouched.
-        options = _build_chat_stream_options(options_cls, base_kwargs)
 
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         sdk_cost_usd: float | None = None
@@ -378,36 +394,54 @@ class CliAgentProvider(InferenceProvider):
         # mutated (Do-NOT #3). Env-sourced subscription / api-key inherit the ambient env unchanged.
         db_token = self._config.subscription_token
         try:
-            with _cli_subscription_env_scope(db_token):
-                async with client_cls(options=options) as client:
-                    await client.query(_build_chat_prompt(messages, image_paths))
-                    # v1.3.10 no-duplication contract: with include_partial_messages=True the SDK
-                    # yields BOTH incremental partial StreamEvents (text_delta) AND, at the end, the
-                    # COMPLETE AssistantMessage repeating the full text. We stream the partial
-                    # text_delta pieces and, once any partial has been seen, SKIP the complete
-                    # AssistantMessage text (it is the duplicate). If NO partial ever arrives (older
-                    # SDK ignored the flag, or partial streaming was unavailable), `saw_partial`
-                    # stays False and we fall back to yielding the complete message text once —
-                    # preserving the previous single-delta behaviour (back-compat).
-                    saw_partial = False
-                    async for message in client.receive_response():
-                        partial_deltas = _extract_partial_text_deltas(message)
-                        if partial_deltas:
-                            saw_partial = True
-                            for delta in partial_deltas:
-                                if delta:
-                                    yield delta
-                        elif not saw_partial:
-                            # No partials seen yet → yield the complete AssistantMessage text once.
-                            for delta in _extract_text_deltas(message):
-                                if delta:
-                                    yield delta
-                        # else: partial streaming active — the complete AssistantMessage duplicates
-                        # the already-streamed deltas; skip its text (NO double-yield).
-                        usage = _merge_sdk_usage(usage, message)
-                        msg_cost = _extract_sdk_cost(message)
-                        if msg_cost is not None:
-                            sdk_cost_usd = msg_cost
+            # 2.1.5 fix: route system_prompt through a temp file, not raw argv text (E2BIG guard,
+            # see _system_prompt_file docstring) — retrieval_context can be large.
+            with _system_prompt_file(retrieval_context) as system_prompt_option:
+                base_kwargs: dict[str, Any] = {
+                    "model": self._model,  # from provider_config (I6)
+                    "system_prompt": system_prompt_option,
+                    "permission_mode": "acceptEdits",  # non-interactive (CLAUDE.md §5)
+                    "allowed_tools": allowed_tools,  # [] text-only; ["Read"] for image tmp_dir
+                    "max_turns": max_turns,  # third I7 bound (CHAT_AGENT_MAX_TURNS)
+                }
+                if tmp_dir is not None:
+                    base_kwargs["cwd"] = tmp_dir  # scope Read to the temp dir
+                # v1.3.10: enable token-by-token partial-message streaming (SDK-version-guarded —
+                # see _build_chat_stream_options). CHAT session only; delegate_ingest is untouched.
+                options = _build_chat_stream_options(options_cls, base_kwargs)
+                with _cli_subscription_env_scope(db_token):
+                    async with client_cls(options=options) as client:
+                        await client.query(_build_chat_prompt(messages, image_paths))
+                        # v1.3.10 no-duplication contract: with include_partial_messages=True the
+                        # SDK yields BOTH incremental partial StreamEvents (text_delta) AND, at the
+                        # end, the COMPLETE AssistantMessage repeating the full text. We stream the
+                        # partial text_delta pieces and, once any partial has been seen, SKIP the
+                        # complete AssistantMessage text (it is the duplicate). If NO partial ever
+                        # arrives (older SDK ignored the flag, or partial streaming was
+                        # unavailable), `saw_partial` stays False and we fall back to yielding the
+                        # complete message text once — preserving the previous single-delta
+                        # behaviour (back-compat).
+                        saw_partial = False
+                        async for message in client.receive_response():
+                            partial_deltas = _extract_partial_text_deltas(message)
+                            if partial_deltas:
+                                saw_partial = True
+                                for delta in partial_deltas:
+                                    if delta:
+                                        yield delta
+                            elif not saw_partial:
+                                # No partials seen yet → yield the complete AssistantMessage text
+                                # once.
+                                for delta in _extract_text_deltas(message):
+                                    if delta:
+                                        yield delta
+                            # else: partial streaming active — the complete AssistantMessage
+                            # duplicates the already-streamed deltas; skip its text (NO
+                            # double-yield).
+                            usage = _merge_sdk_usage(usage, message)
+                            msg_cost = _extract_sdk_cost(message)
+                            if msg_cost is not None:
+                                sdk_cost_usd = msg_cost
         finally:
             # B2-C1: remove the whole scoped temp image dir (files + dir) — no leak. Best-effort
             # (never masks the stream outcome); ignore_errors so cleanup can't raise from finally.
@@ -472,18 +506,6 @@ class CliAgentProvider(InferenceProvider):
                 "Pass mcp_server=<FastMCP server>. See MCP INTEGRATION SEAM in cli.py."
             )
 
-        options = ClaudeAgentOptions(
-            model=self._model,  # from provider_config (I6)
-            system_prompt=system_prompt,  # schema.md + purpose.md (F2/F3)
-            permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
-            cwd=vault_dir,  # filesystem tools scoped to the vault
-            # In-process SDK MCP tools are namespaced by the SDK as mcp__<server>__<tool>, so the
-            # model must be granted the NAMESPACED names (bare names would never match). ADR-0010.
-            allowed_tools=[f"mcp__synapse__{n}" for n in MCP_TOOL_NAMES],
-            mcp_servers={"synapse": mcp_server},  # McpSdkServerConfig dict (create_sdk_mcp_server)
-            max_turns=max(1, int(self._config.max_iter)),  # delegated-loop turn bound (I7)
-        )
-
         pages_written = 0
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         # Cost the SDK reports on its terminal ResultMessage (None until we see it).
@@ -491,49 +513,64 @@ class CliAgentProvider(InferenceProvider):
         converged = False
         budget_interrupted = False
 
-        # ADR-0043 §2.3: DB-token subscription → inject CLAUDE_CODE_OAUTH_TOKEN + scrub
-        # ANTHROPIC_API_KEY from the child env for the duration of the SDK session, restored after
-        # (no-op for env-sourced subscription / api-key). Parent os.environ never permanently
-        # mutated (Do-NOT #3).
-        with _cli_subscription_env_scope(self._config.subscription_token):
-            async with ClaudeSDKClient(options=options) as client:
-                await client.query(
-                    "Ingest the following source into the wiki. Classify it, create schema-valid "
-                    "pages via write_page, assign each page 3-6 concise, lowercase, reusable "
-                    "frontmatter `tags` for navigation, and link related pages. Source:\n\n"
-                    + source_text
-                )
-                async for message in client.receive_response():
-                    pages_written += _count_write_page_calls(message)
-                    usage = _merge_sdk_usage(usage, message)
-                    msg_cost = _extract_sdk_cost(message)
-                    if msg_cost is not None:
-                        sdk_cost_usd = msg_cost
-                    # The SDK only exposes authoritative usage on received messages. Interrupt at
-                    # that boundary, then keep draining until the terminal ResultMessage so its
-                    # cumulative billable cost is not lost from the ledger (I7).
-                    if (
-                        self._token_budget > 0
-                        and (usage.input_tokens + usage.output_tokens >= self._token_budget)
-                        and not budget_interrupted
-                    ):
-                        budget_interrupted = True
-                        logger.warning(
-                            "CliAgentProvider: delegated ingest token budget reached "
-                            "(%d/%d) — interrupting at message boundary and draining result",
-                            usage.input_tokens + usage.output_tokens,
-                            self._token_budget,
-                        )
-                        interrupt = getattr(client, "interrupt", None)
-                        if callable(interrupt):
-                            await interrupt()
-                        else:
-                            # Defensive compatibility with an older SDK: max_turns remains the
-                            # hard fallback. Continue only to preserve authoritative cost data.
-                            logger.error(
-                                "CliAgentProvider: SDK exposes no interrupt(); relying on "
-                                "max_turns while draining terminal cost"
+        # 2.1.5 fix: route system_prompt through a temp file, not raw argv text (E2BIG guard, see
+        # _system_prompt_file docstring) — schema.md + purpose.md can grow large.
+        with _system_prompt_file(system_prompt) as system_prompt_option:
+            options = ClaudeAgentOptions(
+                model=self._model,  # from provider_config (I6)
+                system_prompt=system_prompt_option,
+                permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
+                cwd=vault_dir,  # filesystem tools scoped to the vault
+                # In-process SDK MCP tools are namespaced by the SDK as mcp__<server>__<tool>, so
+                # the model must be granted the NAMESPACED names (bare names never match). ADR-0010.
+                allowed_tools=[f"mcp__synapse__{n}" for n in MCP_TOOL_NAMES],
+                mcp_servers={"synapse": mcp_server},  # McpSdkServerConfig (create_sdk_mcp_server)
+                max_turns=max(1, int(self._config.max_iter)),  # delegated-loop turn bound (I7)
+            )
+
+            # ADR-0043 §2.3: DB-token subscription → inject CLAUDE_CODE_OAUTH_TOKEN + scrub
+            # ANTHROPIC_API_KEY from the child env for the duration of the SDK session, restored
+            # after (no-op for env-sourced subscription / api-key). Parent os.environ never
+            # permanently mutated (Do-NOT #3).
+            with _cli_subscription_env_scope(self._config.subscription_token):
+                async with ClaudeSDKClient(options=options) as client:
+                    await client.query(
+                        "Ingest the following source into the wiki. Classify it, create "
+                        "schema-valid pages via write_page, assign each page 3-6 concise, "
+                        "lowercase, reusable frontmatter `tags` for navigation, and link related "
+                        "pages. Source:\n\n" + source_text
+                    )
+                    async for message in client.receive_response():
+                        pages_written += _count_write_page_calls(message)
+                        usage = _merge_sdk_usage(usage, message)
+                        msg_cost = _extract_sdk_cost(message)
+                        if msg_cost is not None:
+                            sdk_cost_usd = msg_cost
+                        # The SDK only exposes authoritative usage on received messages. Interrupt
+                        # at that boundary, then keep draining until the terminal ResultMessage so
+                        # its cumulative billable cost is not lost from the ledger (I7).
+                        if (
+                            self._token_budget > 0
+                            and (usage.input_tokens + usage.output_tokens >= self._token_budget)
+                            and not budget_interrupted
+                        ):
+                            budget_interrupted = True
+                            logger.warning(
+                                "CliAgentProvider: delegated ingest token budget reached "
+                                "(%d/%d) — interrupting at message boundary and draining result",
+                                usage.input_tokens + usage.output_tokens,
+                                self._token_budget,
                             )
+                            interrupt = getattr(client, "interrupt", None)
+                            if callable(interrupt):
+                                await interrupt()
+                            else:
+                                # Defensive compatibility with an older SDK: max_turns remains the
+                                # hard fallback. Continue only to preserve authoritative cost data.
+                                logger.error(
+                                    "CliAgentProvider: SDK exposes no interrupt(); relying on "
+                                    "max_turns while draining terminal cost"
+                                )
         converged = pages_written > 0
 
         # Raw tokens recorded when the SDK exposes them.
@@ -664,37 +701,45 @@ class CliAgentProvider(InferenceProvider):
                 "claude-agent-sdk is not installed; the CLI provider requires it (R3)."
             ) from exc
 
-        options = ClaudeAgentOptions(
-            model=self._model,  # from provider_config (I6)
-            system_prompt=system,  # the block-pipeline system prompt (analysis / generation)
-            permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
-            allowed_tools=[],  # NO tools — pure text generation (FILE blocks), never an agent loop
-            max_turns=1,  # single-shot generation, like llm_wiki's text transport (I7)
-            # 2.1.4 fix: bound extended-thinking tokens so a reasoning-heavy turn (a long/complex
-            # source, or a retry whose prompt has grown with prior validation errors) cannot
-            # consume the ENTIRE single turn on internal thinking and emit zero visible FILE-block
-            # text — a clean (non-error) empty completion the SDK reports with no error signal,
-            # observed live as "generation produced no FILE blocks (0 parsed)" repeating across
-            # every retry iteration (the augmented prompt only grows, making it worse each time).
-            # Capping thinking guarantees headroom for the actual answer regardless of max_turns.
-            max_thinking_tokens=min(4_096, max(1_024, max_tokens // 2)),
-        )
-
         parts: list[str] = []
         usage = Usage(input_tokens=0, output_tokens=0, total_cost_usd=0.0)
         sdk_cost_usd: float | None = None
         result_message: Any = None
         try:
-            with _cli_subscription_env_scope(self._config.subscription_token):
-                async with ClaudeSDKClient(options=options) as client:
-                    await client.query(prompt)
-                    async for message in client.receive_response():
-                        parts.extend(_extract_text_deltas(message))
-                        usage = _merge_sdk_usage(usage, message)
-                        msg_cost = _extract_sdk_cost(message)
-                        if msg_cost is not None:
-                            sdk_cost_usd = msg_cost
-                        result_message = message  # terminal ResultMessage wins (last message)
+            # 2.1.5 fix: route system_prompt through a temp file, not raw argv text (E2BIG guard,
+            # see _system_prompt_file docstring). This is the DEFAULT block-loop generation path
+            # (ADR-0076) and its system prompt folds in schema.md/purpose.md/index.md — index.md
+            # is UNBOUNDED by design (grows with every page ever ingested), so on a large enough
+            # vault this raw-argv system_prompt tripped the kernel's ARG_MAX and the spawned
+            # `claude` CLI failed with "Argument list too long" (E2BIG), aborting the whole ingest
+            # run before a single message was exchanged.
+            with _system_prompt_file(system) as system_prompt_option:
+                options = ClaudeAgentOptions(
+                    model=self._model,  # from provider_config (I6)
+                    system_prompt=system_prompt_option,
+                    permission_mode="acceptEdits",  # non-interactive (CLAUDE.md §5)
+                    allowed_tools=[],  # NO tools — pure text generation, never an agent loop
+                    max_turns=1,  # single-shot generation, like llm_wiki's text transport (I7)
+                    # 2.1.4 fix: bound extended-thinking tokens so a reasoning-heavy turn (a
+                    # long/complex source, or a retry whose prompt has grown with prior validation
+                    # errors) cannot consume the ENTIRE single turn on internal thinking and emit
+                    # zero visible FILE-block text — a clean (non-error) empty completion the SDK
+                    # reports with no error signal, observed live as "generation produced no FILE
+                    # blocks (0 parsed)" repeating across every retry iteration (the augmented
+                    # prompt only grows, making it worse each time). Capping thinking guarantees
+                    # headroom for the actual answer regardless of max_turns.
+                    max_thinking_tokens=min(4_096, max(1_024, max_tokens // 2)),
+                )
+                with _cli_subscription_env_scope(self._config.subscription_token):
+                    async with ClaudeSDKClient(options=options) as client:
+                        await client.query(prompt)
+                        async for message in client.receive_response():
+                            parts.extend(_extract_text_deltas(message))
+                            usage = _merge_sdk_usage(usage, message)
+                            msg_cost = _extract_sdk_cost(message)
+                            if msg_cost is not None:
+                                sdk_cost_usd = msg_cost
+                            result_message = message  # terminal ResultMessage wins (last message)
         finally:
             # I7: record whatever usage/cost accrued even if the SDK raised mid-stream (a dropped
             # 429 / connection error). Without this the failed runs operators most need to audit

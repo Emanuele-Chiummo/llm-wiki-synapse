@@ -773,7 +773,7 @@ async def _run_orchestrated_blocks(
     """
     from app.config_overrides import effective_int
     from app.ingest import block_loop, block_writer
-    from app.ingest.prompts import language_prompt_name
+    from app.ingest.prompts import _trim_long_text, language_prompt_name
     from app.wiki.schema import parse_page_type_routing
 
     schema_md = _read_vault_root_file("schema.md")
@@ -796,6 +796,15 @@ async def _run_orchestrated_blocks(
     review_min_blocks = effective_int(
         "ingest_review_stage_min_file_blocks", settings.ingest_review_stage_min_file_blocks
     )
+
+    # 2.1.5 hardening (complementary to the system-prompt-file fix in CliAgentProvider): wiki/
+    # index.md grows UNBOUNDED by design — one line per page ever ingested — and is folded into
+    # EVERY analysis/generation system prompt on this path. Cap it the same way
+    # build_review_stage_prompt already caps its equivalent section, so prompt size (and thus
+    # cost/latency, independent of the CLI-provider argv transport) stays bounded as the vault
+    # scales, regardless of which provider backend is in use.
+    index_cap = max(3_000, (max_context_chars * 15 // 100) * 80 // 100)
+    index_md = _trim_long_text(index_md, index_cap)
 
     # Source filename hint for the generation prompt (llm_wiki sourceFileName): the source
     # identity (raw/sources/ stripped) falls back to the bare basename.
