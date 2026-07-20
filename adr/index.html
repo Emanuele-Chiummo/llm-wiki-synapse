@@ -2384,6 +2384,11 @@
 <td><a href="0088-ios-redesign-foundation/">iOS app redesign foundation (Track iOS 2.1, Fase A) — native SwiftUI confirmed over Tauri/web-wrapper; brand-aligned <code>DesignSystem/</code> (<code>SynColor</code>/<code>SynFont</code>/<code>SynSpace</code> ported from desktop <code>theme.css</code>, accent <code>#2563eb</code>, never pure black) supersedes the legacy Apple-indigo/<code>#000</code> <code>Theme.swift</code>; native 5-tab shell (Home·Wiki·Chat·Graph·More); documented graph-render spike (WKWebView sigma embed vs native Canvas/SpriteKit/Metal, both I2-safe) — native recommended but <strong>Proposed pending on-device perf sign-off</strong></a></td>
 <td>Accepted (foundation); graph-render <strong>Proposed</strong></td>
 </tr>
+<tr>
+<td><strong>0089</strong></td>
+<td><a href="0089-overview-regen-data-version-bump/">overview.md regen bumps data_version (post-2.1.1) — amends ADR-0078's queue-drain refinement: <code>_write_and_index_overview</code> now calls <code>bump_version()</code> on a successful overwrite so the SSE <code>/events</code> channel notifies live clients; degrade/timeout/empty-narrative paths are unaffected (no spurious bump); O(1) atomic UPDATE, no extra provider call (I1/I7)</a></td>
+<td>Accepted</td>
+</tr>
 </tbody>
 </table>
 <hr />
