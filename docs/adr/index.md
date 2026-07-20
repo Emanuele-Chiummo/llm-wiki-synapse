@@ -155,6 +155,7 @@ Each ADR covers design choices, rationale, and implications. Newer decisions can
 | # | Title | Status |
 |---|-------|--------|
 | **0088** | [iOS app redesign foundation (Track iOS 2.1, Fase A) — native SwiftUI confirmed over Tauri/web-wrapper; brand-aligned `DesignSystem/` (`SynColor`/`SynFont`/`SynSpace` ported from desktop `theme.css`, accent `#2563eb`, never pure black) supersedes the legacy Apple-indigo/`#000` `Theme.swift`; native 5-tab shell (Home·Wiki·Chat·Graph·More); documented graph-render spike (WKWebView sigma embed vs native Canvas/SpriteKit/Metal, both I2-safe) — native recommended but **Proposed pending on-device perf sign-off**](0088-ios-redesign-foundation.md) | Accepted (foundation); graph-render **Proposed** |
+| **0089** | [overview.md regen bumps data_version (post-2.1.1) — amends ADR-0078's queue-drain refinement: `_write_and_index_overview` now calls `bump_version()` on a successful overwrite so the SSE `/events` channel notifies live clients; degrade/timeout/empty-narrative paths are unaffected (no spurious bump); O(1) atomic UPDATE, no extra provider call (I1/I7)](0089-overview-regen-data-version-bump.md) | Accepted |
 
 ---
 
