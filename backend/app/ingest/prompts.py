@@ -22,6 +22,7 @@ replicate this exactly via :func:`_join` so the model sees the same bytes.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 # The nine base generation page types, in nashsu/llm_wiki wiki-page-types.ts source order.
 # The schema.md "Page Types" table may add custom types (goal, habit, character, …); routing is
@@ -265,7 +266,12 @@ def build_generation_prompt(
     itself is threaded in the user message, not here.
     """
     day = wiki_date(today)
-    source_base = source_filename.rsplit(".", 1)[0] if "." in source_filename else source_filename
+    # 2.1.2 fix: source_filename is the source IDENTITY (D3, source-identity.ts) and legitimately
+    # carries the raw subfolder path (e.g. "Procurement/.../Deck.md") so the model can cite it in
+    # frontmatter `sources`. The default summary_path must NOT mirror that path — the source
+    # summary page always lives flat under wiki/sources/, so we take only the final path
+    # component's stem (basename, extension stripped), matching writer._source_identity_stem.
+    source_base = Path(source_filename).stem
     summary_path = source_summary_path or f"wiki/sources/{source_base}.md"
     lang = build_language_directive(language_name)
     types_line = " | ".join(GENERATION_WIKI_TYPES)
@@ -328,6 +334,14 @@ def build_generation_prompt(
             "explicitly compares commensurable subjects or gives directly comparable evidence.",
             "6. Synthesis pages (type=synthesis, wiki/synthesis/) ONLY when the source integrates "
             "multiple claims or findings into a cross-cutting conclusion.",
+            "",
+            "## FILE path MUST match frontmatter type (no schema override)",
+            "A page's FILE path directory and its frontmatter `type` are the SAME decision — "
+            "never write one and then place the file elsewhere. For the base types NOT covered by "
+            "the project schema above, the directory is fixed: type=comparison → wiki/comparisons/ "
+            "· type=synthesis → wiki/synthesis/ · type=query → wiki/queries/ · type=source → "
+            "wiki/sources/ (flat, never a subdirectory). Double-check every FILE path against this "
+            "list before emitting it.",
             "Do not generate wiki/index.md, wiki/overview.md, or wiki/log.md. The application "
             "maintains aggregate navigation and the ingest log separately (one entry is appended "
             "to wiki/log.md automatically for every page written) so large wikis are never "
@@ -589,7 +603,9 @@ def build_delegated_generation_guidance(
     A contract test asserts this and build_generation_prompt carry the same normative link lines.
     """
     day = wiki_date(today)
-    source_base = source_filename.rsplit(".", 1)[0] if "." in source_filename else source_filename
+    # 2.1.2 fix: see the matching comment in build_generation_prompt — source_filename may carry
+    # the raw subfolder path; the default summary_path must use only its basename stem.
+    source_base = Path(source_filename).stem
     summary_path = source_summary_path or f"wiki/sources/{source_base}.md"
     types_line = " | ".join(GENERATION_WIKI_TYPES)
     lang = build_language_directive(language_name)

@@ -1,16 +1,22 @@
 """
-ops/overview.py — manual overview.md regeneration (ADR-0078, WS-B aggregate ownership).
+ops/overview.py — overview.md regeneration surface (ADR-0078 + drain-callback refinement).
 
-Overview.md is NO LONGER regenerated automatically by the ingest pipeline (ADR-0078).
-Instead, this module exposes a single public function:
+Overview.md is NOT regenerated per-document by the ingest pipeline (ADR-0078 §3).
+It IS regenerated ONCE per queue-drain via the ``on_drained`` callback in ``app.main``
+(ADR-0078 refinement, v1.7.0) and on demand via POST /ops/overview/regenerate.
+
+This module exposes the single public function used by both callers:
 
     regenerate_overview(analysis=None, origin_source="")
 
-which is called from POST /ops/overview/regenerate. The implementation delegates to
-``app.ingest.orchestrator._update_overview`` (kept there for test coupling and backward
-compatibility of monkeypatches).
+The implementation delegates to ``app.ingest.orchestrator._update_overview`` (kept there
+for test coupling and backward compatibility of monkeypatches).
+
+After a successful overwrite ``_update_overview`` bumps ``data_version`` once so the SSE
+``/events`` channel notifies the frontend (post-2.1.1 fix; see docs/adr/0089-…).
 
 Invariants:
+  I1 — reads only a bounded SELECT of existing page titles (capped, vault-scoped).
   I5 — valid Obsidian frontmatter in the generated file.
   I6 — provider resolved via the same seam (resolve_provider_config("ingest")).
   I7 — bounded: exactly ONE provider call per regeneration; degrade-safe.
@@ -34,13 +40,16 @@ async def regenerate_overview(
     """
     Regenerate vault/wiki/overview.md via a single bounded provider call (I6/I7).
 
-    This is the ONLY sanctioned way to trigger overview regeneration as of ADR-0078.
-    Ingest no longer calls this automatically; callers are:
-      - POST /ops/overview/regenerate (manual trigger)
-      - Future scheduled-ops (if added)
+    Sanctioned callers:
+      - POST /ops/overview/regenerate (manual/on-demand trigger)
+      - ``app.main._queue_drain_sweep`` (once per queue-drain; ADR-0078 refinement v1.7.0)
+      - Scheduled-ops if added in future
+
+    The pipeline does NOT call this per-document (ADR-0078 §3 ownership).
 
     Delegates to ``app.ingest.orchestrator._update_overview`` which holds the full
-    implementation (provider resolution, timeout, degrade-safe overwrite, Page indexing).
+    implementation (provider resolution, timeout, degrade-safe overwrite, Page indexing,
+    and data_version bump on successful write).
     Kept as a thin delegation here so:
       - The ops/overview boundary owns the ``POST /ops/overview/regenerate`` surface.
       - Test monkeypatches targeting ``orch._update_overview`` continue to work.

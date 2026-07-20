@@ -14,14 +14,44 @@
  *   - TYPE_ORDER: overview < concept < entity < source < synthesis < comparison < query < other.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderHook, act } from "@testing-library/react";
 import {
   groupPagesByType,
   flattenTree,
   filterPagesByDomain,
   filterPagesByCommunity,
+  useNavTreeData,
 } from "../components/nav/useNavTreeData";
 import type { PageListItem } from "../api/types";
+
+// ─── Mocks for the hook integration tests ────────────────────────────────────
+
+// Mock pagesClient / vaultMetaClient so the hook doesn't hit the network.
+const mockFetchAllPages = vi.fn();
+const mockFetchVaultMeta = vi.fn();
+
+vi.mock("../api/pagesClient", () => ({
+  fetchAllPages: (...args: unknown[]) => mockFetchAllPages(...args),
+}));
+vi.mock("../api/vaultMetaClient", () => ({
+  fetchVaultMeta: (...args: unknown[]) => mockFetchVaultMeta(...args),
+}));
+
+// statusStore mock — lets us control dataVersion from tests.
+let _mockDataVersion: number | null = 0;
+vi.mock("../store/statusStore", () => ({
+  useStatusStore: (selector: (s: { dataVersion: number | null }) => unknown) =>
+    selector({ dataVersion: _mockDataVersion }),
+  selectStatusDataVersion: (s: { dataVersion: number | null }) => s.dataVersion,
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  _mockDataVersion = 0;
+  mockFetchAllPages.mockResolvedValue({ items: [], total: 0 });
+  mockFetchVaultMeta.mockResolvedValue({ files: [] });
+});
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -454,5 +484,171 @@ describe("filterPagesByCommunity", () => {
     const allPageRows = flattenTree(grouped, {}).filter((r) => r.kind === "page");
     // COMMUNITY_PAGES has 5 pages (none are raw/ — all show in tree)
     expect(allPageRows).toHaveLength(5);
+  });
+});
+
+// ─── Fix 3: ghost row filtering ──────────────────────────────────────────────
+
+describe("groupPagesByType — Fix 3: ghost row filtering", () => {
+  it("drops a page with null title AND null type (ghost DB row)", () => {
+    const ghost = makePage("ghost1", null, "");
+    // Override title to null (makePage defaults to a title)
+    const ghostNoTitle: PageListItem = { ...ghost, title: null as unknown as string };
+    const grouped = groupPagesByType([ghostNoTitle]);
+    // Should NOT appear in "other"
+    expect(grouped.has("other")).toBe(false);
+    const allIds = [...grouped.values()].flat().map((p) => p.id);
+    expect(allIds).not.toContain("ghost1");
+  });
+
+  it("drops a page with blank (whitespace-only) title AND null type", () => {
+    const ghost: PageListItem = { ...makePage("ghost2", null), title: "   " };
+    const grouped = groupPagesByType([ghost]);
+    expect(grouped.has("other")).toBe(false);
+  });
+
+  it("keeps a page with null type but a real title (lands in 'other')", () => {
+    const page = makePage("realother", null, "Some interesting page");
+    const grouped = groupPagesByType([page]);
+    expect(grouped.has("other")).toBe(true);
+    const ids = grouped.get("other")?.map((p) => p.id) ?? [];
+    expect(ids).toContain("realother");
+  });
+
+  it("keeps log.md-style pages (type 'log', title present) — lands in 'other'", () => {
+    const logPage = makePage("log1", "log", "Log");
+    const grouped = groupPagesByType([logPage]);
+    // 'log' type maps to 'other'; it has a title so it is NOT filtered out
+    expect(grouped.has("other")).toBe(true);
+    const ids = grouped.get("other")?.map((p) => p.id) ?? [];
+    expect(ids).toContain("log1");
+  });
+
+  it("keeps index.md-style pages (type 'index', title present)", () => {
+    const indexPage = makePage("idx1", "index", "Index");
+    const grouped = groupPagesByType([indexPage]);
+    expect(grouped.has("other")).toBe(true);
+    const ids = grouped.get("other")?.map((p) => p.id) ?? [];
+    expect(ids).toContain("idx1");
+  });
+
+  it("filters ghost rows without disturbing normal pages", () => {
+    const ghost: PageListItem = { ...makePage("g1", null), title: null as unknown as string };
+    const normal = makePage("n1", "concept", "Real Page");
+    const grouped = groupPagesByType([ghost, normal]);
+    expect(grouped.get("concept")?.map((p) => p.id)).toContain("n1");
+    expect(grouped.has("other")).toBe(false); // ghost dropped
+  });
+});
+
+// ─── Fix 2: dataVersion-triggered live refresh ────────────────────────────────
+
+describe("useNavTreeData — Fix 2: live refresh on data_version bump", () => {
+  it("does not double-fetch on mount (first version skipped)", async () => {
+    _mockDataVersion = 5;
+
+    const { result } = renderHook(() => useNavTreeData("vault1", {}));
+
+    // Wait for the initial fetch to settle.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // Only 1 call from the mount effect, not 2 (first dataVersion was skipped).
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(1);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it("re-fetches when dataVersion bumps", async () => {
+    _mockDataVersion = 10;
+
+    const { rerender } = renderHook(() => useNavTreeData("vault1", {}));
+
+    // Settle initial fetch.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(1);
+
+    // Bump dataVersion — simulates an SSE or REST-poll push.
+    await act(async () => {
+      _mockDataVersion = 11;
+      rerender();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // A second fetch should have been triggered.
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(2);
+  });
+
+  it("does NOT re-fetch when dataVersion stays the same", async () => {
+    _mockDataVersion = 20;
+
+    const { rerender } = renderHook(() => useNavTreeData("vault1", {}));
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(1);
+
+    // Re-render with same dataVersion (no bump).
+    await act(async () => {
+      rerender();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(1); // no extra call
+  });
+
+  it("resets ref on vault switch (dataVersion → null) and re-fetches on next version", async () => {
+    _mockDataVersion = 30;
+
+    const { rerender } = renderHook(({ vault }) => useNavTreeData(vault, {}), {
+      initialProps: { vault: "vault1" },
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(1);
+
+    // Simulate vault switch: dataVersion resets to null.
+    await act(async () => {
+      _mockDataVersion = null;
+      rerender({ vault: "vault2" });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // vault switch triggers a new doFetch via useEffect([doFetch]).
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(2);
+
+    // Now a new version comes in — must trigger refresh (ref was reset by null).
+    await act(async () => {
+      _mockDataVersion = 31;
+      rerender({ vault: "vault2" });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    // The "first version seen" after vault switch was 31 (skipped), so no extra call here.
+    // The NEXT bump (32) would trigger.
+    await act(async () => {
+      _mockDataVersion = 32;
+      rerender({ vault: "vault2" });
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    expect(mockFetchAllPages).toHaveBeenCalledTimes(3); // vault-switch fetch + version-32 refresh
   });
 });

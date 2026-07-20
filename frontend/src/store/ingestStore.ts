@@ -21,8 +21,8 @@
 
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
-import type { IngestRunItem, IngestStatus } from "../api/types";
-import { fetchIngestRuns, cancelIngestRun } from "../api/ingestClient";
+import type { IngestRunItem, IngestStatus, RetryRunResponse } from "../api/types";
+import { fetchIngestRuns, cancelIngestRun, retryIngestRun } from "../api/ingestClient";
 import { isTauri } from "../api/base";
 import { createPollChain } from "./pollChain";
 import { useEventsStore } from "./eventsStore";
@@ -61,6 +61,12 @@ interface IngestActions {
    * Throws ApiError on 404 (unknown) or 409 (already terminal) — caller should toast.
    */
   cancelRun: (runId: string, signal?: AbortSignal) => Promise<void>;
+  /**
+   * Retry a failed or converged_false ingest run.
+   * Throws MaxRetriesExceededError on 409 max_retries_exceeded, ApiError otherwise.
+   * On success: re-fetches the run list so the new queued run appears.
+   */
+  retryRun: (runId: string, vaultId?: string, signal?: AbortSignal) => Promise<RetryRunResponse>;
   /** FE-UIUX-3: clear run history/selection when the active vault changes. */
   resetForVault: () => void;
 }
@@ -219,6 +225,13 @@ export const useIngestStore = create<IngestStore>((set, get) => ({
     }
   },
 
+  retryRun: async (runId, vaultId, signal) => {
+    const response = await retryIngestRun(runId, signal);
+    // Refresh the list so the new queued run (and updated status) appears.
+    await get().fetchFresh(vaultId);
+    return response;
+  },
+
   // FE-UIUX-3
   resetForVault: () =>
     set({
@@ -323,6 +336,9 @@ export function selectStartPolling(s: IngestStore): IngestActions["startPolling"
 }
 export function selectCancelRun(s: IngestStore): IngestActions["cancelRun"] {
   return s.cancelRun;
+}
+export function selectRetryRun(s: IngestStore): IngestActions["retryRun"] {
+  return s.retryRun;
 }
 export function selectResetForVault(s: IngestStore): IngestActions["resetForVault"] {
   return s.resetForVault;

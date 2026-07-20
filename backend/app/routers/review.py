@@ -197,6 +197,10 @@ class ReviewSweepResponse(BaseModel):
     rule_resolved: int = Field(description="Items closed by rule-based Pass-1")
     llm_resolved: int = Field(description="Items closed by conservative LLM Pass-2")
     kept: int = Field(description="Items that remain pending after the sweep")
+    corpus_proposed: int = Field(
+        default=0,
+        description="Synthesis/comparison suggestions seeded from the graph in Pass-3 (SC-D3)",
+    )
 
 
 class ReviewBulkRequest(BaseModel):
@@ -623,6 +627,7 @@ async def sweep_review_queue(
         rule_resolved=result.rule_resolved,
         llm_resolved=result.llm_resolved,
         kept=result.kept,
+        corpus_proposed=result.corpus_proposed,
     )
 
 

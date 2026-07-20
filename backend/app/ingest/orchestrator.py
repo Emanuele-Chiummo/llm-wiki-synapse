@@ -864,6 +864,12 @@ async def _write_and_index_overview(narrative: str, *, lang: str | None = None) 
     overview_path.write_text(file_text, encoding="utf-8")
 
     await _index_overview_file(file_text, title, keyword_tags or None)
+    # Bump data_version so the SSE /events channel notifies the frontend that overview.md
+    # has been updated (ADR-0078 refinement + queue-drain path). The ingest pipeline already
+    # bumped once for the ingested pages; this is a separate content-change event (overview
+    # is a distinct file). Degrade-safe callers (timeout/empty narrative) do NOT reach here,
+    # so the version is only bumped on an actual successful overwrite.
+    await bump_version()
     logger.info(
         "_update_overview: regenerated + indexed overview.md (title=%r, %d tags, open_q=%s)",
         title,

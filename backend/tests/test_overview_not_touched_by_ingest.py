@@ -1,5 +1,10 @@
 """
-ADR-0078 "aggregate ownership" — overview.md must NOT be touched by ingest.
+ADR-0078 "aggregate ownership" — overview.md ownership contract.
+
+overview.md is NOT regenerated per-document by the ingest pipeline (§3 ownership).
+It IS regenerated ONCE per queue-drain via the on_drained callback in app.main
+(ADR-0078 refinement, v1.7.0) and on demand via POST /ops/overview/regenerate.
+After a successful overwrite data_version is bumped (post-2.1.1; see test_overview_regen.py).
 
 Coverage:
   OWN-01  pipeline.py source contains zero active calls to _update_overview (static).
@@ -9,11 +14,13 @@ Coverage:
   OWN-04  POST /ops/overview/regenerate calls app.ops.overview.regenerate_overview exactly once.
   OWN-05  POST /ops/overview/regenerate is degrade-safe: provider failure → status=degraded,
           no 5xx.
+  OWN-06  ops.overview.regenerate_overview delegates to orch._update_overview (queue-drain
+          path end-to-end: the thin delegation layer works with origin_source="queue-drain").
 
 Static tests (OWN-01/02) read the source files directly via importlib.util to avoid the
 circular import that exists between pipeline.py and orchestrator.py at module initialisation
-time.  Runtime tests (OWN-03/04/05) use the shared api_client fixture from test_api.py
-and patch app.ops.overview.regenerate_overview directly.
+time.  Runtime tests (OWN-03/04/05/06) use the shared api_client / api_env fixtures from
+test_api.py and patch app.ops.overview / app.ingest.orchestrator targets directly.
 """
 
 from __future__ import annotations
@@ -140,3 +147,48 @@ async def test_ops_overview_regenerate_degrade_safe(
     assert (
         body.get("status") == "degraded"
     ), f"expected status=degraded on provider failure, got: {body}"
+
+
+# ── OWN-06: queue-drain path end-to-end ──────────────────────────────────────
+
+from tests.test_api import api_env  # noqa: F401,F811
+
+
+@pytest.mark.asyncio
+async def test_queue_drain_overview_regen_delegates_to_update_overview(
+    api_env: dict[str, Any],
+) -> None:
+    """OWN-06: ops.overview.regenerate_overview delegates to orch._update_overview, and the
+    delegation works correctly when called with origin_source='queue-drain' (the live path
+    in app.main._queue_drain_sweep — ADR-0078 refinement).
+
+    This tests the full thin-delegation chain WITHOUT the provider layer:
+      regenerate_overview(origin_source="queue-drain") → orch._update_overview(None, "queue-drain")
+
+    We monkeypatch orch._update_overview to capture the call and verify both the delegation
+    and the origin_source label are forwarded correctly.
+    """
+    import app.ingest.orchestrator as _orch
+    from app.ops.overview import regenerate_overview
+
+    captured: list[dict[str, Any]] = []
+
+    async def _spy_update_overview(
+        analysis: Any,
+        origin_source: str,
+    ) -> None:
+        captured.append({"analysis": analysis, "origin_source": origin_source})
+
+    import unittest.mock as _mock
+
+    with _mock.patch.object(_orch, "_update_overview", side_effect=_spy_update_overview):
+        await regenerate_overview(analysis=None, origin_source="queue-drain")
+
+    assert len(captured) == 1, (
+        f"regenerate_overview must call orch._update_overview exactly once; "
+        f"got {len(captured)} calls"
+    )
+    assert (
+        captured[0]["origin_source"] == "queue-drain"
+    ), f"origin_source must be forwarded unchanged; got {captured[0]['origin_source']!r}"
+    assert captured[0]["analysis"] is None, "analysis=None must be forwarded (queue-drain path)"

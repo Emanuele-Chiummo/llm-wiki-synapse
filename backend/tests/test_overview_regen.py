@@ -555,3 +555,104 @@ async def test_overview_regen_idempotent_with_open_questions(
     await orch._update_overview(_analysis(), ORIGIN)
     second = (api_env["vault_root"] / "wiki" / "overview.md").read_text(encoding="utf-8")
     assert first == second, "same narrative + same query set → byte-identical overview.md"
+
+
+# ── data_version bump (post-2.1.1 fix — SSE channel notification) ────────────────
+
+
+async def _read_data_version(env: dict[str, Any]) -> int:
+    """Read the current vault_state.data_version for the test vault."""
+    from sqlalchemy import text as sa_text
+
+    async with env["session_factory"]() as sess:
+        row = await sess.execute(
+            sa_text("SELECT data_version FROM vault_state WHERE vault_id='test-vault'")
+        )
+        result = row.scalar_one_or_none()
+        return int(result) if result is not None else 0
+
+
+@pytest.mark.asyncio
+async def test_overview_regen_bumps_data_version(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-OV-6: successful overview regen bumps data_version once so the SSE /events channel
+    notifies the frontend (ADR-0078 refinement + post-2.1.1 queue-drain fix)."""
+    before = await _read_data_version(api_env)
+
+    _patch_provider(monkeypatch, _FakeOverviewProvider("# Wiki\n\nBody.\n\nTAGS: a"))
+    await orch._update_overview(_analysis(), ORIGIN)
+
+    after = await _read_data_version(api_env)
+    assert after == before + 1, (
+        f"data_version must increment by 1 after successful overview regen "
+        f"(was {before}, got {after})"
+    )
+
+
+@pytest.mark.asyncio
+async def test_overview_degrade_does_not_bump_data_version(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-OV-7: on provider failure (degrade path) data_version must NOT be bumped — only
+    successful overwrites bump the version (no spurious SSE notifications)."""
+    before = await _read_data_version(api_env)
+
+    _patch_provider(monkeypatch, _RaisingProvider("unused"))
+    await orch._update_overview(_analysis(), ORIGIN)  # must not raise
+
+    after = await _read_data_version(api_env)
+    assert after == before, (
+        f"data_version must NOT change on degrade/provider-failure path "
+        f"(was {before}, got {after})"
+    )
+
+
+@pytest.mark.asyncio
+async def test_overview_no_full_vault_scan(
+    api_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T-OV-8 (I1): the page-digest query used by overview regen is bounded and vault-scoped
+    — no full-table scan.  We seed pages in a DIFFERENT vault and confirm they are NOT
+    included in the digest context visible to the provider."""
+    # Seed one page in the default test-vault and one in a foreign vault.
+    async with api_env["session_factory"]() as sess:
+        from sqlalchemy import text as sa_text
+
+        await sess.execute(
+            sa_text(
+                "INSERT INTO pages (id, vault_id, file_path, title, type, content_hash, "
+                "pinned, created_at, updated_at) "
+                "VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 'test-vault', "
+                "'wiki/entities/local.md', 'LocalEntity', 'entity', 'h1', 0, "
+                "'2026-01-01', '2026-01-01'), "
+                "('aaaaaaaa-0000-0000-0000-000000000002', 'foreign-vault', "
+                "'wiki/entities/remote.md', 'ForeignEntity', 'entity', 'h2', 0, "
+                "'2026-01-01', '2026-01-01')"
+            )
+        )
+        await sess.commit()
+
+    captured_digest: list[str] = []
+
+    original_build = orch._build_overview_instruction
+
+    def _spy_build(
+        analysis: Any,
+        existing_digest: str,
+        lang: Any = None,
+        now_label: Any = None,
+    ) -> str:
+        captured_digest.append(existing_digest)
+        return original_build(analysis=analysis, existing_digest=existing_digest, lang=lang)
+
+    monkeypatch.setattr(orch, "_build_overview_instruction", _spy_build)
+    _patch_provider(monkeypatch, _FakeOverviewProvider("# Wiki\n\nBody.\n\nTAGS: a"))
+    await orch._update_overview(_analysis(), ORIGIN)
+
+    assert captured_digest, "spy must have been called"
+    digest = captured_digest[0]
+    assert "LocalEntity" in digest, "own-vault pages must appear in the digest"
+    assert (
+        "ForeignEntity" not in digest
+    ), "cross-vault pages must NOT appear — I1: digest is vault-scoped"

@@ -596,6 +596,22 @@ class Settings(BaseSettings):
     Env var: REVIEW_SWEEP_TIMEOUT_SECONDS.
     """
 
+    review_corpus_shape_enabled: bool = True
+    """
+    Gate for sweep Pass-3 corpus-shape proposal seeding (SC-D3). Default on (deterministic,
+    provider-free, cheap — 2 indexed SQL reads + pure Python). Set false to disable the
+    synthesis/comparison cluster check entirely (e.g. for minimal-cost / debugging environments).
+    Env var: REVIEW_CORPUS_SHAPE_ENABLED.
+    """
+
+    review_corpus_shape_max_clusters: int = 40
+    """
+    Maximum clusters evaluated per sweep Pass-3 run (I7 bound). Mirrors synthesize_max_candidates
+    (DEFAULT_MAX_CANDIDATES=40). Clusters are evaluated in confidence-descending order so the most
+    compelling candidates are always checked first.
+    Env var: REVIEW_CORPUS_SHAPE_MAX_CLUSTERS.
+    """
+
     # ── ADR-0044 (F9 depth pass) — contextual depth + bulk bounds ────────────────
 
     review_referenced_pages_max: int = 8

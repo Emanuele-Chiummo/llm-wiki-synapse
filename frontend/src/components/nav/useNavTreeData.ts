@@ -33,9 +33,10 @@
  *     "synapse:navFilterLabel"  — human-readable label shown in the banner
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchAllPages } from "../../api/pagesClient";
 import { fetchVaultMeta } from "../../api/vaultMetaClient";
+import { useStatusStore, selectStatusDataVersion } from "../../store/statusStore";
 import type { PageListItem, PageType } from "../../api/types";
 import type { VaultMetaFile } from "../../api/vaultMetaClient";
 
@@ -110,6 +111,14 @@ export function groupPagesByType(items: PageListItem[]): Map<KnownType, PageList
     // rows with no title/type and must not appear as a titleless "Other" tree entry.
     // The wiki tree shows wiki pages only (raw sources live under the Sources view).
     if (item.file_path?.startsWith("raw/")) {
+      continue;
+    }
+    // Skip ghost DB rows: no meaningful title AND no page_type. These are artefacts
+    // of partially-ingested or type-unset pages (I1 incremental-index side-effect).
+    // log.md (type "log") and index.md (type "index") always have a non-null type
+    // so they are never dropped here. Pages with a title but no type are kept — they
+    // land in "other" but are real content rows the user may want to see.
+    if (!item.title?.trim() && !item.type) {
       continue;
     }
     const t = toKnownType(item.type);
@@ -321,6 +330,33 @@ export function useNavTreeData(vaultId: string, collapsed: Record<string, boolea
 
   /** Imperatively re-fetch the page list (called after creating/deleting a page). */
   const refresh = useCallback(() => doFetch(), [doFetch]);
+
+  // ── Fix 2: live refresh on data_version bump (SSE / REST poll) ───────────────
+  // When the SSE channel (eventsStore) or the status REST poller pushes a new
+  // data_version into statusStore, re-fetch the page list so the tree reflects
+  // newly-ingested pages (overview.md, index.md, etc.) without a page reload.
+  // I3 preserved: this is a lightweight Array.fetch call, not a DOM mutation.
+  // Guard: skip the very first version seen on mount (initial fetch already in
+  // flight from useEffect([doFetch])) to avoid a redundant double-request.
+  const dataVersion = useStatusStore(selectStatusDataVersion);
+  const seenDataVersionRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (dataVersion === null) {
+      // Vault switch resets dataVersion to null — reset our ref so the next
+      // real version is again treated as "first seen" (no spurious refresh).
+      seenDataVersionRef.current = null;
+      return;
+    }
+    if (seenDataVersionRef.current === null) {
+      // First version seen on this mount cycle — initial fetch already underway.
+      seenDataVersionRef.current = dataVersion;
+      return;
+    }
+    if (dataVersion === seenDataVersionRef.current) return; // same version, no-op
+    seenDataVersionRef.current = dataVersion;
+    void refresh();
+  }, [dataVersion, refresh]);
 
   /**
    * Clear all active filters and notify any other mounted instances.
