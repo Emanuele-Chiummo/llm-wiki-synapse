@@ -147,6 +147,37 @@ def test_generation_prompt_summary_path_default_and_override() -> None:
     assert "**wiki/sources/custom-slug.md** (MUST use this exact path)" in override
 
 
+def test_generation_prompt_summary_path_strips_subfolder_from_source_identity() -> None:
+    """2.1.2 regression (observed live): source_filename is the source IDENTITY and legitimately
+    keeps the raw subfolder path for traceability in `sources`. The default summary_path must NOT
+    mirror that path — the source-summary page always lives FLAT under wiki/sources/. The old
+    `rsplit(".", 1)[0]` only stripped the extension, leaving the subfolders and failing
+    validate_page_routing on every retry; the fix uses Path(...).stem (basename, no dirs)."""
+    src = (
+        "Procurement/04_Deliverables/C_IT_ICT_Buyer_Training/"
+        "01_IT_ICT_Buyer_Training_Executive_Deck.md"
+    )
+    p = build_generation_prompt(source_filename=src, today=_FIXED)
+    assert (
+        "**wiki/sources/01_IT_ICT_Buyer_Training_Executive_Deck.md** (MUST use this exact path)"
+        in p
+    )
+    # No subfolder segment must leak into the DEFAULT summary path.
+    assert "wiki/sources/Procurement/" not in p
+    assert "wiki/sources/04_Deliverables/" not in p
+    assert "wiki/sources/C_IT_ICT_Buyer_Training/" not in p
+
+
+def test_generation_prompt_file_path_matches_type_block_present() -> None:
+    """2.1.2 prompt-clarity block: reinforce that a page's FILE-path directory and its frontmatter
+    `type` are the same decision (base types have fixed dirs). Loose substring match, robust to
+    minor wording — just confirm the block and the concrete comparison route exist."""
+    p = build_generation_prompt(source_filename="foo.md", today=_FIXED)
+    assert "FILE path MUST match frontmatter type" in p
+    assert "wiki/comparisons/" in p
+    assert "wiki/synthesis/" in p
+
+
 def test_generation_prompt_schema_routing_authoritative_conditional() -> None:
     bare = build_generation_prompt(source_filename="foo.md", today=_FIXED)
     assert "## Project Schema and Routing (AUTHORITATIVE)" not in bare
@@ -249,6 +280,29 @@ def test_delegated_guidance_is_tool_writing_not_file_blocks() -> None:
     assert "Routing (AUTHORITATIVE)" in deleg
     assert "MUST include this filename" in deleg
     assert "2026-07-14" in deleg
+
+
+def test_delegated_guidance_summary_path_strips_subfolder_from_source_identity() -> None:
+    """2.1.2 regression, delegated route: the CLI-guidance default summary_path must also flatten
+    the source identity to wiki/sources/<basename-stem>.md (same Path(...).stem fix as the
+    orchestrated build_generation_prompt), never mirroring the raw subfolder path."""
+    src = (
+        "Procurement/04_Deliverables/C_IT_ICT_Buyer_Training/"
+        "01_IT_ICT_Buyer_Training_Executive_Deck.md"
+    )
+    deleg = build_delegated_generation_guidance(source_filename=src, today=_FIXED)
+    assert (
+        "**wiki/sources/01_IT_ICT_Buyer_Training_Executive_Deck.md** (use this exact path)" in deleg
+    )
+    assert "wiki/sources/Procurement/" not in deleg
+    assert "wiki/sources/C_IT_ICT_Buyer_Training/" not in deleg
+    # explicit override still wins and is not re-flattened
+    override = build_delegated_generation_guidance(
+        source_filename=src,
+        source_summary_path="wiki/sources/custom-slug.md",
+        today=_FIXED,
+    )
+    assert "**wiki/sources/custom-slug.md** (use this exact path)" in override
 
 
 def test_delegated_guidance_language_directive_repeated() -> None:
