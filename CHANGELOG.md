@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.2] — 2026-07-20 — "real root cause + live loose ends"
+
+Patch release fixing the actual root cause behind non-convergent ingest runs that kept
+recurring after 2.1.1, plus six smaller fixes/improvements surfaced from live usage. No
+schema migrations.
+
+### Fixed
+
+- **Non-convergent ingest runs, actual root cause**: 2.1.1 fixed the `folderContext` hint's
+  wording, but that was not the whole story — the default source-summary FILE path was
+  computed via `source_filename.rsplit(".", 1)`, which strips only the file extension, not
+  the directory. Since `source_filename` (the D3 "source identity") legitimately keeps the
+  raw subfolder path for `sources[]` traceability, a source under
+  `raw/sources/Procurement/04_Deliverables/.../Deck.md` still got a default summary path of
+  `wiki/sources/Procurement/04_Deliverables/.../Deck.md` instead of the required flat
+  `wiki/sources/Deck.md` (K6) — failing `validate_page_routing` identically on every retry.
+  Fixed by deriving the default path via `Path(source_filename).stem`, matching the sibling
+  helper `writer._source_identity_stem()`. Also added an explicit "FILE path MUST match
+  frontmatter type" reminder to the generation prompt to reduce a separately observed
+  compliance miss (a `type: comparison` page written under `wiki/concepts/` instead of
+  `wiki/comparisons/`).
+- **overview.md updates were invisible until a manual reload**: `overview.md` is regenerated
+  once per ingest-queue drain (matching the original llm_wiki `onQueueDrained` behavior, per
+  ADR-0078) but never bumped `data_version`, so the SSE `/events` channel never told live
+  clients it had changed. Fixed (ADR-0089) — the bump fires only on a successful overwrite.
+- **"Other" nav-tree bucket showed unlabeled ghost entries**: alongside the expected
+  `log.md`/`index.md`, stray Page rows with both a null title and a null/unrecognized type
+  (partial-ingest leftovers) were also falling into "Other". The tree now drops them.
+
+### Added
+
+- **Retry button for non-convergent ingest runs**: `POST /ingest/runs/{id}/retry` already
+  re-injected prior validation errors into a fresh attempt, but nothing in the UI called it,
+  and it only recognized true pipeline failures — `converged_false` completions were
+  invisible to it. `IngestRunDetail` now has a "Retry run" action for both cases.
+- **NavTree live refresh**: the wiki tree now subscribes to the existing `data_version` SSE
+  signal (previously only refetched on mount or after an explicit page-create/meta-save), so
+  newly ingested pages and overview.md updates appear during a bulk import without a reload.
+- **Synthesis/comparison suggestions in the regular review sweep**: `propose_corpus_shape_review()`
+  was only reachable via an explicit `POST /ops/synthesize` call. Added it as sweep Pass 3
+  (deterministic, no extra provider call) so borderline-confidence synthesis/comparison
+  clusters reach the F9 review queue during normal operation, not only on an explicit
+  synthesize run. Gated by `review_corpus_shape_enabled` (default on).
+- **macOS: closing the window now hides it** instead of quitting the whole app — matching
+  standard macOS convention, using the tray Show/Quit menu that already existed. Cmd+Q and
+  the tray's Quit still fully exit. Windows/Linux close behavior is unchanged.
+- **Changelog bundling safety net**: `copy-changelog.mjs` no longer silently ships a desktop
+  build without `CHANGELOG.md` — it now falls back to a repo-root search and fails loudly
+  during a release prebuild if the file genuinely can't be found. CI now also verifies
+  `frontend/dist/CHANGELOG.md` exists and is non-empty before a release ships.
+
 ## [2.1.1] — 2026-07-19 — "non-convergence fixes"
 
 Patch release fixing two related, live-observed ingest non-convergence bugs. No schema
