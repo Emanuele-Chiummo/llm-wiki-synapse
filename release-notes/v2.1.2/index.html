@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.5-pm-phase4-signoff/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.2/">
       
       
+        <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
+      
+      
+        <link rel="next" href="../v2.1.1/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>PM Phase 4 Sign-off — v0.5 M5 (F13 Cascade Deletion) - Synapse</title>
+        <title>v2.1.2 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#pm-phase-4-sign-off-v05-m5-f13-cascade-deletion" class="md-skip">
+        <a href="#synapse-v212-real-root-cause-live-loose-ends" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              PM Phase 4 Sign-off — v0.5 M5 (F13 Cascade Deletion)
+              v2.1.2
             
           </span>
         </div>
@@ -535,8 +539,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -547,11 +553,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
           <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
@@ -572,7 +578,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -587,10 +593,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.2
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -606,6 +639,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -618,7 +704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -646,7 +732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -674,7 +760,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -702,7 +788,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -730,7 +816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -758,7 +844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -786,7 +872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -814,7 +900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -842,7 +928,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -870,7 +956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -898,7 +984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -926,7 +1012,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -954,7 +1040,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -982,7 +1068,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1010,7 +1096,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1038,7 +1124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1066,7 +1152,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1094,7 +1180,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1122,7 +1208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1150,7 +1236,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1178,7 +1264,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1206,7 +1292,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1234,7 +1320,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1262,7 +1348,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1290,7 +1376,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1318,7 +1404,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1346,7 +1432,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1374,7 +1460,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1402,7 +1488,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1430,7 +1516,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1458,7 +1544,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1486,7 +1572,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1514,7 +1600,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1569,10 +1655,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-gate-evidence-reviewed" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Gate evidence reviewed
+        Fixed
       
     </span>
   </a>
@@ -1580,49 +1666,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-delivery-verification" class="md-nav__link">
+  <a href="#added" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Delivery verification
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Delivery verification">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#f13-acceptance-criteria-ac-f13-17" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        F13 acceptance criteria — AC-F13-1..7
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#fail-fixed-pass-cycle-process-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        FAIL → FIXED → PASS cycle (process note)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-non-blocking-follow-ups" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Non-blocking follow-ups
+        Added
       
     </span>
   </a>
@@ -1630,54 +1677,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-ec-m5-hcp-6-status" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. EC-M5-HCP-6 status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-all-5-core-m5-features-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. All 5 core M5 features: status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#6-phase-5-f1-mcp-ui-cleared-to-proceed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        6. Phase 5 (F1-MCP-UI) — cleared to proceed
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#7-scope-log-update" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        7. Scope log update
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#8-velocity-note" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        8. Velocity note
+        Upgrade notes
       
     </span>
   </a>
@@ -1701,283 +1704,59 @@
 
 
 
-<h1 id="pm-phase-4-sign-off-v05-m5-f13-cascade-deletion">PM Phase 4 Sign-off — v0.5 M5 (F13 Cascade Deletion)<a class="headerlink" href="#pm-phase-4-sign-off-v05-m5-f13-cascade-deletion" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p>Author: product-manager (claude-sonnet-4-6)
-Date: 2026-06-29
-Branch: sprint/v0.5
-Feature ID: F13
-Phase: 4 of 5 (Phase 5 = F1-MCP-UI follows)
-Verdict: <strong>DONE-WITH-FOLLOWUPS</strong></p>
-</blockquote>
-<hr />
-<h2 id="1-gate-evidence-reviewed">1. Gate evidence reviewed<a class="headerlink" href="#1-gate-evidence-reviewed" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Gate</th>
-<th>Document</th>
-<th>Verdict</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>QA</td>
-<td>docs/sprints/v0.5-qa-phase4.md</td>
-<td>PASS (§10 re-verification 2026-06-29): 674 pytest / 526 vitest, 0 xfail/xpass, static analysis clean</td>
-</tr>
-<tr>
-<td>Architect</td>
-<td>docs/sprints/v0.5-architect-review-phase4.md</td>
-<td>APPROVE-WITH-CONDITIONS (10/10 Do-NOT HELD; C3 = DEFECT-F13-001, now FIXED; C1/C2/C4 advisory)</td>
-</tr>
-<tr>
-<td>Docs</td>
-<td>DOCS_STATUS.md (M5 Phase 4 section)</td>
-<td>PASS-WITH-PENDING (D2/D3/D4/D7 UP-TO-DATE or amended; D5 two screenshots PENDING-LIVE per established precedent)</td>
-</tr>
-<tr>
-<td>Traceability</td>
-<td>TRACEABILITY.md Phase 4 section</td>
-<td>AC-F13-1..7 GREEN; AC-D3-CD-1 GREEN; EC-M5-12/13/14/15/17 updated</td>
-</tr>
-</tbody>
-</table>
-<p>All four required sign-offs (QA + Architect + Tech-Writer + PM) are present.</p>
-<hr />
-<h2 id="2-delivery-verification">2. Delivery verification<a class="headerlink" href="#2-delivery-verification" title="Permanent link">&para;</a></h2>
-<h3 id="f13-acceptance-criteria-ac-f13-17">F13 acceptance criteria — AC-F13-1..7<a class="headerlink" href="#f13-acceptance-criteria-ac-f13-17" title="Permanent link">&para;</a></h3>
-<table>
-<thead>
-<tr>
-<th>AC</th>
-<th>Description</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AC-F13-1</td>
-<td>cascade_delete executes all 7 steps in order (soft-delete, Qdrant removal, raw-file delete, dead-wikilink rewrite, sources[] prune, index.md update, data_version +1)</td>
-<td>GREEN</td>
-</tr>
-<tr>
-<td>AC-F13-2</td>
-<td>3-method matching (exact/slug/fulltext) with method label logged; method (c) skipped on happy path</td>
-<td>GREEN (DEFECT-F13-001 FIXED — guard <code>if not all_found_ids:</code> in <code>_build_wikilink_rewrites</code>)</td>
-</tr>
-<tr>
-<td>AC-F13-3</td>
-<td>Shared-entity warnings advisory; deletion always proceeds</td>
-<td>GREEN</td>
-</tr>
-<tr>
-<td>AC-F13-4</td>
-<td>I1: only referencing files written; data_version +1 exactly once; no FA2 inline</td>
-<td>GREEN (DEFECT-F13-002 FIXED — <code>_rewrite_body_preserving_frontmatter</code> preserves frontmatter byte-for-byte; <code>_prune_sources</code> uses <code>sort_keys=False</code>)</td>
-</tr>
-<tr>
-<td>AC-F13-5</td>
-<td>POST /pages/{id}/cascade-delete/preview (200/404) + DELETE /pages/{id} (200/404 double-delete) in openapi.json</td>
-<td>GREEN</td>
-</tr>
-<tr>
-<td>AC-F13-6</td>
-<td>Two-step modal: loading state, preview error, shared-entity warnings before confirm (DOM order), step-2 warning repeat, cancel/ESC/backdrop no-op, confirm fires cascadeDelete + onDeleted, back button, inline DELETE error</td>
-<td>GREEN</td>
-</tr>
-<tr>
-<td>AC-F13-7</td>
-<td>3 scenarios: 3-rewrite scenario, shared-overlap, double-delete</td>
-<td>GREEN</td>
-</tr>
-</tbody>
-</table>
-<p>Also GREEN: AC-D3-CD-1 (cascade-delete.mmd valid sequenceDiagram, annotated for DEFECT-F13-002 fix, architect-reviewed).</p>
-<h3 id="fail-fixed-pass-cycle-process-note">FAIL → FIXED → PASS cycle (process note)<a class="headerlink" href="#fail-fixed-pass-cycle-process-note" title="Permanent link">&para;</a></h3>
-<p>The QA gate initially returned FAIL with two P1 defects:</p>
+<h1 id="synapse-v212-real-root-cause-live-loose-ends">Synapse v2.1.2 — "real root cause + live loose ends"<a class="headerlink" href="#synapse-v212-real-root-cause-live-loose-ends" title="Permanent link">&para;</a></h1>
+<p>Patch release fixing the actual root cause behind non-convergent ingest runs that kept
+recurring after 2.1.1, plus six smaller fixes/improvements surfaced from live usage. No
+schema migrations.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>DEFECT-F13-001</strong> (I1 gate): <code>_method_c_fulltext</code> invoked unconditionally on the links-table-hit happy path, violating ADR-0026 §3.1. Fix: <code>if not all_found_ids:</code> guard before the fallback call. T-CD-026 flipped from xfail to PASS.</li>
-<li><strong>DEFECT-F13-002</strong> (I5 gate): <code>frontmatter.dumps()</code> reordered YAML keys alphabetically on every dead-wikilink rewrite and sources[] prune, violating ADR-0026 §4.3 "byte-for-byte" claim and I5 (unnecessary git diffs in Obsidian). Fix: new <code>_rewrite_body_preserving_frontmatter</code> helper (raw <code>---</code> split, no PyYAML round-trip) for wikilink rewrites; <code>sort_keys=False</code> for <code>_prune_sources</code>. T-CD-024b flipped from xfail to PASS.</li>
+<li><strong>Non-convergent ingest runs, actual root cause</strong>: 2.1.1 fixed the <code>folderContext</code> hint's
+  wording, but that was not the whole story — the default source-summary FILE path was
+  computed via <code>source_filename.rsplit(".", 1)</code>, which strips only the file extension, not
+  the directory. Since <code>source_filename</code> (the D3 "source identity") legitimately keeps the
+  raw subfolder path for <code>sources[]</code> traceability, a source under
+  <code>raw/sources/Procurement/04_Deliverables/.../Deck.md</code> still got a default summary path of
+  <code>wiki/sources/Procurement/04_Deliverables/.../Deck.md</code> instead of the required flat
+  <code>wiki/sources/Deck.md</code> (K6) — failing <code>validate_page_routing</code> identically on every retry.
+  Fixed by deriving the default path via <code>Path(source_filename).stem</code>, matching the sibling
+  helper <code>writer._source_identity_stem()</code>. Also added an explicit "FILE path MUST match
+  frontmatter type" reminder to the generation prompt to reduce a separately observed
+  compliance miss (a <code>type: comparison</code> page written under <code>wiki/concepts/</code> instead of
+  <code>wiki/comparisons/</code>).</li>
+<li><strong>overview.md updates were invisible until a manual reload</strong>: <code>overview.md</code> is regenerated
+  once per ingest-queue drain (matching the original llm_wiki <code>onQueueDrained</code> behavior, per
+  ADR-0078) but never bumped <code>data_version</code>, so the SSE <code>/events</code> channel never told live
+  clients it had changed. Fixed (ADR-0089) — the bump fires only on a successful overwrite.</li>
+<li><strong>"Other" nav-tree bucket showed unlabeled ghost entries</strong>: alongside the expected
+  <code>log.md</code>/<code>index.md</code>, stray Page rows with both a null title and a null/unrecognized type
+  (partial-ingest leftovers) were also falling into "Other". The tree now drops them.</li>
 </ul>
-<p>This cycle is a <strong>process win</strong>: the AsyncMock-only backend suite (which passed before QA gate) could not catch either defect because it does not execute real DB queries or real file I/O. The QA-authored real-filesystem tests (T-CD-024b, T-CD-026) caught both. The gate mechanism worked exactly as designed.</p>
-<p>After both fixes: 674 backend / 526 frontend, 0 xfail/xpass, static analysis clean on all layers (ruff, black, mypy, tsc, eslint).</p>
-<hr />
-<h2 id="3-non-blocking-follow-ups">3. Non-blocking follow-ups<a class="headerlink" href="#3-non-blocking-follow-ups" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>ID</th>
-<th>Feature</th>
-<th>Item</th>
-<th>Owner</th>
-<th>When</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>FU-P4-1</td>
-<td>F13 / D5</td>
-<td><code>docs/screens/cascade-delete-preview.png</code> + <code>docs/screens/cascade-delete-confirm.png</code> — Playwright capture on live stack</td>
-<td>qa-test-engineer</td>
-<td>EC-M5-HCP-6 browser session</td>
-</tr>
-<tr>
-<td>FU-P4-2</td>
-<td>F13 / cascade_delete.py</td>
-<td>Advisory test <code>test_method_c_fires_when_links_table_empty</code> — completes ADR-0026 §3.1 no-links-hit path coverage</td>
-<td>backend-engineer</td>
-<td>Post-M5 or Phase 5 QA cycle if capacity permits</td>
-</tr>
-<tr>
-<td>FU-P4-3</td>
-<td>F13 / ADR-0026</td>
-<td>Architect C1: multi-statement non-atomic semantics — document Consequences note OR wrap DB mutations in single session in a follow-up (idempotent on retry already confirmed)</td>
-<td>tech-writer (ADR amendment) or backend-engineer</td>
-<td>Pre-M6 or Phase 5 if touching cascade_delete.py</td>
-</tr>
-<tr>
-<td>FU-P4-4</td>
-<td>F13 / cascade_delete.py</td>
-<td>Architect C2: confirm <code>files_written == len(wikilinks_to_rewrite)</code> equality contract is deterministic (pre-plan <code>_count_body_occurrences &gt; 0</code> guard should make the <code>continue</code> dead on the happy path; explicit confirmation or AC relaxation needed)</td>
-<td>backend-engineer + qa-test-engineer</td>
-<td>Pre-M6</td>
-</tr>
-<tr>
-<td>FU-P4-5</td>
-<td>F13 / cascade_delete.py</td>
-<td>Architect C4: method (b) <code>or_(True)</code> full <code>links</code> scan + method (c) on large vaults — advisory perf follow-up; bounded by <code>CASCADE_FULLTEXT_MAX_FILES</code></td>
-<td>backend-engineer</td>
-<td>Post-M5</td>
-</tr>
-<tr>
-<td>FU-P4-6</td>
-<td>F10/F9/F12 carry-forward</td>
-<td>FU-P2-2 (USER.md no-provider note) + FU-P3-2 (USER.md F9 CLI path note) — Phase 5 docs gate</td>
-<td>tech-writer</td>
-<td>Phase 5 (F1-MCP-UI) docs gate</td>
-</tr>
-</tbody>
-</table>
-<p>None of these follow-ups hold M5 Phase 4 sign-off or the upcoming Phase 5 (F1-MCP-UI) gate. D5 cascade-delete screenshots fold into EC-M5-HCP-6.</p>
-<hr />
-<h2 id="4-ec-m5-hcp-6-status">4. EC-M5-HCP-6 status<a class="headerlink" href="#4-ec-m5-hcp-6-status" title="Permanent link">&para;</a></h2>
-<p><strong>EC-M5-HCP-6</strong> (delete a page → disappears from tree, index.md no longer links it, dead wikilinks become plain text) is satisfied at code level by Phase 4:</p>
+<h2 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Soft-delete removes the page from the live pages query → tree disappears</li>
-<li>index.md regenerated via <code>update_index</code> (step 6 of cascade_delete)</li>
-<li>Dead wikilink rewrite converts <code>[[T]]</code> to <code>T</code> in all referencing files (step 4)</li>
+<li><strong>Retry button for non-convergent ingest runs</strong>: <code>POST /ingest/runs/{id}/retry</code> already
+  re-injected prior validation errors into a fresh attempt, but nothing in the UI called it,
+  and it only recognized true pipeline failures — <code>converged_false</code> completions were
+  invisible to it. <code>IngestRunDetail</code> now has a "Retry run" action for both cases.</li>
+<li><strong>NavTree live refresh</strong>: the wiki tree now subscribes to the existing <code>data_version</code> SSE
+  signal (previously only refetched on mount or after an explicit page-create/meta-save), so
+  newly ingested pages and overview.md updates appear during a bulk import without a reload.</li>
+<li><strong>Synthesis/comparison suggestions in the regular review sweep</strong>: <code>propose_corpus_shape_review()</code>
+  was only reachable via an explicit <code>POST /ops/synthesize</code> call. Added it as sweep Pass 3
+  (deterministic, no extra provider call) so borderline-confidence synthesis/comparison
+  clusters reach the F9 review queue during normal operation, not only on an explicit
+  synthesize run. Gated by <code>review_corpus_shape_enabled</code> (default on).</li>
+<li><strong>macOS: closing the window now hides it</strong> instead of quitting the whole app — matching
+  standard macOS convention, using the tray Show/Quit menu that already existed. Cmd+Q and
+  the tray's Quit still fully exit. Windows/Linux close behavior is unchanged.</li>
+<li><strong>Changelog bundling safety net</strong>: <code>copy-changelog.mjs</code> no longer silently ships a desktop
+  build without <code>CHANGELOG.md</code> — it now falls back to a repo-root search and fails loudly
+  during a release prebuild if the file genuinely can't be found. CI now also verifies
+  <code>frontend/dist/CHANGELOG.md</code> exists and is non-empty before a release ships.</li>
 </ul>
-<p>Human verification of EC-M5-HCP-6 occurs at the END of M5 (after Phase 5 / F1-MCP-UI), as part of the full EC-M5-HCP browser checkpoint. No code change is required before that verification.</p>
-<hr />
-<h2 id="5-all-5-core-m5-features-status">5. All 5 core M5 features: status<a class="headerlink" href="#5-all-5-core-m5-features-status" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Feature</th>
-<th>Phase</th>
-<th>Status</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>F5 — 4-phase RAG retrieval</td>
-<td>Phase 1</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td>F6 carry-forward (AC-F6-3 + AC-F6-5)</td>
-<td>Phase 1</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td>F17 carry-forward (CliAgentProvider.chat())</td>
-<td>Phase 1</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td>F10 — Deep Research loop</td>
-<td>Phase 2</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td>F9 — HITL Review Queue</td>
-<td>Phase 3</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td>F12 — Multi-format ingest</td>
-<td>Phase 3</td>
-<td>done (PM sign-off 2026-06-29)</td>
-</tr>
-<tr>
-<td><strong>F13 — Cascade Deletion</strong></td>
-<td><strong>Phase 4</strong></td>
-<td><strong>done-with-followups (this sign-off)</strong></td>
-</tr>
-<tr>
-<td>F1-MCP-UI — MCP Config UI (A1)</td>
-<td>Phase 5</td>
-<td>backlog — NEXT</td>
-</tr>
-</tbody>
-</table>
-<p>All 5 primary M5 features (F5/F9/F10/F12/F13) are now DONE or DONE-WITH-FOLLOWUPS. The Amendment A1 item (F1-MCP-UI) is the only remaining in-scope M5 work item.</p>
-<hr />
-<h2 id="6-phase-5-f1-mcp-ui-cleared-to-proceed">6. Phase 5 (F1-MCP-UI) — cleared to proceed<a class="headerlink" href="#6-phase-5-f1-mcp-ui-cleared-to-proceed" title="Permanent link">&para;</a></h2>
-<p>Phase 5 scope: F1-MCP-UI (AC-F1-MCP-UI-1..10, EC-M5-22, EC-M5-HCP-7). The scope is defined in docs/sprints/v0.5-scope.md §7 Phase 5 and §4 F1-MCP-UI ACs.</p>
-<p>Phase 5 is the ONLY remaining M5 scope before the M5 milestone gate + EC-M5-HCP human checkpoint.</p>
-<p>The gate chain for Phase 5 is unchanged: functional-analyst ACs → architect → engineer → QA → tech-writer → PM.</p>
-<p>Phase 5 is cleared to start. No open blockers.</p>
-<hr />
-<h2 id="7-scope-log-update">7. Scope log update<a class="headerlink" href="#7-scope-log-update" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Phase</th>
-<th>Feature IDs</th>
-<th>PM verdict</th>
-<th>Date</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Phase 1</td>
-<td>F5, F6-AC-F6-3/F6-5, F17-CHAT</td>
-<td>DONE-WITH-FOLLOWUPS</td>
-<td>2026-06-29</td>
-</tr>
-<tr>
-<td>Phase 2</td>
-<td>F10</td>
-<td>DONE-WITH-FOLLOWUPS</td>
-<td>2026-06-29</td>
-</tr>
-<tr>
-<td>Phase 3</td>
-<td>F9, F12</td>
-<td>DONE-WITH-FOLLOWUPS</td>
-<td>2026-06-29</td>
-</tr>
-<tr>
-<td>Phase 4</td>
-<td>F13</td>
-<td><strong>DONE-WITH-FOLLOWUPS</strong></td>
-<td><strong>2026-06-29</strong></td>
-</tr>
-<tr>
-<td>Phase 5</td>
-<td>F1-MCP-UI</td>
-<td>backlog — in-progress next</td>
-<td>—</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="8-velocity-note">8. Velocity note<a class="headerlink" href="#8-velocity-note" title="Permanent link">&para;</a></h2>
-<p>Sprint 5 is tracking ON SCOPE through Phase 4. Seven feature IDs delivered across four phases (F5, F6-carry, F17-carry, F10, F9, F12, F13). One amendment item (F1-MCP-UI) added mid-sprint with stakeholder approval and PM scope lock (Amendment A1). The FAIL→fix→PASS cycle in Phase 4 added one iteration but did not expand scope — it corrected two production defects that the original test suite had missed. No scope creep detected. Phase 5 (F1-MCP-UI) is small and well-bounded.</p>
-<hr />
-<p><strong>Signed: product-manager (claude-sonnet-4-6) | 2026-06-29 | Phase 4 sign-off (F13 Cascade Deletion)</strong></p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>No schema migrations. If you had an ingest run stuck at "Non convergito" from a source living
+in a raw subfolder, or one that failed on a spurious <code>wiki/log.md</code>/comparison-routing error,
+retry it — it should now converge.</p>
 
 
 
