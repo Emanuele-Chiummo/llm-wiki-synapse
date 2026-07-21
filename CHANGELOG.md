@@ -7,7 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [2.1.6] — 2026-07-21 — "past the edge"
+
+Patch release fixing a live-observed Lint failure behind Cloudflare. No schema migrations.
 
 ### Fixed
 
