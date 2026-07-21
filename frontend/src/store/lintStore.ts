@@ -7,7 +7,10 @@
  * INVARIANT I7: total_cost_usd is always present on LintRun; rendered at 4dp by consumers.
  *
  * Actions:
- *   scan             → POST /lint/scan (synchronous bounded run). Updates findings + run.
+ *   scan             → POST /lint/scan/start (202) then polls GET /lint/runs/{id} until the
+ *                      run leaves "running", then loads findings. The synchronous
+ *                      POST /lint/scan cannot be used from the UI: behind Cloudflare a run
+ *                      longer than ~100s comes back as a 524 even though it completes.
  *   apply            → POST /lint/findings/{id}/apply. For missing-xref/missing-page: real fix.
  *                      For orphan-page/contradiction/stale-claim: flag-only acknowledge.
  *   dismiss          → POST /lint/findings/{id}/dismiss.
@@ -27,7 +30,8 @@ import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { LintFinding, LintRun } from "../api/types";
 import {
-  runLintScan,
+  startLintScan,
+  fetchLintRun,
   fetchLintRuns,
   fetchLintFindings,
   applyLintFinding,
@@ -45,6 +49,35 @@ const LS_SEMANTIC = "synapse.lint.semantic";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_LIMIT = 50;
+
+/** How often scan() polls GET /lint/runs/{id} while a background scan is running. */
+const SCAN_POLL_INTERVAL_MS = 3000;
+
+/**
+ * How long scan() keeps polling before giving up on the UI side. The backend run is
+ * bounded by max_iter + token_budget (I7); this only bounds the browser's patience so a
+ * wedged run can never leave the button spinning forever.
+ */
+const SCAN_POLL_TIMEOUT_MS = 30 * 60 * 1000;
+
+/** Abortable sleep — rejects with an AbortError so scan()'s existing handler catches it. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    }
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 
 // ─── State / Actions ──────────────────────────────────────────────────────────
 
@@ -234,19 +267,49 @@ export const useLintStore = create<LintStore>((set, get) => ({
     const { semanticEnabled } = get();
     set({ scanning: true, scanError: null });
     try {
-      const res = await runLintScan({ vault_id: vaultId }, signal, semanticEnabled);
-      // Replace open findings with the ones returned by the scan
-      // (the scan already filtered to open status)
+      // Start the run in the background and poll it. The synchronous POST /lint/scan
+      // is unusable in production: a real vault takes minutes and Cloudflare kills the
+      // request with a 524 at ~100s, so the UI saw an error for a scan that succeeded.
+      const started = await startLintScan({ vault_id: vaultId }, signal, semanticEnabled);
+
+      let run = await fetchLintRun(started.run_id, signal);
+      const deadline = Date.now() + SCAN_POLL_TIMEOUT_MS;
+      while (run.status === "running") {
+        if (Date.now() > deadline) {
+          throw new Error(
+            "Lint scan still running after 30 minutes — check the run history for its result.",
+          );
+        }
+        await sleep(SCAN_POLL_INTERVAL_MS, signal);
+        run = await fetchLintRun(started.run_id, signal);
+      }
+
+      if (run.status === "error") {
+        set((s) => ({
+          scanning: false,
+          scanError: run.error_message ?? "Lint scan failed.",
+          currentRun: run,
+          runs: [run, ...s.runs.filter((r) => r.id !== run.id)],
+        }));
+        return;
+      }
+
+      // Completed: load the open findings the run produced.
+      const page = await fetchLintFindings(
+        { vaultId, status: "open", limit: PAGE_LIMIT, offset: 0 },
+        signal,
+      );
       set((s) => ({
         scanning: false,
-        currentRun: res.run,
-        findings: res.findings,
-        findingsTotal: res.findings.length,
+        currentRun: run,
+        findings: page.items,
+        findingsTotal: page.total,
         findingsOffset: 0,
+        severityTotals: page.severity_totals ?? null,
         selectedIds: new Set<string>(),
         // Prepend to run history (most recent first)
-        runs: [res.run, ...s.runs.filter((r) => r.id !== res.run.id)],
-        runsTotal: s.runsTotal + (s.runs.some((r) => r.id === res.run.id) ? 0 : 1),
+        runs: [run, ...s.runs.filter((r) => r.id !== run.id)],
+        runsTotal: s.runsTotal + (s.runs.some((r) => r.id === run.id) ? 0 : 1),
       }));
     } catch (err: unknown) {
       if (err instanceof Error && err.name === "AbortError") {

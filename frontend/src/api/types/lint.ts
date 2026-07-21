@@ -128,11 +128,29 @@ export interface LintScanResponse {
   findings: LintFinding[];
 }
 
-/** Request body for POST /lint/scan. */
+/** Request body for POST /lint/scan and POST /lint/scan/start. */
 export interface LintScanRequest {
   vault_id: string;
   max_iter?: number | null;
   token_budget?: number | null;
+  /**
+   * L8: when false the paid LLM pass is skipped. Sent in the BODY — it was previously
+   * only ever sent as a query param, which the body-model endpoint ignored, so the
+   * "Semantic (LLM)" toggle silently had no effect.
+   */
+  semantic?: boolean;
+}
+
+/**
+ * 202 response from POST /lint/scan/start — the background twin of POST /lint/scan.
+ * The scan is still running when this returns; poll GET /lint/runs/{run_id}.
+ */
+export interface LintScanStartResponse {
+  run_id: string;
+  status: string;
+  max_iter: number;
+  token_budget: number;
+  semantic: boolean;
 }
 
 // ─── B1: Batch action + page-delete (B1-L5, B1-L9) ──────────────────────────

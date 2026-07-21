@@ -2,6 +2,7 @@
  * lintClient.ts — typed API client for the K2 Lint-fix endpoints (ADR-0037 §6).
  *
  * POST /lint/scan                         → LintScanResponse (200): run + findings
+ * POST /lint/scan/start                   → LintScanStartResponse (202): run_id, poll the run
  * GET  /lint/runs                         → LintRunListResponse
  * GET  /lint/runs/{id}                    → LintRun
  * GET  /lint/findings?status=open         → LintFindingListResponse
@@ -24,6 +25,7 @@
 
 import type {
   LintScanResponse,
+  LintScanStartResponse,
   LintScanRequest,
   LintRunListResponse,
   LintRun,
@@ -56,11 +58,39 @@ export async function runLintScan(
   const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, semantic }),
     ...(signal !== undefined ? { signal } : {}),
   });
   await checkResponse(res);
   return (await res.json()) as LintScanResponse;
+}
+
+/**
+ * Start a bounded lint scan in the BACKGROUND.
+ * POST /lint/scan/start?semantic=true|false { vault_id, max_iter?, token_budget?, semantic }
+ * Returns 202 { run_id, ... } as soon as the run row exists — the scan is still running.
+ *
+ * This is the path the UI must use: the synchronous POST /lint/scan holds the connection
+ * for the whole run, and behind Cloudflare anything slower than ~100s comes back as a 524
+ * even though the backend completes the scan. Poll fetchLintRun(run_id) until the run
+ * leaves status "running", then load findings with fetchLintFindings().
+ *
+ * 409 when a background scan is already in flight for this vault.
+ */
+export async function startLintScan(
+  params: LintScanRequest,
+  signal?: AbortSignal,
+  semantic = true,
+): Promise<LintScanStartResponse> {
+  const url = `${apiBase()}/lint/scan/start?semantic=${semantic ? "true" : "false"}`;
+  const res = await apiFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...params, semantic }),
+    ...(signal !== undefined ? { signal } : {}),
+  });
+  await checkResponse(res);
+  return (await res.json()) as LintScanStartResponse;
 }
 
 /**

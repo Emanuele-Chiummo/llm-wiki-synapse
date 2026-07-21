@@ -4879,15 +4879,35 @@
         "summary": "Run a bounded lint scan (K2 \u2014 produces findings, never auto-fixes)",
         "description": "K2 Lint-fix loop (ADR-0037). Runs a BOUNDED, HUMAN-GATED health check of the wiki: deterministic structural checks (orphan-page via the graph/links read, no LLM) plus a bounded semantic pass (missing-xref | contradiction | stale-claim | missing-page) that rides the resolved ingest provider (I6 \u2014 never hardcoded). Bounds: max_iter (1..10) + token_budget (1k..1M) FROZEN on the lint_runs row (I7); findings capped at LINT_MAX_FINDINGS; total_cost_usd logged. Produces FINDINGS only \u2014 applying a fix requires the explicit human gate (POST /lint/findings/{id}/apply). Returns the run row + its findings.",
         "operationId": "lint_scan_lint_scan_post",
+        "parameters": [
+          {
+            "name": "semantic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional override of the body's `semantic` flag. The UI has always sent this as a query param; honouring it here is what makes unchecking 'Semantic (LLM)' actually skip the paid provider pass (L8).",
+              "title": "Semantic"
+            },
+            "description": "Optional override of the body's `semantic` flag. The UI has always sent this as a query param; honouring it here is what makes unchecking 'Semantic (LLM)' actually skip the paid provider pass (L8)."
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LintScanRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -4899,6 +4919,66 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation error (max_iter/token_budget out of range)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/lint/scan/start": {
+      "post": {
+        "summary": "Start a bounded lint scan in the background (edge-safe twin of POST /lint/scan)",
+        "description": "Identical bounds and semantics to POST /lint/scan (ADR-0037 \u00a76), but returns 202 with the run_id as soon as the lint_runs row exists instead of holding the connection for the whole run. Required behind Cloudflare, where a synchronous scan is killed with a 524 long before it completes. Poll GET /lint/runs/{run_id} for status and GET /lint/findings once it reports 'completed'. Single-flight per vault (409 while a background scan is in flight).",
+        "operationId": "lint_scan_start_lint_scan_start_post",
+        "parameters": [
+          {
+            "name": "semantic",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional override of the body's `semantic` flag (L8).",
+              "title": "Semantic"
+            },
+            "description": "Optional override of the body's `semantic` flag (L8)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LintScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Scan started; poll GET /lint/runs/{run_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintScanStartResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A background scan is already in flight for this vault"
           },
           "422": {
             "description": "Validation error (max_iter/token_budget out of range)"
@@ -8934,6 +9014,46 @@
         ],
         "title": "LintScanResponse",
         "description": "200 response for POST /lint/scan (ADR-0037 \u00a76): the run + its findings."
+      },
+      "LintScanStartResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id",
+            "description": "Poll GET /lint/runs/{run_id} until status != 'running'"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "'started' \u2014 the scan runs in background",
+            "default": "started"
+          },
+          "max_iter": {
+            "type": "integer",
+            "title": "Max Iter",
+            "description": "Frozen max semantic rounds for this run (I7)"
+          },
+          "token_budget": {
+            "type": "integer",
+            "title": "Token Budget",
+            "description": "Frozen token budget for this run (I7)"
+          },
+          "semantic": {
+            "type": "boolean",
+            "title": "Semantic",
+            "description": "Whether the paid provider pass runs (L8)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "max_iter",
+          "token_budget",
+          "semantic"
+        ],
+        "title": "LintScanStartResponse",
+        "description": "202 response for POST /lint/scan/start."
       },
       "MarkerBatchStatusFile": {
         "properties": {

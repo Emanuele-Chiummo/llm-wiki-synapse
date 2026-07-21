@@ -61,6 +61,13 @@ vi.mock("@tanstack/react-virtual", () => ({
 
 vi.mock("../api/lintClient", () => ({
   runLintScan: vi.fn().mockResolvedValue({ run: null, findings: [] }),
+  startLintScan: vi.fn().mockResolvedValue({
+    run_id: "run-1",
+    status: "started",
+    max_iter: 3,
+    token_budget: 20000,
+    semantic: true,
+  }),
   fetchLintRuns: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 }),
   fetchLintRun: vi.fn(),
   fetchLintFindings: vi.fn().mockResolvedValue({ items: [], total: 0, limit: 50, offset: 0 }),
@@ -791,17 +798,21 @@ describe("LintView — Dismiss action", () => {
 // ─── Run Lint button ──────────────────────────────────────────────────────────
 
 describe("LintView — Run Lint button", () => {
-  it("calls runLintScan when clicked", async () => {
+  it("starts a background scan when clicked", async () => {
     const run = makeLintRun();
-    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run, findings: [] });
+    vi.mocked(lintClient.fetchLintRun).mockResolvedValueOnce(run);
     render(<LintView />);
 
     const runBtn = screen.getByTestId("lint-run-btn");
     fireEvent.click(runBtn);
 
     await waitFor(() => {
-      // semantic=true is default, passed as third param to runLintScan
-      expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, true);
+      // semantic=true is default, passed as third param to startLintScan
+      expect(lintClient.startLintScan).toHaveBeenCalledWith(
+        { vault_id: "default" },
+        undefined,
+        true,
+      );
     });
   });
 });

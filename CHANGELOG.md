@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [Unreleased]
+
+### Fixed
+
+- **"Run Lint" always failed with a bare `524` in production**: live evidence — the Lint page
+  showed a red `524` banner and "No open findings" while the backend had actually completed the
+  scan. `POST /lint/scan` runs the whole bounded scan before answering, holding the HTTP
+  connection open for the entire run; on a real vault the semantic pass takes minutes, and the
+  Cloudflare tunnel (ADR-0062) terminates any origin request that stays silent past ~100s with a
+  524. The UI therefore could never observe a successful lint scan in production, regardless of
+  how well the scan itself ran. Added `POST /lint/scan/start`, which pre-inserts the
+  `lint_runs` row, returns `202 {run_id}` immediately and runs the scan in a background asyncio
+  task (the same pattern as `/ops/backfill-domains`), single-flight per vault (409 while one is
+  in flight). The UI now starts the scan there and polls `GET /lint/runs/{id}` until the run
+  leaves `running`, then loads its findings. The synchronous endpoint is unchanged for CLI and
+  test callers.
+- **The "Semantic (LLM)" checkbox had no effect**: `semantic` was declared only as a request
+  **body** field while the frontend has always sent it as a **query param**, so the flag was
+  silently dropped and every scan ran — and billed — the LLM pass even when unchecked (which
+  also made the 524 above far more likely). Both scan endpoints now honour the query param as
+  an override, and the client sends the flag in the body as well. The existing L8 test only
+  covered the body shape, which is why this shipped; a query-param test now covers the call
+  shape the UI actually makes.
+
 ## [2.1.5] — 2026-07-20 — "no more argv"
 
 Patch release fixing a live-observed ingest failure on large vaults. No schema migrations.
