@@ -2,7 +2,8 @@
 Per-domain APIRouter: /lint/* endpoints (K2 Lint-fix loop).
 
 Covers:
-  POST /lint/scan                         — bounded lint scan → run + findings
+  POST /lint/scan                         — bounded lint scan → run + findings (synchronous)
+  POST /lint/scan/start                   — 202 {run_id}; scan runs in background (edge-safe)
   GET  /lint/runs                         — lint run history
   GET  /lint/runs/{id}                    — run detail
   GET  /lint/findings                     — paginated findings (L10: category+severity filters)
@@ -14,6 +15,7 @@ Covers:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import datetime
@@ -249,7 +251,17 @@ def _lint_run_to_response(r: LintRun) -> LintRunResponse:
         422: {"description": "Validation error (max_iter/token_budget out of range)"},
     },
 )
-async def lint_scan(body: LintScanRequest) -> LintScanResponse:
+async def lint_scan(
+    body: LintScanRequest,
+    semantic: bool | None = Query(
+        default=None,
+        description=(
+            "Optional override of the body's `semantic` flag. The UI has always sent this "
+            "as a query param; honouring it here is what makes unchecking 'Semantic (LLM)' "
+            "actually skip the paid provider pass (L8)."
+        ),
+    ),
+) -> LintScanResponse:
     """POST /lint/scan — run a bounded lint scan synchronously (ADR-0037 §6)."""
     from app.ops.lint import run_lint_scan
 
@@ -257,7 +269,7 @@ async def lint_scan(body: LintScanRequest) -> LintScanResponse:
         body.vault_id,
         max_iter=body.max_iter,
         token_budget=body.token_budget,
-        semantic=body.semantic,
+        semantic=body.semantic if semantic is None else semantic,
     )
 
     # Load the run row + its findings for the response.
@@ -280,6 +292,124 @@ async def lint_scan(body: LintScanRequest) -> LintScanResponse:
     return LintScanResponse(
         run=_lint_run_to_response(run),
         findings=[_lint_finding_to_response(f) for f in finding_rows],
+    )
+
+
+# ── POST /lint/scan/start — the same bounded scan, run in the background ─────────────
+# POST /lint/scan holds the HTTP connection open for the WHOLE run. On a real vault the
+# semantic pass takes minutes, and behind the Cloudflare tunnel (ADR-0062) any origin that
+# stays silent past ~100s is cut with a 524 — so the UI could never see a scan result in
+# production even though the backend finished the work. This mirrors the /ops/* pattern:
+# pre-INSERT the run row, return 202 {run_id}, run the scan in a background asyncio task,
+# and let the client poll GET /lint/runs/{id} until status leaves 'running'.
+# Strong task reference kept in a module-level set — a bare create_task can be GC'd mid-run.
+
+_scan_tasks: set[asyncio.Task[Any]] = set()
+
+# vault_id values with a background scan in flight (single-flight guard → 409).
+_scan_in_flight: set[str] = set()
+
+
+class LintScanStartResponse(BaseModel):
+    """202 response for POST /lint/scan/start."""
+
+    run_id: uuid.UUID = Field(description="Poll GET /lint/runs/{run_id} until status != 'running'")
+    status: str = Field(default="started", description="'started' — the scan runs in background")
+    max_iter: int = Field(description="Frozen max semantic rounds for this run (I7)")
+    token_budget: int = Field(description="Frozen token budget for this run (I7)")
+    semantic: bool = Field(description="Whether the paid provider pass runs (L8)")
+
+
+@router.post(
+    "/lint/scan/start",
+    status_code=202,
+    response_model=LintScanStartResponse,
+    summary="Start a bounded lint scan in the background (edge-safe twin of POST /lint/scan)",
+    description=(
+        "Identical bounds and semantics to POST /lint/scan (ADR-0037 §6), but returns 202 "
+        "with the run_id as soon as the lint_runs row exists instead of holding the "
+        "connection for the whole run. Required behind Cloudflare, where a synchronous "
+        "scan is killed with a 524 long before it completes. Poll GET /lint/runs/{run_id} "
+        "for status and GET /lint/findings once it reports 'completed'. "
+        "Single-flight per vault (409 while a background scan is in flight)."
+    ),
+    responses={
+        202: {"description": "Scan started; poll GET /lint/runs/{run_id}"},
+        409: {"description": "A background scan is already in flight for this vault"},
+        422: {"description": "Validation error (max_iter/token_budget out of range)"},
+    },
+)
+async def lint_scan_start(
+    body: LintScanRequest,
+    semantic: bool | None = Query(
+        default=None, description="Optional override of the body's `semantic` flag (L8)."
+    ),
+) -> LintScanStartResponse:
+    """POST /lint/scan/start — 202 + background bounded lint scan."""
+    from app.config import settings as _settings
+    from app.config_overrides import effective_int
+    from app.ops.lint import _create_run_row, run_lint_scan
+
+    vault_id = body.vault_id
+    if vault_id in _scan_in_flight:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"A lint scan is already running for vault {vault_id!r}. "
+                "Poll GET /lint/runs to follow it."
+            ),
+        )
+
+    use_semantic = body.semantic if semantic is None else semantic
+
+    # Freeze the bounds HERE (I7) so the 202 reports exactly what the run row carries —
+    # run_lint_scan would otherwise resolve them itself, after we have already answered.
+    frozen_max_iter = (
+        body.max_iter
+        if body.max_iter is not None
+        else effective_int("lint_max_iter", int(_settings.lint_max_iter))
+    )
+    frozen_token_budget = (
+        body.token_budget
+        if body.token_budget is not None
+        else effective_int("lint_token_budget", int(_settings.lint_token_budget))
+    )
+
+    # Pre-INSERT the run row so the client has something to poll the instant it gets the 202.
+    run_id = uuid.uuid4()
+    await _create_run_row(
+        run_id=run_id,
+        vault_id=vault_id,
+        max_iter=frozen_max_iter,
+        token_budget=frozen_token_budget,
+    )
+
+    _scan_in_flight.add(vault_id)
+
+    async def _run() -> None:
+        try:
+            await run_lint_scan(
+                vault_id,
+                max_iter=frozen_max_iter,
+                token_budget=frozen_token_budget,
+                run_id=run_id,
+                semantic=use_semantic,
+            )
+        except Exception as exc:  # noqa: BLE001 — run_lint_scan finalizes its own row
+            logger.error("lint scan %s: unhandled error in background run: %s", run_id, exc)
+        finally:
+            _scan_in_flight.discard(vault_id)
+
+    task = asyncio.create_task(_run())
+    _scan_tasks.add(task)
+    task.add_done_callback(_scan_tasks.discard)
+
+    return LintScanStartResponse(
+        run_id=run_id,
+        status="started",
+        max_iter=frozen_max_iter,
+        token_budget=frozen_token_budget,
+        semantic=use_semantic,
     )
 
 

@@ -25,13 +25,14 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useLintStore } from "../store/lintStore";
-import type { LintFinding, LintRun, LintScanResponse } from "../api/types";
+import type { LintFinding, LintRun } from "../api/types";
 import { ApiError } from "../api/graphClient";
 
 // ─── Mock API client ──────────────────────────────────────────────────────────
 
 vi.mock("../api/lintClient", () => ({
   runLintScan: vi.fn(),
+  startLintScan: vi.fn(),
   fetchLintRuns: vi.fn(),
   fetchLintRun: vi.fn(),
   fetchLintFindings: vi.fn(),
@@ -113,12 +114,39 @@ beforeEach(() => {
 
 // ─── scan ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Wire the background-scan happy path: POST /lint/scan/start returns a run_id, the first
+ * poll of GET /lint/runs/{id} already reports a terminal status, then findings are loaded.
+ * `runStates` lets a test simulate the run still being "running" for a few polls.
+ */
+function mockScanFlow(runStates: LintRun[], findings: LintFinding[] = []): void {
+  const last = runStates[runStates.length - 1];
+  vi.mocked(lintClient.startLintScan).mockResolvedValueOnce({
+    run_id: last?.id ?? "run-1",
+    status: "started",
+    max_iter: 3,
+    token_budget: 20000,
+    semantic: true,
+  });
+  const fetchRun = vi.mocked(lintClient.fetchLintRun);
+  for (const r of runStates) fetchRun.mockResolvedValueOnce(r);
+  // Only a completed run loads findings. Queueing this unconditionally would leave an
+  // unconsumed mockResolvedValueOnce behind for the error case — and vi.clearAllMocks()
+  // clears call history but NOT the once-queue, so it would leak into the next test.
+  if (last?.status === "completed") {
+    vi.mocked(lintClient.fetchLintFindings).mockResolvedValueOnce({
+      items: findings,
+      total: findings.length,
+      limit: 50,
+      offset: 0,
+    });
+  }
+}
+
 describe("lintStore — scan", () => {
   it("replaces findings, sets currentRun, prepends to run history on success", async () => {
     const run = makeLintRun({ id: "run-new" });
-    const findings = [makeFinding("f1"), makeFinding("f2")];
-    const resp: LintScanResponse = { run, findings };
-    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce(resp);
+    mockScanFlow([run], [makeFinding("f1"), makeFinding("f2")]);
 
     await useLintStore.getState().scan("default");
 
@@ -131,8 +159,48 @@ describe("lintStore — scan", () => {
     expect(state.runs[0]?.id).toBe("run-new");
   });
 
+  it("polls until the run leaves 'running' before loading findings", async () => {
+    vi.useFakeTimers();
+    try {
+      mockScanFlow(
+        [
+          makeLintRun({ id: "run-slow", status: "running", completed_at: null }),
+          makeLintRun({ id: "run-slow", status: "running", completed_at: null }),
+          makeLintRun({ id: "run-slow", status: "completed" }),
+        ],
+        [makeFinding("f1")],
+      );
+
+      const done = useLintStore.getState().scan("default");
+      await vi.runAllTimersAsync();
+      await done;
+
+      // Three polls happened; findings were only fetched after the terminal status.
+      expect(lintClient.fetchLintRun).toHaveBeenCalledTimes(3);
+      expect(lintClient.fetchLintFindings).toHaveBeenCalledTimes(1);
+      expect(useLintStore.getState().currentRun?.status).toBe("completed");
+      expect(useLintStore.getState().findings).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("surfaces a run that finished with status 'error'", async () => {
+    mockScanFlow([
+      makeLintRun({ id: "run-bad", status: "error", error_message: "Provider timeout" }),
+    ]);
+
+    await useLintStore.getState().scan("default");
+
+    const state = useLintStore.getState();
+    expect(state.scanning).toBe(false);
+    expect(state.scanError).toBe("Provider timeout");
+    // A failed run must not clear the findings list via a findings fetch.
+    expect(lintClient.fetchLintFindings).not.toHaveBeenCalled();
+  });
+
   it("sets scanError on failure", async () => {
-    vi.mocked(lintClient.runLintScan).mockRejectedValueOnce(new Error("Provider not configured"));
+    vi.mocked(lintClient.startLintScan).mockRejectedValueOnce(new Error("Provider not configured"));
 
     await useLintStore.getState().scan("default");
 
@@ -144,7 +212,7 @@ describe("lintStore — scan", () => {
 
   it("ignores AbortError and does not set scanError", async () => {
     const abortErr = Object.assign(new Error("AbortError"), { name: "AbortError" });
-    vi.mocked(lintClient.runLintScan).mockRejectedValueOnce(abortErr);
+    vi.mocked(lintClient.startLintScan).mockRejectedValueOnce(abortErr);
 
     await useLintStore.getState().scan("default");
 
@@ -156,11 +224,7 @@ describe("lintStore — scan", () => {
     const run = makeLintRun({ id: "run-existing" });
     useLintStore.setState({ runs: [run], runsTotal: 1 });
 
-    const updatedRun = makeLintRun({ id: "run-existing", findings_count: 5 });
-    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({
-      run: updatedRun,
-      findings: [],
-    });
+    mockScanFlow([makeLintRun({ id: "run-existing", findings_count: 5 })]);
 
     await useLintStore.getState().scan("default");
 
@@ -390,18 +454,22 @@ describe("lintStore — semanticEnabled [B1-L8]", () => {
     expect(useLintStore.getState().semanticEnabled).toBe(true);
   });
 
-  it("scan passes semanticEnabled=false to runLintScan", async () => {
+  it("scan passes semanticEnabled=false to startLintScan", async () => {
     useLintStore.setState({ semanticEnabled: false });
-    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
+    mockScanFlow([makeLintRun()]);
     await useLintStore.getState().scan("default");
-    expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, false);
+    expect(lintClient.startLintScan).toHaveBeenCalledWith(
+      { vault_id: "default" },
+      undefined,
+      false,
+    );
   });
 
-  it("scan passes semanticEnabled=true to runLintScan", async () => {
+  it("scan passes semanticEnabled=true to startLintScan", async () => {
     useLintStore.setState({ semanticEnabled: true });
-    vi.mocked(lintClient.runLintScan).mockResolvedValueOnce({ run: makeLintRun(), findings: [] });
+    mockScanFlow([makeLintRun()]);
     await useLintStore.getState().scan("default");
-    expect(lintClient.runLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, true);
+    expect(lintClient.startLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, true);
   });
 });
 

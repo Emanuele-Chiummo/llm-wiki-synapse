@@ -22,6 +22,7 @@ Tests:
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -1199,6 +1200,52 @@ class TestScanEndpoint:
         resp = await lint_client.post("/lint/scan", json={"vault_id": "test-vault", "max_iter": 99})
         assert resp.status_code == 422
 
+    async def test_scan_start_returns_202_then_completes_in_background(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """
+        POST /lint/scan/start answers before the scan finishes.
+
+        This is what makes lint usable behind Cloudflare: the synchronous endpoint holds
+        the connection for the whole run and the edge kills it with a 524 at ~100s.
+        """
+        await _insert_page(lint_env, title="Lonely")
+
+        with patch("app.ops.lint.resolve_operation_provider", return_value=None):
+            resp = await lint_client.post("/lint/scan/start", json={"vault_id": "test-vault"})
+            assert resp.status_code == 202, resp.text
+            run_id = resp.json()["run_id"]
+
+            # The run row must be pollable the instant the 202 lands — otherwise the
+            # client has nothing to poll and the 202 is useless.
+            first_poll = await lint_client.get(f"/lint/runs/{run_id}")
+            assert first_poll.status_code == 200
+
+            # Let the background task finish.
+            for _ in range(100):
+                poll = await lint_client.get(f"/lint/runs/{run_id}")
+                if poll.json()["status"] != "running":
+                    break
+                await asyncio.sleep(0.02)
+
+        assert poll.json()["status"] == "completed"
+
+        findings = await lint_client.get("/lint/findings?vault_id=test-vault&status=open")
+        assert "orphan-page" in {f["category"] for f in findings.json()["items"]}
+
+    async def test_scan_start_conflicts_while_a_scan_is_in_flight(
+        self, lint_client: AsyncClient
+    ) -> None:
+        """Single-flight per vault: a second background scan is refused with 409."""
+        from app.routers import lint as lint_router
+
+        lint_router._scan_in_flight.add("test-vault")
+        try:
+            resp = await lint_client.post("/lint/scan/start", json={"vault_id": "test-vault"})
+            assert resp.status_code == 409
+        finally:
+            lint_router._scan_in_flight.discard("test-vault")
+
     async def test_runs_list_endpoint(
         self, lint_env: dict[str, Any], lint_client: AsyncClient
     ) -> None:
@@ -1483,6 +1530,32 @@ class TestSemanticFalse:
         assert body["run"]["total_cost_usd"] == 0.0
         # Provider was never called
         assert len(calls_log) == 0
+
+    async def test_semantic_false_via_query_param(
+        self, lint_env: dict[str, Any], lint_client: AsyncClient
+    ) -> None:
+        """
+        L8: POST /lint/scan?semantic=false → deterministic only.
+
+        The UI has always sent the flag as a QUERY PARAM while the endpoint only read the
+        body field, so unchecking "Semantic (LLM)" silently still ran (and billed) the
+        provider pass. Only the body shape was covered by a test, which is why it shipped.
+        """
+        calls_log: list[int] = []
+        provider = _make_findings_provider(calls_log=calls_log)
+
+        with patch(
+            "app.ops.lint.resolve_operation_provider",
+            return_value=(provider, MagicMock(token_budget=1_000_000)),
+        ):
+            resp = await lint_client.post(
+                "/lint/scan?semantic=false",
+                json={"vault_id": "test-vault"},
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["run"]["total_cost_usd"] == 0.0
+        assert len(calls_log) == 0, "semantic=false query param must not call the provider"
 
 
 # ── T-LINT-B3: category + severity filters (L10) ─────────────────────────────────
