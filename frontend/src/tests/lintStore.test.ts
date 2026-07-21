@@ -458,7 +458,11 @@ describe("lintStore — semanticEnabled [B1-L8]", () => {
     useLintStore.setState({ semanticEnabled: false });
     mockScanFlow([makeLintRun()]);
     await useLintStore.getState().scan("default");
-    expect(lintClient.startLintScan).toHaveBeenCalledWith({ vault_id: "default" }, undefined, false);
+    expect(lintClient.startLintScan).toHaveBeenCalledWith(
+      { vault_id: "default" },
+      undefined,
+      false,
+    );
   });
 
   it("scan passes semanticEnabled=true to startLintScan", async () => {
