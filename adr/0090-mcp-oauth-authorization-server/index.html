@@ -590,6 +590,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.7
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.6/" class="md-nav__link">
         
   
@@ -1796,6 +1824,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#follow-up-217-post-mcpserver-no-trailing-slash-307-redirect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Follow-up (2.1.7) — POST /mcp/server (no trailing slash) 307 redirect
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1982,6 +2021,28 @@ scope for consistency. <code>docs/DEPLOY.md</code> §5.6b is updated accordingly
   URL from its first attempt) without a delete-and-re-add; root-level paths fix both the
   existing and any future connector, since discovery documents advertise the same paths.</li>
 </ul>
+<h2 id="follow-up-217-post-mcpserver-no-trailing-slash-307-redirect">Follow-up (2.1.7) — <code>POST /mcp/server</code> (no trailing slash) 307 redirect<a class="headerlink" href="#follow-up-217-post-mcpserver-no-trailing-slash-307-redirect" title="Permanent link">&para;</a></h2>
+<p>Live evidence immediately after 2.1.6 shipped: claude.ai's connector completed the ENTIRE
+OAuth handshake this ADR describes (<code>/register</code> → 201, <code>/authorize</code> → 302 with a code,
+<code>/token</code> → 200 with a minted access token) and then reported "Synapse returned an error
+when connecting." Every subsequent <code>POST /mcp/server</code> in the logs came back
+<code>307 Temporary Redirect</code>, never 200.</p>
+<p>Root cause (pre-existing, unrelated to the OAuth work above — the mount itself hadn't
+changed since 2026-07-13): Starlette's <code>Mount</code> always requires a trailing slash in its
+match regex (<code>self.path + "/{path:path}"</code>). A request to the bare <code>MCP_MOUNT_PATH</code>
+(<code>/mcp/server</code>, no trailing slash) never matches the <code>Mount</code>, so the OUTER
+<code>Router.redirect_slashes</code> fallback fires a 307 to <code>/mcp/server/</code> — before the request
+ever reaches <code>BearerAuthMiddleware</code> or FastMCP. This had been true the whole time; it was
+simply never exercised end-to-end by a client that (a) authenticates successfully AND
+(b) refuses to follow a 307 on POST (a reasonable SSRF-defensive default that claude.ai's
+remote-MCP client apparently applies).</p>
+<p>Fixed by registering an explicit <code>Route</code> at the bare <code>MCP_MOUNT_PATH</code> in
+<code>backend/app/main.py</code> that forwards to the SAME guarded ASGI app, manually replicating the
+scope adjustment a successful <code>Mount</code> match performs (<code>root_path</code> gains the prefix,
+<code>path</code> becomes <code>"/"</code> — exactly what FastMCP's own internal route, registered via
+<code>http_app(path="/")</code>, expects). No HTTP redirect is involved for the bare path anymore, so
+no client can choose not to follow it. <code>/mcp/server/</code> (with trailing slash) continues to
+work exactly as before via the existing <code>Mount</code>.</p>
 
 
 

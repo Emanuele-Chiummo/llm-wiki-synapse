@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0070-multi-provider-web-search/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.7/">
       
       
+        <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
+      
+      
+        <link rel="next" href="../v2.1.6/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0070 — Multi-provider web search behind a provider seam (P3-e) - Synapse</title>
+        <title>v2.1.7 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0070-multi-provider-web-search-behind-a-provider-seam-p3-e" class="md-skip">
+        <a href="#synapse-v217-no-dead-ends" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0070 — Multi-provider web search behind a provider seam (P3-e)
+              v2.1.7
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -535,8 +539,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -547,11 +553,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
           <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
@@ -572,7 +578,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -587,10 +593,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.7
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -606,6 +639,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -618,7 +693,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+      <a href="../v2.1.6/" class="md-nav__link">
         
   
   
@@ -646,7 +721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -674,7 +749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -702,7 +777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -730,7 +805,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -758,7 +833,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -786,7 +861,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -814,7 +889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -842,7 +917,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -870,7 +945,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -898,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -926,7 +1001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -954,7 +1029,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -982,7 +1057,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -1010,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1038,7 +1113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1066,7 +1141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1094,7 +1169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1122,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1150,7 +1225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1178,7 +1253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1206,7 +1281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1234,7 +1309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1262,7 +1337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1290,7 +1365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1318,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1346,7 +1421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1374,7 +1449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1402,7 +1477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1430,7 +1505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1458,7 +1533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1486,7 +1561,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1514,7 +1589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1542,7 +1617,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1570,7 +1645,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1598,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1626,7 +1701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1654,7 +1729,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1709,10 +1784,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Fixed
       
     </span>
   </a>
@@ -1720,32 +1795,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Tests
+        Upgrade notes
       
     </span>
   </a>
@@ -1769,93 +1822,38 @@
 
 
 
-<h1 id="adr-0070-multi-provider-web-search-behind-a-provider-seam-p3-e">ADR-0070 — Multi-provider web search behind a provider seam (P3-e)<a class="headerlink" href="#adr-0070-multi-provider-web-search-behind-a-provider-seam-p3-e" title="Permanent link">&para;</a></h1>
+<h1 id="synapse-v217-no-dead-ends">Synapse v2.1.7 — "no dead ends"<a class="headerlink" href="#synapse-v217-no-dead-ends" title="Permanent link">&para;</a></h1>
+<p>Patch release fixing a live-observed connection failure right after 2.1.6 shipped. No
+schema migrations.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> Accepted</li>
-<li><strong>Date:</strong> 2026-07-10</li>
-<li><strong>Feature:</strong> F10 (Deep Research / web search) · v1.5 LLM Wiki parity, slice P3-e</li>
-<li><strong>Relates:</strong> [[ADR-0024]] (SearXNG search stack) · [[ADR-0041]] (runtime SearXNG URL config) · [[ADR-0066]] (parity program — amends I9 for opt-in providers) · [[ADR-0069]] (MinerU — the mirrored config split for a cloud provider)</li>
+<li><strong><code>POST /mcp/server</code> (no trailing slash) 307-redirected, breaking claude.ai's OAuth
+  connector</strong>: live evidence — claude.ai completed the entire OAuth 2.1/PKCE handshake
+  added in 2.1.6 (<code>/register</code> → 201, <code>/authorize</code> → 302 with a code, <code>/token</code> → 200 with
+  a minted access token, all successful) and then reported "Synapse returned an error
+  when connecting." Every subsequent <code>POST /mcp/server</code> in the server logs came back
+  <code>307 Temporary Redirect</code>, never 200.</li>
 </ul>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>Until now <strong>all</strong> web search went through <code>backend/app/ops/searxng.py</code> — SearXNG was the single,
-bundled backend (ADR-0024/ADR-0041, original I9: "SearXNG only, never Tavily"). ADR-0066 amended
-I9: SearXNG stays the <strong>default, bundled, privacy-preserving</strong> backend, but additional providers
-(Tavily · SerpApi · Firecrawl · Brave · Ollama-Web) are <strong>ALLOWED as opt-in, OFF by default</strong>.
-This ADR builds the seam, adapters, config, and UI under those constraints.</p>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>New package <code>backend/app/ops/web_search/</code>.</strong></li>
-<li><code>base.py</code>: <code>WebSearchProvider</code> ABC — <code>async search_many(queries) -&gt; list[SearchHit]</code>,
-     <code>configured() -&gt; bool</code>, and metadata <code>name</code> / <code>is_cloud</code> / <code>requires_upload_warning</code>. The
-     default <code>search_many</code> gives every adapter the shared <code>asyncio.Semaphore(CONCURRENCY=3)</code> bound
-     (I7) and first-seen URL-dedup (identical to <code>searxng_search_many</code>). <code>SearchHit</code> is re-exported.</li>
-<li><code>searxng.py</code>: thin wrapper delegating verbatim to the existing <code>ops/searxng.py</code>
-     (<code>searxng_search_many</code> / <code>searxng_search</code>). SearXNG behaviour, URL resolution (DB-over-env,
-     ADR-0041), and every existing SearXNG test are untouched — a pure refactor for SearXNG.</li>
-<li><code>tavily.py</code> · <code>serpapi.py</code> · <code>firecrawl.py</code> · <code>brave.py</code> · <code>ollama_web.py</code>: defensive
-     best-effort adapters (mirroring the MinerU adapter, ADR-0069) — a real HTTP call, but on ANY
-     failure (missing key, non-2xx, timeout, parse error) they return <code>[]</code> and log a WARNING,
-     never raising. Ollama-Web uses the local <code>OLLAMA_URL</code> endpoint (no cloud key).</li>
-<li>
-<p><code>__init__.py</code>: <code>get_web_search_provider()</code> factory (reads the effective <code>web_search_provider</code>
-     config key, default <code>"searxng"</code>, unknown → fail-safe SearXNG) and <code>web_search_many(queries)</code>
-     dispatcher — the single web-search entry point.</p>
-</li>
-<li>
-<p><strong>Config split mirrors ADR-0069 exactly.</strong> The <strong>non-secret</strong> selector <code>web_search_provider</code>
-   (S23) is a runtime config-override key (enum <code>searxng|tavily|serpapi|firecrawl|brave|ollama_web</code>,
-   default <code>searxng</code>, validated). The <strong>secret</strong> cloud API keys — <code>TAVILY_API_KEY</code>,
-   <code>SERPAPI_API_KEY</code>, <code>FIRECRAWL_API_KEY</code>, <code>BRAVE_API_KEY</code> — are <strong>env-only</strong> in <code>config.py</code> and are
-   <strong>structurally excluded</strong> from the config-override surface (config_overrides §2.4). Adding S23
-   took <code>ALLOWED_CONFIG_KEYS</code> 22 → 23; snapshot/count tests updated.</p>
-</li>
-<li>
-<p><strong>Callers route through the seam.</strong> <code>ops/deep_research.py</code> (<code>_search_searxng</code>) and
-   <code>chat/web_context.py</code> now call <code>web_search_many</code> / the provider seam. Bounds (max_queries +
-   shared semaphore, I7) and URL-dedup are unchanged.</p>
-</li>
-<li>
-<p><strong>"Not configured" guard is provider-aware.</strong> <code>POST /research/start</code> and the review deep-research
-   action now 503 when <strong>the selected provider</strong> <code>.configured()</code> is false, with a message naming the
-   provider and how to configure it (SEARXNG_URL / the matching API key / OLLAMA_URL, or switch via
-   <code>PUT /config/app/web_search_provider</code>). SearXNG stays the default and treats an empty URL as
-   unconfigured (matches the pre-seam guards).</p>
-</li>
-<li>
-<p><strong>UI (SectionWebSearch).</strong> A provider selector card (one row per provider) — SearXNG selected by
-   default and labelled "Default · privacy-preserving"; selecting a cloud backend shows an amber
-   opt-in warning that queries are sent to a third-party service and require the API key in the
-   environment. The existing SearXNG URL/categories/max-queries fields show only when SearXNG is
-   active. Branding: never black — selected state uses <code>var(--syn-accent)</code> + white; warnings use
-   <code>var(--syn-amber)</code>. All existing <code>data-testid</code>s preserved.</p>
-</li>
-<li>
-<p><strong>Wire protocols are provisional.</strong> The four cloud adapters implement each vendor's documented
-   search contract, but — as with ADR-0069/MinerU — the exact endpoint/response shape MUST be
-   validated against a live API key before relying on cloud search (no keys in dev/CI). The seam,
-   selection, gating, dedup, fallback, and UX are complete and tested; the live cloud round-trip is
-   the one untested piece. Ollama-Web's <code>/api/web_search</code> contract likewise needs live validation.</p>
-</li>
-</ol>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Six web-search backends; only SearXNG and Ollama-Web keep queries on the local network. The
-  privacy posture is explicit in the UI (default badge vs amber cloud warning).</li>
-<li>No provider is hardcoded (I6): every call resolves <code>web_search_provider</code> at runtime.</li>
-<li>Search stays bounded (I7): the shared semaphore and <code>max_queries</code> cap are unchanged across
-  providers.</li>
-<li>The two I9 static-guard tests (<code>test_no_forbidden_search_imports</code>,
-  <code>test_i9_no_non_searxng_provider_imports</code>) now exclude the sanctioned <code>ops/web_search/</code> seam and
-  still fail if an alternative backend leaks anywhere else in <code>ops/</code>.</li>
-</ul>
-<h2 id="tests">Tests<a class="headerlink" href="#tests" title="Permanent link">&para;</a></h2>
-<p><code>backend/tests/test_web_search_seam.py</code> — provider selection via config (default + each value +
-unknown→fallback), registry↔enum parity, cloud metadata/upload-warning, opt-in <code>configured()</code>
-(no key ⇒ no HTTP call ⇒ []), mocked-httpx routing (Tavily/SerpApi/Brave parse), non-2xx →
-[] degrade, dedup, dispatcher wiring, SearXNG refactor preserved. Guard/count tests updated in
-<code>test_deep_research.py</code>, <code>test_web_search_config.py</code>, <code>test_config_overrides.py</code>, <code>test_stats.py</code>,
-<code>test_ops_scheduler.py</code>. Chat: <code>test_b2_chat_composer.py</code> re-pointed to the seam. Frontend:
-<code>SettingsPanel.test.tsx</code> covers the provider selector default + cloud-select persist + amber warning.</p>
+<p>Root cause (pre-existing since 2026-07-13, unrelated to the OAuth work itself):
+  Starlette's <code>Mount</code> always requires a trailing slash in its match regex
+  (<code>self.path + "/{path:path}"</code>). A request to the bare mount path (<code>/mcp/server</code>, no
+  trailing slash) never matches the <code>Mount</code>, so the outer router's <code>redirect_slashes</code>
+  fallback fires a 307 to <code>/mcp/server/</code> — before the request ever reaches
+  <code>BearerAuthMiddleware</code> or FastMCP. This had been true the whole time; it was simply
+  never exercised end-to-end by a client that both authenticates successfully AND
+  refuses to follow a 307 on POST (a reasonable SSRF-defensive default that claude.ai's
+  remote-MCP client apparently applies).</p>
+<p>Fixed by registering an explicit route at the bare mount path that forwards to the
+  SAME guarded ASGI app, manually replicating the scope adjustment a successful <code>Mount</code>
+  match performs — no HTTP redirect is involved for the bare path anymore, so no client
+  can choose not to follow it. <code>/mcp/server/</code> (with trailing slash) continues to work
+  exactly as before. See
+  <a href="../../adr/0090-mcp-oauth-authorization-server/#follow-up-217--post-mcpserver-no-trailing-slash-307-redirect">ADR-0090</a>
+  for the full analysis.</p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>No schema migrations. If you tried to add the Synapse remote MCP server as a claude.ai
+"Custom connector" after upgrading to 2.1.6 and it reported "Synapse returned an error
+when connecting" right after authorizing, retry — it should now connect successfully.</p>
 
 
 
