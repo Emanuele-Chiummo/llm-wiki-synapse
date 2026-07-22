@@ -663,13 +663,41 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#56-add-the-remote-mcp-server-to-claudeai" class="md-nav__link">
+  <a href="#56-add-the-remote-mcp-server-to-claude" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5.6 Add the remote MCP server to claude.ai
+        5.6 Add the remote MCP server to Claude
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="5.6 Add the remote MCP server to Claude">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-desktop-bearer-token-simplest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop (bearer token, simplest)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claudeai-web-custom-connector-oauth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        claude.ai web ("Custom connector", OAuth)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -2041,6 +2069,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-notes/v2.1.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3423,13 +3479,41 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#56-add-the-remote-mcp-server-to-claudeai" class="md-nav__link">
+  <a href="#56-add-the-remote-mcp-server-to-claude" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5.6 Add the remote MCP server to claude.ai
+        5.6 Add the remote MCP server to Claude
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="5.6 Add the remote MCP server to Claude">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#claude-desktop-bearer-token-simplest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Claude Desktop (bearer token, simplest)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#claudeai-web-custom-connector-oauth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        claude.ai web ("Custom connector", OAuth)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -5399,18 +5483,47 @@ rides the same tunnel as the REST API. Add an ingress rule if needed:</p>
 </code></pre></div>
 <p>The <code>/mcp/server</code> path is automatically forwarded under the same hostname:
 <code>https://synapse.yourdomain.com/mcp/server</code> (bearer token required).</p>
-<h3 id="56-add-the-remote-mcp-server-to-claudeai">5.6 Add the remote MCP server to claude.ai<a class="headerlink" href="#56-add-the-remote-mcp-server-to-claudeai" title="Permanent link">&para;</a></h3>
-<p>In <a href="https://claude.ai/new">claude.ai</a>:</p>
+<h3 id="56-add-the-remote-mcp-server-to-claude">5.6 Add the remote MCP server to Claude<a class="headerlink" href="#56-add-the-remote-mcp-server-to-claude" title="Permanent link">&para;</a></h3>
+<p>Two different Claude surfaces reach the remote MCP server differently — <strong>claude.ai's
+web "Custom connector" UI only speaks OAuth 2.1 + PKCE</strong> (it has no field to paste a
+bearer token), while <strong>Claude Desktop's JSON config supports arbitrary custom headers</strong>
+(so a plain bearer token works directly). Synapse supports both (2.1.6, ADR-0090).</p>
+<h4 id="claude-desktop-bearer-token-simplest">Claude Desktop (bearer token, simplest)<a class="headerlink" href="#claude-desktop-bearer-token-simplest" title="Permanent link">&para;</a></h4>
+<p>Add to Claude Desktop's <code>claude_desktop_config.json</code> (Settings → Developer → Edit Config):</p>
+<div class="highlight"><pre><span></span><code>{
+  &quot;mcpServers&quot;: {
+    &quot;synapse_remote&quot;: {
+      &quot;type&quot;: &quot;http&quot;,
+      &quot;url&quot;: &quot;https://synapse.yourdomain.com/mcp/server&quot;,
+      &quot;headers&quot;: {
+        &quot;Authorization&quot;: &quot;Bearer &lt;your-MCP_AUTH_TOKEN&gt;&quot;
+      }
+    }
+  }
+}
+</code></pre></div>
+<p>(Settings → <strong>API + MCP</strong> in the Synapse web UI shows this snippet pre-filled with your
+current token.) Restart Claude Desktop — it should list the available tools immediately.</p>
+<h4 id="claudeai-web-custom-connector-oauth">claude.ai web ("Custom connector", OAuth)<a class="headerlink" href="#claudeai-web-custom-connector-oauth" title="Permanent link">&para;</a></h4>
 <ol>
-<li>Click the <strong>Settings</strong> gear (bottom left).</li>
-<li>Go to <strong>Connected apps</strong> → <strong>MCP servers</strong> (or <strong>Remote MCP servers</strong>).</li>
-<li>Click <strong>Add server</strong> (or <strong>+ Add</strong>).</li>
+<li>Click the <strong>Settings</strong> gear (bottom left) → <strong>Connectors</strong> → <strong>Add custom connector</strong>.</li>
 <li>Enter:</li>
-<li><strong>URL:</strong> <code>https://synapse.yourdomain.com/mcp/server</code> (or <code>http://localhost:8000/mcp/server</code> for local testing)</li>
-<li><strong>Authentication:</strong> Select <strong>Bearer token</strong></li>
-<li><strong>Token:</strong> Paste <code>&lt;your-MCP_AUTH_TOKEN&gt;</code> (without the "Bearer " prefix — claude.ai adds it)</li>
-<li>Click <strong>Connect</strong>. Claude should report "Connected" and list the available tools.</li>
+<li><strong>Name:</strong> anything (e.g. "Synapse").</li>
+<li><strong>URL:</strong> <code>https://synapse.yourdomain.com/mcp/server</code> (or <code>http://localhost:8000/mcp/server</code>
+     for local testing).</li>
+<li>Click <strong>Add</strong>, then <strong>Connect</strong>. Your browser is redirected to Synapse's own consent
+   page (<code>/authorize</code>) — enter your <code>MCP_AUTH_TOKEN</code> there (this is the SAME token as
+   above, entered once to approve the connection; it is never sent to Anthropic). Click
+   <strong>Authorize</strong>.</li>
+<li>You are redirected back to claude.ai, which should report "Connected" and list the
+   available tools.</li>
 </ol>
+<p>Requires <code>remote_mcp_enabled</code> ON (same flag <code>/mcp/server</code> itself uses) — the OAuth
+endpoints (<code>/authorize</code>, <code>/token</code>, <code>/register</code>, <code>/.well-known/oauth-*</code>) share that exact
+floor and 404 when it's off. If "Connect" instead lands on the ordinary Synapse app
+(not a consent form), the reverse proxy in front of Synapse is not routing these
+root-level paths to the backend — see <code>frontend/nginx.conf.template</code> /
+<code>frontend/vite.config.ts</code> for the required proxy entries (ADR-0090 §2).</p>
 <h3 id="56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139">5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)<a class="headerlink" href="#56b-cloudflare-access-in-front-of-the-whole-app-service-tokens-v139" title="Permanent link">&para;</a></h3>
 <p>As of <strong>v1.3.9</strong> the recommended production posture puts <strong>Cloudflare Access (Zero
 Trust)</strong> in front of the <em>entire</em> app, not just optionally on <code>/mcp/server</code>. This closes
@@ -5454,13 +5567,19 @@ CF-Access-Client-Secret: &lt;client-secret&gt;
 }
 </code></pre></div>
 <ul>
-<li><strong>claude.ai remote-MCP connector</strong> — its UI only supports a <strong>Bearer token</strong>, so it
-  cannot send the CF-Access headers. Since <code>/mcp/server</code> is already protected by its own
-  <code>MCP_AUTH_TOKEN</code>, the clean answer is to <strong>exclude that path from the CF Access
-  application</strong>: add an Access policy with <strong>Action = "Bypass"</strong> (or a separate,
-  unenforced Access app) scoped to <code>/mcp/server</code>. The MCP bearer token remains the gate
-  for that path — no downgrade in protection, and the connector keeps working. The same
-  applies to the clipper ingress <code>POST /clip</code> if you prefer a bypass over the in-app
+<li><strong>claude.ai web "Custom connector"</strong> — it only speaks OAuth 2.1 (§5.6), and the OAuth
+  client (claude.ai's own backend) calling <code>/token</code> and <code>/register</code> cannot send the
+  CF-Access headers either (server-to-server, no cookie, no way to inject a service-token
+  header). Since <code>/mcp/server</code> AND the OAuth endpoints (<code>/authorize</code>, <code>/token</code>,
+  <code>/register</code>, <code>/.well-known/oauth-*</code>) are already protected by their own independent auth
+  (the <code>MCP_AUTH_TOKEN</code> bearer, and — for OAuth — the SAME token entered once at the
+  <code>/authorize</code> consent step, ADR-0090), the clean answer is to <strong>exclude ALL of these
+  paths from the CF Access application</strong>: add an Access policy with <strong>Action = "Bypass"</strong>
+  (or a separate, unenforced Access app) scoped to <code>/mcp/server</code>, <code>/authorize</code>, <code>/token</code>,
+  <code>/register</code>, and <code>/.well-known/oauth-authorization-server</code> /
+  <code>/.well-known/oauth-protected-resource</code>. The app-level auth remains the gate for every
+  one of these paths — no downgrade in protection, and the connector keeps working. The
+  same applies to the clipper ingress <code>POST /clip</code> if you prefer a bypass over the in-app
   service-token headers.</li>
 </ul>
 <h3 id="57-enable-remote-writes-optional-not-recommended">5.7 Enable remote writes (optional, not recommended)<a class="headerlink" href="#57-enable-remote-writes-optional-not-recommended" title="Permanent link">&para;</a></h3>

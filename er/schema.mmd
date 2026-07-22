@@ -69,6 +69,24 @@ erDiagram
         timestamptz created_at "Row creation time (mirrors deep_research_runs/review_items)"
     }
 
+    MCP_OAUTH_CLIENTS {
+        string client_id PK "Opaque public-client identifier — NOT a secret (RFC 6749 §2.1)"
+        string client_name "Operator-facing name presented by the client at registration (RFC 7591)"
+        jsonb redirect_uris "Registered redirect URI(s), /authorize rejects any URI not in this set"
+        timestamptz created_at "Row creation time (explicit registration or JIT first-sight)"
+    }
+
+    MCP_OAUTH_TOKENS {
+        uuid id PK "Row identity"
+        string client_id "mcp_oauth_clients.client_id this token pair was issued to (no FK — client rows are never deleted, but tokens must still resolve if a client row is pruned)"
+        string access_token_hash "PBKDF2-SHA256 hash of the access token (app.runtime_state.hash_token). NEVER the plaintext — shown once in the /token response body."
+        string refresh_token_hash "PBKDF2-SHA256 hash of the refresh token. Rotated (new row) on every use."
+        timestamptz expires_at "Access token expiry — BearerAuthMiddleware treats an expired row as invalid"
+        timestamptz refresh_expires_at "Refresh token expiry — /token rejects a refresh_token grant past this time"
+        timestamptz created_at "Row creation time"
+        timestamptz revoked_at "Soft-delete marker — set when rotated-away-from (refresh) or explicitly revoked, NULL = active"
+    }
+
     PAGES {
         uuid id PK "Page identity, also the Qdrant point id (ADR-0002)"
         string vault_id "Logical vault identifier — from VAULT_ID env var"

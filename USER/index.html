@@ -963,6 +963,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#custom-connector-claudeai-web" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom connector (claude.ai web)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1486,6 +1497,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-notes/v2.1.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -3195,6 +3234,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#custom-connector-claudeai-web" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Custom connector (claude.ai web)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -4547,7 +4597,9 @@ on every request without any preflight overhead, and Cloudflare Access accepts i
 The web/PWA path is unchanged.</p>
 <h4 id="remote-mcp-behind-cloudflare-access">Remote MCP behind Cloudflare Access<a class="headerlink" href="#remote-mcp-behind-cloudflare-access" title="Permanent link">&para;</a></h4>
 <p>The <code>/mcp/server</code> endpoint has its own independent bearer token (<code>MCP_AUTH_TOKEN</code>).
-You have two options:</p>
+claude.ai's web "Custom connector" UI only speaks OAuth 2.1 (see "Custom connector
+(claude.ai web)" below) — Synapse ships a small OAuth 2.1/PKCE authorization server
+for it (<code>/authorize</code>, <code>/token</code>, <code>/register</code>, 2.1.6). You have two options:</p>
 <ul>
 <li>
 <p><strong>Claude Desktop</strong> (uses a JSON config that supports custom headers): add both the
@@ -4568,12 +4620,25 @@ You have two options:</p>
 </code></pre></div></p>
 </li>
 <li>
-<p><strong>claude.ai remote MCP connector</strong> (UI only accepts a Bearer token): add a
-  Cloudflare Access policy with <strong>Action = Bypass</strong> scoped to <code>/mcp/server</code>. The
-  MCP bearer token remains the gate for that path — no protection is lost, and the
-  connector keeps working.</p>
+<p><strong>claude.ai web "Custom connector"</strong> (OAuth only — no field to paste a Bearer
+  token, and the OAuth client calls <code>/token</code>/<code>/register</code> server-to-server with no
+  way to send CF-Access headers): add a Cloudflare Access policy with
+  <strong>Action = Bypass</strong> scoped to <code>/mcp/server</code>, <code>/authorize</code>, <code>/token</code>, <code>/register</code>,
+  and <code>/.well-known/oauth-*</code>. The app-level auth (the Bearer token, and — for
+  OAuth — that same token entered once at the <code>/authorize</code> consent step) remains
+  the gate for every one of these paths — no protection is lost, and the connector
+  keeps working.</p>
 </li>
 </ul>
+<h4 id="custom-connector-claudeai-web">Custom connector (claude.ai web)<a class="headerlink" href="#custom-connector-claudeai-web" title="Permanent link">&para;</a></h4>
+<ol>
+<li>Settings → <strong>Connectors</strong> → <strong>Add custom connector</strong> → URL
+   <code>https://synapse.yourdomain.com/mcp/server</code>.</li>
+<li>Click <strong>Connect</strong> — you're redirected to Synapse's own consent page; enter your
+   <code>MCP_AUTH_TOKEN</code> there once to approve (shown pre-filled with your current token
+   under Settings → <strong>API + MCP</strong> in this app). You're redirected back to claude.ai,
+   now connected.</li>
+</ol>
 <hr />
 <h3 id="synapse-auth">The Synapse bearer token (<code>SYNAPSE_AUTH_TOKEN</code>)<a class="headerlink" href="#synapse-auth" title="Permanent link">&para;</a></h3>
 <p>Synapse has its own optional application-level bearer token, independent of

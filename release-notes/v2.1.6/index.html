@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0010-mcp-transport-and-write-path/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.6/">
       
       
+        <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
+      
+      
+        <link rel="next" href="../v2.1.5/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9) - Synapse</title>
+        <title>v2.1.6 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9" class="md-skip">
+        <a href="#synapse-v216-custom-connector" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9)
+              v2.1.6
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -535,8 +539,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -547,11 +553,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
           <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
@@ -572,7 +578,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -587,10 +593,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.6
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -606,6 +639,48 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#added" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Added
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -618,7 +693,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -646,7 +721,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -674,7 +749,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -702,7 +777,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -730,7 +805,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -758,7 +833,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -786,7 +861,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -814,7 +889,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -842,7 +917,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -870,7 +945,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -898,7 +973,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -926,7 +1001,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -954,7 +1029,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -982,7 +1057,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1010,7 +1085,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1038,7 +1113,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1066,7 +1141,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1094,7 +1169,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1122,7 +1197,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1150,7 +1225,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1178,7 +1253,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1206,7 +1281,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1234,7 +1309,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1262,7 +1337,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1290,7 +1365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1318,7 +1393,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1346,7 +1421,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1374,7 +1449,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1402,7 +1477,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1430,7 +1505,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1458,7 +1533,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1486,7 +1561,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1514,7 +1589,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1542,7 +1617,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1570,7 +1645,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1598,7 +1673,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1626,7 +1701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1681,10 +1756,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#added" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Added
       
     </span>
   </a>
@@ -1692,60 +1767,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Decision
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Decision">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-stdio-is-the-v02-transport-http-is-optionaldeferred" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. stdio is the v0.2 transport; HTTP is optional/deferred
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. write_page reuses the ingest seam primitives — no second write path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-search_wiki-reuses-qdrant-bge-m3-i9" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. search_wiki reuses Qdrant + bge-m3 (I9)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Consequences
+        Upgrade notes
       
     </span>
   </a>
@@ -1769,60 +1794,56 @@
 
 
 
-<h1 id="adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9">ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9)<a class="headerlink" href="#adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9" title="Permanent link">&para;</a></h1>
+<h1 id="synapse-v216-custom-connector">Synapse v2.1.6 — "custom connector"<a class="headerlink" href="#synapse-v216-custom-connector" title="Permanent link">&para;</a></h1>
+<p>Feature release adding OAuth 2.1 + PKCE support for the remote MCP server. No breaking
+changes.</p>
+<h2 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Status: Accepted</li>
-<li>Date: 2026-06-28</li>
-<li>Sprint: v0.2</li>
-<li>Decider: solution-architect</li>
-<li>Invariants: I6 (CLI provider uses MCP tools, not direct FS writes), I1 (write_page is an incremental upsert), I5 (write_page validates frontmatter), I9 (search reuses Qdrant/bge-m3, not a new service)</li>
-<li>Related: CLAUDE.md §5 (CLI provider), v0.2-scope EC-M2-7, ADR-0003, ADR-0007</li>
-<li>Resolves: AQ-v0.2-6 (MCP transport)</li>
+<li><strong>MCP OAuth 2.1 + PKCE authorization server, for claude.ai's web "Custom connector"</strong>
+  (ADR-0090): live-observed gap — adding Synapse's remote MCP server as a claude.ai
+  "Custom connector" silently failed, because that UI only speaks OAuth 2.1
+  authorization_code + PKCE (unlike Claude Desktop's JSON config, which already supports
+  a static bearer header). Clicking "Connect" redirected the browser to
+  <code>&lt;origin&gt;/authorize?response_type=code&amp;client_id=...</code> and landed on the ordinary
+  Synapse frontend, because neither <code>/authorize</code> nor any discovery/registration endpoint
+  existed and the reverse proxy had no route for them.</li>
 </ul>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The CliAgentProvider delegates the whole ingest to a claude-agent-sdk agent. That agent must
-read and write <code>vault/wiki/</code> <strong>through the Synapse service layer</strong> (so frontmatter validation,
-K5 wikilink parsing, K3 index update, and Qdrant upsert all run) — never via raw filesystem
-writes that would bypass I1/I5. A FastMCP standalone server exposes four tools
-(<code>search_wiki</code>, <code>write_page</code>, <code>get_page</code>, <code>list_pages</code>). The open question (AQ-v0.2-6) is the
-transport: stdio-only, HTTP-only, or both.</p>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<h3 id="1-stdio-is-the-v02-transport-http-is-optionaldeferred">1. stdio is the v0.2 transport; HTTP is optional/deferred<a class="headerlink" href="#1-stdio-is-the-v02-transport-http-is-optionaldeferred" title="Permanent link">&para;</a></h3>
-<p>The MCP server starts in <strong>stdio</strong> mode for v0.2 (<code>make mcp</code> → <code>python -m app.mcp.server</code>).
-Rationale: the only v0.2 consumer is the CliAgentProvider, which the claude-agent-sdk wires as
-an in-process / subprocess MCP server over stdio — the SDK's native, lowest-friction path. The
-scope mentions HTTP "for future clients," but no v0.2 acceptance test requires a live HTTP
-listener; the FastMCP <strong>test client</strong> (AC-MCP-1..6) exercises the tools in-process without a
-transport. HTTP transport is therefore <strong>deferred to v0.4</strong> (when external/Web-UI clients
-appear) and noted as a one-line FastMCP option, not built now. This avoids the
-two-process / multiplexing complexity AQ-v0.2-6 flagged. (If pipeline time allows, a
-<code>make mcp-http</code> target may be added best-effort, but it is not an M2 gate.)</p>
-<h3 id="2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path">2. write_page reuses the ingest seam primitives — no second write path<a class="headerlink" href="#2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path" title="Permanent link">&para;</a></h3>
-<p><code>write_page(title, content, frontmatter)</code> does <strong>not</strong> write files directly. It:
-1. Validates <code>frontmatter</code> against the WikiPage validator (ADR-0007 §5) — returns a structured
-   tool error (not an exception) on missing <code>type</code>/<code>title</code>/<code>sources</code> (AC-MCP-3).
-2. Slugs the title to a typed path (<code>wiki/&lt;type-plural&gt;/&lt;slug&gt;.md</code>), writes the file.
-3. Calls the same <code>persist_metadata</code> / <code>upsert_vector</code> / <code>append_log</code> / <code>bump_version</code>
-   helpers the orchestrator uses (ADR-0003), plus the K5 wikilink parse and K3 index update.</p>
-<p>This guarantees the CLI delegated path and the orchestrated path converge on <strong>one</strong>
-write primitive — satisfying I1 (incremental upsert, no rescan) and I5 (frontmatter validated
-before write) identically regardless of who called.</p>
-<h3 id="3-search_wiki-reuses-qdrant-bge-m3-i9">3. search_wiki reuses Qdrant + bge-m3 (I9)<a class="headerlink" href="#3-search_wiki-reuses-qdrant-bge-m3-i9" title="Permanent link">&para;</a></h3>
-<p><code>search_wiki(query)</code> embeds the query via the existing EmbeddingClient and queries the existing
-<code>synapse_pages</code> Qdrant collection — no new search service (I9). It returns <code>PageRef</code> objects
-with <code>relevance_score</code> from the Qdrant similarity score normalized to [0,1]. It is <strong>not</strong> the
-F5 4-phase RAG pipeline (deferred to v0.5); it is a simple vector lookup.</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<p>Added a minimal, single-operator-oriented authorization server:
+  - <code>GET/POST /authorize</code> — renders a consent form; approved with the SAME static MCP
+    token that already gates <code>/mcp/server</code> directly (DB-set via <code>PUT /mcp/auth</code>, or the
+    <code>MCP_AUTH_TOKEN</code> env bootstrap).
+  - <code>POST /token</code> — <code>authorization_code</code> (with mandatory PKCE, S256 only) and
+    <code>refresh_token</code> grants; refresh is rotate-on-use.
+  - <code>POST /register</code> — RFC 7591 Dynamic Client Registration. Public clients only (PKCE is
+    the confidentiality mechanism) — no <code>client_secret</code> is ever issued or stored.
+  - <code>GET /.well-known/oauth-authorization-server</code> and
+    <code>/.well-known/oauth-protected-resource</code> — RFC 8414 / 9728 discovery.</p>
+<p>JIT (just-in-time) client registration handles MCP clients (observed live with
+  claude.ai) that self-assign a <code>client_id</code> and skip <code>/register</code> entirely — a <code>client_id</code>
+  is bound to a <code>redirect_uri</code> on first approval and can never be silently rebound
+  (open-redirect guard).</p>
+<p>An OAuth-issued access token is accepted by the existing MCP bearer gate
+  (<code>BearerAuthMiddleware</code>) exactly like the static token — there is no separate scope
+  model, and no delegation chain (an OAuth-issued token can never be used to approve
+  another OAuth grant; only the operator's real static token can). The whole surface
+  shares the same <code>remote_mcp_enabled</code> floor as <code>/mcp/server</code> itself.</p>
+<p>New tables <code>mcp_oauth_clients</code> / <code>mcp_oauth_tokens</code> (migration 0038), PBKDF2-hashed
+  token storage (same helpers as <code>api_tokens.secret_hash</code>). See
+  <a href="../../adr/0090-mcp-oauth-authorization-server/">ADR-0090</a> for the full design.</p>
 <ul>
-<li>(+) Single write path: CLI delegation and orchestrated ingest share <code>persist_metadata</code> et al,
-  so I1/I5 hold uniformly and there is no divergent second writer to keep in sync.</li>
-<li>(+) stdio-only keeps v0.2 simple and matches the SDK's native wiring; no multiplexing server.</li>
-<li>(+) I9 honoured: search is Qdrant/bge-m3, not a new index.</li>
-<li>(−) No live HTTP MCP endpoint in v0.2; external non-CLI MCP clients wait until v0.4. Accepted:
-  no v0.2 consumer needs it, and the test client covers the tool contracts without a socket.</li>
-<li>(−) write_page must keep its validation in lockstep with the orchestrator's validator. Risk
-  mitigated by both calling the <strong>same</strong> validator function (ADR-0007 §5), not two copies.</li>
+<li><code>docs/DEPLOY.md</code> §5.6/§5.6b and <code>docs/USER.md</code> updated with setup steps for both
+  connector paths (Claude Desktop bearer token vs. claude.ai web OAuth), including the
+  Cloudflare Access bypass scope needed for the new root-level endpoints.</li>
 </ul>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>One additive migration (0038 — <code>mcp_oauth_clients</code> / <code>mcp_oauth_tokens</code>). No existing
+behavior changes: the static <code>MCP_AUTH_TOKEN</code> / DB-token bearer gate on <code>/mcp/server</code> is
+completely unaffected — OAuth is an additional way to obtain a valid bearer credential,
+not a replacement.</p>
+<p>If you run Synapse behind your own reverse proxy (not the bundled nginx image), add
+routes for <code>/authorize</code>, <code>/token</code>, <code>/register</code>, <code>/.well-known/oauth-authorization-server</code>,
+and <code>/.well-known/oauth-protected-resource</code> pointing at the backend — otherwise these
+fall through to your frontend's SPA fallback, exactly like the bug this release fixes.</p>
 
 
 

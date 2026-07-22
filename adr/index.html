@@ -751,6 +751,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release-notes/v2.1.6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release-notes/v2.1.5/" class="md-nav__link">
         
   
@@ -2499,6 +2527,11 @@
 <tr>
 <td><strong>0089</strong></td>
 <td><a href="0089-overview-regen-data-version-bump/">overview.md regen bumps data_version (post-2.1.1) — amends ADR-0078's queue-drain refinement: <code>_write_and_index_overview</code> now calls <code>bump_version()</code> on a successful overwrite so the SSE <code>/events</code> channel notifies live clients; degrade/timeout/empty-narrative paths are unaffected (no spurious bump); O(1) atomic UPDATE, no extra provider call (I1/I7)</a></td>
+<td>Accepted</td>
+</tr>
+<tr>
+<td><strong>0090</strong></td>
+<td><a href="0090-mcp-oauth-authorization-server/">MCP OAuth 2.1 + PKCE authorization server for claude.ai custom connectors — amends ADR-0029 §2.2's OAuth deferral: <code>/authorize</code>·<code>/token</code>·<code>/register</code>·<code>.well-known/*</code> (root-level paths, matching claude.ai's observed fallback) gate an OAuth-issued access token behind the SAME static MCP token approving the consent step; JIT client registration + PKCE-only public clients; rotate-on-use refresh; shares the <code>remote_mcp_enabled</code> floor with <code>/mcp/server</code></a></td>
 <td>Accepted</td>
 </tr>
 </tbody>
