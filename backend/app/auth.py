@@ -112,6 +112,17 @@ MCP_MOUNT_PATH: str = "/mcp/server"
 #   /docs, /redoc             — Swagger/ReDoc UIs (schema is public in git)
 #   /openapi.json             — raw OpenAPI schema (same rationale as docs)
 #   /clip                     — POST only; uses ADR-0038 CLIP_TOKEN (extension token)
+#   /authorize, /token, /register, /.well-known/oauth-* — the MCP OAuth 2.1/PKCE
+#     authorization server (2.1.6, ADR-0090, app.mcp.oauth). MUST be reachable WITHOUT
+#     SYNAPSE_AUTH_TOKEN: these are called server-to-server by the OAuth client (e.g.
+#     claude.ai's own backend for /token and /register — it can send no Synapse credential
+#     at all, that is the whole reason this surface exists) and via top-level browser
+#     navigation for /authorize (no XHR, so no bearer header either). Each of these routes
+#     has its OWN independent gate: the SAME remote_mcp_enabled floor as /mcp/server itself
+#     (404 when off), and /authorize additionally requires the operator's real MCP token to
+#     approve any grant (app.runtime_state.verify_static_mcp_token) — this exemption does
+#     NOT make the surface unauthenticated, it only moves the credential check inside the
+#     handler instead of the middleware.
 _EXEMPT_EXACT: tuple[tuple[str, frozenset[str]], ...] = (
     ("/status", frozenset({"GET", "HEAD"})),
     ("/health/live", frozenset({"GET", "HEAD"})),
@@ -119,6 +130,11 @@ _EXEMPT_EXACT: tuple[tuple[str, frozenset[str]], ...] = (
     ("/redoc", frozenset({"GET", "HEAD"})),
     ("/openapi.json", frozenset({"GET", "HEAD"})),
     ("/clip", frozenset({"POST"})),  # ADR-0038 CLIP_TOKEN; extension auth
+    ("/authorize", frozenset({"GET", "POST"})),
+    ("/token", frozenset({"POST"})),
+    ("/register", frozenset({"POST"})),
+    ("/.well-known/oauth-authorization-server", frozenset({"GET"})),
+    ("/.well-known/oauth-protected-resource", frozenset({"GET"})),
 )
 
 # 401 response body (PM-locked contract per SPRINT-v1.0-SCOPE §R10-1 and ADR-0052 §2.4).

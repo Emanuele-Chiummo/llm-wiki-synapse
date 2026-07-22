@@ -55,6 +55,7 @@ async def test_lifespan_indexes_boot_vault_meta_files(monkeypatch: pytest.Monkey
     load_web_search_config_mock = AsyncMock()
     load_cli_auth_config_mock = AsyncMock()
     load_api_token_cache_mock = AsyncMock()
+    load_mcp_oauth_token_cache_mock = AsyncMock()
 
     with (
         patch.object(orch_mod, "index_bootstrap_meta_files", _fake_index),
@@ -66,6 +67,7 @@ async def test_lifespan_indexes_boot_vault_meta_files(monkeypatch: pytest.Monkey
         patch.object(main_mod, "_load_web_search_config_cache", load_web_search_config_mock),
         patch.object(main_mod, "_load_cli_auth_config_cache", load_cli_auth_config_mock),
         patch.object(main_mod, "_load_api_token_cache", load_api_token_cache_mock),
+        patch.object(main_mod, "_load_mcp_oauth_token_cache", load_mcp_oauth_token_cache_mock),
         patch("app.main.bootstrap_vault"),
         patch("app.main.start_watcher"),
         patch("app.main.stop_watcher"),

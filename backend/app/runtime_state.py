@@ -222,6 +222,26 @@ def token_configured(db_hash: str | None) -> bool:
     return resolve_token_source(db_hash) != "none"
 
 
+def verify_static_mcp_token(candidate: str) -> bool:
+    """
+    Verify `candidate` against ONLY the static MCP credential (DB hash via ``mcp_auth_cache``,
+    or the ``MCP_AUTH_TOKEN`` env bootstrap) — deliberately EXCLUDES any OAuth-issued access
+    token (2.1.6, ADR-0090 §3). Used by the ``/authorize`` consent step (app.mcp.oauth) so
+    approving an OAuth grant always requires the SAME operator credential that gates
+    ``/mcp/server`` directly. An OAuth-issued token can never be used to approve ANOTHER
+    OAuth grant (no delegation chain) — this function is how that boundary is enforced.
+
+    NEVER log candidate or any stored token/hash.
+    """
+    db_hash = mcp_auth_cache.get_hash()
+    tok_source = resolve_token_source(db_hash)
+    if tok_source == "db" and db_hash is not None:
+        return verify_token(candidate, db_hash)
+    if tok_source == "env" and settings.mcp_auth_token:
+        return hmac.compare_digest(candidate, settings.mcp_auth_token)
+    return False
+
+
 # ── In-process caches for ADR-0033 DB-backed flags ────────────────────────────
 
 # RemoteMcpFlag: in-process cache for vault_state.remote_mcp_enabled (ADR-0032 §2.2).
@@ -493,6 +513,72 @@ class WebSearchConfigCache:
             self._max_queries_db = value
 
 
+def as_aware_utc(dt: datetime) -> datetime:
+    """
+    Normalise a DB-sourced datetime to timezone-aware UTC (2.1.6).
+
+    SQLite (test suite / no-Postgres dev path) round-trips ``TIMESTAMP(timezone=True)``
+    columns as naive datetimes — comparing them directly against ``datetime.now(UTC)``
+    raises TypeError. Postgres always returns aware datetimes for this column type, so
+    this is a no-op there (mirrors the existing ``app.scheduler_state`` normalisation).
+    """
+    if dt.tzinfo is None:
+        from datetime import UTC as _UTC  # noqa: PLC0415
+
+        return dt.replace(tzinfo=_UTC)
+    return dt
+
+
+class McpOAuthTokenCache:
+    """
+    In-process cache of ACTIVE (non-revoked, non-expired-at-load-time) ``mcp_oauth_tokens``
+    access-token hashes (2.1.6, ADR-0090). Mirrors ``ApiTokenCache`` exactly — loaded at
+    startup, updated on mint/rotate/revoke — so ``BearerAuthMiddleware`` can accept an
+    OAuth-issued access token with the same O(1)-per-entry, no-DB-round-trip shape as the
+    static bearer check. Expiry is re-checked at request time (a cached entry can go stale
+    between loads); an expired entry is treated as no-match, not removed eagerly (rotation/
+    revoke removes it explicitly; a passive expiry is cheap to just skip).
+
+    NEVER exposes access_token_hash to any caller outside ``find_match``.
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, tuple[str, datetime]] = {}  # token_id -> (hash, expires_at)
+        self._lock: asyncio.Lock = asyncio.Lock()
+
+    async def load(self, entries: list[tuple[str, str, datetime]]) -> None:
+        """Replace the full active-entry set: list of (id, access_token_hash, expires_at)."""
+        async with self._lock:
+            self._entries = {e[0]: (e[1], e[2]) for e in entries}
+
+    async def add(self, token_id: str, access_token_hash: str, expires_at: datetime) -> None:
+        """Add one entry — called right after a successful DB insert (mint or rotation)."""
+        async with self._lock:
+            self._entries[token_id] = (access_token_hash, expires_at)
+
+    async def remove(self, token_id: str) -> None:
+        """Remove one entry — called right after a DB soft-revoke (rotation supersedes it)."""
+        async with self._lock:
+            self._entries.pop(token_id, None)
+
+    def find_match(self, presented: str) -> bool:
+        """
+        True iff `presented` matches an active, non-expired entry's access_token_hash.
+
+        NEVER logs `presented` or any entry's hash.
+        """
+        from datetime import UTC as _UTC  # noqa: PLC0415
+        from datetime import datetime as _datetime  # noqa: PLC0415
+
+        now = _datetime.now(_UTC)
+        for access_hash, expires_at in self._entries.values():
+            if as_aware_utc(expires_at) <= now:
+                continue
+            if verify_token(presented, access_hash):
+                return True
+        return False
+
+
 @dataclass(frozen=True)
 class ApiTokenEntry:
     """
@@ -566,6 +652,8 @@ clip_config_cache: ClipConfigCache = ClipConfigCache()
 web_search_config_cache: WebSearchConfigCache = WebSearchConfigCache()
 # PF-AUTH-1 (1.9.4 W4): in-process cache of active (non-revoked) api_tokens rows.
 api_token_cache: ApiTokenCache = ApiTokenCache()
+# 2.1.6 (ADR-0090): in-process cache of active mcp_oauth_tokens access-token hashes.
+mcp_oauth_token_cache: McpOAuthTokenCache = McpOAuthTokenCache()
 
 
 async def bump_api_token_last_used(token_id: str) -> None:
@@ -719,18 +807,25 @@ class BearerAuthMiddleware:
         """
         Verify the presented bearer against the authoritative token.
 
-        Precedence (ADR-0033 §2.1):
+        Precedence (ADR-0033 §2.1, amended by ADR-0090 §3 for OAuth):
           1. DB hash → PBKDF2 verify (constant-time).
           2. Env bootstrap → hmac.compare_digest (plaintext compare, constant-time).
-          3. No token → always False.
+          3. An active, non-expired OAuth-issued access token (2.1.6, ADR-0090) — checked
+             REGARDLESS of tok_source, since it is a fully independent credential minted by
+             the ``/token`` endpoint after a user approved the ``/authorize`` consent step
+             with the SAME static token above. Checked last (rarest path; the other two are
+             O(1) dict/string compares with no verify_token() cost when absent).
+          4. No token → always False.
 
         NEVER log candidate, db_hash, or env_token.
         """
         if tok_source == "db" and db_hash is not None:
-            return verify_token(candidate, db_hash)
+            if verify_token(candidate, db_hash):
+                return True
         if tok_source == "env" and env_token:
-            return hmac.compare_digest(candidate, env_token)
-        return False
+            if hmac.compare_digest(candidate, env_token):
+                return True
+        return mcp_oauth_token_cache.find_match(candidate)
 
     @staticmethod
     async def _respond_404(scope: Scope, receive: Receive, send: Send) -> None:

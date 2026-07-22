@@ -908,7 +908,9 @@ The web/PWA path is unchanged.
 #### Remote MCP behind Cloudflare Access
 
 The `/mcp/server` endpoint has its own independent bearer token (`MCP_AUTH_TOKEN`).
-You have two options:
+claude.ai's web "Custom connector" UI only speaks OAuth 2.1 (see "Custom connector
+(claude.ai web)" below) — Synapse ships a small OAuth 2.1/PKCE authorization server
+for it (`/authorize`, `/token`, `/register`, 2.1.6). You have two options:
 
 - **Claude Desktop** (uses a JSON config that supports custom headers): add both the
   MCP bearer token and the CF-Access headers in `mcpServers` config.
@@ -928,10 +930,23 @@ You have two options:
   }
   ```
 
-- **claude.ai remote MCP connector** (UI only accepts a Bearer token): add a
-  Cloudflare Access policy with **Action = Bypass** scoped to `/mcp/server`. The
-  MCP bearer token remains the gate for that path — no protection is lost, and the
-  connector keeps working.
+- **claude.ai web "Custom connector"** (OAuth only — no field to paste a Bearer
+  token, and the OAuth client calls `/token`/`/register` server-to-server with no
+  way to send CF-Access headers): add a Cloudflare Access policy with
+  **Action = Bypass** scoped to `/mcp/server`, `/authorize`, `/token`, `/register`,
+  and `/.well-known/oauth-*`. The app-level auth (the Bearer token, and — for
+  OAuth — that same token entered once at the `/authorize` consent step) remains
+  the gate for every one of these paths — no protection is lost, and the connector
+  keeps working.
+
+#### Custom connector (claude.ai web)
+
+1. Settings → **Connectors** → **Add custom connector** → URL
+   `https://synapse.yourdomain.com/mcp/server`.
+2. Click **Connect** — you're redirected to Synapse's own consent page; enter your
+   `MCP_AUTH_TOKEN` there once to approve (shown pre-filled with your current token
+   under Settings → **API + MCP** in this app). You're redirected back to claude.ai,
+   now connected.
 
 ---
 
