@@ -2524,3 +2524,137 @@ class ApiToken(Base):
             f"<ApiToken id={self.id} label={self.label!r} vault_id={self.vault_id!r} "
             f"read_only={self.read_only} revoked={self.revoked_at is not None}>"
         )
+
+
+class McpOAuthClient(Base):
+    """
+    Dynamically-registered OAuth 2.1 client for the MCP authorization server (2.1.6,
+    ADR-0090). Lets a remote MCP consumer that only supports OAuth (claude.ai's web
+    "Custom connector" UI — it cannot send a static bearer header, unlike Claude Desktop's
+    JSON config) complete an authorization_code + PKCE flow against ``/authorize``/``/token``.
+
+    Public clients only (PKCE is the confidentiality mechanism, per RFC 6749 §2.1 — a
+    public client's client_id is an identifier, not a secret) — no client_secret column.
+    Rows are created either via explicit ``POST /register`` (RFC 7591 Dynamic Client
+    Registration) or JIT (just-in-time) on a first-seen ``client_id`` at ``/authorize``
+    (some MCP clients, observed live with claude.ai, self-assign a client_id and skip
+    registration entirely when no registration_endpoint was previously discovered).
+    Once bound, ``redirect_uris`` cannot be silently swapped for that client_id.
+    """
+
+    __tablename__ = "mcp_oauth_clients"
+
+    client_id: Mapped[str] = mapped_column(
+        Text,
+        primary_key=True,
+        comment="Opaque public-client identifier — NOT a secret (RFC 6749 §2.1)",
+    )
+
+    client_name: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Operator-facing name presented by the client at registration (RFC 7591)",
+    )
+
+    redirect_uris: Mapped[list[str]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        nullable=False,
+        comment="Registered redirect URI(s); /authorize rejects any URI not in this set",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time (explicit registration or JIT first-sight)",
+    )
+
+    def __repr__(self) -> str:
+        return f"<McpOAuthClient client_id={self.client_id!r} name={self.client_name!r}>"
+
+
+class McpOAuthToken(Base):
+    """
+    Issued OAuth access/refresh token pair for the MCP authorization server (2.1.6,
+    ADR-0090). Authorization codes are NOT persisted here — they are short-lived
+    (120s, single-use) and held in an in-process store (app.mcp.oauth), matching the
+    single-process-deployment assumption already documented for RemoteMcpFlag/McpAuthCache
+    (app.runtime_state). Only the longer-lived, restart-surviving access/refresh tokens are
+    persisted, hashed (never plaintext) via the existing PBKDF2 helpers
+    (app.runtime_state.hash_token/verify_token — the same pattern as api_tokens.secret_hash
+    and vault_state.mcp_access_token_hash).
+
+    A valid, non-expired, non-revoked access_token_hash match is treated by
+    BearerAuthMiddleware exactly like the static MCP bearer token — it grants the SAME
+    access to ``/mcp/server``, nothing more (no separate scope model; this is a
+    single-vault, single-operator deployment).
+
+    Refresh is rotate-on-use (OAuth 2.1 best practice): each ``grant_type=refresh_token``
+    call issues a NEW access/refresh pair and revokes this row, rather than reusing the
+    same refresh_token indefinitely.
+    """
+
+    __tablename__ = "mcp_oauth_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=sa_text("gen_random_uuid()"),
+        comment="Row identity",
+    )
+
+    client_id: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="mcp_oauth_clients.client_id this token pair was issued to (no FK — client "
+        "rows are never deleted, but tokens must still resolve if a client row is pruned)",
+    )
+
+    access_token_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="PBKDF2-SHA256 hash of the access token (app.runtime_state.hash_token). "
+        "NEVER the plaintext — shown once in the /token response body.",
+    )
+
+    refresh_token_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        comment="PBKDF2-SHA256 hash of the refresh token. Rotated (new row) on every use.",
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        comment="Access token expiry — BearerAuthMiddleware treats an expired row as invalid",
+    )
+
+    refresh_expires_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        comment="Refresh token expiry — /token rejects a refresh_token grant past this time",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="Row creation time",
+    )
+
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
+        nullable=True,
+        default=None,
+        comment="Soft-delete marker — set when rotated-away-from (refresh) or explicitly "
+        "revoked; NULL = active",
+    )
+
+    __table_args__ = (Index("ix_mcp_oauth_tokens_client_id", "client_id"),)
+
+    def __repr__(self) -> str:
+        return (
+            f"<McpOAuthToken id={self.id} client_id={self.client_id!r} "
+            f"expires_at={self.expires_at} revoked={self.revoked_at is not None}>"
+        )

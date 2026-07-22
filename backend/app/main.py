@@ -101,6 +101,7 @@ from app.errors import register_exception_handlers
 from app.graph.cache import GraphCache
 from app.graph.engine import GraphEngine
 from app.import_scheduler import ImportScheduler
+from app.mcp.oauth import router as mcp_oauth_router
 from app.mcp.server import build_http_mcp
 from app.models import (
     IngestRun,
@@ -221,6 +222,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await _load_web_search_config_cache()
     await _load_cli_auth_config_cache()
     await _load_api_token_cache()  # PF-AUTH-1 (1.9.4 W4)
+    await _load_mcp_oauth_token_cache()  # 2.1.6, ADR-0090
     # P3-e (ADR-0071): decrypt UI-stored cloud web-search API keys into the sync cache.
     from app.ops.web_search.keys import load_cache_from_db as _load_ws_keys  # noqa: PLC0415
 
@@ -515,6 +517,7 @@ app.include_router(scenarios_router)
 app.include_router(vault_meta_router)  # WS-D8: vault-root meta files (schema.md, purpose.md)
 app.include_router(projects_router)  # v1.5 P2: multi-vault project registry (ADR-0082)
 app.include_router(events_router)  # 1.9.3 W1: GET /events SSE push channel (FE-RT-2)
+app.include_router(mcp_oauth_router)  # 2.1.6: OAuth 2.1/PKCE server for /mcp/server (ADR-0090)
 
 # ── OpenAPI security scheme (ADR-0052 §2.5, I8, EC-M10-4) ────────────────────
 # Inject ``BearerAuth`` into the OpenAPI schema so docs/api/openapi.json declares
@@ -835,6 +838,35 @@ async def _load_api_token_cache() -> None:
 
     await runtime_state.api_token_cache.load(entries)
     logger.info("ApiTokenCache loaded from DB: %d active token(s) (PF-AUTH-1)", len(entries))
+
+
+async def _load_mcp_oauth_token_cache() -> None:
+    """
+    Load active, non-expired mcp_oauth_tokens rows into runtime_state.mcp_oauth_token_cache
+    (2.1.6, ADR-0090). Mirrors _load_api_token_cache exactly. A row past its access-token
+    expiry is skipped at load time (BearerAuthMiddleware would reject it anyway via the
+    per-request expiry re-check in McpOAuthTokenCache.find_match, but there is no reason to
+    keep an already-dead hash in the cache). NEVER logs access_token_hash.
+    """
+    from datetime import UTC, datetime  # noqa: PLC0415
+
+    from app.models import McpOAuthToken  # noqa: PLC0415
+
+    now = datetime.now(UTC)
+    async with get_session() as session:
+        rows = await session.execute(
+            select(McpOAuthToken).where(
+                McpOAuthToken.revoked_at.is_(None),
+                McpOAuthToken.expires_at > now,
+            )
+        )
+        entries = [(str(row.id), row.access_token_hash, row.expires_at) for row in rows.scalars()]
+
+    await runtime_state.mcp_oauth_token_cache.load(entries)
+    logger.info(
+        "McpOAuthTokenCache loaded from DB: %d active access token(s) (2.1.6, ADR-0090)",
+        len(entries),
+    )
 
 
 async def _load_clip_config_cache() -> None:

@@ -551,18 +551,54 @@ ingress:
 The `/mcp/server` path is automatically forwarded under the same hostname:
 `https://synapse.yourdomain.com/mcp/server` (bearer token required).
 
-### 5.6 Add the remote MCP server to claude.ai
+### 5.6 Add the remote MCP server to Claude
 
-In [claude.ai](https://claude.ai/new):
+Two different Claude surfaces reach the remote MCP server differently — **claude.ai's
+web "Custom connector" UI only speaks OAuth 2.1 + PKCE** (it has no field to paste a
+bearer token), while **Claude Desktop's JSON config supports arbitrary custom headers**
+(so a plain bearer token works directly). Synapse supports both (2.1.6, ADR-0090).
 
-1. Click the **Settings** gear (bottom left).
-2. Go to **Connected apps** → **MCP servers** (or **Remote MCP servers**).
-3. Click **Add server** (or **+ Add**).
-4. Enter:
-   - **URL:** `https://synapse.yourdomain.com/mcp/server` (or `http://localhost:8000/mcp/server` for local testing)
-   - **Authentication:** Select **Bearer token**
-   - **Token:** Paste `<your-MCP_AUTH_TOKEN>` (without the "Bearer " prefix — claude.ai adds it)
-5. Click **Connect**. Claude should report "Connected" and list the available tools.
+#### Claude Desktop (bearer token, simplest)
+
+Add to Claude Desktop's `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```jsonc
+{
+  "mcpServers": {
+    "synapse_remote": {
+      "type": "http",
+      "url": "https://synapse.yourdomain.com/mcp/server",
+      "headers": {
+        "Authorization": "Bearer <your-MCP_AUTH_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+(Settings → **API + MCP** in the Synapse web UI shows this snippet pre-filled with your
+current token.) Restart Claude Desktop — it should list the available tools immediately.
+
+#### claude.ai web ("Custom connector", OAuth)
+
+1. Click the **Settings** gear (bottom left) → **Connectors** → **Add custom connector**.
+2. Enter:
+   - **Name:** anything (e.g. "Synapse").
+   - **URL:** `https://synapse.yourdomain.com/mcp/server` (or `http://localhost:8000/mcp/server`
+     for local testing).
+3. Click **Add**, then **Connect**. Your browser is redirected to Synapse's own consent
+   page (`/authorize`) — enter your `MCP_AUTH_TOKEN` there (this is the SAME token as
+   above, entered once to approve the connection; it is never sent to Anthropic). Click
+   **Authorize**.
+4. You are redirected back to claude.ai, which should report "Connected" and list the
+   available tools.
+
+Requires `remote_mcp_enabled` ON (same flag `/mcp/server` itself uses) — the OAuth
+endpoints (`/authorize`, `/token`, `/register`, `/.well-known/oauth-*`) share that exact
+floor and 404 when it's off. If "Connect" instead lands on the ordinary Synapse app
+(not a consent form), the reverse proxy in front of Synapse is not routing these
+root-level paths to the backend — see `frontend/nginx.conf.template` /
+`frontend/vite.config.ts` for the required proxy entries (ADR-0090 §2).
 
 ### 5.6b Cloudflare Access in front of the whole app — service tokens (v1.3.9+)
 
@@ -613,13 +649,19 @@ The remote MCP surface (`/mcp/server`) already has its **own** independent auth
   }
   ```
 
-- **claude.ai remote-MCP connector** — its UI only supports a **Bearer token**, so it
-  cannot send the CF-Access headers. Since `/mcp/server` is already protected by its own
-  `MCP_AUTH_TOKEN`, the clean answer is to **exclude that path from the CF Access
-  application**: add an Access policy with **Action = "Bypass"** (or a separate,
-  unenforced Access app) scoped to `/mcp/server`. The MCP bearer token remains the gate
-  for that path — no downgrade in protection, and the connector keeps working. The same
-  applies to the clipper ingress `POST /clip` if you prefer a bypass over the in-app
+- **claude.ai web "Custom connector"** — it only speaks OAuth 2.1 (§5.6), and the OAuth
+  client (claude.ai's own backend) calling `/token` and `/register` cannot send the
+  CF-Access headers either (server-to-server, no cookie, no way to inject a service-token
+  header). Since `/mcp/server` AND the OAuth endpoints (`/authorize`, `/token`,
+  `/register`, `/.well-known/oauth-*`) are already protected by their own independent auth
+  (the `MCP_AUTH_TOKEN` bearer, and — for OAuth — the SAME token entered once at the
+  `/authorize` consent step, ADR-0090), the clean answer is to **exclude ALL of these
+  paths from the CF Access application**: add an Access policy with **Action = "Bypass"**
+  (or a separate, unenforced Access app) scoped to `/mcp/server`, `/authorize`, `/token`,
+  `/register`, and `/.well-known/oauth-authorization-server` /
+  `/.well-known/oauth-protected-resource`. The app-level auth remains the gate for every
+  one of these paths — no downgrade in protection, and the connector keeps working. The
+  same applies to the clipper ingress `POST /clip` if you prefer a bypass over the in-app
   service-token headers.
 
 ### 5.7 Enable remote writes (optional, not recommended)

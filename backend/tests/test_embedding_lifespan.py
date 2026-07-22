@@ -94,6 +94,7 @@ class TestEmbeddingStartupToggle:
         load_web_search_config_mock = AsyncMock()
         load_cli_auth_config_mock = AsyncMock()
         load_api_token_cache_mock = AsyncMock()
+        load_mcp_oauth_token_cache_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -111,6 +112,7 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_cli_auth_config_cache", load_cli_auth_config_mock),
             # PF-AUTH-1 (1.9.4 W4): _load_api_token_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_api_token_cache", load_api_token_cache_mock),
+            patch.object(main_mod, "_load_mcp_oauth_token_cache", load_mcp_oauth_token_cache_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),
@@ -178,6 +180,7 @@ class TestEmbeddingStartupToggle:
         load_web_search_config_mock = AsyncMock()
         load_cli_auth_config_mock = AsyncMock()
         load_api_token_cache_mock = AsyncMock()
+        load_mcp_oauth_token_cache_mock = AsyncMock()
         with (
             patch.object(main_mod, "_validate_embedding_and_collection", _fake_validate),
             patch.object(main_mod, "_seed_vault_state", seed_mock),
@@ -195,6 +198,7 @@ class TestEmbeddingStartupToggle:
             patch.object(main_mod, "_load_cli_auth_config_cache", load_cli_auth_config_mock),
             # PF-AUTH-1 (1.9.4 W4): _load_api_token_cache also runs in lifespan; patch to avoid DB hit.
             patch.object(main_mod, "_load_api_token_cache", load_api_token_cache_mock),
+            patch.object(main_mod, "_load_mcp_oauth_token_cache", load_mcp_oauth_token_cache_mock),
             patch("app.main.bootstrap_vault"),
             patch("app.main.start_watcher"),
             patch("app.main.stop_watcher"),

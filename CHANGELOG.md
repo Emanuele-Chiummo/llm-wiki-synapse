@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.6] — 2026-07-21 — "custom connector"
+
+Feature release adding OAuth 2.1 + PKCE support for the remote MCP server. No breaking
+changes.
+
+### Added
+
+- **MCP OAuth 2.1 + PKCE authorization server, for claude.ai's web "Custom connector"**
+  (ADR-0090): live-observed gap — adding Synapse's remote MCP server as a claude.ai
+  "Custom connector" silently failed, because that UI only speaks OAuth 2.1
+  authorization_code + PKCE (unlike Claude Desktop's JSON config, which already supports
+  a static bearer header). Added a minimal, single-operator-oriented authorization server:
+  `GET/POST /authorize` (consent form — approved with the SAME static MCP token that
+  already gates `/mcp/server`), `POST /token` (authorization_code + rotate-on-use
+  refresh_token grants), `POST /register` (RFC 7591 Dynamic Client Registration, public
+  clients only — PKCE is the confidentiality mechanism, no client_secret), and RFC 8414 /
+  9728 discovery documents. JIT client registration handles clients (observed live with
+  claude.ai) that self-assign a client_id and skip registration. An OAuth-issued access
+  token is accepted by the existing MCP bearer gate exactly like the static token — no
+  separate scope model, no delegation chain (an OAuth token can never approve another
+  OAuth grant). Shares the same `remote_mcp_enabled` floor as `/mcp/server` itself.
+  New tables `mcp_oauth_clients` / `mcp_oauth_tokens` (migration 0038).
+- Updated `docs/DEPLOY.md` §5.6/§5.6b and `docs/USER.md` with setup steps for both
+  Claude Desktop (bearer token) and claude.ai web (OAuth) connector paths, including the
+  Cloudflare Access bypass scope needed for the new endpoints.
+
 ## [2.1.5] — 2026-07-20 — "no more argv"
 
 Patch release fixing a live-observed ingest failure on large vaults. No schema migrations.

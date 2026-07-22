@@ -1,7 +1,9 @@
 import { defineConfig } from "vite";
 import { readFileSync } from "node:fs";
 
-const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")) as { version: string };
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")) as {
+  version: string;
+};
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -76,6 +78,14 @@ const API_PREFIXES = [
   `/health`,
   `/export`,
   `/api`,
+  // 2.1.6 (ADR-0090): MCP OAuth 2.1/PKCE authorization server (app.mcp.oauth) — root-level
+  // paths, not under /mcp, matching claude.ai's observed fallback convention (see ADR-0090
+  // §2). Must be proxied to the backend like every other API prefix, else nginx/vite's SPA
+  // fallback swallows them into index.html (the exact bug that surfaced live).
+  `/authorize`,
+  `/token`,
+  `/register`,
+  `/.well-known`,
 ];
 
 // https://vitejs.dev/config/
@@ -257,6 +267,23 @@ export default defineConfig({
         target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
         changeOrigin: true,
       },
+      // 2.1.6 (ADR-0090): MCP OAuth 2.1/PKCE authorization server (app.mcp.oauth).
+      "/authorize": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/token": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/register": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
+      "/.well-known": {
+        target: process.env["BACKEND_PROXY_TARGET"] ?? "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
   // Stamp the CSP on every vite preview response (used in CI E2E — ADR-0087 / SEC-CSP-1).
@@ -302,10 +329,7 @@ export default defineConfig({
             return "vendor-react";
           }
           // sigma.js + graphology* — heavy WebGL/graph libraries (lazy with GraphPanel)
-          if (
-            id.includes("/node_modules/sigma/") ||
-            id.includes("/node_modules/graphology")
-          ) {
+          if (id.includes("/node_modules/sigma/") || id.includes("/node_modules/graphology")) {
             return "vendor-graph";
           }
           // CodeMirror + Lezer parser — heavy editor libraries (lazy with PanelGroup/NoteView)
