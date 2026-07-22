@@ -640,6 +640,44 @@ if _http_mcp_asgi_app is not None:
         runtime_state.mcp_auth_cache,
     )
     app.mount(MCP_MOUNT_PATH, _guarded_mcp_app)
+
+    # 2.1.7 fix: Starlette's Mount always requires a trailing slash in its match regex
+    # (`self.path + "/{path:path}"`) — a request to the EXACT mount path with no trailing
+    # slash (e.g. `POST /mcp/server`, no trailing "/") never matches the Mount, so the
+    # outer Router's redirect_slashes fallback fires a 307 to `/mcp/server/` BEFORE the
+    # request ever reaches BearerAuthMiddleware or FastMCP. Live evidence: claude.ai's
+    # OAuth-authenticated remote-MCP client (2.1.6, ADR-0090) completed the whole
+    # register/authorize/token handshake successfully, then every subsequent
+    # `POST /mcp/server` came back 307 and the client — which does not follow a redirect
+    # for a POST, a reasonable SSRF-defensive default — reported "Synapse returned an
+    # error when connecting." This bug predates 2.1.6 (the mount itself is unchanged
+    # since 2026-07-13); it was simply never exercised by a client that both
+    # authenticates successfully AND refuses to follow the 307.
+    #
+    # Fix: register an explicit Route at the bare MCP_MOUNT_PATH (no trailing slash) that
+    # forwards to the SAME guarded ASGI app, manually replicating the scope adjustment a
+    # Mount performs on a successful match (root_path += prefix, path becomes the
+    # remainder — "/", exactly like the already-working `/mcp/server/` case, since
+    # FastMCP's own internal route is registered at "/" via `http_app(path="/")`). No
+    # HTTP redirect is involved, so no client can choose not to follow it.
+    from starlette.routing import Route as _StarletteRoute  # noqa: PLC0415
+
+    class _McpRootPassthrough:
+        """
+        Raw ASGI callable (NOT a plain function) so Starlette's ``Route`` uses it
+        AS an ASGI app rather than wrapping it via ``request_response()`` (which only
+        happens for plain functions/methods — ``inspect.isfunction``/``inspect.ismethod``
+        both return False for a class instance's ``__call__``, per Starlette's
+        ``Route.__init__``).
+        """
+
+        async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+            adjusted_scope = dict(scope)
+            adjusted_scope["path"] = "/"
+            adjusted_scope["root_path"] = scope.get("root_path", "") + MCP_MOUNT_PATH
+            await _guarded_mcp_app(adjusted_scope, receive, send)
+
+    app.router.routes.insert(0, _StarletteRoute(MCP_MOUNT_PATH, endpoint=_McpRootPassthrough()))
     logger.info("MCP HTTP surface mounted at %s (ADR-0033 §2.4 always-mount)", MCP_MOUNT_PATH)
 
 # ProviderConfig is exposed on app.main as the runtime_state → app.main bridge seam:

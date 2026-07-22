@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.7] — 2026-07-22 — "no dead ends"
+
+Patch release fixing a live-observed connection failure right after 2.1.6 shipped. No
+schema migrations.
+
+### Fixed
+
+- **`POST /mcp/server` (no trailing slash) 307-redirected, breaking claude.ai's OAuth
+  connector**: live evidence — claude.ai completed the entire OAuth 2.1/PKCE handshake
+  added in 2.1.6 (register → authorize → token, all successful) and then reported
+  "Synapse returned an error when connecting." Every subsequent `POST /mcp/server` came
+  back `307 Temporary Redirect`, never 200. Root cause (pre-existing since 2026-07-13,
+  unrelated to the OAuth work itself): Starlette's `Mount` always requires a trailing
+  slash in its match regex, so a request to the bare mount path never matches and the
+  outer router's `redirect_slashes` fallback fires a 307 to `/mcp/server/` — before the
+  request ever reaches the auth gate. This was never caught before because no prior
+  client both authenticated successfully AND refused to follow a 307 on POST (a
+  reasonable SSRF-defensive default that claude.ai's connector applies). Fixed by
+  registering an explicit route at the bare mount path that forwards directly to the
+  guarded MCP app, with no redirect involved. See
+  [ADR-0090](docs/adr/0090-mcp-oauth-authorization-server.md#follow-up-217--post-mcpserver-no-trailing-slash-307-redirect).
+
 ## [2.1.6] — 2026-07-21 — "custom connector"
 
 Feature release adding OAuth 2.1 + PKCE support for the remote MCP server. No breaking

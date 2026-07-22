@@ -163,3 +163,29 @@ scope for consistency. `docs/DEPLOY.md` §5.6b is updated accordingly.
   because it would not fix the ALREADY-CONFIGURED claude.ai connector (cached root-level
   URL from its first attempt) without a delete-and-re-add; root-level paths fix both the
   existing and any future connector, since discovery documents advertise the same paths.
+
+## Follow-up (2.1.7) — `POST /mcp/server` (no trailing slash) 307 redirect
+
+Live evidence immediately after 2.1.6 shipped: claude.ai's connector completed the ENTIRE
+OAuth handshake this ADR describes (`/register` → 201, `/authorize` → 302 with a code,
+`/token` → 200 with a minted access token) and then reported "Synapse returned an error
+when connecting." Every subsequent `POST /mcp/server` in the logs came back
+`307 Temporary Redirect`, never 200.
+
+Root cause (pre-existing, unrelated to the OAuth work above — the mount itself hadn't
+changed since 2026-07-13): Starlette's `Mount` always requires a trailing slash in its
+match regex (`self.path + "/{path:path}"`). A request to the bare `MCP_MOUNT_PATH`
+(`/mcp/server`, no trailing slash) never matches the `Mount`, so the OUTER
+`Router.redirect_slashes` fallback fires a 307 to `/mcp/server/` — before the request
+ever reaches `BearerAuthMiddleware` or FastMCP. This had been true the whole time; it was
+simply never exercised end-to-end by a client that (a) authenticates successfully AND
+(b) refuses to follow a 307 on POST (a reasonable SSRF-defensive default that claude.ai's
+remote-MCP client apparently applies).
+
+Fixed by registering an explicit `Route` at the bare `MCP_MOUNT_PATH` in
+`backend/app/main.py` that forwards to the SAME guarded ASGI app, manually replicating the
+scope adjustment a successful `Mount` match performs (`root_path` gains the prefix,
+`path` becomes `"/"` — exactly what FastMCP's own internal route, registered via
+`http_app(path="/")`, expects). No HTTP redirect is involved for the bare path anymore, so
+no client can choose not to follow it. `/mcp/server/` (with trailing slash) continues to
+work exactly as before via the existing `Mount`.
