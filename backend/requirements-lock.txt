@@ -131,7 +131,7 @@ jaraco-context==6.1.2
     # via keyring
 jaraco-functools==4.6.0
     # via keyring
-joserfc==1.7.3
+joserfc==1.7.4
     # via
     #   authlib
     #   fastmcp-slim
