@@ -757,12 +757,23 @@ class TestMcpServerMountedEndToEnd:
                 async with AsyncClient(
                     transport=ASGITransport(app=app), base_url="http://test"
                 ) as ac:
-                    # (a) no trailing slash → Starlette Mount 307 → canonical /mcp/server/
-                    r_redirect = await ac.post("/mcp/server", headers=headers, json=body)
-                    assert r_redirect.status_code == 307
-                    assert r_redirect.headers["location"].endswith("/mcp/server/")
+                    # (a) NO trailing slash — 2.1.7 regression: this used to 307-redirect
+                    #     to "/mcp/server/" (Starlette's Mount always requires a trailing
+                    #     slash in its match regex), and live evidence showed a real MCP
+                    #     client (claude.ai's OAuth-authenticated remote-MCP connector,
+                    #     2.1.6/ADR-0090) does NOT follow a 307 on POST (a reasonable
+                    #     SSRF-defensive default) — so the whole connection failed AFTER
+                    #     OAuth had already succeeded. The bare mount path must now be
+                    #     served directly, with no redirect (see the explicit passthrough
+                    #     Route registered in app/main.py).
+                    r_bare = await ac.post("/mcp/server", headers=headers, json=body)
+                    assert r_bare.status_code != 307, (
+                        "POST /mcp/server (no trailing slash) redirects again — "
+                        "regression of the 2.1.7 fix (a real MCP client won't follow it)"
+                    )
+                    assert r_bare.status_code == 200
 
-                    # (b) canonical URL → the MCP handshake succeeds (proves mount +
+                    # (b) trailing-slash URL — the MCP handshake succeeds (proves mount +
                     #     gate-open + endpoint served at MCP_MOUNT_PATH root)
                     r_ok = await ac.post("/mcp/server/", headers=headers, json=body)
                     assert r_ok.status_code != 404, (
@@ -779,6 +790,16 @@ class TestMcpServerMountedEndToEnd:
                         json=body,
                     )
                     assert r_bad.status_code == 401
+
+                    # (d) same wrong-bearer check on the BARE path (no trailing slash) —
+                    #     proves the new passthrough Route still goes through
+                    #     BearerAuthMiddleware and does not accidentally bypass auth.
+                    r_bad_bare = await ac.post(
+                        "/mcp/server",
+                        headers={**headers, "Authorization": "Bearer WRONG"},
+                        json=body,
+                    )
+                    assert r_bad_bare.status_code == 401
         finally:
             # Restore the module-level singletons to their pristine default so this
             # test does not leak a remote_enabled flag OR a token hash into later
