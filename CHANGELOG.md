@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.8] — 2026-08-07 — "revoke means revoke"
+
+Patch release closing two defects in the MCP OAuth authorization server shipped in 2.1.6,
+plus one dependency advisory. No schema migrations. Unlike 2.1.2-2.1.7, none of this came
+from a live failure — these were found by reading the freshly-landed 2.1.6/2.1.7 code
+during weekly maintenance.
+
+### Security
+
+- **Changing the static MCP token did not revoke OAuth-issued access — and no revocation
+  path existed at all**: every row in `mcp_oauth_tokens` is approved by typing the static
+  MCP token into the `/authorize` consent form, which is the ONLY credential in the whole
+  OAuth flow (`verify_static_mcp_token`). But `PUT /mcp/auth` (set / rotate / clear) only
+  rewrote `vault_state.mcp_access_token_hash` and refreshed `mcp_auth_cache`; it never
+  touched `mcp_oauth_tokens` or `McpOAuthTokenCache` — and neither did anything else, the
+  cache being written only by `load()` (startup), `add()` (mint) and `remove()` (single-row
+  refresh rotation). Root cause: the credential change was never cascaded onto the grants it
+  had authorised. Consequence: rotating a leaked token — the standard response to a leak, and
+  what the Settings UI presents as such — revoked nothing for an OAuth client. The issued
+  access token kept satisfying the same `/mcp/server` gate as the static bearer, and its
+  `refresh_token` (90-day lifetime, and by design never re-presenting the static token) could
+  keep minting fresh access tokens for the rest of that window. The only real revocation was
+  turning `remote_mcp_enabled` OFF, which also cuts off Claude Desktop and every other MCP
+  client. This was an omission, not a design decision: `revoked_at` was already modelled for
+  exactly this case ("rotated-away-from OR explicitly revoked", `app/models.py`) with no
+  caller for the second half. Fixed by bulk soft-revoking every non-revoked row in the same
+  transaction, and clearing the cache, whenever `PUT /mcp/auth` yields a genuinely different
+  hash — compared against the value captured before any mutation, so a PUT that only flips
+  `allow_without_token` revokes nothing.
+- **`redirect_uri` was validated by string prefix, admitting `localhost` lookalikes**:
+  `_valid_redirect_uri` accepted anything matching `uri.startswith("http://localhost")`,
+  including `http://localhost.attacker.example/cb` — a fully attacker-controlled host that
+  merely begins with "localhost". Combined with just-in-time client registration, a crafted
+  `/authorize` link could have carried the issued authorization code off-box in plaintext
+  once the operator approved the grant. Exploitation required phishing the operator into
+  approving a grant they did not start, so this is hardening rather than break-glass. Fixed
+  by parsing the URI and comparing `urlsplit().hostname` against an exact loopback allow-set;
+  degenerate values such as a bare `"https://"` are now rejected too.
+
+### Changed
+
+- **`http://127.0.0.1` and `http://[::1]` redirect URIs are now accepted** (deliberate
+  widening): the old prefix check recognised only the literal string "localhost", so a dev
+  client pointed at the loopback address was rejected for no defensible reason — plaintext
+  `http` is allowed here precisely because the traffic never leaves the machine, which holds
+  for all three spellings.
+- **`dompurify` 3.4.11 → 3.4.13** (GHSA-c2j3-45gr-mqc4 — `CUSTOM_ELEMENT_HANDLING` bypasses
+  `afterSanitizeElements` for allowed custom elements). Patch-level bump inside the existing
+  `^3.4` range. Not believed exploitable as configured (`renderMarkdown.ts` sanitizes against
+  an explicit `ALLOWED_TAGS` allowlist with no custom elements and never sets
+  `CUSTOM_ELEMENT_HANDLING`), but it is the one library between model/source markdown and
+  three `dangerouslySetInnerHTML` call sites. `npm audit --omit=dev` now reports 0
+  vulnerabilities.
+
 ## [2.1.7] — 2026-07-22 — "no dead ends"
 
 Patch release fixing a live-observed connection failure right after 2.1.6 shipped. No

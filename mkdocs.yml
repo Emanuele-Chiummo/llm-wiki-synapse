@@ -64,6 +64,7 @@ nav:
   - Process:
       - Weekly maintenance: process/WEEKLY-MAINTENANCE.md
   - Release Notes:
+      - v2.1.8: release-notes/v2.1.8.md
       - v2.1.7: release-notes/v2.1.7.md
       - v2.1.6: release-notes/v2.1.6.md
       - v2.1.5: release-notes/v2.1.5.md
