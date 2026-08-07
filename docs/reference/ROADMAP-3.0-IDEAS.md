@@ -268,4 +268,59 @@ giorno senza mai ripagarsi.
 - **Trovato:** YYYY-MM-DD
 -->
 
-_(ancora nessuna — la prima esecuzione è prevista per venerdì 14 agosto 2026)_
+### pypdf fermo su 5.x con 24 advisory aperte — serve il salto a 6.x
+
+- **Problema:** `pip-audit` riporta 24 advisory su `pypdf==5.9.0` (PYSEC-2026-3004…3027,
+  PYSEC-2026-3610…3613, GHSA-jm82-fx9c-mx94). **Nessuna è corretta in una 5.x**: la fix più
+  bassa è 6.7.1, la più alta 6.14.2. Il vincolo attuale `pypdf>=4.2,<6` esclude per
+  costruzione ogni versione corretta, quindi il debito non si chiude con un bump patch.
+- **Evidenza:** `backend/pyproject.toml:34` (`"pypdf>=4.2,<6"`),
+  `backend/requirements-lock.txt:242` e `backend/requirements-prod-lock.txt:207`
+  (`pypdf==5.9.0`).
+- **Impatto:** pypdf è l'estrattore PDF **di default** (`app/config.py:866`,
+  `pdf_extractor="pypdf"`) ed è anche il fallback incondizionato quando Marker o MinerU
+  falliscono (`app/ingest/extract.py:26-27`) — quindi ogni PDF che entra nel vault, incluso
+  materiale scaricato dal web via clipper o deep-research, passa da qui. Le advisory di questa
+  famiglia sono tipicamente DoS su file malformati (loop infiniti, esaurimento memoria) più
+  che RCE, e il deployment è mono-operatore: rischio reale ma contenuto. Non abbastanza
+  contenuto da lasciarlo indefinito.
+- **Sforzo:** M. Il salto 5.x → 6.x è un **major** con API breaking (la routine settimanale ha
+  il divieto esplicito di major, §2 punto 6 del runbook): va allargato il vincolo in
+  `pyproject.toml`, rigenerati entrambi i lockfile, e riverificato `app/ingest/extract.py`
+  contro l'API 6.x, con un test su PDF reali.
+- **Trovato:** 2026-08-07
+
+### Nessuna superficie operatore per vedere e revocare le concessioni OAuth MCP
+
+- **Problema:** dalla 2.1.8 un cambio del token statico revoca *tutte* le concessioni OAuth
+  insieme, ma resta l'unico strumento disponibile: è un'accetta, non un bisturi. Non esiste
+  modo di elencare i client autorizzati, vedere quando hanno ottenuto accesso, o revocarne
+  **uno solo** senza buttare giù anche gli altri e senza cambiare il token che gli altri
+  client (Claude Desktop) stanno usando.
+- **Evidenza:** `backend/app/mcp/oauth.py` non espone alcuna rotta di lettura/revoca;
+  `backend/app/routers/config/mcp.py` gestisce solo il token statico. Il modello
+  `McpOAuthClient` / `McpOAuthToken` (`backend/app/models.py:2576`) ha già i campi necessari
+  (`client_name`, `created_at`, `revoked_at`).
+- **Impatto:** una volta che più di un client OAuth è configurato — plausibile appena si
+  aggiungono claude.ai web e un secondo dispositivo — la revoca selettiva diventa necessaria.
+  Oggi l'operatore non ha nemmeno visibilità su *quali* client abbiano accesso.
+- **Sforzo:** M. Richiede endpoint REST (`GET`/`DELETE /mcp/oauth/grants`), una sezione UI in
+  Settings, e la propagazione alla `McpOAuthTokenCache`. Superficie nuova = feature, non patch.
+- **Trovato:** 2026-08-07
+
+### `POST /register` non autenticata può saturare il tetto dei 200 client
+
+- **Problema:** la Dynamic Client Registration è raggiungibile senza credenziali (per
+  necessità: è il punto d'ingresso RFC 7591) e crea una riga `mcp_oauth_clients` per chiamata.
+  Al raggiungimento di `_MAX_REGISTERED_CLIENTS = 200` ogni registrazione successiva riceve
+  429 **per sempre**: non esiste pruning, scadenza o pulizia dei client mai usati.
+- **Evidenza:** `backend/app/mcp/oauth.py:79` (`_MAX_REGISTERED_CLIENTS = 200`) e
+  `register_client()` — il tetto è un contatore su tabella, senza rate limit né TTL.
+- **Impatto:** basso e non catastrofico — serve `remote_mcp_enabled` ON ed endpoint esposto,
+  e il percorso `/authorize` (che registra JIT ed è protetto dal token statico) continua a
+  funzionare anche a tetto pieno, quindi i client già configurati non si rompono. Ma un
+  operatore che aggiunge un *nuovo* connettore dopo la saturazione riceve un 429 opaco.
+- **Sforzo:** S/M. La correzione giusta non è alzare il tetto ma dare un ciclo di vita ai
+  client (TTL sui client senza token attivi + pruning), il che si incastra naturalmente con
+  la voce precedente sulla superficie di revoca.
+- **Trovato:** 2026-08-07
