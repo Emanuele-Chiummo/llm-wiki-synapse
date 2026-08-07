@@ -475,6 +475,18 @@ jobs:
           }
 
       - name: Install Playwright browsers
+        # MUST run from frontend/ so `npx` resolves the PINNED @playwright/test from
+        # frontend/node_modules. Without it, npx runs from the repo root — where
+        # Playwright is not installed — and silently fetches the LATEST version from
+        # npm, installing that version's browser revision instead of the pinned one.
+        # The two agreed by luck until they drifted: on 2026-08-07 the step downloaded
+        # chromium_headless_shell-1234 (npm latest) while the test run, using the
+        # pinned @playwright/test@1.61.1, looked for revision 1228 — so every E2E
+        # spec failed in ~4ms with "Executable doesn't exist". Playwright itself warns
+        # about this in the log ("running 'npx playwright install' without first
+        # installing your dependencies"), but the step still exits 0, so the failure
+        # only surfaces later as a wall of unrelated-looking test errors.
+        working-directory: frontend
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E tests
