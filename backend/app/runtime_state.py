@@ -561,6 +561,21 @@ class McpOAuthTokenCache:
         async with self._lock:
             self._entries.pop(token_id, None)
 
+    async def clear(self) -> None:
+        """
+        Drop EVERY entry — called right after a bulk DB revoke (2.1.8).
+
+        The one caller is ``PUT /mcp/auth`` when the static MCP credential itself changes
+        (set / rotate / clear): every OAuth grant in the table was approved by presenting the
+        OLD static token at the ``/authorize`` consent form, so changing that token must
+        invalidate all of them. Without this, rotating the token — the standard "my token
+        leaked" response — left previously-approved connectors with unbroken access for up to
+        the refresh window (90 days), because a refresh_token grant never re-presents the
+        static token.
+        """
+        async with self._lock:
+            self._entries = {}
+
     def find_match(self, presented: str) -> bool:
         """
         True iff `presented` matches an active, non-expired entry's access_token_hash.

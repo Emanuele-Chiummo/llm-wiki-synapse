@@ -1,6 +1,6 @@
 {
   "name": "synapse-frontend",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "private": true,
   "description": "Synapse — The self-hosted LLM wiki that turns your sources into connected knowledge.",
   "type": "module",
@@ -36,7 +36,7 @@
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@tauri-apps/plugin-updater": "^2.0.0",
     "@types/dompurify": "^3.0.5",
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.13",
     "graphology": "^0.25.4",
     "i18next": "^26.3.3",
     "i18next-browser-languagedetector": "^8.2.1",

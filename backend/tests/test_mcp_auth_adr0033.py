@@ -68,6 +68,10 @@ def _make_db_session_mock(vault_state_row: Any) -> MagicMock:
     """Build a mock async context manager for get_session() → execute → scalar_one_or_none."""
     mock_result = MagicMock()
     mock_result.scalar_one_or_none.return_value = vault_state_row
+    # 2.1.8: PUT /mcp/auth issues a bulk UPDATE over mcp_oauth_tokens when the static
+    # credential changes and reads .rowcount off the result — a real CursorResult always
+    # returns an int there, so pin it rather than leaving a truthy MagicMock.
+    mock_result.rowcount = 0
 
     mock_session = AsyncMock()
     mock_session.execute = AsyncMock(return_value=mock_result)

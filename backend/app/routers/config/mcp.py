@@ -8,14 +8,18 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import select, update
+
+if TYPE_CHECKING:
+    from sqlalchemy import CursorResult
 
 from app import runtime_state
 from app.config import settings
 from app.mcp.server import mcp as _mcp_server
-from app.models import VaultState
+from app.models import McpOAuthToken, VaultState
 from app.schemas.config import (
     McpAuthRequest,
     McpAuthStateResponse,
@@ -268,6 +272,7 @@ async def put_mcp_auth(body: McpAuthRequest) -> McpAuthStateResponse:
       3. rotate_token (if true) → generate, hash, persist, capture plaintext.
       4. allow_without_token (if set) → persist.
       5. Apply allow-aware clamp to remote_enabled (§2.4).
+      5b. If the static credential CHANGED, revoke every OAuth grant (2.1.8 — see below).
       6. Refresh in-process caches.
       7. Return McpAuthStateResponse (no plaintext except generated_token).
 
@@ -291,6 +296,9 @@ async def put_mcp_auth(body: McpAuthRequest) -> McpAuthStateResponse:
                 updated_at=datetime.now(UTC),
             )
             session.add(state)
+
+        # Snapshot the credential BEFORE any mutation — step 5b compares against it.
+        hash_before = state.mcp_access_token_hash
 
         # 1. clear_token
         if body.clear_token:
@@ -332,20 +340,57 @@ async def put_mcp_auth(body: McpAuthRequest) -> McpAuthStateResponse:
         final_allow = state.mcp_allow_without_token
         final_remote = state.remote_mcp_enabled
 
+        # 5b. Cascade the credential change onto the OAuth grants (2.1.8, ADR-0090 §3).
+        #
+        # Every row in mcp_oauth_tokens was approved by typing the OLD static token into the
+        # /authorize consent form — that token is the ONLY credential in the whole OAuth flow
+        # (app.runtime_state.verify_static_mcp_token). Changing it (set / rotate / clear) is
+        # the operator's "cut off MCP access" action, but before 2.1.8 it left every
+        # previously-approved grant fully alive: an OAuth access token keeps satisfying the
+        # same /mcp/server gate as the static bearer (McpOAuthTokenCache.find_match), and its
+        # refresh_token — valid for 90 days, and NEVER re-presenting the static token — can
+        # silently mint a fresh access token indefinitely. Rotating a leaked token therefore
+        # did not actually revoke anything for the one client type (claude.ai's web connector)
+        # that uses OAuth. Turning remote_mcp_enabled OFF was the only real revocation, and
+        # that also cuts off Claude Desktop and every other MCP client.
+        #
+        # A same-transaction bulk soft-revoke is the fix: revoked_at was already modelled for
+        # exactly this ("rotated-away-from OR explicitly revoked", app.models.McpOAuthToken)
+        # and _load_mcp_oauth_token_cache()/_rotate_tokens() both already treat a non-NULL
+        # revoked_at as dead, so no other read path needs to change.
+        credential_changed = final_hash != hash_before
+        revoked_grants = 0
+        if credential_changed:
+            result = await session.execute(
+                update(McpOAuthToken)
+                .where(McpOAuthToken.revoked_at.is_(None))
+                .values(revoked_at=datetime.now(UTC))
+            )
+            # session.execute(update(...)) returns a CursorResult (has rowcount); the base
+            # Result[Any] annotation does not expose it — same cast as ops/lint/persistence.py.
+            revoked_grants = int(cast("CursorResult[Any]", result).rowcount or 0)
+
     # 6. Refresh in-process caches (outside session — DB write committed).
     await runtime_state.mcp_auth_cache.set_hash(final_hash)
     await runtime_state.mcp_auth_cache.set_allow(final_allow)
     await runtime_state.remote_mcp_flag.set(final_remote)
+    if credential_changed:
+        # Clear unconditionally, not only when revoked_grants > 0: the cache is the hot auth
+        # path and must never outlive the DB rows it mirrors.
+        await runtime_state.mcp_oauth_token_cache.clear()
 
     # 7. Derive response values (NEVER return hash, plaintext, or salt).
     tok_source = runtime_state.resolve_token_source(final_hash)
     tok_configured = runtime_state.token_configured(final_hash)
 
     logger.info(
-        "PUT /mcp/auth: token_source=%s allow_without_token=%s remote_enabled=%s (ADR-0033)",
+        "PUT /mcp/auth: token_source=%s allow_without_token=%s remote_enabled=%s "
+        "credential_changed=%s oauth_grants_revoked=%d (ADR-0033/0090)",
         tok_source,
         final_allow,
         final_remote,
+        credential_changed,
+        revoked_grants,
     )
 
     return McpAuthStateResponse(
