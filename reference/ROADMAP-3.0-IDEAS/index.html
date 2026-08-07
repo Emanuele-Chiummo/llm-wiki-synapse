@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0040-web-clipper-runtime-configuration/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/ROADMAP-3.0-IDEAS/">
       
       
+        <link rel="prev" href="../../sequences/">
+      
+      
+        <link rel="next" href="../ROADMAP-v1.3-v2.0/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env) - Synapse</title>
+        <title>3.0 ideas (open) - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" class="md-skip">
+        <a href="#synapse-30-quaderno-di-idee" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)
+              3.0 ideas (open)
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -420,8 +424,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -432,11 +438,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
         
           
           <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
@@ -457,7 +463,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
@@ -472,10 +478,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../reference/ROADMAP-3.0-IDEAS/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    3.0 ideas (open)
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -491,6 +524,158 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#dove-siamo-baseline-217" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dove siamo (baseline 2.1.7)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-1-ingest-deterministico-e-riparabile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 1 — Ingest deterministico e riparabile ⭐
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-2-identita-reale-e-multi-utente" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 2 — Identità reale e multi-utente
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-3-qualita-del-recupero-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 3 — Qualità del recupero (retrieval)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-4-il-grafo-come-strumento-di-ragionamento-non-solo-vista" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 4 — Il grafo come strumento di ragionamento, non solo vista
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-5-ios-da-cantiere-a-prodotto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 5 — iOS: da cantiere a prodotto
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-6-economia-costo-e-velocita-dellinferenza" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 6 — Economia: costo e velocità dell'inferenza
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-7-scala" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 7 — Scala
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-8-il-wiki-come-qualcosa-che-si-puo-mostrare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 8 — Il wiki come qualcosa che si può mostrare
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-9-debito-tecnico-che-vale-una-major" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 9 — Debito tecnico che vale una major
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#come-sceglierei-opinione-da-discutere" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Come sceglierei (opinione, da discutere)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#voci-dalla-manutenzione-settimanale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voci dalla manutenzione settimanale
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -503,7 +688,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
+      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
         
   
   
@@ -531,7 +716,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
+      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
         
   
   
@@ -1824,10 +2009,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-context" class="md-nav__link">
+  <a href="#dove-siamo-baseline-217" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Context
+        Dove siamo (baseline 2.1.7)
       
     </span>
   </a>
@@ -1835,93 +2020,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-decision" class="md-nav__link">
+  <a href="#tema-1-ingest-deterministico-e-riparabile" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Decision
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Decision">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.1 Three new columns on vault_state; DB wins when set; env is the fallback
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#23-endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.3 Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#24-in-process-cache-_clipconfigcache" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.4 In-process cache: _ClipConfigCache
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#25-post-clip-handler-updates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.5 POST /clip handler updates
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#26-existing-tests-unchanged" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.6 Existing tests unchanged
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-new-config-schema-migration" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. New config / schema / migration
+        Tema 1 — Ingest deterministico e riparabile ⭐
       
     </span>
   </a>
@@ -1929,10 +2031,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-acceptance-checks-dod" class="md-nav__link">
+  <a href="#tema-2-identita-reale-e-multi-utente" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Acceptance checks (DoD)
+        Tema 2 — Identità reale e multi-utente
       
     </span>
   </a>
@@ -1940,10 +2042,98 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#5-consequences" class="md-nav__link">
+  <a href="#tema-3-qualita-del-recupero-retrieval" class="md-nav__link">
     <span class="md-ellipsis">
       
-        5. Consequences
+        Tema 3 — Qualità del recupero (retrieval)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-4-il-grafo-come-strumento-di-ragionamento-non-solo-vista" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 4 — Il grafo come strumento di ragionamento, non solo vista
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-5-ios-da-cantiere-a-prodotto" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 5 — iOS: da cantiere a prodotto
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-6-economia-costo-e-velocita-dellinferenza" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 6 — Economia: costo e velocità dell'inferenza
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-7-scala" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 7 — Scala
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-8-il-wiki-come-qualcosa-che-si-puo-mostrare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 8 — Il wiki come qualcosa che si può mostrare
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tema-9-debito-tecnico-che-vale-una-major" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tema 9 — Debito tecnico che vale una major
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#come-sceglierei-opinione-da-discutere" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Come sceglierei (opinione, da discutere)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#voci-dalla-manutenzione-settimanale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voci dalla manutenzione settimanale
       
     </span>
   </a>
@@ -1967,374 +2157,238 @@
 
 
 
-<h1 id="adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env">ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)<a class="headerlink" href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" title="Permanent link">&para;</a></h1>
+<h1 id="synapse-30-quaderno-di-idee">Synapse 3.0 — quaderno di idee<a class="headerlink" href="#synapse-30-quaderno-di-idee" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Stato: pensatoio, non un impegno.</strong> Nessuna di queste voci è approvata, stimata
+seriamente o schedulata. Serve a far sedimentare le idee mentre la 2.1.x continua a
+ricevere manutenzione settimanale.</p>
+<p><strong>Come si alimenta:</strong> (a) la routine di manutenzione settimanale
+(<a href="../../process/WEEKLY-MAINTENANCE/">runbook</a> §6) ci scarica tutto ciò che incontra ed è
+troppo grosso per una patch; (b) Emanuele ci butta dentro idee quando gli vengono.</p>
+<p><strong>Cos'è una "3.0":</strong> un major SemVer autorizza <strong>breaking change</strong>. Se un'idea non
+richiede di rompere qualcosa (API, schema, contratto d'uso) o non è un salto di
+categoria del prodotto, probabilmente è una 2.2, non una 3.0.</p>
+<p>Aperto: 2026-08-07, subito dopo la 2.1.7.</p>
+</blockquote>
+<hr />
+<h2 id="dove-siamo-baseline-217">Dove siamo (baseline 2.1.7)<a class="headerlink" href="#dove-siamo-baseline-217" title="Permanent link">&para;</a></h2>
+<p>Ciò che è <strong>fatto e solido</strong>, e che quindi <em>non</em> va rimesso in discussione a cuor leggero:</p>
 <ul>
-<li><strong>Status:</strong> Accepted</li>
-<li><strong>Date:</strong> 2026-06-30</li>
-<li><strong>Sprint:</strong> v0.6 (Amendment — F11 web clipper runtime management)</li>
-<li><strong>Feature:</strong> F11 (Web Clipper ingress, ADR-0038); parity with MCP token management (ADR-0033)</li>
-<li><strong>Invariants owned:</strong> <strong>I5</strong> (vault unchanged) · <strong>I7</strong> (no new loop) · <strong>I8</strong> (D2 ER + D4 OpenAPI updated) · <strong>I9</strong> (reuse <code>vault_state</code> + existing <code>POST /clip</code>; no new process, no new dep)</li>
-<li><strong>Author:</strong> solution-architect</li>
-<li><strong>Implementers:</strong> backend-engineer (models + migration <code>0015</code> + in-process cache + <code>GET/PUT /clip/config</code> + update <code>POST /clip</code> gates + tests + ADR) · tech-writer (D2 ER regen, D4 OpenAPI, README row)</li>
+<li>Parità funzionale con <code>nashsu/llm_wiki</code> chiusa (K1–K8, F1–F18).</li>
+<li>Invarianti I1–I9 rispettati e verificati in CI (incrementalità, layout server-side,
+  no-work-per-token, CodeMirror, compatibilità Obsidian, provider pluggable, loop bounded,
+  docs-as-DoD, no-reinvent).</li>
+<li>Suite test ampia e veloce: ~3160 pytest + ~2550 vitest + E2E Playwright su Postgres reale.</li>
+<li>Superficie di distribuzione larga: web/PWA, desktop Tauri (macOS + Windows) con updater,
+  clipper Chrome, MCP remoto (bearer + <strong>OAuth 2.1/PKCE</strong> dalla 2.1.6), app iOS nativa in
+  costruzione.</li>
+<li>Sicurezza: Fernet at-rest, PBKDF2 sui token, CSP, rate-limit, Cloudflare Access, token
+  scoped revocabili.</li>
 </ul>
+<p>Il prodotto <strong>funziona</strong>. Una 3.0 non serve a farlo funzionare: serve a cambiare <em>cosa è</em>.</p>
 <hr />
-<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
-<p>ADR-0038 shipped the F11 web clipper ingress (<code>POST /clip</code>) as an <strong>env-only</strong> configuration:
-<code>CLIP_ENABLED</code>, <code>CLIP_TOKEN</code>, <code>CLIP_ALLOWED_ORIGINS</code>, <code>CLIP_MAX_BODY_BYTES</code> control every
-security property. This is deliberately fail-closed and correct, but incoherent with the MCP
-surface, which gained <strong>runtime token management</strong> in ADR-0033 (<code>PUT /mcp/auth</code>,
-<code>GET /mcp/info</code>). The clip ingress has no way to be configured from the web UI without editing
-env vars and restarting the container.</p>
-<p><strong>Owner request:</strong> add runtime configuration for the clip ingress, <strong>mirroring the proven MCP
-auth pattern</strong> (ADR-0033) exactly: a Settings UI can enable the clipper, generate/rotate/clear
-its token, and set the allowed-origins list without touching <code>.env</code> or restarting.</p>
-<hr />
-<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
-<h3 id="21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback">2.1 Three new columns on <code>vault_state</code>; DB wins when set; env is the fallback<a class="headerlink" href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" title="Permanent link">&para;</a></h3>
-<p><strong>Resolution precedence (most specific wins):</strong></p>
+<h2 id="tema-1-ingest-deterministico-e-riparabile">Tema 1 — Ingest deterministico e riparabile ⭐<a class="headerlink" href="#tema-1-ingest-deterministico-e-riparabile" title="Permanent link">&para;</a></h2>
+<p><strong>Il problema più concreto che abbiamo.</strong> Nella sola settimana del 20-22 luglio 2026 il
+loop di ingest si è rotto per <strong>quattro cause radice indipendenti</strong>:</p>
 <table>
 <thead>
 <tr>
-<th>Config aspect</th>
-<th>DB column</th>
-<th>Env var</th>
-<th>Resolution rule</th>
+<th>Release</th>
+<th>Causa</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Enabled gate</td>
-<td><code>clip_enabled_db</code> (BOOLEAN NULL)</td>
-<td><code>CLIP_ENABLED</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
+<td>2.1.2</td>
+<td><code>rsplit(".", 1)</code> non spogliava le sottocartelle dal path sorgente</td>
 </tr>
 <tr>
-<td>Bearer token</td>
-<td><code>clip_access_token</code> (TEXT NULL)</td>
-<td><code>CLIP_TOKEN</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
+<td>2.1.4</td>
+<td><code>max_thinking_tokens</code> non limitato → il turno si consumava in ragionamento, zero output</td>
 </tr>
 <tr>
-<td>Allowed origins</td>
-<td><code>clip_allowed_origins_db</code> (TEXT NULL)</td>
-<td><code>CLIP_ALLOWED_ORIGINS</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
+<td>2.1.5</td>
+<td><code>index.md</code> illimitato nel system prompt → superato <code>ARG_MAX</code> del kernel (E2BIG)</td>
 </tr>
 <tr>
-<td>Max body bytes</td>
-<td><em>(not runtime-settable)</em></td>
-<td><code>CLIP_MAX_BODY_BYTES</code></td>
-<td>env-only (no DB column; change requires restart)</td>
+<td>2.1.7</td>
+<td><code>POST /mcp/server</code> senza slash finale → 307, connettore MCP morto</td>
 </tr>
 </tbody>
 </table>
-<p><strong>Why DB wins over env (not env wins over DB):</strong> The UI-set value is the <em>current operator
-intent</em>. The env value is the <em>bootstrap / deployment default</em>. Once the operator has used the
-UI to change a setting, the UI value should hold — exactly as ADR-0033 §2.1 decided for the
-MCP token ("DB hash takes precedence when set").</p>
-<p><strong>Why <code>clip_enabled_db</code> is three-state (BOOLEAN NULL) not two-state:</strong> a DB value of <code>NULL</code>
-means "the operator has not used the UI to override this" — so the env var governs. A DB value
-of <code>TRUE</code> or <code>FALSE</code> is an explicit UI override. This allows a clean initial state where only
-env governs (zero-friction upgrade), and lets the operator later revert to env governance by
-clearing the DB value via <code>PUT /clip/config</code> with <code>set_enabled=null</code> (future option; current
-API sets or leaves unchanged — clearing requires a separate DB null-able path, TBD per owner
-if ever needed).</p>
-<h3 id="22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033">2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)<a class="headerlink" href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" title="Permanent link">&para;</a></h3>
-<p><strong>Decision: <code>clip_access_token</code> in <code>vault_state</code> stores a PBKDF2-SHA256 hash, not the raw
-token. This mirrors ADR-0033 §2.1 exactly.</strong></p>
-<p><code>PUT /clip/config {rotate_token:true}</code>:
-1. Generates a raw token via <code>secrets.token_urlsafe(32)</code>.
-2. Hashes it with <code>_hash_token()</code> (PBKDF2-SHA256, 260,000 iterations, random salt) — the
-   same helper used by the MCP path (ADR-0033).
-3. Stores <strong>only the hash</strong> in <code>vault_state.clip_access_token</code>. The raw token is never
-   persisted anywhere.
-4. Returns the raw token <strong>once</strong> in <code>generated_token</code> of the PUT response. Subsequent
-   <code>GET /clip/config</code> calls NEVER return it.</p>
-<p><strong><code>POST /clip</code> auth is source-aware (constant-time throughout):</strong></p>
-<table>
-<thead>
-<tr>
-<th><code>token_source</code></th>
-<th>Verification method</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>"db"</code></td>
-<td><code>_verify_token(presented, db_hash)</code> — PBKDF2 constant-time compare (same as MCP)</td>
-</tr>
-<tr>
-<td><code>"env"</code></td>
-<td><code>hmac.compare_digest(presented, env_token)</code> — plaintext constant-time compare</td>
-</tr>
-<tr>
-<td><code>"none"</code></td>
-<td>401 immediately</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Why env path stays plaintext:</strong> The env var <code>CLIP_TOKEN</code> is an operator-provided pre-shared
-secret stored in <code>.env</code> / shell environment — it cannot be hashed at rest by Synapse because
-Synapse never sees the original plaintext at hash-time for env vars. The DB path does see the
-plaintext at rotate-time, so it can and does hash it. This split is correct and documented.</p>
-<p><strong>Why PBKDF2 for the DB path (same as MCP):</strong> A DB or backup leak must not yield a usable
-credential. The 260k-iteration PBKDF2 hash means an attacker who obtains the DB row cannot
-brute-force the token in reasonable time. The per-request PBKDF2 latency is acceptable for
-the clip ingress (typically one ingest per browser clip, not a high-frequency endpoint).</p>
-<p><strong>Token value NEVER returned by GET /clip/config.</strong> The endpoint returns only:
-- <code>token_configured: bool</code>
-- <code>token_source: "db" | "env" | "none"</code></p>
-<p>Never the value, hash, or salt. This is the load-bearing invariant of this ADR and is tested
-explicitly in the test suite (<code>test_clip_config_response_never_contains_token_value</code>,
-<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>, <code>test_rotate_token_authenticates_post_clip</code>).</p>
-<h3 id="23-endpoints">2.3 Endpoints<a class="headerlink" href="#23-endpoints" title="Permanent link">&para;</a></h3>
-<p><strong>GET /clip/config</strong> (read-only posture, mirrors GET /mcp/info):
-<div class="highlight"><pre><span></span><code>GET /clip/config
-  response: ClipConfigResponse {
-    enabled:          bool,          # resolved (DB or env)
-    token_configured: bool,          # DB or env token present; NEVER the value
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
-    allowed_origins:  list[str],     # resolved (DB or env) + implicit loopback
-    max_body_bytes:   int            # CLIP_MAX_BODY_BYTES env; not runtime-settable
-  }
-</code></pre></div></p>
-<p><strong>PUT /clip/config</strong> (write posture, mirrors PUT /mcp/auth):
-<div class="highlight"><pre><span></span><code>PUT /clip/config
-  request body: ClipConfigRequest {
-    rotate_token:        bool | None,  # true ⇒ generate new token, return ONCE in generated_token
-    clear_token:         bool | None,  # true ⇒ set clip_access_token = NULL (env fallback)
-    set_enabled:         bool | None,  # set clip_enabled_db; omit = no change
-    set_allowed_origins: str  | None   # comma-separated; &quot;&quot; = clear to env fallback; omit = no change
-  }
-  response body: ClipConfigStateResponse {
-    enabled:          bool,
-    token_configured: bool,
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
-    allowed_origins:  list[str],
-    max_body_bytes:   int,
-    generated_token:  str | None     # ONLY on rotate_token=true — shown ONCE, never again
-  }
-</code></pre></div></p>
-<p><strong>Authentication on the endpoints themselves:</strong> same-origin / unauthenticated, consistent with
-<code>PUT /mcp/auth</code> (ADR-0033 §2.5) and the rest of the REST API. The network perimeter +
-bearer floor are the outer gates; the Settings UI is same-origin.</p>
-<h3 id="24-in-process-cache-_clipconfigcache">2.4 In-process cache: <code>_ClipConfigCache</code><a class="headerlink" href="#24-in-process-cache-_clipconfigcache" title="Permanent link">&para;</a></h3>
-<p>Mirrors <code>_McpAuthCache</code> (ADR-0033): a module-level singleton loaded from <code>vault_state</code> at
-startup, refreshed on every <code>PUT /clip/config</code> write. Key methods:</p>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Returns</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>get_hash()</code></td>
-<td><code>str \| None</code></td>
-<td>PBKDF2 hash for DB path; <code>None</code> = fall back to env. NEVER log or return.</td>
-</tr>
-<tr>
-<td><code>token_source()</code></td>
-<td><code>"db"\|"env"\|"none"</code></td>
-<td><code>get_hash() is not None</code> → <code>"db"</code>; else env present → <code>"env"</code>; else → <code>"none"</code></td>
-</tr>
-<tr>
-<td><code>token_configured()</code></td>
-<td><code>bool</code></td>
-<td>True when source is <code>"db"</code> or <code>"env"</code></td>
-</tr>
-<tr>
-<td><code>resolved_enabled()</code></td>
-<td><code>bool</code></td>
-<td>DB NOT NULL wins; else env <code>CLIP_ENABLED</code></td>
-</tr>
-<tr>
-<td><code>resolved_allowed_origins_list()</code></td>
-<td><code>list[str]</code></td>
-<td>DB NOT NULL wins; else env; plus loopback origins</td>
-</tr>
-<tr>
-<td><code>set_hash(v)</code></td>
-<td>—</td>
-<td>Updates stored hash after PUT rotate/clear</td>
-</tr>
-</tbody>
-</table>
-<p>The <code>POST /clip</code> handler reads all resolved values O(1) from the cache (no DB round-trip per
-clip request). The cache is the single point of resolution — the handler never reads env vars
-directly.</p>
-<h3 id="25-post-clip-handler-updates">2.5 POST /clip handler updates<a class="headerlink" href="#25-post-clip-handler-updates" title="Permanent link">&para;</a></h3>
-<p>The <code>POST /clip</code> handler is updated to read from <code>_clip_config_cache</code> instead of reading
-<code>settings</code> directly for the three configurable aspects:</p>
-<ol>
-<li><strong>Enabled gate:</strong> <code>_clip_config_cache.resolved_enabled()</code> (DB or env).</li>
-<li><strong>Token auth (source-aware):</strong></li>
-<li><code>token_source == "db"</code>: <code>_verify_token(presented, _clip_config_cache.get_hash())</code> — PBKDF2</li>
-<li><code>token_source == "env"</code>: <code>hmac.compare_digest(presented, settings.clip_token)</code> — plaintext</li>
-<li><code>token_source == "none"</code>: immediate 401</li>
-<li><strong>Origin check:</strong> <code>_clip_config_cache.resolved_allowed_origins_list()</code> passed to
-   <code>_clip_origin_allowed()</code>.</li>
-</ol>
-<p><code>CLIP_MAX_BODY_BYTES</code> is not cached (env-only; reads <code>settings.clip_max_body_bytes</code> directly).
-All 4 security properties from ADR-0038 §2 are preserved unchanged.</p>
-<h3 id="26-existing-tests-unchanged">2.6 Existing tests unchanged<a class="headerlink" href="#26-existing-tests-unchanged" title="Permanent link">&para;</a></h3>
-<p>All 22 tests in <code>test_clip.py</code> (TC-CLIP-01..12 + unit helpers) remain green. Their env-based
-setup (patching <code>cfg.settings.clip_enabled</code>, <code>cfg.settings.clip_token</code>,
-<code>cfg.settings.clip_allowed_origins</code>) continues to work because:
-- <code>clip_env</code> fixture patches settings directly AND the <code>_clip_config_cache</code> is not
-  pre-loaded in those tests (the cache falls back to env when its DB slots are <code>None</code>).
-- This is the defined env-fallback behaviour — the existing tests exercise the env path
-  correctly, proving the fallback works.</p>
-<p>No test in <code>test_clip.py</code> needs to be changed. The new <code>test_clip_config.py</code> tests the DB
-path explicitly.</p>
+<p>Il pattern è chiaro: <strong>la generazione a blocchi è un singolo turno di testo libero che deve
+andare bene al primo colpo</strong>, e ogni retry peggiora le cose (il prompt cresce con gli errori
+precedenti invece di diventare più mirato). Quando fallisce, fallisce in modo silenzioso e
+opaco: "Non convergito", nessun output parziale salvato, soldi spesi.</p>
+<p><strong>Idee (breaking, quindi 3.0):</strong></p>
+<ul>
+<li><strong>Generazione per-pagina invece che monolitica.</strong> Oggi un documento produce N pagine in
+  un unico blob <code>---FILE:</code>. Se il blob è malformato, si perde <em>tutto</em>. Generare una pagina
+  per chiamata: fallimenti isolati, retry mirato solo sulla pagina rotta, progresso
+  parziale sempre salvato. Costa più chiamate, ma il costo di un run non convergente oggi è
+  già ~0,50-2 $ buttati.</li>
+<li><strong>Output strutturato al posto del parsing di testo.</strong> <code>---FILE:</code> / <code>---END FILE---</code> è un
+  protocollo fragile inventato in casa. Tool-use / JSON Schema danno garanzia sintattica dal
+  provider. Richiede però una strategia per Ollama (structured output via grammar) — I6 dice
+  che il routing dev'essere capability-aware, non per-provider.</li>
+<li><strong>Contesto incrementale invece di dump.</strong> <code>index.md</code> cresce di una riga per pagina e viene
+  reincluso <em>per intero</em> in ogni prompt. In 2.1.5 l'ho tappato con un cap, ma è una pezza: la
+  strada giusta è retrieval del contesto rilevante (le pagine <em>vicine</em> al documento in
+  ingest) invece del catalogo completo.</li>
+<li><strong>Checkpoint e ripresa.</strong> Un run interrotto (crash, budget, 429) dovrebbe riprendere da
+  dove era, non ricominciare.</li>
+</ul>
+<p><strong>Perché è il tema numero uno:</strong> è il ciclo centrale del prodotto, è quello che l'utente vede
+rompersi, ed è quello che brucia soldi quando sbaglia. Tutto il resto è cosmetica al confronto.</p>
+<p><strong>Sforzo:</strong> L. <strong>Rischio:</strong> alto (tocca il cuore). Serve l'harness di parità ADR-0083 vivo e
+una fase di doppio-binario prima di spegnere il vecchio path.</p>
 <hr />
-<h2 id="3-new-config-schema-migration">3. New config / schema / migration<a class="headerlink" href="#3-new-config-schema-migration" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Kind</th>
-<th>Name</th>
-<th>Type / default</th>
-<th>Where</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>DB column</td>
-<td><code>vault_state.clip_enabled_db</code></td>
-<td><code>BOOLEAN NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW — Alembic <code>0015</code>.</strong> NULL = env governs; NOT NULL = DB wins.</td>
-</tr>
-<tr>
-<td>DB column</td>
-<td><code>vault_state.clip_access_token</code></td>
-<td><code>TEXT NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW (same migration <code>0015</code>).</strong> PBKDF2-SHA256 hash (prefix <code>pbkdf2_sha256$</code>); NEVER logged; raw token shown once (one-time reveal), then unhashable from DB.</td>
-</tr>
-<tr>
-<td>DB column</td>
-<td><code>vault_state.clip_allowed_origins_db</code></td>
-<td><code>TEXT NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW (same migration <code>0015</code>).</strong> Comma-separated; NULL = env governs.</td>
-</tr>
-<tr>
-<td>migration</td>
-<td><code>0015_vault_state_clip_config</code></td>
-<td>add 3 columns</td>
-<td><code>backend/alembic/versions/</code></td>
-<td>Run by standard <code>alembic upgrade head</code>. D2/ER regen (I8).</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_ENABLED</code></td>
-<td>bool, default false</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_enabled_db</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_TOKEN</code></td>
-<td>secret str, no default</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_access_token</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_ALLOWED_ORIGINS</code></td>
-<td>comma list, default ""</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_allowed_origins_db</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_MAX_BODY_BYTES</code></td>
-<td>int, default 2MB</td>
-<td><code>config.py</code></td>
-<td>Not runtime-settable via PUT /clip/config; env-only.</td>
-</tr>
-<tr>
-<td>in-process cache</td>
-<td><code>_ClipConfigCache</code></td>
-<td>class</td>
-<td><code>main.py</code></td>
-<td>Mirrors <code>_McpAuthCache</code>; loaded at startup; refreshed on PUT /clip/config.</td>
-</tr>
-<tr>
-<td>route</td>
-<td><code>GET /clip/config</code></td>
-<td><code>ClipConfigResponse</code></td>
-<td><code>main.py</code></td>
-<td>Read-only posture; token NEVER returned.</td>
-</tr>
-<tr>
-<td>route</td>
-<td><code>PUT /clip/config</code></td>
-<td><code>ClipConfigRequest</code> → <code>ClipConfigStateResponse</code></td>
-<td><code>main.py</code></td>
-<td>Set/rotate/clear token + enabled/origins. One-time <code>generated_token</code>.</td>
-</tr>
-</tbody>
-</table>
-<p><strong>One migration, three columns.</strong> Flagged for the docs gate: <code>make er</code> + <code>make openapi</code>.</p>
+<h2 id="tema-2-identita-reale-e-multi-utente">Tema 2 — Identità reale e multi-utente<a class="headerlink" href="#tema-2-identita-reale-e-multi-utente" title="Permanent link">&para;</a></h2>
+<p>Oggi Synapse è <strong>mono-operatore per costruzione</strong>: un <code>SYNAPSE_AUTH_TOKEN</code>, un vault per
+backend, e — dalla 2.1.6 — un server OAuth il cui passo di consenso è approvato dallo <em>stesso</em>
+token statico condiviso (<a href="../../adr/0090-mcp-oauth-authorization-server/">ADR-0090</a> lo dice
+esplicitamente: "se Synapse diventasse davvero multi-utente, servirebbe identità per-utente
+dietro <code>/authorize</code>").</p>
+<p><strong>Idee:</strong></p>
+<ul>
+<li>Tabella <code>users</code> + membership sui vault; ruoli (owner / editor / reader).</li>
+<li>Il consenso OAuth diventa un vero login utente, non un token condiviso.</li>
+<li>Vault condivisi in sola lettura → abilita il caso d'uso "pubblico il mio wiki a un collega".</li>
+<li>Audit log per-utente (chi ha ingerito cosa, chi ha approvato quale review).</li>
+</ul>
+<p><strong>Attenzione:</strong> questo è il classico cambiamento che <em>sembra</em> una feature e invece è una
+riscrittura trasversale — tocca auth, MCP, clipper, iOS, ogni query che oggi assume
+<code>settings.vault_id</code>. Da valutare solo se c'è un caso d'uso reale, non "perché sarebbe bello".</p>
+<p><strong>Sforzo:</strong> L. <strong>Prerequisito</strong> per: pubblicazione, collaborazione.</p>
 <hr />
-<h2 id="4-acceptance-checks-dod">4. Acceptance checks (DoD)<a class="headerlink" href="#4-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Token never returned.</strong> <code>GET /clip/config</code> with a DB token set returns <code>token_source="db"</code>,
-   <code>token_configured=true</code>, and the token value NEVER appears in the response body.
-   (<code>test_clip_config_response_never_contains_token_value</code> + <code>test_get_clip_config_token_source_db</code>).</li>
-<li><strong>One-time reveal.</strong> <code>PUT /clip/config {rotate_token:true}</code> returns <code>generated_token</code> once;
-   subsequent <code>GET /clip/config</code> does not return it.
-   (<code>test_put_clip_config_rotate_token_one_time_reveal</code> + <code>test_get_clip_config_never_returns_token_after_rotate</code>).</li>
-<li><strong>DB stores PBKDF2 hash, not raw token.</strong> After rotate, <code>vault_state.clip_access_token</code>
-   starts with <code>pbkdf2_sha256$</code> and does NOT contain the raw <code>generated_token</code> value.
-   <code>_verify_token(generated_token, stored_hash)</code> returns True.
-   (<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>).</li>
-<li><strong>Rotated token authenticates POST /clip.</strong> <code>generated_token</code> from PUT authenticates the next
-   <code>POST /clip</code>; wrong/old tokens are rejected with 401.
-   (<code>test_rotate_token_authenticates_post_clip</code>).</li>
-<li><strong>DB wins over env — token.</strong> DB token set → env token rejected at <code>POST /clip</code>.
-   (<code>test_clip_honours_db_token_over_env</code>).</li>
-<li><strong>DB wins over env — enabled.</strong> DB <code>clip_enabled_db=False</code> → <code>POST /clip</code> returns 503 even
-   when <code>CLIP_ENABLED=true</code>. DB <code>clip_enabled_db=True</code> → enabled even when env is false.
-   (<code>test_put_clip_config_set_enabled_false_gates_clip_endpoint</code> +
-   <code>test_put_clip_config_set_enabled_true_enables_ingress</code>).</li>
-<li><strong>DB wins over env — origins.</strong> DB origins → env-only origin rejected.
-   (<code>test_clip_honours_db_allowed_origins</code>).</li>
-<li><strong>Token source = 'db'/'env'/'none'.</strong> Correct precedence: DB token → 'db'; no DB, env set → 'env';
-   neither → 'none'. (<code>TestClipTokenSourceResolution</code>).</li>
-<li><strong>Env fallback.</strong> With no DB overrides, env vars govern (all three config aspects).
-   (<code>TestClipEnabledResolution</code>, <code>TestClipAllowedOriginsResolution</code>).</li>
-<li><strong>Existing test_clip.py green.</strong> All 22 pre-existing clip tests pass unchanged.
-    (env-fallback path covers their assertions).</li>
-<li><strong>clear_token.</strong> <code>clear_token=true</code> nulls DB token; source falls back to env or none.
-    (<code>test_put_clip_config_clear_token</code>).</li>
-<li><strong>Docs gate.</strong> <code>make er</code> matches live schema (three new columns); <code>make openapi</code> includes
-    <code>/clip/config</code> GET+PUT (I8).</li>
-</ol>
+<h2 id="tema-3-qualita-del-recupero-retrieval">Tema 3 — Qualità del recupero (retrieval)<a class="headerlink" href="#tema-3-qualita-del-recupero-retrieval" title="Permanent link">&para;</a></h2>
+<p>Il retrieval a 4 fasi funziona, ma è fermo alla forma originale: vettoriale bge-m3 +
+espansione sul grafo + budget + assemblaggio.</p>
+<p><strong>Idee:</strong></p>
+<ul>
+<li><strong>Ibrido lessicale + vettoriale</strong> (Postgres FTS / <code>pg_trgm</code> accanto a Qdrant). Era già
+  stato scartato in v2.0 per priorità, ma resta il singolo miglioramento con miglior
+  rapporto qualità/sforzo: i nomi propri e i codici (es. sigle normative) il vettoriale
+  li sbaglia sistematicamente.</li>
+<li><strong>Reranking</strong> del set candidato prima dell'assemblaggio.</li>
+<li><strong>Verifica delle citazioni:</strong> oggi il modello cita <code>[n]</code> e ci fidiamo. Un passo di
+  verifica automatica (la frase citata esiste davvero nella fonte?) alzerebbe molto la
+  fiducia, che è <em>il</em> punto di un wiki.</li>
+<li><strong>Query understanding:</strong> riformulazione/espansione prima del recupero.</li>
+</ul>
+<p><strong>Sforzo:</strong> M per l'ibrido, M per il reranking, L per la verifica citazioni.</p>
 <hr />
-<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
-<p><strong>Positive</strong> — the operator can enable the clipper, generate/rotate/clear its token, and
-manage allowed origins from the Settings UI without editing <code>.env</code> or restarting. Env vars
-remain as bootstrap fallback — zero breakage for existing deployments.</p>
-<p><strong>Trade-offs</strong> —
-- <strong>One migration, three columns</strong> (the only schema change; D2/ER regen in docs gate).
-- <strong>PBKDF2 hash per clip request (DB path):</strong> 260k iterations adds latency on <code>POST /clip</code> when
-  token_source is "db". Acceptable for a personal homelab clipper (one ingest per browser action).
-  Env path continues to use <code>hmac.compare_digest</code> (plaintext, zero overhead).
-- <strong>Token not re-displayable</strong> — after the one-time reveal, the operator must rotate if they
-  lose the token. This is the more secure UX (matches MCP).
-- <strong>Cache invalidation is single-process</strong> — on a multi-process deployment, cache is stale after
-  PUT /clip/config until restart. Acceptable for a personal homelab deployment (single process).</p>
-<p><strong>Invariant check</strong> — <strong>I1:</strong> no new ingest path; <code>POST /clip</code> still writes to <code>raw/sources/</code>
-and lets the watcher ingest (unchanged). <strong>I5:</strong> vault-write path unchanged. <strong>I6:</strong> no provider
-touched. <strong>I7:</strong> no new loop. <strong>I8:</strong> migration → D2/ER regen + D4 OpenAPI update. <strong>I9:</strong>
-reuses <code>vault_state</code> + existing <code>POST /clip</code> — no new process, no new dep.</p>
+<h2 id="tema-4-il-grafo-come-strumento-di-ragionamento-non-solo-vista">Tema 4 — Il grafo come strumento di ragionamento, non solo vista<a class="headerlink" href="#tema-4-il-grafo-come-strumento-di-ragionamento-non-solo-vista" title="Permanent link">&para;</a></h2>
+<p>Oggi il grafo è bellissimo e sostanzialmente <strong>passivo</strong>: lo guardi. I 4 segnali di
+rilevanza e le community Louvain sono già calcolati e cachati server-side — cioè
+l'infrastruttura c'è già, è sotto-sfruttata.</p>
+<p><strong>Idee:</strong></p>
+<ul>
+<li><strong>Rilevamento di contraddizioni</strong> attraversando il grafo (esiste già un abbozzo nel loop
+  di consistenza post-ingest, mai portato a valore).</li>
+<li><strong>Grafo temporale:</strong> com'è evoluta la conoscenza? Quali pagine sono state riscritte più
+  volte? Dove la comprensione è cambiata?</li>
+<li><strong>Sintesi guidata dal grafo:</strong> oggi synthesis/comparison nascono da cluster; potrebbero
+  nascere da <em>buchi</em> strutturali (nodi ponte mancanti, community isolate).</li>
+<li><strong>Health del grafo come metrica di prodotto:</strong> densità dei link, orfani, community
+  frammentate — già in parte in Lint, ma non presentata come "salute del sapere".</li>
+</ul>
+<p><strong>Sforzo:</strong> M ciascuna. <strong>Nota:</strong> questo è il tema che differenzia di più Synapse da
+"una cartella di markdown generata da un LLM".</p>
+<hr />
+<h2 id="tema-5-ios-da-cantiere-a-prodotto">Tema 5 — iOS: da cantiere a prodotto<a class="headerlink" href="#tema-5-ios-da-cantiere-a-prodotto" title="Permanent link">&para;</a></h2>
+<p>La Fase A è avviata (<a href="../../adr/0088-ios-redesign-foundation/">ADR-0088</a>: SwiftUI nativa,
+design system allineato al brand, shell a 5 tab). Mancano le superfici vere e la
+distribuzione.</p>
+<p><strong>Idee:</strong> Fase B (Home, lettura wiki, chat con streaming e citazioni, ricerca) e Fase C
+(grafo, review queue, sorgenti, impostazioni) + TestFlight.</p>
+<p><strong>Domanda aperta e non banale:</strong> il grafo su iOS — WKWebView che riusa sigma.js (parità
+garantita, I2 rispettato perché le coordinate arrivano già calcolate dal server) oppure
+rendering nativo? L'ADR-0088 lascia la decisione <strong>Proposed</strong>, in attesa di misure vere su
+device.</p>
+<p><strong>Serve da te:</strong> device fisico per i test di performance, iscrizione Apple Developer
+Program (99 $/anno) per TestFlight.</p>
+<p><strong>Sforzo:</strong> L. <strong>Candidato flagship</strong> di una 3.0.</p>
+<hr />
+<h2 id="tema-6-economia-costo-e-velocita-dellinferenza">Tema 6 — Economia: costo e velocità dell'inferenza<a class="headerlink" href="#tema-6-economia-costo-e-velocita-dellinferenza" title="Permanent link">&para;</a></h2>
+<p>I7 impone budget e log dei costi, quindi i dati ci sono già. Non sono però mai stati usati
+per <em>ottimizzare</em>.</p>
+<p><strong>Idee:</strong></p>
+<ul>
+<li><strong>Prompt caching.</strong> Schema, purpose e contesto del vault sono quasi identici tra un
+  documento e il successivo. Su un import di 150 file è la leva di costo più grande
+  disponibile, e oggi è completamente inutilizzata.</li>
+<li><strong>Batch API</strong> per gli import massivi non interattivi (costo dimezzato, latenza
+  irrilevante quando stai importando di notte).</li>
+<li><strong>Routing per complessità:</strong> classificare la difficoltà del documento e mandare i casi
+  facili a un modello più economico. Il tiering lo applichiamo già a <em>noi</em> durante lo
+  sviluppo; non lo applichiamo al runtime del prodotto.</li>
+<li><strong>Dashboard costi con proiezione</strong>, non solo consuntivo.</li>
+</ul>
+<p><strong>Sforzo:</strong> S/M ciascuna, e con ritorno immediato e misurabile. <strong>Il tema meno affascinante
+e forse più redditizio.</strong></p>
+<hr />
+<h2 id="tema-7-scala">Tema 7 — Scala<a class="headerlink" href="#tema-7-scala" title="Permanent link">&para;</a></h2>
+<p>Nessuno ha mai misurato Synapse su un vault grosso. Il benchmark a 5k pagine era stato
+messo in lista e poi rinviato.</p>
+<p><strong>Segnali che qualcosa scricchiola già:</strong> <code>index.md</code> illimitato (2.1.5 lo dimostra),
+FA2 ricalcolato da zero a ogni bump invece che a caldo, la home fa un fan-out di ~16
+chiamate all'avvio, <code>HomeDashboard.tsx</code> è un monolite da ~3.100 righe mai scomposto.</p>
+<p><strong>Idee:</strong> benchmark onesto a 1k / 5k / 20k pagine con numeri pubblicati; FA2 warm-start;
+paginazione/virtualizzazione ovunque manchi; <code>index.md</code> ripensato come vista materializzata
+invece che file monolitico.</p>
+<p><strong>Sforzo:</strong> M per la misura (da fare <em>prima</em> di ottimizzare), poi dipende da cosa emerge.</p>
+<hr />
+<h2 id="tema-8-il-wiki-come-qualcosa-che-si-puo-mostrare">Tema 8 — Il wiki come qualcosa che si può mostrare<a class="headerlink" href="#tema-8-il-wiki-come-qualcosa-che-si-puo-mostrare" title="Permanent link">&para;</a></h2>
+<p>Oggi il wiki è visibile solo a chi ha accesso all'istanza.</p>
+<p><strong>Idee:</strong> publishing statico (export di un sito navigabile, ricerca inclusa), link pubblici
+in sola lettura per singola pagina, export in PDF/EPUB di una sezione. Dipende dal Tema 2
+se si vuole controllo d'accesso fine.</p>
+<p><strong>Sforzo:</strong> M. <strong>Nota:</strong> trasforma il prodotto da "strumento personale" a "strumento con
+un pubblico" — decisione di prodotto, non tecnica.</p>
+<hr />
+<h2 id="tema-9-debito-tecnico-che-vale-una-major">Tema 9 — Debito tecnico che vale una major<a class="headerlink" href="#tema-9-debito-tecnico-che-vale-una-major" title="Permanent link">&para;</a></h2>
+<p>Roba rinviata più volte, che in una major si può affrontare rompendo qualcosa:</p>
+<ul>
+<li><code>HomeDashboard.tsx</code> ~3.100 righe, mai scomposto (rinviato in 1.9.2 e in 2.0.0).</li>
+<li><code>GraphViewer.tsx</code> ~1.565 righe dopo l'estrazione, obiettivo 800-1.000.</li>
+<li>6 poller REST residui non ancora passati al canale SSI/SSE (il pattern è già dimostrato
+  sui due consumatori principali).</li>
+<li>Migrazione completa dei client API all'envelope/<code>ApiError</code> condiviso (parziale).</li>
+<li>Lazy-load del locale i18n non attivo (rinviato tre volte: 1.9.3, 2.0.0, 2.1).</li>
+<li>Focus-trap mancante su <code>CascadeDeleteModal</code> — <strong>questo gestisce cancellazioni</strong>, ha
+  priorità sugli altri due modali.</li>
+<li>Coverage ratchet strumentato ma senza soglia di gate.</li>
+<li>Harness di parità ADR-0083 mai rieseguito dopo la migrazione review-create al block loop.</li>
+<li>Lockfile delle dipendenze backend.</li>
+</ul>
+<p><strong>Sforzo:</strong> singolarmente S/M, complessivamente L. Nessuno di questi da solo giustifica una
+major; insieme sono il "pulisci mentre hai il permesso di rompere".</p>
+<hr />
+<h2 id="come-sceglierei-opinione-da-discutere">Come sceglierei (opinione, da discutere)<a class="headerlink" href="#come-sceglierei-opinione-da-discutere" title="Permanent link">&para;</a></h2>
+<p>Se dovessi indicare <strong>una</strong> direzione: <strong>Tema 1 (ingest deterministico)</strong>, con il <strong>Tema 6
+(costi)</strong> come compagno naturale — si toccano gli stessi file e il secondo ripaga il primo.</p>
+<p>Il ragionamento: gli altri temi aggiungono superficie a un prodotto che ne ha già molta.
+Il Tema 1 invece rende affidabile la cosa che l'utente fa <em>ogni giorno</em> e che oggi si rompe
+in modo visibile e costoso. Quattro release di fila in una settimana per lo stesso ciclo non
+sono sfortuna: sono un progetto che ti sta dicendo dove fa male.</p>
+<p>Il <strong>Tema 5 (iOS)</strong> è il flagship più vistoso e il più facile da raccontare, ma è anche il
+più isolato: non migliora nulla di ciò che esiste già.</p>
+<p>Il <strong>Tema 2 (multi-utente)</strong> lo terrei fermo finché non c'è una seconda persona vera che
+usa il sistema. È il tipo di complessità che, se introdotta "per il futuro", si paga ogni
+giorno senza mai ripagarsi.</p>
+<hr />
+<h2 id="voci-dalla-manutenzione-settimanale">Voci dalla manutenzione settimanale<a class="headerlink" href="#voci-dalla-manutenzione-settimanale" title="Permanent link">&para;</a></h2>
+<!-- La routine del venerdì aggiunge qui sotto. Formato:
+### <titolo>
+- **Problema:** ...
+- **Evidenza:** file:riga
+- **Impatto:** ...
+- **Sforzo:** S/M/L
+- **Trovato:** YYYY-MM-DD
+-->
+
+<p><em>(ancora nessuna — la prima esecuzione è prevista per venerdì 14 agosto 2026)</em></p>
 
 
 

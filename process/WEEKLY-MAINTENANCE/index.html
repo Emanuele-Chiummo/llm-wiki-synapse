@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0040-web-clipper-runtime-configuration/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/process/WEEKLY-MAINTENANCE/">
       
       
+        <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
+      
+      
+        <link rel="next" href="../../release-notes/v2.1.7/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env) - Synapse</title>
+        <title>Weekly maintenance - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" class="md-skip">
+        <a href="#runbook-manutenzione-settimanale-autonoma" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)
+              Weekly maintenance
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -563,8 +567,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -575,11 +581,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
         
           
           <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
@@ -600,7 +606,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_9">
             <span class="md-nav__icon md-icon"></span>
             
@@ -615,10 +621,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../process/WEEKLY-MAINTENANCE/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Weekly maintenance
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -634,6 +667,131 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-contesto-minimo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Contesto minimo
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-regola-doro-non-inventare-lavoro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Regola d'oro: non inventare lavoro
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-cosa-cercare-in-ordine-di-priorita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Cosa cercare, in ordine di priorità
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-vincoli-non-negoziabili" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Vincoli non negoziabili
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-gate-di-qualita-tutti-verdi-prima-della-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Gate di qualità — tutti verdi prima della PR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-rilascio-solo-se-e-stato-fatto-almeno-un-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rilascio (solo se è stato fatto almeno un fix)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Rilascio (solo se è stato fatto almeno un fix)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#trabocchetti-gia-pagati-non-ripeterli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Trabocchetti già pagati (non ripeterli)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-backlog-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Backlog 3.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-report-finale" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Report finale
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1824,10 +1982,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-context" class="md-nav__link">
+  <a href="#0-contesto-minimo" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Context
+        0. Contesto minimo
       
     </span>
   </a>
@@ -1835,77 +1993,66 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-decision" class="md-nav__link">
+  <a href="#1-regola-doro-non-inventare-lavoro" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Decision
+        1. Regola d'oro: non inventare lavoro
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="2. Decision">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-cosa-cercare-in-ordine-di-priorita" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Cosa cercare, in ordine di priorità
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-vincoli-non-negoziabili" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Vincoli non negoziabili
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-gate-di-qualita-tutti-verdi-prima-della-pr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Gate di qualità — tutti verdi prima della PR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-rilascio-solo-se-e-stato-fatto-almeno-un-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Rilascio (solo se è stato fatto almeno un fix)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Rilascio (solo se è stato fatto almeno un fix)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" class="md-nav__link">
+  <a href="#trabocchetti-gia-pagati-non-ripeterli" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.1 Three new columns on vault_state; DB wins when set; env is the fallback
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#23-endpoints" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.3 Endpoints
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#24-in-process-cache-_clipconfigcache" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.4 In-process cache: _ClipConfigCache
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#25-post-clip-handler-updates" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.5 POST /clip handler updates
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#26-existing-tests-unchanged" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2.6 Existing tests unchanged
+        Trabocchetti già pagati (non ripeterli)
       
     </span>
   </a>
@@ -1918,10 +2065,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-new-config-schema-migration" class="md-nav__link">
+  <a href="#6-backlog-30" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. New config / schema / migration
+        6. Backlog 3.0
       
     </span>
   </a>
@@ -1929,21 +2076,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-acceptance-checks-dod" class="md-nav__link">
+  <a href="#7-report-finale" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Acceptance checks (DoD)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Consequences
+        7. Report finale
       
     </span>
   </a>
@@ -1967,374 +2103,199 @@
 
 
 
-<h1 id="adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env">ADR-0040 — Web clipper runtime configuration (GET/PUT /clip/config; DB wins over env)<a class="headerlink" href="#adr-0040-web-clipper-runtime-configuration-getput-clipconfig-db-wins-over-env" title="Permanent link">&para;</a></h1>
+<h1 id="runbook-manutenzione-settimanale-autonoma">Runbook — manutenzione settimanale autonoma<a class="headerlink" href="#runbook-manutenzione-settimanale-autonoma" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Chi lo esegue:</strong> una Claude Code Routine cloud, ogni <strong>venerdì alle 16:00 UTC</strong>
+(18:00 Europe/Rome durante l'ora legale, 17:00 durante l'ora solare).
+<strong>Cosa produce:</strong> una patch release <code>2.1.x</code>, oppure — legittimamente — nessuna release.
+<strong>Autonomia:</strong> piena, fino alla pubblicazione della release inclusa.</p>
+<p>Questo file è la fonte di verità del processo. La routine cloud contiene solo un prompt
+breve che punta qui: <strong>per cambiare il comportamento settimanale si modifica questo
+documento</strong>, non la routine.</p>
+</blockquote>
+<hr />
+<h2 id="0-contesto-minimo">0. Contesto minimo<a class="headerlink" href="#0-contesto-minimo" title="Permanent link">&para;</a></h2>
+<p>Synapse è un wiki AI self-hosted: FastAPI (Python 3.11+) + React 19/Vite + Tauri v2 desktop,
+con Postgres e Qdrant. Prima di toccare qualsiasi cosa:</p>
+<ol>
+<li>Leggi <strong><code>CLAUDE.md</code></strong> — contiene gli invarianti <strong>I1–I9 non negoziabili</strong>, le convenzioni
+   di commit e lo stack. Nessun fix può violarli.</li>
+<li>Leggi le prime ~100 righe di <strong><code>CHANGELOG.md</code></strong> — cosa è cambiato nelle ultime release.</li>
+<li><code>git log --oneline -30</code> — contesto recente.</li>
+</ol>
+<hr />
+<h2 id="1-regola-doro-non-inventare-lavoro">1. Regola d'oro: non inventare lavoro<a class="headerlink" href="#1-regola-doro-non-inventare-lavoro" title="Permanent link">&para;</a></h2>
+<p>Se dopo un'analisi seria non emerge nulla che valga davvero un fix, <strong>non forzare una
+release</strong>. Si scrive il report dicendo che il codice è in salute, elencando cosa è stato
+controllato e con quale profondità.</p>
+<p>Una settimana senza release è un esito positivo. Un fix inventato per "riempire" la
+settimana introduce rischio in un sistema che funziona: è un danno netto.</p>
+<hr />
+<h2 id="2-cosa-cercare-in-ordine-di-priorita">2. Cosa cercare, in ordine di priorità<a class="headerlink" href="#2-cosa-cercare-in-ordine-di-priorita" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Bug veri</strong> — logica errata, race condition, gestione errori mancante, edge case
+   scoperti, risorse non rilasciate, <code>except</code> troppo larghi che mascherano errori reali.</li>
+<li><strong>Stabilità</strong> — task asincroni senza strong reference (garbage-collected a metà),
+   loop senza bound (viola I7), timeout mancanti, retry senza backoff, query N+1,
+   sessioni/transazioni DB lasciate aperte.</li>
+<li><strong>Sicurezza</strong> — segreti che finiscono nei log, input non validati, path traversal,
+   auth aggirabile, dipendenze con CVE note (<code>pip-audit</code>, <code>npm audit</code>).</li>
+<li><strong>Copertura test mancante</strong> su codice critico toccato di recente.</li>
+<li><strong>Drift documentale</strong> — documentazione che contraddice il codice: versioni stale,
+   endpoint rinominati, ADR con <code>Status</code> sbagliato rispetto a ciò che è implementato.</li>
+<li><strong>Dipendenze</strong> — aggiornamenti <strong>patch/minor</strong> sicuri. Mai major.</li>
+</ol>
+<p><strong>Dove guardare per primo.</strong> Il debito fresco si annida nel codice cambiato di recente:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>log<span class="w"> </span>--since<span class="o">=</span><span class="s2">&quot;3 weeks ago&quot;</span><span class="w"> </span>--name-only<span class="w"> </span>--pretty<span class="o">=</span>format:<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-u<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s1">&#39;^$&#39;</span>
+</code></pre></div>
+<p>Poi si allarga ai moduli critici (i "centri di gravità" del progetto):
+<code>backend/app/ingest/</code>, <code>backend/app/runtime_state.py</code>, <code>backend/app/rag/retrieval.py</code>,
+<code>backend/app/mcp/</code>, <code>backend/app/ops/</code>, <code>frontend/src/store/</code>, <code>frontend/src/components/</code>.</p>
+<hr />
+<h2 id="3-vincoli-non-negoziabili">3. Vincoli non negoziabili<a class="headerlink" href="#3-vincoli-non-negoziabili" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Status:</strong> Accepted</li>
-<li><strong>Date:</strong> 2026-06-30</li>
-<li><strong>Sprint:</strong> v0.6 (Amendment — F11 web clipper runtime management)</li>
-<li><strong>Feature:</strong> F11 (Web Clipper ingress, ADR-0038); parity with MCP token management (ADR-0033)</li>
-<li><strong>Invariants owned:</strong> <strong>I5</strong> (vault unchanged) · <strong>I7</strong> (no new loop) · <strong>I8</strong> (D2 ER + D4 OpenAPI updated) · <strong>I9</strong> (reuse <code>vault_state</code> + existing <code>POST /clip</code>; no new process, no new dep)</li>
-<li><strong>Author:</strong> solution-architect</li>
-<li><strong>Implementers:</strong> backend-engineer (models + migration <code>0015</code> + in-process cache + <code>GET/PUT /clip/config</code> + update <code>POST /clip</code> gates + tests + ADR) · tech-writer (D2 ER regen, D4 OpenAPI, README row)</li>
+<li><strong>È una PATCH release.</strong> Nessuna feature nuova, nessun breaking change, nessuna
+  migrazione di schema DB salvo necessità stretta — e se una migrazione serve davvero,
+  è il segnale che il fix è troppo grosso per questa routine: va nel backlog 3.0 (§6).</li>
+<li><strong>Mantra di non-regressione.</strong> I flussi esistenti restano funzionalmente intatti. Ogni
+  fix va accompagnato da un <strong>test di regressione che fallirebbe senza il fix</strong>.</li>
+<li><strong>Mai</strong> <code>git push --force</code>, mai riscrivere la history, mai toccare tag già pubblicati.</li>
+<li><strong>Mai commit diretti su <code>main</code></strong> (la branch protection lo blocca comunque): sempre
+  branch + PR.</li>
+<li><strong>Ambito ragionevole:</strong> puntare a <strong>1–5 fix mirati</strong>. Meglio poco e solido.</li>
+<li><strong>Mai retry alla cieca</strong> su una CI rossa: si leggono i log, si capisce la causa, si
+  corregge. Un rerun si giustifica solo dopo aver <em>verificato</em> che il fallimento è
+  transitorio (es. timeout di rete in upload).</li>
 </ul>
 <hr />
-<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
-<p>ADR-0038 shipped the F11 web clipper ingress (<code>POST /clip</code>) as an <strong>env-only</strong> configuration:
-<code>CLIP_ENABLED</code>, <code>CLIP_TOKEN</code>, <code>CLIP_ALLOWED_ORIGINS</code>, <code>CLIP_MAX_BODY_BYTES</code> control every
-security property. This is deliberately fail-closed and correct, but incoherent with the MCP
-surface, which gained <strong>runtime token management</strong> in ADR-0033 (<code>PUT /mcp/auth</code>,
-<code>GET /mcp/info</code>). The clip ingress has no way to be configured from the web UI without editing
-env vars and restarting the container.</p>
-<p><strong>Owner request:</strong> add runtime configuration for the clip ingress, <strong>mirroring the proven MCP
-auth pattern</strong> (ADR-0033) exactly: a Settings UI can enable the clipper, generate/rotate/clear
-its token, and set the allowed-origins list without touching <code>.env</code> or restarting.</p>
+<h2 id="4-gate-di-qualita-tutti-verdi-prima-della-pr">4. Gate di qualità — tutti verdi prima della PR<a class="headerlink" href="#4-gate-di-qualita-tutti-verdi-prima-della-pr" title="Permanent link">&para;</a></h2>
+<p><strong>Backend</strong> (da <code>backend/</code>; se manca il venv: <code>python -m venv .venv &amp;&amp; .venv/bin/pip install -e ".[dev]"</code>):</p>
+<div class="highlight"><pre><span></span><code>ruff<span class="w"> </span>check<span class="w"> </span>app/<span class="w"> </span>tests/
+black<span class="w"> </span>--check<span class="w"> </span>app/<span class="w"> </span>tests/
+mypy<span class="w"> </span>app<span class="w">          </span><span class="c1"># strict</span>
+pytest<span class="w"> </span>-q<span class="w">         </span><span class="c1"># ~3160 test — deve restare verde, coverage gate 82%</span>
+</code></pre></div>
+<p><strong>Frontend</strong> (da <code>frontend/</code>; <code>npm ci</code> se serve):</p>
+<div class="highlight"><pre><span></span><code>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit
+npx<span class="w"> </span>eslint<span class="w"> </span>src/
+npx<span class="w"> </span>prettier<span class="w"> </span>--check<span class="w"> </span><span class="s2">&quot;src/**/*.{ts,tsx,css}&quot;</span><span class="w"> </span>vite.config.ts
+npx<span class="w"> </span>vitest<span class="w"> </span>run<span class="w">    </span><span class="c1"># ~2550 test</span>
+</code></pre></div>
+<p>Se un gate fallisce <strong>per colpa delle modifiche fatte</strong>, si sistema. Se fallisce per un
+problema preesistente e scorrelato, <strong>non si forza</strong>: si annota nel report e si restringe
+l'ambito della settimana.</p>
 <hr />
-<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
-<h3 id="21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback">2.1 Three new columns on <code>vault_state</code>; DB wins when set; env is the fallback<a class="headerlink" href="#21-three-new-columns-on-vault_state-db-wins-when-set-env-is-the-fallback" title="Permanent link">&para;</a></h3>
-<p><strong>Resolution precedence (most specific wins):</strong></p>
-<table>
-<thead>
-<tr>
-<th>Config aspect</th>
-<th>DB column</th>
-<th>Env var</th>
-<th>Resolution rule</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Enabled gate</td>
-<td><code>clip_enabled_db</code> (BOOLEAN NULL)</td>
-<td><code>CLIP_ENABLED</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
-</tr>
-<tr>
-<td>Bearer token</td>
-<td><code>clip_access_token</code> (TEXT NULL)</td>
-<td><code>CLIP_TOKEN</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
-</tr>
-<tr>
-<td>Allowed origins</td>
-<td><code>clip_allowed_origins_db</code> (TEXT NULL)</td>
-<td><code>CLIP_ALLOWED_ORIGINS</code></td>
-<td>DB NOT NULL → DB wins; DB NULL → env</td>
-</tr>
-<tr>
-<td>Max body bytes</td>
-<td><em>(not runtime-settable)</em></td>
-<td><code>CLIP_MAX_BODY_BYTES</code></td>
-<td>env-only (no DB column; change requires restart)</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Why DB wins over env (not env wins over DB):</strong> The UI-set value is the <em>current operator
-intent</em>. The env value is the <em>bootstrap / deployment default</em>. Once the operator has used the
-UI to change a setting, the UI value should hold — exactly as ADR-0033 §2.1 decided for the
-MCP token ("DB hash takes precedence when set").</p>
-<p><strong>Why <code>clip_enabled_db</code> is three-state (BOOLEAN NULL) not two-state:</strong> a DB value of <code>NULL</code>
-means "the operator has not used the UI to override this" — so the env var governs. A DB value
-of <code>TRUE</code> or <code>FALSE</code> is an explicit UI override. This allows a clean initial state where only
-env governs (zero-friction upgrade), and lets the operator later revert to env governance by
-clearing the DB value via <code>PUT /clip/config</code> with <code>set_enabled=null</code> (future option; current
-API sets or leaves unchanged — clearing requires a separate DB null-able path, TBD per owner
-if ever needed).</p>
-<h3 id="22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033">2.2 Token storage: PBKDF2-SHA256 hash (mirrors ADR-0033)<a class="headerlink" href="#22-token-storage-pbkdf2-sha256-hash-mirrors-adr-0033" title="Permanent link">&para;</a></h3>
-<p><strong>Decision: <code>clip_access_token</code> in <code>vault_state</code> stores a PBKDF2-SHA256 hash, not the raw
-token. This mirrors ADR-0033 §2.1 exactly.</strong></p>
-<p><code>PUT /clip/config {rotate_token:true}</code>:
-1. Generates a raw token via <code>secrets.token_urlsafe(32)</code>.
-2. Hashes it with <code>_hash_token()</code> (PBKDF2-SHA256, 260,000 iterations, random salt) — the
-   same helper used by the MCP path (ADR-0033).
-3. Stores <strong>only the hash</strong> in <code>vault_state.clip_access_token</code>. The raw token is never
-   persisted anywhere.
-4. Returns the raw token <strong>once</strong> in <code>generated_token</code> of the PUT response. Subsequent
-   <code>GET /clip/config</code> calls NEVER return it.</p>
-<p><strong><code>POST /clip</code> auth is source-aware (constant-time throughout):</strong></p>
-<table>
-<thead>
-<tr>
-<th><code>token_source</code></th>
-<th>Verification method</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>"db"</code></td>
-<td><code>_verify_token(presented, db_hash)</code> — PBKDF2 constant-time compare (same as MCP)</td>
-</tr>
-<tr>
-<td><code>"env"</code></td>
-<td><code>hmac.compare_digest(presented, env_token)</code> — plaintext constant-time compare</td>
-</tr>
-<tr>
-<td><code>"none"</code></td>
-<td>401 immediately</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Why env path stays plaintext:</strong> The env var <code>CLIP_TOKEN</code> is an operator-provided pre-shared
-secret stored in <code>.env</code> / shell environment — it cannot be hashed at rest by Synapse because
-Synapse never sees the original plaintext at hash-time for env vars. The DB path does see the
-plaintext at rotate-time, so it can and does hash it. This split is correct and documented.</p>
-<p><strong>Why PBKDF2 for the DB path (same as MCP):</strong> A DB or backup leak must not yield a usable
-credential. The 260k-iteration PBKDF2 hash means an attacker who obtains the DB row cannot
-brute-force the token in reasonable time. The per-request PBKDF2 latency is acceptable for
-the clip ingress (typically one ingest per browser clip, not a high-frequency endpoint).</p>
-<p><strong>Token value NEVER returned by GET /clip/config.</strong> The endpoint returns only:
-- <code>token_configured: bool</code>
-- <code>token_source: "db" | "env" | "none"</code></p>
-<p>Never the value, hash, or salt. This is the load-bearing invariant of this ADR and is tested
-explicitly in the test suite (<code>test_clip_config_response_never_contains_token_value</code>,
-<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>, <code>test_rotate_token_authenticates_post_clip</code>).</p>
-<h3 id="23-endpoints">2.3 Endpoints<a class="headerlink" href="#23-endpoints" title="Permanent link">&para;</a></h3>
-<p><strong>GET /clip/config</strong> (read-only posture, mirrors GET /mcp/info):
-<div class="highlight"><pre><span></span><code>GET /clip/config
-  response: ClipConfigResponse {
-    enabled:          bool,          # resolved (DB or env)
-    token_configured: bool,          # DB or env token present; NEVER the value
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
-    allowed_origins:  list[str],     # resolved (DB or env) + implicit loopback
-    max_body_bytes:   int            # CLIP_MAX_BODY_BYTES env; not runtime-settable
-  }
-</code></pre></div></p>
-<p><strong>PUT /clip/config</strong> (write posture, mirrors PUT /mcp/auth):
-<div class="highlight"><pre><span></span><code>PUT /clip/config
-  request body: ClipConfigRequest {
-    rotate_token:        bool | None,  # true ⇒ generate new token, return ONCE in generated_token
-    clear_token:         bool | None,  # true ⇒ set clip_access_token = NULL (env fallback)
-    set_enabled:         bool | None,  # set clip_enabled_db; omit = no change
-    set_allowed_origins: str  | None   # comma-separated; &quot;&quot; = clear to env fallback; omit = no change
-  }
-  response body: ClipConfigStateResponse {
-    enabled:          bool,
-    token_configured: bool,
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
-    allowed_origins:  list[str],
-    max_body_bytes:   int,
-    generated_token:  str | None     # ONLY on rotate_token=true — shown ONCE, never again
-  }
-</code></pre></div></p>
-<p><strong>Authentication on the endpoints themselves:</strong> same-origin / unauthenticated, consistent with
-<code>PUT /mcp/auth</code> (ADR-0033 §2.5) and the rest of the REST API. The network perimeter +
-bearer floor are the outer gates; the Settings UI is same-origin.</p>
-<h3 id="24-in-process-cache-_clipconfigcache">2.4 In-process cache: <code>_ClipConfigCache</code><a class="headerlink" href="#24-in-process-cache-_clipconfigcache" title="Permanent link">&para;</a></h3>
-<p>Mirrors <code>_McpAuthCache</code> (ADR-0033): a module-level singleton loaded from <code>vault_state</code> at
-startup, refreshed on every <code>PUT /clip/config</code> write. Key methods:</p>
-<table>
-<thead>
-<tr>
-<th>Method</th>
-<th>Returns</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>get_hash()</code></td>
-<td><code>str \| None</code></td>
-<td>PBKDF2 hash for DB path; <code>None</code> = fall back to env. NEVER log or return.</td>
-</tr>
-<tr>
-<td><code>token_source()</code></td>
-<td><code>"db"\|"env"\|"none"</code></td>
-<td><code>get_hash() is not None</code> → <code>"db"</code>; else env present → <code>"env"</code>; else → <code>"none"</code></td>
-</tr>
-<tr>
-<td><code>token_configured()</code></td>
-<td><code>bool</code></td>
-<td>True when source is <code>"db"</code> or <code>"env"</code></td>
-</tr>
-<tr>
-<td><code>resolved_enabled()</code></td>
-<td><code>bool</code></td>
-<td>DB NOT NULL wins; else env <code>CLIP_ENABLED</code></td>
-</tr>
-<tr>
-<td><code>resolved_allowed_origins_list()</code></td>
-<td><code>list[str]</code></td>
-<td>DB NOT NULL wins; else env; plus loopback origins</td>
-</tr>
-<tr>
-<td><code>set_hash(v)</code></td>
-<td>—</td>
-<td>Updates stored hash after PUT rotate/clear</td>
-</tr>
-</tbody>
-</table>
-<p>The <code>POST /clip</code> handler reads all resolved values O(1) from the cache (no DB round-trip per
-clip request). The cache is the single point of resolution — the handler never reads env vars
-directly.</p>
-<h3 id="25-post-clip-handler-updates">2.5 POST /clip handler updates<a class="headerlink" href="#25-post-clip-handler-updates" title="Permanent link">&para;</a></h3>
-<p>The <code>POST /clip</code> handler is updated to read from <code>_clip_config_cache</code> instead of reading
-<code>settings</code> directly for the three configurable aspects:</p>
+<h2 id="5-rilascio-solo-se-e-stato-fatto-almeno-un-fix">5. Rilascio (solo se è stato fatto almeno un fix)<a class="headerlink" href="#5-rilascio-solo-se-e-stato-fatto-almeno-un-fix" title="Permanent link">&para;</a></h2>
+<p>Prossima patch: <code>2.1.7</code> → <code>2.1.8</code> → <code>2.1.9</code> → … Nell'ordine esatto:</p>
 <ol>
-<li><strong>Enabled gate:</strong> <code>_clip_config_cache.resolved_enabled()</code> (DB or env).</li>
-<li><strong>Token auth (source-aware):</strong></li>
-<li><code>token_source == "db"</code>: <code>_verify_token(presented, _clip_config_cache.get_hash())</code> — PBKDF2</li>
-<li><code>token_source == "env"</code>: <code>hmac.compare_digest(presented, settings.clip_token)</code> — plaintext</li>
-<li><code>token_source == "none"</code>: immediate 401</li>
-<li><strong>Origin check:</strong> <code>_clip_config_cache.resolved_allowed_origins_list()</code> passed to
-   <code>_clip_origin_allowed()</code>.</li>
+<li><strong>Branch:</strong> <code>git checkout -b fix/weekly-&lt;YYYY-MM-DD&gt;</code></li>
+<li><strong>Commit dei fix.</strong> Formato: <code>fix(&lt;modulo&gt;): &lt;descrizione&gt; [&lt;feature-id&gt;]</code> — ogni commit
+   referenzia almeno un ID feature (<code>K1</code>–<code>K8</code> / <code>F1</code>–<code>F18</code>, vedi <code>CLAUDE.md</code> §4).
+   Firma: <code>Co-Authored-By: Claude Opus 5 &lt;noreply@anthropic.com&gt;</code></li>
+<li><strong>Bump versione:</strong> <code>python scripts/bump_version.py bump X.Y.Z</code>
+   → deve stampare <code>All files agree</code> (7 superfici allineate).</li>
+<li><strong>Rigenera gli artefatti</strong> — <em>se salti questo passo il Docs Gate in CI fallisce.</em>
+   È già successo: una release è stata bloccata per un <code>schema.mmd</code> non rigenerato.</li>
 </ol>
-<p><code>CLIP_MAX_BODY_BYTES</code> is not cached (env-only; reads <code>settings.clip_max_body_bytes</code> directly).
-All 4 security properties from ADR-0038 §2 are preserved unchanged.</p>
-<h3 id="26-existing-tests-unchanged">2.6 Existing tests unchanged<a class="headerlink" href="#26-existing-tests-unchanged" title="Permanent link">&para;</a></h3>
-<p>All 22 tests in <code>test_clip.py</code> (TC-CLIP-01..12 + unit helpers) remain green. Their env-based
-setup (patching <code>cfg.settings.clip_enabled</code>, <code>cfg.settings.clip_token</code>,
-<code>cfg.settings.clip_allowed_origins</code>) continues to work because:
-- <code>clip_env</code> fixture patches settings directly AND the <code>_clip_config_cache</code> is not
-  pre-loaded in those tests (the cache falls back to env when its DB slots are <code>None</code>).
-- This is the defined env-fallback behaviour — the existing tests exercise the env path
-  correctly, proving the fallback works.</p>
-<p>No test in <code>test_clip.py</code> needs to be changed. The new <code>test_clip_config.py</code> tests the DB
-path explicitly.</p>
-<hr />
-<h2 id="3-new-config-schema-migration">3. New config / schema / migration<a class="headerlink" href="#3-new-config-schema-migration" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_openapi.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_er.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>..
+python3<span class="w"> </span>scripts/check_adr_index.py<span class="w">    </span><span class="c1"># deve dire &quot;0 error(s)&quot;</span>
+</code></pre></div>
+<p>L'ER va rigenerato <strong>ogni volta che cambiano i modelli SQLAlchemy</strong> (invariante I8).
+5. <strong><code>CHANGELOG.md</code></strong> — nuova sezione in cima, Keep-a-Changelog + SemVer:
+   <code>## [X.Y.Z] — YYYY-MM-DD — "nome-breve"</code>, con <code>### Fixed</code> / <code>### Changed</code> / <code>### Security</code>.
+   Si spiega <strong>la causa radice</strong>, non il sintomo.
+6. <strong><code>docs/release-notes/vX.Y.Z.md</code></strong> — versione estesa dello stesso contenuto, più una
+   sezione <code>## Upgrade notes</code>.
+7. <strong><code>mkdocs.yml</code></strong> — voce in cima a <code>nav:</code> → <code>Release Notes:</code>.
+8. <strong>Commit release:</strong> <code>chore(release): X.Y.Z — &lt;nome-breve&gt;</code>
+9. <strong>Push + PR:</strong> <code>gh pr create</code> con Summary + Test plan (checkbox spuntate su ciò che è
+   stato realmente eseguito).
+10. <strong>Attendere la CI:</strong> <code>gh pr checks &lt;N&gt;</code> in polling. I job durano fino a ~7 minuti; gli
+    E2E (Playwright + Docker) sono i più lenti. <strong>Non mergiare finché non è tutto verde.</strong>
+    Su fallimento: <code>gh api repos/Emanuele-Chiummo/llm-wiki-synapse/actions/jobs/&lt;job-id&gt;/logs</code>.
+11. <strong>Merge:</strong> <code>gh pr merge &lt;N&gt; --squash --delete-branch</code>
+12. <strong>Rilascio:</strong></p>
+<pre><code>```bash
+gh workflow run release-cut.yml -f version=X.Y.Z
+gh workflow run release-notes-sync.yml
+gh workflow run desktop-release.yml --ref vX.Y.Z
+```
+
+Attendere il completamento della desktop-release. Tempi normali: macOS ~8-10 min,
+Windows ~10 min, **`marker-image` ~25-35 min** (build multi-arch con PyTorch: è
+lenta, *non* bloccata — non interromperla). Verifica finale:
+
+```bash
+gh release view vX.Y.Z --json assets -q '.assets[].name'
+```
+
+Devono comparire sia gli asset macOS (`.dmg`, `.app.tar.gz` + `.sig`) sia Windows
+(`_x64-setup.exe` + `.sig`, `portable-x64.exe`).
+</code></pre>
+<p>Se <code>gh</code> non risulta autenticato nell'ambiente: <strong>fermarsi dopo il push del branch</strong> e
+dirlo esplicitamente nel report.</p>
+<h3 id="trabocchetti-gia-pagati-non-ripeterli">Trabocchetti già pagati (non ripeterli)<a class="headerlink" href="#trabocchetti-gia-pagati-non-ripeterli" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Kind</th>
-<th>Name</th>
-<th>Type / default</th>
-<th>Where</th>
-<th>Notes</th>
+<th>Sintomo</th>
+<th>Causa</th>
+<th>Prevenzione</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>DB column</td>
-<td><code>vault_state.clip_enabled_db</code></td>
-<td><code>BOOLEAN NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW — Alembic <code>0015</code>.</strong> NULL = env governs; NOT NULL = DB wins.</td>
+<td>Docs Gate rosso</td>
+<td>ER/OpenAPI non rigenerati</td>
+<td>Passo 4, sempre</td>
 </tr>
 <tr>
-<td>DB column</td>
-<td><code>vault_state.clip_access_token</code></td>
-<td><code>TEXT NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW (same migration <code>0015</code>).</strong> PBKDF2-SHA256 hash (prefix <code>pbkdf2_sha256$</code>); NEVER logged; raw token shown once (one-time reveal), then unhashable from DB.</td>
+<td>Docs Gate rosso</td>
+<td>ADR nuovo non linkato in <code>docs/adr/index.md</code></td>
+<td><code>check_adr_index.py</code> in locale</td>
 </tr>
 <tr>
-<td>DB column</td>
-<td><code>vault_state.clip_allowed_origins_db</code></td>
-<td><code>TEXT NULL</code></td>
-<td><code>models.py</code> <code>VaultState</code></td>
-<td><strong>NEW (same migration <code>0015</code>).</strong> Comma-separated; NULL = env governs.</td>
+<td>Windows build rossa</td>
+<td><code>windows-latest</code> usa PowerShell</td>
+<td><code>shell: bash</code> esplicito sugli step POSIX</td>
 </tr>
 <tr>
-<td>migration</td>
-<td><code>0015_vault_state_clip_config</code></td>
-<td>add 3 columns</td>
-<td><code>backend/alembic/versions/</code></td>
-<td>Run by standard <code>alembic upgrade head</code>. D2/ER regen (I8).</td>
+<td><code>gh run rerun</code> rifiutato</td>
+<td>Il run è ancora in corso</td>
+<td>Aspettare che <em>tutti</em> i job finiscano</td>
 </tr>
 <tr>
-<td>env (retained)</td>
-<td><code>CLIP_ENABLED</code></td>
-<td>bool, default false</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_enabled_db</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_TOKEN</code></td>
-<td>secret str, no default</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_access_token</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_ALLOWED_ORIGINS</code></td>
-<td>comma list, default ""</td>
-<td><code>config.py</code></td>
-<td>Bootstrap fallback; DB <code>clip_allowed_origins_db</code> wins when NOT NULL.</td>
-</tr>
-<tr>
-<td>env (retained)</td>
-<td><code>CLIP_MAX_BODY_BYTES</code></td>
-<td>int, default 2MB</td>
-<td><code>config.py</code></td>
-<td>Not runtime-settable via PUT /clip/config; env-only.</td>
-</tr>
-<tr>
-<td>in-process cache</td>
-<td><code>_ClipConfigCache</code></td>
-<td>class</td>
-<td><code>main.py</code></td>
-<td>Mirrors <code>_McpAuthCache</code>; loaded at startup; refreshed on PUT /clip/config.</td>
-</tr>
-<tr>
-<td>route</td>
-<td><code>GET /clip/config</code></td>
-<td><code>ClipConfigResponse</code></td>
-<td><code>main.py</code></td>
-<td>Read-only posture; token NEVER returned.</td>
-</tr>
-<tr>
-<td>route</td>
-<td><code>PUT /clip/config</code></td>
-<td><code>ClipConfigRequest</code> → <code>ClipConfigStateResponse</code></td>
-<td><code>main.py</code></td>
-<td>Set/rotate/clear token + enabled/origins. One-time <code>generated_token</code>.</td>
+<td>Upload asset fallito</td>
+<td>Timeout TLS transitorio</td>
+<td>Rerun del solo job fallito, a run concluso</td>
 </tr>
 </tbody>
 </table>
-<p><strong>One migration, three columns.</strong> Flagged for the docs gate: <code>make er</code> + <code>make openapi</code>.</p>
 <hr />
-<h2 id="4-acceptance-checks-dod">4. Acceptance checks (DoD)<a class="headerlink" href="#4-acceptance-checks-dod" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Token never returned.</strong> <code>GET /clip/config</code> with a DB token set returns <code>token_source="db"</code>,
-   <code>token_configured=true</code>, and the token value NEVER appears in the response body.
-   (<code>test_clip_config_response_never_contains_token_value</code> + <code>test_get_clip_config_token_source_db</code>).</li>
-<li><strong>One-time reveal.</strong> <code>PUT /clip/config {rotate_token:true}</code> returns <code>generated_token</code> once;
-   subsequent <code>GET /clip/config</code> does not return it.
-   (<code>test_put_clip_config_rotate_token_one_time_reveal</code> + <code>test_get_clip_config_never_returns_token_after_rotate</code>).</li>
-<li><strong>DB stores PBKDF2 hash, not raw token.</strong> After rotate, <code>vault_state.clip_access_token</code>
-   starts with <code>pbkdf2_sha256$</code> and does NOT contain the raw <code>generated_token</code> value.
-   <code>_verify_token(generated_token, stored_hash)</code> returns True.
-   (<code>test_put_clip_config_rotate_stores_pbkdf2_hash</code>).</li>
-<li><strong>Rotated token authenticates POST /clip.</strong> <code>generated_token</code> from PUT authenticates the next
-   <code>POST /clip</code>; wrong/old tokens are rejected with 401.
-   (<code>test_rotate_token_authenticates_post_clip</code>).</li>
-<li><strong>DB wins over env — token.</strong> DB token set → env token rejected at <code>POST /clip</code>.
-   (<code>test_clip_honours_db_token_over_env</code>).</li>
-<li><strong>DB wins over env — enabled.</strong> DB <code>clip_enabled_db=False</code> → <code>POST /clip</code> returns 503 even
-   when <code>CLIP_ENABLED=true</code>. DB <code>clip_enabled_db=True</code> → enabled even when env is false.
-   (<code>test_put_clip_config_set_enabled_false_gates_clip_endpoint</code> +
-   <code>test_put_clip_config_set_enabled_true_enables_ingress</code>).</li>
-<li><strong>DB wins over env — origins.</strong> DB origins → env-only origin rejected.
-   (<code>test_clip_honours_db_allowed_origins</code>).</li>
-<li><strong>Token source = 'db'/'env'/'none'.</strong> Correct precedence: DB token → 'db'; no DB, env set → 'env';
-   neither → 'none'. (<code>TestClipTokenSourceResolution</code>).</li>
-<li><strong>Env fallback.</strong> With no DB overrides, env vars govern (all three config aspects).
-   (<code>TestClipEnabledResolution</code>, <code>TestClipAllowedOriginsResolution</code>).</li>
-<li><strong>Existing test_clip.py green.</strong> All 22 pre-existing clip tests pass unchanged.
-    (env-fallback path covers their assertions).</li>
-<li><strong>clear_token.</strong> <code>clear_token=true</code> nulls DB token; source falls back to env or none.
-    (<code>test_put_clip_config_clear_token</code>).</li>
-<li><strong>Docs gate.</strong> <code>make er</code> matches live schema (three new columns); <code>make openapi</code> includes
-    <code>/clip/config</code> GET+PUT (I8).</li>
-</ol>
+<h2 id="6-backlog-30">6. Backlog 3.0<a class="headerlink" href="#6-backlog-30" title="Permanent link">&para;</a></h2>
+<p>Se emerge qualcosa di <strong>troppo grosso per una patch</strong> — refactor architetturali, feature,
+breaking change, migrazioni pesanti — <strong>non si fa</strong>. Si aggiunge una voce a
+<a href="../../reference/ROADMAP-3.0-IDEAS/"><code>docs/reference/ROADMAP-3.0-IDEAS.md</code></a> con:</p>
+<ul>
+<li>titolo</li>
+<li>problema osservato</li>
+<li>evidenza (<code>file:riga</code>)</li>
+<li>impatto stimato</li>
+<li>sforzo stimato (S / M / L)</li>
+</ul>
+<p>Il file aggiornato entra nella PR della settimana insieme ai fix.</p>
 <hr />
-<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
-<p><strong>Positive</strong> — the operator can enable the clipper, generate/rotate/clear its token, and
-manage allowed origins from the Settings UI without editing <code>.env</code> or restarting. Env vars
-remain as bootstrap fallback — zero breakage for existing deployments.</p>
-<p><strong>Trade-offs</strong> —
-- <strong>One migration, three columns</strong> (the only schema change; D2/ER regen in docs gate).
-- <strong>PBKDF2 hash per clip request (DB path):</strong> 260k iterations adds latency on <code>POST /clip</code> when
-  token_source is "db". Acceptable for a personal homelab clipper (one ingest per browser action).
-  Env path continues to use <code>hmac.compare_digest</code> (plaintext, zero overhead).
-- <strong>Token not re-displayable</strong> — after the one-time reveal, the operator must rotate if they
-  lose the token. This is the more secure UX (matches MCP).
-- <strong>Cache invalidation is single-process</strong> — on a multi-process deployment, cache is stale after
-  PUT /clip/config until restart. Acceptable for a personal homelab deployment (single process).</p>
-<p><strong>Invariant check</strong> — <strong>I1:</strong> no new ingest path; <code>POST /clip</code> still writes to <code>raw/sources/</code>
-and lets the watcher ingest (unchanged). <strong>I5:</strong> vault-write path unchanged. <strong>I6:</strong> no provider
-touched. <strong>I7:</strong> no new loop. <strong>I8:</strong> migration → D2/ER regen + D4 OpenAPI update. <strong>I9:</strong>
-reuses <code>vault_state</code> + existing <code>POST /clip</code> — no new process, no new dep.</p>
+<h2 id="7-report-finale">7. Report finale<a class="headerlink" href="#7-report-finale" title="Permanent link">&para;</a></h2>
+<p>Si chiude <strong>sempre</strong> con un report in italiano, anche a zero release:</p>
+<ul>
+<li><strong>Cosa è stato analizzato</strong> — aree, file, profondità.</li>
+<li><strong>Bug trovati e corretti</strong> — ognuno con la causa radice in una frase.</li>
+<li><strong>Cosa è stato deliberatamente NON toccato</strong> e perché.</li>
+<li><strong>Stato release</strong> — link alla release GitHub + conferma asset macOS/Windows, oppure il
+  motivo per cui non c'è stata release.</li>
+<li><strong>Nuove voci</strong> aggiunte al backlog 3.0.</li>
+<li><strong>Decisioni che richiedono un umano</strong> — tutto ciò che è stato lasciato in sospeso.</li>
+</ul>
 
 
 
