@@ -58,7 +58,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -138,9 +138,31 @@ def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
     return secrets.compare_digest(computed, code_challenge)
 
 
+# Hosts for which a plaintext http:// redirect_uri is accepted (local/dev testing only).
+# Compared against urlsplit().hostname — an EXACT host match, never a prefix (see below).
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
 def _valid_redirect_uri(uri: str) -> bool:
-    """https:// always allowed; http://localhost allowed for local/dev testing only."""
-    return uri.startswith("https://") or uri.startswith("http://localhost")
+    """
+    https:// with a real host is allowed; http:// ONLY for a true loopback host (local/dev).
+
+    Parsed, not prefix-matched (2.1.8). ``uri.startswith("http://localhost")`` also accepts
+    ``http://localhost.attacker.example/cb`` — a host that merely BEGINS with "localhost" and
+    is fully attacker-controlled — so a crafted /authorize link could have carried the issued
+    authorization code off-box over plaintext once the operator approved it. Comparing
+    ``urlsplit().hostname`` against an exact allow-set closes that, and the ``hostname``
+    truthiness check additionally rejects degenerate values like a bare ``"https://"``.
+    """
+    try:
+        parts = urlsplit(uri)
+    except ValueError:  # malformed IPv6 literal, bad port, etc. — fail closed
+        return False
+    if parts.scheme == "https":
+        return bool(parts.hostname)
+    if parts.scheme == "http":
+        return parts.hostname in _LOOPBACK_HOSTS
+    return False
 
 
 # ── Discovery (RFC 8414 / RFC 9728) ───────────────────────────────────────────

@@ -489,3 +489,255 @@ class TestBearerMiddlewareIntegration:
         assert not gate._verify_bearer(
             "not-a-real-token", db_hash, runtime_state.settings.mcp_auth_token or "", tok_source
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 15. redirect_uri validation is parsed, not prefix-matched (2.1.8)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestRedirectUriValidation:
+    """
+    Regression: ``_valid_redirect_uri`` used ``uri.startswith("http://localhost")``, so any
+    attacker-controlled host merely BEGINNING with "localhost" was accepted as a loopback
+    URI — e.g. ``http://localhost.attacker.example/cb``. A crafted /authorize link could then
+    carry the issued authorization code off-box, in plaintext, once the operator approved it.
+    """
+
+    async def test_register_rejects_localhost_lookalike_host(self, client: AsyncClient) -> None:
+        resp = await client.post(
+            "/register", json={"redirect_uris": ["http://localhost.attacker.example/cb"]}
+        )
+        assert resp.status_code == 400
+
+    async def test_authorize_rejects_localhost_lookalike_host(self, client: AsyncClient) -> None:
+        _, challenge = _pkce_pair()
+        resp = await client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": "lookalike-client",
+                "redirect_uri": "http://localhost.attacker.example/cb",
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            },
+        )
+        assert resp.status_code == 400
+
+    async def test_authorize_post_rejects_localhost_lookalike_host(
+        self, client: AsyncClient
+    ) -> None:
+        """The POST leg validates independently — it is reachable without the GET."""
+        _, challenge = _pkce_pair()
+        resp = await client.post(
+            "/authorize",
+            data={
+                "client_id": "lookalike-client-2",
+                "redirect_uri": "http://localhost.attacker.example/cb",
+                "code_challenge": challenge,
+                "state": "",
+                "mcp_token": _MCP_TOKEN,
+            },
+            follow_redirects=False,
+        )
+        assert resp.status_code == 400
+
+    async def test_bare_scheme_rejected(self, client: AsyncClient) -> None:
+        resp = await client.post("/register", json={"redirect_uris": ["https://"]})
+        assert resp.status_code == 400
+
+    async def test_localhost_still_accepted(self, client: AsyncClient) -> None:
+        """Non-regression: the genuine local/dev redirect URI must keep working."""
+        resp = await client.post("/register", json={"redirect_uris": ["http://localhost:8080/cb"]})
+        assert resp.status_code == 201, resp.text
+
+    async def test_loopback_ip_now_accepted(self, client: AsyncClient) -> None:
+        """
+        Deliberate, documented widening (2.1.8): the prefix check accepted only the literal
+        string "localhost", so a developer pointing a client at http://127.0.0.1 got a
+        confusing rejection. Parsing the host lets the allow-set name what was always meant —
+        the loopback interface — and 127.0.0.1 / ::1 are no less loopback than "localhost".
+        """
+        for uri in ("http://127.0.0.1:9000/cb", "http://[::1]:9000/cb"):
+            resp = await client.post("/register", json={"redirect_uris": [uri]})
+            assert resp.status_code == 201, f"{uri} must be valid: {resp.text}"
+
+    async def test_https_still_accepted(self, client: AsyncClient) -> None:
+        resp = await client.post(
+            "/register", json={"redirect_uris": ["https://claude.ai/api/mcp/auth_callback"]}
+        )
+        assert resp.status_code == 201
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 16. Changing the static MCP token revokes every OAuth grant (2.1.8)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def _seed_vault_state() -> None:
+    """
+    Insert the vault_state row PUT /mcp/auth reads, with remote_mcp_enabled already ON.
+
+    In production this row is seeded at lifespan startup; the SQLite fixture here starts
+    from an empty schema, and the handler's defensive "row is missing" branch creates it
+    with remote_mcp_enabled=False — which the allow-aware clamp (ADR-0033 §2.4) then
+    propagates to the in-process flag, 404-ing every later OAuth call for reasons that have
+    nothing to do with what these tests assert.
+    """
+    from datetime import UTC, datetime
+
+    from app import runtime_state
+    from app.models import VaultState
+
+    async with runtime_state.get_session() as session:
+        session.add(
+            VaultState(
+                vault_id=runtime_state.settings.vault_id,
+                data_version=0,
+                remote_mcp_enabled=True,
+                mcp_access_token_hash=None,
+                mcp_allow_without_token=False,
+                updated_at=datetime.now(UTC),
+            )
+        )
+
+
+async def _mint_oauth_pair(client: AsyncClient, client_id: str) -> tuple[str, str]:
+    """Run a full authorize+token round trip; return (access_token, refresh_token)."""
+    verifier, challenge = _pkce_pair()
+    redirect_uri = "https://claude.ai/api/mcp/auth_callback"
+    code = await _approve_and_get_code(
+        client, client_id=client_id, redirect_uri=redirect_uri, code_challenge=challenge
+    )
+    resp = await client.post(
+        "/token",
+        data={
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "client_id": client_id,
+            "code_verifier": verifier,
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    return body["access_token"], body["refresh_token"]
+
+
+def _bearer_accepts(access_token: str) -> bool:
+    """Ask the real MCP access gate whether this token still opens /mcp/server."""
+    from app import runtime_state
+
+    gate = runtime_state.BearerAuthMiddleware(
+        app=None,
+        token=runtime_state.settings.mcp_auth_token or "",
+        flag=runtime_state.remote_mcp_flag,
+        auth_cache=runtime_state.mcp_auth_cache,
+    )
+    db_hash = runtime_state.mcp_auth_cache.get_hash()
+    tok_source = runtime_state.resolve_token_source(db_hash)
+    return bool(
+        gate._verify_bearer(
+            access_token, db_hash, runtime_state.settings.mcp_auth_token or "", tok_source
+        )
+    )
+
+
+class TestStaticTokenChangeRevokesGrants:
+    """
+    Regression: PUT /mcp/auth (set / rotate / clear) changed the ONLY credential that can
+    approve an OAuth grant, but left every already-issued grant fully alive. Rotating a
+    leaked token therefore revoked nothing for an OAuth client: the access token kept
+    opening /mcp/server, and its 90-day refresh_token — which never re-presents the static
+    token — kept minting new ones.
+    """
+
+    async def test_rotate_token_kills_existing_access_token(self, client: AsyncClient) -> None:
+        await _seed_vault_state()
+        access_token, _ = await _mint_oauth_pair(client, "revoke-client-1")
+        assert _bearer_accepts(access_token), "precondition: freshly minted token must work"
+
+        resp = await client.put("/mcp/auth", json={"rotate_token": True})
+        assert resp.status_code == 200, resp.text
+
+        assert not _bearer_accepts(
+            access_token
+        ), "an OAuth access token must not survive a static-token rotation"
+
+    async def test_rotate_token_kills_existing_refresh_token(self, client: AsyncClient) -> None:
+        await _seed_vault_state()
+        _, refresh_token = await _mint_oauth_pair(client, "revoke-client-2")
+
+        resp = await client.put("/mcp/auth", json={"rotate_token": True})
+        assert resp.status_code == 200, resp.text
+
+        refreshed = await client.post(
+            "/token",
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": "revoke-client-2",
+            },
+        )
+        assert refreshed.status_code == 400, (
+            "a revoked refresh_token must not mint a new access token: " + refreshed.text
+        )
+
+    async def test_clear_token_kills_existing_access_token(self, client: AsyncClient) -> None:
+        from app import runtime_state
+
+        await _seed_vault_state()
+
+        # Put a DB-source token in place first, so clear_token actually changes the hash.
+        set_resp = await client.put("/mcp/auth", json={"token": "an-explicit-static-token"})
+        assert set_resp.status_code == 200
+        new_static = "an-explicit-static-token"
+
+        # Mint a grant against that credential.
+        verifier, challenge = _pkce_pair()
+        redirect_uri = "https://claude.ai/api/mcp/auth_callback"
+        approve = await client.post(
+            "/authorize",
+            data={
+                "client_id": "revoke-client-3",
+                "redirect_uri": redirect_uri,
+                "code_challenge": challenge,
+                "state": "",
+                "mcp_token": new_static,
+            },
+            follow_redirects=False,
+        )
+        assert approve.status_code == 302, approve.text
+        code = parse_qs(urlparse(approve.headers["location"]).query)["code"][0]
+        minted = await client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": "revoke-client-3",
+                "code_verifier": verifier,
+            },
+        )
+        access_token = minted.json()["access_token"]
+        assert _bearer_accepts(access_token)
+
+        cleared = await client.put("/mcp/auth", json={"clear_token": True})
+        assert cleared.status_code == 200, cleared.text
+
+        assert not _bearer_accepts(access_token)
+        assert runtime_state.mcp_oauth_token_cache._entries == {}
+
+    async def test_unrelated_flag_update_does_not_revoke(self, client: AsyncClient) -> None:
+        """
+        Guard against over-revoking: a PUT that only flips allow_without_token leaves the
+        static credential untouched, so live grants must survive it.
+        """
+        await _seed_vault_state()
+        access_token, _ = await _mint_oauth_pair(client, "keep-client-1")
+        assert _bearer_accepts(access_token)
+
+        resp = await client.put("/mcp/auth", json={"allow_without_token": True})
+        assert resp.status_code == 200, resp.text
+
+        assert _bearer_accepts(access_token), "a flag-only update must not revoke OAuth grants"
