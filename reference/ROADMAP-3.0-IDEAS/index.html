@@ -670,6 +670,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Voci dalla manutenzione settimanale">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypdf-fermo-su-5x-con-24-advisory-aperte-serve-il-salto-a-6x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf fermo su 5.x con 24 advisory aperte — serve il salto a 6.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nessuna-superficie-operatore-per-vedere-e-revocare-le-concessioni-oauth-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nessuna superficie operatore per vedere e revocare le concessioni OAuth MCP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-register-non-autenticata-puo-saturare-il-tetto-dei-200-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /register non autenticata può saturare il tetto dei 200 client
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -882,6 +921,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.8/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.8
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2138,6 +2205,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Voci dalla manutenzione settimanale">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pypdf-fermo-su-5x-con-24-advisory-aperte-serve-il-salto-a-6x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf fermo su 5.x con 24 advisory aperte — serve il salto a 6.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#nessuna-superficie-operatore-per-vedere-e-revocare-le-concessioni-oauth-mcp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nessuna superficie operatore per vedere e revocare le concessioni OAuth MCP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#post-register-non-autenticata-puo-saturare-il-tetto-dei-200-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        POST /register non autenticata può saturare il tetto dei 200 client
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
     </ul>
@@ -2388,7 +2494,63 @@ giorno senza mai ripagarsi.</p>
 - **Trovato:** YYYY-MM-DD
 -->
 
-<p><em>(ancora nessuna — la prima esecuzione è prevista per venerdì 14 agosto 2026)</em></p>
+<h3 id="pypdf-fermo-su-5x-con-24-advisory-aperte-serve-il-salto-a-6x">pypdf fermo su 5.x con 24 advisory aperte — serve il salto a 6.x<a class="headerlink" href="#pypdf-fermo-su-5x-con-24-advisory-aperte-serve-il-salto-a-6x" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>pip-audit</code> riporta 24 advisory su <code>pypdf==5.9.0</code> (PYSEC-2026-3004…3027,
+  PYSEC-2026-3610…3613, GHSA-jm82-fx9c-mx94). <strong>Nessuna è corretta in una 5.x</strong>: la fix più
+  bassa è 6.7.1, la più alta 6.14.2. Il vincolo attuale <code>pypdf&gt;=4.2,&lt;6</code> esclude per
+  costruzione ogni versione corretta, quindi il debito non si chiude con un bump patch.</li>
+<li><strong>Evidenza:</strong> <code>backend/pyproject.toml:34</code> (<code>"pypdf&gt;=4.2,&lt;6"</code>),
+  <code>backend/requirements-lock.txt:242</code> e <code>backend/requirements-prod-lock.txt:207</code>
+  (<code>pypdf==5.9.0</code>).</li>
+<li><strong>Impatto:</strong> pypdf è l'estrattore PDF <strong>di default</strong> (<code>app/config.py:866</code>,
+  <code>pdf_extractor="pypdf"</code>) ed è anche il fallback incondizionato quando Marker o MinerU
+  falliscono (<code>app/ingest/extract.py:26-27</code>) — quindi ogni PDF che entra nel vault, incluso
+  materiale scaricato dal web via clipper o deep-research, passa da qui. Le advisory di questa
+  famiglia sono tipicamente DoS su file malformati (loop infiniti, esaurimento memoria) più
+  che RCE, e il deployment è mono-operatore: rischio reale ma contenuto. Non abbastanza
+  contenuto da lasciarlo indefinito.</li>
+<li><strong>Sforzo:</strong> M. Il salto 5.x → 6.x è un <strong>major</strong> con API breaking (la routine settimanale ha
+  il divieto esplicito di major, §2 punto 6 del runbook): va allargato il vincolo in
+  <code>pyproject.toml</code>, rigenerati entrambi i lockfile, e riverificato <code>app/ingest/extract.py</code>
+  contro l'API 6.x, con un test su PDF reali.</li>
+<li><strong>Trovato:</strong> 2026-08-07</li>
+</ul>
+<h3 id="nessuna-superficie-operatore-per-vedere-e-revocare-le-concessioni-oauth-mcp">Nessuna superficie operatore per vedere e revocare le concessioni OAuth MCP<a class="headerlink" href="#nessuna-superficie-operatore-per-vedere-e-revocare-le-concessioni-oauth-mcp" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> dalla 2.1.8 un cambio del token statico revoca <em>tutte</em> le concessioni OAuth
+  insieme, ma resta l'unico strumento disponibile: è un'accetta, non un bisturi. Non esiste
+  modo di elencare i client autorizzati, vedere quando hanno ottenuto accesso, o revocarne
+  <strong>uno solo</strong> senza buttare giù anche gli altri e senza cambiare il token che gli altri
+  client (Claude Desktop) stanno usando.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/mcp/oauth.py</code> non espone alcuna rotta di lettura/revoca;
+  <code>backend/app/routers/config/mcp.py</code> gestisce solo il token statico. Il modello
+  <code>McpOAuthClient</code> / <code>McpOAuthToken</code> (<code>backend/app/models.py:2576</code>) ha già i campi necessari
+  (<code>client_name</code>, <code>created_at</code>, <code>revoked_at</code>).</li>
+<li><strong>Impatto:</strong> una volta che più di un client OAuth è configurato — plausibile appena si
+  aggiungono claude.ai web e un secondo dispositivo — la revoca selettiva diventa necessaria.
+  Oggi l'operatore non ha nemmeno visibilità su <em>quali</em> client abbiano accesso.</li>
+<li><strong>Sforzo:</strong> M. Richiede endpoint REST (<code>GET</code>/<code>DELETE /mcp/oauth/grants</code>), una sezione UI in
+  Settings, e la propagazione alla <code>McpOAuthTokenCache</code>. Superficie nuova = feature, non patch.</li>
+<li><strong>Trovato:</strong> 2026-08-07</li>
+</ul>
+<h3 id="post-register-non-autenticata-puo-saturare-il-tetto-dei-200-client"><code>POST /register</code> non autenticata può saturare il tetto dei 200 client<a class="headerlink" href="#post-register-non-autenticata-puo-saturare-il-tetto-dei-200-client" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> la Dynamic Client Registration è raggiungibile senza credenziali (per
+  necessità: è il punto d'ingresso RFC 7591) e crea una riga <code>mcp_oauth_clients</code> per chiamata.
+  Al raggiungimento di <code>_MAX_REGISTERED_CLIENTS = 200</code> ogni registrazione successiva riceve
+  429 <strong>per sempre</strong>: non esiste pruning, scadenza o pulizia dei client mai usati.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/mcp/oauth.py:79</code> (<code>_MAX_REGISTERED_CLIENTS = 200</code>) e
+  <code>register_client()</code> — il tetto è un contatore su tabella, senza rate limit né TTL.</li>
+<li><strong>Impatto:</strong> basso e non catastrofico — serve <code>remote_mcp_enabled</code> ON ed endpoint esposto,
+  e il percorso <code>/authorize</code> (che registra JIT ed è protetto dal token statico) continua a
+  funzionare anche a tetto pieno, quindi i client già configurati non si rompono. Ma un
+  operatore che aggiunge un <em>nuovo</em> connettore dopo la saturazione riceve un 429 opaco.</li>
+<li><strong>Sforzo:</strong> S/M. La correzione giusta non è alzare il tetto ma dare un ciclo di vita ai
+  client (TTL sui client senza token attivi + pruning), il che si incastra naturalmente con
+  la voce precedente sulla superficie di revoca.</li>
+<li><strong>Trovato:</strong> 2026-08-07</li>
+</ul>
 
 
 

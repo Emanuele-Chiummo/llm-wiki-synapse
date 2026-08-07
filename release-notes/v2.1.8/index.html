@@ -12,13 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.6/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.8/">
       
       
-        <link rel="prev" href="../v1.3.7/">
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
       
       
-        <link rel="next" href="../v1.3.5/">
+        <link rel="next" href="../v2.1.7/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>v1.3.6 - Synapse</title>
+        <title>v2.1.8 - Synapse</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synapse-136-diagnostics-real-time-stability" class="md-skip">
+        <a href="#synapse-v218-revoke-means-revoke" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              v1.3.6
+              v2.1.8
             
           </span>
         </div>
@@ -708,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v2.1.8/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.8
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -727,6 +754,59 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1520,37 +1600,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    v1.3.6
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1566,114 +1619,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-A — Aggiornamento in tempo reale (Home + Grafo) [F16, F4, F18]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-b-coda-revisione-card-resolveddismissed-distinte-f9" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-B — Coda Revisione: card resolved/dismissed distinte [F9]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-c-visibilita-progresso-ingest-eta-f3-f16" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-C — Visibilità progresso ingest (% + ETA) [F3, F16]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-D7 — NoteView: scroll singolo, header che scorre col testo [K1, K6, I5]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-D8 — Nodo albero "Vault / Meta" (schema.md + purpose.md) [K1, K6, I5]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-G — Verifica automazioni pianificate [K2, F3, F16, F18]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#artefatti-documentazione-i8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Artefatti documentazione (I8)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#note" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Note
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1993,10 +1938,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        WS-A — Aggiornamento in tempo reale (Home + Grafo) [F16, F4, F18]
+        Security
       
     </span>
   </a>
@@ -2004,10 +1949,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ws-b-coda-revisione-card-resolveddismissed-distinte-f9" class="md-nav__link">
+  <a href="#changed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        WS-B — Coda Revisione: card resolved/dismissed distinte [F9]
+        Changed
       
     </span>
   </a>
@@ -2015,65 +1960,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ws-c-visibilita-progresso-ingest-eta-f3-f16" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        WS-C — Visibilità progresso ingest (% + ETA) [F3, F16]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-D7 — NoteView: scroll singolo, header che scorre col testo [K1, K6, I5]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-D8 — Nodo albero "Vault / Meta" (schema.md + purpose.md) [K1, K6, I5]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        WS-G — Verifica automazioni pianificate [K2, F3, F16, F18]
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#artefatti-documentazione-i8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Artefatti documentazione (I8)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#note" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Note
+        Upgrade notes
       
     </span>
   </a>
@@ -2097,97 +1987,91 @@
 
 
 
-<h1 id="synapse-136-diagnostics-real-time-stability">Synapse 1.3.6 — Diagnostics, Real-time &amp; Stability<a class="headerlink" href="#synapse-136-diagnostics-real-time-stability" title="Permanent link">&para;</a></h1>
-<p>Release di <strong>correzione e osservabilità</strong>: sei workstream di bug-fix e verifica su Home dashboard,
-coda Revisione, ingest, wiki viewer e automazioni pianificate. Nessuna nuova feature di rilievo;
-nessuna modifica al contratto API tranne l'aggiunta di <code>GET /vault/meta</code> (WS-D8, read-only).
-WS-E (wizard Domani/Gruppi) e WS-F (ristrutturazione Settings) rimandati a v1.3.7.</p>
-<hr />
-<h2 id="ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18">WS-A — Aggiornamento in tempo reale (Home + Grafo) [F16, F4, F18]<a class="headerlink" href="#ws-a-aggiornamento-in-tempo-reale-home-grafo-f16-f4-f18" title="Permanent link">&para;</a></h2>
-<p>Home dashboard e Graph viewer erano aggiornati solo al mount. Aggiunto <strong>polling leggero di
-<code>dataVersion</code></strong> tramite <code>GET /status</code> a intervallo (10 s Home, 5 s Grafo):</p>
+<h1 id="synapse-v218-revoke-means-revoke">Synapse v2.1.8 — "revoke means revoke"<a class="headerlink" href="#synapse-v218-revoke-means-revoke" title="Permanent link">&para;</a></h1>
+<p>Patch release closing two defects in the MCP OAuth authorization server shipped in 2.1.6,
+plus one dependency advisory. No schema migrations, no new endpoints.</p>
+<p>Unlike 2.1.2–2.1.7, none of this came from a live failure: these were found by reading the
+freshly-landed 2.1.6/2.1.7 code during weekly maintenance. Nothing here is known to have
+been exploited, and the deployment model (single operator, personal vault) keeps the
+practical exposure narrow — but the first item makes a security control silently not work,
+which is worth a release on its own.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
 <ul>
-<li>I dati vengono ri-fetchati solo se <code>data_version</code> cambia rispetto all'ultima lettura.</li>
-<li>Il tick di polling non causa re-render se la versione non cambia (guardia Zustand
-  shallow-equality, I3).</li>
-<li>Nessun WebSocket, nessun endpoint nuovo, nessun ricalcolo layout client-side (I2).</li>
-<li>Home ri-fetcha <code>GET /stats/overview</code> e <code>GET /stats/sections</code>; Grafo ri-fetcha <code>GET /graph</code>
-  (coords pre-calcolate lato server, I2 preservato).</li>
+<li><strong>Changing the static MCP token did not revoke OAuth-issued access, and there was no
+  revocation path at all.</strong> Every row in <code>mcp_oauth_tokens</code> gets created by typing the
+  static MCP token into the <code>/authorize</code> consent form — that token is the <em>only</em> credential
+  in the entire OAuth flow (<code>runtime_state.verify_static_mcp_token</code>, deliberately excluding
+  OAuth tokens so there is no delegation chain). But <code>PUT /mcp/auth</code> — set, rotate, or clear
+  — only rewrote <code>vault_state.mcp_access_token_hash</code> and refreshed <code>mcp_auth_cache</code>. It never
+  touched <code>mcp_oauth_tokens</code> or <code>McpOAuthTokenCache</code>, and neither did anything else: the
+  cache was only ever written by <code>load()</code> at startup, <code>add()</code> on mint, and <code>remove()</code> on
+  single-row refresh rotation.</li>
 </ul>
-<h2 id="ws-b-coda-revisione-card-resolveddismissed-distinte-f9">WS-B — Coda Revisione: card resolved/dismissed distinte [F9]<a class="headerlink" href="#ws-b-coda-revisione-card-resolveddismissed-distinte-f9" title="Permanent link">&para;</a></h2>
-<p>I tab "In attesa" e "Risolti" restituivano dati corretti dal backend (confermato in Phase 0)
-ma le card resolved/dismissed erano visivamente identiche a quelle pending:</p>
+<p>The consequence is that <strong>rotating a leaked token revoked nothing</strong> for the one client
+  class that authenticates via OAuth (claude.ai's web Custom connector). The previously
+  issued access token kept satisfying exactly the same <code>/mcp/server</code> gate as the static
+  bearer, because <code>BearerAuthMiddleware</code> treats an OAuth match identically. Worse, its
+  <code>refresh_token</code> stays valid for 90 days and — by design — never re-presents the static
+  token, so a <code>grant_type=refresh_token</code> call could keep minting fresh hour-long access
+  tokens for the rest of that window. The only genuine revocation available was turning
+  <code>remote_mcp_enabled</code> off, which also disconnects Claude Desktop and every other MCP client.</p>
+<p>This was an omission rather than a deliberate design decision: <code>revoked_at</code> was already
+  modelled and documented for precisely this case — <em>"set when rotated-away-from (refresh)
+  </em><em>or explicitly revoked</em><em>"</em> (<code>app/models.py</code>, <code>McpOAuthToken</code>) — the "explicitly revoked"
+  half simply had no caller.</p>
+<p>Fixed by cascading the credential change onto the grants. When <code>PUT /mcp/auth</code> results in
+  an actually-different <code>mcp_access_token_hash</code>, it bulk soft-revokes every non-revoked row
+  in the <em>same transaction</em> and clears <code>McpOAuthTokenCache</code>. Every existing read path
+  (<code>_load_mcp_oauth_token_cache</code>, <code>_rotate_tokens</code>) already filters on <code>revoked_at IS NULL</code>,
+  so no other code changed. The comparison is against the hash captured <em>before</em> any
+  mutation, which keeps the blast radius exact: a <code>PUT</code> that only flips
+  <code>allow_without_token</code> leaves the credential untouched and revokes nothing.</p>
 <ul>
-<li>Rimosso il prompt <em>"Proposte dell'AI — crea una pagina…"</em> dalle card già risolte.</li>
-<li>Rimossi i pulsanti <strong>Crea / Salta / Ignora / Ricerca Profonda</strong> dalle card resolved/dismissed
-  (offrirli su item già risolti era un bug logico — nessuna re-creazione accidentale).</li>
-<li>Aggiunto <strong>badge di stato risoluzione</strong> (es. "auto-risolto") + timestamp + link alla pagina
-  creata quando disponibile.</li>
-<li>Card resolved/dismissed ora mostrano un'affordance read-only / "riapri" al posto delle azioni.</li>
+<li><strong><code>redirect_uri</code> validation was a string prefix match, so <code>localhost</code> lookalikes passed.</strong>
+  <code>_valid_redirect_uri</code> accepted any URI matching <code>uri.startswith("http://localhost")</code> —
+  which includes <code>http://localhost.attacker.example/cb</code>, a host that merely <em>begins</em> with
+  the word "localhost" and is entirely attacker-controlled. Combined with just-in-time
+  client registration (unavoidable, and correct, for claude.ai's connector), a crafted
+  <code>/authorize</code> link could have carried the issued authorization code off-box in plaintext
+  once the operator approved the grant, and the attacker — who chose the <code>code_challenge</code> —
+  could then have exchanged it for a working access token.</li>
 </ul>
-<h2 id="ws-c-visibilita-progresso-ingest-eta-f3-f16">WS-C — Visibilità progresso ingest (% + ETA) [F3, F16]<a class="headerlink" href="#ws-c-visibilita-progresso-ingest-eta-f3-f16" title="Permanent link">&para;</a></h2>
-<p>Il widget "Lavori attivi" in Home mostrava solo il conteggio <code>processing</code>. Ora espone i campi
-già presenti nel payload ADR-0046 <code>GET /ingest/queue</code>:</p>
+<p>Exploiting it required phishing the operator into approving a grant they did not initiate,
+  so this is a hardening fix rather than a break-glass one. Fixed by parsing the URI and
+  comparing <code>urlsplit().hostname</code> against an exact loopback allow-set instead of prefix
+  matching. The same change rejects degenerate inputs such as a bare <code>"https://"</code>.</p>
+<h2 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Barra di progresso</strong> CSS: <code>(batch.done / batch.total) × 100</code>, arrotondata all'intero.</li>
-<li><strong>ETA</strong>: "ETA ~Xs" dal campo <code>batch.eta_seconds</code>; nascosta se <code>null</code>.</li>
-<li><strong>Etichetta fase</strong> per ogni task attivo (<code>phase</code>/<code>progress</code> dal campo <code>tasks[]</code>) con chiavi
-  i18n IT/EN (chiavi nuove aggiunte ai file di traduzione per le fasi mancanti).</li>
-<li>Nessun endpoint nuovo, nessuna modifica allo schema ADR-0046 (AC-WS-C-4 — OpenAPI drift zero
-  su <code>/ingest/queue</code>). Il polling è quello esistente dell'ActivityBar.</li>
+<li>
+<p><strong><code>http://127.0.0.1</code> and <code>http://[::1]</code> redirect URIs are now accepted</strong> (deliberate,
+  documented widening). The old prefix check recognised only the literal string
+  <code>"localhost"</code>, so pointing a development client at the loopback <em>address</em> was rejected for
+  no defensible reason — plaintext <code>http</code> is permitted here precisely because the traffic
+  never leaves the machine, which is equally true of all three spellings.</p>
+</li>
+<li>
+<p><strong><code>dompurify</code> 3.4.11 → 3.4.13</strong> (GHSA-c2j3-45gr-mqc4: <code>CUSTOM_ELEMENT_HANDLING</code> bypasses
+  <code>afterSanitizeElements</code> for allowed custom elements). Patch-level bump inside the existing
+  <code>^3.4</code> range, no API change. Not believed exploitable as Synapse configures it —
+  <code>renderMarkdown.ts</code> sanitizes against an explicit <code>ALLOWED_TAGS</code> allowlist containing no
+  custom elements, and never sets <code>CUSTOM_ELEMENT_HANDLING</code> — but this is the one library
+  standing between model-generated / source markdown and three <code>dangerouslySetInnerHTML</code>
+  call sites, so it gets the benefit of the doubt. <code>npm audit --omit=dev</code> now reports zero
+  vulnerabilities.</p>
+</li>
 </ul>
-<h2 id="ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5">WS-D7 — NoteView: scroll singolo, header che scorre col testo [K1, K6, I5]<a class="headerlink" href="#ws-d7-noteview-scroll-singolo-header-che-scorre-col-testo-k1-k6-i5" title="Permanent link">&para;</a></h2>
-<p>Phase 0 ha confermato che su <strong>ogni pagina</strong> il body scorreva in un contenitore annidato
-separato rispetto all'header metadati (titolo, tipo, SORGENTI, CORRELATE), causando collisione
-visiva del testo con il blocco SORGENTI/CORRELATE:</p>
-<ul>
-<li>Collassato a un <strong>singolo contenitore di scroll</strong> per la nota.</li>
-<li>L'header metadati <strong>scorre insieme al body</strong> come un normale blocco in cima: <strong>non</strong> è sticky
-  e <strong>non</strong> è collassabile — esce dalla vista verso l'alto man mano che si legge.</li>
-<li>Rimossa la doppia coppia <code>overflow: auto</code> annidata (root cause confermata dal DOM).</li>
-<li>Compatibilità I5 preservata: nessuna modifica al rendering del frontmatter o al body Markdown.</li>
-</ul>
-<h2 id="ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5">WS-D8 — Nodo albero "Vault / Meta" (schema.md + purpose.md) [K1, K6, I5]<a class="headerlink" href="#ws-d8-nodo-albero-vault-meta-schemamd-purposemd-k1-k6-i5" title="Permanent link">&para;</a></h2>
-<p><code>schema.md</code> e <code>purpose.md</code> sono scritti al bootstrap ma non erano mai indicizzati come Page
-record, quindi non comparivano nell'albero:</p>
-<ul>
-<li>Nuova sezione <strong>"Vault / Meta"</strong> in fondo all'albero wiki, sempre presente, con due voci
-  fisse: <code>schema.md</code> e <code>purpose.md</code>.</li>
-<li>Clic sulla voce → contenuto del file nel pannello editor/preview tramite il path di lettura
-  esistente.</li>
-<li>Nuovo endpoint <strong><code>GET /vault/meta?vault_id=default</code></strong> che legge i due file direttamente da
-  disco (nessuna query Postgres, nessun upsert Qdrant, nessuna pipeline ingest — I1 preservato).</li>
-<li>Se uno dei file è assente (fresh install prima del bootstrap), la voce mostra
-  "Not yet generated" senza crash (AC-WS-D8-6).</li>
-<li>I file rimangono Markdown Obsidian-valid con frontmatter YAML (I5); il drawer è read-only
-  dall'albero.</li>
-<li><code>MetaFileView</code> usa la classe condivisa <code>synapse-markdown__body prose</code> (allineamento CSS).</li>
-<li>Il proxy Vite dev (<code>frontend/vite.config.ts</code>) ora instrada correttamente <code>/vault</code> verso il
-  backend (il path mancava, causando 404 in sviluppo).</li>
-</ul>
-<h2 id="ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18">WS-G — Verifica automazioni pianificate [K2, F3, F16, F18]<a class="headerlink" href="#ws-g-verifica-automazioni-pianificate-k2-f3-f16-f18" title="Permanent link">&para;</a></h2>
-<p>Verificata la funzionalità delle quattro operazioni pianificate (<code>lint</code>, <code>backfill-domains</code>,
-<code>schema_review</code>, <code>reclassify</code>) dopo le modifiche di formato di v1.3.5 (log.md narrativo,
-frontmatter timestamps, schema.md completo). Nessuna regressione rilevata; eventuali fix
-applicati sono stati circoscritti al ripristino del comportamento pre-v1.3.5.</p>
-<hr />
-<h2 id="artefatti-documentazione-i8">Artefatti documentazione (I8)<a class="headerlink" href="#artefatti-documentazione-i8" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>docs/api/openapi.json</code> — rigenerato via <code>make openapi</code>: <code>GET /vault/meta</code> ora presente
-  (83 path totali, +1 rispetto a v1.3.5).</li>
-<li><code>docs/er/schema.mmd</code> — invariato (nessuna migration in v1.3.6; verifica <code>git diff</code> vuota).</li>
-<li>Diagrammi di sequenza — invariati (nessun nuovo loop multi-attore).</li>
-</ul>
-<hr />
-<h2 id="note">Note<a class="headerlink" href="#note" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>WS-E</strong> (wizard Domani/Gruppi) e <strong>WS-F</strong> (ristrutturazione Settings) rimandati a <strong>v1.3.7</strong>.
-  Richiedono ciascuno un ADR (filtro <code>/search</code> per WS-E; IA Settings per WS-F) che non è stato
-  avviato in questo sprint.</li>
-<li>L'endpoint <code>GET /vault/meta</code> accetta il param <code>vault_id</code> per compatibilità futura con
-  il modello multi-vault (v2.0), ma attualmente lo ignora — path risolto sempre da
-  <code>settings.vault_root</code>.</li>
-</ul>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>No schema migrations. <code>docs/er/schema.mmd</code> is unchanged.</p>
+<p><strong>One behaviour change worth knowing about before you upgrade:</strong> from 2.1.8, setting,
+rotating, or clearing the MCP token in Settings will disconnect any claude.ai Custom
+connector that authenticated over OAuth. That is the intended behaviour — it is what those
+buttons were always supposed to do — but if you rotate the token as routine hygiene, expect
+to re-authorize the connector afterwards (open the connector, click Connect, approve with
+the new token). Claude Desktop and other clients using the static bearer token directly are
+unaffected beyond the usual need to update their configured token.</p>
+<p>Nothing needs to be done for the <code>redirect_uri</code> change unless you had a client registered
+against a non-loopback <code>http://</code> URI, which the old check would only have accepted if its
+host started with the literal string <code>localhost</code>.</p>
 
 
 
