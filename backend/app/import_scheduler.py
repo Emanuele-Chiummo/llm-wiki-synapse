@@ -200,6 +200,15 @@ def _write_extracted_companion(dst: Path) -> bool:
     return True
 
 
+def _later_of(a: datetime | None, b: datetime | None) -> datetime | None:
+    """Return the later of two optional timestamps (None is 'never'), or None if both are None."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return max(a, b)
+
+
 def _iter_scan_entries(source_path: Path, *, recursive: bool) -> list[os.DirEntry[str]]:
     """
     Return the DirEntry files to consider for one scan (R7-6).
@@ -426,6 +435,12 @@ class ImportScheduler:
         # Populated by initialize() from app_config at startup; updated after each
         # successful scan so the _run() loop computes remaining sleep correctly.
         self._last_run_at: datetime | None = None
+        # Last scan ATTEMPT timestamp — success or failure (I7).
+        # _last_run_at alone cannot pace the loop: it only advances on success, so a scan
+        # that keeps RAISING leaves it frozen, `full_interval - elapsed` stays <= 0, and
+        # _run() spins with a zero-second sleep. Never persisted (a failed attempt must not
+        # look like a completed run across a restart) — purely the in-memory retry clock.
+        self._last_attempt_at: datetime | None = None
 
     async def initialize(self) -> None:
         """
@@ -535,9 +550,17 @@ class ImportScheduler:
             # since the last successful scan (from _last_run_at, loaded by initialize()).
             # This prevents an immediate re-scan after a container restart.
             # Use self._clock.now() so tests with a mock clock control the perceived time.
-            if enabled and self._last_run_at is not None:
+            #
+            # Paced from the later of last SUCCESS and last ATTEMPT: a scan that raises
+            # never advances _last_run_at, so pacing on that alone made `full_interval -
+            # elapsed` clamp to 0.0 on every subsequent iteration — a persistently failing
+            # scan (e.g. raw_sources.mkdir hitting a read-only or full vault volume) turned
+            # this loop into an unbounded zero-delay retry storm (I7). The attempt clock
+            # keeps a failed run one full interval away from the next try.
+            reference = _later_of(self._last_run_at, self._last_attempt_at)
+            if enabled and reference is not None:
                 clock_now = self._clock.now()
-                elapsed = (clock_now - self._last_run_at).total_seconds()
+                elapsed = (clock_now - reference).total_seconds()
                 sleep_secs = max(0.0, full_interval - elapsed)
             else:
                 sleep_secs = full_interval
@@ -608,6 +631,10 @@ class ImportScheduler:
                     logger.debug("ImportScheduler: failed to persist error status: %s", write_exc)
             finally:
                 self._scan_in_flight = False
+                # Advance the retry clock on EVERY exit — success, failure, or cancellation
+                # (I7). Measured from completion, matching how _last_run_at is stamped on the
+                # success path, so one attempt per interval is the ceiling either way.
+                self._last_attempt_at = self._clock.now()
 
 
 # ── Module-level singleton (initialised in main.py lifespan) ─────────────────
