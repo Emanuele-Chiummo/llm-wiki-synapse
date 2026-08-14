@@ -706,6 +706,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pypdf-le-advisory-aperte-sono-salite-da-24-a-40-il-salto-a-6x-e-sempre-piu-urgente" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf: le advisory aperte sono salite da 24 a 40 — il salto a 6.x è sempre più urgente
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#le-dipendenze-di-buildtest-del-frontend-hanno-11-advisory-tutte-dietro-un-major" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le dipendenze di build/test del frontend hanno 11 advisory, tutte dietro un major
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -921,6 +943,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.9/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.9
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2241,6 +2291,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pypdf-le-advisory-aperte-sono-salite-da-24-a-40-il-salto-a-6x-e-sempre-piu-urgente" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf: le advisory aperte sono salite da 24 a 40 — il salto a 6.x è sempre più urgente
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#le-dipendenze-di-buildtest-del-frontend-hanno-11-advisory-tutte-dietro-un-major" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le dipendenze di build/test del frontend hanno 11 advisory, tutte dietro un major
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2550,6 +2622,39 @@ giorno senza mai ripagarsi.</p>
   client (TTL sui client senza token attivi + pruning), il che si incastra naturalmente con
   la voce precedente sulla superficie di revoca.</li>
 <li><strong>Trovato:</strong> 2026-08-07</li>
+</ul>
+<h3 id="pypdf-le-advisory-aperte-sono-salite-da-24-a-40-il-salto-a-6x-e-sempre-piu-urgente">pypdf: le advisory aperte sono salite da 24 a 40 — il salto a 6.x è sempre più urgente<a class="headerlink" href="#pypdf-le-advisory-aperte-sono-salite-da-24-a-40-il-salto-a-6x-e-sempre-piu-urgente" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> aggiornamento della voce del 2026-08-07 (che resta valida in pieno, incluso
+  l'impatto e lo sforzo). <code>pip-audit</code> oggi riporta <strong>40</strong> advisory su <code>pypdf==5.9.0</code>, non più
+  24: alle famiglie già note si sono aggiunte PYSEC-2026-1827…1833 (fix da 6.0.0 a 6.6.2) e
+  PYSEC-2026-3655/3656 (fix in 6.15.0). Il quadro non cambia di natura — nessuna advisory è
+  corretta in una 5.x, la fix più bassa è ora 6.0.0 e la più alta 6.15.0 — ma il ritmo con cui
+  la lista cresce (+16 in una settimana) dice che rimandare ha un costo crescente.</li>
+<li><strong>Evidenza:</strong> <code>backend/pyproject.toml:34</code> (<code>"pypdf&gt;=4.2,&lt;6"</code>); <code>.venv/bin/python -m pip_audit</code>
+  al 2026-08-14.</li>
+<li><strong>Impatto:</strong> invariato rispetto alla voce originale (pypdf è l'estrattore PDF di default e il
+  fallback incondizionato di Marker/MinerU), ma la superficie cresce a ogni settimana di attesa.</li>
+<li><strong>Sforzo:</strong> M — invariato. Resta un major, quindi fuori dal mandato della routine settimanale.</li>
+<li><strong>Trovato:</strong> 2026-08-14</li>
+</ul>
+<h3 id="le-dipendenze-di-buildtest-del-frontend-hanno-11-advisory-tutte-dietro-un-major">Le dipendenze di build/test del frontend hanno 11 advisory, tutte dietro un major<a class="headerlink" href="#le-dipendenze-di-buildtest-del-frontend-hanno-11-advisory-tutte-dietro-un-major" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>npm audit</code> riporta 11 vulnerabilità (2 critical, 6 high, 3 moderate) su
+  <code>vitest</code>/<code>@vitest/coverage-v8</code> (critical, <code>&lt;=3.2.5</code>), <code>vite</code> (high, <code>&lt;=6.4.2</code>), più le
+  transitive <code>postcss</code>, <code>nanoid</code>, <code>esbuild</code>, <code>js-yaml</code>, <code>brace-expansion</code>, <code>fast-uri</code>,
+  <code>@vitest/mocker</code>, <code>vite-node</code>. Le fix richiedono <code>npm audit fix --force</code>, cioè major su
+  vitest e vite.</li>
+<li><strong>Evidenza:</strong> <code>npm audit</code> da <code>frontend/</code> al 2026-08-14; <code>frontend/package.json</code>
+  (<code>vite</code>, <code>vitest</code>, <code>@vitest/coverage-v8</code> in <code>devDependencies</code>).</li>
+<li><strong>Impatto:</strong> <strong>basso e circoscritto.</strong> <code>npm audit --omit=dev</code> riporta <strong>0 vulnerabilità</strong>:
+  nulla di tutto questo finisce nel bundle servito all'utente. È superficie di build e di test,
+  sfruttabile solo da chi controlla già il sorgente o l'ambiente CI. Per questo NON è stata
+  toccata in 2.1.9: un major su vite+vitest tocca la configurazione di build, i 123 file di test
+  e la pipeline E2E — l'esatto opposto di una patch a basso rischio.</li>
+<li><strong>Sforzo:</strong> M/L. Vanno fatti insieme (vitest 4 richiede vite 7), con rilettura di
+  <code>vite.config.ts</code>, dei setup di vitest e del job E2E in CI.</li>
+<li><strong>Trovato:</strong> 2026-08-14</li>
 </ul>
 
 

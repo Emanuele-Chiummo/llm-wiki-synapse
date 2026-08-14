@@ -12,13 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.2.6/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.9/">
       
       
-        <link rel="prev" href="../v1.3.0/">
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
       
       
-        <link rel="next" href="../v1.2.5/">
+        <link rel="next" href="../v2.1.8/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>v1.2.6 - Synapse</title>
+        <title>v2.1.9 - Synapse</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synapse-126-ingest-bulk-senza-oom" class="md-skip">
+        <a href="#synapse-v219-one-attempt-per-interval" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              v1.2.6
+              v2.1.9
             
           </span>
         </div>
@@ -708,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v2.1.9/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.9
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -727,6 +754,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-failing-scheduled-import-spun-the-scheduler-loop-at-zero-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A failing scheduled import spun the scheduler loop at zero delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-concurrent-marker-submissions-could-both-start-a-batch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two concurrent Marker submissions could both start a batch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-fixed-deliberately" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not fixed — deliberately
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1744,37 +1852,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    v1.2.6
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1790,37 +1871,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#fix" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Fix
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1944,10 +1994,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#fix" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Fix
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-failing-scheduled-import-spun-the-scheduler-loop-at-zero-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A failing scheduled import spun the scheduler loop at zero delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#two-concurrent-marker-submissions-could-both-start-a-batch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Two concurrent Marker submissions could both start a batch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-fixed-deliberately" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Not fixed — deliberately
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
       
     </span>
   </a>
@@ -1971,12 +2071,108 @@
 
 
 
-<h1 id="synapse-126-ingest-bulk-senza-oom">Synapse 1.2.6 — ingest bulk senza OOM 🛡️<a class="headerlink" href="#synapse-126-ingest-bulk-senza-oom" title="Permanent link">&para;</a></h1>
-<p>Release singola con un fix di robustezza importante per l'uso reale.</p>
-<h2 id="fix">Fix<a class="headerlink" href="#fix" title="Permanent link">&para;</a></h2>
+<h1 id="synapse-v219-one-attempt-per-interval">Synapse v2.1.9 — "one attempt per interval"<a class="headerlink" href="#synapse-v219-one-attempt-per-interval" title="Permanent link">&para;</a></h1>
+<p>Patch release fixing two latent defects — one pacing, one concurrency — found by reading the
+scheduler and Marker code during weekly maintenance. No schema migrations, no new endpoints,
+no API changes.</p>
+<p>Like 2.1.8, neither of these came from a live failure report. Both are the kind of defect that
+stays invisible while everything works and only shows up on the bad day: one needs a scheduled
+import to start failing, the other needs two submissions to overlap. Neither is a security
+issue.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="a-failing-scheduled-import-spun-the-scheduler-loop-at-zero-delay">A failing scheduled import spun the scheduler loop at zero delay<a class="headerlink" href="#a-failing-scheduled-import-spun-the-scheduler-loop-at-zero-delay" title="Permanent link">&para;</a></h3>
+<p><code>ImportScheduler._run()</code> decides how long to sleep before the next scan with:</p>
+<div class="highlight"><pre><span></span><code><span class="n">elapsed</span> <span class="o">=</span> <span class="p">(</span><span class="n">clock_now</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_run_at</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+<span class="n">sleep_secs</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">full_interval</span> <span class="o">-</span> <span class="n">elapsed</span><span class="p">)</span>
+</code></pre></div>
+<p><code>_last_run_at</code> is assigned in exactly one place — <code>self._last_run_at = run_at</code>, on the success
+path, after <code>_scan_fn</code> has returned. That is correct for the job it was written for (R13-4/T4:
+after a container restart, don't re-scan immediately if the last scan was recent). It is the
+wrong clock for pacing retries.</p>
+<p>When a scan <strong>raises</strong> instead of returning, <code>_last_run_at</code> stays frozen at the last success.
+On the next iteration <code>elapsed</code> is already ≥ <code>full_interval</code>, so <code>max(0.0, …)</code> clamps the sleep
+to <code>0.0</code>. The scan fires again, raises again, and the reference still does not move. The result
+is an unbounded zero-delay retry loop (I7) that burns CPU, hammers the DB with
+<code>upsert_schedule</code> writes, and floods the log — and that nothing clears short of a container
+restart.</p>
+<p>The distinction that matters is <em>raising</em> versus <em>returning an error</em>. <code>run_one_scan()</code> handles
+most failure modes gracefully and returns a <code>("dir_missing" | "error", …)</code> tuple; those paths
+already advanced <code>_last_run_at</code> and paced correctly. The raising paths are narrower but real —
+most plainly <code>raw_sources.mkdir(parents=True, exist_ok=True)</code>, which sits <em>above</em> the
+<code>try/except (PermissionError, OSError)</code> that guards the directory scan. A vault volume that
+goes read-only or fills up (an ordinary enough NAS event) raises <code>OSError</code> there, straight out
+of the scan and into the loop's <code>except</code>.</p>
+<p>Fixed by pacing on the later of last <strong>success</strong> and last <strong>attempt</strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">reference</span> <span class="o">=</span> <span class="n">_later_of</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_last_run_at</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_attempt_at</span><span class="p">)</span>
+</code></pre></div>
+<p><code>_last_attempt_at</code> is stamped in the <code>finally</code> on every exit — success, failure, or
+cancellation — and measured from completion, matching how <code>_last_run_at</code> is stamped on the
+success path, so "one attempt per interval" is the ceiling either way. It is deliberately
+<strong>never persisted</strong>: a failed attempt must not look like a completed run across a restart, so
+the R13-4/T4 catch-up behaviour is untouched, and a genuinely overdue run still fires
+immediately on the first tick.</p>
+<p>Regression test <code>T-SP-010</code> drives a <code>scan_fn</code> that raises on every tick and asserts the sleeps
+stay at the full interval. Without the fix it records <code>[0.0, 0.0, 0.0, 0.0]</code>.</p>
+<h3 id="two-concurrent-marker-submissions-could-both-start-a-batch">Two concurrent Marker submissions could both start a batch<a class="headerlink" href="#two-concurrent-marker-submissions-could-both-start-a-batch" title="Permanent link">&para;</a></h3>
+<p><code>POST /ingest/convert-marker</code> is single-flight by design — Marker is a single-GPU service that
+returns 429 under concurrent load, so the driver serialises every call. The guard was:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="n">is_running</span><span class="p">():</span>
+    <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">409</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</code></pre></div>
+<p>But <code>is_running()</code> is <code>_current_batch is not None and _current_batch.running</code>, and
+<code>_current_batch</code> is only assigned by <code>start_marker_batch()</code> — which the handler calls <em>after</em>
+reading the entire upload. That read accepts up to <code>MARKER_MAX_UPLOAD_BYTES</code> (a deliberately
+large cap, since big PDFs are chunked by page range) and can take minutes. For that whole
+window the endpoint reports <code>running=False</code> while a submission is very much in progress:
+textbook check-then-act across a long <code>await</code>.</p>
+<p>Two submissions overlapping in that window both passed the guard and both reached
+<code>start_marker_batch()</code>. The second overwrote both module globals:</p>
 <ul>
-<li><strong>Concorrenza dell'ingest limitata (ADR-0056)</strong>: trascinare decine di file in <code>raw/sources/</code> lanciava altrettanti ingest simultanei — pool DB esaurito, GPU sommersa di richieste embedding, picco RAM fino al crash dell'host. Ora un semaforo (<code>INGEST_MAX_CONCURRENCY</code>, default 3) processa tutto in coda ordinata: cambia il <em>quando</em>, mai il <em>se</em> (I7)</li>
+<li><code>_current_batch</code> — the first batch vanished from <code>GET /ingest/convert-marker/status</code>, so its
+  progress became unobservable;</li>
+<li><code>_current_task</code> — the first task lost its only strong reference. <code>asyncio.create_task()</code>
+  keeps just a weak one, so the first conversion became eligible for garbage collection
+  mid-run. This is precisely the BE-BUG-1 hazard the codebase guards against elsewhere with
+  <code>_bg_tasks</code> strong-reference sets.</li>
 </ul>
+<p>And both conversions ran against the single GPU the guard exists to protect. A double-click on
+"Convert" is enough to reach this.</p>
+<p>Fixed with a synchronous claim, the same shape <code>ImportScheduler.run_now</code> already uses (the B9
+fix): <code>try_claim()</code> reads and sets the flag with no <code>await</code> in between, so two callers can
+never both succeed. The slot is taken <em>before</em> the upload read and handed over to
+<code>is_running()</code> when the batch is armed. The handler body now runs inside a <code>try/finally</code> that
+calls <code>release_claim()</code>, so a 413/415/500 or a client disconnect frees the slot instead of
+wedging the endpoint at a permanent 409 — releasing after a successful arm is a harmless no-op,
+since ownership has already passed to <code>_current_batch</code>.</p>
+<p>The regression test parks request A inside <code>UploadFile.read</code> on an <code>asyncio.Event</code>, issues
+request B in full, and asserts B gets 409 and exactly one batch is armed. Without the fix B
+gets 202 and two batches are armed.</p>
+<h2 id="not-fixed-deliberately">Not fixed — deliberately<a class="headerlink" href="#not-fixed-deliberately" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><code>pypdf</code> advisories are now 40, up from 24 a week ago.</strong> Still no fix available in any 5.x
+  (the lowest fixed version is 6.0.0), so closing this means a major bump past the
+  <code>pypdf&gt;=4.2,&lt;6</code> pin — out of scope for a patch. The backlog entry in
+  <code>docs/reference/ROADMAP-3.0-IDEAS.md</code> has been updated with the new count.</li>
+<li><strong>11 npm advisories in frontend build/test tooling</strong> (<code>vitest</code>, <code>vite</code>, and transitives).
+  <code>npm audit --omit=dev</code> reports <strong>0</strong> — none of this ships in the bundle. Fixing it requires
+  major bumps to vite and vitest together, touching the build config, 123 test files, and the
+  E2E job. Recorded in the 3.0 backlog instead.</li>
+</ul>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>None. This release is a drop-in replacement for 2.1.8:</p>
+<ul>
+<li>No database migrations — <code>alembic upgrade head</code> is a no-op relative to 2.1.8.</li>
+<li>No configuration changes, no new environment variables.</li>
+<li>No API surface changes: <code>docs/api/openapi.json</code> differs from 2.1.8 only in the version
+  string.</li>
+<li>Both fixes are internal to the backend. <code>_last_attempt_at</code> is in-memory only and starts as
+  <code>None</code>, so the first tick after upgrading behaves exactly as before.</li>
+</ul>
+<p>Pull the new image and restart as usual:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<p>Desktop users: the macOS and Windows bundles for 2.1.9 are published as release assets and the
+Tauri updater will offer them automatically.</p>
 
 
 
