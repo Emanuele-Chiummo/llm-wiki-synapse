@@ -71,11 +71,43 @@ class MarkerBatch:
 
 _current_batch: MarkerBatch | None = None
 _current_task: asyncio.Task[None] | None = None
+# Slot claimed by a request that is still reading its uploads (see try_claim()).
+_claim_pending: bool = False
 
 
 def is_running() -> bool:
     """Return True if a conversion batch is currently in progress."""
     return _current_batch is not None and _current_batch.running
+
+
+def try_claim() -> bool:
+    """
+    Atomically claim the single-flight slot; return False if it is already taken.
+
+    Synchronous by design — no await between the read and the write, so two concurrent
+    requests can never both succeed (same B9 shape as ``ImportScheduler.run_now``).
+    ``is_running()`` alone was not enough for POST /ingest/convert-marker: it was checked
+    BEFORE the handler read up to MARKER_MAX_UPLOAD_BYTES from the socket, and the batch
+    is only armed after that read. Two submissions overlapping in that (arbitrarily long)
+    window both saw ``running=False``, so both proceeded to ``start_marker_batch()`` —
+    the second overwrote ``_current_batch``/``_current_task``, dropping the first batch's
+    only strong task reference and running two conversions against the single GPU that
+    the guard exists to protect.
+
+    The caller MUST ``release_claim()`` on every path that does not reach
+    ``start_marker_batch()`` (which clears the claim itself once the batch is armed).
+    """
+    global _claim_pending
+    if _claim_pending or is_running():
+        return False
+    _claim_pending = True
+    return True
+
+
+def release_claim() -> None:
+    """Release a slot taken by ``try_claim()``. Idempotent."""
+    global _claim_pending
+    _claim_pending = False
 
 
 def get_current_task() -> asyncio.Task[None] | None:
@@ -90,9 +122,10 @@ def _reset_state() -> None:
     FOR TESTING ONLY — not exposed in production paths.  Call this in a pytest
     fixture (autouse=True, scope="function") to prevent state pollution across tests.
     """
-    global _current_batch, _current_task
+    global _current_batch, _current_task, _claim_pending
     _current_batch = None
     _current_task = None
+    _claim_pending = False
 
 
 def get_marker_batch_progress() -> dict[str, Any]:
@@ -159,11 +192,13 @@ def start_marker_batch(
     The ``eff_marker_url`` and ``eff_marker_timeout`` are captured at enqueue time so
     runtime config changes do not affect an in-flight batch.
     """
-    global _current_batch, _current_task
+    global _current_batch, _current_task, _claim_pending
 
     batch_id = uuid.uuid4()
     batch = MarkerBatch(batch_id=batch_id, entries=entries)
     _current_batch = batch
+    # The armed batch now holds the slot via is_running() — hand it over from the claim.
+    _claim_pending = False
 
     coro = _marker_batch_driver(
         batch,
