@@ -523,3 +523,97 @@ class TestImportSchedulerPersistOnScan:
         # And persisted to DB
         saved = await load_scheduler_ts("import_scheduler.last_run")
         assert saved is not None
+
+
+# ── T-SP-010: failing scan must not spin the loop at zero delay (I7) ──────────
+
+
+class _AdvancingClock:
+    """
+    Mock clock that ADVANCES on sleep and survives many iterations.
+
+    Unlike _ImportMockClock (which cancels on the first sleep to snapshot one value),
+    this one lets _run() iterate so the *pacing across repeated failures* is observable.
+    Cancels once `max_sleeps` sleeps have been recorded, to bound the test.
+    """
+
+    def __init__(self, start: datetime, max_sleeps: int = 4) -> None:
+        self._now = start
+        self.sleep_calls: list[float] = []
+        self._max_sleeps = max_sleeps
+
+    async def sleep(self, seconds: float) -> None:
+        self.sleep_calls.append(seconds)
+        # Advance perceived time by the slept amount, as a real clock would.
+        self._now = self._now + timedelta(seconds=seconds)
+        if len(self.sleep_calls) >= self._max_sleeps:
+            raise asyncio.CancelledError()
+
+    def now(self) -> datetime:
+        return self._now
+
+
+class TestImportSchedulerFailedScanPacing:
+    async def test_persistently_failing_scan_does_not_spin_at_zero_delay(
+        self, db_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        T-SP-010 (regression): a scan that RAISES every tick must stay paced at one
+        attempt per interval.
+
+        Before the fix, _run() paced itself only on _last_run_at, which advances on the
+        success path alone. A scan_fn that raises left it frozen, so on every subsequent
+        iteration `max(0.0, full_interval - elapsed)` clamped to 0.0 and the loop became an
+        unbounded zero-delay retry storm (I7) — one that only a container restart cleared.
+        """
+        from app.import_scheduler import FREQ_SECONDS, ImportScheduler
+        from app.scheduler_state import load_scheduler_ts
+
+        start = datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC)
+        clock = _AdvancingClock(start=start, max_sleeps=4)
+
+        mock_cfg = MagicMock()
+        mock_cfg.enabled = True
+        mock_cfg.frequency = "1h"
+        mock_cfg.source_dir = "/some/dir"
+
+        async def mock_load_schedule(vault_id: str) -> Any:
+            return mock_cfg
+
+        async def mock_upsert_schedule(vault_id: str, **kwargs: Any) -> None:
+            pass
+
+        monkeypatch.setattr("app.import_scheduler.load_schedule", mock_load_schedule)
+        monkeypatch.setattr("app.import_scheduler.upsert_schedule", mock_upsert_schedule)
+
+        # Simulate the realistic trigger: the vault volume went read-only, so the scan
+        # raises on every attempt (raw_sources.mkdir → OSError) rather than returning a
+        # graceful ("dir_missing", …) tuple.
+        scan_fn = AsyncMock(side_effect=OSError("[Errno 30] Read-only file system"))
+        scheduler = ImportScheduler(clock=clock, scan_fn=scan_fn)
+        # A previously-successful run, now well past due (the catch-up state).
+        scheduler._last_run_at = start - timedelta(hours=2)
+
+        try:
+            await asyncio.wait_for(scheduler._run(), timeout=5.0)
+        except (TimeoutError, asyncio.CancelledError):
+            pass
+
+        assert len(clock.sleep_calls) >= 3, "loop should have iterated several times"
+
+        # The FIRST sleep is legitimately 0.0 — the run is genuinely overdue by an hour,
+        # so catching up immediately is the documented R13-4/T4 behaviour.
+        assert clock.sleep_calls[0] == 0.0
+
+        # Every sleep AFTER a failed attempt must be a full interval. Without the fix
+        # these are all 0.0 and the loop spins.
+        for i, slept in enumerate(clock.sleep_calls[1:], start=1):
+            assert slept == FREQ_SECONDS["1h"], (
+                f"sleep #{i} was {slept}s — a failing scan must not re-fire "
+                f"before the next interval (got sleeps={clock.sleep_calls})"
+            )
+
+        # And a failed attempt must NOT be recorded as a successful run, in memory or on disk.
+        assert scheduler._last_run_at == start - timedelta(hours=2)
+        saved = await load_scheduler_ts("import_scheduler.last_run")
+        assert saved is None

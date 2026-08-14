@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.9] — 2026-08-14 — "one attempt per interval"
+
+Patch release fixing two latent concurrency/pacing defects found by reading the scheduler
+and Marker code during weekly maintenance. Neither came from a live failure. No schema
+migrations, no API changes.
+
+### Fixed
+
+- **A failing scheduled import spun the scheduler loop at zero delay**: `ImportScheduler._run()`
+  computed its sleep as `max(0.0, full_interval - elapsed)` against `_last_run_at` — a
+  timestamp that only advances on the success path (`self._last_run_at = run_at`, set after
+  `_scan_fn` returns). A scan that *raises* rather than returning a graceful
+  `("dir_missing", …)` tuple therefore left the reference frozen, so from the next iteration
+  onward `elapsed` was always ≥ the interval, the sleep clamped to `0.0`, and the loop
+  re-fired the scan continuously — an unbounded retry storm (I7) that only a container restart
+  cleared, burning CPU and spamming both the log and the DB. Root cause: the loop paced itself
+  on the *success* clock while the retry path needs an *attempt* clock. The realistic trigger
+  is a vault volume going read-only or full — `run_one_scan()` wraps the scandir in
+  `try/except OSError` but not the `raw_sources.mkdir()` above it, so an `OSError` there
+  propagates out of the scan. Note this is specifically the raising path: a graceful error
+  return already advanced `_last_run_at` and paced correctly. Fixed by pacing on the later of
+  last success and last attempt, with `_last_attempt_at` stamped in the `finally` on every exit
+  (success, failure, cancellation) and measured from completion, matching how `_last_run_at` is
+  stamped on the success path. It is deliberately **not** persisted — a failed attempt must not
+  look like a completed run across a restart — so the R13-4/T4 catch-up behaviour after a
+  container restart is unchanged.
+- **Two concurrent Marker submissions could both start a batch**: `POST /ingest/convert-marker`
+  guarded itself with `if is_running(): 409`, but `is_running()` only becomes true once
+  `start_marker_batch()` arms `_current_batch` — which happens *after* the handler has read the
+  entire upload, up to `MARKER_MAX_UPLOAD_BYTES` and potentially minutes for a large PDF. Root
+  cause: check-then-act across a long `await`. Two submissions overlapping in that window both
+  observed `running=False` and both proceeded; the second overwrote `_current_batch` and
+  `_current_task`, which lost the first batch from the status endpoint, dropped the first
+  task's only strong reference (leaving it eligible for GC cancellation mid-conversion — the
+  BE-BUG-1 hazard the codebase guards against elsewhere), and put two conversions on the
+  single GPU the guard exists to serialise. A double-click on "Convert" is enough to reach it.
+  Fixed with a synchronous `try_claim()` / `release_claim()` pair — the same claim-before-await
+  shape already used by `ImportScheduler.run_now` (B9). The slot is taken before the read and
+  handed over to `is_running()` when the batch is armed; the handler body now runs inside a
+  `try/finally` so a 413/415/500 or a client disconnect releases the claim instead of wedging
+  the endpoint at a permanent 409.
+
 ## [2.1.8] — 2026-08-07 — "revoke means revoke"
 
 Patch release closing two defects in the MCP OAuth authorization server shipped in 2.1.6,

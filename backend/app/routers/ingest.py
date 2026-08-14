@@ -829,8 +829,9 @@ async def convert_marker(
 
     from app.marker_converter import (  # noqa: PLC0415
         MarkerFileEntry,
-        is_running,
+        release_claim,
         start_marker_batch,
+        try_claim,
     )
 
     # ── AC-R11-1-1: reject > 10 files ────────────────────────────────────────
@@ -841,7 +842,12 @@ async def convert_marker(
         )
 
     # ── Single-flight guard (Marker is single-GPU; one batch at a time) ──────
-    if is_running():
+    # try_claim() rather than is_running(): the batch is not armed until AFTER the upload
+    # read below, which can take minutes for a multi-hundred-MB PDF. A plain is_running()
+    # check left that whole window open for a second submission to pass the same guard
+    # (check-then-act). The claim is taken synchronously here and released in the finally
+    # below on every path that does not reach start_marker_batch().
+    if not try_claim():
         raise HTTPException(
             status_code=409,
             detail=(
@@ -850,116 +856,123 @@ async def convert_marker(
             ),
         )
 
-    # Dedicated cap for Marker (ADR-0065): large PDFs are chunked by page range, so this
-    # endpoint accepts far larger files than the 25 MB generic upload limit.
-    max_bytes: int = settings.marker_max_upload_bytes
+    # Everything from here to start_marker_batch() runs while holding the claim;
+    # the finally releases it so an upload error (413/415/500) or a client disconnect
+    # can never wedge the endpoint at a permanent 409. Releasing after a successful
+    # arm is a no-op: start_marker_batch() already handed the slot to is_running().
+    try:
+        # Dedicated cap for Marker (ADR-0065): large PDFs are chunked by page range, so this
+        # endpoint accepts far larger files than the 25 MB generic upload limit.
+        max_bytes: int = settings.marker_max_upload_bytes
 
-    # ── Read effective Marker settings (captured at enqueue time — ADR-0053) ─
-    _eff_marker_url: str = (
-        effective_str("marker_service_url", settings.marker_service_url)
-        or settings.marker_service_url
-    )
-    _eff_marker_timeout: float = effective_float(
-        "marker_timeout_seconds", settings.marker_timeout_seconds
-    )
-    _eff_marker_token: str | None = (
-        effective_str("marker_service_token", settings.marker_service_token)
-        or settings.marker_service_token
-    ) or None
+        # ── Read effective Marker settings (captured at enqueue time — ADR-0053) ─
+        _eff_marker_url: str = (
+            effective_str("marker_service_url", settings.marker_service_url)
+            or settings.marker_service_url
+        )
+        _eff_marker_timeout: float = effective_float(
+            "marker_timeout_seconds", settings.marker_timeout_seconds
+        )
+        _eff_marker_token: str | None = (
+            effective_str("marker_service_token", settings.marker_service_token)
+            or settings.marker_service_token
+        ) or None
 
-    raw_sources = settings.raw_sources_dir
-    raw_sources.mkdir(parents=True, exist_ok=True)
+        raw_sources = settings.raw_sources_dir
+        raw_sources.mkdir(parents=True, exist_ok=True)
 
-    entries: list[MarkerFileEntry] = []
-    accepted: list[MarkerConvertAcceptedFile] = []
+        entries: list[MarkerFileEntry] = []
+        accepted: list[MarkerConvertAcceptedFile] = []
 
-    for upload in files:
-        raw_name: str = upload.filename or ""
-        stem = Path(raw_name).stem if raw_name else "untitled"
-        suffix = Path(raw_name).suffix.lower() if raw_name else ""
+        for upload in files:
+            raw_name: str = upload.filename or ""
+            stem = Path(raw_name).stem if raw_name else "untitled"
+            suffix = Path(raw_name).suffix.lower() if raw_name else ""
 
-        # ── AC-R11-1-1: reject non-pdf ────────────────────────────────────────
-        if suffix != ".pdf":
-            raise HTTPException(
-                status_code=415,
-                detail=(
-                    f"File {raw_name!r} is not a PDF. "
-                    "POST /ingest/convert-marker accepts only .pdf files."
-                ),
-            )
+            # ── AC-R11-1-1: reject non-pdf ────────────────────────────────────────
+            if suffix != ".pdf":
+                raise HTTPException(
+                    status_code=415,
+                    detail=(
+                        f"File {raw_name!r} is not a PDF. "
+                        "POST /ingest/convert-marker accepts only .pdf files."
+                    ),
+                )
 
-        # ── Read raw bytes with size cap (AC-R11-1-1 / I7) ───────────────────
-        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".marker_tmp")
-        bytes_read = 0
-        try:
-            with open(tmp_fd, "wb") as tmp_file:
-                chunk_size = 65_536
-                while True:
-                    chunk = await upload.read(chunk_size)
-                    if not chunk:
-                        break
-                    bytes_read += len(chunk)
-                    if bytes_read > max_bytes:
-                        raise HTTPException(
-                            status_code=413,
-                            detail=(
-                                f"File {raw_name!r} exceeds the "
-                                f"{max_bytes // (1024 * 1024)} MB upload limit."
-                            ),
-                        )
-                    tmp_file.write(chunk)
-        except HTTPException:
+            # ── Read raw bytes with size cap (AC-R11-1-1 / I7) ───────────────────
+            tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".marker_tmp")
+            bytes_read = 0
+            try:
+                with open(tmp_fd, "wb") as tmp_file:
+                    chunk_size = 65_536
+                    while True:
+                        chunk = await upload.read(chunk_size)
+                        if not chunk:
+                            break
+                        bytes_read += len(chunk)
+                        if bytes_read > max_bytes:
+                            raise HTTPException(
+                                status_code=413,
+                                detail=(
+                                    f"File {raw_name!r} exceeds the "
+                                    f"{max_bytes // (1024 * 1024)} MB upload limit."
+                                ),
+                            )
+                        tmp_file.write(chunk)
+            except HTTPException:
+                Path(tmp_name).unlink(missing_ok=True)
+                raise
+            except Exception as exc:
+                Path(tmp_name).unlink(missing_ok=True)
+                raise HTTPException(status_code=500, detail=f"Upload read error: {exc}") from exc
+            finally:
+                await upload.close()
+
+            # ── Write raw PDF bytes to raw/sources/<stem>.pdf ────────────────────
+            safe_stem = _re.sub(r"[^a-z0-9_.-]", "_", stem.lower())[:100] or "upload"
+            pdf_name = f"{safe_stem}.pdf"
+            pdf_dst = raw_sources / pdf_name
+            pdf_bytes = Path(tmp_name).read_bytes()
             Path(tmp_name).unlink(missing_ok=True)
-            raise
-        except Exception as exc:
-            Path(tmp_name).unlink(missing_ok=True)
-            raise HTTPException(status_code=500, detail=f"Upload read error: {exc}") from exc
-        finally:
-            await upload.close()
+            pdf_dst.write_bytes(pdf_bytes)
 
-        # ── Write raw PDF bytes to raw/sources/<stem>.pdf ────────────────────
-        safe_stem = _re.sub(r"[^a-z0-9_.-]", "_", stem.lower())[:100] or "upload"
-        pdf_name = f"{safe_stem}.pdf"
-        pdf_dst = raw_sources / pdf_name
-        pdf_bytes = Path(tmp_name).read_bytes()
-        Path(tmp_name).unlink(missing_ok=True)
-        pdf_dst.write_bytes(pdf_bytes)
-
-        pdf_rel = str(pdf_dst.relative_to(settings.vault_root))
-        entries.append(
-            MarkerFileEntry(
-                file=raw_name,
-                safe_stem=safe_stem,
-                pdf_abs_path=str(pdf_dst),
+            pdf_rel = str(pdf_dst.relative_to(settings.vault_root))
+            entries.append(
+                MarkerFileEntry(
+                    file=raw_name,
+                    safe_stem=safe_stem,
+                    pdf_abs_path=str(pdf_dst),
+                )
             )
-        )
-        accepted.append(
-            MarkerConvertAcceptedFile(
-                file=raw_name,
-                safe_stem=safe_stem,
-                pdf_path=pdf_rel,
+            accepted.append(
+                MarkerConvertAcceptedFile(
+                    file=raw_name,
+                    safe_stem=safe_stem,
+                    pdf_path=pdf_rel,
+                )
             )
-        )
-        logger.info(
-            "convert_marker: saved %s → %s; queued for background Marker conversion",
-            raw_name,
-            pdf_dst,
+            logger.info(
+                "convert_marker: saved %s → %s; queued for background Marker conversion",
+                raw_name,
+                pdf_dst,
+            )
+
+        # ── Fire background conversion (concurrency=1, I7) ───────────────────────
+        batch = start_marker_batch(
+            entries=entries,
+            eff_marker_url=_eff_marker_url,
+            eff_marker_timeout=_eff_marker_timeout,
+            vault_root=settings.vault_root,
+            service_token=_eff_marker_token,
         )
 
-    # ── Fire background conversion (concurrency=1, I7) ───────────────────────
-    batch = start_marker_batch(
-        entries=entries,
-        eff_marker_url=_eff_marker_url,
-        eff_marker_timeout=_eff_marker_timeout,
-        vault_root=settings.vault_root,
-        service_token=_eff_marker_token,
-    )
-
-    return MarkerConvertAcceptResponse(
-        batch_id=str(batch.batch_id),
-        queued=accepted,
-        total=len(accepted),
-    )
+        return MarkerConvertAcceptResponse(
+            batch_id=str(batch.batch_id),
+            queued=accepted,
+            total=len(accepted),
+        )
+    finally:
+        release_claim()
 
 
 @router.get(

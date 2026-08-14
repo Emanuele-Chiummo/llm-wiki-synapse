@@ -673,3 +673,115 @@ async def test_marker_health_offline_when_unreachable() -> None:
     body = resp.json()
     assert body["status"] == "offline"
     assert "detail" in body
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression: single-flight claim covers the UPLOAD window, not just the batch
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_convert_marker_two_concurrent_submissions_arm_only_one_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Regression: a second submission arriving while the first is STILL READING its upload
+    must be rejected — before any batch exists.
+
+    The guard used to be a bare ``is_running()`` check, which stays False for the whole
+    upload phase (the batch is armed only after the last byte is read — potentially
+    minutes for a large PDF). Two submissions overlapping in that window both passed the
+    check, and the second's ``start_marker_batch()`` overwrote ``_current_batch`` and
+    ``_current_task`` — dropping the first batch's only strong task reference and putting
+    two conversions on the single GPU the guard exists to serialise.
+
+    Deterministic: request A is parked inside ``UploadFile.read`` on an event while
+    request B is issued in full.
+    """
+    import uuid as _uuid
+
+    import app.marker_converter as mc_mod
+    from app import config as cfg_mod
+    from starlette.datastructures import UploadFile
+
+    vault_path = tmp_path / "vault"
+    (vault_path / "raw" / "sources").mkdir(parents=True)
+    monkeypatch.setattr(cfg_mod.settings, "vault_path", str(vault_path))
+
+    gate = asyncio.Event()
+    parked = asyncio.Event()
+    orig_read = UploadFile.read
+
+    async def gated_read(self: UploadFile, size: int = -1) -> bytes:
+        # Park only the FIRST reader (request A) — B must be free to run to completion.
+        if not parked.is_set():
+            parked.set()
+            await gate.wait()
+        return await orig_read(self, size)
+
+    monkeypatch.setattr(UploadFile, "read", gated_read)
+
+    # Never actually fire the GPU driver; just record how many batches got armed.
+    armed: list[dict[str, Any]] = []
+
+    def fake_start(**kwargs: Any) -> Any:
+        armed.append(kwargs)
+        return mc_mod.MarkerBatch(batch_id=_uuid.uuid4(), entries=kwargs["entries"])
+
+    monkeypatch.setattr(mc_mod, "start_marker_batch", fake_start)
+
+    def _files() -> list[Any]:
+        return [("files", ("report.pdf", io.BytesIO(_make_pdf_bytes()), "application/pdf"))]
+
+    async with _make_client() as client:
+        task_a = asyncio.create_task(client.post("/ingest/convert-marker", files=_files()))
+        await asyncio.wait_for(parked.wait(), timeout=5.0)  # A is inside the upload read
+
+        resp_b = await client.post("/ingest/convert-marker", files=_files())
+
+        gate.set()
+        resp_a = await asyncio.wait_for(task_a, timeout=5.0)
+
+    assert (
+        resp_b.status_code == 409
+    ), f"second submission during the upload window should 409, got {resp_b.status_code}"
+    assert "already running" in resp_b.text.lower()
+    assert resp_a.status_code == 202
+    assert len(armed) == 1, f"exactly one batch may be armed, got {len(armed)}"
+
+
+@pytest.mark.asyncio
+async def test_convert_marker_claim_released_when_upload_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A rejected upload must release the claim — otherwise the first 413 would wedge the
+    endpoint at a permanent 409 until the process restarted.
+    """
+    import app.marker_converter as mc_mod
+    from app import config as cfg_mod
+
+    vault_path = tmp_path / "vault"
+    (vault_path / "raw" / "sources").mkdir(parents=True)
+    monkeypatch.setattr(cfg_mod.settings, "vault_path", str(vault_path))
+    monkeypatch.setattr(cfg_mod.settings, "marker_max_upload_bytes", 1)
+
+    files = [("files", ("big.pdf", io.BytesIO(_make_pdf_bytes()), "application/pdf"))]
+    async with _make_client() as client:
+        resp = await client.post("/ingest/convert-marker", files=files)
+
+    assert resp.status_code == 413
+    # Slot is free again for the next caller.
+    assert mc_mod.try_claim() is True
+
+
+@pytest.mark.asyncio
+async def test_convert_marker_claim_is_not_reentrant() -> None:
+    """try_claim() is the single-flight primitive: one holder at a time, until released."""
+    import app.marker_converter as mc_mod
+
+    assert mc_mod.try_claim() is True
+    assert mc_mod.try_claim() is False
+    mc_mod.release_claim()
+    assert mc_mod.try_claim() is True
+    mc_mod.release_claim()

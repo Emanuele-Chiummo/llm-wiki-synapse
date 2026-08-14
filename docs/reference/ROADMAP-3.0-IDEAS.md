@@ -324,3 +324,36 @@ giorno senza mai ripagarsi.
   client (TTL sui client senza token attivi + pruning), il che si incastra naturalmente con
   la voce precedente sulla superficie di revoca.
 - **Trovato:** 2026-08-07
+
+### pypdf: le advisory aperte sono salite da 24 a 40 — il salto a 6.x è sempre più urgente
+
+- **Problema:** aggiornamento della voce del 2026-08-07 (che resta valida in pieno, incluso
+  l'impatto e lo sforzo). `pip-audit` oggi riporta **40** advisory su `pypdf==5.9.0`, non più
+  24: alle famiglie già note si sono aggiunte PYSEC-2026-1827…1833 (fix da 6.0.0 a 6.6.2) e
+  PYSEC-2026-3655/3656 (fix in 6.15.0). Il quadro non cambia di natura — nessuna advisory è
+  corretta in una 5.x, la fix più bassa è ora 6.0.0 e la più alta 6.15.0 — ma il ritmo con cui
+  la lista cresce (+16 in una settimana) dice che rimandare ha un costo crescente.
+- **Evidenza:** `backend/pyproject.toml:34` (`"pypdf>=4.2,<6"`); `.venv/bin/python -m pip_audit`
+  al 2026-08-14.
+- **Impatto:** invariato rispetto alla voce originale (pypdf è l'estrattore PDF di default e il
+  fallback incondizionato di Marker/MinerU), ma la superficie cresce a ogni settimana di attesa.
+- **Sforzo:** M — invariato. Resta un major, quindi fuori dal mandato della routine settimanale.
+- **Trovato:** 2026-08-14
+
+### Le dipendenze di build/test del frontend hanno 11 advisory, tutte dietro un major
+
+- **Problema:** `npm audit` riporta 11 vulnerabilità (2 critical, 6 high, 3 moderate) su
+  `vitest`/`@vitest/coverage-v8` (critical, `<=3.2.5`), `vite` (high, `<=6.4.2`), più le
+  transitive `postcss`, `nanoid`, `esbuild`, `js-yaml`, `brace-expansion`, `fast-uri`,
+  `@vitest/mocker`, `vite-node`. Le fix richiedono `npm audit fix --force`, cioè major su
+  vitest e vite.
+- **Evidenza:** `npm audit` da `frontend/` al 2026-08-14; `frontend/package.json`
+  (`vite`, `vitest`, `@vitest/coverage-v8` in `devDependencies`).
+- **Impatto:** **basso e circoscritto.** `npm audit --omit=dev` riporta **0 vulnerabilità**:
+  nulla di tutto questo finisce nel bundle servito all'utente. È superficie di build e di test,
+  sfruttabile solo da chi controlla già il sorgente o l'ambiente CI. Per questo NON è stata
+  toccata in 2.1.9: un major su vite+vitest tocca la configurazione di build, i 123 file di test
+  e la pipeline E2E — l'esatto opposto di una patch a basso rischio.
+- **Sforzo:** M/L. Vanno fatti insieme (vitest 4 richiede vite 7), con rilettura di
+  `vite.config.ts`, dei setup di vitest e del job E2E in CI.
+- **Trovato:** 2026-08-14
