@@ -12,6 +12,8 @@ Guards applied (in order, on every hop):
   3. Redirect cap: follow up to ``max_redirects`` (default 3) 3xx responses, re-validating
      the target URL (scheme + host) BEFORE each connecting hop.
   4. Timeouts: connect 5 s / read 10 s (configurable by caller).
+  5. Response-size cap: the body is streamed and abandoned past ``max_bytes``
+     (default 25 MB) — see ``MAX_RESPONSE_BYTES``.
 
 Rejected ranges (task B2 spec):
   - 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16  (RFC1918)
@@ -42,6 +44,27 @@ _ALLOWED_SCHEMES: frozenset[str] = frozenset({"http", "https"})
 
 # ── Default redirect cap ──────────────────────────────────────────────────────
 MAX_REDIRECTS: int = 3
+
+# ── Default response-body cap (I7 — an outbound fetch is a bounded operation) ─
+# safe_fetch() is the ONE path by which untrusted, externally-chosen URLs (web-search
+# result links) are fetched, and BOTH callers reach for the whole body at once
+# (``resp.content`` in ops/deep_research.py, ``resp.text`` in chat/web_context.py).
+# They cap the EXTRACTED TEXT afterwards (deep_research_fetch_max_chars=20_000,
+# chat_web_fetch_max_chars=8_000), which does nothing about how many bytes were
+# buffered to get there. The read timeout does not bound it either: httpx applies it
+# per read operation, not to the whole transfer, so a server that keeps trickling bytes
+# streams for as long as it likes. 25 MB matches the generic upload ceiling
+# (settings.max_upload_bytes) and is orders of magnitude above what either caller can
+# actually use.
+MAX_RESPONSE_BYTES: int = 25 * 1024 * 1024
+
+# Headers that describe the ON-THE-WIRE encoding of the body. safe_fetch hands the
+# rebuilt Response bytes that httpx has ALREADY decoded, so carrying these over would
+# make httpx decode a second time — ``Content-Encoding: gzip`` over plain bytes raises
+# httpx.DecodingError on first access to .text/.content.
+_ENCODING_HEADERS: frozenset[str] = frozenset(
+    {"content-encoding", "content-length", "transfer-encoding"}
+)
 
 # ── Private/reserved IP ranges (B2 task spec + defence-in-depth) ─────────────
 # Any resolved address in ANY of these ranges → SSRFError.
@@ -79,6 +102,17 @@ class SSRFError(ValueError):
 
     Inherits from ValueError so callers can catch it alongside other
     validation errors without a new exception hierarchy.
+    """
+
+
+class ResponseTooLargeError(SSRFError):
+    """
+    Raised when a response body exceeds ``max_bytes`` (see :data:`MAX_RESPONSE_BYTES`).
+
+    Deliberately a subclass of :exc:`SSRFError`: every existing caller already treats an
+    ``SSRFError`` as "this URL is not usable, skip it and carry on", which is exactly the
+    right handling here — so the cap needs no caller change to degrade gracefully, while
+    the distinct type still lets a future caller tell "blocked" from "too big" apart.
     """
 
 
@@ -162,6 +196,83 @@ async def _check_host(host: str) -> None:
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 
+async def _read_capped(
+    client: httpx.AsyncClient, request: httpx.Request, max_bytes: int
+) -> httpx.Response:
+    """
+    Send *request* and return a fully-read Response whose body is at most *max_bytes*.
+
+    Streams the body instead of buffering it whole (the httpx default), so an oversized
+    response is abandoned mid-transfer rather than after it has already been paid for in
+    RAM. A redirect's body is never downloaded at all — only its ``Location`` matters.
+
+    Raises :exc:`ResponseTooLargeError` as soon as the cap is passed, either from the
+    advertised ``Content-Length`` (cheap pre-check) or from the bytes actually received
+    (authoritative — ``Content-Length`` is absent under chunked transfer-encoding and is
+    in any case attacker-supplied).
+    """
+    response = await client.send(request, stream=True)
+    try:
+        if response.is_redirect:
+            # Only the Location header is used; skip the body entirely.
+            return httpx.Response(
+                status_code=response.status_code,
+                headers=_strip_encoding_headers(response.headers),
+                content=b"",
+                request=request,
+            )
+
+        # NOTE: the parse is deliberately kept OUT of the raise's try/except —
+        # ResponseTooLargeError is itself a ValueError (via SSRFError), so guarding the
+        # comparison and the raise together would swallow the very error being raised.
+        declared = _parse_content_length(response.headers.get("content-length"))
+        if declared is not None and declared > max_bytes:
+            raise ResponseTooLargeError(
+                f"Response for {request.url!s} declares {declared} bytes, "
+                f"over the {max_bytes}-byte cap — not downloaded"
+            )
+
+        chunks: list[bytes] = []
+        received = 0
+        async for chunk in response.aiter_bytes():
+            received += len(chunk)
+            if received > max_bytes:
+                raise ResponseTooLargeError(
+                    f"Response body for {request.url!s} exceeded the {max_bytes}-byte "
+                    "cap — download aborted"
+                )
+            chunks.append(chunk)
+
+        # Rebuild as a normal (non-streaming) Response so callers keep using .content /
+        # .text / .headers exactly as before. aiter_bytes() has already applied any
+        # Content-Encoding, hence _strip_encoding_headers (see _ENCODING_HEADERS).
+        return httpx.Response(
+            status_code=response.status_code,
+            headers=_strip_encoding_headers(response.headers),
+            content=b"".join(chunks),
+            request=request,
+        )
+    finally:
+        await response.aclose()
+
+
+def _parse_content_length(raw: str | None) -> int | None:
+    """Parse a ``Content-Length`` value, or None when absent/unparseable (chunked, junk)."""
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def _strip_encoding_headers(headers: httpx.Headers) -> httpx.Headers:
+    """Copy *headers* without the wire-encoding ones (see :data:`_ENCODING_HEADERS`)."""
+    return httpx.Headers(
+        [(k, v) for k, v in headers.multi_items() if k.lower() not in _ENCODING_HEADERS]
+    )
+
+
 async def safe_fetch(
     url: str,
     *,
@@ -169,6 +280,7 @@ async def safe_fetch(
     connect_timeout: float = 5.0,
     read_timeout: float = 10.0,
     max_redirects: int = MAX_REDIRECTS,
+    max_bytes: int = MAX_RESPONSE_BYTES,
 ) -> httpx.Response:
     """
     Fetch *url* with SSRF guards applied on EVERY hop (R13-9, B2).
@@ -176,15 +288,18 @@ async def safe_fetch(
     Pipeline (repeated for each redirect hop):
       1. Validate scheme (http/https only) — :exc:`SSRFError` on violation.
       2. Resolve hostname and check ALL returned IPs — :exc:`SSRFError` if any is private.
-      3. Issue a single request with ``follow_redirects=False``.
+      3. Issue a single request with ``follow_redirects=False``, streaming the body and
+         abandoning it past *max_bytes* — :exc:`ResponseTooLargeError` on violation.
       4. On 3xx: extract ``Location``, resolve relative refs, loop (up to *max_redirects*).
 
-    Returns the final non-redirect :class:`httpx.Response` on success.
+    Returns the final non-redirect :class:`httpx.Response` on success, fully read.
 
     Raises
     ------
     SSRFError
         Scheme not allowed, host resolves to a private IP, or redirect limit exceeded.
+    ResponseTooLargeError
+        Body exceeds *max_bytes* (an ``SSRFError`` subclass — see that class).
     httpx.HTTPError
         Network-level failure (timeout, connection refused, etc.).
     """
@@ -203,7 +318,7 @@ async def safe_fetch(
             follow_redirects=False,
             headers=headers or {},
         ) as client:
-            resp = await client.get(current_url)
+            resp = await _read_capped(client, client.build_request("GET", current_url), max_bytes)
 
         if not resp.is_redirect:
             return resp
