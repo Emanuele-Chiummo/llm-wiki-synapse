@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2373,22 +2401,22 @@ only deposit <em>raw source</em> bytes; the pipeline alone authors wiki pages.</
 <h4 id="21-endpoint-contract">§2.1 Endpoint contract<a class="headerlink" href="#21-endpoint-contract" title="Permanent link">&para;</a></h4>
 <div class="highlight"><pre><span></span><code>POST /ingest/upload
 Content-Type: multipart/form-data
-  part &quot;file&quot;: the uploaded document (required)
+  part "file": the uploaded document (required)
   (no other parts in v0.4; vault_id is the server default — single-vault M4)
 
 201 Created  →  {
-  file_path:   str,        // saved path relative to vault_root, e.g. &quot;raw/sources/notes.md&quot;
+  file_path:   str,        // saved path relative to vault_root, e.g. "raw/sources/notes.md"
   page_id:     uuid,       // the pages.id produced by ingest_file
-  status:      str,        // &quot;completed&quot; | &quot;skipped&quot;  (mirrors IngestResult, ADR-0006)
+  status:      str,        // "completed" | "skipped"  (mirrors IngestResult, ADR-0006)
   overwritten: bool        // true if a same-name file already existed and was replaced
 }
 
 415 Unsupported Media Type  → {
-  detail: &quot;Only text/markdown files (.md, .txt, .markdown) are accepted in v0.4. &quot;
-          &quot;Multi-format ingest (PDF, DOCX, …) is F12, planned for M5.&quot;
+  detail: "Only text/markdown files (.md, .txt, .markdown) are accepted in v0.4. "
+          "Multi-format ingest (PDF, DOCX, …) is F12, planned for M5."
 }
-413 Payload Too Large       → { detail: &quot;File exceeds the &lt;N&gt; MB upload limit.&quot; }
-422 Unprocessable Entity    → { detail: &quot;Filename is empty or unsafe after sanitization.&quot; }
+413 Payload Too Large       → { detail: "File exceeds the &lt;N&gt; MB upload limit." }
+422 Unprocessable Entity    → { detail: "Filename is empty or unsafe after sanitization." }
 </code></pre></div>
 <p><strong>Why 201 and synchronous (not 202):</strong> the upload IS the file creation, and <code>ingest_file</code> is
 synchronous and fast (mtime/hash gate + one provider run). Returning <code>page_id</code> + <code>status</code>
@@ -2403,10 +2431,10 @@ mirroring ADR-0006's evolution path.)</p>
 caller-supplied path:</p>
 <div class="highlight"><pre><span></span><code>def safe_source_name(raw_filename: str) -&gt; str:
     1. name = Path(raw_filename).name          # basename ONLY — strips any directory component
-                                               #   &quot;../../etc/passwd&quot; → &quot;passwd&quot;
-                                               #   &quot;/abs/evil.md&quot;     → &quot;evil.md&quot;
-                                               #   &quot;a/b/c.md&quot;         → &quot;c.md&quot;
-    2. reject if name in {&quot;&quot;, &quot;.&quot;, &quot;..&quot;}                      → 422
+                                               #   "../../etc/passwd" → "passwd"
+                                               #   "/abs/evil.md"     → "evil.md"
+                                               #   "a/b/c.md"         → "c.md"
+    2. reject if name in {"", ".", ".."}                      → 422
     3. reject if name contains a path separator after step 1 → 422  (defensive; should be impossible)
     4. strip control chars / NUL; collapse whitespace
     5. enforce extension allow-list (.md/.txt/.markdown, case-insensitive) → else 415
@@ -2416,8 +2444,8 @@ caller-supplied path:</p>
 def resolve_under_sources(name: str) -&gt; Path:
     dst = (settings.raw_sources_dir / name).resolve()
     # belt-and-braces: the resolved path MUST be inside raw_sources_dir
-    if not str(dst).startswith(str(settings.raw_sources_dir.resolve() / &quot;&quot;)):
-        raise HTTPException(422, &quot;unsafe path&quot;)
+    if not str(dst).startswith(str(settings.raw_sources_dir.resolve() / "")):
+        raise HTTPException(422, "unsafe path")
     return dst
 </code></pre></div>
 <p>Rules, stated explicitly:
@@ -2593,7 +2621,7 @@ is simpler and correct.)</p>
 scanned file into <code>raw/sources/</code> only when its content differs from what is already ingested</strong>, and
 the <strong><code>ingest_file</code> mtime/hash gate is the ultimate I1 backstop</strong>. Concretely, each scan:</p>
 <div class="highlight"><pre><span></span><code>for each regular file F in source_dir (non-recursive by default; see §4.4 cap):
-    skip if F&#39;s extension is not in {.md,.txt,.markdown}   (F12/M5 — text only; no error)
+    skip if F's extension is not in {.md,.txt,.markdown}   (F12/M5 — text only; no error)
     name = safe_source_name(F.name)                         (reuse §2.2 sanitizer)
     dst  = raw_sources_dir / name
     h    = sha256(F bytes)
@@ -2731,19 +2759,19 @@ tell the operator to mount their folder (e.g. <code>./import:/import</code>, §6
   200 → {                                  // current config + last-run status (single row for the vault)
     enabled:             bool,
     source_dir:          str | null,       // container-visible path
-    frequency:           &quot;15m&quot; | &quot;1h&quot; | &quot;6h&quot; | &quot;daily&quot;,
+    frequency:           "15m" | "1h" | "6h" | "daily",
     last_run_at:         datetime | null,
-    last_status:         &quot;ok&quot;|&quot;error&quot;|&quot;running&quot;|&quot;skipped_disabled&quot;|&quot;dir_missing&quot; | null,
+    last_status:         "ok"|"error"|"running"|"skipped_disabled"|"dir_missing" | null,
     last_imported_count: int,
     last_error:          str | null
   }
-  (returns sane defaults — {enabled:false, frequency:&quot;1h&quot;, …} — if no row exists yet)
+  (returns sane defaults — {enabled:false, frequency:"1h", …} — if no row exists yet)
 
 PUT /import-schedule
-  body → { enabled?: bool, source_dir?: str, frequency?: &quot;15m&quot;|&quot;1h&quot;|&quot;6h&quot;|&quot;daily&quot; }
+  body → { enabled?: bool, source_dir?: str, frequency?: "15m"|"1h"|"6h"|"daily" }
   - validates frequency ∈ enum (422 otherwise)
-  - validates source_dir (when provided) with a backend &quot;exists &amp; is a readable directory INSIDE
-    the container&quot; check; if it fails, the row is still saved but the response carries a
+  - validates source_dir (when provided) with a backend "exists &amp; is a readable directory INSIDE
+    the container" check; if it fails, the row is still saved but the response carries a
     warning field { dir_ok: false, dir_message } so the UI can flag it (we save-then-warn rather
     than reject, because the operator may add the mount before the next tick)
   - upserts the single import_schedules row for the vault
@@ -2753,7 +2781,7 @@ POST /import-schedule/run-now
   - triggers ONE bounded scan immediately (same run_one_scan, same MAX_FILES/MAX_SECONDS caps, I7)
   - 409 Conflict if a scan is already in flight (no overlap — I7)
   - 400 if disabled or source_dir unset/dir_missing (with a clear detail)
-  202 Accepted → { status: &quot;started&quot; }     // scan runs in the background; poll GET for the result
+  202 Accepted → { status: "started" }     // scan runs in the background; poll GET for the result
        (or 200 with the scan summary if we run it inline; 202 preferred so the request returns fast)
 </code></pre></div>
 <p>The <strong>directory-validation endpoint behaviour</strong> is folded into <code>PUT</code> (and the <code>run-now</code>
@@ -2819,16 +2847,16 @@ leak.</p>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./vault:/vault</span>
 <span class="w">      </span><span class="c1"># ── Feature S (ADR-0020): scheduled folder import ────────────────────────</span>
 <span class="w">      </span><span class="c1"># Mount any host folder you want Synapse to auto-import into the container,</span>
-<span class="w">      </span><span class="c1"># then set the schedule&#39;s source_dir to the CONTAINER path (e.g. /import).</span>
+<span class="w">      </span><span class="c1"># then set the schedule's source_dir to the CONTAINER path (e.g. /import).</span>
 <span class="w">      </span><span class="c1"># The backend can ONLY see mounted paths — there is no host filesystem browse.</span>
 <span class="w">      </span><span class="c1"># Example (uncomment + adjust the host side to your folder):</span>
 <span class="w">      </span><span class="c1"># - ./import:/import:ro          # read-only is recommended: Synapse copies OUT of it</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
 <span class="w">      </span><span class="c1"># ...</span>
 <span class="w">      </span><span class="c1"># ── Feature U / S bounds (ADR-0020 §2.4 / §4.4) — all I7 caps, env-configurable ──</span>
-<span class="w">      </span><span class="nt">MAX_UPLOAD_BYTES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;26214400&quot;</span><span class="w">     </span><span class="c1"># 25 MB upload cap (Feature U)</span>
-<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_FILES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span><span class="w">     </span><span class="c1"># per-scan file cap (Feature S, I7)</span>
-<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_SECONDS</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;60&quot;</span><span class="w">    </span><span class="c1"># per-scan wall-clock cap (Feature S, I7)</span>
+<span class="w">      </span><span class="nt">MAX_UPLOAD_BYTES</span><span class="p">:</span><span class="w"> </span><span class="s">"26214400"</span><span class="w">     </span><span class="c1"># 25 MB upload cap (Feature U)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_FILES</span><span class="p">:</span><span class="w"> </span><span class="s">"200"</span><span class="w">     </span><span class="c1"># per-scan file cap (Feature S, I7)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_SECONDS</span><span class="p">:</span><span class="w"> </span><span class="s">"60"</span><span class="w">    </span><span class="c1"># per-scan wall-clock cap (Feature S, I7)</span>
 </code></pre></div>
 <p>Notes:
 - We mount <strong>read-only (<code>:ro</code>)</strong> in the example: Feature S only <em>reads</em> the source folder and

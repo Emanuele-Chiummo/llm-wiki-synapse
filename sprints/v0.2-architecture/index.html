@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2539,7 +2567,7 @@ Pydantic v2 <code>BaseModel</code> unless marked dataclass.</p>
 <h2 id="4-capability-aware-routing-bounded-loop-orchestratorpy">4. Capability-aware routing + bounded loop (<code>orchestrator.py</code>)<a class="headerlink" href="#4-capability-aware-routing-bounded-loop-orchestratorpy" title="Permanent link">&para;</a></h2>
 <p>Inserted at the ADR-0003 extension point inside <code>ingest_file()</code>; callers (watcher, REST)
 unchanged.</p>
-<div class="highlight"><pre><span></span><code>resolve provider from provider_config (operation=&quot;ingest&quot;)   # ConfigResolver, ADR-0008
+<div class="highlight"><pre><span></span><code>resolve provider from provider_config (operation="ingest")   # ConfigResolver, ADR-0008
 caps = provider.capabilities()
 if caps.supports_agentic_loop:            # CLI
     result = delegate_ingest(provider, source_text, vault_context, token_budget_cli)

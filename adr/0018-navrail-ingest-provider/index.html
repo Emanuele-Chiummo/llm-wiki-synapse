@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2218,7 +2246,7 @@ switches (AC-F1-NAV-3, AC-F1-NAV-6).</p>
 │ a  │   Ingest   → IngestView (center) | IngestRunDetail (right)                │
 │ i  │   Settings → SettingsPanel (center, single column)                       │
 │ l  │                                                                          │
-│ ▸Pa│   Chat slot = present, disabled, &quot;Phase 3&quot; (NOT a panel)                  │
+│ ▸Pa│   Chat slot = present, disabled, "Phase 3" (NOT a panel)                  │
 │  Gr│                                                                          │
 │  In│                                                                          │
 │  Se│                                                                          │
@@ -2339,23 +2367,23 @@ vestigial-for-Phase-2 (the Pages center no longer shows a tab strip) but is reta
 decide whether chat is a rail section or a Pages-center tab without a store migration. The
 <code>treeCollapsed</code> / <code>selectPage</code> / <code>selectedNodeId</code> keys are untouched.</p>
 <div class="highlight"><pre><span></span><code><span class="c1">// ── added to graphStore UI slice ──</span>
-<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">Section</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;pages&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;graph&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;ingest&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;settings&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// &quot;chat&quot; reserved (Phase 3)</span>
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">Section</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"pages"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"graph"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"ingest"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"settings"</span><span class="p">;</span><span class="w"> </span><span class="c1">// "chat" reserved (Phase 3)</span>
 
 <span class="kd">interface</span><span class="w"> </span><span class="nx">UiStateAdditions</span><span class="w"> </span><span class="p">{</span>
-<span class="w">  </span><span class="nx">activeSection</span><span class="o">:</span><span class="w"> </span><span class="kt">Section</span><span class="p">;</span><span class="w">            </span><span class="c1">// default &quot;pages&quot;</span>
+<span class="w">  </span><span class="nx">activeSection</span><span class="o">:</span><span class="w"> </span><span class="kt">Section</span><span class="p">;</span><span class="w">            </span><span class="c1">// default "pages"</span>
 <span class="p">}</span>
 <span class="kd">interface</span><span class="w"> </span><span class="nx">UiActionsAdditions</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nx">setActiveSection</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">section</span><span class="o">:</span><span class="w"> </span><span class="kt">Section</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
 <span class="p">}</span>
 
-<span class="c1">// initial: activeSection: &quot;pages&quot;</span>
+<span class="c1">// initial: activeSection: "pages"</span>
 
 <span class="c1">// action</span>
 <span class="nx">setActiveSection</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">activeSection</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">set</span><span class="p">({</span><span class="w"> </span><span class="nx">activeSection</span><span class="w"> </span><span class="p">}),</span>
 
 <span class="c1">// selectors (scalar → Object.is; no shallow needed)</span>
 <span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">selectActiveSection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="o">:</span><span class="w"> </span><span class="kt">GraphStore</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">Section</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="nx">s</span><span class="p">.</span><span class="nx">activeSection</span><span class="p">;</span>
-<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">selectSetActiveSection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="o">:</span><span class="w"> </span><span class="kt">GraphStore</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">GraphActions</span><span class="p">[</span><span class="s2">&quot;setActiveSection&quot;</span><span class="p">]</span><span class="w"> </span><span class="p">=&gt;</span>
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">selectSetActiveSection</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nx">s</span><span class="o">:</span><span class="w"> </span><span class="kt">GraphStore</span><span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nx">GraphActions</span><span class="p">[</span><span class="s2">"setActiveSection"</span><span class="p">]</span><span class="w"> </span><span class="p">=&gt;</span>
 <span class="w">  </span><span class="nx">s</span><span class="p">.</span><span class="nx">setActiveSection</span><span class="p">;</span>
 </code></pre></div>
 <p>I3 discipline (AC-F1-NAV-8): <code>activeSection</code> is a <strong>scalar</strong>; NavRail subscribes to it and to
@@ -2530,17 +2558,17 @@ new <code>frontend/src/i18n/index.ts</code> imported once from <code>main.tsx</c
 <p>Locale files live at <code>frontend/src/i18n/locales/en.json</code> and <code>it.json</code>, namespaced by area so keys
 are discoverable and the "every en key has an it key" vitest test (AC-F16-i18n-2) is trivial:</p>
 <div class="highlight"><pre><span></span><code>{
-  &quot;nav&quot;:      { &quot;pages&quot;: &quot;...&quot;, &quot;graph&quot;: &quot;...&quot;, &quot;ingest&quot;: &quot;...&quot;, &quot;settings&quot;: &quot;...&quot;, &quot;chat&quot;: &quot;...&quot;, &quot;chatComingSoon&quot;: &quot;...&quot; },
-  &quot;ingest&quot;:   { &quot;title&quot;: &quot;...&quot;, &quot;runIngest&quot;: &quot;...&quot;, &quot;filePathLabel&quot;: &quot;...&quot;, &quot;filePathHelp&quot;: &quot;...&quot;,
-                &quot;status&quot;: { &quot;running&quot;: &quot;...&quot;, &quot;completed&quot;: &quot;...&quot;, &quot;failed&quot;: &quot;...&quot;, &quot;convergedFalse&quot;: &quot;...&quot; },
-                &quot;pagesCreated&quot;: &quot;...&quot;, &quot;cost&quot;: &quot;...&quot;, &quot;startedAt&quot;: &quot;...&quot;, &quot;error&quot;: &quot;...&quot;,
-                &quot;expandError&quot;: &quot;...&quot;, &quot;manifest&quot;: &quot;...&quot;, &quot;viewPage&quot;: &quot;...&quot;, &quot;empty&quot;: &quot;...&quot;,
-                &quot;toastStarted&quot;: &quot;...&quot;, &quot;toastError&quot;: &quot;...&quot; },
-  &quot;provider&quot;: { &quot;label&quot;: &quot;...&quot;, &quot;scope&quot;: { &quot;vault&quot;: &quot;...&quot;, &quot;global&quot;: &quot;...&quot; },
-                &quot;type&quot;: { &quot;local&quot;: &quot;...&quot;, &quot;api&quot;: &quot;...&quot;, &quot;cli&quot;: &quot;...&quot; } },
-  &quot;settings&quot;: { &quot;title&quot;: &quot;...&quot;, &quot;contextWindow&quot;: &quot;...&quot;, &quot;budgetSplit&quot;: &quot;...&quot;, &quot;language&quot;: &quot;...&quot;,
-                &quot;providerSection&quot;: &quot;...&quot;, &quot;reset&quot;: &quot;...&quot;, &quot;resetConfirm&quot;: &quot;...&quot; },
-  &quot;common&quot;:   { &quot;loading&quot;: &quot;...&quot;, &quot;retry&quot;: &quot;...&quot;, &quot;vault&quot;: &quot;...&quot;, &quot;dataVersion&quot;: &quot;...&quot;, &quot;close&quot;: &quot;...&quot; }
+  "nav":      { "pages": "...", "graph": "...", "ingest": "...", "settings": "...", "chat": "...", "chatComingSoon": "..." },
+  "ingest":   { "title": "...", "runIngest": "...", "filePathLabel": "...", "filePathHelp": "...",
+                "status": { "running": "...", "completed": "...", "failed": "...", "convergedFalse": "..." },
+                "pagesCreated": "...", "cost": "...", "startedAt": "...", "error": "...",
+                "expandError": "...", "manifest": "...", "viewPage": "...", "empty": "...",
+                "toastStarted": "...", "toastError": "..." },
+  "provider": { "label": "...", "scope": { "vault": "...", "global": "..." },
+                "type": { "local": "...", "api": "...", "cli": "..." } },
+  "settings": { "title": "...", "contextWindow": "...", "budgetSplit": "...", "language": "...",
+                "providerSection": "...", "reset": "...", "resetConfirm": "..." },
+  "common":   { "loading": "...", "retry": "...", "vault": "...", "dataVersion": "...", "close": "..." }
 }
 </code></pre></div>
 <p>Rule (AC-F1-NAV-5, AC-F16-i18n-2): <strong>no display string is hardcoded</strong> in any new component — all
@@ -2557,8 +2585,8 @@ appears in regenerated <code>openapi.json</code> (D4 zero-drift).</p>
       {
         id: uuid,
         vault_id: uuid,
-        status: &quot;running&quot; | &quot;completed&quot; | &quot;failed&quot; | &quot;converged_false&quot;,
-        provider_type: str,            // &quot;local&quot; | &quot;api&quot; | &quot;cli&quot;
+        status: "running" | "completed" | "failed" | "converged_false",
+        provider_type: str,            // "local" | "api" | "cli"
         pages_created: int,
         iterations_used: int,
         total_cost_usd: number,        // serialized at 4dp; UI also formats to 4dp

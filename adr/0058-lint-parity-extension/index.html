@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2613,14 +2641,14 @@ matching the reference lint.ts categorization. <code>broken-wikilink</code> reta
 (no change).</p>
 <h3 id="_valid_categories-final-v1313">_VALID_CATEGORIES (final, v1.3.13)<a class="headerlink" href="#_valid_categories-final-v1313" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="n">_VALID_CATEGORIES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
-    <span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;broken-wikilink&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;missing-xref&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;contradiction&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;stale-claim&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;missing-page&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span>   <span class="c1"># L1</span>
-    <span class="s2">&quot;suggestion&quot;</span><span class="p">,</span>    <span class="c1"># L2</span>
+    <span class="s2">"orphan-page"</span><span class="p">,</span>
+    <span class="s2">"broken-wikilink"</span><span class="p">,</span>
+    <span class="s2">"missing-xref"</span><span class="p">,</span>
+    <span class="s2">"contradiction"</span><span class="p">,</span>
+    <span class="s2">"stale-claim"</span><span class="p">,</span>
+    <span class="s2">"missing-page"</span><span class="p">,</span>
+    <span class="s2">"no-outlinks"</span><span class="p">,</span>   <span class="c1"># L1</span>
+    <span class="s2">"suggestion"</span><span class="p">,</span>    <span class="c1"># L2</span>
 <span class="p">})</span>
 </code></pre></div>
 <h3 id="do-not-additions-extends-6">Do-NOT additions (extends §6)<a class="headerlink" href="#do-not-additions-extends-6" title="Permanent link">&para;</a></h3>
@@ -2650,7 +2678,7 @@ Matches <code>lint.ts</code> orphan-detection semantics.</p>
 category). However, <code>_parse_findings</code> was still accepting <code>missing-xref</code> from model output if the
 model happened to hallucinate it.</p>
 <p><strong>Fix:</strong> <code>_parse_findings</code> computes:
-<div class="highlight"><pre><span></span><code><span class="n">semantic_categories</span> <span class="o">=</span> <span class="n">_VALID_CATEGORIES</span> <span class="o">-</span> <span class="p">{</span><span class="s2">&quot;orphan-page&quot;</span><span class="p">,</span> <span class="s2">&quot;no-outlinks&quot;</span><span class="p">,</span> <span class="s2">&quot;missing-xref&quot;</span><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><span class="n">semantic_categories</span> <span class="o">=</span> <span class="n">_VALID_CATEGORIES</span> <span class="o">-</span> <span class="p">{</span><span class="s2">"orphan-page"</span><span class="p">,</span> <span class="s2">"no-outlinks"</span><span class="p">,</span> <span class="s2">"missing-xref"</span><span class="p">}</span>
 </code></pre></div>
 Any finding whose <code>category</code> is not in <code>semantic_categories</code> is silently dropped. <code>missing-xref</code>
 remains in <code>_VALID_CATEGORIES</code> for <code>apply_lint_fix</code> / DB compatibility — it is only excluded from

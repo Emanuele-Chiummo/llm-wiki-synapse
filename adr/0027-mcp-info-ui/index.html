@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2040,9 +2068,9 @@ Response model:</p>
   input_schema: dict           # tool.parameters — the JSON-Schema object for the tool args
 
 McpInfoResponse:
-  server_name:          str            # mcp.name → &quot;synapse&quot;        (I6: from the live object)
-  transport:            str            # settings.mcp_transport, default &quot;stdio&quot;  (I6: from settings)
-  entry_point_command:  str            # &quot;python -m app.mcp.server&quot;  (from settings, see §2.3)
+  server_name:          str            # mcp.name → "synapse"        (I6: from the live object)
+  transport:            str            # settings.mcp_transport, default "stdio"  (I6: from settings)
+  entry_point_command:  str            # "python -m app.mcp.server"  (from settings, see §2.3)
   tool_count:           int            # len(tools)
   tools:                list[McpToolInfo]
 </code></pre></div>
@@ -2055,8 +2083,8 @@ schema, or server name is a literal in the handler.</p>
 #   .name          -&gt; str
 #   .description    -&gt; str | None
 #   .parameters     -&gt; dict   (the JSON-Schema input schema, e.g.
-#                              {&quot;type&quot;:&quot;object&quot;,&quot;properties&quot;:{...},&quot;required&quot;:[...],
-#                               &quot;additionalProperties&quot;: false})
+#                              {"type":"object","properties":{...},"required":[...],
+#                               "additionalProperties": false})
 </code></pre></div>
 <blockquote>
 <p><strong>Verified facts (fastmcp 3.4.2, live <code>synapse</code> server):</strong> <code>mcp.name == "synapse"</code>;
@@ -2095,8 +2123,8 @@ store churn (I3). Add a typed <code>fetchMcpInfo()</code> to the existing API cl
   mono rows.
 - A <strong>copy-to-clipboard</strong> button for the Claude Desktop config snippet. The snippet is
   <strong>generated from the API payload</strong>, not a JSX literal (I6):
-  <div class="highlight"><pre><span></span><code>{ &quot;mcpServers&quot;: { [info.server_name]: { &quot;command&quot;: &lt;argv0 of entry_point_command&gt;,
-                                        &quot;args&quot;: &lt;rest of entry_point_command split&gt; } } }
+  <div class="highlight"><pre><span></span><code>{ "mcpServers": { [info.server_name]: { "command": &lt;argv0 of entry_point_command&gt;,
+                                        "args": &lt;rest of entry_point_command split&gt; } } }
 </code></pre></div>
   i.e. <code>info.entry_point_command</code> is tokenised so the JSON is built from the real server metadata
   (server_name keyed dynamically; command/args derived). The displayed JSON is the single source

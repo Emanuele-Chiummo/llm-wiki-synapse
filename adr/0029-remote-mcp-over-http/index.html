@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2061,8 +2089,8 @@ since it proxies the <code>/mcp</code> prefix (no Vite change required; verify i
 <p><code>backend/app/main.py</code> mounts the FastMCP Streamable-HTTP ASGI app under <strong><code>/mcp/server</code></strong>:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># main.py — after `app = FastAPI(...)`, BEFORE adding routes that could shadow it.</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">app.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">mcp</span> <span class="k">as</span> <span class="n">_mcp_server</span>
-<span class="n">_mcp_http_app</span> <span class="o">=</span> <span class="n">_mcp_server</span><span class="o">.</span><span class="n">http_app</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>   <span class="c1"># Streamable HTTP ASGI app</span>
-<span class="n">app</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="s2">&quot;/mcp/server&quot;</span><span class="p">,</span> <span class="n">_mcp_http_app</span><span class="p">)</span>
+<span class="n">_mcp_http_app</span> <span class="o">=</span> <span class="n">_mcp_server</span><span class="o">.</span><span class="n">http_app</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="s2">"/"</span><span class="p">)</span>   <span class="c1"># Streamable HTTP ASGI app</span>
+<span class="n">app</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="s2">"/mcp/server"</span><span class="p">,</span> <span class="n">_mcp_http_app</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Rationale (mount vs separate process):</strong>
 - <strong>One origin, one tunnel.</strong> The owner exposes a single FastAPI origin over Cloudflare Tunnel

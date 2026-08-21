@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2004,7 +2032,7 @@ Nota: questo runbook gira sul TUO Mac (io sono in un container remoto e non vedo
 <hr />
 <h2 id="0-allinea-il-locale-a-github">0. Allinea il locale a GitHub<a class="headerlink" href="#0-allinea-il-locale-a-github" title="Permanent link">&para;</a></h2>
 <p>Il tuo checkout è in <code>[project-root]</code> (path con spazi → usa gli apici).</p>
-<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;[project-root]&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span><span class="s2">"[project-root]"</span>
 
 git<span class="w"> </span>fetch<span class="w"> </span>origin<span class="w"> </span>--prune
 git<span class="w"> </span>status<span class="w">                      </span><span class="c1"># committa/stasha eventuali modifiche locali PRIMA</span>
@@ -2127,7 +2155,7 @@ l'auth. L'abbonamento è deciso dal <strong>backend</strong>, non da Tauri.</p>
 <p><strong>Backend</strong> (venv locale):
 <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend
 python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>.<span class="w"> </span>.venv/bin/activate
-pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span>
 python<span class="w"> </span>-m<span class="w"> </span>pytest<span class="w"> </span>-q<span class="w">          </span><span class="c1"># atteso: 1018 passed, 4 skipped</span>
 ruff<span class="w"> </span>check<span class="w"> </span>app<span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>black<span class="w"> </span>--check<span class="w"> </span>app<span class="w"> </span>tests<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>mypy<span class="w"> </span>app<span class="w">   </span><span class="c1"># tutto clean</span>
 </code></pre></div>

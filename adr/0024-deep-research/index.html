@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2288,7 +2316,7 @@ any engineer writes F10 code.</p>
     <span class="n">max_iter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>        <span class="c1"># None → DEEP_RESEARCH_MAX_ITER (default 3); frozen on the run row</span>
     <span class="n">token_budget</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>    <span class="c1"># None → DEEP_RESEARCH_TOKEN_BUDGET (default 100_000); frozen on the run row</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DeepResearchResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Run ONE bounded deep-research operation end-to-end (S-F10-1, AC-F10-1..7).</span>
 
 <span class="sd">    Pipeline (single bounded loop, all six steps in order):</span>
@@ -2302,7 +2330,7 @@ any engineer writes F10 code.</p>
 <span class="sd">    Bounds (I7) are FROZEN on the deep_research_runs row at start and never re-read mid-loop.</span>
 <span class="sd">    Terminal status is one of: converged | max_iter_reached | budget_exhausted | error.</span>
 <span class="sd">    total_cost_usd is accumulated and logged.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 </code></pre></div>
 <p><code>run_deep_research</code> is invoked <strong>in the background</strong> by <code>POST /research/start</code> (which returns 202 +
 <code>run_id</code> immediately) — the same fire-and-then-poll shape as the M4-EXT scheduler (ADR-0020). It is a
@@ -2311,7 +2339,7 @@ single asyncio task; it is NOT spawned per query.</p>
 <div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">DeepResearchResult</span><span class="p">:</span>
     <span class="n">run_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
-    <span class="n">status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter_reached&quot;</span><span class="p">,</span> <span class="s2">&quot;budget_exhausted&quot;</span><span class="p">,</span> <span class="s2">&quot;error&quot;</span><span class="p">]</span>
+    <span class="n">status</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"converged"</span><span class="p">,</span> <span class="s2">"max_iter_reached"</span><span class="p">,</span> <span class="s2">"budget_exhausted"</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">]</span>
     <span class="n">iterations_used</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">sources_fetched</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">total_cost_usd</span><span class="p">:</span> <span class="nb">float</span>
@@ -2389,15 +2417,15 @@ enforcement site. Engineers MUST implement them exactly as shaped below; weakeni
 <span class="n">provider</span><span class="o">.</span><span class="n">bind_accumulator</span><span class="p">(</span><span class="n">accumulator</span><span class="p">)</span>
 
 <span class="n">collected</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FetchedSource</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;max_iter_reached&quot;</span>             <span class="c1"># PESSIMISTIC DEFAULT — overwritten only on a real exit</span>
-<span class="n">queries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_generate_queries</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">max_queries</span><span class="o">=</span><span class="n">MAX_QUERIES</span><span class="p">)</span>
+<span class="n">status</span> <span class="o">=</span> <span class="s2">"max_iter_reached"</span>             <span class="c1"># PESSIMISTIC DEFAULT — overwritten only on a real exit</span>
+<span class="n">queries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_generate_queries</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">max_queries</span><span class="o">=</span><span class="n">MAX_QUERIES</span><span class="p">)</span>
 
 <span class="k">for</span> <span class="n">iteration</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_iter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>          <span class="c1"># ← HARD CAP (I7). range, not while True.</span>
     <span class="n">run</span><span class="o">.</span><span class="n">iterations_used</span> <span class="o">=</span> <span class="n">iteration</span>                <span class="c1"># persisted each round (audit + AC-F10-2b)</span>
 
     <span class="c1"># ── budget gate BEFORE spending the round (I7) ──────────────────────────────</span>
     <span class="k">if</span> <span class="n">accumulator</span><span class="o">.</span><span class="n">total_tokens</span> <span class="o">&gt;=</span> <span class="n">token_budget</span><span class="p">:</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;budget_exhausted&quot;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"budget_exhausted"</span>
         <span class="k">break</span>
 
     <span class="n">hits</span>      <span class="o">=</span> <span class="k">await</span> <span class="n">_search_searxng</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>              <span class="c1"># concurrency==3 (§4)</span>
@@ -2406,7 +2434,7 @@ enforcement site. Engineers MUST implement them exactly as shaped below; weakeni
     <span class="c1"># ── ASSESS sufficiency BEFORE deciding to refine (CLAUDE.md §7) ─────────────</span>
     <span class="n">verdict</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_assess_sufficiency</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">verdict</span><span class="o">.</span><span class="n">sufficient</span><span class="p">:</span>
-        <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;converged&quot;</span>
+        <span class="n">status</span> <span class="o">=</span> <span class="s2">"converged"</span>
         <span class="k">break</span>
 
     <span class="c1"># not sufficient AND not last iteration → refine; the for-range caps refinement</span>
@@ -2414,11 +2442,11 @@ enforcement site. Engineers MUST implement them exactly as shaped below; weakeni
         <span class="n">queries</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_generate_queries</span><span class="p">(</span>
             <span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">prior_context</span><span class="o">=</span><span class="n">verdict</span><span class="o">.</span><span class="n">gaps</span><span class="p">,</span> <span class="n">max_queries</span><span class="o">=</span><span class="n">MAX_QUERIES</span>
         <span class="p">)</span>
-    <span class="c1"># if iteration == max_iter the loop exits with status == &quot;max_iter_reached&quot;</span>
+    <span class="c1"># if iteration == max_iter the loop exits with status == "max_iter_reached"</span>
 
 <span class="c1"># ── NO further provider call once the loop exits on max_iter_reached EXCEPT the</span>
 <span class="c1">#    single terminal synthesize, which runs for converged/max_iter/budget alike. ──</span>
-<span class="k">if</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;converged&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter_reached&quot;</span><span class="p">,</span> <span class="s2">&quot;budget_exhausted&quot;</span><span class="p">):</span>
+<span class="k">if</span> <span class="n">status</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"converged"</span><span class="p">,</span> <span class="s2">"max_iter_reached"</span><span class="p">,</span> <span class="s2">"budget_exhausted"</span><span class="p">):</span>
     <span class="n">synthesis_md</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_synthesize</span><span class="p">(</span><span class="n">provider</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">collected</span><span class="p">)</span>   <span class="c1"># ONE call</span>
     <span class="n">page_id</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_ingest_synthesis</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">,</span> <span class="n">synthesis_md</span><span class="p">)</span>  <span class="c1"># §6 — re-enters ingest_file</span>
 </code></pre></div>
@@ -2460,19 +2488,19 @@ non-SearXNG backend. The static guard (AC-F10-3) scans all <code>.py</code> for 
     <span class="n">engine</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">searxng_search</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_results</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    ONE SearXNG query → JSON results. Base URL from env SEARXNG_URL ONLY (I9).</span>
 <span class="sd">    Calls GET {SEARXNG_URL}/search?q=&lt;query&gt;&amp;format=json (the SearXNG JSON API, R8).</span>
 <span class="sd">    No API key. No fallback to any other search provider. On non-200 → [] (logged), never an</span>
 <span class="sd">    alternative backend.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">searxng_search_many</span><span class="p">(</span><span class="n">queries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Run all queries with concurrency bounded by a module asyncio.Semaphore(CONCURRENCY).</span>
 <span class="sd">    Implemented as asyncio.gather over searxng_search, each acquiring the semaphore.</span>
 <span class="sd">    De-dupes hits by URL. This is the ONLY concurrency in F10 search.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 </code></pre></div>
 <p><strong>Config:</strong> a single new setting <code>searxng_url: str</code> in <code>config.py</code> (env <code>SEARXNG_URL</code>, e.g.
 <code>http://searxng:8080</code>). Required when deep research is used; if unset, <code>POST /research/start</code> returns a
@@ -2528,10 +2556,10 @@ engine.</p>
 produced. It re-enters the normal pipeline:</p>
 <div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_ingest_synthesis</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">,</span> <span class="n">synthesis_md</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">:</span>
     <span class="c1"># 1. write to raw/sources/ with valid frontmatter (I5) — this is a SOURCE, type: source-equivalent</span>
-    <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;raw/sources/deep-research-</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">.md&quot;</span>
+    <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"raw/sources/deep-research-</span><span class="si">{</span><span class="n">run_id</span><span class="si">}</span><span class="s2">.md"</span>
     <span class="n">abs_path</span> <span class="o">=</span> <span class="n">settings</span><span class="o">.</span><span class="n">vault_root</span> <span class="o">/</span> <span class="n">rel</span>
     <span class="n">abs_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">abs_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">_frontmatter_wrap</span><span class="p">(</span><span class="n">synthesis_md</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">run_id</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+    <span class="n">abs_path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">_frontmatter_wrap</span><span class="p">(</span><span class="n">synthesis_md</span><span class="p">,</span> <span class="n">topic</span><span class="p">,</span> <span class="n">run_id</span><span class="p">),</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
     <span class="c1"># 2. re-enter the SINGLE intake seam (ADR-0003). This runs the hash gate (I1),</span>
     <span class="c1">#    resolves the ingest provider, runs analyze→generate→validate (or CLI delegate),</span>
     <span class="c1">#    writes the wiki page(s), embeds, bumps data_version ONCE — all existing logic.</span>
@@ -2745,8 +2773,8 @@ no <code>vaults</code> table). AC-F10-6d: <code>make er</code> exits 0 and the d
 <p>All three documented in <code>docs/api/openapi.json</code> via <code>make openapi</code> (I8). These are exactly what F9
 (Phase 3, ADR-0025) wires its <strong>Deep-Research</strong> review action to (AC-F10-5).</p>
 <h3 id="81-post-researchstart-202">8.1 <code>POST /research/start</code> → <strong>202</strong><a class="headerlink" href="#81-post-researchstart-202" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>Request body:  { &quot;vault_id&quot;: str, &quot;topic&quot;: str, &quot;max_iter&quot;?: int, &quot;token_budget&quot;?: int }
-Response 202:  { &quot;run_id&quot;: uuid }
+<div class="highlight"><pre><span></span><code>Request body:  { "vault_id": str, "topic": str, "max_iter"?: int, "token_budget"?: int }
+Response 202:  { "run_id": uuid }
 </code></pre></div>
 <ul>
 <li>Validates <code>topic</code> non-empty and <code>vault_id</code>. <code>max_iter</code>/<code>token_budget</code> optional → env defaults; both
@@ -2760,9 +2788,9 @@ Response 202:  { &quot;run_id&quot;: uuid }
 </ul>
 <h3 id="82-get-researchruns-200-paginated">8.2 <code>GET /research/runs</code> → <strong>200</strong> (paginated)<a class="headerlink" href="#82-get-researchruns-200-paginated" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>Query:  ?vault_id=&lt;str&gt;&amp;limit=&lt;1..100=20&gt;&amp;offset=&lt;&gt;=0=0&gt;
-Response 200: { &quot;items&quot;: [ { id, topic, status, iterations_used, sources_fetched,
+Response 200: { "items": [ { id, topic, status, iterations_used, sources_fetched,
                              total_cost_usd, started_at, completed_at } ... ],
-                &quot;total&quot;: int, &quot;limit&quot;: int, &quot;offset&quot;: int }
+                "total": int, "limit": int, "offset": int }
 </code></pre></div>
 <p>Started-at DESC, same pagination contract and <code>Query(ge=…, le=…)</code> 422 guards as <code>GET /ingest/runs</code>.</p>
 <h3 id="83-get-researchrunsid-200-404">8.3 <code>GET /research/runs/{id}</code> → <strong>200 / 404</strong><a class="headerlink" href="#83-get-researchrunsid-200-404" title="Permanent link">&para;</a></h3>

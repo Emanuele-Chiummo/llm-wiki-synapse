@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2858,9 +2886,9 @@ As a vault owner, I want the Synapse repository to initialise a well-known direc
 <strong>Then</strong> both <code>vault/wiki/index.md</code> and <code>vault/wiki/log.md</code> exist, and each file can be parsed by <code>python-frontmatter</code> without raising an exception, and each parsed document contains at minimum the keys <code>type</code> and <code>title</code>.</p>
 <p>Testable assert:
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">frontmatter</span>
-<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">,</span> <span class="s2">&quot;vault/wiki/log.md&quot;</span><span class="p">]:</span>
+<span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"vault/wiki/index.md"</span><span class="p">,</span> <span class="s2">"vault/wiki/log.md"</span><span class="p">]:</span>
     <span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="s2">&quot;type&quot;</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="s2">&quot;title&quot;</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span>
+    <span class="k">assert</span> <span class="s2">"type"</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="s2">"title"</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span>
 </code></pre></div></p>
 <hr />
 <h3 id="ac-k1-3-schemamd-exists-and-documents-required-frontmatter-fields">AC-K1-3 — schema.md exists and documents required frontmatter fields<a class="headerlink" href="#ac-k1-3-schemamd-exists-and-documents-required-frontmatter-fields" title="Permanent link">&para;</a></h3>
@@ -2868,8 +2896,8 @@ As a vault owner, I want the Synapse repository to initialise a well-known direc
 <strong>When</strong> a test reads <code>vault/schema.md</code>,
 <strong>Then</strong> the file exists and its content contains the strings <code>type</code>, <code>title</code>, and <code>sources</code> (the three required frontmatter field names for v0.1).</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/schema.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;sources&quot;</span><span class="p">]:</span>
+<div class="highlight"><pre><span></span><code><span class="n">text</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/schema.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"type"</span><span class="p">,</span> <span class="s2">"title"</span><span class="p">,</span> <span class="s2">"sources"</span><span class="p">]:</span>
     <span class="k">assert</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">text</span>
 </code></pre></div></p>
 <hr />
@@ -2953,8 +2981,8 @@ As a vault owner, I want <code>vault/wiki/</code> to be a valid Obsidian vault f
 <strong>Then</strong> <code>vault/wiki/.obsidian/app.json</code> exists, is valid JSON (parseable by <code>json.loads</code>), and contains at minimum the key <code>"legacyEditor"</code> with value <code>false</code>.</p>
 <p>Testable assert:
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/.obsidian/app.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;legacyEditor&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/.obsidian/app.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="k">assert</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"legacyEditor"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">False</span>
 </code></pre></div></p>
 <hr />
 <h3 id="ac-k7-2-service-written-wiki-files-have-valid-yaml-frontmatter">AC-K7-2 — service-written wiki files have valid YAML frontmatter<a class="headerlink" href="#ac-k7-2-service-written-wiki-files-have-valid-yaml-frontmatter" title="Permanent link">&para;</a></h3>
@@ -2992,9 +3020,9 @@ As a downstream sprint, I want a <code>data_version</code> integer in Postgres t
 <strong>When</strong> <code>GET /status</code> is called,
 <strong>Then</strong> the response body is HTTP 200 JSON containing a <code>data_version</code> field whose value equals N.</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/status&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/status"</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
-<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;data_version&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_n</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">"data_version"</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_n</span>
 </code></pre></div></p>
 <hr />
 <h3 id="ac-f16dv-4-data_version-never-decremented-or-reset-by-normal-operations">AC-F16dv-4 — data_version never decremented or reset by normal operations<a class="headerlink" href="#ac-f16dv-4-data_version-never-decremented-or-reset-by-normal-operations" title="Permanent link">&para;</a></h3>
@@ -3097,11 +3125,11 @@ As a vault owner, I want a REST API with four endpoints (<code>GET /status</code
 <strong>When</strong> <code>GET /status</code> is called,
 <strong>Then</strong> the response is HTTP 200 with a JSON body containing at minimum the keys <code>data_version</code> (integer) and one of <code>uptime</code> or <code>started_at</code> (a duration or timestamp indicating service uptime).</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/status&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/status"</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
 <span class="n">data</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;data_version&quot;</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
-<span class="k">assert</span> <span class="s2">&quot;uptime&quot;</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="s2">&quot;started_at&quot;</span> <span class="ow">in</span> <span class="n">data</span>
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s2">"data_version"</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span>
+<span class="k">assert</span> <span class="s2">"uptime"</span> <span class="ow">in</span> <span class="n">data</span> <span class="ow">or</span> <span class="s2">"started_at"</span> <span class="ow">in</span> <span class="n">data</span>
 </code></pre></div></p>
 <hr />
 <h3 id="ac-rest-2-get-pages-lists-pages-newly-ingested-page-appears">AC-REST-2 — GET /pages lists pages; newly ingested page appears<a class="headerlink" href="#ac-rest-2-get-pages-lists-pages-newly-ingested-page-appears" title="Permanent link">&para;</a></h3>
@@ -3118,11 +3146,11 @@ As a vault owner, I want a REST API with four endpoints (<code>GET /status</code
 <strong>When</strong> <code>GET /pages/{unknown_id}</code> is called,
 <strong>Then</strong> the response is HTTP 404.</p>
 <p>Testable asserts:
-<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;/pages/</span><span class="si">{</span><span class="n">known_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"/pages/</span><span class="si">{</span><span class="n">known_id</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
-<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
+<span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">"file_path"</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
 
-<span class="n">resp404</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/pages/00000000-0000-0000-0000-000000000000&quot;</span><span class="p">)</span>
+<span class="n">resp404</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/pages/00000000-0000-0000-0000-000000000000"</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">resp404</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">404</span>
 </code></pre></div></p>
 <hr />
@@ -3131,7 +3159,7 @@ As a vault owner, I want a REST API with four endpoints (<code>GET /status</code
 <strong>When</strong> <code>POST /ingest/trigger</code> is called with body <code>{"file_path": "&lt;relative_path&gt;"}</code>,
 <strong>Then</strong> the response is HTTP 202, and the ingest pipeline runs synchronously before the response is returned (v0.1 behaviour), resulting in a Postgres row and Qdrant point for that file.</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/ingest/trigger&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;file_path&quot;</span><span class="p">:</span> <span class="s2">&quot;vault/raw/sources/test.md&quot;</span><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/ingest/trigger"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span><span class="s2">"file_path"</span><span class="p">:</span> <span class="s2">"vault/raw/sources/test.md"</span><span class="p">})</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">202</span>
 <span class="c1"># Then confirm Postgres row exists</span>
 </code></pre></div></p>
@@ -3166,9 +3194,9 @@ As the Synapse service, I want to upsert and delete bge-m3 embedding vectors in 
 <strong>When</strong> the Qdrant <code>synapse_pages</code> collection is queried for the point matching the page UUID,
 <strong>Then</strong> the point exists and its payload contains exactly the fields <code>file_path</code>, <code>title</code>, and <code>type</code> with values matching the Postgres row for that page.</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">point</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">&quot;synapse_pages&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><span class="n">point</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">"synapse_pages"</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">point</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
-<span class="k">assert</span> <span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">payload</span><span class="p">[</span><span class="s2">&quot;file_path&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
+<span class="k">assert</span> <span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">payload</span><span class="p">[</span><span class="s2">"file_path"</span><span class="p">]</span> <span class="o">==</span> <span class="n">expected_path</span>
 </code></pre></div></p>
 <hr />
 <h3 id="ac-qd-3-file-deletion-removes-qdrant-point">AC-QD-3 — file deletion removes Qdrant point<a class="headerlink" href="#ac-qd-3-file-deletion-removes-qdrant-point" title="Permanent link">&para;</a></h3>
@@ -3177,7 +3205,7 @@ As the Synapse service, I want to upsert and delete bge-m3 embedding vectors in 
 <strong>Then</strong> the Qdrant point for that page UUID is removed from <code>synapse_pages</code> (confirmed by a direct Qdrant API call returning empty result for that UUID).</p>
 <p>Testable assert:
 <div class="highlight"><pre><span></span><code><span class="c1"># after deletion event processed</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">&quot;synapse_pages&quot;</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">qdrant_client</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="s2">"synapse_pages"</span><span class="p">,</span> <span class="n">ids</span><span class="o">=</span><span class="p">[</span><span class="n">page_uuid</span><span class="p">])</span>
 <span class="k">assert</span> <span class="n">result</span> <span class="o">==</span> <span class="p">[]</span>
 </code></pre></div></p>
 <hr />
@@ -3292,14 +3320,14 @@ As a downstream sprint, I want <code>docs/api/openapi.json</code> to be auto-gen
 <strong>When</strong> its <code>paths</code> object is inspected,
 <strong>Then</strong> all four paths are present: <code>/status</code> (GET), <code>/pages</code> (GET), <code>/pages/{id}</code> (GET), <code>/ingest/trigger</code> (POST), each with at minimum one response schema defined.</p>
 <p>Testable assert:
-<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/openapi.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="k">assert</span> <span class="s2">&quot;/status&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;/pages&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;/pages/</span><span class="si">{id}</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;/ingest/trigger&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
-<span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">ops</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"docs/api/openapi.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="k">assert</span> <span class="s2">"/status"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"/pages"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"/pages/</span><span class="si">{id}</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"/ingest/trigger"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">ops</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
     <span class="k">for</span> <span class="n">method</span><span class="p">,</span> <span class="n">op</span> <span class="ow">in</span> <span class="n">ops</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">assert</span> <span class="s2">&quot;responses&quot;</span> <span class="ow">in</span> <span class="n">op</span>
+        <span class="k">assert</span> <span class="s2">"responses"</span> <span class="ow">in</span> <span class="n">op</span>
 </code></pre></div></p>
 <hr />
 <h2 id="ambiguities-and-invariant-risks-flagged-for-solution-architect">Ambiguities and invariant risks flagged for solution-architect<a class="headerlink" href="#ambiguities-and-invariant-risks-flagged-for-solution-architect" title="Permanent link">&para;</a></h2>

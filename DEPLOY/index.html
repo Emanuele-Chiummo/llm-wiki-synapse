@@ -2192,6 +2192,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -4887,8 +4915,8 @@ services; they are referenced by environment variable only.</p>
 </table>
 <p>Verify each service is reachable before starting Synapse:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># From TrueNAS or any Tailscale node — replace 100.x.x.x with the actual Tailscale IP</span>
-curl<span class="w"> </span>-s<span class="w"> </span>http://100.x.x.x:11434/api/tags<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.models&#39;</span><span class="w">   </span><span class="c1"># Ollama — lists loaded models</span>
-curl<span class="w"> </span>-s<span class="w"> </span>http://100.x.x.x:6333/health<span class="w">                      </span><span class="c1"># Qdrant — returns {&quot;result&quot;:&quot;ok&quot;}</span>
+curl<span class="w"> </span>-s<span class="w"> </span>http://100.x.x.x:11434/api/tags<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.models'</span><span class="w">   </span><span class="c1"># Ollama — lists loaded models</span>
+curl<span class="w"> </span>-s<span class="w"> </span>http://100.x.x.x:6333/health<span class="w">                      </span><span class="c1"># Qdrant — returns {"result":"ok"}</span>
 </code></pre></div>
 <h3 id="12-docker-and-docker-compose">1.2 Docker and Docker Compose<a class="headerlink" href="#12-docker-and-docker-compose" title="Permanent link">&para;</a></h3>
 <p>TrueNAS SCALE 25.10 ships Docker support via the Apps subsystem. Confirm both tools
@@ -5489,35 +5517,35 @@ All tables are empty on first run and are populated through normal use.</p>
 </code></pre></div>
 <p>Expected response:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;vault_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-06-28T10:30:00Z&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;uptime_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span>
+<span class="w">  </span><span class="nt">"vault_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"started_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-06-28T10:30:00Z"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"uptime_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span>
 <span class="p">}</span>
 </code></pre></div>
 <h3 id="34-liveness-and-detailed-health-checks">3.4 Liveness and detailed health checks<a class="headerlink" href="#34-liveness-and-detailed-health-checks" title="Permanent link">&para;</a></h3>
 <p>Use the public, non-diagnostic endpoint for container and uptime liveness probes:</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://localhost:8000/health/live
-<span class="c1"># {&quot;status&quot;:&quot;ok&quot;}</span>
+<span class="c1"># {"status":"ok"}</span>
 </code></pre></div>
 <p><code>GET /health/live</code> intentionally returns no component, vault, configuration, dependency or error
 details. <code>GET /status</code> also remains public for the desktop connection contract.</p>
 <p>For an operator dashboard, call the richer endpoint with the REST bearer token:</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your-token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer &lt;your-token&gt;"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>http://localhost:8000/health/detailed<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
 </code></pre></div>
 <p>The response lists the status of each internal component:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.9.0&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;components&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;postgres&quot;</span><span class="p">:</span><span class="w">       </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;qdrant&quot;</span><span class="p">:</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;ollama&quot;</span><span class="p">:</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;watcher&quot;</span><span class="p">:</span><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;last_event_seconds_ago&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;scheduler&quot;</span><span class="p">:</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;next_run_in_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3588</span><span class="w"> </span><span class="p">},</span>
-<span class="w">    </span><span class="nt">&quot;ingest_queue&quot;</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;status&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;idle&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;running&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;queued&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"healthy"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.9.0"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"components"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"postgres"</span><span class="p">:</span><span class="w">       </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"qdrant"</span><span class="p">:</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"ollama"</span><span class="p">:</span><span class="w">         </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"watcher"</span><span class="p">:</span><span class="w">        </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span><span class="w"> </span><span class="nt">"last_event_seconds_ago"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"scheduler"</span><span class="p">:</span><span class="w">      </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span><span class="w"> </span><span class="nt">"next_run_in_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mi">3588</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="nt">"ingest_queue"</span><span class="p">:</span><span class="w">   </span><span class="p">{</span><span class="w"> </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"idle"</span><span class="p">,</span><span class="w"> </span><span class="nt">"running"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nt">"queued"</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
@@ -5555,7 +5583,7 @@ navigation rail on the left and the knowledge graph in the center.</p>
 interactively from the host for debugging, use <code>docker compose exec postgres psql -U synapse</code>
 or temporarily uncomment the loopback-only port line in <code>docker-compose.yml</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># ports:</span>
-<span class="c1">#   - &quot;127.0.0.1:5432:5432&quot;</span>
+<span class="c1">#   - "127.0.0.1:5432:5432"</span>
 </code></pre></div>
 <p>In <code>docker-compose.dev.yml</code> (local development), Postgres and Qdrant are published on
 <code>127.0.0.1</code> only — accessible from the developer's machine but not the LAN.</p>
@@ -5599,11 +5627,11 @@ row manually or via the Settings UI.</p>
 <div class="highlight"><pre><span></span><code><span class="c1">-- Insert a global provider_config row for the local Ollama backend.</span>
 <span class="c1">-- This makes qwen2.5:3b the default for ALL operations globally.</span>
 <span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">provider_config</span><span class="w"> </span><span class="p">(</span><span class="k">scope</span><span class="p">,</span><span class="w"> </span><span class="k">operation</span><span class="p">,</span><span class="w"> </span><span class="n">vault_id</span><span class="p">,</span><span class="w"> </span><span class="n">provider_type</span><span class="p">,</span><span class="w"> </span><span class="n">model_id</span><span class="p">,</span><span class="w"> </span><span class="n">max_iter</span><span class="p">,</span><span class="w"> </span><span class="n">token_budget</span><span class="p">,</span><span class="w"> </span><span class="n">is_fallback</span><span class="p">)</span>
-<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;global&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;local&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;qwen2.5:3b&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
+<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'global'</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">'local'</span><span class="p">,</span><span class="w"> </span><span class="s1">'qwen2.5:3b'</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
 
 <span class="c1">-- To target only the chat operation for the default vault:</span>
 <span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">provider_config</span><span class="w"> </span><span class="p">(</span><span class="k">scope</span><span class="p">,</span><span class="w"> </span><span class="k">operation</span><span class="p">,</span><span class="w"> </span><span class="n">vault_id</span><span class="p">,</span><span class="w"> </span><span class="n">provider_type</span><span class="p">,</span><span class="w"> </span><span class="n">model_id</span><span class="p">,</span><span class="w"> </span><span class="n">max_iter</span><span class="p">,</span><span class="w"> </span><span class="n">token_budget</span><span class="p">,</span><span class="w"> </span><span class="n">is_fallback</span><span class="p">)</span>
-<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;operation&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;chat&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;default&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;local&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;qwen2.5:3b&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
+<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'operation'</span><span class="p">,</span><span class="w"> </span><span class="s1">'chat'</span><span class="p">,</span><span class="w"> </span><span class="s1">'default'</span><span class="p">,</span><span class="w"> </span><span class="s1">'local'</span><span class="p">,</span><span class="w"> </span><span class="s1">'qwen2.5:3b'</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
 </code></pre></div>
 <p>Resolution precedence (most specific wins): <code>operation + vault_id</code> &gt; <code>vault</code> &gt;
 <code>global</code>. A missing global row is a hard configuration error; Synapse will not fall
@@ -5620,11 +5648,11 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 </code></pre></div>
 <p>The key is never stored in the database. Then insert a provider_config row:</p>
 <div class="highlight"><pre><span></span><code><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">provider_config</span><span class="w"> </span><span class="p">(</span><span class="k">scope</span><span class="p">,</span><span class="w"> </span><span class="k">operation</span><span class="p">,</span><span class="w"> </span><span class="n">vault_id</span><span class="p">,</span><span class="w"> </span><span class="n">provider_type</span><span class="p">,</span><span class="w"> </span><span class="n">model_id</span><span class="p">,</span><span class="w"> </span><span class="n">max_iter</span><span class="p">,</span><span class="w"> </span><span class="n">token_budget</span><span class="p">,</span><span class="w"> </span><span class="n">is_fallback</span><span class="p">)</span>
-<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;global&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;api&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;claude-sonnet-4-6&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
+<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'global'</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">'api'</span><span class="p">,</span><span class="w"> </span><span class="s1">'claude-sonnet-4-6'</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
 </code></pre></div>
 <p>For an OpenAI-compatible endpoint, populate the <code>base_url</code> column:</p>
 <div class="highlight"><pre><span></span><code><span class="k">INSERT</span><span class="w"> </span><span class="k">INTO</span><span class="w"> </span><span class="n">provider_config</span><span class="w"> </span><span class="p">(</span><span class="k">scope</span><span class="p">,</span><span class="w"> </span><span class="k">operation</span><span class="p">,</span><span class="w"> </span><span class="n">vault_id</span><span class="p">,</span><span class="w"> </span><span class="n">provider_type</span><span class="p">,</span><span class="w"> </span><span class="n">model_id</span><span class="p">,</span><span class="w"> </span><span class="n">base_url</span><span class="p">,</span><span class="w"> </span><span class="n">max_iter</span><span class="p">,</span><span class="w"> </span><span class="n">token_budget</span><span class="p">,</span><span class="w"> </span><span class="n">is_fallback</span><span class="p">)</span>
-<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;global&#39;</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;api&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;gpt-4o&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;https://api.openai.com/v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
+<span class="k">VALUES</span><span class="w"> </span><span class="p">(</span><span class="s1">'global'</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w"> </span><span class="s1">'api'</span><span class="p">,</span><span class="w"> </span><span class="s1">'gpt-4o'</span><span class="p">,</span><span class="w"> </span><span class="s1">'https://api.openai.com/v1'</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">60000</span><span class="p">,</span><span class="w"> </span><span class="k">false</span><span class="p">);</span>
 </code></pre></div>
 <hr />
 <h2 id="5-remote-mcp-feature-a-adr-0029-adr-0032-adr-0033">5. Remote MCP (Feature A, ADR-0029 / ADR-0032 / ADR-0033)<a class="headerlink" href="#5-remote-mcp-feature-a-adr-0029-adr-0032-adr-0033" title="Permanent link">&para;</a></h2>
@@ -5644,16 +5672,16 @@ secured by a bearer token. This allows tools like
 </ul>
 <h3 id="52-generate-a-strong-bearer-token">5.2 Generate a strong bearer token<a class="headerlink" href="#52-generate-a-strong-bearer-token" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># Generate a cryptographically secure token</span>
-<span class="nv">MCP_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="nv">MCP_AUTH_TOKEN</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-base64<span class="w"> </span><span class="m">32</span><span class="k">)</span><span class="s2">"</span>
 <span class="nb">export</span><span class="w"> </span>MCP_AUTH_TOKEN
-<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Store this safely: </span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">"Store this safely: </span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">"</span>
 
 <span class="c1"># Persist it in .env for local testing (NEVER commit it)</span>
-<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;MCP_AUTH_TOKEN=</span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
+<span class="nb">echo</span><span class="w"> </span><span class="s2">"MCP_AUTH_TOKEN=</span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
 </code></pre></div>
 <h3 id="53-start-the-stack-with-the-token-set">5.3 Start the stack with the token set<a class="headerlink" href="#53-start-the-stack-with-the-token-set" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># Option 1: export the variable in the same shell</span>
-<span class="nb">export</span><span class="w"> </span><span class="nv">MCP_AUTH_TOKEN</span><span class="o">=</span><span class="s2">&quot;&lt;your-generated-token&gt;&quot;</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">MCP_AUTH_TOKEN</span><span class="o">=</span><span class="s2">"&lt;your-generated-token&gt;"</span>
 docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 
 <span class="c1"># Option 2: use a .env file (created above)</span>
@@ -5662,12 +5690,12 @@ docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> 
 </code></pre></div>
 <h3 id="54-verify-the-http-mcp-surface-is-live">5.4 Verify the HTTP MCP surface is live<a class="headerlink" href="#54-verify-the-http-mcp-surface-is-live" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># Test that /mcp/server is reachable and requires authentication</span>
-curl<span class="w"> </span>-s<span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;\nStatus: %{http_code}\n&quot;</span><span class="w"> </span>http://localhost:8000/mcp/server<span class="w"> </span><span class="se">\</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-w<span class="w"> </span><span class="s2">"\nStatus: %{http_code}\n"</span><span class="w"> </span>http://localhost:8000/mcp/server<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-20
 <span class="c1"># Expected: 401 Unauthorized (no token)</span>
 
 <span class="c1"># Now with the token</span>
-curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$MCP_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>http://localhost:8000/mcp/server<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-20
 <span class="c1"># Expected: Valid MCP protocol response (200 or 101 SSE/WebSocket handshake)</span>
 </code></pre></div>
@@ -5690,12 +5718,12 @@ bearer token), while <strong>Claude Desktop's JSON config supports arbitrary cus
 <h4 id="claude-desktop-bearer-token-simplest">Claude Desktop (bearer token, simplest)<a class="headerlink" href="#claude-desktop-bearer-token-simplest" title="Permanent link">&para;</a></h4>
 <p>Add to Claude Desktop's <code>claude_desktop_config.json</code> (Settings → Developer → Edit Config):</p>
 <div class="highlight"><pre><span></span><code>{
-  &quot;mcpServers&quot;: {
-    &quot;synapse_remote&quot;: {
-      &quot;type&quot;: &quot;http&quot;,
-      &quot;url&quot;: &quot;https://synapse.yourdomain.com/mcp/server&quot;,
-      &quot;headers&quot;: {
-        &quot;Authorization&quot;: &quot;Bearer &lt;your-MCP_AUTH_TOKEN&gt;&quot;
+  "mcpServers": {
+    "synapse_remote": {
+      "type": "http",
+      "url": "https://synapse.yourdomain.com/mcp/server",
+      "headers": {
+        "Authorization": "Bearer &lt;your-MCP_AUTH_TOKEN&gt;"
       }
     }
   }
@@ -5752,14 +5780,14 @@ CF-Access-Client-Secret: &lt;client-secret&gt;
   headers, so add the service token there alongside the Bearer token:</li>
 </ul>
 <div class="highlight"><pre><span></span><code>{
-  &quot;mcpServers&quot;: {
-    &quot;synapse_remote&quot;: {
-      &quot;type&quot;: &quot;http&quot;,
-      &quot;url&quot;: &quot;https://synapse.yourdomain.com/mcp/server&quot;,
-      &quot;headers&quot;: {
-        &quot;Authorization&quot;: &quot;Bearer &lt;MCP_AUTH_TOKEN&gt;&quot;,
-        &quot;CF-Access-Client-Id&quot;: &quot;&lt;client-id&gt;.access&quot;,
-        &quot;CF-Access-Client-Secret&quot;: &quot;&lt;client-secret&gt;&quot;
+  "mcpServers": {
+    "synapse_remote": {
+      "type": "http",
+      "url": "https://synapse.yourdomain.com/mcp/server",
+      "headers": {
+        "Authorization": "Bearer &lt;MCP_AUTH_TOKEN&gt;",
+        "CF-Access-Client-Id": "&lt;client-id&gt;.access",
+        "CF-Access-Client-Secret": "&lt;client-secret&gt;"
       }
     }
   }
@@ -5798,10 +5826,10 @@ introspect the MCP server's configuration:</p>
 </code></pre></div>
 <p>Expected response (example):</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;synapse&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;http_enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;remote_write_enabled&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.5&quot;</span>
+<span class="w">  </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"synapse"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"http_enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"remote_write_enabled"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"0.5"</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>If <code>http_enabled</code> is <code>false</code>, the token was not set at startup (fail-closed).</p>
@@ -5865,13 +5893,13 @@ scheduler records <code>last_status="dir_missing"</code> and the Settings card s
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./vault:/vault</span>
 <span class="w">      </span><span class="c1"># ── Feature S (ADR-0020): scheduled folder import ────────────────────────</span>
 <span class="w">      </span><span class="c1"># Mount any host folder you want Synapse to auto-import into the container,</span>
-<span class="w">      </span><span class="c1"># then set the schedule&#39;s source_dir to the CONTAINER path (e.g. /import).</span>
+<span class="w">      </span><span class="c1"># then set the schedule's source_dir to the CONTAINER path (e.g. /import).</span>
 <span class="w">      </span><span class="c1"># The backend can ONLY see mounted paths — there is no host filesystem browse.</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./import:/import:ro</span><span class="w">   </span><span class="c1"># read-only is recommended; Synapse copies OUT of it</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">MAX_UPLOAD_BYTES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;26214400&quot;</span><span class="w">      </span><span class="c1"># 25 MB upload cap (Feature U, I7)</span>
-<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_FILES</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span><span class="w">      </span><span class="c1"># per-scan file cap (Feature S, I7)</span>
-<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_SECONDS</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;60&quot;</span><span class="w">     </span><span class="c1"># per-scan wall-clock cap (Feature S, I7)</span>
+<span class="w">      </span><span class="nt">MAX_UPLOAD_BYTES</span><span class="p">:</span><span class="w"> </span><span class="s">"26214400"</span><span class="w">      </span><span class="c1"># 25 MB upload cap (Feature U, I7)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_FILES</span><span class="p">:</span><span class="w"> </span><span class="s">"200"</span><span class="w">      </span><span class="c1"># per-scan file cap (Feature S, I7)</span>
+<span class="w">      </span><span class="nt">IMPORT_SCAN_MAX_SECONDS</span><span class="p">:</span><span class="w"> </span><span class="s">"60"</span><span class="w">     </span><span class="c1"># per-scan wall-clock cap (Feature S, I7)</span>
 </code></pre></div>
 <p>The <code>:ro</code> (read-only) flag is recommended: Synapse only reads the source folder and
 copies files out of it into <code>vault/raw/sources/</code>. It never writes back to <code>source_dir</code>.</p>
@@ -6065,8 +6093,8 @@ macOS/WebKit version tightens the policy.</p>
 certificate or for local development iteration):</p>
 <p><strong>Prerequisites:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Install Rust toolchain via rustup (once per machine)</span>
-curl<span class="w"> </span>--proto<span class="w"> </span><span class="s1">&#39;=https&#39;</span><span class="w"> </span>--tlsv1.2<span class="w"> </span>-sSf<span class="w"> </span>https://sh.rustup.rs<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
-<span class="nb">source</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.cargo/env&quot;</span>
+curl<span class="w"> </span>--proto<span class="w"> </span><span class="s1">'=https'</span><span class="w"> </span>--tlsv1.2<span class="w"> </span>-sSf<span class="w"> </span>https://sh.rustup.rs<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+<span class="nb">source</span><span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.cargo/env"</span>
 
 <span class="c1"># Verify</span>
 rustc<span class="w"> </span>--version
@@ -6076,7 +6104,7 @@ cargo<span class="w"> </span>--version
 development libraries are needed.</p>
 <p><strong>Build:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1"># From the repo root</span>
-<span class="nb">source</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.cargo/env&quot;</span><span class="w">          </span><span class="c1"># ensure Rust is on PATH (add to .bashrc/.zshrc to make permanent)</span>
+<span class="nb">source</span><span class="w"> </span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.cargo/env"</span><span class="w">          </span><span class="c1"># ensure Rust is on PATH (add to .bashrc/.zshrc to make permanent)</span>
 npm<span class="w"> </span>ci<span class="w"> </span>--prefix<span class="w"> </span>frontend<span class="w">           </span><span class="c1"># install JS dependencies</span>
 npm<span class="w"> </span>--prefix<span class="w"> </span>frontend<span class="w"> </span>run<span class="w"> </span>tauri:build
 </code></pre></div>
@@ -6290,8 +6318,8 @@ runs in the background and checks the GHCR registry every hour (configurable via
 <p><strong>Verify Watchtower is running:</strong></p>
 <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>watchtower<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-20
 <span class="c1"># You should see logs like:</span>
-<span class="c1"># watchtower_1  | time=&quot;2026-07-03T12:00:00Z&quot; level=info msg=&quot;Watchtower 1.x.x started&quot;</span>
-<span class="c1"># watchtower_1  | time=&quot;2026-07-03T12:05:00Z&quot; level=info msg=&quot;Checking synapse-backend...&quot;</span>
+<span class="c1"># watchtower_1  | time="2026-07-03T12:00:00Z" level=info msg="Watchtower 1.x.x started"</span>
+<span class="c1"># watchtower_1  | time="2026-07-03T12:05:00Z" level=info msg="Checking synapse-backend..."</span>
 </code></pre></div>
 <h4 id="92b-on-demand-updates-from-the-app-the-update-system-button">9.2b On-demand updates from the app (the "Update system" button)<a class="headerlink" href="#92b-on-demand-updates-from-the-app-the-update-system-button" title="Permanent link">&para;</a></h4>
 <p>Settings → <strong>Info</strong> shows the running version and — when a newer GitHub Release exists — an
@@ -6321,7 +6349,7 @@ availability line still shows so you can update manually.</p>
 <h4 id="92c-which-services-are-auto-updated">9.2c Which services are auto-updated<a class="headerlink" href="#92c-which-services-are-auto-updated" title="Permanent link">&para;</a></h4>
 <p>The backend and marker services carry the Watchtower enable label:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">labels</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">com.centurylinklabs.watchtower.enable</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+<span class="w">  </span><span class="nt">com.centurylinklabs.watchtower.enable</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
 </code></pre></div>
 <p>Postgres and Qdrant <strong>do NOT</strong> carry this label. This is intentional and safe:</p>
 <ul>
@@ -6419,8 +6447,8 @@ schema-review / type-reclassify (<code>backend/app/ops_scheduler.py</code>) — 
 daily|weekly</code> schedule key, no new infrastructure:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Enable a daily backup (any authenticated client — curl, the Settings UI, etc.)</span>
 curl<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>http://localhost:8000/config/app/backup_schedule<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;value&quot;: &quot;daily&quot;}&#39;</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">'{"value": "daily"}'</span>
 
 <span class="c1"># Trigger one immediately (does not wait for the schedule)</span>
 curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/ops/schedules/backup/run-now
@@ -6531,7 +6559,7 @@ committed files. A mismatch fails the PR. Fix it with:</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>er
 make<span class="w"> </span>openapi
 git<span class="w"> </span>add<span class="w"> </span>docs/er/schema.mmd<span class="w"> </span>docs/api/openapi.json
-git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;docs: refresh ER and OpenAPI [I8]&quot;</span>
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"docs: refresh ER and OpenAPI [I8]"</span>
 </code></pre></div>
 <hr />
 <h2 id="14-troubleshooting">14. Troubleshooting<a class="headerlink" href="#14-troubleshooting" title="Permanent link">&para;</a></h2>
@@ -6550,8 +6578,8 @@ docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </
 model.</p>
 <p>For the default Ollama / bge-m3 setup (<code>EMBEDDING_FORMAT=ollama</code>):</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://100.x.x.x:11434/api/embeddings<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;model&quot;: &quot;bge-m3&quot;, &quot;prompt&quot;: &quot;test&quot;}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.embedding | length&#39;</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"model": "bge-m3", "prompt": "test"}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">'.embedding | length'</span>
 <span class="c1"># Returns the actual dimension — update EMBEDDING_DIM to match</span>
 docker<span class="w"> </span>compose<span class="w"> </span>restart<span class="w"> </span>synapse-backend
 </code></pre></div>
@@ -6634,11 +6662,11 @@ SYNAPSE_AUTH_TOKEN=&lt;paste-the-generated-token&gt;
 <ol>
 <li>Verify the gate is active by calling a protected route without a token:</li>
 </ol>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-w<span class="w"> </span><span class="s2">&quot;\nStatus: %{http_code}\n&quot;</span><span class="w"> </span>http://localhost:8000/pages<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-1
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-w<span class="w"> </span><span class="s2">"\nStatus: %{http_code}\n"</span><span class="w"> </span>http://localhost:8000/pages<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-1
 <span class="c1"># Expected: Status: 401</span>
 </code></pre></div>
 <p>And with the token:</p>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your-token&gt;&quot;</span><span class="w"> </span>http://localhost:8000/pages<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-5
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer &lt;your-token&gt;"</span><span class="w"> </span>http://localhost:8000/pages<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-5
 <span class="c1"># Expected: 200 with a JSON response</span>
 </code></pre></div>
 <ol>
@@ -6722,7 +6750,7 @@ new token in Settings &gt; Security is a client-side update only — it does not
 curl<span class="w"> </span>-i<span class="w"> </span>http://localhost:8000/health/detailed
 <span class="c1"># Expected: 401</span>
 
-curl<span class="w"> </span>-i<span class="w"> </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer &lt;your-token&gt;&quot;</span><span class="w"> </span><span class="se">\</span>
+curl<span class="w"> </span>-i<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer &lt;your-token&gt;"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>http://localhost:8000/health/detailed
 <span class="c1"># Expected: 200</span>
 
@@ -6757,26 +6785,26 @@ but the warnings impede adoption. Code signing + notarization removes them entir
 <p>Add the following via <code>gh secret set</code>:</p>
 <div class="highlight"><pre><span></span><code>gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_CERTIFICATE<span class="w">         </span><span class="c1"># base64-encoded .p12 file</span>
 gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_CERTIFICATE_PASSWORD<span class="w"> </span><span class="c1"># password for the .p12</span>
-gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_SIGNING_IDENTITY<span class="w">    </span><span class="c1"># e.g. &quot;Developer ID Application: Your Name (TEAMID)&quot;</span>
+gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_SIGNING_IDENTITY<span class="w">    </span><span class="c1"># e.g. "Developer ID Application: Your Name (TEAMID)"</span>
 gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_ID<span class="w">                  </span><span class="c1"># your Apple ID email</span>
 gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_PASSWORD<span class="w">            </span><span class="c1"># app-specific password (not your Apple ID password)</span>
 <span class="w">                                         </span><span class="c1"># generate at appleid.apple.com &gt; Sign-In and Security &gt; App-Specific Passwords</span>
 gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>APPLE_TEAM_ID<span class="w">            </span><span class="c1"># 10-char team ID (visible in developer.apple.com top-right)</span>
 </code></pre></div>
 <p>To encode the <code>.p12</code> as base64:</p>
-<div class="highlight"><pre><span></span><code>base64<span class="w"> </span>-i<span class="w"> </span>~/Certificates/DeveloperID.p12<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;\n&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>pbcopy
+<div class="highlight"><pre><span></span><code>base64<span class="w"> </span>-i<span class="w"> </span>~/Certificates/DeveloperID.p12<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">'\n'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>pbcopy
 <span class="c1"># Then: gh secret set APPLE_CERTIFICATE  (paste from clipboard)</span>
 </code></pre></div>
 <p><strong><code>tauri.conf.json</code> changes:</strong></p>
 <p>In <code>src-tauri/tauri.conf.json</code>, set the macOS signing identity and enable notarization:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;bundle&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;macOS&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;signingIdentity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$APPLE_SIGNING_IDENTITY&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;notarizationCredentials&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;appleId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$APPLE_ID&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;appleIdPassword&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$APPLE_PASSWORD&quot;</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;teamId&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;$APPLE_TEAM_ID&quot;</span>
+<span class="w">  </span><span class="nt">"bundle"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"macOS"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"signingIdentity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$APPLE_SIGNING_IDENTITY"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"notarizationCredentials"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"appleId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$APPLE_ID"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"appleIdPassword"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$APPLE_PASSWORD"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"teamId"</span><span class="p">:</span><span class="w"> </span><span class="s2">"$APPLE_TEAM_ID"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
@@ -6828,16 +6856,16 @@ right-click → Open workaround documented in §7.1.</p>
 gh<span class="w"> </span>secret<span class="w"> </span><span class="nb">set</span><span class="w"> </span>WINDOWS_CERTIFICATE_PASSWORD<span class="w"> </span><span class="c1"># password for the .pfx</span>
 </code></pre></div>
 <p>To encode the <code>.pfx</code>:</p>
-<div class="highlight"><pre><span></span><code>base64<span class="w"> </span>-i<span class="w"> </span>~/Certificates/SynapseSign.pfx<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;\n&#39;</span>
+<div class="highlight"><pre><span></span><code>base64<span class="w"> </span>-i<span class="w"> </span>~/Certificates/SynapseSign.pfx<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">'\n'</span>
 <span class="c1"># Copy the output and: gh secret set WINDOWS_CERTIFICATE</span>
 </code></pre></div>
 <p><strong><code>tauri.conf.json</code> changes:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;bundle&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;windows&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;certificateThumbprint&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;digestAlgorithm&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sha256&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;timestampUrl&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;http://timestamp.digicert.com&quot;</span>
+<span class="w">  </span><span class="nt">"bundle"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"windows"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="nt">"certificateThumbprint"</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"digestAlgorithm"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"timestampUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://timestamp.digicert.com"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
@@ -7011,9 +7039,9 @@ MARKER_SERVICE_URL=http://localhost:8555
 <div class="highlight"><pre><span></span><code><span class="c1"># Enable the marker profile and start the containerized service</span>
 docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>marker<span class="w"> </span>up<span class="w"> </span>-d
 
-<span class="c1"># Verify it&#39;s running</span>
+<span class="c1"># Verify it's running</span>
 curl<span class="w"> </span>http://localhost:8555/health
-<span class="c1"># {&quot;status&quot;:&quot;ok&quot;}</span>
+<span class="c1"># {"status":"ok"}</span>
 </code></pre></div>
 <p>In <code>.env</code>:
 <div class="highlight"><pre><span></span><code>PDF_EXTRACTOR=marker
@@ -7054,7 +7082,7 @@ TORCH_DEVICE=cuda
 </li>
 <li>
 <p><strong>Verify GPU is active</strong> (inside the marker container):
-   <div class="highlight"><pre><span></span><code>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>synapse-marker<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import torch; print(f&#39;GPU: {torch.cuda.is_available()}&#39;)&quot;</span>
+   <div class="highlight"><pre><span></span><code>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>synapse-marker<span class="w"> </span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import torch; print(f'GPU: {torch.cuda.is_available()}')"</span>
 <span class="c1"># GPU: True</span>
 </code></pre></div></p>
 </li>
@@ -7108,7 +7136,7 @@ python3.13<span class="w"> </span>-m<span class="w"> </span>venv<span class="w">
 
 <span class="nv">TORCH_DEVICE</span><span class="o">=</span>mps<span class="w"> </span>./.venv/bin/python<span class="w"> </span>servicenow_connector.py<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--pdf<span class="w"> </span>~/Downloads/servicenow-itam-enus.pdf<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--module-code<span class="w"> </span>ITAM<span class="w"> </span>--module-title<span class="w"> </span><span class="s2">&quot;IT Asset Management&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--module-code<span class="w"> </span>ITAM<span class="w"> </span>--module-title<span class="w"> </span><span class="s2">"IT Asset Management"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--out<span class="w"> </span>/path/to/vault/raw/sources
 </code></pre></div>
 <p>The converter splits the PDF by bookmark structure (module → feature → group → section),
@@ -7124,7 +7152,7 @@ New PDFs dropped into the watch directory are picked up automatically.</p>
 <span class="w">    </span>--watch-dir<span class="w"> </span>~/Downloads/sn-pdfs<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--out<span class="w"> </span>/path/to/vault/raw/sources<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>--interval-minutes<span class="w"> </span><span class="m">60</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--module-code<span class="w"> </span>ITAM<span class="w"> </span>--module-title<span class="w"> </span><span class="s2">&quot;IT Asset Management&quot;</span>
+<span class="w">    </span>--module-code<span class="w"> </span>ITAM<span class="w"> </span>--module-title<span class="w"> </span><span class="s2">"IT Asset Management"</span>
 </code></pre></div>
 <p>Key behavior:
 - State is persisted in <code>out/.sn_connector_state.json</code> (SHA-256 keyed). A PDF is never
@@ -7211,7 +7239,7 @@ all metadata including conversation history.</p>
    your backup mechanism (e.g. <code>pg_restore</code>, volume copy, TrueNAS dataset snapshot).
    Example for a logical dump:
    <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>postgres<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>psql<span class="w"> </span>-U<span class="w"> </span>synapse<span class="w"> </span>-d<span class="w"> </span>postgres<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;DROP DATABASE IF EXISTS synapse; CREATE DATABASE synapse;&quot;</span>
+<span class="w">    </span>psql<span class="w"> </span>-U<span class="w"> </span>synapse<span class="w"> </span>-d<span class="w"> </span>postgres<span class="w"> </span>-c<span class="w"> </span><span class="s2">"DROP DATABASE IF EXISTS synapse; CREATE DATABASE synapse;"</span>
 docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>postgres<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span>pg_restore<span class="w"> </span>-U<span class="w"> </span>synapse<span class="w"> </span>-d<span class="w"> </span>synapse<span class="w"> </span>/backup/synapse-YYYYMMDD.dump
 </code></pre></div></li>

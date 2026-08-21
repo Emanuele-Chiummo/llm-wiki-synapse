@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2655,7 +2683,7 @@ Phase 2 — GRAPH EXPANSION  (I2: read edges table; NEVER FA2; data_version unch
   candidates = seed hits (vector score) ∪ expanded (edge-weight score)
 
 Phase 3 — TOKEN-BUDGET ALLOCATION  (F14: 20% of context_window; AQ-v0.5-2 char/4)
-  budget_tokens = int(context_window * 0.20)                       # the &quot;retrieved&quot; slice
+  budget_tokens = int(context_window * 0.20)                       # the "retrieved" slice
   budget_chars  = budget_tokens * 4                                # char/4 safety cap
   rank candidates by combined score (vector seeds first, then edge-weight expansions)
 
@@ -2663,9 +2691,9 @@ Phase 4 — CONTEXT ASSEMBLY  (I3: server-side; build string + citation map ONCE
   for each candidate in rank order, while budget remains:
       passage = load_passage(page)                                 # raw/sources file body, capped
       assign next 1-based citation index n
-      append &quot;[n] &lt;title&gt;\n&lt;passage&gt;\n&quot; to context_text (whole-passage granularity)
+      append "[n] &lt;title&gt;\n&lt;passage&gt;\n" to context_text (whole-passage granularity)
       record Citation(n, PageRef(id, title, slug))
-  drop lowest-ranked candidates that don&#39;t fit (AC-F5-4: never mid-sentence truncate-without-drop)
+  drop lowest-ranked candidates that don't fit (AC-F5-4: never mid-sentence truncate-without-drop)
   return RetrievalContext(text, citations, query, ...)
 </code></pre></div>
 <p><strong>Bounding (I7).</strong> <code>k</code> (default 8), <code>expansion_depth</code> (default 2, hard max 2), and the char budget
@@ -2683,20 +2711,20 @@ candidate), never a vault walk.</p>
 <p>All in <code>backend/app/rag/retrieval.py</code>, Pydantic v2 (parsed/serialized at the <code>GET /search</code> boundary
 and stored as JSONB in <code>messages.citations</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PageRef</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A citable wiki/source page target. Resolves [n] → navigable page.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""A citable wiki/source page target. Resolves [n] → navigable page."""</span>
     <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># str(uuid) of the pages row (== Qdrant point id, ADR-0002)</span>
     <span class="n">title</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># frontmatter title, else filename stem (never empty — falls back)</span>
     <span class="n">slug</span><span class="p">:</span> <span class="nb">str</span>          <span class="c1"># url-friendly: slugify(title) (lower, hyphenated, ascii) — NOT NULL</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">Citation</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;One [n] marker → its source page + the matched passage&#39;s score.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""One [n] marker → its source page + the matched passage's score."""</span>
     <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>             <span class="c1"># 1-based citation index, contiguous from 1</span>
     <span class="n">ref</span><span class="p">:</span> <span class="n">PageRef</span>
     <span class="n">score</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># vector cosine OR edge weight (provenance of the candidate)</span>
-    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;vector&quot;</span><span class="p">,</span> <span class="s2">&quot;expansion&quot;</span><span class="p">]</span>   <span class="c1"># which phase surfaced it (audit/debug)</span>
+    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"vector"</span><span class="p">,</span> <span class="s2">"expansion"</span><span class="p">]</span>   <span class="c1"># which phase surfaced it (audit/debug)</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RetrievalContext</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The assembled, budget-capped retrieval result. The ONE object F5 returns.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""The assembled, budget-capped retrieval result. The ONE object F5 returns."""</span>
     <span class="n">query</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>                      <span class="c1"># assembled context string WITH inline [n] markers (≤ budget)</span>
     <span class="n">citations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Citation</span><span class="p">]</span>      <span class="c1"># n → PageRef map; len == number of [n] markers</span>
@@ -2735,12 +2763,12 @@ and stored as JSONB in <code>messages.citations</code>):</p>
 <h3 id="42-get-search-contract-d4">4.2 <code>GET /search</code> contract (D4)<a class="headerlink" href="#42-get-search-contract-d4" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>GET /search?q=&lt;query&gt;&amp;vault_id=&lt;id&gt;&amp;k=&lt;int&gt;            → 200
 {
-  &quot;query&quot;: &quot;...&quot;,
-  &quot;context&quot;: &quot;&lt;assembled string with [n] markers&gt;&quot;,     // RetrievalContext.text
-  &quot;results&quot;: [ {&quot;n&quot;:1,&quot;id&quot;:&quot;...&quot;,&quot;title&quot;:&quot;...&quot;,&quot;slug&quot;:&quot;...&quot;,&quot;score&quot;:0.83,&quot;phase&quot;:&quot;vector&quot;}, ... ],
-  &quot;data_version&quot;: 7,
-  &quot;approx_tokens&quot;: 1180,
-  &quot;token_budget&quot;: 1310
+  "query": "...",
+  "context": "&lt;assembled string with [n] markers&gt;",     // RetrievalContext.text
+  "results": [ {"n":1,"id":"...","title":"...","slug":"...","score":0.83,"phase":"vector"}, ... ],
+  "data_version": 7,
+  "approx_tokens": 1180,
+  "token_budget": 1310
 }
 → 200 with empty results + empty context for a 0-hit query (AC-F5-7a)
 </code></pre></div>

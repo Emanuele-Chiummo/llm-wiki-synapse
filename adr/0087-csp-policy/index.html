@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2136,23 +2164,23 @@ light and dark themes.</p>
 </ul>
 <h3 id="2-katex-usage-and-csp-requirements-f8">2. KaTeX usage and CSP requirements (F8)<a class="headerlink" href="#2-katex-usage-and-csp-requirements-f8" title="Permanent link">&para;</a></h3>
 <p><code>frontend/src/components/chat/renderMarkdown.ts</code> imports KaTeX as:</p>
-<div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">katex</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">&quot;katex&quot;</span><span class="p">;</span>
-<span class="k">import</span><span class="w"> </span><span class="s2">&quot;katex/dist/katex.min.css&quot;</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="nx">katex</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">"katex"</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="s2">"katex/dist/katex.min.css"</span><span class="p">;</span>
 </code></pre></div>
 <p>and calls:
 <div class="highlight"><pre><span></span><code><span class="nx">katex</span><span class="p">.</span><span class="nx">renderToString</span><span class="p">(</span><span class="nx">latex</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="nx">displayMode</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
 <span class="w">  </span><span class="nx">throwOnError</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
 <span class="w">  </span><span class="nx">trust</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
-<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;htmlAndMathml&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="s2">"htmlAndMathml"</span><span class="p">,</span>
 <span class="p">});</span>
 </code></pre></div></p>
 <p><code>output: "htmlAndMathml"</code> produces HTML like:
-<div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;katex-display&quot;</span><span class="p">&gt;</span>
-  <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;katex&quot;</span><span class="p">&gt;</span>
-    <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;katex-html&quot;</span> <span class="na">aria-hidden</span><span class="o">=</span><span class="s">&quot;true&quot;</span><span class="p">&gt;</span>
-      <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;base&quot;</span><span class="p">&gt;</span>
-        <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">&quot;strut&quot;</span> <span class="na">style</span><span class="o">=</span><span class="s">&quot;height:0.6944em;&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
+<div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"katex-display"</span><span class="p">&gt;</span>
+  <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"katex"</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"katex-html"</span> <span class="na">aria-hidden</span><span class="o">=</span><span class="s">"true"</span><span class="p">&gt;</span>
+      <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"base"</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">span</span> <span class="na">class</span><span class="o">=</span><span class="s">"strut"</span> <span class="na">style</span><span class="o">=</span><span class="s">"height:0.6944em;"</span><span class="p">&gt;&lt;/</span><span class="nt">span</span><span class="p">&gt;</span>
         ...
 </code></pre></div></p>
 <p>Every <code>&lt;span&gt;</code> has an inline <code>style</code> attribute for positioning. <strong>This is intrinsic to KaTeX's
@@ -2184,7 +2212,7 @@ require <code>style-src 'unsafe-inline'</code>.</p>
 refactoring; deferred.</p>
 <h3 id="4-script-sources">4. Script sources<a class="headerlink" href="#4-script-sources" title="Permanent link">&para;</a></h3>
 <p>The production Vite build emits only external hashed JS chunks:
-<div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">script</span> <span class="na">type</span><span class="o">=</span><span class="s">&quot;module&quot;</span> <span class="na">crossorigin</span> <span class="na">src</span><span class="o">=</span><span class="s">&quot;/assets/main-[hash].js&quot;</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+<div class="highlight"><pre><span></span><code><span class="p">&lt;</span><span class="nt">script</span> <span class="na">type</span><span class="o">=</span><span class="s">"module"</span> <span class="na">crossorigin</span> <span class="na">src</span><span class="o">=</span><span class="s">"/assets/main-[hash].js"</span><span class="p">&gt;&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
 </code></pre></div></p>
 <p>No inline scripts are injected. <code>vite-plugin-pwa</code> is configured with <code>injectRegister: null</code>
 (SW registration handled in <code>main.tsx</code> via an external module import). <strong><code>script-src 'self'</code>
@@ -2206,7 +2234,7 @@ reverse-proxied by nginx to the backend, so browser requests go to the same orig
 origins. <code>VITE_API_BASE=http://localhost:8000</code> is embedded at build time; all fetch/XHR/SSE
 calls target <code>http://localhost:8000</code>, which would be blocked by <code>connect-src 'self'</code>.</p>
 <p><strong>Decision</strong>: in <code>vite.config.ts</code> (dev and preview headers), use:
-<div class="highlight"><pre><span></span><code>connect-src &#39;self&#39; http://localhost:* ws://localhost:* wss://localhost:*
+<div class="highlight"><pre><span></span><code>connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*
 </code></pre></div>
 Production nginx uses <code>connect-src 'self'</code> only.</p>
 <h3 id="8-worker-sources">8. Worker sources<a class="headerlink" href="#8-worker-sources" title="Permanent link">&para;</a></h3>
@@ -2215,20 +2243,20 @@ sufficient. <code>blob:</code> is included for future-proofing.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
 <p>The following CSP is applied across all layers:</p>
 <h3 id="production-nginx-nginxconftemplate">Production (nginx — <code>nginx.conf.template</code>)<a class="headerlink" href="#production-nginx-nginxconftemplate" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>default-src &#39;self&#39;;
-script-src &#39;self&#39;;
-style-src &#39;self&#39; &#39;unsafe-inline&#39;;
-font-src &#39;self&#39; data:;
-img-src &#39;self&#39; data: blob:;
-connect-src &#39;self&#39;;
-worker-src &#39;self&#39; blob:;
-frame-ancestors &#39;none&#39;;
-object-src &#39;none&#39;;
-base-uri &#39;self&#39;
+<div class="highlight"><pre><span></span><code>default-src 'self';
+script-src 'self';
+style-src 'self' 'unsafe-inline';
+font-src 'self' data:;
+img-src 'self' data: blob:;
+connect-src 'self';
+worker-src 'self' blob:;
+frame-ancestors 'none';
+object-src 'none';
+base-uri 'self'
 </code></pre></div>
 <h3 id="dev-ci-vite-server-preview-viteconfigts">Dev / CI (Vite server + preview — <code>vite.config.ts</code>)<a class="headerlink" href="#dev-ci-vite-server-preview-viteconfigts" title="Permanent link">&para;</a></h3>
 <p>Same as above, except <code>connect-src</code> is broadened for cross-origin localhost:
-<div class="highlight"><pre><span></span><code>connect-src &#39;self&#39; http://localhost:* ws://localhost:* wss://localhost:*
+<div class="highlight"><pre><span></span><code>connect-src 'self' http://localhost:* ws://localhost:* wss://localhost:*
 </code></pre></div></p>
 <h3 id="fastapi-middleware-security_headerspy">FastAPI middleware (<code>security_headers.py</code>)<a class="headerlink" href="#fastapi-middleware-security_headerspy" title="Permanent link">&para;</a></h3>
 <p>Production policy (same as nginx). Applied to API responses as defense-in-depth; the primary

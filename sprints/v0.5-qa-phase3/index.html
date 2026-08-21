@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2236,11 +2264,11 @@ Result: PASS</p>
 <h2 id="5-f9-chat-signature-confirmation-i6-do-not-check">5. F9 chat() Signature Confirmation (I6 Do-NOT Check)<a class="headerlink" href="#5-f9-chat-signature-confirmation-i6-do-not-check" title="Permanent link">&para;</a></h2>
 <p>The locked 2-arg signature <code>chat(messages, retrieval_context)</code> is enforced in:</p>
 <p><strong>Implementation</strong> (<code>backend/app/ops/review.py</code>, line 267):
-<div class="highlight"><pre><span></span><code><span class="n">maybe</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">maybe</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
 </code></pre></div>
 <code>token_budget</code> is NEVER passed to <code>provider.chat()</code>. It is enforced at the orchestration layer by the <code>budget_chars</code> character cap (line 264) on the accumulated output. This matches ADR-0025 Do-NOT list item: "DO NOT pass token_budget into chat()".</p>
 <p><strong>Test mocks</strong> — all five mock generators in test_review.py use the correct 2-arg signature:
-<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fake_chat</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fake_chat</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
 </code></pre></div>
 Lines: 452, 470, 504, 537, 584, 612 in test_review.py.</p>
 <p>No test uses the old kwargs form (<code>token_budget=...</code> in the chat call). Signature is CONFIRMED CORRECT.</p>

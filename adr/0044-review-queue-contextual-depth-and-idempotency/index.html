@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2511,10 +2539,10 @@ and <code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (I8
 <code>rationale</code>, <code>created_page_id</code>, <code>deep_research_run_id</code>, timestamps) are <strong>unchanged</strong>.</p>
 <h3 id="32-content_key-derivation-stable-idempotency">3.2 <code>content_key</code> derivation (stable idempotency)<a class="headerlink" href="#32-content_key-derivation-stable-idempotency" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>content_key = fnv1a_16hex(
-    vault_id + &quot;\x1f&quot; +
-    item_type + &quot;\x1f&quot; +
-    normalize(proposed_title) + &quot;\x1f&quot; +          # lower, collapse ws; &quot;&quot; if None
-    (normalize(target_page_title) or page_id or &quot;&quot;)  # the conflict anchor for contradiction/duplicate
+    vault_id + "\x1f" +
+    item_type + "\x1f" +
+    normalize(proposed_title) + "\x1f" +          # lower, collapse ws; "" if None
+    (normalize(target_page_title) or page_id or "")  # the conflict anchor for contradiction/duplicate
 )
 </code></pre></div>
 <ul>
@@ -2531,7 +2559,7 @@ and <code>make openapi</code> regenerates <code>docs/api/openapi.json</code> (I8
 <h3 id="33-idempotency-index">3.3 Idempotency index<a class="headerlink" href="#33-idempotency-index" title="Permanent link">&para;</a></h3>
 <p>Add a <strong>partial unique index</strong> (Postgres) / filtered index (SQLite emulated via a guarded upsert):</p>
 <div class="highlight"><pre><span></span><code>ix_review_items_vault_content_key_live  UNIQUE (vault_id, content_key)
-    WHERE content_key IS NOT NULL AND status IN (&#39;pending&#39;)
+    WHERE content_key IS NOT NULL AND status IN ('pending')
 </code></pre></div>
 <ul>
 <li>Uniqueness is scoped to <strong><code>pending</code></strong> live rows: a terminal (<code>skipped</code>/<code>dismissed</code>/<code>created</code>/
@@ -2548,11 +2576,11 @@ then branch</strong> (bounded, single indexed read — I1):</p>
 <div class="highlight"><pre><span></span><code>existing = SELECT ... WHERE vault_id=? AND content_key=? ORDER BY created_at DESC LIMIT 1
 if existing is None:
     INSERT new pending row                                   # first sighting
-elif existing.status == &#39;pending&#39;:
+elif existing.status == 'pending':
     UPDATE existing SET rationale=?, referenced_page_ids=?,  # refresh context, keep id+created_at
-                        search_queries=?                     # (the human hasn&#39;t acted yet)
+                        search_queries=?                     # (the human hasn't acted yet)
 else:  # terminal: skipped / dismissed / created / auto_resolved
-    NO-OP                                                    # respect the human&#39;s prior decision
+    NO-OP                                                    # respect the human's prior decision
 </code></pre></div>
 <p><code>content_key=NULL</code> (i.e. <code>confirm</code>) always INSERTs (no dedup). This is the exact nashsu semantics:
 <strong>a proposal the human already disposed of never comes back; an un-acted proposal is refreshed in
@@ -2986,17 +3014,17 @@ page created as <code>wiki/concepts/attention-mechanism.md</code> with title "Th
 NOT resolve a <code>missing-page</code> proposal with <code>proposed_title="Attention Mechanism"</code> — even though
 the slug derived from the proposed title matches the file path.</p>
 <p><strong>Fix:</strong> after the exact-title check fails, Pass-1 now tries a slug match:
-<div class="highlight"><pre><span></span><code>slug = normalize(proposed_title).replace(&quot; &quot;, &quot;-&quot;)
-→ Page.file_path LIKE &#39;%/{slug}.md&#39; AND Page.deleted_at IS NULL
+<div class="highlight"><pre><span></span><code>slug = normalize(proposed_title).replace(" ", "-")
+→ Page.file_path LIKE '%/{slug}.md' AND Page.deleted_at IS NULL
 </code></pre></div>
 Mirrors <code>sweep-reviews.ts:110-116</code> (byId slug lookup). Both checks remain bounded single indexed
 reads (I1).</p>
 <h3 id="133-prefix-stripping-in-_normalize_title-r5">13.3 Prefix-stripping in <code>_normalize_title</code> (R5)<a class="headerlink" href="#133-prefix-stripping-in-_normalize_title-r5" title="Permanent link">&para;</a></h3>
 <p><code>_normalize_title</code> now strips common LLM-prepended prefixes before lowercasing:</p>
 <div class="highlight"><pre><span></span><code><span class="n">_REVIEW_TITLE_PREFIX_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-    <span class="sa">r</span><span class="s2">&quot;^(?:missing[\s\-]?page[:：]\s*|duplicate[\s\-]?page[:：]\s*&quot;</span>
-    <span class="sa">r</span><span class="s2">&quot;|possible[\s\-]?duplicate[:：]\s*|缺失页面[:：]\s*|缺少页面[:：]\s*&quot;</span>
-    <span class="sa">r</span><span class="s2">&quot;|重复页面[:：]\s*|疑似重复[:：]\s*)&quot;</span><span class="p">,</span>
+    <span class="sa">r</span><span class="s2">"^(?:missing[\s\-]?page[:：]\s*|duplicate[\s\-]?page[:：]\s*"</span>
+    <span class="sa">r</span><span class="s2">"|possible[\s\-]?duplicate[:：]\s*|缺失页面[:：]\s*|缺少页面[:：]\s*"</span>
+    <span class="sa">r</span><span class="s2">"|重复页面[:：]\s*|疑似重复[:：]\s*)"</span><span class="p">,</span>
     <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
@@ -3008,7 +3036,7 @@ Mirrors <code>review-utils.ts normalizeReviewTitle</code> + <code>REVIEW_TITLE_P
 <code>contradiction</code> or <code>duplicate</code> items about the same concept but different conflicting pages to get
 different keys and never dedup — the opposite of the intended behavior.</p>
 <p><strong>Fix:</strong> the payload is now:
-<div class="highlight"><pre><span></span><code>vault_id + &quot;\x1f&quot; + item_type + &quot;\x1f&quot; + normalize(proposed_title)
+<div class="highlight"><pre><span></span><code>vault_id + "\x1f" + item_type + "\x1f" + normalize(proposed_title)
 </code></pre></div></p>
 <p><code>target_page_title</code> and <code>page_id</code> parameters are kept in the function signature for call-site
 backward compatibility but are <strong>silently ignored</strong>. This supersedes the §3.2 formula's conflict-

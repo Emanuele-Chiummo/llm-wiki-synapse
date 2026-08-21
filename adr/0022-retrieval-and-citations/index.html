@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2142,7 +2170,7 @@ bodies, and assembles a context string + citation map server-side (I3).</p>
     <span class="n">n</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># 1-based, contiguous from 1</span>
     <span class="n">ref</span><span class="p">:</span> <span class="n">PageRef</span>
     <span class="n">score</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;vector&quot;</span><span class="p">,</span> <span class="s2">&quot;expansion&quot;</span><span class="p">]</span>
+    <span class="n">phase</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"vector"</span><span class="p">,</span> <span class="s2">"expansion"</span><span class="p">]</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">RetrievalContext</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
     <span class="n">query</span><span class="p">:</span> <span class="nb">str</span>
@@ -2168,7 +2196,7 @@ bodies, and assembles a context string + citation map server-side (I3).</p>
 </ul>
 <h3 id="25-get-search-d4">2.5 <code>GET /search</code> (D4)<a class="headerlink" href="#25-get-search-d4" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>GET /search?q=&lt;query&gt;&amp;vault_id=&lt;id&gt;&amp;k=&lt;int&gt;  → 200
-{ &quot;query&quot;, &quot;context&quot;, &quot;results&quot;:[{n,id,title,slug,score,phase}], &quot;data_version&quot;, &quot;approx_tokens&quot;, &quot;token_budget&quot; }
+{ "query", "context", "results":[{n,id,title,slug,score,phase}], "data_version", "approx_tokens", "token_budget" }
 </code></pre></div>
 <p>0-hit query → 200 with empty <code>results</code> + empty <code>context</code> (AC-F5-7a). Read-only; never bumps
 <code>data_version</code> (AC-F5-5). Documented in openapi.json (<code>make openapi</code>, I8).</p>

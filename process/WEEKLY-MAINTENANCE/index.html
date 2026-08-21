@@ -18,7 +18,7 @@
         <link rel="prev" href="../../reference/ROADMAP-v0.7-v1.0/">
       
       
-        <link rel="next" href="../../release-notes/v2.1.9/">
+        <link rel="next" href="../../release-notes/v2.1.10/">
       
       
         
@@ -855,6 +855,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2202,7 +2230,7 @@ settimana introduce rischio in un sistema che funziona: è un danno netto.</p>
 <li><strong>Dipendenze</strong> — aggiornamenti <strong>patch/minor</strong> sicuri. Mai major.</li>
 </ol>
 <p><strong>Dove guardare per primo.</strong> Il debito fresco si annida nel codice cambiato di recente:</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>log<span class="w"> </span>--since<span class="o">=</span><span class="s2">&quot;3 weeks ago&quot;</span><span class="w"> </span>--name-only<span class="w"> </span>--pretty<span class="o">=</span>format:<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-u<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s1">&#39;^$&#39;</span>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>log<span class="w"> </span>--since<span class="o">=</span><span class="s2">"3 weeks ago"</span><span class="w"> </span>--name-only<span class="w"> </span>--pretty<span class="o">=</span>format:<span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-u<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-v<span class="w"> </span><span class="s1">'^$'</span>
 </code></pre></div>
 <p>Poi si allarga ai moduli critici (i "centri di gravità" del progetto):
 <code>backend/app/ingest/</code>, <code>backend/app/runtime_state.py</code>, <code>backend/app/rag/retrieval.py</code>,
@@ -2234,7 +2262,7 @@ pytest<span class="w"> </span>-q<span class="w">         </span><span class="c1"
 <p><strong>Frontend</strong> (da <code>frontend/</code>; <code>npm ci</code> se serve):</p>
 <div class="highlight"><pre><span></span><code>npx<span class="w"> </span>tsc<span class="w"> </span>--noEmit
 npx<span class="w"> </span>eslint<span class="w"> </span>src/
-npx<span class="w"> </span>prettier<span class="w"> </span>--check<span class="w"> </span><span class="s2">&quot;src/**/*.{ts,tsx,css}&quot;</span><span class="w"> </span>vite.config.ts
+npx<span class="w"> </span>prettier<span class="w"> </span>--check<span class="w"> </span><span class="s2">"src/**/*.{ts,tsx,css}"</span><span class="w"> </span>vite.config.ts
 npx<span class="w"> </span>vitest<span class="w"> </span>run<span class="w">    </span><span class="c1"># ~2550 test</span>
 </code></pre></div>
 <p>Se un gate fallisce <strong>per colpa delle modifiche fatte</strong>, si sistema. Se fallisce per un
@@ -2254,7 +2282,7 @@ l'ambito della settimana.</p>
    È già successo: una release è stata bloccata per un <code>schema.mmd</code> non rigenerato.</li>
 </ol>
 <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_openapi.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>python<span class="w"> </span>scripts/generate_er.py<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>..
-python3<span class="w"> </span>scripts/check_adr_index.py<span class="w">    </span><span class="c1"># deve dire &quot;0 error(s)&quot;</span>
+python3<span class="w"> </span>scripts/check_adr_index.py<span class="w">    </span><span class="c1"># deve dire "0 error(s)"</span>
 </code></pre></div>
 <p>L'ER va rigenerato <strong>ogni volta che cambiano i modelli SQLAlchemy</strong> (invariante I8).
 5. <strong><code>CHANGELOG.md</code></strong> — nuova sezione in cima, Keep-a-Changelog + SemVer:

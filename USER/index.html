@@ -1620,6 +1620,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -4804,14 +4832,14 @@ for it (<code>/authorize</code>, <code>/token</code>, <code>/register</code>, 2.
 <p><strong>Claude Desktop</strong> (uses a JSON config that supports custom headers): add both the
   MCP bearer token and the CF-Access headers in <code>mcpServers</code> config.
   <div class="highlight"><pre><span></span><code>{
-  &quot;mcpServers&quot;: {
-    &quot;synapse_remote&quot;: {
-      &quot;type&quot;: &quot;http&quot;,
-      &quot;url&quot;: &quot;https://synapse.yourdomain.com/mcp/server&quot;,
-      &quot;headers&quot;: {
-        &quot;Authorization&quot;: &quot;Bearer &lt;MCP_AUTH_TOKEN&gt;&quot;,
-        &quot;CF-Access-Client-Id&quot;: &quot;&lt;client-id&gt;.access&quot;,
-        &quot;CF-Access-Client-Secret&quot;: &quot;&lt;client-secret&gt;&quot;
+  "mcpServers": {
+    "synapse_remote": {
+      "type": "http",
+      "url": "https://synapse.yourdomain.com/mcp/server",
+      "headers": {
+        "Authorization": "Bearer &lt;MCP_AUTH_TOKEN&gt;",
+        "CF-Access-Client-Id": "&lt;client-id&gt;.access",
+        "CF-Access-Client-Secret": "&lt;client-secret&gt;"
       }
     }
   }
@@ -4998,12 +5026,12 @@ Cost: zero for transcription (Whisper runs locally on your GPU).</p>
 <h2 id="export-backup">12. Vault export and backup<a class="headerlink" href="#export-backup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="c1"># Vault filesystem snapshot (ZIP of raw/ + wiki/ + purpose.md + schema.md + .obsidian/)</span>
 curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-o<span class="w"> </span>synapse-vault-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.zip
 
 <span class="c1"># Database metadata snapshot (pages, links, edges, ingest runs, review items)</span>
 curl<span class="w"> </span>-f<span class="w"> </span>http://localhost:8000/export/data.json<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
 <span class="w">     </span>-o<span class="w"> </span>synapse-data-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.json
 </code></pre></div>
 <p>The ZIP is named <code>synapse-vault-{vault_id}-{date}.zip</code> and caps at 500 MB
@@ -5031,16 +5059,16 @@ Obsidian's tag pane under the <code>domain/</code> group.</p>
 <p><strong>Backfilling existing pages:</strong></p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Start a bounded background backfill (202 Accepted)</span>
 curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/ops/backfill-domains<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{}&#39;</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">'{}'</span>
 </code></pre></div>
 <p>Default bounds: 500 pages / 60 000 tokens. To re-classify all pages (e.g. after
 updating the vocabulary):</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8000/ops/backfill-domains<span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
-<span class="w">     </span>-d<span class="w"> </span><span class="s1">&#39;{&quot;max_pages&quot;: 2000, &quot;force&quot;: true}&#39;</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$SYNAPSE_AUTH_TOKEN</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-d<span class="w"> </span><span class="s1">'{"max_pages": 2000, "force": true}'</span>
 </code></pre></div>
 <p>Check status: <code>GET /ops/backfill-domains</code>.</p>
 <p>You can also schedule the backfill via <strong>Settings → AI behaviour → Automation</strong> so

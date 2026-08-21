@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2256,14 +2284,14 @@ table; <code>docs/er/schema.mmd</code> committed zero-drift (AC-R11-2-1, EC-M11-
 keys may ever be overridden:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># config_overrides.py — the ONLY keys the UI may override (SPRINT-v1.1 §2 R11-2)</span>
 <span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
-    <span class="s2">&quot;pdf_extractor&quot;</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
-    <span class="s2">&quot;marker_service_url&quot;</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
-    <span class="s2">&quot;marker_timeout_seconds&quot;</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
-    <span class="s2">&quot;cost_alert_threshold_usd&quot;</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
-    <span class="s2">&quot;embeddings_enabled&quot;</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030) — routes through the embedding data-plane gate</span>
-    <span class="s2">&quot;embedding_format&quot;</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031) — routes through the embedding adapter seam (I6)</span>
-    <span class="s2">&quot;overview_language&quot;</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
-    <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
+    <span class="s2">"pdf_extractor"</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
+    <span class="s2">"marker_service_url"</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
+    <span class="s2">"marker_timeout_seconds"</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
+    <span class="s2">"cost_alert_threshold_usd"</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
+    <span class="s2">"embeddings_enabled"</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030) — routes through the embedding data-plane gate</span>
+    <span class="s2">"embedding_format"</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031) — routes through the embedding adapter seam (I6)</span>
+    <span class="s2">"overview_language"</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
+    <span class="s2">"wikilink_enrich_enabled"</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
 <span class="p">})</span>
 </code></pre></div>
 <ul>
@@ -2429,15 +2457,15 @@ migration criterion is "user-facing, runtime-tunable, safe to change live," whic
 <div class="highlight"><pre><span></span><code><span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="o">...</span><span class="p">})</span>   <span class="c1"># §2.2</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_overrides</span><span class="p">(</span><span class="n">session</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Lifespan startup: read ALL app_config rows ONCE, cache in memory.</span>
+<span class="w">    </span><span class="sd">"""Lifespan startup: read ALL app_config rows ONCE, cache in memory.</span>
 <span class="sd">    Rows whose key ∉ ALLOWED_CONFIG_KEYS are IGNORED (forward/back compat — §2.6).</span>
-<span class="sd">    Single bounded SELECT; no vault scan, no per-request DB read (I7).&quot;&quot;&quot;</span>
+<span class="sd">    Single bounded SELECT; no vault scan, no per-request DB read (I7)."""</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">get_effective</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">env_default</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the cached override string for `key` if present, else `env_default`.</span>
-<span class="sd">    Pure in-memory O(1); never touches the DB.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Return the cached override string for `key` if present, else `env_default`.</span>
+<span class="sd">    Pure in-memory O(1); never touches the DB."""</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">source_of</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>           <span class="c1"># &quot;override&quot; if a cached row exists for key, else &quot;env&quot;</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">source_of</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>           <span class="c1"># "override" if a cached row exists for key, else "env"</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_override</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="c1"># cached raw value or None (per §2 R11-2 AC-R11-2-5 shape)</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">set_override</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># allow-list + validate + upsert + refresh cache</span>
@@ -2543,15 +2571,15 @@ security requirement in OpenAPI (§4.4). No per-route auth dependency (would dou
 <h3 id="31-get-configapp-list-all-8-settings-with-effective-value-source">3.1 <code>GET /config/app</code> — list all 8 settings with effective value + source<a class="headerlink" href="#31-get-configapp-list-all-8-settings-with-effective-value-source" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>GET /config/app
 → 200 {
-    &quot;settings&quot;: [
-      { &quot;key&quot;: &quot;pdf_extractor&quot;,            &quot;value&quot;: &quot;pypdf&quot;,  &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;marker_service_url&quot;,       &quot;value&quot;: &quot;http://host.docker.internal:8555&quot;, &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;marker_timeout_seconds&quot;,   &quot;value&quot;: &quot;120&quot;,    &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;cost_alert_threshold_usd&quot;, &quot;value&quot;: &quot;5.0&quot;,    &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;embeddings_enabled&quot;,       &quot;value&quot;: &quot;true&quot;,   &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;embedding_format&quot;,         &quot;value&quot;: &quot;ollama&quot;, &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;overview_language&quot;,        &quot;value&quot;: &quot;&quot;,       &quot;source&quot;: &quot;env&quot; },
-      { &quot;key&quot;: &quot;wikilink_enrich_enabled&quot;,  &quot;value&quot;: &quot;true&quot;,   &quot;source&quot;: &quot;env&quot; },
+    "settings": [
+      { "key": "pdf_extractor",            "value": "pypdf",  "source": "env" },
+      { "key": "marker_service_url",       "value": "http://host.docker.internal:8555", "source": "env" },
+      { "key": "marker_timeout_seconds",   "value": "120",    "source": "env" },
+      { "key": "cost_alert_threshold_usd", "value": "5.0",    "source": "env" },
+      { "key": "embeddings_enabled",       "value": "true",   "source": "env" },
+      { "key": "embedding_format",         "value": "ollama", "source": "env" },
+      { "key": "overview_language",        "value": "",       "source": "env" },
+      { "key": "wikilink_enrich_enabled",  "value": "true",   "source": "env" },
       ...
     ]
   }
@@ -2567,9 +2595,9 @@ security requirement in OpenAPI (§4.4). No per-route auth dependency (would dou
 </ul>
 <h3 id="32-put-configappkey-upsert-one-override">3.2 <code>PUT /config/app/{key}</code> — upsert one override<a class="headerlink" href="#32-put-configappkey-upsert-one-override" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>PUT /config/app/{key}
-body: { &quot;value&quot;: &quot;&lt;string&gt;&quot; }        # typed values sent as their string form
+body: { "value": "&lt;string&gt;" }        # typed values sent as their string form
 → 204 No Content                     # on success (upsert + cache refresh)
-→ 400 { &quot;error&quot;: &quot;invalid_key&quot;, &quot;allowed&quot;: [&quot;cost_alert_threshold_usd&quot;, ...] }   # key ∉ allow-list
+→ 400 { "error": "invalid_key", "allowed": ["cost_alert_threshold_usd", ...] }   # key ∉ allow-list
 → 422 { ...validation detail... }    # value fails the per-key rule (§2.3)
 → 401                                 # if SYNAPSE_AUTH_TOKEN set and bearer missing/wrong (middleware)
 </code></pre></div>
@@ -2582,7 +2610,7 @@ body: { &quot;value&quot;: &quot;&lt;string&gt;&quot; }        # typed values se
 <h3 id="33-reset-to-default-decision-delete-configappkey-chosen-over-put-valuenull">3.3 Reset-to-default — <strong>DECISION: <code>DELETE /config/app/{key}</code></strong> (chosen over <code>PUT value:null</code>)<a class="headerlink" href="#33-reset-to-default-decision-delete-configappkey-chosen-over-put-valuenull" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>DELETE /config/app/{key}
 → 204 No Content                     # override row removed; setting reverts to env default
-→ 400 { &quot;error&quot;: &quot;invalid_key&quot;, &quot;allowed&quot;: [...] }   # key ∉ allow-list
+→ 400 { "error": "invalid_key", "allowed": [...] }   # key ∉ allow-list
 → 401                                 # middleware, as above
 </code></pre></div>
 <p><strong>Why DELETE, not <code>PUT {value: null}</code> (justified):</strong></p>

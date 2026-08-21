@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2164,8 +2192,8 @@ height so sigma sizes correctly (the panel content area is <code>height: 100%</c
 <li><strong>Item model:</strong></li>
 </ul>
 <div class="highlight"><pre><span></span><code><span class="kr">type</span><span class="w"> </span><span class="nx">TreeRow</span><span class="w"> </span><span class="o">=</span>
-<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;group&quot;</span><span class="p">;</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">PageType</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;other&quot;</span><span class="p">;</span><span class="w"> </span><span class="nx">count</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span><span class="w"> </span><span class="nx">collapsed</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span>
-<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;page&quot;</span><span class="p">;</span><span class="w"> </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">PageType</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;other&quot;</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s2">"group"</span><span class="p">;</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">PageType</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"other"</span><span class="p">;</span><span class="w"> </span><span class="nx">count</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span><span class="w"> </span><span class="nx">collapsed</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">kind</span><span class="o">:</span><span class="w"> </span><span class="s2">"page"</span><span class="p">;</span><span class="w"> </span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span><span class="w"> </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="nx">PageType</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"other"</span><span class="w"> </span><span class="p">};</span>
 </code></pre></div>
 <p>where <code>id</code> is the page UUID (identical to the graph node id — this is what makes
   tree ↔ graph selection a single shared key).
@@ -2183,18 +2211,18 @@ subscribe to two stores and would risk cross-store sync bugs for the exact piece
 (<code>selectedNodeId</code>) that must stay singular. One store, one selection key, one source of truth.</p>
 <p>The new UI state (additive to <code>GraphState</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="c1">// ── UI slice (added to graphStore) ──</span>
-<span class="kr">type</span><span class="w"> </span><span class="nx">CenterTab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;graph&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;chat&quot;</span><span class="p">;</span><span class="w"> </span><span class="c1">// &quot;chat&quot; is a disabled stub in Phase 1</span>
+<span class="kr">type</span><span class="w"> </span><span class="nx">CenterTab</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"graph"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"chat"</span><span class="p">;</span><span class="w"> </span><span class="c1">// "chat" is a disabled stub in Phase 1</span>
 
 <span class="kd">interface</span><span class="w"> </span><span class="nx">UiState</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="c1">// selectedNodeId ALREADY EXISTS — it remains the single shared selection key.</span>
-<span class="w">  </span><span class="nx">selectedSource</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;graph&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;tree&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="c1">// who set the selection (for subtle UX, optional)</span>
+<span class="w">  </span><span class="nx">selectedSource</span><span class="o">:</span><span class="w"> </span><span class="s2">"graph"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"tree"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span><span class="w"> </span><span class="c1">// who set the selection (for subtle UX, optional)</span>
 <span class="w">  </span><span class="nx">activeTab</span><span class="o">:</span><span class="w"> </span><span class="kt">CenterTab</span><span class="p">;</span>
 <span class="w">  </span><span class="nx">treeCollapsed</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="kt">boolean</span><span class="o">&gt;</span><span class="p">;</span><span class="w"> </span><span class="c1">// group type -&gt; collapsed</span>
 <span class="p">}</span>
 
 <span class="kd">interface</span><span class="w"> </span><span class="nx">UiActions</span><span class="w"> </span><span class="p">{</span>
 <span class="w">  </span><span class="c1">// setSelectedNodeId ALREADY EXISTS — tree and graph BOTH call it.</span>
-<span class="w">  </span><span class="nx">selectPage</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;graph&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;tree&quot;</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span><span class="w"> </span><span class="c1">// sets id + source</span>
+<span class="w">  </span><span class="nx">selectPage</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">id</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="s2">"graph"</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">"tree"</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span><span class="w"> </span><span class="c1">// sets id + source</span>
 <span class="w">  </span><span class="nx">setActiveTab</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">tab</span><span class="o">:</span><span class="w"> </span><span class="kt">CenterTab</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
 <span class="w">  </span><span class="nx">toggleGroup</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">;</span>
 <span class="p">}</span>
@@ -2242,8 +2270,8 @@ selection-sync wiring end to end.</p>
 (non-demo) pages can render their body in Phase 3's GFM preview, we reserve this contract for a
 backend engineer to implement as a Phase-2/3 fast-follow:</p>
 <div class="highlight"><pre><span></span><code>GET /pages/{id}/content
-  200 → { id: str, file_path: str, markdown: str, source: &quot;vault&quot; }
-  204 / 200 with markdown:&quot;&quot; → page exists but has no backing file (demo node)
+  200 → { id: str, file_path: str, markdown: str, source: "vault" }
+  204 / 200 with markdown:"" → page exists but has no backing file (demo node)
   404 → unknown or soft-deleted page
 </code></pre></div>
 <p>Semantics: reads <code>vault/wiki/{…}.md</code> (or the resolved page file) for real pages; returns an

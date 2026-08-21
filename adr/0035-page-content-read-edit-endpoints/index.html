@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2146,13 +2174,13 @@ involved), runs no bounded loop, and never calls <code>GraphEngine.recompute()</
 fires on the bump).</p>
 <h3 id="21-requestresponse-contract-d4">2.1 Request/response contract (D4)<a class="headerlink" href="#21-requestresponse-contract-d4" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>GET /pages/{id}/content
-  200 → { &quot;file_path&quot;: &quot;wiki/concepts/x.md&quot;, &quot;title&quot;: &quot;X&quot;, &quot;type&quot;: &quot;concept&quot;,
-          &quot;content_hash&quot;: &quot;&lt;sha256&gt;&quot;, &quot;content&quot;: &quot;---\ntype: concept\n...\n---\n\nBody [[Y]]…&quot; }
+  200 → { "file_path": "wiki/concepts/x.md", "title": "X", "type": "concept",
+          "content_hash": "&lt;sha256&gt;", "content": "---\ntype: concept\n...\n---\n\nBody [[Y]]…" }
   404 → page id unknown OR soft-deleted
 
 PUT /pages/{id}/content
-  body: { &quot;content&quot;: &quot;&lt;full raw markdown incl. frontmatter&gt;&quot;, &quot;content_hash&quot;: &quot;&lt;sha256 from GET&gt;&quot; }
-  200 → { &quot;file_path&quot;: &quot;...&quot;, &quot;content_hash&quot;: &quot;&lt;new sha256&gt;&quot;, &quot;data_version&quot;: 124 }
+  body: { "content": "&lt;full raw markdown incl. frontmatter&gt;", "content_hash": "&lt;sha256 from GET&gt;" }
+  200 → { "file_path": "...", "content_hash": "&lt;new sha256&gt;", "data_version": 124 }
   404 → page id unknown OR soft-deleted
   409 → content_hash stale (file changed since GET) — re-GET and retry; NO write performed
   413 → body exceeds MAX_PAGE_CONTENT_BYTES

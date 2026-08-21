@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2062,11 +2090,11 @@ TrueNAS SCALE homelab with an RTX 3060 (already driving Ollama), while keeping t
 <h2 id="4-http-microservice-contract">4. HTTP microservice contract<a class="headerlink" href="#4-http-microservice-contract" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>POST {MARKER_SERVICE_URL}/convert
 Content-Type: multipart/form-data
-  file: &lt;PDF bytes&gt;  (field name must be &quot;file&quot;)
+  file: &lt;PDF bytes&gt;  (field name must be "file")
 
 200 OK
 Content-Type: application/json
-{&quot;markdown&quot;: &quot;&lt;extracted markdown string&gt;&quot;, &quot;pages&quot;: &lt;int&gt;}
+{"markdown": "&lt;extracted markdown string&gt;", "pages": &lt;int&gt;}
 
 Non-200 responses:
   413  Upload exceeds size limit

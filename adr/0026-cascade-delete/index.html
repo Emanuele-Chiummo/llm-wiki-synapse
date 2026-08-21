@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2200,15 +2228,15 @@ inference calls and <strong>zero</strong> FA2 calls.</p>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">WikilinkRewrite</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;One dead [[Target]] → plain-text rewrite in one referencing wiki file.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""One dead [[Target]] → plain-text rewrite in one referencing wiki file."""</span>
     <span class="n">source_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>      <span class="c1"># the wiki page (file) that contains the dead link</span>
     <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span>                 <span class="c1"># wiki/&lt;subdir&gt;/&lt;slug&gt;.md  (targeted write target)</span>
     <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># the [[Target]] string being neutralised</span>
-    <span class="n">occurrences</span><span class="p">:</span> <span class="nb">int</span>               <span class="c1"># how many [[Target]] spans in this file&#39;s BODY</span>
+    <span class="n">occurrences</span><span class="p">:</span> <span class="nb">int</span>               <span class="c1"># how many [[Target]] spans in this file's BODY</span>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CascadePlan</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The computed effect of deleting `page_id` — returned by preview, consumed by apply.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""The computed effect of deleting `page_id` — returned by preview, consumed by apply."""</span>
     <span class="n">target_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
     <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">target_file_path</span><span class="p">:</span> <span class="nb">str</span>                          <span class="c1"># wiki/... of the page being deleted</span>
@@ -2218,11 +2246,11 @@ inference calls and <strong>zero</strong> FA2 calls.</p>
     <span class="n">index_entry_will_be_removed</span><span class="p">:</span> <span class="nb">bool</span>
     <span class="n">raw_source_to_delete</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>               <span class="c1"># raw/sources/... file removed (AQ-v0.5-5); None if N/A</span>
     <span class="n">shared_entity_warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>               <span class="c1"># source-overlap pages (edges) — WARN, never block</span>
-    <span class="n">match_methods_used</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>              <span class="c1"># ref_file_path → &quot;exact&quot; | &quot;slug&quot; | &quot;fulltext&quot; (AC-F13-2)</span>
+    <span class="n">match_methods_used</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span>              <span class="c1"># ref_file_path → "exact" | "slug" | "fulltext" (AC-F13-2)</span>
 
 <span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">CascadeResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;The applied outcome — backs the DELETE response (AC-F13-5).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""The applied outcome — backs the DELETE response (AC-F13-5)."""</span>
     <span class="n">deleted_page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span>
     <span class="n">wikilinks_cleaned</span><span class="p">:</span> <span class="nb">int</span>                          <span class="c1"># total [[Target]] spans neutralised</span>
     <span class="n">index_entry_removed</span><span class="p">:</span> <span class="nb">bool</span>
@@ -2231,14 +2259,14 @@ inference calls and <strong>zero</strong> FA2 calls.</p>
     <span class="n">data_version_after</span><span class="p">:</span> <span class="nb">int</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">plan_cascade_delete</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CascadePlan</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;DRY-RUN. Compute the full effect WITHOUT mutating any store or file. Read-only:</span>
-<span class="sd">    no soft-delete, no Qdrant delete, no file write, no data_version bump (AC-F13 preview gate).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""DRY-RUN. Compute the full effect WITHOUT mutating any store or file. Read-only:</span>
+<span class="sd">    no soft-delete, no Qdrant delete, no file write, no data_version bump (AC-F13 preview gate)."""</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cascade_delete</span><span class="p">(</span><span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">CascadeResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;SINGLE PASS (not a loop). Computes the plan via plan_cascade_delete(), then applies it:</span>
+<span class="w">    </span><span class="sd">"""SINGLE PASS (not a loop). Computes the plan via plan_cascade_delete(), then applies it:</span>
 <span class="sd">    soft-delete → Qdrant delete → targeted wiki rewrites → re-persist their links →</span>
 <span class="sd">    update_index() once → delete raw/sources/ file → bump_version() ONCE. Idempotent on a</span>
-<span class="sd">    soft-deleted page: raises PageNotFoundError → HTTP 404 (AC-F13-5c / AC-F13-7c).&quot;&quot;&quot;</span>
+<span class="sd">    soft-deleted page: raises PageNotFoundError → HTTP 404 (AC-F13-5c / AC-F13-7c)."""</span>
 </code></pre></div>
 <hr />
 <h2 id="3-the-3-method-reference-matching-ac-f13-1-ac-f13-2">3. The 3-method reference matching (AC-F13-1, AC-F13-2)<a class="headerlink" href="#3-the-3-method-reference-matching-ac-f13-1-ac-f13-2" title="Permanent link">&para;</a></h2>
@@ -2425,26 +2453,26 @@ before any action).</p>
 <p>Mirrors the house DELETE pattern (<code>DELETE /provider/config/{id}</code>).</p>
 <div class="highlight"><pre><span></span><code>POST /pages/{id}/cascade-delete/preview   → 200   (DRY-RUN — read-only, mutates nothing)
 {
-  &quot;target_page_id&quot;: &quot;...&quot;,
-  &quot;target_title&quot;: &quot;...&quot;,
-  &quot;will_delete&quot;: [&quot;...uuid...&quot;],
-  &quot;will_preserve_with_pruned_source&quot;: [&quot;...uuid...&quot;],
-  &quot;wikilinks_to_rewrite&quot;: [
-    {&quot;source_page_id&quot;:&quot;...&quot;,&quot;file_path&quot;:&quot;wiki/concepts/x.md&quot;,&quot;target_title&quot;:&quot;X&quot;,&quot;occurrences&quot;:2}
+  "target_page_id": "...",
+  "target_title": "...",
+  "will_delete": ["...uuid..."],
+  "will_preserve_with_pruned_source": ["...uuid..."],
+  "wikilinks_to_rewrite": [
+    {"source_page_id":"...","file_path":"wiki/concepts/x.md","target_title":"X","occurrences":2}
   ],
-  &quot;index_entry_will_be_removed&quot;: true,
-  &quot;raw_source_to_delete&quot;: &quot;raw/sources/x.md&quot;,
-  &quot;shared_entity_warnings&quot;: [&quot;Page &#39;Y&#39; shares source overlap with &#39;X&#39;&quot;],
-  &quot;match_methods_used&quot;: {&quot;wiki/concepts/x.md&quot;: &quot;exact&quot;}
+  "index_entry_will_be_removed": true,
+  "raw_source_to_delete": "raw/sources/x.md",
+  "shared_entity_warnings": ["Page 'Y' shares source overlap with 'X'"],
+  "match_methods_used": {"wiki/concepts/x.md": "exact"}
 }
 → 404 if the page does not exist or is already soft-deleted.
 
 DELETE /pages/{id}                        → 200   (APPLY — single pass)
 {
-  &quot;deleted_page_id&quot;: &quot;...&quot;,
-  &quot;wikilinks_cleaned&quot;: 3,
-  &quot;index_entry_removed&quot;: true,
-  &quot;shared_entity_warnings&quot;: [&quot;...&quot;]
+  "deleted_page_id": "...",
+  "wikilinks_cleaned": 3,
+  "index_entry_removed": true,
+  "shared_entity_warnings": ["..."]
 }
 → 404 on a non-existent OR already soft-deleted id (idempotent double-delete, AC-F13-5c).
 </code></pre></div>

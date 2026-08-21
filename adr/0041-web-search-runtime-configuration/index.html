@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2135,14 +2163,14 @@ value means "operator has explicitly set this via the UI".</p>
     url: str | null,           // resolved URL (returned in full — NOT a secret)
     categories: list[str],     // resolved categories (split from DB comma-separated)
     max_queries: int,          // resolved max queries (DB wins over env)
-    source: &quot;db&quot;|&quot;env&quot;|&quot;none&quot;  // which URL source is authoritative
+    source: "db"|"env"|"none"  // which URL source is authoritative
   }
 </code></pre></div>
 <p>All values derived from the in-process <code>_web_search_config_cache</code> — no DB round-trip per GET.</p>
 <h3 id="24-put-web-searchconfig-contract">2.4 PUT /web-search/config contract<a class="headerlink" href="#24-put-web-searchconfig-contract" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>PUT /web-search/config {
     set_url?: str | null,      // set searxng_url_db; must be http(s); null → leave unchanged
-    set_categories?: str,      // comma-separated; &quot;&quot; clears to default; omit → leave unchanged
+    set_categories?: str,      // comma-separated; "" clears to default; omit → leave unchanged
     set_max_queries?: int,     // 1–50; omit → leave unchanged
     clear?: bool               // if true, null ALL three DB columns → full env fallback
 }

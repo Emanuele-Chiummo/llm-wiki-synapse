@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2254,13 +2282,13 @@ List theories, methods, techniques, phenomena. For each:
 
 ## Recommendations
 - What wiki pages should be created or updated?
-- If the project schema (below) defines page types beyond entity/concept (e.g. goal, habit, reflection, finding, decision, meeting), and the source genuinely contains matching content, recommend pages of those types — name the type explicitly. Only when the source actually supports it; never invent goals/habits/journal entries that aren&#39;t in the source.
+- If the project schema (below) defines page types beyond entity/concept (e.g. goal, habit, reflection, finding, decision, meeting), and the source genuinely contains matching content, recommend pages of those types — name the type explicitly. Only when the source actually supports it; never invent goals/habits/journal entries that aren't in the source.
 - What should be emphasized vs. de-emphasized?
 - Any open questions worth flagging for the user?
 
-Be thorough but concise. Focus on what&#39;s genuinely important.
+Be thorough but concise. Focus on what's genuinely important.
 
-If a folder context is provided, use it as a hint for categorization — the folder structure often reflects the user&#39;s organizational intent (e.g., &#39;papers/energy&#39; suggests the file is an energy-related paper).
+If a folder context is provided, use it as a hint for categorization — the folder structure often reflects the user's organizational intent (e.g., 'papers/energy' suggests the file is an energy-related paper).
 
 ## Project Schema (page types available — map source content to schema-defined types when it fits)
 &lt;schema&gt;
@@ -2282,7 +2310,7 @@ Do not output chain-of-thought, hidden reasoning, or explanatory preamble. Reaso
 ## IMPORTANT: Source File
 The original source file is: **&lt;sourceFileName&gt;**
 All wiki pages generated from this source MUST include this filename in their frontmatter `sources` field.
-Today&#39;s date is **&lt;today&gt;**. Use this exact date for all new `created`, `updated`, and wiki/log.md ingest dates.
+Today's date is **&lt;today&gt;**. Use this exact date for all new `created`, `updated`, and wiki/log.md ingest dates.
 
 ## Project Schema and Routing (AUTHORITATIVE)
 &lt;schema&gt;
@@ -2290,7 +2318,7 @@ Today&#39;s date is **&lt;today&gt;**. Use this exact date for all new `created`
 Use this schema as the primary routing rule for page types and directories.
 If it defines custom folders or distinctions (for example people, technologies, organizations, methods, or cases), write pages into those schema-defined folders instead of forcing them into wiki/entities/ or wiki/concepts/.
 Use wiki/entities/ and wiki/concepts/ only when the schema does not provide a more specific destination.
-Every generated page&#39;s frontmatter type must match the schema directory used in its FILE path.
+Every generated page's frontmatter type must match the schema directory used in its FILE path.
 
 ## What to generate
 
@@ -2312,7 +2340,7 @@ Required fields and types:
   • updated  — &lt;today&gt; (same as created)
   • tags     — array of bare strings: `tags: [microbiology, ai]`
   • related  — array of bare wiki page slugs: `related: [foo, bar-baz]` (no wiki/, no .md, no [[…]])
-  • sources  — array of source filenames; MUST include &quot;&lt;sourceFileName&gt;&quot;.
+  • sources  — array of source filenames; MUST include "&lt;sourceFileName&gt;".
 
 [Concrete parseable example page follows in the original — entity with tags/related/sources and a
  body starting `# Example Entity` and prose with [[wikilink]] usage.]
@@ -2321,7 +2349,7 @@ Other rules:
 - Use [[wikilink]] syntax in the BODY for cross-references between pages
 - If you include images, use wiki-root-relative paths such as `media/source-slug/image.png`; never output absolute filesystem paths.
 - Preserve subject boundaries: when a source discusses multiple entities/models/products/methods, keep claims, evaluations, limitations, benchmark results, and recommendations attached to the exact subject they describe.
-- Do not merge or generalize a claim about one subject into another subject&#39;s page solely because they share terms.
+- Do not merge or generalize a claim about one subject into another subject's page solely because they share terms.
 - If a page needs to mention another subject for comparison, write it explicitly as a comparison and cite which source/frontmatter `sources` entry supports that statement.
 - Use kebab-case filenames
 - Derive filenames from the page title in the mandatory output language, but short proper nouns and technical identifiers take precedence (OpenAI, GPT-5, Transformer, CLIP, ImageNet, PyTorch, CUDA, GitHub, arXiv, React, …). No raw URLs/citations in paths. CJK prose titles keep readable CJK characters in the filename.
@@ -2329,8 +2357,8 @@ Other rules:
 - If the analysis found connections to existing pages, add cross-references
 
 ## Review block types
-[contradiction | duplicate | missing-page | suggestion — &quot;Only create reviews for things that
- genuinely need human input. Don&#39;t create trivial reviews.&quot;]
+[contradiction | duplicate | missing-page | suggestion — "Only create reviews for things that
+ genuinely need human input. Don't create trivial reviews."]
 
 ## OPTIONS allowed values (only these predefined labels):
 - contradiction/duplicate/missing-page/suggestion: OPTIONS: Create Page | Skip

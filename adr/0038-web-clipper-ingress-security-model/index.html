@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2181,7 +2209,7 @@ points:
 <h3 id="25-safe-path-no-caller-supplied-base-directory-closes-s-2">2.5 Safe path: no caller-supplied base directory (closes S-2)<a class="headerlink" href="#25-safe-path-no-caller-supplied-base-directory-closes-s-2" title="Permanent link">&para;</a></h3>
 <p>The caller supplies <code>{url, title, markdown}</code>. The <strong>server</strong> derives the filename from
 <code>title</code> (never from a caller-supplied path):</p>
-<div class="highlight"><pre><span></span><code><span class="n">filename</span> <span class="o">=</span> <span class="n">_clip_safe_filename</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>  <span class="c1"># sanitize: strip /\\:*?&quot;&lt;&gt;|, clamp 180 chars</span>
+<div class="highlight"><pre><span></span><code><span class="n">filename</span> <span class="o">=</span> <span class="n">_clip_safe_filename</span><span class="p">(</span><span class="n">title</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>  <span class="c1"># sanitize: strip /\\:*?"&lt;&gt;|, clamp 180 chars</span>
 <span class="n">name</span>     <span class="o">=</span> <span class="n">safe_source_name</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>        <span class="c1"># existing ADR-0020 sanitizer</span>
 <span class="n">dst</span>      <span class="o">=</span> <span class="n">resolve_under_sources</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>       <span class="c1"># containment check: must start with raw_sources_dir/</span>
 </code></pre></div>
@@ -2313,13 +2341,13 @@ Content-Type: application/json
 Origin: chrome-extension://&lt;extension_id&gt;   (set by Chrome automatically)
 
 {
-  &quot;url&quot;: &quot;https://...&quot;,
-  &quot;title&quot;: &quot;Article Title&quot;,
-  &quot;markdown&quot;: &quot;# Article Title\n\nBody...&quot;,
-  &quot;source&quot;: null   // optional; defaults to url
+  "url": "https://...",
+  "title": "Article Title",
+  "markdown": "# Article Title\n\nBody...",
+  "source": null   // optional; defaults to url
 }
 
-→ 202 { &quot;file_path&quot;: &quot;raw/sources/Article-Title.md&quot;, &quot;status&quot;: &quot;queued&quot;, &quot;overwritten&quot;: false }
+→ 202 { "file_path": "raw/sources/Article-Title.md", "status": "queued", "overwritten": false }
 → 401  missing/invalid token
 → 403  origin not in allowlist
 → 413  body exceeds CLIP_MAX_BODY_BYTES

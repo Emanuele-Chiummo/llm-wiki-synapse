@@ -728,6 +728,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#safe_fetch-e-vulnerabile-a-dns-rebinding-risolve-lhost-poi-riconnette-per-nome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        safe_fetch è vulnerabile a DNS rebinding: risolve l'host, poi riconnette per nome
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -943,6 +954,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2313,6 +2352,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#safe_fetch-e-vulnerabile-a-dns-rebinding-risolve-lhost-poi-riconnette-per-nome" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        safe_fetch è vulnerabile a DNS rebinding: risolve l'host, poi riconnette per nome
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2655,6 +2705,32 @@ giorno senza mai ripagarsi.</p>
 <li><strong>Sforzo:</strong> M/L. Vanno fatti insieme (vitest 4 richiede vite 7), con rilettura di
   <code>vite.config.ts</code>, dei setup di vitest e del job E2E in CI.</li>
 <li><strong>Trovato:</strong> 2026-08-14</li>
+</ul>
+<h3 id="safe_fetch-e-vulnerabile-a-dns-rebinding-risolve-lhost-poi-riconnette-per-nome"><code>safe_fetch</code> è vulnerabile a DNS rebinding: risolve l'host, poi riconnette per nome<a class="headerlink" href="#safe_fetch-e-vulnerabile-a-dns-rebinding-risolve-lhost-poi-riconnette-per-nome" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> la guardia SSRF valida l'host risolvendo <code>getaddrinfo()</code> e controllando <strong>tutti</strong>
+  gli indirizzi restituiti, ma poi passa a httpx la <strong>URL con l'hostname</strong>, non l'IP verificato.
+  Fra il controllo e la connessione httpx risolve il nome una seconda volta, in modo del tutto
+  indipendente: un DNS autoritativo ostile che serve un record TTL=0 può restituire un IP
+  pubblico alla prima query (supera la guardia) e <code>127.0.0.1</code> / <code>169.254.169.254</code> alla seconda
+  (quella che apre davvero la socket). È un TOCTOU classico, e vale su ogni hop di redirect
+  perché ogni hop ripete lo stesso schema controlla-per-nome → riconnetti-per-nome.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/security_net.py:311-321</code> — <code>await _check_host(host)</code> seguito da
+  <code>client.build_request("GET", current_url)</code> dentro <code>safe_fetch()</code>; l'IP validato in
+  <code>_check_host</code> (<code>backend/app/security_net.py:185-193</code>) viene scartato e mai riusato.</li>
+<li><strong>Impatto:</strong> medio. L'attaccante deve controllare un dominio e il suo DNS autoritativo, e la
+  URL deve arrivare fino a <code>safe_fetch</code> — cioè comparire fra i risultati di ricerca web
+  (deep-research o chat web-context), quindi non è scelta direttamente dall'attaccante ma è
+  influenzabile. Riuscendo, legge servizi interni non altrimenti esposti (Qdrant, Postgres via
+  HTTP, l'API Synapse stessa) da dentro il container. Il cap sul corpo introdotto in 2.1.10
+  limita quanto si può esfiltrare in un colpo solo, ma non chiude il buco.</li>
+<li><strong>Sforzo:</strong> M. La correzione corretta non è una guardia in più ma <strong>pinnare l'IP verificato</strong>:
+  transport httpx custom che connette all'indirizzo già validato mantenendo <code>Host</code> header e SNI
+  sul nome originale, con la validazione spostata dentro il resolver. Tocca il percorso di rete
+  condiviso da deep-research e chat web-context e va verificato contro TLS/SNI e IPv6 — troppo
+  per una patch settimanale, e va accompagnato da test con un resolver che cambia risposta fra
+  la prima e la seconda chiamata.</li>
+<li><strong>Trovato:</strong> 2026-08-21</li>
 </ul>
 
 

@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -1991,7 +2019,7 @@ in the assembled context.</p>
 <h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
 <p>The citation/candidate assembly phase (<code>_load_page_meta</code>) and the lexical Phase-1 fallback
 (<code>_phase1_lexical_search</code>) both apply the SQL filter:</p>
-<div class="highlight"><pre><span></span><code><span class="n">file_path</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">LIKE</span><span class="w"> </span><span class="s1">&#39;raw/%&#39;</span>
+<div class="highlight"><pre><span></span><code><span class="n">file_path</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">LIKE</span><span class="w"> </span><span class="s1">'raw/%'</span>
 </code></pre></div>
 <p>This restricts citations to pages whose <code>file_path</code> starts with <code>wiki/</code> (the only other
 prefix used by <code>write_wiki_page</code>). The vector Phase-1 path (Qdrant) may still return raw/

@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -1997,9 +2025,9 @@ a first-class case: when the SDK reports no billable cost, the run records <code
 because the marginal cost of a Pro/Max subscription genuinely is $0.</p>
 <p>But two hard checks made subscription-only operation <strong>impossible</strong>: both <code>chat()</code> and
 <code>delegate_ingest()</code> opened with</p>
-<div class="highlight"><pre><span></span><code><span class="n">api_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;ANTHROPIC_API_KEY&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">api_key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"ANTHROPIC_API_KEY"</span><span class="p">)</span>
 <span class="k">if</span> <span class="ow">not</span> <span class="n">api_key</span><span class="p">:</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;ANTHROPIC_API_KEY not set ...&quot;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"ANTHROPIC_API_KEY not set ..."</span><span class="p">)</span>
 </code></pre></div>
 <p>So the provider demanded an API key (pay-per-token) even though the rest of the module was built to
 run at $0 on a subscription. This ADR removes that contradiction.</p>

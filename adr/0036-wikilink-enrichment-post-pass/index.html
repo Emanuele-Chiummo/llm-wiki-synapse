@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2161,10 +2189,10 @@ to page <strong>bodies</strong>; modified pages are re-indexed incrementally.</p
     <span class="n">target_title</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># existing page title it refers to (must exist in the candidate set)</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">enrich_wikilinks</span><span class="p">(</span><span class="n">written_pages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Page</span><span class="p">],</span> <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EnrichResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Once-per-run post-pass. Provider-agnostic (resolve_provider_config(&#39;ingest&#39;)), bounded</span>
+<span class="w">    </span><span class="sd">"""Once-per-run post-pass. Provider-agnostic (resolve_provider_config('ingest')), bounded</span>
 <span class="sd">    (WIKILINK_ENRICH_* caps + token_budget + timeout, cost logged). Applies substitutions</span>
 <span class="sd">    single-mention to BODIES ONLY; re-indexes only the edited pages (I1). Fire-and-forget:</span>
-<span class="sd">    failure logs a WARNING and never fails the ingest (pages are already written).&quot;&quot;&quot;</span>
+<span class="sd">    failure logs a WARNING and never fails the ingest (pages are already written)."""</span>
 </code></pre></div>
 <h3 id="21-flow">2.1 Flow<a class="headerlink" href="#21-flow" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>1. Build the candidate target set: existing page titles in the vault (a BOUNDED title list —
@@ -2172,14 +2200,14 @@ to page <strong>bodies</strong>; modified pages are re-indexed incrementally.</p
    pages just written this run. Bounded indexed read of `pages.title` (live rows). No vault walk (I1).
 2. Anti-spam / cost gate: skip entirely if there are no candidate targets, or the written content is
    trivial (&lt; WIKILINK_ENRICH_MIN_CHARS). Skipping = zero cost, zero LLM call.
-3. Resolve the ingest provider (resolve_provider_config(&quot;ingest&quot;, vault_id) → resolve_provider) — I6.
+3. Resolve the ingest provider (resolve_provider_config("ingest", vault_id) → resolve_provider) — I6.
    No provider configured → skip with a WARNING (NEVER hardcode a backend — I6 hard rule).
-4. ONE bounded InferenceProvider.chat() call (operation &quot;ingest&quot;): given each written page&#39;s body +
+4. ONE bounded InferenceProvider.chat() call (operation "ingest"): given each written page's body +
    the candidate title list, return a structured substitution list {page_id, mention, target_title}.
    Bounds (I7): asyncio.wait_for(WIKILINK_ENRICH_TIMEOUT_SECONDS); token_budget from the resolved row;
    substitution count truncated at WIKILINK_ENRICH_MAX_SUBS (e.g. 100). One call, no loop, no retry.
 5. VALIDATE every substitution in code (anti-hallucination): drop any whose target_title is NOT in the
-   candidate set, whose mention is not found in that page&#39;s body, or whose target == the page&#39;s own
+   candidate set, whose mention is not found in that page's body, or whose target == the page's own
    title (no self-links). Only validated substitutions are applied.
 6. APPLY deterministically, per page, BODY ONLY: for each validated substitution, find the FIRST
    occurrence of `mention` in the body that is not already inside an existing [[…]] span, and wrap it

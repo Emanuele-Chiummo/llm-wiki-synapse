@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2149,7 +2177,7 @@ explicitly in the test suite (<code>test_clip_config_response_never_contains_tok
   response: ClipConfigResponse {
     enabled:          bool,          # resolved (DB or env)
     token_configured: bool,          # DB or env token present; NEVER the value
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
+    token_source:     "db"|"env"|"none",
     allowed_origins:  list[str],     # resolved (DB or env) + implicit loopback
     max_body_bytes:   int            # CLIP_MAX_BODY_BYTES env; not runtime-settable
   }
@@ -2160,12 +2188,12 @@ explicitly in the test suite (<code>test_clip_config_response_never_contains_tok
     rotate_token:        bool | None,  # true ⇒ generate new token, return ONCE in generated_token
     clear_token:         bool | None,  # true ⇒ set clip_access_token = NULL (env fallback)
     set_enabled:         bool | None,  # set clip_enabled_db; omit = no change
-    set_allowed_origins: str  | None   # comma-separated; &quot;&quot; = clear to env fallback; omit = no change
+    set_allowed_origins: str  | None   # comma-separated; "" = clear to env fallback; omit = no change
   }
   response body: ClipConfigStateResponse {
     enabled:          bool,
     token_configured: bool,
-    token_source:     &quot;db&quot;|&quot;env&quot;|&quot;none&quot;,
+    token_source:     "db"|"env"|"none",
     allowed_origins:  list[str],
     max_body_bytes:   int,
     generated_token:  str | None     # ONLY on rotate_token=true — shown ONCE, never again

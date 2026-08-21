@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2911,9 +2939,9 @@ defined in the same or an adjacent module, and all four methods are decorated wi
 <span class="kn">from</span><span class="w"> </span><span class="nn">app.ingest.provider.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">InferenceProvider</span>
 <span class="n">abstract_methods</span> <span class="o">=</span> <span class="p">{</span>
     <span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">InferenceProvider</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">&quot;__isabstractmethod__&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="s2">"__isabstractmethod__"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
 <span class="p">}</span>
-<span class="k">assert</span> <span class="n">abstract_methods</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;analyze&quot;</span><span class="p">,</span> <span class="s2">&quot;generate&quot;</span><span class="p">,</span> <span class="s2">&quot;chat&quot;</span><span class="p">,</span> <span class="s2">&quot;capabilities&quot;</span><span class="p">}</span>
+<span class="k">assert</span> <span class="n">abstract_methods</span> <span class="o">==</span> <span class="p">{</span><span class="s2">"analyze"</span><span class="p">,</span> <span class="s2">"generate"</span><span class="p">,</span> <span class="s2">"chat"</span><span class="p">,</span> <span class="s2">"capabilities"</span><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f17-2-all-3-providers-implement-the-abc-chat-raises-notimplementederror">AC-F17-2 — All 3 providers implement the ABC; chat() raises NotImplementedError<a class="headerlink" href="#ac-f17-2-all-3-providers-implement-the-abc-chat-raises-notimplementederror" title="Permanent link">&para;</a></h3>
@@ -2930,7 +2958,7 @@ external HTTP or subprocess call.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
 <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="ne">NotImplementedError</span><span class="p">):</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">messages</span><span class="o">=</span><span class="p">[],</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">))</span>
+    <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="n">messages</span><span class="o">=</span><span class="p">[],</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">""</span><span class="p">))</span>
 </code></pre></div>
 <p>The test must run against all three classes (parametrised or explicit); all three must pass.</p>
 <hr />
@@ -2974,12 +3002,12 @@ constructed with minimal valid config,
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">caps</span> <span class="o">=</span> <span class="n">OllamaProvider</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">capabilities</span><span class="p">()</span>
 <span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">supports_agentic_loop</span> <span class="ow">is</span> <span class="kc">False</span>
-<span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;local&quot;</span>
+<span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"local"</span>
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">caps</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">caps</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
 
 <span class="n">caps</span> <span class="o">=</span> <span class="n">CliAgentProvider</span><span class="p">(</span><span class="n">config</span><span class="p">)</span><span class="o">.</span><span class="n">capabilities</span><span class="p">()</span>
 <span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">supports_agentic_loop</span> <span class="ow">is</span> <span class="kc">True</span>
-<span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;cli&quot;</span>
+<span class="k">assert</span> <span class="n">caps</span><span class="o">.</span><span class="n">mode</span> <span class="o">==</span> <span class="s2">"cli"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f17-4-static-analysis-zero-provider-imports-outside-provider">AC-F17-4 — Static analysis: zero provider imports outside provider/<a class="headerlink" href="#ac-f17-4-static-analysis-zero-provider-imports-outside-provider" title="Permanent link">&para;</a></h3>
@@ -2990,17 +3018,17 @@ symbols, and for any hardcoded model IDs, API keys, or endpoint URLs,
 <p>Testable assert (CI-enforced):</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">subprocess</span><span class="o">,</span><span class="w"> </span><span class="nn">re</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;grep&quot;</span><span class="p">,</span> <span class="s2">&quot;-rn&quot;</span><span class="p">,</span>
-     <span class="sa">r</span><span class="s2">&quot;import ollama\|import anthropic\|from anthropic\|claude-agent-sdk\|claude-opus-4\|claude-sonnet-4\|sk-ant-&quot;</span><span class="p">,</span>
-     <span class="s2">&quot;backend/app/&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"grep"</span><span class="p">,</span> <span class="s2">"-rn"</span><span class="p">,</span>
+     <span class="sa">r</span><span class="s2">"import ollama\|import anthropic\|from anthropic\|claude-agent-sdk\|claude-opus-4\|claude-sonnet-4\|sk-ant-"</span><span class="p">,</span>
+     <span class="s2">"backend/app/"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 <span class="c1"># Filter out provider/ directory matches</span>
 <span class="n">non_provider_lines</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-    <span class="k">if</span> <span class="s2">&quot;ingest/provider/&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span>
+    <span class="k">if</span> <span class="s2">"ingest/provider/"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span>
 <span class="p">]</span>
-<span class="k">assert</span> <span class="n">non_provider_lines</span> <span class="o">==</span> <span class="p">[],</span> <span class="sa">f</span><span class="s2">&quot;Hardcoded provider references found: </span><span class="si">{</span><span class="n">non_provider_lines</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">assert</span> <span class="n">non_provider_lines</span> <span class="o">==</span> <span class="p">[],</span> <span class="sa">f</span><span class="s2">"Hardcoded provider references found: </span><span class="si">{</span><span class="n">non_provider_lines</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <p>This test must be in <code>test_code_quality.py</code> and must run on every CI push (I6 enforcement).</p>
 <hr />
@@ -3074,14 +3102,14 @@ and assert all column names and nullable flags above.</p>
 <p><strong>And when</strong> it is called with (vault_id=<unknown_vault_id>, operation=None),
 <strong>Then</strong> it returns the config from Row A (global fallback).</p>
 <p>Testable assert (unit test with 3 conflicting rows in a test DB):</p>
-<div class="highlight"><pre><span></span><code><span class="n">cfg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">vault_id</span><span class="o">=</span><span class="n">test_vault_id</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;ingest&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">&quot;model-operation&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="n">cfg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">vault_id</span><span class="o">=</span><span class="n">test_vault_id</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="s2">"ingest"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">"model-operation"</span>
 
 <span class="n">cfg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">vault_id</span><span class="o">=</span><span class="n">test_vault_id</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">&quot;model-vault&quot;</span>
+<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">"model-vault"</span>
 
-<span class="n">cfg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">vault_id</span><span class="o">=</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">&quot;model-global&quot;</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">vault_id</span><span class="o">=</span><span class="s2">"unknown"</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">cfg</span><span class="o">.</span><span class="n">model_id</span> <span class="o">==</span> <span class="s2">"model-global"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f17-7-provider-config-rest-endpoints-operational-and-in-openapi">AC-F17-7 — Provider config REST endpoints operational and in OpenAPI<a class="headerlink" href="#ac-f17-7-provider-config-rest-endpoints-operational-and-in-openapi" title="Permanent link">&para;</a></h3>
@@ -3096,18 +3124,18 @@ and assert all column names and nullable flags above.</p>
 <strong>Then</strong> both <code>/provider/config</code> paths (GET and POST) are present with correct request/response
 schemas.</p>
 <p>Testable asserts:</p>
-<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/provider/config&quot;</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;global&quot;</span><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/provider/config"</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="p">{</span><span class="s2">"scope"</span><span class="p">:</span> <span class="s2">"global"</span><span class="p">})</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span>
-<span class="k">assert</span> <span class="s2">&quot;provider_type&quot;</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"provider_type"</span> <span class="ow">in</span> <span class="n">resp</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
 
-<span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/provider/config&quot;</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
-    <span class="s2">&quot;scope&quot;</span><span class="p">:</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;provider_type&quot;</span><span class="p">:</span> <span class="s2">&quot;local&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;model_id&quot;</span><span class="p">:</span> <span class="s2">&quot;llama3&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;token_budget&quot;</span><span class="p">:</span> <span class="mi">60000</span>
+<span class="n">resp</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">"/provider/config"</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+    <span class="s2">"scope"</span><span class="p">:</span> <span class="s2">"global"</span><span class="p">,</span> <span class="s2">"provider_type"</span><span class="p">:</span> <span class="s2">"local"</span><span class="p">,</span>
+    <span class="s2">"model_id"</span><span class="p">:</span> <span class="s2">"llama3"</span><span class="p">,</span> <span class="s2">"max_iter"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">"token_budget"</span><span class="p">:</span> <span class="mi">60000</span>
 <span class="p">})</span>
 <span class="k">assert</span> <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">201</span>
 
-<span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/openapi.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="k">assert</span> <span class="s2">&quot;/provider/config&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
+<span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"docs/api/openapi.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="k">assert</span> <span class="s2">"/provider/config"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f17-8-no-hardcoded-model-ids-anywhere-in-codebase">AC-F17-8 — No hardcoded model IDs anywhere in codebase<a class="headerlink" href="#ac-f17-8-no-hardcoded-model-ids-anywhere-in-codebase" title="Permanent link">&para;</a></h3>
@@ -3120,11 +3148,11 @@ schemas.</p>
 <p><strong>Then</strong> zero matches are found in application source code (<code>backend/app/</code>).</p>
 <p>Testable assert (CI-enforced, extends AC-F17-4 grep):</p>
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;grep&quot;</span><span class="p">,</span> <span class="s2">&quot;-rn&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;claude-opus-4\|claude-sonnet-4\|claude-haiku&quot;</span><span class="p">,</span>
-     <span class="s2">&quot;backend/app/&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"grep"</span><span class="p">,</span> <span class="s2">"-rn"</span><span class="p">,</span> <span class="sa">r</span><span class="s2">"claude-opus-4\|claude-sonnet-4\|claude-haiku"</span><span class="p">,</span>
+     <span class="s2">"backend/app/"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
-<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Hardcoded model IDs found: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">""</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Hardcoded model IDs found: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <p>Model IDs must only appear in <code>provider_config</code> rows (seeded via Alembic data migration
 using values from <code>CLAUDE.md §12</code>, never as string literals in source code).</p>
@@ -3155,9 +3183,9 @@ frontmatter containing type, title, sources[]),
 - <code>sources</code> is a non-empty JSONB array containing at minimum the fixture file's relative path</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">page</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Page</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Page</span><span class="o">.</span><span class="n">title</span><span class="o">.</span><span class="n">isnot</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span><span class="o">.</span><span class="n">first</span><span class="p">()</span>
-<span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;entity&quot;</span><span class="p">,</span> <span class="s2">&quot;concept&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;synthesis&quot;</span><span class="p">,</span> <span class="s2">&quot;comparison&quot;</span><span class="p">}</span>
+<span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"entity"</span><span class="p">,</span> <span class="s2">"concept"</span><span class="p">,</span> <span class="s2">"source"</span><span class="p">,</span> <span class="s2">"synthesis"</span><span class="p">,</span> <span class="s2">"comparison"</span><span class="p">}</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">sources</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
-<span class="n">wiki_files</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.md&quot;</span><span class="p">))</span>
+<span class="n">wiki_files</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.md"</span><span class="p">))</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">wiki_files</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span>  <span class="c1"># at minimum 1 generated page + index.md</span>
 </code></pre></div>
 <hr />
@@ -3182,13 +3210,13 @@ and run as part of EC-M2-5 smoke matrix only.</p>
 2. The CLI agent writes at least 1 page to <code>vault/wiki/</code> via the <code>write_page</code> MCP tool.
 3. index.md is updated.</p>
 <p>Testable assert (using spy/mock on the CliAgentProvider instance):</p>
-<div class="highlight"><pre><span></span><code><span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">cli_provider</span><span class="p">,</span> <span class="s2">&quot;analyze&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_analyze</span><span class="p">,</span> \
-     <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">cli_provider</span><span class="p">,</span> <span class="s2">&quot;generate&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_generate</span><span class="p">:</span>
+<div class="highlight"><pre><span></span><code><span class="k">with</span> <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">cli_provider</span><span class="p">,</span> <span class="s2">"analyze"</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_analyze</span><span class="p">,</span> \
+     <span class="n">patch</span><span class="o">.</span><span class="n">object</span><span class="p">(</span><span class="n">cli_provider</span><span class="p">,</span> <span class="s2">"generate"</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_generate</span><span class="p">:</span>
     <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">fixture_path</span><span class="p">)</span>
     <span class="n">mock_analyze</span><span class="o">.</span><span class="n">assert_not_called</span><span class="p">()</span>
     <span class="n">mock_generate</span><span class="o">.</span><span class="n">assert_not_called</span><span class="p">()</span>
-<span class="n">pages_in_wiki</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.md&quot;</span><span class="p">)</span>
-                 <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;index.md&quot;</span><span class="p">,</span> <span class="s2">&quot;log.md&quot;</span><span class="p">,</span> <span class="s2">&quot;overview.md&quot;</span><span class="p">}]</span>
+<span class="n">pages_in_wiki</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.md"</span><span class="p">)</span>
+                 <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"index.md"</span><span class="p">,</span> <span class="s2">"log.md"</span><span class="p">,</span> <span class="s2">"overview.md"</span><span class="p">}]</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">pages_in_wiki</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
 </code></pre></div>
 <hr />
@@ -3205,13 +3233,13 @@ capability flag.</p>
 <p>Testable asserts:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Routing test with custom provider</span>
 <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;grep&quot;</span><span class="p">,</span> <span class="s2">&quot;-n&quot;</span><span class="p">,</span> <span class="sa">r</span><span class="s2">&quot;isinstance\|type(\|</span><span class="se">\&quot;</span><span class="s2">CliAgentProvider</span><span class="se">\&quot;</span><span class="s2">\|== .cli.&quot;</span><span class="p">,</span> 
-     <span class="s2">&quot;backend/app/ingest/orchestrator.py&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"grep"</span><span class="p">,</span> <span class="s2">"-n"</span><span class="p">,</span> <span class="sa">r</span><span class="s2">"isinstance\|type(\|</span><span class="se">\"</span><span class="s2">CliAgentProvider</span><span class="se">\"</span><span class="s2">\|== .cli."</span><span class="p">,</span> 
+     <span class="s2">"backend/app/ingest/orchestrator.py"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
-<span class="c1"># Only allowed reference to &quot;cli&quot; is log output or config field read, not a routing branch</span>
+<span class="c1"># Only allowed reference to "cli" is log output or config field read, not a routing branch</span>
 <span class="n">routing_lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span>
-                 <span class="k">if</span> <span class="s2">&quot;capabilities()&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span> <span class="ow">and</span> <span class="s2">&quot;#&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+                 <span class="k">if</span> <span class="s2">"capabilities()"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span> <span class="ow">and</span> <span class="s2">"#"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
 <span class="k">assert</span> <span class="n">routing_lines</span> <span class="o">==</span> <span class="p">[]</span>
 </code></pre></div>
 <hr />
@@ -3228,8 +3256,8 @@ frontmatter field (guaranteed to fail validation),
 5. A log entry is written with <code>converged=False</code>.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">mock_provider</span><span class="o">.</span><span class="n">generate</span><span class="o">.</span><span class="n">call_count</span> <span class="o">==</span> <span class="mi">3</span>
-<span class="k">assert</span> <span class="n">last_log_entry</span><span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">False</span>
-<span class="k">assert</span> <span class="n">last_log_entry</span><span class="p">[</span><span class="s2">&quot;max_iter_used&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span>
+<span class="k">assert</span> <span class="n">last_log_entry</span><span class="p">[</span><span class="s2">"converged"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">False</span>
+<span class="k">assert</span> <span class="n">last_log_entry</span><span class="p">[</span><span class="s2">"max_iter_used"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k2-6-i7-every-ingest-run-produces-a-structured-log-entry">AC-K2-6 (I7) — Every ingest run produces a structured log entry<a class="headerlink" href="#ac-k2-6-i7-every-ingest-run-produces-a-structured-log-entry" title="Permanent link">&para;</a></h3>
@@ -3278,11 +3306,11 @@ following keys with non-null values:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Capture structured log output during ingest</span>
 <span class="k">with</span> <span class="n">capture_logs</span><span class="p">()</span> <span class="k">as</span> <span class="n">logs</span><span class="p">:</span>
     <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">fixture_path</span><span class="p">)</span>
-<span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;event&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ingest_complete&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">entry</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"event"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"ingest_complete"</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
 <span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">k</span> <span class="ow">in</span> <span class="n">entry</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span>
-           <span class="p">[</span><span class="s2">&quot;provider_name&quot;</span><span class="p">,</span> <span class="s2">&quot;max_iter_used&quot;</span><span class="p">,</span> <span class="s2">&quot;total_tokens&quot;</span><span class="p">,</span> <span class="s2">&quot;total_cost_usd&quot;</span><span class="p">,</span> <span class="s2">&quot;converged&quot;</span><span class="p">])</span>
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;total_cost_usd&quot;</span><span class="p">],</span> <span class="nb">float</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+           <span class="p">[</span><span class="s2">"provider_name"</span><span class="p">,</span> <span class="s2">"max_iter_used"</span><span class="p">,</span> <span class="s2">"total_tokens"</span><span class="p">,</span> <span class="s2">"total_cost_usd"</span><span class="p">,</span> <span class="s2">"converged"</span><span class="p">])</span>
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"total_cost_usd"</span><span class="p">],</span> <span class="nb">float</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"converged"</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k2-7-provider-fallback-primary-timeout-triggers-exactly-one-retry-then-surfaces-error">AC-K2-7 — Provider fallback: primary timeout triggers exactly one retry, then surfaces error<a class="headerlink" href="#ac-k2-7-provider-fallback-primary-timeout-triggers-exactly-one-retry-then-surfaces-error" title="Permanent link">&para;</a></h3>
@@ -3321,15 +3349,15 @@ Obsidian-compatible Markdown.</p>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="c1"># After first ingest</span>
-<span class="n">overview</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">overview</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;overview&quot;</span>
+<span class="n">overview</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">overview</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"overview"</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">overview</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span>
 
-<span class="n">mtime_1</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
+<span class="n">mtime_1</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
 
 <span class="c1"># After second ingest</span>
 <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">fixture_path_2</span><span class="p">)</span>
-<span class="n">mtime_2</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
+<span class="n">mtime_2</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
 <span class="k">assert</span> <span class="n">mtime_2</span> <span class="o">&gt;</span> <span class="n">mtime_1</span>
 </code></pre></div>
 <hr />
@@ -3384,12 +3412,12 @@ file's content and a mock vault_context string,
 </tbody>
 </table>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">source_text</span><span class="o">=</span><span class="n">content</span><span class="p">,</span> <span class="n">vault_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">source_text</span><span class="o">=</span><span class="n">content</span><span class="p">,</span> <span class="n">vault_context</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
 <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Analysis</span><span class="p">)</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">topics</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
-<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">language</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;en&quot;</span><span class="p">,</span> <span class="s2">&quot;it&quot;</span><span class="p">,</span> <span class="s2">&quot;fr&quot;</span><span class="p">,</span> <span class="s2">&quot;de&quot;</span><span class="p">,</span> <span class="s2">&quot;es&quot;</span><span class="p">}</span>  <span class="c1"># expand as needed</span>
+<span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">language</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"en"</span><span class="p">,</span> <span class="s2">"it"</span><span class="p">,</span> <span class="s2">"fr"</span><span class="p">,</span> <span class="s2">"de"</span><span class="p">,</span> <span class="s2">"es"</span><span class="p">}</span>  <span class="c1"># expand as needed</span>
 <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">suggested_pages</span><span class="p">:</span>
-    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;entity&quot;</span><span class="p">,</span> <span class="s2">&quot;concept&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;synthesis&quot;</span><span class="p">,</span> <span class="s2">&quot;comparison&quot;</span><span class="p">}</span>
+    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"entity"</span><span class="p">,</span> <span class="s2">"concept"</span><span class="p">,</span> <span class="s2">"source"</span><span class="p">,</span> <span class="s2">"synthesis"</span><span class="p">,</span> <span class="s2">"comparison"</span><span class="p">}</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f3-2-generate-returns-listwikipage-with-required-frontmatter-fields">AC-F3-2 — generate() returns list[WikiPage] with required frontmatter fields<a class="headerlink" href="#ac-f3-2-generate-returns-listwikipage-with-required-frontmatter-fields" title="Permanent link">&para;</a></h3>
@@ -3433,14 +3461,14 @@ file's content and a mock vault_context string,
 </tbody>
 </table>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">pages</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">analysis</span><span class="o">=</span><span class="n">fixture_analysis</span><span class="p">,</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">pages</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">analysis</span><span class="o">=</span><span class="n">fixture_analysis</span><span class="p">,</span> <span class="n">retrieval_context</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">pages</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
 <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">pages</span><span class="p">:</span>
     <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">page</span><span class="p">,</span> <span class="n">WikiPage</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;entity&quot;</span><span class="p">,</span> <span class="s2">&quot;concept&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;synthesis&quot;</span><span class="p">,</span> <span class="s2">&quot;comparison&quot;</span><span class="p">}</span>
-    <span class="k">assert</span> <span class="s2">&quot;sources&quot;</span> <span class="ow">in</span> <span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span>
-    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">&quot;lang&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">fixture_analysis</span><span class="o">.</span><span class="n">language</span>
+    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">type</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"entity"</span><span class="p">,</span> <span class="s2">"concept"</span><span class="p">,</span> <span class="s2">"source"</span><span class="p">,</span> <span class="s2">"synthesis"</span><span class="p">,</span> <span class="s2">"comparison"</span><span class="p">}</span>
+    <span class="k">assert</span> <span class="s2">"sources"</span> <span class="ow">in</span> <span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">"sources"</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">page</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">"lang"</span><span class="p">]</span> <span class="o">==</span> <span class="n">fixture_analysis</span><span class="o">.</span><span class="n">language</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f3-3-sources-contains-the-originating-source-file-path">AC-F3-3 — sources[] contains the originating source file path<a class="headerlink" href="#ac-f3-3-sources-contains-the-originating-source-file-path" title="Permanent link">&para;</a></h3>
@@ -3452,10 +3480,10 @@ ingested via the orchestrator,
 <p>The list may contain additional sources cited from retrieval context, but must always
 contain the originating path.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">wiki_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;entities/*.md&quot;</span><span class="p">):</span>
+<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">wiki_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"entities/*.md"</span><span class="p">):</span>
     <span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">wiki_file</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="s2">&quot;raw/sources/sample-source.md&quot;</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">],</span> \
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">wiki_file</span><span class="si">}</span><span class="s2"> sources[] does not reference the origin: </span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;sources&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">assert</span> <span class="s2">"raw/sources/sample-source.md"</span> <span class="ow">in</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"sources"</span><span class="p">],</span> \
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">wiki_file</span><span class="si">}</span><span class="s2"> sources[] does not reference the origin: </span><span class="si">{</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">'sources'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f3-4-language-detection-en-and-it-sources-produce-pages-in-matching-language">AC-F3-4 — Language detection: EN and IT sources produce pages in matching language<a class="headerlink" href="#ac-f3-4-language-detection-en-and-it-sources-produce-pages-in-matching-language" title="Permanent link">&para;</a></h3>
@@ -3470,14 +3498,14 @@ generated pages from the Italian fixture have <code>lang: it</code> and predomin
 detected during <code>analyze()</code>.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># Ingest English fixture</span>
-<span class="n">pages_en</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">en_content</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="n">pages_en</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">en_content</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span> <span class="s2">""</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pages_en</span><span class="p">:</span>
-    <span class="k">assert</span> <span class="n">p</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">&quot;lang&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;en&quot;</span>
+    <span class="k">assert</span> <span class="n">p</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">"lang"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"en"</span>
 
 <span class="c1"># Ingest Italian fixture</span>
-<span class="n">pages_it</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">it_content</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="n">pages_it</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">provider</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">it_content</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span> <span class="s2">""</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pages_it</span><span class="p">:</span>
-    <span class="k">assert</span> <span class="n">p</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">&quot;lang&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;it&quot;</span>
+    <span class="k">assert</span> <span class="n">p</span><span class="o">.</span><span class="n">frontmatter</span><span class="p">[</span><span class="s2">"lang"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"it"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f3-5-vaultwikioverviewmd-created-on-first-ingest-valid-obsidian-format">AC-F3-5 — vault/wiki/overview.md created on first ingest; valid Obsidian format<a class="headerlink" href="#ac-f3-5-vaultwikioverviewmd-created-on-first-ingest-valid-obsidian-format" title="Permanent link">&para;</a></h3>
@@ -3491,10 +3519,10 @@ detected during <code>analyze()</code>.</p>
 5. The Markdown body (content after frontmatter) is at least 50 characters (non-trivial prose).
 6. The file opens in Obsidian without error (verified during EC-M2-13 human checkpoint).</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;overview&quot;</span>
-<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"overview"</span>
+<span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"title"</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"sources"</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="o">&gt;=</span> <span class="mi">50</span>
 </code></pre></div>
 <hr />
@@ -3509,11 +3537,11 @@ detected during <code>analyze()</code>.</p>
    the generated prose must not grow unboundedly across N ingests).</p>
 <p>For the test, assert file size &lt; 16384 bytes after 3 sequential ingests.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">mtime_before</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
+<div class="highlight"><pre><span></span><code><span class="n">mtime_before</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
 <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">fixture_path_2</span><span class="p">)</span>
-<span class="n">mtime_after</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
+<span class="n">mtime_after</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span>
 <span class="k">assert</span> <span class="n">mtime_after</span> <span class="o">&gt;</span> <span class="n">mtime_before</span>
-<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/overview.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">&lt;</span> <span class="mi">16384</span>
+<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/overview.md"</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">&lt;</span> <span class="mi">16384</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-f3-7-happy-path-ingest-converges-in-exactly-1-iteration-no-retry">AC-F3-7 — Happy-path ingest converges in exactly 1 iteration (no retry)<a class="headerlink" href="#ac-f3-7-happy-path-ingest-converges-in-exactly-1-iteration-no-retry" title="Permanent link">&para;</a></h3>
@@ -3526,10 +3554,10 @@ pages pass the frontmatter validator without requiring a retry).</p>
 source document does not trigger unnecessary retries.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="k">with</span> <span class="n">capture_logs</span><span class="p">()</span> <span class="k">as</span> <span class="n">logs</span><span class="p">:</span>
-    <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="s2">&quot;vault/raw/sources/sample-source.md&quot;</span><span class="p">)</span>
-<span class="n">entry</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;event&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;ingest_complete&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;converged&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">True</span>
-<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">&quot;max_iter_used&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+    <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="s2">"vault/raw/sources/sample-source.md"</span><span class="p">)</span>
+<span class="n">entry</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"event"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"ingest_complete"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"converged"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">True</span>
+<span class="k">assert</span> <span class="n">entry</span><span class="p">[</span><span class="s2">"max_iter_used"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
 </code></pre></div>
 <hr />
 <h2 id="us-k5-wikilink-parser-and-links-table">US-K5 — Wikilink parser and links table<a class="headerlink" href="#us-k5-wikilink-parser-and-links-table" title="Permanent link">&para;</a></h2>
@@ -3550,9 +3578,9 @@ I8 (links table appears in D2 ER diagram)</p>
 <code>target_title == "Target Page"</code> and <code>alias is None</code>.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">app.ingest.parser.wikilinks</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="s2">&quot;See [[Target Page]] for details.&quot;</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="s2">"See [[Target Page]] for details."</span><span class="p">)</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
-<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">&quot;Target Page&quot;</span>
+<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">"Target Page"</span>
 <span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">alias</span> <span class="ow">is</span> <span class="kc">None</span>
 </code></pre></div>
 <hr />
@@ -3562,9 +3590,9 @@ I8 (links table appears in D2 ER diagram)</p>
 <strong>Then</strong> the result contains exactly one entry with <code>target_title == "Long Title"</code> and
 <code>alias == "short"</code>.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">results</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="s2">&quot;Read [[Long Title|short]] for an overview.&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">&quot;Long Title&quot;</span>
-<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">alias</span> <span class="o">==</span> <span class="s2">&quot;short&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="n">results</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="s2">"Read [[Long Title|short]] for an overview."</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">"Long Title"</span>
+<span class="k">assert</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">alias</span> <span class="o">==</span> <span class="s2">"short"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k5-3-parser-handles-multiple-links-zero-links-and-invalid-bracket-syntax-without-exception">AC-K5-3 — Parser handles multiple links, zero links, and invalid bracket syntax without exception<a class="headerlink" href="#ac-k5-3-parser-handles-multiple-links-zero-links-and-invalid-bracket-syntax-without-exception" title="Permanent link">&para;</a></h3>
@@ -3580,10 +3608,10 @@ I8 (links table appears in D2 ER diagram)</p>
 - malformed case: returns an empty list; no exception raised
 - empty-title case: returns an empty list; no exception raised</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">parse</span><span class="p">(</span><span class="s2">&quot;[[Page A]] and [[Page B|alias]] and [[Page C]]&quot;</span><span class="p">))</span> <span class="o">==</span> <span class="mi">3</span>
-<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">&quot;No links here.&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>
-<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">&quot;[[unclosed&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>  <span class="c1"># no exception</span>
-<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">&quot;[[]]&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>  <span class="c1"># empty title ignored</span>
+<div class="highlight"><pre><span></span><code><span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">parse</span><span class="p">(</span><span class="s2">"[[Page A]] and [[Page B|alias]] and [[Page C]]"</span><span class="p">))</span> <span class="o">==</span> <span class="mi">3</span>
+<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">"No links here."</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>
+<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">"[[unclosed"</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>  <span class="c1"># no exception</span>
+<span class="k">assert</span> <span class="n">parse</span><span class="p">(</span><span class="s2">"[[]]"</span><span class="p">)</span> <span class="o">==</span> <span class="p">[]</span>  <span class="c1"># empty title ignored</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k5-4-after-ingest-all-wikilinks-in-generated-pages-have-links-table-rows">AC-K5-4 — After ingest, all wikilinks in generated pages have links table rows<a class="headerlink" href="#ac-k5-4-after-ingest-all-wikilinks-in-generated-pages-have-links-table-rows" title="Permanent link">&para;</a></h3>
@@ -3594,7 +3622,7 @@ I8 (links table appears in D2 ER diagram)</p>
 the <code>links</code> table with <code>source_page_id</code> matching the wiki page's UUID.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="c1"># For each wiki page row in Postgres:</span>
-<span class="n">page_content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;vault/wiki/</span><span class="si">{</span><span class="n">page</span><span class="o">.</span><span class="n">file_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="n">page_content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">"vault/wiki/</span><span class="si">{</span><span class="n">page</span><span class="o">.</span><span class="n">file_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="n">expected_links</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">page_content</span><span class="p">)</span>
 <span class="n">db_links</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Link</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Link</span><span class="o">.</span><span class="n">source_page_id</span> <span class="o">==</span> <span class="n">page</span><span class="o">.</span><span class="n">id</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 <span class="n">db_targets</span> <span class="o">=</span> <span class="p">{</span><span class="n">l</span><span class="o">.</span><span class="n">target_title</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">db_links</span><span class="p">}</span>
@@ -3619,9 +3647,9 @@ the <code>links</code> table with <code>source_page_id</code> matching the wiki 
 
 <span class="n">dangling_rows</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Link</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Link</span><span class="o">.</span><span class="n">dangling</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">dangling_rows</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
-<span class="k">assert</span> <span class="n">dangling_rows</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">&quot;Nonexistent Page&quot;</span>
+<span class="k">assert</span> <span class="n">dangling_rows</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">target_title</span> <span class="o">==</span> <span class="s2">"Nonexistent Page"</span>
 
-<span class="n">warning_msgs</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">l</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;WARNING&quot;</span> <span class="ow">and</span> <span class="s2">&quot;dangling&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">l</span><span class="p">)]</span>
+<span class="n">warning_msgs</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">logs</span> <span class="k">if</span> <span class="n">l</span><span class="p">[</span><span class="s2">"level"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"WARNING"</span> <span class="ow">and</span> <span class="s2">"dangling"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">l</span><span class="p">)]</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">warning_msgs</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
 </code></pre></div>
 <hr />
@@ -3704,8 +3732,8 @@ I1 (index.md update is triggered per-page-write event, not by a separate rescan)
 <strong>Then</strong> <code>vault/wiki/index.md</code> contains the string <code>[[Test Entity]]</code> (or the exact title
 as a wikilink) somewhere in its body.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">index_content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">assert</span> <span class="s2">&quot;[[Test Entity]]&quot;</span> <span class="ow">in</span> <span class="n">index_content</span>
+<div class="highlight"><pre><span></span><code><span class="n">index_content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"[[Test Entity]]"</span> <span class="ow">in</span> <span class="n">index_content</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k3-2-indexmd-retains-valid-yaml-frontmatter-type-index-title-wiki-index">AC-K3-2 — index.md retains valid YAML frontmatter (type: index, title: "Wiki Index")<a class="headerlink" href="#ac-k3-2-indexmd-retains-valid-yaml-frontmatter-type-index-title-wiki-index" title="Permanent link">&para;</a></h3>
@@ -3717,9 +3745,9 @@ as a wikilink) somewhere in its body.</p>
 <p>The YAML frontmatter block is present and intact after every update; no update operation
 corrupts or removes it.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;index&quot;</span>
-<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Wiki Index&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"index"</span>
+<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"title"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"Wiki Index"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k3-3-entries-in-indexmd-are-organised-by-page-type">AC-K3-3 — Entries in index.md are organised by page type<a class="headerlink" href="#ac-k3-3-entries-in-indexmd-are-organised-by-page-type" title="Permanent link">&para;</a></h3>
@@ -3730,9 +3758,9 @@ corrupts or removes it.</p>
 (e.g. <code>## Entities</code>, <code>## Concepts</code>), and each page's wikilink appears under its correct
 section.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">assert</span> <span class="s2">&quot;## Entities&quot;</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">&quot;## Entity&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;[[Test Entity]]&quot;</span> <span class="ow">in</span> <span class="n">content</span>  <span class="c1"># appears under the entity section</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"## Entities"</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">"## Entity"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"[[Test Entity]]"</span> <span class="ow">in</span> <span class="n">content</span>  <span class="c1"># appears under the entity section</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k3-4-missing-indexmd-is-recreated-without-error">AC-K3-4 — Missing index.md is recreated without error<a class="headerlink" href="#ac-k3-4-missing-indexmd-is-recreated-without-error" title="Permanent link">&para;</a></h3>
@@ -3741,11 +3769,11 @@ section.</p>
 <strong>Then</strong> <code>vault/wiki/index.md</code> is recreated from scratch with valid YAML frontmatter and at
 least one entry for the newly written page. No exception is raised.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">fixture_path</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
-<span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span>
-<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;index&quot;</span>
+<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+<span class="n">doc</span> <span class="o">=</span> <span class="n">frontmatter</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"index"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-k3-5-indexmd-never-truncated-only-appendedregenerated">AC-K3-5 — index.md never truncated; only appended/regenerated<a class="headerlink" href="#ac-k3-5-indexmd-never-truncated-only-appendedregenerated" title="Permanent link">&para;</a></h3>
@@ -3757,11 +3785,11 @@ preserved). The file is not truncated to just the new entry.</p>
 (b) regenerate the full index in one atomic write. Either is acceptable as long as
 prior entries are not lost.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">content_before</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="n">prior_link_count</span> <span class="o">=</span> <span class="n">content_before</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;[[&quot;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">content_before</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="n">prior_link_count</span> <span class="o">=</span> <span class="n">content_before</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"[["</span><span class="p">)</span>
 <span class="n">orchestrator</span><span class="o">.</span><span class="n">ingest_file</span><span class="p">(</span><span class="n">new_fixture</span><span class="p">)</span>
-<span class="n">content_after</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki/index.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="n">new_link_count</span> <span class="o">=</span> <span class="n">content_after</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;[[&quot;</span><span class="p">)</span>
+<span class="n">content_after</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki/index.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="n">new_link_count</span> <span class="o">=</span> <span class="n">content_after</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">"[["</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">new_link_count</span> <span class="o">&gt;=</span> <span class="n">prior_link_count</span> <span class="o">+</span> <span class="mi">1</span>
 </code></pre></div>
 <hr />
@@ -3798,7 +3826,7 @@ exactly (at minimum): <code>search_wiki</code>, <code>write_page</code>, <code>g
 <span class="k">async</span> <span class="k">with</span> <span class="n">TestClient</span><span class="p">(</span><span class="n">mcp_server</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
     <span class="n">tools</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
     <span class="n">tool_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">}</span>
-    <span class="k">assert</span> <span class="p">{</span><span class="s2">&quot;search_wiki&quot;</span><span class="p">,</span> <span class="s2">&quot;write_page&quot;</span><span class="p">,</span> <span class="s2">&quot;get_page&quot;</span><span class="p">,</span> <span class="s2">&quot;list_pages&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="p">{</span><span class="s2">"search_wiki"</span><span class="p">,</span> <span class="s2">"write_page"</span><span class="p">,</span> <span class="s2">"get_page"</span><span class="p">,</span> <span class="s2">"list_pages"</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-2-search_wiki-returns-pageref-list-with-required-fields">AC-MCP-2 — search_wiki returns PageRef list with required fields<a class="headerlink" href="#ac-mcp-2-search_wiki-returns-pageref-list-with-required-fields" title="Permanent link">&para;</a></h3>
@@ -3811,10 +3839,10 @@ MCP test client,
 - <code>type</code>: valid page type
 - <code>relevance_score</code>: float in [0.0, 1.0]</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;search_wiki&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;query&quot;</span><span class="p">:</span> <span class="s2">&quot;entity&quot;</span><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"search_wiki"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"entity"</span><span class="p">})</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">1</span>
-<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">k</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;relevance_score&quot;</span><span class="p">])</span>
-<span class="k">assert</span> <span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;relevance_score&quot;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.0</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">k</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"id"</span><span class="p">,</span> <span class="s2">"title"</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">,</span> <span class="s2">"relevance_score"</span><span class="p">])</span>
+<span class="k">assert</span> <span class="mf">0.0</span> <span class="o">&lt;=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"relevance_score"</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="mf">1.0</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-3-write_page-writes-file-creates-postgres-row-and-qdrant-vector-updates-indexmd-fails-with-descriptive-error-on-missing-frontmatter">AC-MCP-3 — write_page writes file, creates Postgres row and Qdrant vector, updates index.md; fails with descriptive error on missing frontmatter<a class="headerlink" href="#ac-mcp-3-write_page-writes-file-creates-postgres-row-and-qdrant-vector-updates-indexmd-fails-with-descriptive-error-on-missing-frontmatter" title="Permanent link">&para;</a></h3>
@@ -3831,18 +3859,18 @@ frontmatter={"type": "entity", "title": "MCP Test Page", "sources": ["raw/source
 <strong>Then</strong> the tool returns an error response (not an unhandled exception) with a human-readable
 message identifying the missing field.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;write_page&quot;</span><span class="p">,</span> <span class="p">{</span>
-    <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;MCP Test Page&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;Content.&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;frontmatter&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;entity&quot;</span><span class="p">,</span> <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;MCP Test Page&quot;</span><span class="p">,</span> <span class="s2">&quot;sources&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;raw/sources/test.md&quot;</span><span class="p">]}</span>
+<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"write_page"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s2">"title"</span><span class="p">:</span> <span class="s2">"MCP Test Page"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Content."</span><span class="p">,</span>
+    <span class="s2">"frontmatter"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"entity"</span><span class="p">,</span> <span class="s2">"title"</span><span class="p">:</span> <span class="s2">"MCP Test Page"</span><span class="p">,</span> <span class="s2">"sources"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"raw/sources/test.md"</span><span class="p">]}</span>
 <span class="p">})</span>
-<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;vault/wiki&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;**/mcp-test-page.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+<span class="k">assert</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"vault/wiki"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"**/mcp-test-page.md"</span><span class="p">)</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
 
 <span class="c1"># Failure case</span>
-<span class="n">error_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;write_page&quot;</span><span class="p">,</span> <span class="p">{</span>
-    <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Bad Page&quot;</span><span class="p">,</span> <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="s2">&quot;content&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;frontmatter&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Bad Page&quot;</span><span class="p">}</span>  <span class="c1"># missing type</span>
+<span class="n">error_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"write_page"</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Bad Page"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"content"</span><span class="p">,</span>
+    <span class="s2">"frontmatter"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Bad Page"</span><span class="p">}</span>  <span class="c1"># missing type</span>
 <span class="p">})</span>
-<span class="k">assert</span> <span class="s2">&quot;type&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">error_result</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;missing&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">error_result</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"type"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">error_result</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">"missing"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">error_result</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-4-get_page-returns-full-content-and-frontmatter-not-found-for-unknown-title">AC-MCP-4 — get_page returns full content and frontmatter; not-found for unknown title<a class="headerlink" href="#ac-mcp-4-get_page-returns-full-content-and-frontmatter-not-found-for-unknown-title" title="Permanent link">&para;</a></h3>
@@ -3854,12 +3882,12 @@ matching the stored page.</p>
 <strong>Then</strong> the response is an error indicating the page was not found (not a Python exception
 propagated unhandled — a structured tool error).</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;get_page&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;MCP Test Page&quot;</span><span class="p">})</span>
-<span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;title&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;MCP Test Page&quot;</span>
-<span class="k">assert</span> <span class="s2">&quot;content&quot;</span> <span class="ow">in</span> <span class="n">result</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"get_page"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"MCP Test Page"</span><span class="p">})</span>
+<span class="k">assert</span> <span class="n">result</span><span class="p">[</span><span class="s2">"title"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"MCP Test Page"</span>
+<span class="k">assert</span> <span class="s2">"content"</span> <span class="ow">in</span> <span class="n">result</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"content"</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
 
-<span class="n">not_found</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;get_page&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="s2">&quot;Does Not Exist&quot;</span><span class="p">})</span>
-<span class="k">assert</span> <span class="s2">&quot;not found&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">not_found</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;error&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">not_found</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<span class="n">not_found</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"get_page"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"title"</span><span class="p">:</span> <span class="s2">"Does Not Exist"</span><span class="p">})</span>
+<span class="k">assert</span> <span class="s2">"not found"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">not_found</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">"error"</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">not_found</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-5-list_pages-returns-all-non-deleted-pages-type-filter-works">AC-MCP-5 — list_pages returns all non-deleted pages; type filter works<a class="headerlink" href="#ac-mcp-5-list_pages-returns-all-non-deleted-pages-type-filter-works" title="Permanent link">&para;</a></h3>
@@ -3870,12 +3898,12 @@ propagated unhandled — a structured tool error).</p>
 <p><strong>And when</strong> <code>list_pages(type="entity")</code> is called,
 <strong>Then</strong> the response contains exactly 2 entries, all with <code>type == "entity"</code>.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">all_pages</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;list_pages&quot;</span><span class="p">,</span> <span class="p">{})</span>
+<div class="highlight"><pre><span></span><code><span class="n">all_pages</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"list_pages"</span><span class="p">,</span> <span class="p">{})</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_pages</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>  <span class="c1"># deleted page excluded</span>
 
-<span class="n">entity_pages</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">&quot;list_pages&quot;</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;entity&quot;</span><span class="p">})</span>
+<span class="n">entity_pages</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">call_tool</span><span class="p">(</span><span class="s2">"list_pages"</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"entity"</span><span class="p">})</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">entity_pages</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
-<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;entity&quot;</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">entity_pages</span><span class="p">)</span>
+<span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"entity"</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">entity_pages</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-6-integration-test-all-4-tools-pass-db-and-filesystem-assertions">AC-MCP-6 — Integration test: all 4 tools pass DB and filesystem assertions<a class="headerlink" href="#ac-mcp-6-integration-test-all-4-tools-pass-db-and-filesystem-assertions" title="Permanent link">&para;</a></h3>
@@ -3897,12 +3925,12 @@ tools, each containing at minimum:
 - <code>inputSchema</code>: valid JSON Schema object (has <code>type: "object"</code> and <code>properties</code>)
 - <code>outputSchema</code> or <code>returns</code>: describes the return type</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">tools_doc</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/mcp-tools.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="n">tool_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="p">[</span><span class="s2">&quot;tools&quot;</span><span class="p">]}</span>
-<span class="k">assert</span> <span class="p">{</span><span class="s2">&quot;search_wiki&quot;</span><span class="p">,</span> <span class="s2">&quot;write_page&quot;</span><span class="p">,</span> <span class="s2">&quot;get_page&quot;</span><span class="p">,</span> <span class="s2">&quot;list_pages&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="p">[</span><span class="s2">&quot;tools&quot;</span><span class="p">]:</span>
-    <span class="k">assert</span> <span class="s2">&quot;inputSchema&quot;</span> <span class="ow">in</span> <span class="n">t</span>
-    <span class="k">assert</span> <span class="n">t</span><span class="p">[</span><span class="s2">&quot;inputSchema&quot;</span><span class="p">][</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;object&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="n">tools_doc</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"docs/api/mcp-tools.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="n">tool_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="p">[</span><span class="s2">"tools"</span><span class="p">]}</span>
+<span class="k">assert</span> <span class="p">{</span><span class="s2">"search_wiki"</span><span class="p">,</span> <span class="s2">"write_page"</span><span class="p">,</span> <span class="s2">"get_page"</span><span class="p">,</span> <span class="s2">"list_pages"</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="p">[</span><span class="s2">"tools"</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="s2">"inputSchema"</span> <span class="ow">in</span> <span class="n">t</span>
+    <span class="k">assert</span> <span class="n">t</span><span class="p">[</span><span class="s2">"inputSchema"</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"object"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-mcp-8-cliagentprovider-communicates-with-mcp-server-via-stdio-during-smoke-matrix">AC-MCP-8 — CliAgentProvider communicates with MCP server via stdio during smoke matrix<a class="headerlink" href="#ac-mcp-8-cliagentprovider-communicates-with-mcp-server-via-stdio-during-smoke-matrix" title="Permanent link">&para;</a></h3>
@@ -3939,13 +3967,13 @@ docs-as-DoD gate for M2.</p>
 4. Shows <code>index.md</code> update as a terminal step on both branches.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;docs/sequences/ingest-routing.mmd&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="s2">"docs/sequences/ingest-routing.mmd"</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
-<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/sequences/ingest-routing.mmd&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">assert</span> <span class="s2">&quot;sequenceDiagram&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;agentic_loop&quot;</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">&quot;CLI&quot;</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/sequences/ingest-routing.mmd"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"sequenceDiagram"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"agentic_loop"</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">"CLI"</span> <span class="ow">in</span> <span class="n">content</span>
 </code></pre></div>
 <p>Additionally: reviewed and approved by tech-writer (human gate, recorded in sign-off register).</p>
 <hr />
@@ -3959,13 +3987,13 @@ docs-as-DoD gate for M2.</p>
 4. Shows <code>log total_cost_usd</code> as a final step.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;docs/sequences/ingest-loop.mmd&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="s2">"docs/sequences/ingest-loop.mmd"</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
-<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/sequences/ingest-loop.mmd&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">assert</span> <span class="s2">&quot;max_iter&quot;</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">&quot;max_iter&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;cost&quot;</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">&quot;total_cost&quot;</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/sequences/ingest-loop.mmd"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"max_iter"</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">"max_iter"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"cost"</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">or</span> <span class="s2">"total_cost"</span> <span class="ow">in</span> <span class="n">content</span>
 </code></pre></div>
 <p>Additionally: reviewed and approved by tech-writer (human gate).</p>
 <hr />
@@ -3977,12 +4005,12 @@ are rendered by mmdc with exit code 0 (no Mermaid parse errors). A non-zero exit
 either file fails the CI build.</p>
 <p>Testable assert (CI configuration check):</p>
 <div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">diagram</span> <span class="ow">in</span> <span class="p">[</span>
-    <span class="s2">&quot;docs/sequences/ingest-routing.mmd&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;docs/sequences/ingest-loop.mmd&quot;</span>
+    <span class="s2">"docs/sequences/ingest-routing.mmd"</span><span class="p">,</span>
+    <span class="s2">"docs/sequences/ingest-loop.mmd"</span>
 <span class="p">]:</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="n">diagram</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="n">diagram</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span>
                             <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;mmdc render failed for </span><span class="si">{</span><span class="n">diagram</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"mmdc render failed for </span><span class="si">{</span><span class="n">diagram</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">stderr</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d3-4-diagrams-are-consistent-with-implementation-joint-architect-tech-writer-review">AC-D3-4 — Diagrams are consistent with implementation (joint architect + tech-writer review)<a class="headerlink" href="#ac-d3-4-diagrams-are-consistent-with-implementation-joint-architect-tech-writer-review" title="Permanent link">&para;</a></h3>
@@ -4016,10 +4044,10 @@ why these choices were made without reading the entire codebase.</p>
    or deferred to v0.3.
 5. Status field set to "Accepted" and Date/Sprint/Decider populated.</p>
 <p>Testable assert (automated structure check):</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0007-inference-provider-abc.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/adr/0007-inference-provider-abc.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">500</span>  <span class="c1"># non-trivial document</span>
-<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;ABC&quot;</span><span class="p">,</span> <span class="s2">&quot;capability&quot;</span><span class="p">,</span> <span class="s2">&quot;chat&quot;</span><span class="p">,</span> <span class="s2">&quot;NotImplementedError&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
-    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0007 missing expected content: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"ABC"</span><span class="p">,</span> <span class="s2">"capability"</span><span class="p">,</span> <span class="s2">"chat"</span><span class="p">,</span> <span class="s2">"NotImplementedError"</span><span class="p">,</span> <span class="s2">"Accepted"</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"ADR-0007 missing expected content: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <p>Approval by solution-architect is a mandatory human gate (recorded in sign-off register).</p>
 <hr />
@@ -4032,10 +4060,10 @@ why these choices were made without reading the entire codebase.</p>
 3. Why vault_id is nullable at global scope.
 4. Status "Accepted", Date/Sprint/Decider populated.</p>
 <p>Testable assert (automated structure check):</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0008-provider-config-schema.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/adr/0008-provider-config-schema.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">400</span>
-<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;vault&quot;</span><span class="p">,</span> <span class="s2">&quot;operation&quot;</span><span class="p">,</span> <span class="s2">&quot;Postgres&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
-    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0008 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"global"</span><span class="p">,</span> <span class="s2">"vault"</span><span class="p">,</span> <span class="s2">"operation"</span><span class="p">,</span> <span class="s2">"Postgres"</span><span class="p">,</span> <span class="s2">"Accepted"</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"ADR-0008 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d7-3-adr-0009-bounded-loop-defaults-and-cost-logging-is-present-and-approved">AC-D7-3 — ADR-0009: bounded-loop defaults and cost logging is present and approved<a class="headerlink" href="#ac-d7-3-adr-0009-bounded-loop-defaults-and-cost-logging-is-present-and-approved" title="Permanent link">&para;</a></h3>
@@ -4051,10 +4079,10 @@ why these choices were made without reading the entire codebase.</p>
 4. The $1.00/run anomaly WARNING threshold and why that value was chosen.
 5. Status "Accepted", Date/Sprint/Decider populated.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr/0009-bounded-loop-defaults.md&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<div class="highlight"><pre><span></span><code><span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/adr/0009-bounded-loop-defaults.md"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
 <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">content</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">500</span>
-<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;max_iter&quot;</span><span class="p">,</span> <span class="s2">&quot;token_budget&quot;</span><span class="p">,</span> <span class="s2">&quot;total_cost_usd&quot;</span><span class="p">,</span> <span class="s2">&quot;1.00&quot;</span><span class="p">,</span> <span class="s2">&quot;Accepted&quot;</span><span class="p">]:</span>
-    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;ADR-0009 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"max_iter"</span><span class="p">,</span> <span class="s2">"token_budget"</span><span class="p">,</span> <span class="s2">"total_cost_usd"</span><span class="p">,</span> <span class="s2">"1.00"</span><span class="p">,</span> <span class="s2">"Accepted"</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"ADR-0009 missing: </span><span class="si">{</span><span class="n">keyword</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d7-4-all-adrs-follow-the-established-format">AC-D7-4 — All ADRs follow the established format<a class="headerlink" href="#ac-d7-4-all-adrs-follow-the-established-format" title="Permanent link">&para;</a></h3>
@@ -4065,11 +4093,11 @@ this sprint beyond the three required),
 <code>Status</code>, <code>Date</code>, <code>Sprint</code>, <code>Decider</code>, <code>Context</code>, <code>Decision</code>, <code>Consequences</code>.</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
-<span class="n">required_sections</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="s2">&quot;date&quot;</span><span class="p">,</span> <span class="s2">&quot;sprint&quot;</span><span class="p">,</span> <span class="s2">&quot;decider&quot;</span><span class="p">,</span> <span class="s2">&quot;context&quot;</span><span class="p">,</span> <span class="s2">&quot;decision&quot;</span><span class="p">,</span> <span class="s2">&quot;consequences&quot;</span><span class="p">}</span>
-<span class="k">for</span> <span class="n">adr_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/adr&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;ADR-00[0-9][0-9]*.md&quot;</span><span class="p">):</span>
+<span class="n">required_sections</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">,</span> <span class="s2">"date"</span><span class="p">,</span> <span class="s2">"sprint"</span><span class="p">,</span> <span class="s2">"decider"</span><span class="p">,</span> <span class="s2">"context"</span><span class="p">,</span> <span class="s2">"decision"</span><span class="p">,</span> <span class="s2">"consequences"</span><span class="p">}</span>
+<span class="k">for</span> <span class="n">adr_file</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/adr"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"ADR-00[0-9][0-9]*.md"</span><span class="p">):</span>
     <span class="n">content</span> <span class="o">=</span> <span class="n">adr_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">required_sections</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">adr_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing section: </span><span class="si">{</span><span class="n">section</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">assert</span> <span class="n">section</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">adr_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> missing section: </span><span class="si">{</span><span class="n">section</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d7-5-adrs-are-internally-consistent-with-d3-sequence-diagrams-and-implementation">AC-D7-5 — ADRs are internally consistent with D3 sequence diagrams and implementation<a class="headerlink" href="#ac-d7-5-adrs-are-internally-consistent-with-d3-sequence-diagrams-and-implementation" title="Permanent link">&para;</a></h3>
@@ -4101,14 +4129,14 @@ diagram this sprint)</p>
 <code>IngestOrchestrator</code>, <code>MCPServer</code>, <code>ProviderConfig</code> (or <code>provider_config</code>).</p>
 <p>Testable assert:</p>
 <div class="highlight"><pre><span></span><code><span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-    <span class="p">[</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;docs/architecture/component.mmd&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="s2">"docs/architecture/component.mmd"</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span>
     <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">)</span>
 <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
-<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/architecture/component.mmd&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;InferenceProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;OllamaProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;ApiProvider&quot;</span><span class="p">,</span>
-              <span class="s2">&quot;CliAgentProvider&quot;</span><span class="p">,</span> <span class="s2">&quot;MCPServer&quot;</span><span class="p">]:</span>
-    <span class="k">assert</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;component.mmd missing: </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/architecture/component.mmd"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"InferenceProvider"</span><span class="p">,</span> <span class="s2">"OllamaProvider"</span><span class="p">,</span> <span class="s2">"ApiProvider"</span><span class="p">,</span>
+              <span class="s2">"CliAgentProvider"</span><span class="p">,</span> <span class="s2">"MCPServer"</span><span class="p">]:</span>
+    <span class="k">assert</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">content</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"component.mmd missing: </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div>
 <p>Reviewed and approved by architect and tech-writer (human gate).</p>
 <hr />
@@ -4121,12 +4149,12 @@ or relationship. No v0.1-only elements remain that would mislead a reader about 
 architecture (e.g., if the watcher was previously the only ingest trigger, the diagrams
 must now show the orchestrator and provider layer as co-participants).</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;docs/architecture/context.mmd&quot;</span><span class="p">,</span> <span class="s2">&quot;docs/architecture/container.mmd&quot;</span><span class="p">]:</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"docs/architecture/context.mmd"</span><span class="p">,</span> <span class="s2">"docs/architecture/container.mmd"</span><span class="p">]:</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span> <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
     <span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">f</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-    <span class="k">assert</span> <span class="s2">&quot;MCP&quot;</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">&quot;mcp&quot;</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> \
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2"> missing MCP reference after v0.2 update&quot;</span>
+    <span class="k">assert</span> <span class="s2">"MCP"</span> <span class="ow">in</span> <span class="n">content</span> <span class="ow">or</span> <span class="s2">"mcp"</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> \
+        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2"> missing MCP reference after v0.2 update"</span>
 </code></pre></div>
 <hr />
 <h2 id="us-d2u-er-diagram-updated-with-new-tables">US-D2u — ER diagram updated with new tables<a class="headerlink" href="#us-d2u-er-diagram-updated-with-new-tables" title="Permanent link">&para;</a></h2>
@@ -4147,13 +4175,13 @@ the I8 docs gate is satisfied.</p>
 <p>Additionally, <code>make er</code> exits 0 and the generated file is valid Mermaid <code>erDiagram</code> syntax
 (mmdc renders it without error).</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;make&quot;</span><span class="p">,</span> <span class="s2">&quot;er&quot;</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/er/schema.mmd&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
-<span class="k">assert</span> <span class="s2">&quot;provider_config&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;links&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;source_page_id&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="k">assert</span> <span class="s2">&quot;dangling&quot;</span> <span class="ow">in</span> <span class="n">content</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;mmdc&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="s2">&quot;docs/er/schema.mmd&quot;</span><span class="p">,</span> <span class="s2">&quot;-o&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/null&quot;</span><span class="p">],</span>
+<div class="highlight"><pre><span></span><code><span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">"make"</span><span class="p">,</span> <span class="s2">"er"</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">content</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"docs/er/schema.mmd"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span>
+<span class="k">assert</span> <span class="s2">"provider_config"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"links"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"source_page_id"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="k">assert</span> <span class="s2">"dangling"</span> <span class="ow">in</span> <span class="n">content</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">"mmdc"</span><span class="p">,</span> <span class="s2">"-i"</span><span class="p">,</span> <span class="s2">"docs/er/schema.mmd"</span><span class="p">,</span> <span class="s2">"-o"</span><span class="p">,</span> <span class="s2">"/dev/null"</span><span class="p">],</span>
                         <span class="n">capture_output</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span>
 </code></pre></div>
@@ -4178,12 +4206,12 @@ without reading source code.</p>
 2. <code>paths["/provider/config"]</code> exists with GET and POST operations documented.
 3. The file is valid OpenAPI 3.1 (passes <code>openapi-spec-validator</code>).</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/openapi.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="n">trigger_response</span> <span class="o">=</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">][</span><span class="s2">&quot;/ingest/trigger&quot;</span><span class="p">][</span><span class="s2">&quot;post&quot;</span><span class="p">][</span><span class="s2">&quot;responses&quot;</span><span class="p">][</span><span class="s2">&quot;202&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;content&quot;</span> <span class="ow">in</span> <span class="n">trigger_response</span>  <span class="c1"># not just a description string</span>
-<span class="k">assert</span> <span class="s2">&quot;/provider/config&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;get&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">][</span><span class="s2">&quot;/provider/config&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="s2">&quot;post&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;paths&quot;</span><span class="p">][</span><span class="s2">&quot;/provider/config&quot;</span><span class="p">]</span>
+<div class="highlight"><pre><span></span><code><span class="n">spec</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"docs/api/openapi.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="n">trigger_response</span> <span class="o">=</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">][</span><span class="s2">"/ingest/trigger"</span><span class="p">][</span><span class="s2">"post"</span><span class="p">][</span><span class="s2">"responses"</span><span class="p">][</span><span class="s2">"202"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"content"</span> <span class="ow">in</span> <span class="n">trigger_response</span>  <span class="c1"># not just a description string</span>
+<span class="k">assert</span> <span class="s2">"/provider/config"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"get"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">][</span><span class="s2">"/provider/config"</span><span class="p">]</span>
+<span class="k">assert</span> <span class="s2">"post"</span> <span class="ow">in</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"paths"</span><span class="p">][</span><span class="s2">"/provider/config"</span><span class="p">]</span>
 </code></pre></div>
 <hr />
 <h3 id="ac-d4u-2-mcp-toolsjson-present-all-4-tools-documented-with-inputoutput-schemas">AC-D4u-2 — mcp-tools.json present; all 4 tools documented with input/output schemas<a class="headerlink" href="#ac-d4u-2-mcp-toolsjson-present-all-4-tools-documented-with-inputoutput-schemas" title="Permanent link">&para;</a></h3>
@@ -4194,9 +4222,9 @@ the FastMCP schema export; AC-D4u-2 tests that the file is committed to <code>do
 <strong>Then</strong> it is valid JSON, contains all 4 tool names (<code>search_wiki</code>, <code>write_page</code>,
 <code>get_page</code>, <code>list_pages</code>), and each tool entry has <code>inputSchema.type == "object"</code>.</p>
 <p>Testable assert:</p>
-<div class="highlight"><pre><span></span><code><span class="n">tools_doc</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">&quot;docs/api/mcp-tools.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
-<span class="n">tool_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tools&quot;</span><span class="p">,</span> <span class="p">[])}</span>
-<span class="k">assert</span> <span class="p">{</span><span class="s2">&quot;search_wiki&quot;</span><span class="p">,</span> <span class="s2">&quot;write_page&quot;</span><span class="p">,</span> <span class="s2">&quot;get_page&quot;</span><span class="p">,</span> <span class="s2">&quot;list_pages&quot;</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="n">tools_doc</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"docs/api/mcp-tools.json"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<span class="n">tool_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tools_doc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tools"</span><span class="p">,</span> <span class="p">[])}</span>
+<span class="k">assert</span> <span class="p">{</span><span class="s2">"search_wiki"</span><span class="p">,</span> <span class="s2">"write_page"</span><span class="p">,</span> <span class="s2">"get_page"</span><span class="p">,</span> <span class="s2">"list_pages"</span><span class="p">}</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">tool_names</span><span class="p">)</span>
 </code></pre></div>
 <hr />
 <h2 id="ambiguities-and-architect-escalation-flags">Ambiguities and architect-escalation flags<a class="headerlink" href="#ambiguities-and-architect-escalation-flags" title="Permanent link">&para;</a></h2>

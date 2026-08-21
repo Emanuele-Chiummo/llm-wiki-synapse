@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2615,21 +2643,21 @@ R1. This is a strict improvement on the ADR-0025 I7 surface.</p>
 for the optional alias). It is the <strong>only</strong> place a proposal becomes a wiki page, and the <strong>only</strong>
 new on-demand generation path.</p>
 <h3 id="51-flow">5.1 Flow<a class="headerlink" href="#51-flow" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>1. Load the review item (404 if absent; 409 if status != &#39;pending&#39;).
+<div class="highlight"><pre><span></span><code>1. Load the review item (404 if absent; 409 if status != 'pending').
 2. Derive the skeleton (§5.2): final title, final PageType, target dir.
-3. Resolve the ingest provider (resolve_provider_config(&quot;ingest&quot;, vault_id)) — I6.
-   If none configured → 409 &quot;no ingest provider configured&quot; (never hardcode — I6).
+3. Resolve the ingest provider (resolve_provider_config("ingest", vault_id)) — I6.
+   If none configured → 409 "no ingest provider configured" (never hardcode — I6).
 4. Run the BOUNDED orchestrated loop (run_orchestrated_loop, ingest/loop.py) with a
-   single-page-target prompt: &quot;generate the wiki page titled &lt;title&gt; of type &lt;type&gt;,
-   grounded in the vault context + the proposal rationale&quot;. max_iter + token_budget from
+   single-page-target prompt: "generate the wiki page titled &lt;title&gt; of type &lt;type&gt;,
+   grounded in the vault context + the proposal rationale". max_iter + token_budget from
    the resolved row (I7). Wrapped in a timeout; cost logged to an ingest_runs row
-   (route=&#39;orchestrated&#39;, the existing audit path).
+   (route='orchestrated', the existing audit path).
 5. Take the produced WikiPage (or the _ensure_source_summary fallback if the loop produced
    none) and write it through write_wiki_page(None, page, origin_source) — the SAME
    incremental seam (I1): persist_metadata → upsert_vector → append_log → bump_version
    → wikilinks → update_index. This bumps data_version exactly ONCE.
-6. Set status=&#39;created&#39;, resolution=&#39;created&#39;, created_page_id=&lt;new page id&gt;,
-   reviewed_at=now(), reviewed_by=&#39;web-ui&#39;. Return the updated ReviewItem.
+6. Set status='created', resolution='created', created_page_id=&lt;new page id&gt;,
+   reviewed_at=now(), reviewed_by='web-ui'. Return the updated ReviewItem.
 7. (Optional, fire-and-forget) trigger the auto-resolution sweep (§6) so sibling
    missing-page/duplicate proposals that this new page satisfies are closed.
 </code></pre></div>

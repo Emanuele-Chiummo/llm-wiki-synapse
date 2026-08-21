@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2239,18 +2267,18 @@ field, not a new field: clients already treat <code>degree</code> as "number of 
 <p><strong>Response-schema delta (exact):</strong></p>
 <div class="highlight"><pre><span></span><code>// GraphEdgeResponse  — ADD one field
 {
-  &quot;source&quot;: &quot;uuid-string&quot;,
-  &quot;target&quot;: &quot;uuid-string&quot;,
-  &quot;weight&quot;: 11.0,
-  &quot;kind&quot;: &quot;link&quot;            // NEW: &quot;link&quot; | &quot;source&quot;  (enum, required going forward, default &quot;link&quot;)
+  "source": "uuid-string",
+  "target": "uuid-string",
+  "weight": 11.0,
+  "kind": "link"            // NEW: "link" | "source"  (enum, required going forward, default "link")
 }
 
-// GraphNodeResponse  — UNCHANGED shape; &quot;degree&quot; semantics now = structural_degree, &quot;size&quot; = §2 curve
+// GraphNodeResponse  — UNCHANGED shape; "degree" semantics now = structural_degree, "size" = §2 curve
 {
-  &quot;id&quot;: &quot;uuid-string&quot;, &quot;title&quot;: &quot;string&quot;, &quot;type&quot;: &quot;string|null&quot;,
-  &quot;x&quot;: 0.0, &quot;y&quot;: 0.0,
-  &quot;size&quot;: 2.0,             // now BASE + GROWTH·sqrt(structural_degree)
-  &quot;degree&quot;: 3             // now structural_degree (distinct structural neighbours)
+  "id": "uuid-string", "title": "string", "type": "string|null",
+  "x": 0.0, "y": 0.0,
+  "size": 2.0,             // now BASE + GROWTH·sqrt(structural_degree)
+  "degree": 3             // now structural_degree (distinct structural neighbours)
 }
 </code></pre></div>
 <p><code>kind</code> is additive (existing clients ignore unknown fields; the field is non-breaking). <code>weight</code>,
@@ -2399,10 +2427,10 @@ treat the absence of source-kind edges as the graph being cleaner (intentional r
 <h3 id="a2-node-inclusion-exclude-type-query-nodes">A.2 NODE INCLUSION — exclude <code>type == "query"</code> nodes<a class="headerlink" href="#a2-node-inclusion-exclude-type-query-nodes" title="Permanent link">&para;</a></h3>
 <p><code>engine.py</code> now filters out pages whose <code>page_type == "query"</code> before building the node
 index. This mirrors llm_wiki <code>wiki-graph.ts:204-209</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="n">_HIDDEN_TYPES</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;query&quot;</span><span class="p">})</span>
+<div class="highlight"><pre><span></span><code><span class="n">_HIDDEN_TYPES</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"query"</span><span class="p">})</span>
 <span class="c1"># applied after node_index load, before directed_links and candidate_pairs</span>
 <span class="n">node_index</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">node_index</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-              <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;page_type&quot;</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_HIDDEN_TYPES</span><span class="p">}</span>
+              <span class="k">if</span> <span class="n">v</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"page_type"</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_HIDDEN_TYPES</span><span class="p">}</span>
 </code></pre></div>
 <p>Rationale: query pages are transient research artifacts (saved chat answers); the entities
 and concepts extracted from them are ingested as proper wiki pages. Including query nodes

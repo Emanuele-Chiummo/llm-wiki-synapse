@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2110,7 +2138,7 @@ singleton posture) and <code>vault_state</code> (one row per <code>VAULT_ID</cod
 already read on the request path for <code>data_version</code>).</p>
 <p><strong>Decision:</strong> reuse <strong><code>vault_state</code></strong>. Add <strong>one nullable boolean column</strong>:</p>
 <div class="highlight"><pre><span></span><code>vault_state.remote_mcp_enabled : Mapped[bool]  (Boolean, nullable=False,
-                                                default=False, server_default=sa_text(&quot;false&quot;))
+                                                default=False, server_default=sa_text("false"))
 </code></pre></div>
 <ul>
 <li><strong>Why <code>vault_state</code> and not a new table:</strong> the remote MCP surface is a <strong>single origin-level
@@ -2178,11 +2206,11 @@ session-manager restart, no lifespan churn.</p>
 <h3 id="24-config-write-endpoint-put-mcpremote-the-toggle-token-floor-clamp">2.4 Config-write endpoint — <code>PUT /mcp/remote</code> (the toggle), token-floor clamp<a class="headerlink" href="#24-config-write-endpoint-put-mcpremote-the-toggle-token-floor-clamp" title="Permanent link">&para;</a></h3>
 <p>Add one REST route to <code>backend/app/main.py</code>:</p>
 <div class="highlight"><pre><span></span><code>PUT /mcp/remote
-  request  body: { &quot;enabled&quot;: bool }
+  request  body: { "enabled": bool }
   response body: McpRemoteStateResponse {
       remote_enabled:  bool,   # the resulting persisted runtime flag (post-clamp)
       token_configured: bool,  # whether MCP_AUTH_TOKEN is set (the floor)
-      mount_path:      str,    # &quot;/mcp/server&quot; — so the UI can rebuild the URL
+      mount_path:      str,    # "/mcp/server" — so the UI can rebuild the URL
       clamped:         bool    # true iff the request asked enabled=true but no token ⇒ forced off
   }
 </code></pre></div>

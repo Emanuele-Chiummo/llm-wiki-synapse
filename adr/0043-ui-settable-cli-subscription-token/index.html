@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2114,7 +2142,7 @@
     <span class="o">...</span>
     <span class="c1"># ADR-0043: the resolved Claude subscription OAuth token for the CLI backend, injected</span>
     <span class="c1"># into the spawned `claude` CLI env as CLAUDE_CODE_OAUTH_TOKEN when set. None = no DB token</span>
-    <span class="c1"># (env governs). Set ONLY for provider_type == &quot;cli&quot;; ignored by local/api. NEVER logged.</span>
+    <span class="c1"># (env governs). Set ONLY for provider_type == "cli"; ignored by local/api. NEVER logged.</span>
     <span class="n">subscription_token</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div>
 <p><strong>Field name:</strong> <code>subscription_token</code> · <strong>Type:</strong> <code>str | None</code> · <strong>Default:</strong> <code>None</code>.</p>
@@ -2134,8 +2162,8 @@
 <div class="highlight"><pre><span></span><code>GET /provider/cli-auth
   response: CliAuthConfigResponse {
     token_configured: bool,                                  # DB or env signal present
-    token_source:     &quot;db&quot; | &quot;env&quot; | &quot;none&quot;,
-    auth_mode:        &quot;api-key&quot; | &quot;subscription&quot; | &quot;unconfigured&quot;
+    token_source:     "db" | "env" | "none",
+    auth_mode:        "api-key" | "subscription" | "unconfigured"
   }
 </code></pre></div>
 - <strong><code>token_source</code>:</strong> <code>"db"</code> iff <code>cli_oauth_token</code> column is set (non-empty); else <code>"env"</code> iff <strong>any</strong> env signal is present (<code>ANTHROPIC_API_KEY</code> OR <code>CLAUDE_CODE_OAUTH_TOKEN</code> OR <code>CLAUDE_CODE_USE_SUBSCRIPTION</code> truthy); else <code>"none"</code>.

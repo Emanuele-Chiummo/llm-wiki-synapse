@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2228,20 +2256,20 @@ The owner has <strong>locked</strong> four decisions this ADR must honour and MU
 <div class="highlight"><pre><span></span><code><span class="c1"># config_overrides.py — ADR-0054 extends the ADR-0053 allow-list with ONE key (F18).</span>
 <span class="n">ALLOWED_CONFIG_KEYS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
     <span class="p">{</span>
-        <span class="s2">&quot;pdf_extractor&quot;</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
-        <span class="s2">&quot;marker_service_url&quot;</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
-        <span class="s2">&quot;marker_timeout_seconds&quot;</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
-        <span class="s2">&quot;cost_alert_threshold_usd&quot;</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
-        <span class="s2">&quot;embeddings_enabled&quot;</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030)</span>
-        <span class="s2">&quot;embedding_format&quot;</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031)</span>
-        <span class="s2">&quot;overview_language&quot;</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
-        <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
-        <span class="s2">&quot;domain_vocabulary&quot;</span><span class="p">,</span>        <span class="c1"># S9  (ADR-0054, F18) ← NEW: JSON array of domain names</span>
+        <span class="s2">"pdf_extractor"</span><span class="p">,</span>            <span class="c1"># S1  (ADR-0051)</span>
+        <span class="s2">"marker_service_url"</span><span class="p">,</span>       <span class="c1"># S2  (ADR-0051)</span>
+        <span class="s2">"marker_timeout_seconds"</span><span class="p">,</span>   <span class="c1"># S3  (ADR-0051)</span>
+        <span class="s2">"cost_alert_threshold_usd"</span><span class="p">,</span> <span class="c1"># S4  (R9-1)</span>
+        <span class="s2">"embeddings_enabled"</span><span class="p">,</span>       <span class="c1"># S5  (ADR-0030)</span>
+        <span class="s2">"embedding_format"</span><span class="p">,</span>         <span class="c1"># S6  (ADR-0031)</span>
+        <span class="s2">"overview_language"</span><span class="p">,</span>        <span class="c1"># S7  (F3)</span>
+        <span class="s2">"wikilink_enrich_enabled"</span><span class="p">,</span>  <span class="c1"># S8  (ADR-0036)</span>
+        <span class="s2">"domain_vocabulary"</span><span class="p">,</span>        <span class="c1"># S9  (ADR-0054, F18) ← NEW: JSON array of domain names</span>
     <span class="p">}</span>
 <span class="p">)</span>
 
 <span class="c1"># Append to ORDERED_KEYS as well (stable GET /config/app order for the FE snapshot test):</span>
-<span class="n">ORDERED_KEYS</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="o">...</span> <span class="p">,</span> <span class="s2">&quot;wikilink_enrich_enabled&quot;</span><span class="p">,</span> <span class="s2">&quot;domain_vocabulary&quot;</span><span class="p">]</span>
+<span class="n">ORDERED_KEYS</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span> <span class="o">...</span> <span class="p">,</span> <span class="s2">"wikilink_enrich_enabled"</span><span class="p">,</span> <span class="s2">"domain_vocabulary"</span><span class="p">]</span>
 </code></pre></div>
 <p><strong>Value format — DECISION: a JSON array of strings, e.g. <code>["ServiceNow","SAM","Procurement","Regolamentazioni","TPRM"]</code>.
 Justification (vs comma-separated):</strong></p>
@@ -2257,20 +2285,20 @@ Justification (vs comma-separated):</strong></p>
 </ul>
 <p><strong>Per-key validation</strong> (add to <code>validate_value</code> in <code>config_overrides.py</code>, ADR-0053 §2.3 style — fail-closed, 422 on
 violation, no write):</p>
-<div class="highlight"><pre><span></span><code>key == &quot;domain_vocabulary&quot;:
-  - MUST parse as JSON (json.loads) → else 422 &quot;domain_vocabulary must be a JSON array of strings&quot;
+<div class="highlight"><pre><span></span><code>key == "domain_vocabulary":
+  - MUST parse as JSON (json.loads) → else 422 "domain_vocabulary must be a JSON array of strings"
   - MUST be a list                  → else 422
   - every element MUST be a non-empty str after .strip()   → else 422
   - element count ≤ 100 (sanity cap; the UI is a small owned list)   → else 422
   - normalise: strip each name, drop empties, DEDUPE case-insensitively preserving first spelling
   - re-serialise canonically (json.dumps of the normalised list) before upsert
-  - the EMPTY array &quot;[]&quot; is VALID and is the explicit &quot;dormant&quot; state (equivalent to no override)
+  - the EMPTY array "[]" is VALID and is the explicit "dormant" state (equivalent to no override)
 </code></pre></div>
 <p>A dedicated typed accessor lives beside the ADR-0053 accessors (coercion in one place, mypy-strict, no <code>Any</code>):</p>
 <div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">effective_domain_vocabulary</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse the cached domain_vocabulary JSON array → list[str]; [] if unset/empty/malformed.</span>
+<span class="w">    </span><span class="sd">"""Parse the cached domain_vocabulary JSON array → list[str]; [] if unset/empty/malformed.</span>
 <span class="sd">    Pure in-memory O(1) on the ADR-0053 cache; never touches the DB. Fail-closed to [] on any</span>
-<span class="sd">    json/type error (a malformed stored value can only exist if it bypassed validate_value).&quot;&quot;&quot;</span>
+<span class="sd">    json/type error (a malformed stored value can only exist if it bypassed validate_value)."""</span>
 </code></pre></div>
 <p><strong>Reset semantics</strong> inherit ADR-0053 §3.3 unchanged: "clear the vocabulary" = <code>DELETE /config/app/domain_vocabulary</code>
 (row removed ⇒ dormant) OR <code>PUT</code> with <code>"[]"</code> (explicit empty ⇒ dormant). Both yield <code>effective_domain_vocabulary()
@@ -2368,18 +2396,18 @@ INSERT/return a run handle, schedule the work as an <code>asyncio.create_task</c
 uses the background pattern.)</p>
 <div class="highlight"><pre><span></span><code>POST /ops/backfill-domains
 body: {
-  &quot;max_pages&quot;:     &lt;int&gt;   | null,   # cap; null → settings default (e.g. 500). HARD upper bound enforced.
-  &quot;token_budget&quot;:  &lt;int&gt;   | null,   # cap; null → settings default. Stop when reached (under-spend, never over).
-  &quot;force&quot;:         &lt;bool&gt;            # default false — see idempotency below
+  "max_pages":     &lt;int&gt;   | null,   # cap; null → settings default (e.g. 500). HARD upper bound enforced.
+  "token_budget":  &lt;int&gt;   | null,   # cap; null → settings default. Stop when reached (under-spend, never over).
+  "force":         &lt;bool&gt;            # default false — see idempotency below
 }
 → 202 {
-  &quot;status&quot;: &quot;started&quot;,
-  &quot;max_pages&quot;: &lt;frozen int&gt;,
-  &quot;token_budget&quot;: &lt;frozen int&gt;,
-  &quot;force&quot;: &lt;bool&gt;
+  "status": "started",
+  "max_pages": &lt;frozen int&gt;,
+  "token_budget": &lt;frozen int&gt;,
+  "force": &lt;bool&gt;
 }
-→ 409 { &quot;error&quot;: &quot;backfill_already_running&quot; }   # single-flight: only one backfill at a time per vault
-→ 400 { &quot;error&quot;: &quot;dormant_vocabulary&quot; }         # domain_vocabulary is [] → nothing to backfill, no provider calls
+→ 409 { "error": "backfill_already_running" }   # single-flight: only one backfill at a time per vault
+→ 400 { "error": "dormant_vocabulary" }         # domain_vocabulary is [] → nothing to backfill, no provider calls
 </code></pre></div>
 <p>The final summary is surfaced by logging + (reuse) the ingest/run history the per-page re-writes already produce; a
 dedicated polling endpoint is NOT introduced in this ADR (keep surface minimal — the FE polls <code>/stats/sections</code> to
@@ -2430,26 +2458,26 @@ direct bounded query on a cache miss — the cache is an optimisation, not a cor
 = the 10 most-recently-updated live pages (<code>ORDER BY updated_at DESC LIMIT 10</code>), <code>slug</code> derived server-side from the
 title (the existing <code>[^a-z0-9]+ → "-"</code> lowercased slugify — NOT a DB column). <strong>Response shape (verbatim):</strong></p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">55</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;synthesis&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
-<span class="w">    </span><span class="nt">&quot;comparison&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">  </span><span class="nt">"pages_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"pages_by_type"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nt">"entity"</span><span class="p">:</span><span class="w"> </span><span class="mi">40</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"concept"</span><span class="p">:</span><span class="w"> </span><span class="mi">55</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"synthesis"</span><span class="p">:</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span>
+<span class="w">    </span><span class="nt">"comparison"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
 <span class="w">  </span><span class="p">},</span>
-<span class="w">  </span><span class="nt">&quot;links_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">342</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;communities_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;review_pending&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;lint_open&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;monthly_cost_usd&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.8421</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;recent_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"links_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">342</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"communities_count"</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"review_pending"</span><span class="p">:</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"lint_open"</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"monthly_cost_usd"</span><span class="p">:</span><span class="w"> </span><span class="mf">1.8421</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"recent_activity"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;page_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;a1b2c3d4-0000-0000-0000-000000000001&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Incident Management&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;incident-management&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;updated_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T09:12:44+00:00&quot;</span>
+<span class="w">      </span><span class="nt">"page_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"a1b2c3d4-0000-0000-0000-000000000001"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Incident Management"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"slug"</span><span class="p">:</span><span class="w"> </span><span class="s2">"incident-management"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"updated_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-07-03T09:12:44+00:00"</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -2468,31 +2496,31 @@ at 5. The <strong><code>untagged</code> bucket</strong> (DECISION on name/shape)
 every live page that has <strong>no <code>domain/*</code> tag at all</strong> — it is always present (even when empty) so the FE can render an
 "unclassified" tile; it is listed <strong>last</strong>. <strong>Response shape (verbatim):</strong></p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;sections&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">  </span><span class="nt">"sections"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ServiceNow&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">        </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
+<span class="w">      </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ServiceNow"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"pages_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"pages_by_type"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nt">"concept"</span><span class="p">:</span><span class="w"> </span><span class="mi">25</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"entity"</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span>
 <span class="w">      </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;last_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T08:40:11+00:00&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;top_pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<span class="w">      </span><span class="nt">"last_activity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-07-03T08:40:11+00:00"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"top_pages"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
 <span class="w">        </span><span class="p">{</span>
-<span class="w">          </span><span class="nt">&quot;id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;b2c3d4e5-0000-0000-0000-000000000010&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;title&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Flow Designer&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;slug&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;flow-designer&quot;</span><span class="p">,</span>
-<span class="w">          </span><span class="nt">&quot;degree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span>
+<span class="w">          </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"b2c3d4e5-0000-0000-0000-000000000010"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Flow Designer"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"slug"</span><span class="p">:</span><span class="w"> </span><span class="s2">"flow-designer"</span><span class="p">,</span>
+<span class="w">          </span><span class="nt">"degree"</span><span class="p">:</span><span class="w"> </span><span class="mi">9</span>
 <span class="w">        </span><span class="p">}</span>
 <span class="w">      </span><span class="p">]</span>
 <span class="w">    </span><span class="p">},</span>
 <span class="w">    </span><span class="p">{</span>
-<span class="w">      </span><span class="nt">&quot;domain&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;untagged&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;pages_total&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;pages_by_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;concept&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;entity&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">},</span>
-<span class="w">      </span><span class="nt">&quot;last_activity&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-02T21:03:00+00:00&quot;</span><span class="p">,</span>
-<span class="w">      </span><span class="nt">&quot;top_pages&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
+<span class="w">      </span><span class="nt">"domain"</span><span class="p">:</span><span class="w"> </span><span class="s2">"untagged"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"pages_total"</span><span class="p">:</span><span class="w"> </span><span class="mi">15</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"pages_by_type"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">"concept"</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="nt">"entity"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="w"> </span><span class="p">},</span>
+<span class="w">      </span><span class="nt">"last_activity"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-07-02T21:03:00+00:00"</span><span class="p">,</span>
+<span class="w">      </span><span class="nt">"top_pages"</span><span class="p">:</span><span class="w"> </span><span class="p">[]</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">]</span>
 <span class="p">}</span>
@@ -2514,11 +2542,11 @@ consumers ignore the new field) and does not change <code>/status</code>'s OpenA
 <code>_OPENAPI_SECURITY_EXEMPT</code>). R12-3 (frontend version-mismatch notice) reads <code>/status.version</code> and compares it to the
 frontend build version to warn on a backend/frontend skew.</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
-<span class="w">  </span><span class="nt">&quot;vault_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;default&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;data_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;started_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2026-07-03T07:00:00+00:00&quot;</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;uptime_seconds&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">8123.4</span><span class="p">,</span>
-<span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.2.0&quot;</span>
+<span class="w">  </span><span class="nt">"vault_id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"default"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"data_version"</span><span class="p">:</span><span class="w"> </span><span class="mi">57</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"started_at"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-07-03T07:00:00+00:00"</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"uptime_seconds"</span><span class="p">:</span><span class="w"> </span><span class="mf">8123.4</span><span class="p">,</span>
+<span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1.2.0"</span>
 <span class="p">}</span>
 </code></pre></div>
 <blockquote>

@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2062,7 +2090,7 @@ default relative.</strong></p>
 <h3 id="21-browser-fetch-base-relative-is-the-default">2.1 Browser fetch base — relative <code>""</code> is the default<a class="headerlink" href="#21-browser-fetch-base-relative-is-the-default" title="Permanent link">&para;</a></h3>
 <p>Every client in <code>frontend/src/api/*.ts</code> reads <code>import.meta.env["VITE_API_BASE"]</code> and
 <strong>defaults to <code>""</code></strong> (matching the already-correct <code>chatClient.ts</code>):</p>
-<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">API_BASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">[</span><span class="s2">&quot;VITE_API_BASE&quot;</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">API_BASE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="k">import</span><span class="p">.</span><span class="nx">meta</span><span class="p">.</span><span class="nx">env</span><span class="p">[</span><span class="s2">"VITE_API_BASE"</span><span class="p">]</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">undefined</span><span class="p">)</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="s2">""</span><span class="p">;</span>
 </code></pre></div>
 <ul>
 <li><code>""</code> ⇒ all requests are <strong>same-origin relative paths</strong> (<code>/graph</code>, <code>/pages</code>, <code>/chat</code>, …).
@@ -2115,7 +2143,7 @@ entries — <code>/graph</code>, <code>/pages</code>, <code>/status</code>, <cod
 set</strong>; the proxy reaches the backend over the Docker network:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">environment</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">BACKEND_PROXY_TARGET</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">http://synapse-backend:8000</span>
-<span class="w">  </span><span class="c1"># Do NOT set VITE_API_BASE — the browser base must stay relative (&quot;&quot;).</span>
+<span class="w">  </span><span class="c1"># Do NOT set VITE_API_BASE — the browser base must stay relative ("").</span>
 </code></pre></div>
 <p>Flow in dev: browser → relative <code>/graph</code> → Vite dev server (origin the browser is already
 on: <code>localhost:5173</code>, the Tailscale host, or the tunnel) → proxy → <code>synapse-backend:8000</code>

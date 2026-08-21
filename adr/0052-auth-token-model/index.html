@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2277,10 +2305,10 @@ covers ordering so this actually happens.)</p>
   same-origin REST routes and <strong>ARE</strong> gated by <code>SYNAPSE_AUTH_TOKEN</code>.</p>
 <p><strong>Exempt predicate (authoritative summary):</strong>
 <div class="highlight"><pre><span></span><code>bypass_auth(request) := (
-    request.method == &quot;OPTIONS&quot;
-    or request.url.path in {&quot;/status&quot;, &quot;/health/live&quot;, &quot;/docs&quot;, &quot;/redoc&quot;, &quot;/openapi.json&quot;}
-    or request.url.path == &quot;/mcp/server&quot; or request.url.path.startswith(&quot;/mcp/server/&quot;)
-    or request.url.path == &quot;/clip&quot;
+    request.method == "OPTIONS"
+    or request.url.path in {"/status", "/health/live", "/docs", "/redoc", "/openapi.json"}
+    or request.url.path == "/mcp/server" or request.url.path.startswith("/mcp/server/")
+    or request.url.path == "/clip"
 )
 </code></pre></div>
 Everything not matched by <code>bypass_auth</code> requires the bearer token when <code>SYNAPSE_AUTH_TOKEN</code> is set.
@@ -2292,7 +2320,7 @@ literals); the two mount-exclusion prefixes reuse the existing <code>MCP_MOUNT_P
 WWW-Authenticate: Bearer
 Content-Type: application/json
 
-{&quot;error&quot;: &quot;unauthorized&quot;, &quot;hint&quot;: &quot;Set Authorization: Bearer &lt;token&gt;&quot;}
+{"error": "unauthorized", "hint": "Set Authorization: Bearer &lt;token&gt;"}
 </code></pre></div>
 - The body shape is the PM-locked contract (SPRINT-v1.0-SCOPE §R10-1:
   <code>{"error": "unauthorized", "hint": "..."}</code>). The task brief's shorthand "<code>401 {detail}</code>" is

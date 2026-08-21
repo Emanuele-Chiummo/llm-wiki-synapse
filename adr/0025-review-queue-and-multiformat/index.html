@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2328,22 +2356,22 @@ FKs (<code>page_id</code> → <code>pages</code>, <code>deep_research_run_id</co
     <span class="o">*</span><span class="p">,</span>
     <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">page_id</span><span class="p">:</span> <span class="n">uuid</span><span class="o">.</span><span class="n">UUID</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">item_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;new_page&quot;</span><span class="p">,</span> <span class="s2">&quot;update_page&quot;</span><span class="p">,</span> <span class="s2">&quot;deep_research_candidate&quot;</span><span class="p">],</span>
+    <span class="n">item_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"new_page"</span><span class="p">,</span> <span class="s2">"update_page"</span><span class="p">,</span> <span class="s2">"deep_research_candidate"</span><span class="p">],</span>
     <span class="n">pre_generated_query</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewItem</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Insert one pending review_items row. Pure DB write; never calls a provider itself.</span>
-<span class="sd">    Idempotency is NOT required — the queue is an event log (§3.1).&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Insert one pending review_items row. Pure DB write; never calls a provider itself.</span>
+<span class="sd">    Idempotency is NOT required — the queue is an event log (§3.1)."""</span>
 
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">generate_review_queries</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span> <span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">page_title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">page_excerpt</span><span class="p">:</span> <span class="nb">str</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make EXACTLY ONE InferenceProvider.chat() call (operation=&#39;ingest&#39;, I6) to produce</span>
+<span class="w">    </span><span class="sd">"""Make EXACTLY ONE InferenceProvider.chat() call (operation='ingest', I6) to produce</span>
 <span class="sd">    1–3 follow-up research questions, returned newline-separated. BOUNDED (I7):</span>
 <span class="sd">      - one call, no loop, no refine;</span>
 <span class="sd">      - wrapped in asyncio.wait_for(..., REVIEW_QUERY_TIMEOUT_SECONDS);</span>
 <span class="sd">      - token_budget from the resolved provider row (or REVIEW_QUERY_TOKEN_BUDGET default);</span>
 <span class="sd">      - on ConfigNotFoundError / timeout / any provider error → return None (item still enqueued).</span>
-<span class="sd">    Cost is pushed through the UsageAccumulator and logged like any provider call (I7).&quot;&quot;&quot;</span>
+<span class="sd">    Cost is pushed through the UsageAccumulator and logged like any provider call (I7)."""</span>
 
 <span class="c1"># REST handlers (thin; live in main.py or an ops/review router, calling the above):</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_queue</span><span class="p">(</span><span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReviewQueuePage</span>
@@ -2358,7 +2386,7 @@ FKs (<code>page_id</code> → <code>pages</code>, <code>deep_research_run_id</co
 <div class="highlight"><pre><span></span><code>for each WikiPage written:
     # ONE bounded provider call per page (I7); failure → query=None, item still enqueued
     query = await generate_review_queries(vault_id, page.title, excerpt(page.content))
-    await enqueue_review(vault_id, page_id, item_type=&quot;new_page&quot;, pre_generated_query=query)
+    await enqueue_review(vault_id, page_id, item_type="new_page", pre_generated_query=query)
 </code></pre></div>
 <p><strong>Hard rules (the I7 + AC-F9-2 contract):</strong></p>
 <ol>
@@ -2443,22 +2471,22 @@ Approve/Skip/Deep-Research is added to the Sources/Ingest section (AC-F9-7, the 
 
 <span class="c1"># Extension → extractor dispatch. No LLM, no loop, single pass per file (I7 n/a — stateless).</span>
 <span class="n">EXTRACTABLE_BINARY_EXTENSIONS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
-    <span class="p">{</span><span class="s2">&quot;.pdf&quot;</span><span class="p">,</span> <span class="s2">&quot;.docx&quot;</span><span class="p">,</span> <span class="s2">&quot;.pptx&quot;</span><span class="p">,</span> <span class="s2">&quot;.xlsx&quot;</span><span class="p">}</span>
+    <span class="p">{</span><span class="s2">".pdf"</span><span class="p">,</span> <span class="s2">".docx"</span><span class="p">,</span> <span class="s2">".pptx"</span><span class="p">,</span> <span class="s2">".xlsx"</span><span class="p">}</span>
 <span class="p">)</span>
 <span class="c1"># Placeholder-only (no transcription/OCR in M5 — §4.5):</span>
 <span class="n">PLACEHOLDER_EXTENSIONS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
-    <span class="p">{</span><span class="s2">&quot;.png&quot;</span><span class="p">,</span> <span class="s2">&quot;.jpg&quot;</span><span class="p">,</span> <span class="s2">&quot;.jpeg&quot;</span><span class="p">,</span> <span class="s2">&quot;.gif&quot;</span><span class="p">,</span> <span class="s2">&quot;.webp&quot;</span><span class="p">,</span> <span class="s2">&quot;.mp3&quot;</span><span class="p">,</span> <span class="s2">&quot;.mp4&quot;</span><span class="p">,</span> <span class="s2">&quot;.wav&quot;</span><span class="p">,</span> <span class="s2">&quot;.m4a&quot;</span><span class="p">}</span>
+    <span class="p">{</span><span class="s2">".png"</span><span class="p">,</span> <span class="s2">".jpg"</span><span class="p">,</span> <span class="s2">".jpeg"</span><span class="p">,</span> <span class="s2">".gif"</span><span class="p">,</span> <span class="s2">".webp"</span><span class="p">,</span> <span class="s2">".mp3"</span><span class="p">,</span> <span class="s2">".mp4"</span><span class="p">,</span> <span class="s2">".wav"</span><span class="p">,</span> <span class="s2">".m4a"</span><span class="p">}</span>
 <span class="p">)</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">extract_text</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Dispatch on the lower-cased suffix → plain text.</span>
+<span class="w">    </span><span class="sd">"""Dispatch on the lower-cased suffix → plain text.</span>
 <span class="sd">      .pdf  → pypdf (page text joined; embedded images skipped with a log warning, AC-F12-1)</span>
 <span class="sd">      .docx → python-docx (paragraph text; basic structure)</span>
 <span class="sd">      .pptx → python-pptx (slide text; one logical doc per presentation)</span>
 <span class="sd">      .xlsx → openpyxl (sheet name + rows rendered as a GFM markdown table)</span>
 <span class="sd">      image/AV (PLACEHOLDER_EXTENSIONS) → a one-line placeholder string (§4.5)</span>
 <span class="sd">      anything else → raise UnsupportedFormatError  (caller maps to HTTP 415)</span>
-<span class="sd">    Output is capped at EXTRACT_MAX_CHARS (config, default ~2_000_000) to bound a pathological file.&quot;&quot;&quot;</span>
+<span class="sd">    Output is capped at EXTRACT_MAX_CHARS (config, default ~2_000_000) to bound a pathological file."""</span>
 
 <span class="k">class</span><span class="w"> </span><span class="nc">UnsupportedFormatError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span> <span class="o">...</span>
 </code></pre></div>
@@ -2468,13 +2496,13 @@ Approve/Skip/Deep-Research is added to the Sources/Ingest section (AC-F9-7, the 
 <h3 id="42-where-it-plugs-in-post-ingestupload">4.2 Where it plugs in — <code>POST /ingest/upload</code><a class="headerlink" href="#42-where-it-plugs-in-post-ingestupload" title="Permanent link">&para;</a></h3>
 <p>The upload allow-list widens. <code>app.upload.safe_source_name</code> is extended so its extension gate accepts the
 binary set in addition to text:</p>
-<div class="highlight"><pre><span></span><code>_ALLOWED_EXTENSIONS        = {&quot;.md&quot;, &quot;.txt&quot;, &quot;.markdown&quot;}                 # watcher ingests THESE
-_EXTRACTABLE_EXTENSIONS    = {&quot;.pdf&quot;, &quot;.docx&quot;, &quot;.pptx&quot;, &quot;.xlsx&quot;}          # extracted on upload
-_PLACEHOLDER_EXTENSIONS    = {&quot;.png&quot;,&quot;.jpg&quot;,&quot;.jpeg&quot;,&quot;.gif&quot;,&quot;.webp&quot;,
-                              &quot;.mp3&quot;,&quot;.mp4&quot;,&quot;.wav&quot;,&quot;.m4a&quot;}                 # placeholder on upload
+<div class="highlight"><pre><span></span><code>_ALLOWED_EXTENSIONS        = {".md", ".txt", ".markdown"}                 # watcher ingests THESE
+_EXTRACTABLE_EXTENSIONS    = {".pdf", ".docx", ".pptx", ".xlsx"}          # extracted on upload
+_PLACEHOLDER_EXTENSIONS    = {".png",".jpg",".jpeg",".gif",".webp",
+                              ".mp3",".mp4",".wav",".m4a"}                 # placeholder on upload
 _UPLOAD_ACCEPTED           = _ALLOWED_EXTENSIONS | _EXTRACTABLE_EXTENSIONS | _PLACEHOLDER_EXTENSIONS
 # 415 iff suffix not in _UPLOAD_ACCEPTED (AC-F12-2). _ALLOWED_EXTENSIONS is UNCHANGED so the
-# watcher&#39;s import of it still means &quot;text companions only&quot;.
+# watcher's import of it still means "text companions only".
 </code></pre></div>
 <p>Upload handler flow for a binary (<code>POST /ingest/upload</code>, still returns <strong>202</strong>):</p>
 <div class="highlight"><pre><span></span><code>1. safe_source_name(filename) — now allows binary ext; 415 only for truly unknown types.
@@ -2484,7 +2512,7 @@ _UPLOAD_ACCEPTED           = _ALLOWED_EXTENSIONS | _EXTRACTABLE_EXTENSIONS | _PL
        text = extract_text(dst)            # SYNCHRONOUS, on the upload path (NOT in the watcher)
        atomic-write text → vault/raw/sources/&lt;stem&gt;.extracted.md   (Obsidian-valid; see §4.4)
    else (.md/.txt/.markdown): no companion — the file is already watcher-ingestable.
-5. return 202 {file_path, status:&quot;queued&quot;, overwritten}
+5. return 202 {file_path, status:"queued", overwritten}
 </code></pre></div>
 <p>The <strong>watcher</strong> then fires on the new <code>.extracted.md</code> (which IS in <code>_ALLOWED_EXTENSIONS</code>) and runs
 <code>ingest_file</code> exactly once. It <strong>ignores the binary</strong> (<code>.pdf</code>/etc. are not in <code>_is_text_file</code>). Net:
@@ -2508,7 +2536,7 @@ and the Obsidian-compat check (<code>test_obsidian_check.py</code>) stay green:<
 <div class="highlight"><pre><span></span><code>---
 type: source
 title: &lt;original filename stem&gt;
-sources: [&quot;raw/sources/&lt;name&gt;.&lt;ext&gt;&quot;]
+sources: ["raw/sources/&lt;name&gt;.&lt;ext&gt;"]
 ---
 
 &lt;extracted text&gt;

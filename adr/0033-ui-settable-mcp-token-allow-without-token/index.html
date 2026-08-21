@@ -705,6 +705,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.10
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../release-notes/v2.1.9/" class="md-nav__link">
         
   
@@ -2304,10 +2332,10 @@ whenever the MCP HTTP capability is compiled in; the middleware decides per-requ
   }
   response body: McpAuthStateResponse {
     token_configured:    bool,          # hash set OR env bootstrap present
-    token_source:        &quot;db&quot; | &quot;env&quot; | &quot;none&quot;,
+    token_source:        "db" | "env" | "none",
     allow_without_token: bool,
     remote_enabled:      bool,          # post-clamp (§2.4)
-    mount_path:          str,           # &quot;/mcp/server&quot;
+    mount_path:          str,           # "/mcp/server"
     generated_token:     str | None     # ONLY populated when rotate_token=true — shown ONCE, never again
   }
 </code></pre></div>
