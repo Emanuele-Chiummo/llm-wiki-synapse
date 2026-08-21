@@ -357,3 +357,29 @@ giorno senza mai ripagarsi.
 - **Sforzo:** M/L. Vanno fatti insieme (vitest 4 richiede vite 7), con rilettura di
   `vite.config.ts`, dei setup di vitest e del job E2E in CI.
 - **Trovato:** 2026-08-14
+
+### `safe_fetch` è vulnerabile a DNS rebinding: risolve l'host, poi riconnette per nome
+
+- **Problema:** la guardia SSRF valida l'host risolvendo `getaddrinfo()` e controllando **tutti**
+  gli indirizzi restituiti, ma poi passa a httpx la **URL con l'hostname**, non l'IP verificato.
+  Fra il controllo e la connessione httpx risolve il nome una seconda volta, in modo del tutto
+  indipendente: un DNS autoritativo ostile che serve un record TTL=0 può restituire un IP
+  pubblico alla prima query (supera la guardia) e `127.0.0.1` / `169.254.169.254` alla seconda
+  (quella che apre davvero la socket). È un TOCTOU classico, e vale su ogni hop di redirect
+  perché ogni hop ripete lo stesso schema controlla-per-nome → riconnetti-per-nome.
+- **Evidenza:** `backend/app/security_net.py:311-321` — `await _check_host(host)` seguito da
+  `client.build_request("GET", current_url)` dentro `safe_fetch()`; l'IP validato in
+  `_check_host` (`backend/app/security_net.py:185-193`) viene scartato e mai riusato.
+- **Impatto:** medio. L'attaccante deve controllare un dominio e il suo DNS autoritativo, e la
+  URL deve arrivare fino a `safe_fetch` — cioè comparire fra i risultati di ricerca web
+  (deep-research o chat web-context), quindi non è scelta direttamente dall'attaccante ma è
+  influenzabile. Riuscendo, legge servizi interni non altrimenti esposti (Qdrant, Postgres via
+  HTTP, l'API Synapse stessa) da dentro il container. Il cap sul corpo introdotto in 2.1.10
+  limita quanto si può esfiltrare in un colpo solo, ma non chiude il buco.
+- **Sforzo:** M. La correzione corretta non è una guardia in più ma **pinnare l'IP verificato**:
+  transport httpx custom che connette all'indirizzo già validato mantenendo `Host` header e SNI
+  sul nome originale, con la validazione spostata dentro il resolver. Tocca il percorso di rete
+  condiviso da deep-research e chat web-context e va verificato contro TLS/SNI e IPv6 — troppo
+  per una patch settimanale, e va accompagnato da test con un resolver che cambia risposta fra
+  la prima e la seconda chiamata.
+- **Trovato:** 2026-08-21

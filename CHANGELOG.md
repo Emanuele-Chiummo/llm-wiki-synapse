@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.10] — 2026-08-21 — "bounded by bytes, not by hope"
+
+Patch release closing an unbounded outbound download in the SSRF guard, found by reading the
+web-fetch path during weekly maintenance. No schema migrations, no API changes, no new config.
+
+### Fixed
+
+- **An outbound fetch buffered the whole response body with no size limit**: `safe_fetch()`
+  (`app/security_net.py`) is the ONE path by which untrusted, externally-chosen URLs are
+  fetched — web-search result links reaching deep-research (`ops/deep_research.py`) and chat
+  web-context (`chat/web_context.py`). Both callers take the entire body at once (`resp.content`
+  / `resp.text`) and cap only the **extracted text** afterwards (`deep_research_fetch_max_chars`
+  = 20 000, `chat_web_fetch_max_chars` = 8 000), which says nothing about how many bytes were
+  buffered to produce it. Root cause: the guard bounded *where* a fetch may go — scheme, host,
+  redirect count, timeouts — but never *how much* it may bring back, and every other limit in
+  the pipeline sits downstream of the full download. The read timeout does not bound it either:
+  httpx applies that per read operation, not to a whole transfer, so a server that keeps
+  trickling bytes streams for as long as it likes. Nor does the content-type dispatch —
+  `_fetch_and_extract` reads `resp.content` and only *then* inspects the content-type to decide
+  whether it wanted those bytes at all, so a video or a multi-hundred-MB scanned PDF behind a
+  search hit is paid for in full before being discarded. With deep-research running at
+  concurrency 3, that is three unbounded buffers at once against a container memory limit: an
+  OOM kill of the backend, reachable with no adversary at all — one ordinary large PDF in a
+  search result is enough (I7). Fixed by streaming the body and abandoning it past `max_bytes`
+  (default 25 MB — `MAX_RESPONSE_BYTES`, matching the existing generic upload ceiling
+  `settings.max_upload_bytes` and orders of magnitude above the ~20 KB either caller can
+  actually use). An oversize advertised `Content-Length` is refused before any download, while
+  the received-byte count stays authoritative (`Content-Length` is absent under chunked encoding
+  and is attacker-supplied in any case); a redirect's body is now never downloaded at all, since
+  only its `Location` is ever read. `ResponseTooLargeError` subclasses `SSRFError` deliberately:
+  both callers already degrade correctly on `SSRFError` (log, skip that source, carry on), so
+  the cap needed no caller change. The capped body is rebuilt into an ordinary non-streaming
+  `Response`, minus its `Content-Encoding`/`Content-Length`/`Transfer-Encoding` headers —
+  `aiter_bytes()` has already applied the content-encoding, and carrying that header onto the
+  rebuilt response makes httpx decode a second time and raise `DecodingError` on `.text`.
+
 ## [2.1.9] — 2026-08-14 — "one attempt per interval"
 
 Patch release fixing two latent concurrency/pacing defects found by reading the scheduler

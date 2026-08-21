@@ -23,6 +23,10 @@ B2 — SSRF guard (security_net.py):
   T-SEC-017  safe_fetch: success on non-redirect public response
   T-SEC-018  source: searxng.py does NOT import safe_fetch (trusted config URL)
   T-SEC-019  source: deep_research.py imports safe_fetch for result-URL fetches
+  T-SEC-020  safe_fetch: body over max_bytes raises ResponseTooLargeError (2.1.10)
+  T-SEC-021  safe_fetch: oversize Content-Length rejected without downloading (2.1.10)
+  T-SEC-022  safe_fetch: body exactly at max_bytes is returned intact (2.1.10)
+  T-SEC-023  safe_fetch: gzip Content-Encoding survives the capped re-read (2.1.10)
 
 B11 — method-aware auth exempt list (auth.py):
   T-AUTH-001  GET  /status         → exempt
@@ -326,6 +330,117 @@ class TestSafeFetch:
         resp = await safe_fetch("https://example.com/page")
         assert resp.status_code == 200
         assert resp.text == "Hello world"
+
+
+class TestSafeFetchResponseCap:
+    """
+    T-SEC-020 to T-SEC-023: the response-body cap (2.1.10).
+
+    safe_fetch() is the only path by which untrusted, externally-chosen URLs are fetched,
+    and both callers take the whole body at once (`resp.content` / `resp.text`). Before the
+    cap the body was buffered in full with no bound whatsoever: the per-read timeout does
+    not bound a total transfer, so a large file behind a search-result link — or a server
+    that simply keeps trickling bytes — was buffered into RAM until the container died.
+    Each test here fails without the cap (the oversize body is returned instead of raising).
+    """
+
+    @staticmethod
+    def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "socket.getaddrinfo",
+            lambda host, port, family, type_: _make_addr_info("93.184.216.34"),
+        )
+
+    async def test_oversize_body_raises(
+        self, monkeypatch: pytest.MonkeyPatch, httpx_mock: object
+    ) -> None:
+        """T-SEC-020: a body past max_bytes aborts with ResponseTooLargeError."""
+        from app.security_net import ResponseTooLargeError, safe_fetch
+
+        self._public_dns(monkeypatch)
+        httpx_mock.add_response(  # type: ignore[attr-defined]
+            url="https://example.com/huge",
+            status_code=200,
+            content=b"x" * 5_000,
+        )
+
+        with pytest.raises(ResponseTooLargeError):
+            await safe_fetch("https://example.com/huge", max_bytes=1_000)
+
+    async def test_oversize_content_length_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, httpx_mock: object
+    ) -> None:
+        """T-SEC-021: an oversize advertised Content-Length is refused up front."""
+        from app.security_net import ResponseTooLargeError, safe_fetch
+
+        self._public_dns(monkeypatch)
+        # httpx sets Content-Length from the body; 5_000 > the 1_000 cap below.
+        httpx_mock.add_response(  # type: ignore[attr-defined]
+            url="https://example.com/big",
+            status_code=200,
+            content=b"y" * 5_000,
+        )
+
+        with pytest.raises(ResponseTooLargeError, match="declares"):
+            await safe_fetch("https://example.com/big", max_bytes=1_000)
+
+    async def test_body_at_cap_is_returned(
+        self, monkeypatch: pytest.MonkeyPatch, httpx_mock: object
+    ) -> None:
+        """T-SEC-022: a body exactly at the cap is allowed through unchanged (no off-by-one)."""
+        from app.security_net import safe_fetch
+
+        self._public_dns(monkeypatch)
+        body = b"z" * 1_000
+        httpx_mock.add_response(  # type: ignore[attr-defined]
+            url="https://example.com/exact",
+            status_code=200,
+            content=body,
+        )
+
+        resp = await safe_fetch("https://example.com/exact", max_bytes=1_000)
+        assert resp.status_code == 200
+        assert resp.content == body
+
+    async def test_gzip_body_decodes_after_cap(self) -> None:
+        """
+        T-SEC-023: a Content-Encoding'd body still reads correctly through the cap.
+
+        The cap streams the body and re-reads it into a fresh Response. httpx decodes
+        Content-Encoding *while streaming*, so carrying `content-encoding: gzip` onto the
+        rebuilt Response would make httpx decode the already-decoded bytes a second time
+        and raise httpx.DecodingError on `.text`. Without _strip_encoding_headers this
+        raises; with it the text reads back and content-type still survives.
+
+        Driven through httpx's own MockTransport rather than the httpx_mock fixture:
+        pytest_httpx builds its canned response eagerly, which decodes the gzip at
+        construction time and then replays the DECODED bytes while still advertising
+        `content-encoding: gzip` — the double-decode would come from the mock, not from
+        the code under test.
+        """
+        import gzip
+
+        import httpx
+        from app.security_net import _read_capped
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                headers={
+                    "content-encoding": "gzip",
+                    "content-type": "text/html; charset=utf-8",
+                },
+                content=gzip.compress(b"Hello compressed world"),
+            )
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            resp = await _read_capped(
+                client, client.build_request("GET", "https://example.com/gz"), 1_000_000
+            )
+
+        assert resp.text == "Hello compressed world"
+        assert resp.headers.get("content-type") == "text/html; charset=utf-8"
+        assert "content-encoding" not in resp.headers
 
 
 class TestSsrfSourceInspection:
