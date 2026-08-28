@@ -1071,3 +1071,73 @@ class TestCapabilityConcurrencyCap:
     def test_release_is_a_noop_for_never_acquired_mode(self) -> None:
         mgr = make_manager()
         mgr.release_capability_slot("cli")  # must not raise even though never acquired first
+
+    def test_unbalanced_release_does_not_widen_the_cap(self) -> None:
+        """An unbalanced release must not push the semaphore above its configured limit (I7).
+
+        ``asyncio.Semaphore.release()`` has no ceiling, so a release with no matching acquire
+        (or a double release) would permanently raise the cap for the life of the process —
+        silently admitting more concurrent provider calls than the operator configured.
+        """
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr._capability_semaphores["cli"] = asyncio.Semaphore(1)
+
+            # Two spurious releases before anything was ever acquired.
+            mgr.release_capability_slot("cli")
+            mgr.release_capability_slot("cli")
+
+            # The cap must still be 1: one acquire succeeds, the second blocks.
+            await mgr.acquire_capability_slot("cli")
+
+            acquired_second = False
+
+            async def try_second() -> None:
+                nonlocal acquired_second
+                await mgr.acquire_capability_slot("cli")
+                acquired_second = True
+
+            task = asyncio.create_task(try_second())
+            await asyncio.sleep(0)
+            assert acquired_second is False, "spurious releases must not widen the cap past 1"
+
+            mgr.release_capability_slot("cli")
+            await asyncio.sleep(0)
+            assert acquired_second is True
+
+            await task
+
+        asyncio.run(run())
+
+    def test_double_release_of_a_single_acquire_does_not_widen_the_cap(self) -> None:
+        """The same guard from the other side: acquire once, release twice."""
+
+        async def run() -> None:
+            mgr = make_manager()
+            mgr._capability_semaphores["cli"] = asyncio.Semaphore(1)
+
+            await mgr.acquire_capability_slot("cli")
+            mgr.release_capability_slot("cli")
+            mgr.release_capability_slot("cli")  # the extra one must be ignored
+
+            await mgr.acquire_capability_slot("cli")
+
+            acquired_second = False
+
+            async def try_second() -> None:
+                nonlocal acquired_second
+                await mgr.acquire_capability_slot("cli")
+                acquired_second = True
+
+            task = asyncio.create_task(try_second())
+            await asyncio.sleep(0)
+            assert acquired_second is False, "a double release must not widen the cap past 1"
+
+            mgr.release_capability_slot("cli")
+            await asyncio.sleep(0)
+            assert acquired_second is True
+
+            await task
+
+        asyncio.run(run())

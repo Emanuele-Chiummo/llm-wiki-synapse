@@ -482,8 +482,30 @@ async def run_ingest_pipeline(
     # ── BE-QUEUE-2 (1.9.4 W3): per-capability concurrency cap (I7) ────────────
     # Bounds how many CLI/API/Local runs execute their provider calls at once, on top of
     # the flat INGEST_MAX_CONCURRENCY gate in watcher.py. Acquired here (dispatch point,
-    # right before the provider is actually called) and released at every exit below.
+    # right before the provider is actually called) and released by the `finally` on the
+    # route try-block below — which is the ONLY release point that covers every exit.
     await orch.ingest_queue.acquire_capability_slot(caps.mode)
+
+    # The slot must be handed back exactly once, on EVERY way out of this function. A
+    # hand-written release at each terminal branch cannot do that: an exit that misses those
+    # lines leaks the slot permanently, and with ingest_concurrency_cli/local defaulting to 1
+    # a single leak deadlocks that provider mode for the life of the process — every later
+    # run parks forever on `await sem.acquire()` (no timeout) with its ingest_runs row stuck
+    # at "running". Two such exits were reachable: (a) `_finalize_ingest_run()` raising in a
+    # terminal branch — an unguarded DB UPDATE, and a failing DB is exactly the condition
+    # that lands a run in that branch to begin with; (b) `asyncio.CancelledError`, which is a
+    # BaseException and so passes straight through `except Exception` (shutdown, or a
+    # cancelled request task). Idempotent so the explicit releases below — kept where they
+    # are so the release still happens AFTER the ledger write on the terminal paths — stay
+    # authoritative for ordering and this only closes the gaps.
+    _slot_released = False
+
+    def _release_slot() -> None:
+        nonlocal _slot_released
+        if _slot_released:
+            return
+        _slot_released = True
+        orch.ingest_queue.release_capability_slot(caps.mode)
 
     # ── ROUTE: the single capability check (I6) ──────────────────────────────
     # Wrapped so a route failure still persists an ingest_runs row with status="failed" and the
@@ -581,7 +603,7 @@ async def run_ingest_pipeline(
             status_override="cancelled",
         )
         orch.ingest_queue.finalize(run_id, "cancelled", error="cancelled by user")
-        orch.ingest_queue.release_capability_slot(caps.mode)
+        _release_slot()
         # Do NOT re-raise — cancel is a normal, user-initiated terminal state (ADR-0046 §3).
         return IngestRunResult(
             route=route,
@@ -616,7 +638,7 @@ async def run_ingest_pipeline(
             error_message=str(exc) or exc.__class__.__name__,
         )
         orch.ingest_queue.finalize(run_id, "failed", error=str(exc) or exc.__class__.__name__)
-        orch.ingest_queue.release_capability_slot(caps.mode)
+        _release_slot()
         # BE-QUEUE-1 (1.9.4 W3): a 429/rate-limit failure auto-pauses the queue with a
         # decaying-cooldown auto-resume (I7 — cooldown is capped, never grows unbounded).
         # Never overrides an existing MANUAL pause (queue_manager.pause_for_rate_limit).
@@ -629,6 +651,16 @@ async def run_ingest_pipeline(
             exc,
         )
         raise
+
+    finally:
+        # The one release that covers EVERY exit — including the ones no `except` above can
+        # see: a `_finalize_ingest_run()` DB failure inside a terminal branch, and
+        # asyncio.CancelledError (a BaseException). No-op when a branch above already
+        # released. On the success path this is where the slot is handed back, one DB write
+        # earlier than before: the provider work is over the moment this block exits, so the
+        # cap still admits exactly N concurrent provider calls — the next run just stops
+        # waiting on this run's ledger UPDATE to start its own.
+        _release_slot()
 
     finished_at = datetime.now(UTC)
 
@@ -661,7 +693,9 @@ async def run_ingest_pipeline(
     # ── ADR-0046: notify queue manager of terminal success ────────────────────
     terminal_status = _derive_run_status(converged=converged, error_message=None)
     orch.ingest_queue.finalize(run_id, terminal_status)
-    orch.ingest_queue.release_capability_slot(caps.mode)
+    # NOTE: the capability slot was already handed back by the route try-block's `finally`
+    # above. Releasing again here would push the semaphore's counter ABOVE its configured
+    # cap — a permanently widened I7 bound, the opposite of what this guard is for.
     # BE-QUEUE-1 (1.9.4 W3): any successful run resets the rate-limit backoff ladder so the
     # NEXT 429 starts cooling down from the base tier again (I7 — no permanently-escalated cap).
     orch.ingest_queue.reset_rate_limit_backoff()
