@@ -739,6 +739,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#una-cancellazione-dura-lascia-la-run-fantasma-in-coda-e-la-riga-ingest_runs-a-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Una cancellazione dura lascia la run fantasma in coda e la riga ingest_runs a "running"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pollchain-un-unsubscribe-tardivo-puo-spegnere-una-catena-che-non-e-piu-la-sua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pollChain: un unsubscribe tardivo può spegnere una catena che non è più la sua
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -954,6 +976,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.11/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.11
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2363,6 +2413,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#una-cancellazione-dura-lascia-la-run-fantasma-in-coda-e-la-riga-ingest_runs-a-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Una cancellazione dura lascia la run fantasma in coda e la riga ingest_runs a "running"
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pollchain-un-unsubscribe-tardivo-puo-spegnere-una-catena-che-non-e-piu-la-sua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pollChain: un unsubscribe tardivo può spegnere una catena che non è più la sua
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2731,6 +2803,53 @@ giorno senza mai ripagarsi.</p>
   per una patch settimanale, e va accompagnato da test con un resolver che cambia risposta fra
   la prima e la seconda chiamata.</li>
 <li><strong>Trovato:</strong> 2026-08-21</li>
+</ul>
+<h3 id="una-cancellazione-dura-lascia-la-run-fantasma-in-coda-e-la-riga-ingest_runs-a-running">Una cancellazione dura lascia la run fantasma in coda e la riga <code>ingest_runs</code> a "running"<a class="headerlink" href="#una-cancellazione-dura-lascia-la-run-fantasma-in-coda-e-la-riga-ingest_runs-a-running" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>run_ingest_pipeline</code> apre una riga <code>ingest_runs</code> con <code>status="running"</code> e
+  registra la run nel queue manager (<code>open_run</code>), e le chiude entrambe solo nei due rami
+  terminali espliciti (<code>except IngestCancelled</code> e <code>except Exception</code>). Un <code>CancelledError</code> —
+  che è una <code>BaseException</code> e quindi non passa da nessuno dei due — sfila via lasciando la riga
+  DB eternamente a "running" e la <code>RunHandle</code> dentro <code>_active</code>. Conseguenze: la run fantasma
+  resta nel pannello attività finché il processo vive, <code>_active</code> non si svuota mai del tutto e
+  quindi la callback <code>on_drained</code> (parità WS-C/ADR-0079) non scatta più, e la riga a "running"
+  inquina lo storico. La 2.1.11 ha chiuso il pezzo <em>bloccante</em> della stessa causa radice (lo
+  slot di concorrenza, che deadlockava il provider), ma non questo.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/ingest/pipeline.py:466-486</code> (apertura riga + <code>open_run</code>) e i due
+  soli rami che chiamano <code>finalize</code> (<code>pipeline.py:606</code>, <code>pipeline.py:641</code>).</li>
+<li><strong>Impatto:</strong> medio, ma solo cosmetico/osservabilità — non blocca l'ingest. Si manifesta allo
+  shutdown del container e su qualunque task di ingest cancellato.</li>
+<li><strong>Sforzo:</strong> M. Non è "aggiungere una <code>finally</code>": bisogna decidere <em>cosa</em> scrivere e <em>quando</em>.
+  Durante uno shutdown la sessione DB può essere già chiusa, quindi la finalizzazione va o
+  tentata best-effort e ignorata, o delegata allo sweep delle orphan-running-rows già esistente
+  (che oggi gira solo all'avvio). La scelta giusta è probabilmente la seconda — far girare lo
+  sweep anche in chiusura — e va progettata, non improvvisata in una patch settimanale.</li>
+<li><strong>Trovato:</strong> 2026-08-28</li>
+</ul>
+<h3 id="pollchain-un-unsubscribe-tardivo-puo-spegnere-una-catena-che-non-e-piu-la-sua"><code>pollChain</code>: un unsubscribe tardivo può spegnere una catena che non è più la sua<a class="headerlink" href="#pollchain-un-unsubscribe-tardivo-puo-spegnere-una-catena-che-non-e-piu-la-sua" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>stopInternal()</code> azzera <code>refCount</code> quando la catena raggiunge il suo stato
+  terminale, mentre i subscriber sono ancora attaccati. Le loro closure di detach restano però
+  vive e continuano a decrementare: se nel frattempo un nuovo subscriber ha fatto ripartire la
+  catena, il detach di un subscriber <em>vecchio</em> porta <code>refCount</code> a 0 e chiama <code>stopInternal()</code>,
+  spegnendo il polling di qualcun altro. Il commento in <code>pollChain.ts:76-79</code> afferma che le
+  closure superstiti "restano sicure perché clampano <code>refCount</code> a 0" — clampano, sì, ma dopo
+  aver già decrementato e fatto scattare lo stop.</li>
+<li><strong>Evidenza:</strong> <code>frontend/src/store/pollChain.ts:72-81</code> (<code>stopInternal</code>) e <code>pollChain.ts:127-140</code>
+  (<code>subscribe</code>).</li>
+<li><strong>Impatto:</strong> <strong>latente, oggi non raggiungibile.</strong> Serve una catena <em>condivisa</em> che raggiunga
+  uno stato terminale, e le due condivise (<code>activityStore</code>, <code>statusStore</code>) hanno un
+  <code>intervalFor</code> che non restituisce mai <code>null</code>; quelle che terminano davvero (<code>ingestStore</code>,
+  <code>researchStore</code>, <code>usePollChain</code>) creano una catena per chiamante, quindi hanno un solo
+  subscriber. Diventerebbe reale il giorno in cui una catena condivisa acquisisce uno stato
+  terminale — cioè per una modifica del tutto ordinaria, senza alcun segnale che si sta
+  inciampando in questo. Sintomo: uno stato che smette silenziosamente di aggiornarsi.</li>
+<li><strong>Sforzo:</strong> S. Un token di generazione incrementato in <code>stopInternal()</code> e catturato in
+  <code>subscribe()</code>, così un detach di una generazione passata non decrementa. Non è stato fatto
+  nella 2.1.11 per disciplina d'ambito: non è raggiungibile, e la regola d'oro del runbook dice
+  di non toccare ciò che non è rotto. Va fatto insieme alla prima modifica che renda terminale
+  una catena condivisa.</li>
+<li><strong>Trovato:</strong> 2026-08-28</li>
 </ul>
 
 

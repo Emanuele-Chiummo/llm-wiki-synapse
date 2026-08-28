@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0010-mcp-transport-and-write-path/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.11/">
       
       
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
+      
+      
+        <link rel="next" href="../v2.1.10/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9) - Synapse</title>
+        <title>v2.1.11 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9" class="md-skip">
+        <a href="#synapse-v2111-hand-it-back-on-the-way-out" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9)
+              v2.1.11
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -650,8 +654,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -662,11 +668,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
           <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
@@ -687,7 +693,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -702,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.11/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.11
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -721,6 +754,104 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-leaked-capability-slot-deadlocked-an-entire-provider-mode-until-restart" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A leaked capability slot deadlocked an entire provider mode until restart
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#an-unbalanced-release_capability_slot-silently-widened-the-concurrency-cap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        An unbalanced release_capability_slot() silently widened the concurrency cap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -733,7 +864,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+      <a href="../v2.1.10/" class="md-nav__link">
         
   
   
@@ -761,7 +892,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.9/" class="md-nav__link">
+      <a href="../v2.1.9/" class="md-nav__link">
         
   
   
@@ -789,7 +920,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.8/" class="md-nav__link">
+      <a href="../v2.1.8/" class="md-nav__link">
         
   
   
@@ -817,7 +948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+      <a href="../v2.1.7/" class="md-nav__link">
         
   
   
@@ -845,7 +976,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+      <a href="../v2.1.6/" class="md-nav__link">
         
   
   
@@ -873,7 +1004,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -901,7 +1032,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -929,7 +1060,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -957,7 +1088,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -985,7 +1116,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -1013,7 +1144,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -1041,7 +1172,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -1069,7 +1200,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -1097,7 +1228,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -1125,7 +1256,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -1153,7 +1284,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -1181,7 +1312,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -1209,7 +1340,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -1237,7 +1368,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1265,7 +1396,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1293,7 +1424,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1321,7 +1452,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1349,7 +1480,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1377,7 +1508,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1405,7 +1536,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1433,7 +1564,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1461,7 +1592,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1489,7 +1620,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1517,7 +1648,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1545,7 +1676,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1573,7 +1704,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1601,7 +1732,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1629,7 +1760,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1657,7 +1788,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1685,7 +1816,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1713,7 +1844,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1741,7 +1872,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1769,7 +1900,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1797,7 +1928,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1825,7 +1956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1853,7 +1984,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1881,7 +2012,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1936,55 +2067,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Context
+        Fixed
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Decision
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Decision">
+    <nav class="md-nav" aria-label="Fixed">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-stdio-is-the-v02-transport-http-is-optionaldeferred" class="md-nav__link">
+  <a href="#a-leaked-capability-slot-deadlocked-an-entire-provider-mode-until-restart" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. stdio is the v0.2 transport; HTTP is optional/deferred
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. write_page reuses the ingest seam primitives — no second write path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-search_wiki-reuses-qdrant-bge-m3-i9" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. search_wiki reuses Qdrant + bge-m3 (I9)
+        A leaked capability slot deadlocked an entire provider mode until restart
       
     </span>
   </a>
@@ -1997,10 +2095,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#consequences" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Consequences
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#an-unbalanced-release_capability_slot-silently-widened-the-concurrency-cap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        An unbalanced release_capability_slot() silently widened the concurrency cap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
       
     </span>
   </a>
@@ -2024,59 +2161,123 @@
 
 
 
-<h1 id="adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9">ADR-0010 — MCP server: stdio transport in v0.2; write_page reuses the ingest primitives (I6, I1, I9)<a class="headerlink" href="#adr-0010-mcp-server-stdio-transport-in-v02-write_page-reuses-the-ingest-primitives-i6-i1-i9" title="Permanent link">&para;</a></h1>
+<h1 id="synapse-v2111-hand-it-back-on-the-way-out">Synapse v2.1.11 — "hand it back on the way out"<a class="headerlink" href="#synapse-v2111-hand-it-back-on-the-way-out" title="Permanent link">&para;</a></h1>
+<p>Patch release closing a permanent deadlock in the ingest concurrency cap, found by reading the
+ingest dispatch path during weekly maintenance. No schema migrations, no new endpoints, no API
+changes, no new configuration keys.</p>
+<p>Like 2.1.8, 2.1.9 and 2.1.10, this did not come from a live failure report. Its consequence is
+the worst of that run, though: the failure mode is not a degraded result or a crash you can see
+in a log, it is ingest silently ceasing to work, with no error anywhere, until the container is
+restarted.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="a-leaked-capability-slot-deadlocked-an-entire-provider-mode-until-restart">A leaked capability slot deadlocked an entire provider mode until restart<a class="headerlink" href="#a-leaked-capability-slot-deadlocked-an-entire-provider-mode-until-restart" title="Permanent link">&para;</a></h3>
+<p><code>run_ingest_pipeline</code> acquires a per-capability concurrency slot right before the provider is
+called:</p>
+<div class="highlight"><pre><span></span><code><span class="k">await</span> <span class="n">orch</span><span class="o">.</span><span class="n">ingest_queue</span><span class="o">.</span><span class="n">acquire_capability_slot</span><span class="p">(</span><span class="n">caps</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
+</code></pre></div>
+<p>This is the BE-QUEUE-2 cap (1.9.4 W3) that bounds how many CLI/API/Local runs execute their
+provider calls at once, on top of the flat <code>INGEST_MAX_CONCURRENCY</code> gate the watcher applies
+earlier. It is an I7 bound: CLI and Local default to <strong>1</strong>, because both are heavy and share a
+single GPU or a single process. API defaults to 3.</p>
+<p>The slot was handed back at three hand-written places — the <code>IngestCancelled</code> branch, the
+<code>except Exception</code> branch, and the end of the success path. That is the whole defect: a resource
+acquired in one place and released at every exit <em>by hand</em> gets released only on the exits
+someone remembered. There was no <code>finally</code>.</p>
+<p><strong>What a leak costs.</strong> <code>acquire_capability_slot()</code> waits on the semaphore with no timeout:</p>
+<div class="highlight"><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">acquire_capability_slot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mode</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">sem</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_capability_semaphores</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+    <span class="o">...</span>
+    <span class="k">await</span> <span class="n">sem</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>          <span class="c1"># no timeout, no deadline</span>
+</code></pre></div>
+<p>With a cap of 1, a single leaked slot means the <em>next</em> run of that mode blocks there forever. It
+has already opened its <code>ingest_runs</code> row, so that row sits at <code>status="running"</code> indefinitely.
+The watcher holds its own <code>INGEST_MAX_CONCURRENCY</code> slot across the entire call, so those stall
+behind it as well. Nothing raises, nothing logs, no health check goes red — ingest simply stops
+happening, and only a restart clears it.</p>
+<p><strong>The two exits that were reachable.</strong></p>
+<p><em>The ledger write failing.</em> Both terminal branches call <code>_finalize_ingest_run()</code> — an unguarded
+<code>UPDATE</code> on <code>ingest_runs</code> — <em>before</em> releasing:</p>
+<div class="highlight"><pre><span></span><code><span class="k">await</span> <span class="n">_finalize_ingest_run</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>                       <span class="c1"># DB UPDATE, can raise</span>
+<span class="n">orch</span><span class="o">.</span><span class="n">ingest_queue</span><span class="o">.</span><span class="n">finalize</span><span class="p">(</span><span class="n">run_id</span><span class="p">,</span> <span class="s2">"failed"</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+<span class="n">orch</span><span class="o">.</span><span class="n">ingest_queue</span><span class="o">.</span><span class="n">release_capability_slot</span><span class="p">(</span><span class="n">caps</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>  <span class="c1"># never reached if it did</span>
+</code></pre></div>
+<p>This is not a theoretical ordering nit. A failing database is precisely the condition that lands
+a run in the failure branch to begin with, so the failure that sends control here is very likely
+the same failure that then kills the ledger write. The exception propagates to the caller (which
+handles it correctly), and the slot is gone.</p>
+<p><em>Cancellation.</em> <code>asyncio.CancelledError</code> derives from <code>BaseException</code>, not <code>Exception</code>, so
+<code>except Exception</code> never sees it. Container shutdown cancels pending tasks; so does anything
+else that cancels the task running an ingest. The slot is gone there too — and on shutdown that
+does not matter, but a cancelled task in a live process leaves the mode wedged.</p>
+<p>Worth separating from the above: the <em>cooperative</em> cancel path (<code>IngestCancelled</code>, raised when
+the user cancels a run through the queue's <code>cancel_event</code>) is an ordinary <code>Exception</code> and was
+always handled correctly. This is only about a hard <code>Task.cancel()</code>.</p>
+<p><strong>The fix.</strong> One idempotent release, driven from the route try-block's <code>finally</code> — the only
+point in the function that covers every exit:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_slot_released</span> <span class="o">=</span> <span class="kc">False</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_release_slot</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">nonlocal</span> <span class="n">_slot_released</span>
+    <span class="k">if</span> <span class="n">_slot_released</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">_slot_released</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">orch</span><span class="o">.</span><span class="n">ingest_queue</span><span class="o">.</span><span class="n">release_capability_slot</span><span class="p">(</span><span class="n">caps</span><span class="o">.</span><span class="n">mode</span><span class="p">)</span>
+</code></pre></div>
+<p>The explicit releases on the two terminal branches stay exactly where they were, so on those
+paths the release still happens <em>after</em> the ledger write and the queue finalize — the ordering
+is unchanged, and the <code>finally</code> only closes the gap when one of those lines is skipped.</p>
+<p>On the success path the release now happens one DB write earlier, when the try-block exits
+rather than after <code>_finalize_ingest_run()</code>. That is deliberate and is not a weakening of the
+cap: the provider work is definitively over the moment that block exits, so the bound still
+admits exactly N concurrent <em>provider calls</em>. The next queued run simply stops waiting on the
+previous run's bookkeeping before starting its own.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h3 id="an-unbalanced-release_capability_slot-silently-widened-the-concurrency-cap">An unbalanced <code>release_capability_slot()</code> silently widened the concurrency cap<a class="headerlink" href="#an-unbalanced-release_capability_slot-silently-widened-the-concurrency-cap" title="Permanent link">&para;</a></h3>
+<p><code>asyncio.Semaphore.release()</code> has no ceiling — it increments the counter unconditionally,
+whether or not anything was ever acquired. So a release with no matching acquire, or a double
+release, does not raise and does not no-op: it pushes the semaphore <em>above</em> its configured limit
+and leaves it there for the life of the process.</p>
+<p>The I7 bound the cap exists to enforce would quietly stop holding. More concurrent provider calls
+would be admitted than the operator configured — more contention on the single GPU the CLI/Local
+caps exist to serialise, or a larger API bill — with nothing in any log, metric, or status
+endpoint to explain it. It would be found by noticing the symptom, not the cause.</p>
+<p>No caller does this today, and the fix above is careful to release exactly once. But the guard
+was already <em>documented</em> as though it were safe: <code>release_capability_slot()</code>'s docstring said
+"no-op", and <code>test_release_is_a_noop_for_never_acquired_mode</code> asserted an intent the code did not
+honour. Both now describe what actually happens. The method counts held slots and ignores any
+release beyond them, logging a WARNING — so the cap is a real bound rather than a starting value,
+and a future caller cannot widen it by accident.</p>
+<h2 id="also-in-this-release">Also in this release<a class="headerlink" href="#also-in-this-release" title="Permanent link">&para;</a></h2>
+<p>Two findings too large for a weekly patch were recorded in
+<a href="../../reference/ROADMAP-3.0-IDEAS/"><code>docs/reference/ROADMAP-3.0-IDEAS.md</code></a> with evidence and a
+sizing instead of being rushed in:</p>
 <ul>
-<li>Status: Accepted</li>
-<li>Date: 2026-06-28</li>
-<li>Sprint: v0.2</li>
-<li>Decider: solution-architect</li>
-<li>Invariants: I6 (CLI provider uses MCP tools, not direct FS writes), I1 (write_page is an incremental upsert), I5 (write_page validates frontmatter), I9 (search reuses Qdrant/bge-m3, not a new service)</li>
-<li>Related: CLAUDE.md §5 (CLI provider), v0.2-scope EC-M2-7, ADR-0003, ADR-0007</li>
-<li>Resolves: AQ-v0.2-6 (MCP transport)</li>
+<li><strong>A hard cancellation strands the run.</strong> The same missing-<code>finally</code> root cause also leaves the
+  <code>ingest_runs</code> row at "running" and the <code>RunHandle</code> in the queue's <code>_active</code> map — a phantom
+  run in the activity panel and an <code>on_drained</code> callback that stops firing. It is cosmetic
+  rather than blocking, and fixing it properly means deciding what can even be written to the DB
+  during shutdown (probably: extend the existing orphan-running-rows sweep to run on close), so
+  it is a design question, not a <code>finally</code>.</li>
+<li><strong><code>pollChain</code> refcount vs. restart.</strong> <code>stopInternal()</code> zeroes the refcount while subscribers
+  are still attached, so a late unsubscribe from a previous run can stop a chain that has since
+  been restarted by someone else. Latent — not reachable today, because the two <em>shared</em> chains
+  never reach a terminal state and the ones that do have a single subscriber each.</li>
 </ul>
-<h2 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h2>
-<p>The CliAgentProvider delegates the whole ingest to a claude-agent-sdk agent. That agent must
-read and write <code>vault/wiki/</code> <strong>through the Synapse service layer</strong> (so frontmatter validation,
-K5 wikilink parsing, K3 index update, and Qdrant upsert all run) — never via raw filesystem
-writes that would bypass I1/I5. A FastMCP standalone server exposes four tools
-(<code>search_wiki</code>, <code>write_page</code>, <code>get_page</code>, <code>list_pages</code>). The open question (AQ-v0.2-6) is the
-transport: stdio-only, HTTP-only, or both.</p>
-<h2 id="decision">Decision<a class="headerlink" href="#decision" title="Permanent link">&para;</a></h2>
-<h3 id="1-stdio-is-the-v02-transport-http-is-optionaldeferred">1. stdio is the v0.2 transport; HTTP is optional/deferred<a class="headerlink" href="#1-stdio-is-the-v02-transport-http-is-optionaldeferred" title="Permanent link">&para;</a></h3>
-<p>The MCP server starts in <strong>stdio</strong> mode for v0.2 (<code>make mcp</code> → <code>python -m app.mcp.server</code>).
-Rationale: the only v0.2 consumer is the CliAgentProvider, which the claude-agent-sdk wires as
-an in-process / subprocess MCP server over stdio — the SDK's native, lowest-friction path. The
-scope mentions HTTP "for future clients," but no v0.2 acceptance test requires a live HTTP
-listener; the FastMCP <strong>test client</strong> (AC-MCP-1..6) exercises the tools in-process without a
-transport. HTTP transport is therefore <strong>deferred to v0.4</strong> (when external/Web-UI clients
-appear) and noted as a one-line FastMCP option, not built now. This avoids the
-two-process / multiplexing complexity AQ-v0.2-6 flagged. (If pipeline time allows, a
-<code>make mcp-http</code> target may be added best-effort, but it is not an M2 gate.)</p>
-<h3 id="2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path">2. write_page reuses the ingest seam primitives — no second write path<a class="headerlink" href="#2-write_page-reuses-the-ingest-seam-primitives-no-second-write-path" title="Permanent link">&para;</a></h3>
-<p><code>write_page(title, content, frontmatter)</code> does <strong>not</strong> write files directly. It:
-1. Validates <code>frontmatter</code> against the WikiPage validator (ADR-0007 §5) — returns a structured
-   tool error (not an exception) on missing <code>type</code>/<code>title</code>/<code>sources</code> (AC-MCP-3).
-2. Slugs the title to a typed path (<code>wiki/&lt;type-plural&gt;/&lt;slug&gt;.md</code>), writes the file.
-3. Calls the same <code>persist_metadata</code> / <code>upsert_vector</code> / <code>append_log</code> / <code>bump_version</code>
-   helpers the orchestrator uses (ADR-0003), plus the K5 wikilink parse and K3 index update.</p>
-<p>This guarantees the CLI delegated path and the orchestrated path converge on <strong>one</strong>
-write primitive — satisfying I1 (incremental upsert, no rescan) and I5 (frontmatter validated
-before write) identically regardless of who called.</p>
-<h3 id="3-search_wiki-reuses-qdrant-bge-m3-i9">3. search_wiki reuses Qdrant + bge-m3 (I9)<a class="headerlink" href="#3-search_wiki-reuses-qdrant-bge-m3-i9" title="Permanent link">&para;</a></h3>
-<p><code>search_wiki(query)</code> embeds the query via the existing EmbeddingClient and queries the existing
-<code>synapse_pages</code> Qdrant collection — no new search service (I9). It returns <code>PageRef</code> objects
-with <code>relevance_score</code> from the Qdrant similarity score normalized to [0,1]. It is <strong>not</strong> the
-F5 4-phase RAG pipeline (deferred to v0.5); it is a simple vector lookup.</p>
-<h2 id="consequences">Consequences<a class="headerlink" href="#consequences" title="Permanent link">&para;</a></h2>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p>Nothing to do. No migration, no configuration change, no API or MCP contract change, no new
+environment variable.</p>
 <ul>
-<li>(+) Single write path: CLI delegation and orchestrated ingest share <code>persist_metadata</code> et al,
-  so I1/I5 hold uniformly and there is no divergent second writer to keep in sync.</li>
-<li>(+) stdio-only keeps v0.2 simple and matches the SDK's native wiring; no multiplexing server.</li>
-<li>(+) I9 honoured: search is Qdrant/bge-m3, not a new index.</li>
-<li>(−) No live HTTP MCP endpoint in v0.2; external non-CLI MCP clients wait until v0.4. Accepted:
-  no v0.2 consumer needs it, and the test client covers the tool contracts without a socket.</li>
-<li>(−) write_page must keep its validation in lockstep with the orchestrator's validator. Risk
-  mitigated by both calling the <strong>same</strong> validator function (ADR-0007 §5), not two copies.</li>
+<li><strong>Behaviour change, success path only:</strong> the capability slot is released marginally earlier —
+  when the provider work ends rather than after the <code>ingest_runs</code> UPDATE. Under a queue of
+  waiting runs this is a small throughput improvement; the concurrency cap itself is unchanged.</li>
+<li><strong>Behaviour change, error path:</strong> an unbalanced <code>release_capability_slot()</code> is now ignored and
+  logged at WARNING rather than silently raising the cap. If that warning ever appears in your
+  logs, it is a bug worth reporting — nothing in the codebase should produce it.</li>
+<li>If you have been restarting the backend to "unstick" ingest, that workaround should no longer
+  be needed. A run already stuck at <code>status="running"</code> from before the upgrade is cleared by the
+  existing orphan-running-rows sweep on the next startup.</li>
+<li>Backend tests: 3184 passing, coverage 83.23% (gate 82%). Frontend: 2538 passing, untouched by
+  this release.</li>
 </ul>
 
 
