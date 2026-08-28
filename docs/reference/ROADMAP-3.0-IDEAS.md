@@ -383,3 +383,50 @@ giorno senza mai ripagarsi.
   per una patch settimanale, e va accompagnato da test con un resolver che cambia risposta fra
   la prima e la seconda chiamata.
 - **Trovato:** 2026-08-21
+
+### Una cancellazione dura lascia la run fantasma in coda e la riga `ingest_runs` a "running"
+
+- **Problema:** `run_ingest_pipeline` apre una riga `ingest_runs` con `status="running"` e
+  registra la run nel queue manager (`open_run`), e le chiude entrambe solo nei due rami
+  terminali espliciti (`except IngestCancelled` e `except Exception`). Un `CancelledError` —
+  che è una `BaseException` e quindi non passa da nessuno dei due — sfila via lasciando la riga
+  DB eternamente a "running" e la `RunHandle` dentro `_active`. Conseguenze: la run fantasma
+  resta nel pannello attività finché il processo vive, `_active` non si svuota mai del tutto e
+  quindi la callback `on_drained` (parità WS-C/ADR-0079) non scatta più, e la riga a "running"
+  inquina lo storico. La 2.1.11 ha chiuso il pezzo *bloccante* della stessa causa radice (lo
+  slot di concorrenza, che deadlockava il provider), ma non questo.
+- **Evidenza:** `backend/app/ingest/pipeline.py:466-486` (apertura riga + `open_run`) e i due
+  soli rami che chiamano `finalize` (`pipeline.py:606`, `pipeline.py:641`).
+- **Impatto:** medio, ma solo cosmetico/osservabilità — non blocca l'ingest. Si manifesta allo
+  shutdown del container e su qualunque task di ingest cancellato.
+- **Sforzo:** M. Non è "aggiungere una `finally`": bisogna decidere *cosa* scrivere e *quando*.
+  Durante uno shutdown la sessione DB può essere già chiusa, quindi la finalizzazione va o
+  tentata best-effort e ignorata, o delegata allo sweep delle orphan-running-rows già esistente
+  (che oggi gira solo all'avvio). La scelta giusta è probabilmente la seconda — far girare lo
+  sweep anche in chiusura — e va progettata, non improvvisata in una patch settimanale.
+- **Trovato:** 2026-08-28
+
+### `pollChain`: un unsubscribe tardivo può spegnere una catena che non è più la sua
+
+- **Problema:** `stopInternal()` azzera `refCount` quando la catena raggiunge il suo stato
+  terminale, mentre i subscriber sono ancora attaccati. Le loro closure di detach restano però
+  vive e continuano a decrementare: se nel frattempo un nuovo subscriber ha fatto ripartire la
+  catena, il detach di un subscriber *vecchio* porta `refCount` a 0 e chiama `stopInternal()`,
+  spegnendo il polling di qualcun altro. Il commento in `pollChain.ts:76-79` afferma che le
+  closure superstiti "restano sicure perché clampano `refCount` a 0" — clampano, sì, ma dopo
+  aver già decrementato e fatto scattare lo stop.
+- **Evidenza:** `frontend/src/store/pollChain.ts:72-81` (`stopInternal`) e `pollChain.ts:127-140`
+  (`subscribe`).
+- **Impatto:** **latente, oggi non raggiungibile.** Serve una catena *condivisa* che raggiunga
+  uno stato terminale, e le due condivise (`activityStore`, `statusStore`) hanno un
+  `intervalFor` che non restituisce mai `null`; quelle che terminano davvero (`ingestStore`,
+  `researchStore`, `usePollChain`) creano una catena per chiamante, quindi hanno un solo
+  subscriber. Diventerebbe reale il giorno in cui una catena condivisa acquisisce uno stato
+  terminale — cioè per una modifica del tutto ordinaria, senza alcun segnale che si sta
+  inciampando in questo. Sintomo: uno stato che smette silenziosamente di aggiornarsi.
+- **Sforzo:** S. Un token di generazione incrementato in `stopInternal()` e catturato in
+  `subscribe()`, così un detach di una generazione passata non decrementa. Non è stato fatto
+  nella 2.1.11 per disciplina d'ambito: non è raggiungibile, e la regola d'oro del runbook dice
+  di non toccare ciò che non è rotto. Va fatto insieme alla prima modifica che renda terminale
+  una catena condivisa.
+- **Trovato:** 2026-08-28

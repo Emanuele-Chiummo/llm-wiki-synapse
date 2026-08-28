@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.11] — 2026-08-28 — "hand it back on the way out"
+
+Patch release closing a permanent deadlock in the ingest concurrency cap, found by reading the
+ingest dispatch path during weekly maintenance. Not from a live failure report. No schema
+migrations, no API changes, no new config.
+
+### Fixed
+
+- **A leaked capability slot deadlocked an entire provider mode until restart**:
+  `run_ingest_pipeline` (`app/ingest/pipeline.py`) acquires a per-capability concurrency slot —
+  the BE-QUEUE-2 cap that bounds how many CLI/API/Local runs call their provider at once (I7) —
+  and released it at three hand-written terminal branches. Root cause: a resource acquired in
+  one place and released at every exit *by hand* is released only on the exits someone
+  remembered; there was no `finally`, so any other way out leaked the slot permanently. With
+  `ingest_concurrency_cli` and `ingest_concurrency_local` defaulting to 1, one leak is enough to
+  wedge that mode for the life of the process: `acquire_capability_slot()` waits on the
+  semaphore with **no timeout**, so every later run of that mode parks forever with its
+  `ingest_runs` row stuck at "running", and the watcher — which holds its own
+  `INGEST_MAX_CONCURRENCY` slot across the whole call — eventually stalls behind it too. Nothing
+  logs it; ingest simply stops. Two exits were reachable. `_finalize_ingest_run()` is an
+  unguarded DB UPDATE called at the top of *both* terminal branches, ahead of the release — and
+  a failing database is precisely the condition that lands a run in the failure branch to begin
+  with, so the ledger write fails too and the release below it never runs. And
+  `asyncio.CancelledError` is a `BaseException`, so it passes straight through
+  `except Exception`: container shutdown, or any cancelled ingest task, leaks the slot silently.
+  (This is distinct from the cooperative `IngestCancelled` path, which is an ordinary
+  `Exception` and was always handled.) Fixed with an idempotent release driven from the route
+  try-block's `finally` — the only point that covers every exit. The explicit releases on the
+  terminal paths stay where they are, so the release still happens *after* the ledger write
+  there; on the success path the slot is now handed back one DB write earlier, at the moment the
+  provider work actually ends. The cap still admits exactly N concurrent provider calls — the
+  next run just stops waiting on the previous run's bookkeeping to start its own.
+
+### Security
+
+- **An unbalanced `release_capability_slot()` silently widened the concurrency cap**:
+  `asyncio.Semaphore.release()` has no ceiling — it increments the counter unconditionally — so
+  a release with no matching acquire, or a double release, pushes the semaphore *above* its
+  configured limit and leaves it there for the life of the process. The I7 bound the cap exists
+  to enforce would quietly stop holding, admitting more concurrent provider calls than the
+  operator configured: more load on the single GPU the CLI/Local caps exist to serialise, or a
+  larger API bill, with nothing in any log or status endpoint to say why. No caller does this
+  today — including after the fix above, which is careful to release exactly once — but the
+  guard was documented as if it did: `release_capability_slot()`'s own docstring said "no-op"
+  and `test_release_is_a_noop_for_never_acquired_mode` asserted an intent the code never
+  honoured. Fixed by counting held slots and ignoring (with a WARNING) any release beyond them,
+  so the cap is a real bound rather than a starting value.
+
 ## [2.1.10] — 2026-08-21 — "bounded by bytes, not by hope"
 
 Patch release closing an unbounded outbound download in the SSRF guard, found by reading the

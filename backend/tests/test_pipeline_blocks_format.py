@@ -748,3 +748,116 @@ async def test_blocks_format_enqueues_review_blocks(
     assert row.proposed_title == "Missing Entity Acme Supplier"
     assert row.proposal_origin == "ai"
     assert row.status == "pending"
+
+
+# ── BE-QUEUE-2 slot leak (2.1.11) ───────────────────────────────────────────────────────────
+#
+# run_ingest_pipeline acquires a per-capability concurrency slot before calling the provider
+# and must hand it back on EVERY exit. Releasing only at the hand-written terminal branches
+# leaks the slot whenever control leaves by another route, and with
+# ingest_concurrency_cli/local = 1 one leak deadlocks that provider mode until the process is
+# restarted (`acquire_capability_slot` waits on the semaphore with no timeout).
+
+
+def _slot_counting_queue(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
+    """Replace the stubbed no-op slot methods with real acquire/release counters."""
+    counts = {"acquired": 0, "released": 0}
+
+    async def _acquire(mode: str) -> None:
+        counts["acquired"] += 1
+
+    def _release(mode: str) -> None:
+        counts["released"] += 1
+
+    monkeypatch.setattr(orch.ingest_queue, "acquire_capability_slot", _acquire)
+    monkeypatch.setattr(orch.ingest_queue, "release_capability_slot", _release)
+    return counts
+
+
+async def test_capability_slot_released_when_the_ledger_write_fails(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `_finalize_ingest_run` failure on the error path must not strand the slot.
+
+    This is the realistic leak: the run fails because the DB is unreachable, and the very
+    next thing the failure branch does is another DB write, which fails too — skipping the
+    release that used to sit after it.
+    """
+    counts = _slot_counting_queue(monkeypatch)
+
+    class _Boom(Exception):
+        pass
+
+    async def _exploding_provider_call(**_kwargs: Any) -> Any:
+        raise _Boom("provider exploded")
+
+    async def _exploding_finalize(**_kwargs: Any) -> None:
+        raise RuntimeError("ingest_runs UPDATE failed: connection lost")
+
+    monkeypatch.setattr(pipeline, "_run_orchestrated_blocks", _exploding_provider_call)
+    monkeypatch.setattr(pipeline, "_finalize_ingest_run", _exploding_finalize)
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: _BlockProvider([ANALYSIS]))
+
+    with pytest.raises(RuntimeError, match="connection lost"):
+        await pipeline.run_ingest_pipeline(
+            provider_config_row=object(),
+            source_text="anything",
+            origin_source=ORIGIN,
+            abs_source=ABS_SOURCE,
+        )
+
+    assert counts["acquired"] == 1
+    assert (
+        counts["released"] == 1
+    ), "the capability slot must be released even when the ledger UPDATE raises"
+
+
+async def test_capability_slot_released_on_task_cancellation(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """asyncio.CancelledError is a BaseException — `except Exception` never sees it.
+
+    Reachable on lifespan shutdown and whenever the task running the ingest is cancelled.
+    """
+    counts = _slot_counting_queue(monkeypatch)
+
+    async def _cancelled_provider_call(**_kwargs: Any) -> Any:
+        raise __import__("asyncio").CancelledError()
+
+    monkeypatch.setattr(pipeline, "_run_orchestrated_blocks", _cancelled_provider_call)
+    monkeypatch.setattr(orch, "resolve_provider", lambda _row: _BlockProvider([ANALYSIS]))
+
+    import asyncio as _asyncio
+
+    with pytest.raises(_asyncio.CancelledError):
+        await pipeline.run_ingest_pipeline(
+            provider_config_row=object(),
+            source_text="anything",
+            origin_source=ORIGIN,
+            abs_source=ABS_SOURCE,
+        )
+
+    assert counts["acquired"] == 1
+    assert counts["released"] == 1, "the capability slot must be released when the run is cancelled"
+
+
+async def test_capability_slot_released_exactly_once_on_success(
+    pipeline_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The happy path must release exactly once — a double release would push the semaphore
+    above its configured cap and permanently widen the I7 concurrency bound."""
+    counts = _slot_counting_queue(monkeypatch)
+    monkeypatch.setattr(
+        orch, "resolve_provider", lambda _row: _BlockProvider([ANALYSIS, GEN_BLOCKS])
+    )
+
+    result = await pipeline.run_ingest_pipeline(
+        provider_config_row=object(),
+        source_text="The Acme Corp report describes measurable market outcomes.",
+        origin_source=ORIGIN,
+        abs_source=ABS_SOURCE,
+    )
+
+    assert result.converged is True
+    assert counts["acquired"] == 1
+    assert counts["released"] == 1

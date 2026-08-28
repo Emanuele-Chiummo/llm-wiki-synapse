@@ -187,6 +187,9 @@ class IngestQueueManager:
         self._capability_semaphores: dict[str, asyncio.Semaphore] = {
             mode: asyncio.Semaphore(limit) for mode, limit in _CAPABILITY_CONCURRENCY_LIMITS.items()
         }
+        # mode → slots currently held. Guards release_capability_slot against an unbalanced
+        # release, which would otherwise push the semaphore past its cap (see that method).
+        self._capability_held: dict[str, int] = dict.fromkeys(_CAPABILITY_CONCURRENCY_LIMITS, 0)
         self._completed_since_idle: int = 0
 
         # source_path → monotonic deadline (cancel suppression window)
@@ -684,13 +687,35 @@ class IngestQueueManager:
         if sem is None:
             sem = asyncio.Semaphore(1)
             self._capability_semaphores[mode] = sem
+            self._capability_held.setdefault(mode, 0)
         await sem.acquire()
+        self._capability_held[mode] = self._capability_held.get(mode, 0) + 1
 
     def release_capability_slot(self, mode: str) -> None:
-        """Release the slot acquired by ``acquire_capability_slot(mode)``. No-op if absent."""
+        """
+        Release the slot acquired by ``acquire_capability_slot(mode)``. No-op if absent, and
+        no-op when no slot of *mode* is actually held.
+
+        The held-count guard is what makes the cap a real bound (I7). ``Semaphore.release()``
+        has no ceiling: an unbalanced release — a double release, or a release with no matching
+        acquire — pushes the counter ABOVE the configured limit and permanently widens the cap
+        for the life of the process, letting more concurrent provider calls through than the
+        operator asked for. Nothing about that surfaces in a log or a status endpoint, so it
+        would be found only by noticing the GPU or the API bill misbehaving. Counting what is
+        actually held keeps an unbalanced release the no-op it always claimed to be.
+        """
         sem = self._capability_semaphores.get(mode)
-        if sem is not None:
-            sem.release()
+        if sem is None:
+            return
+        if self._capability_held.get(mode, 0) <= 0:
+            logger.warning(
+                "queue: release_capability_slot(%r) with no slot held — ignored "
+                "(releasing anyway would raise the concurrency cap above its limit)",
+                mode,
+            )
+            return
+        self._capability_held[mode] -= 1
+        sem.release()
 
     # ── Admit / suppress ───────────────────────────────────────────────────────
 
