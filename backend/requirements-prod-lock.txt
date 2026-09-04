@@ -35,7 +35,7 @@ beautifulsoup4==4.15.0
     # via markdownify
 cachetools==7.1.4
     # via py-key-value-aio
-caio==0.9.25
+caio==0.10.2
     # via aiofile
 certifi==2026.6.17
     # via
