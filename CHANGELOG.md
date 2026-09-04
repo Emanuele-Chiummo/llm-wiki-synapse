@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.12] — 2026-09-04 — "hold less, drop nothing"
+
+Patch release closing three defects found by reading the Marker conversion path, the watcher
+startup sequence and the graph cache during weekly maintenance. None came from a live failure
+report. No schema migrations, no API changes, no new config.
+
+### Fixed
+
+- **A 300 MB PDF upload was buffered whole, twice, on a path built to stream it**:
+  `POST /ingest/convert-marker` (`app/routers/ingest.py`) reads each upload into a temp file
+  in 65 KB chunks precisely so the request body is never resident — then threw that away one
+  line later with `Path(tmp_name).read_bytes()` followed by `pdf_dst.write_bytes(...)`. Root
+  cause: a streamed read whose result is materialised anyway bounds nothing; the chunk loop
+  only moves where the peak happens. `MARKER_MAX_UPLOAD_BYTES` defaults to 300 MB
+  (`settings.marker_max_upload_bytes` — deliberately far above the 25 MB generic
+  `max_upload_bytes`, because Marker chunks large PDFs by page range), so one ordinary
+  scanned book put 300 MB on the heap inside the request handler, to perform a copy the
+  filesystem does for free. The background driver (`app/marker_converter.py`) then repeated
+  it on the way out: `read_bytes()` to POST the file to Marker. Both are now streamed — the
+  upload lands via `os.replace()` (the temp file was already created in `raw_sources` by
+  `mkstemp()`, so the rename is same-filesystem and atomic by construction), and the driver
+  hands httpx an open file handle, which its multipart encoder reads in 64 KB chunks
+  (`FileField.CHUNK_SIZE`) instead of yielding one bytes value. Two smaller problems closed
+  with it: the read-then-write pair left a **truncated** `.pdf` at the destination if the
+  process died between them — a file both the watcher and the driver would have treated as a
+  complete source — and the driver's handle is released from a `finally`, since
+  `asyncio.CancelledError` is a `BaseException` and passes straight through the excepts
+  around the POST, the same exit that leaked the capability slot in 2.1.11. The temp file is
+  `chmod`'d to 0644 before the rename: `mkstemp()` creates 0600, and `wiki/`'s sibling
+  `raw/` is shared with Obsidian/LiveSync, so a bare rename would have handed the vault a
+  file only the container UID can read.
+- **A log line could stop the whole backend from booting**: `VaultWatcher._emit_startup_notice()`
+  (`app/watcher.py`) exists to emit one INFO line when `raw/sources/` is non-empty at
+  startup ("pre-existing files are NOT auto-indexed"). It called `os.scandir()` and caught
+  only `StopIteration` — the empty-directory case — but `os.scandir()` also raises `OSError`,
+  and nothing above it caught that either: the exception propagated out of `start()`, out of
+  `start_watcher()`, and through the FastAPI lifespan, so the service refused to start
+  because it could not decide whether to log something. Reachable with no adversary: a vault
+  volume the container can traverse but not read (+x, no +r) raises `PermissionError`, and a
+  volume that disappears between the `mkdir` on the line above and this call raises
+  `FileNotFoundError`/`NotADirectoryError`. Same family as the 2.1.9 scheduler defect, where
+  `run_one_scan()` guarded its scandir but not the `mkdir` above it — here the mkdir is
+  guarded by `exist_ok` and the scandir is the unguarded half. Now caught and logged at
+  WARNING; startup continues and `observer.schedule()` remains the call allowed to fail
+  loudly, because that one really does decide whether a watch is possible.
+- **`GET /graph` could answer 500 on the first request after boot**: `GraphCache.get_graph()`
+  (`app/graph/cache.py`) ended with `assert self._snapshot is not None  # mypy`. The comment
+  was wrong about the branch being unreachable, and the cost of that is an `AssertionError`
+  surfacing as a 500 from a plain read endpoint (or, under `python -O`, a `None` return that
+  breaks further downstream instead). The path: request A finds no snapshot and starts the
+  inline FA2 recompute, holding `_in_flight`; request B misses and takes the in-flight wait,
+  which `_wait_for_in_flight()` abandons after its 10s safety bound. An FA2 run on a large
+  vault outlasts 10s routinely, and when it does B falls through with `_in_flight` still True
+  and `_snapshot` still None — skipping both the stale-while-revalidate branch (nothing to
+  serve) and the inline-recompute branch (a run is in flight) — and lands on the assert. Two
+  browser tabs, or a StrictMode double-effect, are enough to produce request B. It now
+  returns an empty snapshot for that one request, mirroring how the inline-recompute failure
+  path a few lines above already degrades. `_marker` is deliberately left unset, so the next
+  GET is still a MISS and picks up the real snapshot as soon as the in-flight run lands, and
+  no second concurrent FA2 is started (I2).
+
 ## [2.1.11] — 2026-08-28 — "hand it back on the way out"
 
 Patch release closing a permanent deadlock in the ingest concurrency cap, found by reading the

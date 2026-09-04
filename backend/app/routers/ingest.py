@@ -825,6 +825,7 @@ async def convert_marker(
     - On per-file failure: marks that file 'failed'; continues with next file.
     NO silent pypdf fallback — the user explicitly chose Marker (ADR-0051).
     """
+    import os  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
 
     from app.marker_converter import (  # noqa: PLC0415
@@ -928,13 +929,23 @@ async def convert_marker(
             finally:
                 await upload.close()
 
-            # ── Write raw PDF bytes to raw/sources/<stem>.pdf ────────────────────
+            # ── Move the temp file into raw/sources/<stem>.pdf ───────────────────
+            # os.replace(), NOT read_bytes()+write_bytes(): the loop above deliberately
+            # streams the upload in 65 KB chunks so the body is never held whole, and
+            # reading it straight back would undo that — MARKER_MAX_UPLOAD_BYTES is
+            # 300 MB (settings.marker_max_upload_bytes), so a single large PDF meant a
+            # 300 MB heap spike per file inside the request handler (I7). The rename is
+            # also atomic and same-filesystem by construction (mkstemp used dir=raw_sources),
+            # so a crash mid-move can no longer leave a truncated .pdf where the watcher
+            # and the Marker driver would both treat it as a complete source.
             safe_stem = _re.sub(r"[^a-z0-9_.-]", "_", stem.lower())[:100] or "upload"
             pdf_name = f"{safe_stem}.pdf"
             pdf_dst = raw_sources / pdf_name
-            pdf_bytes = Path(tmp_name).read_bytes()
-            Path(tmp_name).unlink(missing_ok=True)
-            pdf_dst.write_bytes(pdf_bytes)
+            # mkstemp() creates 0600; the vault is shared with Obsidian/LiveSync and was
+            # previously written by write_bytes() at the process umask, so restore 0644
+            # rather than handing the vault a file only this UID can read.
+            os.chmod(tmp_name, 0o644)  # noqa: S103 — vault files are user-readable by design
+            Path(tmp_name).replace(pdf_dst)
 
             pdf_rel = str(pdf_dst.relative_to(settings.vault_root))
             entries.append(

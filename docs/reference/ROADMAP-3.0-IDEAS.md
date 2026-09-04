@@ -430,3 +430,34 @@ giorno senza mai ripagarsi.
   di non toccare ciò che non è rotto. Va fatto insieme alla prima modifica che renda terminale
   una catena condivisa.
 - **Trovato:** 2026-08-28
+
+### Il rate limit sui fallimenti di autenticazione non ferma un brute force: riscrive solo il 401 in 429
+
+- **Problema:** `AuthFailureRateLimitMiddleware.dispatch()` chiama il limiter **dopo**
+  `call_next(request)`, e solo quando la risposta è già un 401. Il tentativo di
+  autenticazione viene quindi sempre eseguito per intero: superata la soglia, l'unico
+  effetto è che il 401 viene sostituito da un 429. Nulla viene bloccato. Peggio, il
+  controllo è cieco proprio sul caso che dovrebbe impedire: un token **indovinato**
+  risponde 200, non 401, quindi non passa mai dal limiter — un attaccante che tira
+  milioni di tentativi li vede tutti valutati, e quello giusto va a buon fine anche a
+  contatore ampiamente sforato. SEC-RL-1 dichiara "prevents token-guessing and
+  brute-force auth attacks": oggi non lo fa.
+- **Evidenza:** `backend/app/rate_limit.py:297-315` (`dispatch()` — `response = await
+  call_next(request)` precede il check, che è dentro `if response.status_code == 401`);
+  `backend/app/rate_limit.py:175-245` (`_AuthFailureLimiter`, la contabilità in sé è
+  corretta); registrato in `backend/app/main.py:458`.
+- **Impatto:** medio. Il token statico è lungo e generato con `secrets`, quindi il brute
+  force resta impraticabile *per entropia*, non grazie a questo controllo — ma il
+  controllo è documentato come se ci fosse, il che è la parte che fa danno: nasconde
+  l'assenza di lockout a chi legge SECURITY.md o il docstring, e non c'è alcun costo
+  imposto all'attaccante (né ritardo, né blocco, né allarme oltre una riga di log).
+- **Sforzo:** M. La correzione non è spostare due righe: bloccare *prima* di
+  `call_next` significa introdurre un vero lockout per IP, che vale su **ogni** endpoint
+  e non solo su quelli autenticati — un frontend con un token sbagliato in configurazione
+  si auto-esclude dall'intera app per la durata della finestra. Va deciso il perimetro
+  (solo le route autenticate? solo `/mcp`?), la granularità (IP, o IP+token-prefix?), la
+  via di uscita per l'operatore chiuso fuori, e va accompagnato da un segnale visibile
+  (contatore in `/status`, non solo un WARNING nel log). È un cambio di comportamento
+  osservabile su un percorso di autenticazione: fuori dal mandato di una patch
+  settimanale, che per definizione non deve poter chiudere fuori l'utente.
+- **Trovato:** 2026-09-04

@@ -135,3 +135,38 @@ def test_semaphore_coerced_to_at_least_one(monkeypatch: pytest.MonkeyPatch) -> N
     handler = _MarkdownHandler(_DummyLoop())  # type: ignore[arg-type]
     # Semaphore with 1 permit is acquirable once without blocking.
     assert handler._sem._value >= 1
+
+
+# ── Startup notice must never abort boot (2.1.12) ──────────────────────────────
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        PermissionError(13, "Permission denied"),
+        FileNotFoundError(2, "No such file or directory"),
+        NotADirectoryError(20, "Not a directory"),
+        OSError(5, "Input/output error"),
+    ],
+)
+def test_startup_notice_survives_unreadable_vault(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, exc: OSError
+) -> None:
+    """
+    _emit_startup_notice() must swallow OSError from os.scandir().
+
+    It only decides whether to log one informational line, but it is called from
+    VaultWatcher.start() — which runs inside the FastAPI lifespan. An unreadable vault
+    mount (PermissionError) or one that vanished between the mkdir and this call
+    (FileNotFoundError/NotADirectoryError) used to propagate all the way out and stop
+    the WHOLE backend from booting. Only StopIteration (empty dir) was caught.
+    """
+    from app import watcher as watcher_mod
+
+    def _boom(_path: object) -> object:
+        raise exc
+
+    monkeypatch.setattr(watcher_mod.os, "scandir", _boom)
+
+    # Must return normally — the assertion is that nothing propagates.
+    watcher_mod.VaultWatcher._emit_startup_notice(tmp_path)

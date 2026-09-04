@@ -464,3 +464,46 @@ class TestNoRealSleep:
         clock.advance(3600.0)
         await cache.tick()
         assert engine.call_count == 1, "Should fire exactly when clock >= fire_at"
+
+
+# ── In-flight wait timeout (2.1.12) ────────────────────────────────────────────
+
+
+class TestInFlightWaitTimeout:
+    """
+    A MISS that waits out _wait_for_in_flight()'s 10s bound without a snapshot ever
+    appearing must degrade, not raise.
+
+    Reachable on the FIRST GET /graph after boot: request A starts the inline recompute
+    (_in_flight=True, _snapshot still None) and request B takes the in-flight wait. When
+    A's FA2 run outlasts the 10s bound — routine on a large vault — B falls through with
+    _in_flight still True, so it skips BOTH the stale-serve branch (no snapshot) and the
+    inline branch (in-flight). That used to land on `assert self._snapshot is not None`,
+    turning a plain read endpoint into a 500 (AssertionError).
+    """
+
+    async def test_miss_after_wait_timeout_serves_empty_snapshot(self) -> None:
+        cache, engine, _clock = _make_cache()
+
+        # State a waiter observes when the 10s bound expires under a still-running recompute.
+        cache._in_flight = True
+        cache._snapshot = None
+
+        # Return immediately instead of burning the real 10s poll bound (no wall clock).
+        async def _instant_timeout() -> None:
+            return None
+
+        cache._wait_for_in_flight = _instant_timeout  # type: ignore[method-assign]
+
+        snapshot, cached = await cache.get_graph(current_version=7)
+
+        assert cached is False
+        assert snapshot is not None, "must degrade to an empty snapshot, never raise/return None"
+        assert snapshot.nodes == []
+        assert snapshot.edges == []
+        assert snapshot.data_version == 7
+        # Degrading must not start a second concurrent FA2 (I2) ...
+        assert engine.call_count == 0
+        # ... nor stamp the marker: the next GET must still MISS and pick up the real
+        # snapshot once the in-flight run lands.
+        assert cache._marker is None

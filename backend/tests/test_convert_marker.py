@@ -785,3 +785,105 @@ async def test_convert_marker_claim_is_not_reentrant() -> None:
     mc_mod.release_claim()
     assert mc_mod.try_claim() is True
     mc_mod.release_claim()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.1.12: the streamed upload must stay streamed end-to-end (I7)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_convert_marker_upload_never_reads_the_whole_pdf_into_memory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    POST /ingest/convert-marker must move its temp file into place, not read it back.
+
+    The handler streams the upload to a temp file in 65 KB chunks precisely so the body is
+    never held whole — then undid it with read_bytes()+write_bytes(). With
+    MARKER_MAX_UPLOAD_BYTES at 300 MB that is a 300 MB heap spike per file inside the
+    request handler. Any Path.read_bytes() on the temp file or the destination PDF fails
+    this test.
+    """
+    from pathlib import Path as _P
+
+    from app import config as cfg_mod
+
+    vault_path = tmp_path / "vault"
+    (vault_path / "raw" / "sources").mkdir(parents=True)
+    monkeypatch.setattr(cfg_mod.settings, "vault_path", str(vault_path))
+
+    real_read_bytes = _P.read_bytes
+    full_reads: list[str] = []
+
+    def _tracking_read_bytes(self: _P) -> bytes:
+        if self.suffix in (".pdf", ".marker_tmp") or ".marker_tmp" in self.name:
+            full_reads.append(str(self))
+        return real_read_bytes(self)
+
+    monkeypatch.setattr(_P, "read_bytes", _tracking_read_bytes)
+
+    pdf_bytes = _make_pdf_bytes()
+    files = [("files", ("report.pdf", io.BytesIO(pdf_bytes), "application/pdf"))]
+    async with _make_client() as client:
+        resp = await client.post("/ingest/convert-marker", files=files)
+
+    assert resp.status_code == 202
+    assert full_reads == [], f"upload body was read whole into memory: {full_reads}"
+
+    # The PDF still landed intact, at the same path, with vault-readable permissions
+    # (mkstemp creates 0600 — a bare rename would have handed Obsidian an unreadable file).
+    pdf_dst = vault_path / "raw" / "sources" / "report.pdf"
+    assert pdf_dst.exists()
+    assert real_read_bytes(pdf_dst) == pdf_bytes
+    assert pdf_dst.stat().st_mode & 0o777 == 0o644
+
+    # No .marker_tmp left behind by the move.
+    assert list((vault_path / "raw" / "sources").glob("*.marker_tmp")) == []
+
+
+@pytest.mark.asyncio
+async def test_marker_driver_streams_the_pdf_and_closes_the_handle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The background driver must hand httpx a file object, not the whole PDF as bytes.
+
+    httpx's multipart encoder reads a file object in 64 KB chunks (FileField.CHUNK_SIZE)
+    but yields a bytes value in one piece, so passing read_bytes() put up to 300 MB on the
+    heap again on the way out to Marker. The handle must also be closed on every exit —
+    including a failed conversion, where the excepts below would otherwise leak it.
+    """
+    from app import config as cfg_mod
+
+    vault_path = tmp_path / "vault"
+    (vault_path / "raw" / "sources").mkdir(parents=True)
+    monkeypatch.setattr(cfg_mod.settings, "vault_path", str(vault_path))
+
+    sent: list[Any] = []
+
+    async def _capture_post(*args: Any, **kwargs: Any) -> MagicMock:
+        sent.append(kwargs["files"]["file"][1])
+        # Fail the conversion so the handle is released from an EXCEPT path, not the
+        # happy path — that is the exit a hand-written close() would have missed.
+        raise TimeoutError("marker timed out")
+
+    mock_async_client = AsyncMock()
+    mock_async_client.post = _capture_post
+    mock_async_client.__aenter__ = AsyncMock(return_value=mock_async_client)
+    mock_async_client.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("httpx.AsyncClient", return_value=mock_async_client):
+        files = [("files", ("report.pdf", io.BytesIO(_make_pdf_bytes()), "application/pdf"))]
+        async with _make_client() as client:
+            resp = await client.post("/ingest/convert-marker", files=files)
+        assert resp.status_code == 202
+        await _drain_marker_task()
+
+    assert len(sent) == 1, "driver should have POSTed exactly once"
+    body = sent[0]
+    assert not isinstance(body, (bytes, bytearray)), "PDF was buffered whole instead of streamed"
+    assert hasattr(body, "read"), "expected a file object httpx can stream in chunks"
+    assert body.closed, "the PDF handle must be closed on the failure path too"
