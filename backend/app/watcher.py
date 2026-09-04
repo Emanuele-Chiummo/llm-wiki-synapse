@@ -277,6 +277,12 @@ class VaultWatcher:
 
         Uses os.scandir + next() — O(1) existence check, NOT a directory walk (I1).
         The notice is informational only; no DB write, no ingest triggered (ADR-0006).
+
+        Never raises. os.scandir() raises OSError, not just StopIteration — an unreadable
+        vault mount (PermissionError), or one that disappeared between the mkdir above and
+        this call (FileNotFoundError/NotADirectoryError), used to propagate out of start()
+        and through the FastAPI lifespan, so the WHOLE backend failed to boot rather than
+        starting without a watcher. A log line must never be able to do that.
         """
         try:
             with os.scandir(watch_dir) as it:
@@ -290,6 +296,15 @@ class VaultWatcher:
         except StopIteration:
             # Directory is empty — no notice needed
             pass
+        except OSError as exc:
+            # Cannot inspect the directory — skip the notice, let observer.schedule()
+            # below be the one to decide whether the watch itself is viable.
+            logger.warning(
+                "startup: could not check %s for pre-existing files (%s) — "
+                "skipping the startup notice",
+                watch_dir,
+                exc,
+            )
 
 
 # ── Module-level singleton ─────────────────────────────────────────────────────
