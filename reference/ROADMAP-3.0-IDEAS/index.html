@@ -761,6 +761,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#il-rate-limit-sui-fallimenti-di-autenticazione-non-ferma-un-brute-force-riscrive-solo-il-401-in-429" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il rate limit sui fallimenti di autenticazione non ferma un brute force: riscrive solo il 401 in 429
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -976,6 +987,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.12/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.12
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2435,6 +2474,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#il-rate-limit-sui-fallimenti-di-autenticazione-non-ferma-un-brute-force-riscrive-solo-il-401-in-429" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il rate limit sui fallimenti di autenticazione non ferma un brute force: riscrive solo il 401 in 429
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2850,6 +2900,37 @@ giorno senza mai ripagarsi.</p>
   di non toccare ciò che non è rotto. Va fatto insieme alla prima modifica che renda terminale
   una catena condivisa.</li>
 <li><strong>Trovato:</strong> 2026-08-28</li>
+</ul>
+<h3 id="il-rate-limit-sui-fallimenti-di-autenticazione-non-ferma-un-brute-force-riscrive-solo-il-401-in-429">Il rate limit sui fallimenti di autenticazione non ferma un brute force: riscrive solo il 401 in 429<a class="headerlink" href="#il-rate-limit-sui-fallimenti-di-autenticazione-non-ferma-un-brute-force-riscrive-solo-il-401-in-429" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>AuthFailureRateLimitMiddleware.dispatch()</code> chiama il limiter <strong>dopo</strong>
+  <code>call_next(request)</code>, e solo quando la risposta è già un 401. Il tentativo di
+  autenticazione viene quindi sempre eseguito per intero: superata la soglia, l'unico
+  effetto è che il 401 viene sostituito da un 429. Nulla viene bloccato. Peggio, il
+  controllo è cieco proprio sul caso che dovrebbe impedire: un token <strong>indovinato</strong>
+  risponde 200, non 401, quindi non passa mai dal limiter — un attaccante che tira
+  milioni di tentativi li vede tutti valutati, e quello giusto va a buon fine anche a
+  contatore ampiamente sforato. SEC-RL-1 dichiara "prevents token-guessing and
+  brute-force auth attacks": oggi non lo fa.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/rate_limit.py:297-315</code> (<code>dispatch()</code> — <code>response = await
+  call_next(request)</code> precede il check, che è dentro <code>if response.status_code == 401</code>);
+  <code>backend/app/rate_limit.py:175-245</code> (<code>_AuthFailureLimiter</code>, la contabilità in sé è
+  corretta); registrato in <code>backend/app/main.py:458</code>.</li>
+<li><strong>Impatto:</strong> medio. Il token statico è lungo e generato con <code>secrets</code>, quindi il brute
+  force resta impraticabile <em>per entropia</em>, non grazie a questo controllo — ma il
+  controllo è documentato come se ci fosse, il che è la parte che fa danno: nasconde
+  l'assenza di lockout a chi legge SECURITY.md o il docstring, e non c'è alcun costo
+  imposto all'attaccante (né ritardo, né blocco, né allarme oltre una riga di log).</li>
+<li><strong>Sforzo:</strong> M. La correzione non è spostare due righe: bloccare <em>prima</em> di
+  <code>call_next</code> significa introdurre un vero lockout per IP, che vale su <strong>ogni</strong> endpoint
+  e non solo su quelli autenticati — un frontend con un token sbagliato in configurazione
+  si auto-esclude dall'intera app per la durata della finestra. Va deciso il perimetro
+  (solo le route autenticate? solo <code>/mcp</code>?), la granularità (IP, o IP+token-prefix?), la
+  via di uscita per l'operatore chiuso fuori, e va accompagnato da un segnale visibile
+  (contatore in <code>/status</code>, non solo un WARNING nel log). È un cambio di comportamento
+  osservabile su un percorso di autenticazione: fuori dal mandato di una patch
+  settimanale, che per definizione non deve poter chiudere fuori l'utente.</li>
+<li><strong>Trovato:</strong> 2026-09-04</li>
 </ul>
 
 
