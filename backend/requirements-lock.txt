@@ -239,7 +239,7 @@ pygments==2.20.0
     #   rich-rst
 pyjwt==2.13.0
     # via mcp
-pypdf==5.9.0
+pypdf==6.14.2
     # via synapse-backend (pyproject.toml)
 pyperclip==1.11.0
     # via fastmcp-slim
