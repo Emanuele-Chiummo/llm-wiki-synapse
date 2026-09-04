@@ -201,7 +201,7 @@ pathspec==1.1.1
     #   mypy
 pillow==12.3.0
     # via python-pptx
-platformdirs==4.10.0
+platformdirs==4.10.1
     # via
     #   black
     #   fastmcp-slim
