@@ -245,9 +245,13 @@ async def _marker_batch_driver(
 
     try:
         for entry in batch.entries:
-            # ── Re-read PDF bytes from disk ──────────────────────────────────
+            # ── Confirm the PDF is still readable ────────────────────────────
+            # Opened (not read) here: the body is handed to httpx as a file object below
+            # so the multipart encoder streams it in 64 KB chunks. Reading it whole first
+            # put up to MARKER_MAX_UPLOAD_BYTES (300 MB) on the heap per file for no gain
+            # — the bytes went straight back out over the socket (I7).
             try:
-                pdf_bytes = Path(entry.pdf_abs_path).read_bytes()
+                pdf_handle = Path(entry.pdf_abs_path).open("rb")
             except OSError as exc:
                 entry.status = "failed"
                 entry.detail = f"Cannot read PDF from disk: {exc}"
@@ -269,7 +273,7 @@ async def _marker_batch_driver(
                         headers["Authorization"] = f"Bearer {service_token}"
                     response = await http.post(
                         convert_url,
-                        files={"file": (entry.safe_stem + ".pdf", pdf_bytes, "application/pdf")},
+                        files={"file": (entry.safe_stem + ".pdf", pdf_handle, "application/pdf")},
                         headers=headers if headers else None,
                     )
                 if response.status_code == 200:
@@ -290,6 +294,12 @@ async def _marker_batch_driver(
                 marker_detail = f"Marker microservice unreachable ({type(exc).__name__}): {exc}"
             except Exception as exc:  # noqa: BLE001
                 marker_detail = f"Unexpected Marker error: {exc}"
+            finally:
+                # Every exit closes the handle — including asyncio.CancelledError, which is
+                # a BaseException and passes straight through the excepts above (same shape
+                # as the 2.1.11 capability-slot leak). A batch of 10 leaked descriptors per
+                # cancelled run would otherwise accumulate for the life of the process.
+                pdf_handle.close()
 
             if not marker_ok:
                 entry.status = "failed"
