@@ -329,7 +329,26 @@ class GraphCache:
                 self._first_bump_at = self._clock()
                 self._fire_at = self._clock() + self._debounce
 
-        assert self._snapshot is not None  # mypy
+        if self._snapshot is None:
+            # Reachable, and NOT a "mypy only" branch as the previous `assert` assumed:
+            # on the very first GET /graph after boot there is no snapshot yet, so a second
+            # concurrent request takes the in-flight wait above — and _wait_for_in_flight()
+            # gives up after 10s. An FA2 recompute on a large vault can exceed that, and
+            # when it does, the waiter falls through with _in_flight still True: it skips
+            # the stale-serve branch (no snapshot) AND the inline branch (in-flight), and
+            # landed on the assert — AssertionError → 500 on a plain read endpoint (and,
+            # under `python -O`, a None return that breaks further downstream instead).
+            # Degrade the way the inline-recompute failure path already does: hand back an
+            # empty snapshot for this one request. _marker stays unset, so the next GET is
+            # still a MISS and picks up the real snapshot as soon as the run in flight lands.
+            logger.warning(
+                "GraphCache.get_graph: no snapshot available after in-flight wait "
+                "(recompute still running) — serving an empty snapshot for this request "
+                "vault_id=%r",
+                self._vault_id,
+            )
+            return GraphSnapshot(data_version=current_version), False
+
         return self._snapshot, False
 
     def get_cached_response(self, current_version: int) -> bytes | None:
