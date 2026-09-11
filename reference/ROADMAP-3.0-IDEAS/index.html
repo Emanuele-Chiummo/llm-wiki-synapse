@@ -772,6 +772,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#la-verifica-dei-token-api-blocca-levent-loop-per-175-ms-per-token-attivo-su-ogni-richiesta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La verifica dei token API blocca l'event loop per ~175 ms per token attivo, su ogni richiesta
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -987,6 +998,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.13/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.13
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2485,6 +2524,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#la-verifica-dei-token-api-blocca-levent-loop-per-175-ms-per-token-attivo-su-ogni-richiesta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La verifica dei token API blocca l'event loop per ~175 ms per token attivo, su ogni richiesta
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2931,6 +2981,41 @@ giorno senza mai ripagarsi.</p>
   osservabile su un percorso di autenticazione: fuori dal mandato di una patch
   settimanale, che per definizione non deve poter chiudere fuori l'utente.</li>
 <li><strong>Trovato:</strong> 2026-09-04</li>
+</ul>
+<h3 id="la-verifica-dei-token-api-blocca-levent-loop-per-175-ms-per-token-attivo-su-ogni-richiesta">La verifica dei token API blocca l'event loop per ~175 ms per token attivo, su ogni richiesta<a class="headerlink" href="#la-verifica-dei-token-api-blocca-levent-loop-per-175-ms-per-token-attivo-su-ogni-richiesta" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>ApiTokenCache.find_match()</code> è <strong>sincrona</strong> e viene chiamata dentro il
+  <code>__call__</code> del middleware ASGI. Per ogni token attivo che non corrisponde esegue un
+  <code>hashlib.pbkdf2_hmac(..., 260_000)</code> — misurato <strong>175 ms</strong> su questa macchina — e lo fa
+  nel thread dell'event loop, non in un worker. Non è lentezza di una richiesta: è l'intero
+  backend fermo (stream di chat in corso, SSE <code>/events</code>, watcher, tick del grafo) per tutta
+  la durata della scansione. Con N token attivi e nessuna corrispondenza il costo è N × 175 ms
+  per richiesta. Stessa forma in <code>McpOAuthTokenCache.find_match()</code>, sul gate di <code>/mcp/server</code>.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/auth.py:264</code> (chiamata sincrona nel middleware);
+  <code>backend/app/runtime_state.py:646-672</code> (<code>ApiTokenCache.find_match</code>, loop O(n) di PBKDF2) e
+  <code>backend/app/runtime_state.py:579-594</code> (la gemella OAuth); costo definito in
+  <code>backend/app/runtime_state.py:157</code> (<code>_PBKDF2_ITERS = 260_000</code>).</li>
+<li><strong>Impatto:</strong> medio-alto, e la parte scomoda è che <strong>non serve essere autenticati</strong>. Il token
+  di bootstrap è confrontato prima con <code>compare_digest</code> (veloce), quindi il percorso PBKDF2 si
+  raggiunge solo quando il bearer presentato <em>non</em> è quello — cioè con un token API scoped,
+  ma anche con un bearer qualsiasi inventato. Una sequenza di richieste con <code>Authorization:
+  Bearer &lt;spazzatura&gt;</code> costringe il backend a N × 175 ms di event loop bloccato ciascuna,
+  senza mai autenticarsi: è un denial of service a costo nullo per chi lo manda, e per
+  l'operatore si presenta come "il backend è diventato inspiegabilmente lentissimo". Il
+  docstring di <code>ApiTokenCache</code> è consapevole del loop O(n) ("expected to stay small") ma
+  ragiona sul <em>numero</em> di token, non sul fatto che ogni iterazione sia deliberatamente costosa
+  e sincrona.</li>
+<li><strong>Sforzo:</strong> M. Non è "avvolgerlo in <code>asyncio.to_thread</code>": spostare il lavoro su un worker
+  rende <code>find_match</code> asincrona su <strong>entrambi</strong> i middleware di autenticazione, e sposta il
+  problema invece di risolverlo (il pool di thread diventa la nuova coda). La correzione vera è
+  smettere di fare una scansione lineare: dare a ogni token un identificatore in chiaro
+  (<code>&lt;token_id&gt;.&lt;secret&gt;</code>, come fanno GitHub e Stripe) così la verifica è un lookup O(1) seguito
+  da <strong>un solo</strong> PBKDF2 — che però è un cambio di <strong>formato dei token già emessi</strong>, quindi
+  breaking, quindi 3.0 e non una patch. Va deciso anche il percorso di migrazione per i token
+  esistenti (doppia verifica per una release? rigenerazione forzata?) e se il costo PBKDF2
+  vada abbassato per i token generati con <code>secrets</code> (ad alta entropia), dove 260k iterazioni
+  difendono da un attacco a dizionario che non è applicabile.</li>
+<li><strong>Trovato:</strong> 2026-09-11</li>
 </ul>
 
 

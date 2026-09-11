@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/sprints/v0.4-m4-closure/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.13/">
       
       
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
+      
+      
+        <link rel="next" href="../v2.1.12/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>M4 Closure Record — Sprint 4 (v0.4) "Usable & fluid" - Synapse</title>
+        <title>v2.1.13 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#m4-closure-record-sprint-4-v04-usable-fluid" class="md-skip">
+        <a href="#synapse-v2113-one-stream-one-grant" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              M4 Closure Record — Sprint 4 (v0.4) "Usable &amp; fluid"
+              v2.1.13
             
           </span>
         </div>
@@ -650,8 +654,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -662,11 +668,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
           <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
@@ -687,7 +693,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -702,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.13/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.13
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -721,6 +754,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-remount-during-the-reconnect-backoff-left-a-second-unstoppable-events-stream-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A remount during the reconnect backoff left a second, unstoppable /events stream running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-non-ascii-pkce-value-answered-500-instead-of-invalid_grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A non-ASCII PKCE value answered 500 instead of invalid_grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -733,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.12/" class="md-nav__link">
+      <a href="../v2.1.12/" class="md-nav__link">
         
   
   
@@ -761,7 +875,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.11/" class="md-nav__link">
+      <a href="../v2.1.11/" class="md-nav__link">
         
   
   
@@ -789,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+      <a href="../v2.1.10/" class="md-nav__link">
         
   
   
@@ -817,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.9/" class="md-nav__link">
+      <a href="../v2.1.9/" class="md-nav__link">
         
   
   
@@ -845,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.8/" class="md-nav__link">
+      <a href="../v2.1.8/" class="md-nav__link">
         
   
   
@@ -873,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+      <a href="../v2.1.7/" class="md-nav__link">
         
   
   
@@ -901,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+      <a href="../v2.1.6/" class="md-nav__link">
         
   
   
@@ -929,7 +1043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -957,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -985,7 +1099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -1013,7 +1127,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -1041,7 +1155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -1069,7 +1183,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -1097,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -1125,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -1153,7 +1267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -1181,7 +1295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -1209,7 +1323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -1237,7 +1351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -1265,7 +1379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -1293,7 +1407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1321,7 +1435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1349,7 +1463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1377,7 +1491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1405,7 +1519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1433,7 +1547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1461,7 +1575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1489,7 +1603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1517,7 +1631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1545,7 +1659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1573,7 +1687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1601,7 +1715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1629,7 +1743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1657,7 +1771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1685,7 +1799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1713,7 +1827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1741,7 +1855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1769,7 +1883,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1797,7 +1911,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1825,7 +1939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1853,7 +1967,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1881,7 +1995,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1909,7 +2023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1937,7 +2051,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -1992,10 +2106,49 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#human-checkpoint-what-was-actually-exercised" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Human checkpoint — what was actually exercised
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-remount-during-the-reconnect-backoff-left-a-second-unstoppable-events-stream-running" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A remount during the reconnect backoff left a second, unstoppable /events stream running
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-non-ascii-pkce-value-answered-500-instead-of-invalid_grant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A non-ASCII PKCE value answered 500 instead of invalid_grant
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
       
     </span>
   </a>
@@ -2003,54 +2156,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#two-defects-found-in-live-testing-and-fixed" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Two defects found in live testing and fixed
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dev-environment-improvement-not-an-m4-defect" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Dev-environment improvement (not an M4 defect)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#release" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Release
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#gate-chain-final" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Gate chain (final)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#carry-forwards-into-m5-non-blocking-tracked" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Carry-forwards into M5 (non-blocking, tracked)
+        Upgrade notes
       
     </span>
   </a>
@@ -2074,135 +2183,153 @@
 
 
 
-<h1 id="m4-closure-record-sprint-4-v04-usable-fluid">M4 Closure Record — Sprint 4 (v0.4) "Usable &amp; fluid"<a class="headerlink" href="#m4-closure-record-sprint-4-v04-usable-fluid" title="Permanent link">&para;</a></h1>
-<p><strong>Date:</strong> 2026-06-29 · <strong>Verified live on:</strong> MacBook Pro (Docker Desktop, Ollama.app) · <strong>Verdict: MET</strong></p>
-<p>The PM gate verdict (<code>v0.4-hard-scope.md</code> §6-PM) was MET-WITH-FOLLOWUPS, blocked only on
-<strong>EC-M4-HCP</strong> — the human browser-testing checkpoint. Emanuele conducted that testing during
-the closure session, found two blocking usability defects, both were fixed, and the
-<code>v0.4.0</code> release was cut and pushed. This record clears EC-M4-HCP.</p>
-<h2 id="human-checkpoint-what-was-actually-exercised">Human checkpoint — what was actually exercised<a class="headerlink" href="#human-checkpoint-what-was-actually-exercised" title="Permanent link">&para;</a></h2>
-<p>Emanuele ran the full stack in the browser and tested the M4 surface. The session is the
-EC-M4-HCP checkpoint in action: real usage surfaced real defects that the automated gates
-could not (both were live-infra / UX issues, not logic bugs).</p>
-<table>
-<thead>
-<tr>
-<th>EC-M4-HCP condition</th>
-<th>Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>3-panel shell + labeled nav rail; sections switch without reload</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Sources → ingest runs list + Run Ingest</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Chat streams token-by-token, no freeze</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Settings → LLM Models editable (add/delete), persists</td>
-<td>✅ confirmed — <strong>defect found + fixed (see below)</strong></td>
-</tr>
-<tr>
-<td>Graph → sigma viewer, structural edges, hover-dim</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>docs/USER.md exists</td>
-<td>✅ (already met)</td>
-</tr>
-<tr>
-<td>Upload drag-drop in Sources</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Settings → Source Watch schedule card</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Nav rail shows text labels at ~72px</td>
-<td>✅ confirmed</td>
-</tr>
-<tr>
-<td>Settings renders 9-section left-nav</td>
-<td>✅ confirmed — <strong>defect found + fixed (Embeddings section)</strong></td>
-</tr>
-</tbody>
-</table>
-<h2 id="two-defects-found-in-live-testing-and-fixed">Two defects found in live testing and fixed<a class="headerlink" href="#two-defects-found-in-live-testing-and-fixed" title="Permanent link">&para;</a></h2>
-<ol>
-<li>
-<p><strong>Local (Ollama) provider could not be configured</strong> (commit <code>3e6bcaf</code>). The
-   Settings → LLM Models "Add provider" form hid the <code>base_url</code> field for
-   <code>provider_type=local</code>, so the Ollama server URL was stored as NULL and
-   <code>OllamaProvider</code> raised at runtime unless <code>OLLAMA_URL</code> env was set. The form now
-   shows <code>base_url</code> for both <code>local</code> and <code>api</code>, with type-specific placeholders
-   (<code>qwen2.5:3b</code>, <code>http://localhost:11434</code>). This is what blocked the developer from
-   pointing at his installed <code>qwen2.5:3b</code> model.</p>
-</li>
-<li>
-<p><strong>Embeddings section was a dead "coming in M5" stub</strong> (commit <code>3e6bcaf</code>). Replaced
-   with a live read-only display of <code>EMBEDDING_URL</code> / <code>EMBEDDING_MODEL</code> / <code>EMBEDDING_DIM</code>
-   via a new <code>GET /config/embedding</code> endpoint, so the developer can confirm <code>bge-m3</code> is
-   wired without opening <code>.env</code>.</p>
-</li>
-</ol>
-<p>Both slipped the sandbox gate because neither is verifiable without a human driving the
-provider form against a live Ollama — exactly the class of defect the human checkpoint
-exists to catch.</p>
-<h2 id="dev-environment-improvement-not-an-m4-defect">Dev-environment improvement (not an M4 defect)<a class="headerlink" href="#dev-environment-improvement-not-an-m4-defect" title="Permanent link">&para;</a></h2>
-<p>To make the human checkpoint repeatable on macOS, <code>docker-compose.dev.yml</code> was added
-(commits <code>196cf99</code>, <code>e4f3d1a</code>): a local-dev override that adds Qdrant + the Vite dev
-server as containers so the whole stack starts with one command. Ollama stays on the host.
-Production <code>docker-compose.yml</code> is unchanged (I9 respected).</p>
-<h2 id="release">Release<a class="headerlink" href="#release" title="Permanent link">&para;</a></h2>
-<p><code>v0.4.0 — Usable &amp; fluid (M4)</code> tagged on <code>sprint/v0.4</code> and published:
-https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases/tag/v0.4.0</p>
-<h2 id="gate-chain-final">Gate chain (final)<a class="headerlink" href="#gate-chain-final" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Gate</th>
-<th>Verdict</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>QA</td>
-<td>PASS-WITH-NOTES (460 pytest / 370 vitest green; ruff/black/eslint/tsc clean)</td>
-</tr>
-<tr>
-<td>Architect</td>
-<td>GREEN — I1–I9 all respected; ER zero drift; F17 sound</td>
-</tr>
-<tr>
-<td>Tech-writer</td>
-<td>PASS-WITH-PENDING (D2/D4/D5/D6/D7 current)</td>
-</tr>
-<tr>
-<td>PM</td>
-<td>MET-WITH-FOLLOWUPS → cleared by this record</td>
-</tr>
-<tr>
-<td><strong>Human (EC-M4-HCP)</strong></td>
-<td><strong>✅ CLEARED — this document</strong></td>
-</tr>
-</tbody>
-</table>
-<h2 id="carry-forwards-into-m5-non-blocking-tracked">Carry-forwards into M5 (non-blocking, tracked)<a class="headerlink" href="#carry-forwards-into-m5-non-blocking-tracked" title="Permanent link">&para;</a></h2>
+<h1 id="synapse-v2113-one-stream-one-grant">Synapse v2.1.13 — "one stream, one grant"<a class="headerlink" href="#synapse-v2113-one-stream-one-grant" title="Permanent link">&para;</a></h1>
+<p>Patch release closing two defects found by reading the SSE reconnect loop and the MCP OAuth
+PKCE check during weekly maintenance. No schema migrations, no new endpoints, no API changes,
+no new configuration keys.</p>
+<p>Like 2.1.8 through 2.1.12, neither came from a live failure report, and both are the same
+familiar shape: <em>a guard that does not guard</em>. One is a boolean asked to answer a question it
+cannot represent; the other is a validation gate written as if its inputs were already
+known-good, when they are raw form fields. In both cases the surrounding code states the right
+intent — the defect is that the intent is not what the code does.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="a-remount-during-the-reconnect-backoff-left-a-second-unstoppable-events-stream-running">A remount during the reconnect backoff left a second, unstoppable <code>/events</code> stream running<a class="headerlink" href="#a-remount-during-the-reconnect-backoff-left-a-second-unstoppable-events-stream-running" title="Permanent link">&para;</a></h3>
+<p><code>eventsStore.ts</code> runs one reader loop over the <code>GET /events</code> SSE channel, with reconnect on an
+exponential backoff. Whether that loop should keep going is decided by a single module-level
+boolean:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">controller</span><span class="o">:</span><span class="w"> </span><span class="kt">AbortController</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="kd">let</span><span class="w"> </span><span class="nx">stopped</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span><span class="p">;</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">runLoop</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">while</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">stopped</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">ctrl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nx">AbortController</span><span class="p">();</span>
+<span class="w">    </span><span class="nx">controller</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">ctrl</span><span class="p">;</span>
+<span class="w">    </span><span class="p">...</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="p">};</span>
+</code></pre></div>
+<p><code>stop()</code> sets <code>stopped = true</code> and aborts <code>controller</code>; <code>start()</code> sets it back to false and
+starts a loop. That works for one loop. It stops working the moment there can transiently be
+two — because <code>stopped</code> cannot distinguish <em>"the stream is stopped"</em> from <em>"a </em><em>newer</em><em> loop
+owns the stream now"</em>.</p>
+<p><strong>Root cause.</strong> One shared flag used as the exit condition for what is not always a single
+loop.</p>
+<p>The window is the reconnect backoff. A loop waiting there is suspended, not finished:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">const</span><span class="w"> </span><span class="nx">delay</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">backoffDelayMs</span><span class="p">(</span><span class="nx">consecutiveFailures</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mf">1</span><span class="p">);</span>
+<span class="k">await</span><span class="w"> </span><span class="ow">new</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="ow">void</span><span class="o">&gt;</span><span class="p">((</span><span class="nx">resolve</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="w"> </span><span class="p">});</span>
+<span class="c1">// ← resumes here, then re-tests `while (!stopped)`</span>
+</code></pre></div>
+<p>A <code>stop()</code> immediately followed by a <code>start()</code> — React StrictMode's double-effect, a Vite HMR
+reload, any <code>AppShell</code> remount — flips <code>stopped</code> true and then false again <em>before</em> the
+suspended loop resumes. When it does resume it re-tests the condition, finds <code>!stopped</code>, and
+carries on as though nothing happened: it opens its own connection alongside the one the new
+loop already opened, and overwrites <code>controller</code>, which only ever tracks the most recent.</p>
+<p>From that point the older loop is unreachable. <code>stop()</code> aborts a controller that is no longer
+its own, so the orphan:</p>
 <ul>
-<li>TRACEABILITY.md stale PENDING rows → GREEN (GAP-HARD-1, GAP-HARD-5, AC-F4-GUX-<em>, M4-Phase0-</em>)</li>
-<li><code>docs/sprints/v0.4-architect-review.md</code> — create to close the audit trail</li>
-<li><code>graphViewer.test.ts</code> (3 AC-F4-GUX vitest items), <code>test_seed_demo.py</code> (T-SEED items)</li>
-<li>CF-HARD-1: recapture <code>docs/screens/shell-collapsed-panel.png</code></li>
-<li>AC-HARD-SET-5: settings left-nav arrow-key handler</li>
+<li>holds a server-side <code>/events</code> generator open for the life of the tab;</li>
+<li>applies every <code>data_version</code> and <code>queue</code> frame to <code>statusStore</code> / <code>activityStore</code> a second
+  time;</li>
+<li>and is joined by one more on each subsequent remount.</li>
 </ul>
-<p><strong>M4 is MET. Sprint 5 (v0.5 / M5 — "Feature parity core") is cleared to start.</strong></p>
+<p>The backoff is not a rare place to be caught. It is entered on <strong>every</strong> reconnect, including
+the clean one the backend forces on every connection at <code>EVENTS_MAX_STREAM_SECONDS</code> (30 minutes
+by default), and it stretches to 30 seconds whenever the backend is unreachable — which is
+precisely when a developer is reloading the frontend most often.</p>
+<p><strong>Fix.</strong> A generation token. Each loop captures the generation it was started with and exits as
+soon as a newer one supersedes it, aborting its own controller on the way out:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">let</span><span class="w"> </span><span class="nx">generation</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">myGeneration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">++</span><span class="nx">generation</span><span class="p">;</span>
+<span class="kd">const</span><span class="w"> </span><span class="nx">isCurrent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="o">!</span><span class="nx">stopped</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nx">myGeneration</span><span class="w"> </span><span class="o">===</span><span class="w"> </span><span class="nx">generation</span><span class="p">;</span>
+</code></pre></div>
+<p><code>stop()</code> bumps the generation as well, so a suspended loop cannot be revived by a <code>start()</code> that
+flips <code>stopped</code> back before it resumes.</p>
+<p>The guard sits at <strong>both</strong> fall-through points, not only the <code>catch</code>. A clean server-side close
+leaves the reader via <code>done</code>, not via an exception, and reaches the same reconnect path:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="nx">isCurrent</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">ctrl</span><span class="p">.</span><span class="nx">abort</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>This is the same shape as the latent <code>pollChain</code> defect recorded in
+<a href="../../reference/ROADMAP-3.0-IDEAS/"><code>ROADMAP-3.0-IDEAS.md</code></a> on 2026-08-28, which was
+deliberately left alone because nothing could reach it. The difference here is that this one is
+reachable today, and the regression test (<code>T-SSE-009</code>) drives it deterministically: it asserts
+exactly two connection attempts across a stop/start straddling the backoff, and fails with
+three against the old code.</p>
+<h3 id="a-non-ascii-pkce-value-answered-500-instead-of-invalid_grant">A non-ASCII PKCE value answered 500 instead of <code>invalid_grant</code><a class="headerlink" href="#a-non-ascii-pkce-value-answered-500-instead-of-invalid_grant" title="Permanent link">&para;</a></h3>
+<p><code>_verify_pkce</code> (<code>app/mcp/oauth.py</code>) is the gate that decides whether an authorization code may
+be exchanged for a token. Both halves of its comparison refuse non-ASCII input by <strong>raising</strong>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">code_verifier</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">))</span><span class="o">.</span><span class="n">digest</span><span class="p">()</span>   <span class="c1"># UnicodeEncodeError</span>
+<span class="n">computed</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">urlsafe_b64encode</span><span class="p">(</span><span class="n">digest</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="sa">b</span><span class="s2">"="</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"ascii"</span><span class="p">)</span>
+<span class="k">return</span> <span class="n">secrets</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">computed</span><span class="p">,</span> <span class="n">code_challenge</span><span class="p">)</span>           <span class="c1"># TypeError</span>
+</code></pre></div>
+<p><code>str.encode("ascii")</code> raises <code>UnicodeEncodeError</code> on the verifier. <code>secrets.compare_digest()</code>
+raises <code>TypeError</code> — <em>"comparing strings with non-ASCII characters is not supported"</em> — on the
+challenge. Neither value had ever been checked for it, and both arrive as untrusted form
+fields: <code>code_verifier</code> on <code>POST /token</code>, <code>code_challenge</code> on <code>/authorize</code>.</p>
+<p>Nothing caught either exception, so a single non-ASCII byte propagated out of <code>POST /token</code> as
+an unhandled <strong>500</strong> — on an endpoint any client, or any prober, can reach.</p>
+<p><strong>Root cause.</strong> A validation gate written as if its inputs were already known-good, when they
+are raw form fields.</p>
+<p><strong>Fix.</strong> <code>_verify_pkce</code> fails <strong>closed</strong> on a non-ASCII verifier or challenge rather than
+raising. RFC 7636 §4.1 confines <code>code_verifier</code> — and therefore the BASE64URL challenge derived
+from it — to ASCII unreserved characters, so an input the gate cannot even hash is a failed
+verification, never an exception that escapes the caller:</p>
+<div class="highlight"><pre><span></span><code><span class="k">if</span> <span class="ow">not</span> <span class="n">_is_ascii</span><span class="p">(</span><span class="n">code_verifier</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_is_ascii</span><span class="p">(</span><span class="n">code_challenge</span><span class="p">):</span>
+    <span class="k">return</span> <span class="kc">False</span>
+</code></pre></div>
+<p>The challenge half is additionally refused <em>earlier</em>, at <code>/authorize</code>. A challenge that no
+verifier can ever match makes the grant dead on arrival, so there is no reason to mint a pending
+code for it — still less to render the consent form and ask the operator to type their static
+MCP token in to approve a code that could only ever fail. It is checked on the <code>POST</code> as well as
+the <code>GET</code>, since the consent form is not a trust boundary and the <code>POST</code> is reachable directly.</p>
+<p>Security posture is unchanged either way: the old behaviour already failed closed in the sense
+that no token was issued, and the authorization code had already been consumed (single-use)
+before verification ran. What changes is that a malformed request now gets the 400 it deserves
+instead of a 500, and stops generating unhandled-exception noise in the operator's logs.</p>
+<p>No conforming client is affected: a valid S256 challenge is BASE64URL, which is ASCII by
+construction.</p>
+<h2 id="also-in-this-release">Also in this release<a class="headerlink" href="#also-in-this-release" title="Permanent link">&para;</a></h2>
+<p>An entry was added to <a href="../../reference/ROADMAP-3.0-IDEAS/"><code>ROADMAP-3.0-IDEAS.md</code></a> for a third
+finding that is <strong>not</strong> fixed here: <code>ApiTokenCache.find_match()</code> runs a 260 000-iteration PBKDF2
+per active token, <strong>synchronously, inside the ASGI auth middleware</strong> — measured at 175 ms each,
+blocking the whole event loop (in-flight chat streams, <code>/events</code>, the watcher, graph ticks) for
+the duration of the scan.</p>
+<p>It is reachable unauthenticated. The bootstrap token is compared first with <code>compare_digest</code>, so
+the PBKDF2 path is taken whenever the presented bearer is <em>not</em> that token — including a bearer
+of pure garbage. A stream of such requests costs the backend N × 175 ms of blocked event loop
+each, at no cost to the sender, and presents to the operator as "the backend became
+inexplicably slow".</p>
+<p>The real fix stops scanning linearly: give each token a plaintext identifier
+(<code>&lt;token_id&gt;.&lt;secret&gt;</code>, as GitHub and Stripe do) so verification is an O(1) lookup followed by
+exactly one PBKDF2. That changes the on-the-wire format of tokens already issued — breaking,
+therefore 3.0, and not something to land in an unattended weekly patch that must never lock an
+operator out of their own backend.</p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p><strong>Nothing to do.</strong> Pull the image (or rebuild) and restart:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<ul>
+<li><strong>No schema migration.</strong> No SQLAlchemy model changed, so <code>docs/er/schema.mmd</code> is unchanged and
+  no Alembic revision ships with this release.</li>
+<li><strong>No API change.</strong> <code>docs/api/openapi.json</code> differs only in the version string. Request and
+  response shapes for <code>/events</code>, <code>/authorize</code> and <code>/token</code> are identical.</li>
+<li><strong>No new configuration.</strong> <code>EVENTS_MAX_STREAM_SECONDS</code>, <code>EVENTS_POLL_INTERVAL_SECONDS</code> and
+  <code>EVENTS_HEARTBEAT_INTERVAL_SECONDS</code> keep their meanings and defaults; nothing new to set in
+  <code>.env</code>.</li>
+<li><strong>Two observable differences, both by design:</strong></li>
+<li><code>POST /token</code> with a non-ASCII <code>code_verifier</code> now answers <strong>400</strong> (<code>invalid_grant</code>) where
+    it previously answered 500, and <code>/authorize</code> with a non-ASCII <code>code_challenge</code> now answers
+    <strong>400</strong> instead of rendering the consent form. Any connector that completes the flow today
+    is unaffected — a BASE64URL challenge is ASCII by construction.</li>
+<li>A browser tab that remounts the app shell no longer accumulates extra <code>/events</code>
+    connections. If you were seeing more concurrent SSE connections than open tabs, that is the
+    cause, and it resolves on upgrade with no action.</li>
+<li><strong>No client-side state to clear.</strong> Existing OAuth grants, refresh tokens and API tokens are
+  untouched; nothing needs to be re-approved or re-issued.</li>
+</ul>
 
 
 
