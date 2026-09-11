@@ -131,8 +131,31 @@ def _consume_code(code: str) -> _PendingCode | None:
     return _codes.pop(code, None)
 
 
+def _is_ascii(value: str) -> bool:
+    """
+    True iff *value* is pure ASCII — the precondition BOTH halves of the PKCE check need.
+
+    RFC 7636 §4.1 confines ``code_verifier`` (and therefore the BASE64URL ``code_challenge``
+    derived from it) to ASCII unreserved characters, but both arrive as untrusted form fields
+    and neither was checked, so a single non-ASCII byte raised straight out of the route as an
+    unhandled 500 rather than the ``invalid_grant`` it actually is — ``str.encode("ascii")``
+    raises ``UnicodeEncodeError`` on the verifier, and ``secrets.compare_digest()`` raises
+    ``TypeError`` ("comparing strings with non-ASCII characters is not supported") on the
+    challenge.
+    """
+    return value.isascii()
+
+
 def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
-    """S256 PKCE check (RFC 7636 §4.6): BASE64URL(SHA256(code_verifier)) == code_challenge."""
+    """
+    S256 PKCE check (RFC 7636 §4.6): BASE64URL(SHA256(code_verifier)) == code_challenge.
+
+    Fails CLOSED on a non-ASCII verifier or challenge (see ``_is_ascii``) rather than raising:
+    this is the gate that decides whether an authorization code may be exchanged, so an input
+    it cannot even hash is a failed verification, never an exception that escapes the caller.
+    """
+    if not _is_ascii(code_verifier) or not _is_ascii(code_challenge):
+        return False
     digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
     computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
     return secrets.compare_digest(computed, code_challenge)
@@ -330,6 +353,13 @@ async def authorize_form(
         )
     if not client_id or not code_challenge:
         raise HTTPException(status_code=400, detail="client_id and code_challenge are required")
+    # A non-ASCII challenge can never be matched by any verifier (RFC 7636 §4.1), so the grant
+    # it would authorize is dead on arrival. Reject it HERE, before the consent form asks the
+    # operator to type their static MCP token in to approve a code that could only ever fail.
+    if not _is_ascii(code_challenge):
+        raise HTTPException(
+            status_code=400, detail="code_challenge must be a BASE64URL (ASCII) value"
+        )
     if not redirect_uri or not _valid_redirect_uri(redirect_uri):
         raise HTTPException(
             status_code=400,
@@ -368,6 +398,13 @@ async def authorize_submit(
         raise _not_found()
     if not redirect_uri or not _valid_redirect_uri(redirect_uri):
         raise HTTPException(status_code=400, detail="invalid redirect_uri")
+    # Re-checked here, not just on the GET: this is the call that actually mints the code, and
+    # it is reachable directly (the consent form is not a trust boundary). Never store a
+    # pending code whose challenge no verifier can satisfy.
+    if not code_challenge or not _is_ascii(code_challenge):
+        raise HTTPException(
+            status_code=400, detail="code_challenge must be a BASE64URL (ASCII) value"
+        )
 
     if not runtime_state.verify_static_mcp_token(mcp_token):
         return HTMLResponse(
