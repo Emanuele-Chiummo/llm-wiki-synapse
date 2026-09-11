@@ -52,7 +52,7 @@ dev = [
     "pytest-httpx>=0.30.0",
     "aiosqlite>=0.20.0",
     "import-linter>=2.0",
-    "ruff==0.15.20",
+    "ruff==0.15.22",
     "black==26.5.1",
     "mypy==2.1.0",
     "types-pyyaml>=6.0.0",
