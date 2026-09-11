@@ -126,6 +126,17 @@ let refCount = 0;
 let stopped = true;
 let lastEventId: string | null = null;
 let consecutiveFailures = 0;
+/**
+ * Monotonic token identifying the ONE reader loop that is allowed to run.
+ *
+ * `stopped` alone cannot do this job: it is a single shared boolean, so a stop()
+ * immediately followed by a start() (a remount) flips it back to false while the
+ * PREVIOUS loop is still suspended mid-backoff. That loop then resumes, sees
+ * `!stopped`, and carries on opening its own connections alongside the new one —
+ * see the guard comments in runLoop(). Every loop captures the generation it was
+ * started with and exits as soon as it is superseded.
+ */
+let generation = 0;
 
 function clearReconnectTimer(): void {
   if (reconnectTimer !== null) {
@@ -167,9 +178,12 @@ export const useEventsStore = create<EventsState>((set) => ({
       };
     }
     stopped = false;
+    const myGeneration = ++generation;
+    /** True only while THIS loop is still the live one (see `generation`). */
+    const isCurrent = (): boolean => !stopped && myGeneration === generation;
 
     const runLoop = async (): Promise<void> => {
-      while (!stopped) {
+      while (isCurrent()) {
         set({ connectionState: "connecting" });
         const ctrl = new AbortController();
         controller = ctrl;
@@ -199,13 +213,18 @@ export const useEventsStore = create<EventsState>((set) => ({
             }
           }
         } catch {
-          if (ctrl.signal.aborted) {
-            // stop() was called — exit the loop cleanly, no reconnect.
+          if (ctrl.signal.aborted || !isCurrent()) {
+            // stop() was called (or a newer loop superseded us) — exit cleanly.
             return;
           }
         }
 
-        if (stopped) return;
+        // A clean server-side close (EVENTS_MAX_STREAM_SECONDS) lands here too, so this
+        // is the point at which a superseded loop must drop out rather than reconnect.
+        if (!isCurrent()) {
+          ctrl.abort();
+          return;
+        }
         set({ connectionState: "closed" });
         consecutiveFailures += 1;
         if (consecutiveFailures >= UNHEALTHY_AFTER_FAILURES) {
@@ -245,6 +264,9 @@ export const useEventsStore = create<EventsState>((set) => ({
 
   stop: () => {
     stopped = true;
+    // Supersede every live loop, so one that is suspended mid-backoff cannot be
+    // revived by a start() that flips `stopped` back to false before it resumes.
+    generation += 1;
     refCount = 0;
     controller?.abort();
     controller = null;

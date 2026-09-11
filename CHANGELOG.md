@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.13] — 2026-09-11 — "one stream, one grant"
+
+Patch release closing two defects found by reading the SSE reconnect loop and the MCP OAuth
+PKCE check during weekly maintenance. Neither came from a live failure report. No schema
+migrations, no API changes, no new config.
+
+### Fixed
+
+- **A remount during the reconnect backoff left a second, unstoppable `/events` stream
+  running**: `eventsStore.ts` guards its reader loop with a single module-level `stopped`
+  boolean, which cannot distinguish "the stream is stopped" from "a NEWER loop owns the
+  stream now". Root cause: one shared flag used as the exit condition for what can
+  transiently be more than one loop. A `stop()` immediately followed by a `start()` — React
+  StrictMode's double-effect, a Vite HMR reload, any `AppShell` remount — flips `stopped`
+  back to false while the previous loop is still suspended in its reconnect backoff. That
+  loop then resumes, reads `!stopped`, and simply carries on: it opens its own connection
+  alongside the new one and overwrites the module-level `controller`, which only ever tracks
+  the most recent. From that point the older loop is unreachable — `stop()` aborts a
+  controller that is no longer its own — so it holds a server-side `/events` generator open
+  for the life of the tab, applies every `data_version` and `queue` frame to the stores a
+  second time, and one more accumulates on each subsequent remount. The backoff window is not
+  a rare target: it is entered on every reconnect, including the clean one the backend forces
+  every `EVENTS_MAX_STREAM_SECONDS` (30 minutes by default), and it stretches to 30 seconds
+  whenever the backend is unreachable — exactly when a developer is most likely to be
+  reloading. Fixed with a generation token: each loop captures the generation it started with
+  and exits as soon as a newer one supersedes it, aborting its own controller on the way out;
+  `stop()` bumps the generation too, so a suspended loop can never be revived by a `start()`
+  that flips `stopped` back before it resumes. The guard sits at BOTH fall-through points,
+  not only the `catch` — a clean server-side close leaves the reader via `done`, not via an
+  exception, and reaches the same reconnect path. This is the same shape as the latent
+  `pollChain` defect recorded in `ROADMAP-3.0-IDEAS.md` on 2026-08-28, with the difference
+  that this one is reachable today and the regression test drives it deterministically.
+- **A non-ASCII PKCE value answered 500 instead of `invalid_grant`**: both halves of the
+  `_verify_pkce` comparison (`app/mcp/oauth.py`) refuse non-ASCII input by raising, and
+  neither value was checked for it — both arrive as untrusted form fields.
+  `code_verifier.encode("ascii")` raises `UnicodeEncodeError`, and `secrets.compare_digest()`
+  raises `TypeError` ("comparing strings with non-ASCII characters is not supported") on the
+  challenge. Nothing caught either, so one non-ASCII byte propagated out of `POST /token` as
+  an unhandled 500 on an endpoint any client — or any prober — can reach. Root cause: a
+  validation gate written as if its inputs were already known-good, when they are raw form
+  fields. `_verify_pkce` now fails CLOSED on a non-ASCII verifier or challenge: it is the gate
+  that decides whether an authorization code may be exchanged, so an input it cannot even hash
+  is a failed verification (RFC 7636 §4.1 confines both to ASCII unreserved characters), never
+  an exception that escapes the caller. The challenge half is additionally refused earlier, at
+  `/authorize` — a challenge that no verifier can ever match makes the grant dead on arrival,
+  so there is no reason to mint a pending code for it, still less to ask the operator to type
+  their static MCP token into the consent form to approve it. Checked on the POST as well as
+  the GET, since the consent form is not a trust boundary. No conforming client is affected: a
+  valid S256 challenge is BASE64URL, which is ASCII by construction.
+
 ## [2.1.12] — 2026-09-04 — "hold less, drop nothing"
 
 Patch release closing three defects found by reading the Marker conversion path, the watcher

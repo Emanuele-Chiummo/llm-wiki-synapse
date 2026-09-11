@@ -268,4 +268,38 @@ describe("useEventsStore.start() — reconnect on failure", () => {
     await vi.advanceTimersByTimeAsync(5_000);
     expect(mockedOpenEventsStream).toHaveBeenCalledTimes(1);
   });
+
+  // T-SSE-009 — regression: a restart during the backoff must not leave two loops running.
+  it("a stop()+start() while the backoff is pending leaves exactly ONE reader loop", async () => {
+    mockedOpenEventsStream.mockRejectedValueOnce(new Error("boom"));
+    // A fresh stream per call: one ReadableStream cannot be locked by two readers.
+    mockedOpenEventsStream.mockImplementation(
+      async () => ({ body: streamOf([]) }) as unknown as Response,
+    );
+
+    useEventsStore.getState().start();
+    await vi.advanceTimersByTimeAsync(0); // attempt 1 fails — the loop is now mid-backoff
+    expect(mockedOpenEventsStream).toHaveBeenCalledTimes(1);
+
+    // The consumer remounts while the backoff is still pending (StrictMode's
+    // double-effect, a Vite HMR reload, or any AppShell remount). stop() flips
+    // `stopped` true and start() flips it straight back to false — all before the
+    // suspended loop gets to resume.
+    useEventsStore.getState().stop();
+    useEventsStore.getState().start();
+
+    // Exactly one NEW connection (from the new loop). Before the generation guard the
+    // superseded loop also resumed and opened its own, giving two concurrent /events
+    // streams — and since `controller` only ever tracks the newest, the older one could
+    // never be aborted again: it held a server-side generator open and double-applied
+    // every frame to the stores, with one more added on each subsequent remount.
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockedOpenEventsStream).toHaveBeenCalledTimes(2);
+
+    // And the survivor is genuinely the live one: stop() must still close it.
+    useEventsStore.getState().stop();
+    expect(useEventsStore.getState().connectionState).toBe("idle");
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(mockedOpenEventsStream).toHaveBeenCalledTimes(2);
+  });
 });

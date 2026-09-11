@@ -22,7 +22,9 @@ Authorization endpoint (GET/POST /authorize):
 
 Token endpoint (POST /token):
   9.  Full authorization_code + PKCE round trip → 200 with access_token + refresh_token.
-  10. Wrong code_verifier → 400 (PKCE mismatch).
+  10. Wrong code_verifier → 400 (PKCE mismatch). A NON-ASCII code_verifier is likewise a 400,
+      not the unhandled 500 it used to raise; a non-ASCII code_challenge is refused earlier
+      still, at both GET and POST /authorize (2.1.13).
   11. Reusing an already-consumed code → 400 (single-use).
   12. client_id/redirect_uri mismatch against the issued code → 400.
   13. refresh_token grant rotates: old refresh_token stops working, new pair is minted.
@@ -354,6 +356,72 @@ class TestTokenEndpoint:
             },
         )
         assert resp.status_code == 400
+
+    async def test_non_ascii_code_verifier_is_400_not_500(self, client: AsyncClient) -> None:
+        """
+        A non-ASCII code_verifier is an invalid grant, not a server error.
+
+        ``code_verifier.encode("ascii")`` inside ``_verify_pkce`` raised UnicodeEncodeError,
+        which nothing caught: it propagated out of POST /token as an unhandled 500 on an
+        unauthenticated endpoint reachable by any client or prober.
+        """
+        _, challenge = _pkce_pair()
+        redirect_uri = "https://claude.ai/api/mcp/auth_callback"
+        code = await _approve_and_get_code(
+            client,
+            client_id="tok-client-nonascii-v",
+            redirect_uri=redirect_uri,
+            code_challenge=challenge,
+        )
+        resp = await client.post(
+            "/token",
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+                "client_id": "tok-client-nonascii-v",
+                "code_verifier": "café-verificatore-non-ascii",
+            },
+        )
+        assert resp.status_code == 400, resp.text
+
+    async def test_non_ascii_code_challenge_rejected_at_authorize(
+        self, client: AsyncClient
+    ) -> None:
+        """
+        The challenge half raised too: ``secrets.compare_digest()`` refuses to compare strings
+        with non-ASCII characters (TypeError → 500 at POST /token). It is now rejected at
+        /authorize instead, so no dead pending code is ever minted — and the operator is never
+        asked to type their static MCP token to approve a grant that could only ever fail.
+        """
+        redirect_uri = "https://claude.ai/api/mcp/auth_callback"
+
+        get_resp = await client.get(
+            "/authorize",
+            params={
+                "response_type": "code",
+                "client_id": "tok-client-nonascii-c",
+                "redirect_uri": redirect_uri,
+                "code_challenge": "sfídã-non-ascii",
+                "code_challenge_method": "S256",
+            },
+        )
+        assert get_resp.status_code == 400, get_resp.text
+
+        # The consent form is not a trust boundary — POST is reachable directly and must
+        # refuse it as well, rather than storing an unsatisfiable pending code.
+        post_resp = await client.post(
+            "/authorize",
+            data={
+                "client_id": "tok-client-nonascii-c",
+                "redirect_uri": redirect_uri,
+                "code_challenge": "sfídã-non-ascii",
+                "state": "",
+                "mcp_token": _MCP_TOKEN,
+            },
+            follow_redirects=False,
+        )
+        assert post_resp.status_code == 400, post_resp.text
 
     async def test_code_reuse_rejected(self, client: AsyncClient) -> None:
         verifier, challenge = _pkce_pair()
