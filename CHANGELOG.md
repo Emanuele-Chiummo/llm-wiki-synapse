@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.14] — 2026-09-18 — "degrade, don't die"
+
+Patch release closing two defects found by reading the web-search client and the import
+scheduler during weekly maintenance, plus a dependency sweep of the frontend build chain.
+Neither defect came from a live failure report. No schema migrations, no API changes, no new
+config.
+
+Both are the same shape as the last several weeks: *code that states an intent the code does
+not keep*. One is a function whose own abstraction documents "never raise into the caller" and
+that raises; the other is a loop that paces itself on a clock two of its three exits forget to
+advance.
+
+### Fixed
+
+- **A transport hiccup from SearXNG failed the whole deep-research run instead of returning
+  zero hits**: `WebSearchProvider._search_one` (`app/ops/web_search/base.py`) documents, for
+  EVERY backend, "Best-effort: on ANY failure return [] and log a WARNING — never raise into
+  the caller". Every opt-in adapter implements exactly that with a blanket `except`. The
+  DEFAULT backend did not: `ops/searxng.searxng_search()` caught
+  `(httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)`, and since `ConnectError`
+  is already a subclass of `NetworkError` that is two types, not three. Root cause: a function
+  whose contract is "never raise" written with an allow-list of the failures its author
+  happened to think of, rather than the deny-nothing guard the contract calls for. Everything
+  else under `TransportError` escaped — `RemoteProtocolError` (a server that disconnects
+  mid-response: the ordinary failure behind a Cloudflare tunnel or a restarting SearXNG
+  container), `ProxyError`, and `UnsupportedProtocol` (an operator saving a scheme-less
+  `searxng.local:8080` through `PUT /web-search/config`, which is stored and used verbatim) —
+  and `DecodingError`/`InvalidURL` are not `TransportError`s at all, so they escaped too. The
+  same hole existed on the SHAPE of the decoded body, which is a remote service's JSON and not
+  a validated schema: a top-level array made `data.get` an `AttributeError`, a non-list
+  `results` made the slice a `TypeError`, and a non-string `url`/`title` made the `SearchHit`
+  construction a pydantic `ValidationError`. The blast radius is not one query: the exception
+  propagates through `searxng_search_many`'s `asyncio.gather`, cancelling the other in-flight
+  queries, up to `run_deep_research`'s terminal handler, which marks the entire run `error` —
+  where the same failure through any opt-in backend returns `[]` and the run simply continues
+  with fewer sources. The chat web-context path was already insulated (`chat/stream.py` wraps
+  `build_web_context` in a broad `except`), which is why this surfaced as "deep research
+  sometimes dies" and never as a 500. Now any transport, decode or payload-shape failure logs a
+  WARNING and returns `[]`. `asyncio.CancelledError` is a `BaseException` in 3.11+, so
+  cancellation still passes through untouched.
+- **A manual import scan spun the scheduler loop at zero delay for as long as it ran**:
+  2.1.9 closed the zero-delay retry storm in `ImportScheduler._run()` (`app/import_scheduler.py`)
+  by pacing on the later of last SUCCESS and last ATTEMPT, stamping `_last_attempt_at` in the
+  `finally` so a scan that raises still costs a full interval. That covered two of the tick's
+  three exits. The third — "skipped, a scan is already in flight" — stamped nothing and
+  `continue`d, so the top of the loop recomputed the sleep from the SAME already-expired
+  reference, `max(0.0, full_interval - elapsed)` clamped to `0.0` again, and the loop spun with
+  two `load_schedule()` round-trips per iteration. Root cause: the same one as 2.1.9, through
+  the one door it did not cover — a pacing clock advanced by some exits of a tick and not
+  others, so any exit that forgets it re-enters an interval that has already expired. Reachable
+  with no adversary: the only producer of a concurrent scan is `run_now()`
+  (`POST /import-schedule/run-now`), and a manual scan of a large import folder runs for
+  minutes, hashing every file. If the scheduled tick comes due while that scan is in flight —
+  exactly when an operator reaches for **Run now**, because the import is overdue — the loop
+  spins for the whole duration. Two stamps close it: the skip path now advances the attempt
+  clock (also the correct semantics, since the in-flight scan *is* this interval's scan), and
+  `run_now()` advances it in its own `finally`, as `_run()` already did — it was the one scan
+  producer invisible to the clock. `_last_attempt_at` stays deliberately unpersisted, so the
+  R13-4/T4 restart catch-up behaviour is unchanged and a skipped tick still never touches
+  `_last_run_at`.
+
+### Security
+
+- **Frontend build chain: 7 advisories closed** via `npm audit fix` (no `--force`) — transitive
+  patch/minor bumps only, `package.json` untouched: `postcss` 8.5.16→8.5.28 (two
+  `sourceMappingURL` path-traversal advisories, arbitrary `.map` disclosure), `js-yaml`
+  4.3.0→4.3.2 (quadratic CPU in `!!omap`), `nanoid` 3.3.15→3.3.19 (infinite loop on
+  zero/negative size), `brace-expansion` (ReDoS, four pinned copies), `fast-uri` 3.1.3→3.1.8
+  (host confusion via a backslash authority delimiter), `browserslist` 4.28.4→4.29.0 (unbounded
+  cache growth). All are dev/build-chain only — `npm audit --omit=dev` reported 0 both before
+  and after, so nothing here ships in the production bundle; they are worth taking anyway
+  because `postcss` runs over project CSS at build time and the two path-traversal advisories
+  are against exactly that. The 6 remaining advisories all require a MAJOR bump of `vite` or
+  `vitest` and are out of scope for a patch release.
+
 ## [2.1.13] — 2026-09-11 — "one stream, one grant"
 
 Patch release closing two defects found by reading the SSE reconnect loop and the MCP OAuth
