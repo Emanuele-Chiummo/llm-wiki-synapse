@@ -783,6 +783,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pypdf-e-bloccato-a-590-da-un-vincolo-6-e-le-correzioni-di-sicurezza-vivono-solo-nella-6x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf è bloccato a 5.9.0 da un vincolo &lt;6, e le correzioni di sicurezza vivono solo nella 6.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#il-contesto-rag-include-il-frontmatter-yaml-delle-pagine-e-lo-paga-dal-budget-del-passaggio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il contesto RAG include il frontmatter YAML delle pagine, e lo paga dal budget del passaggio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#la-cancellazione-a-cascata-limita-al-vault-solo-uno-dei-tre-metodi-di-ricerca-dei-riferimenti" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La cancellazione a cascata limita al vault solo uno dei tre metodi di ricerca dei riferimenti
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -998,6 +1031,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.14/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.14
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2535,6 +2596,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#pypdf-e-bloccato-a-590-da-un-vincolo-6-e-le-correzioni-di-sicurezza-vivono-solo-nella-6x" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pypdf è bloccato a 5.9.0 da un vincolo &lt;6, e le correzioni di sicurezza vivono solo nella 6.x
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#il-contesto-rag-include-il-frontmatter-yaml-delle-pagine-e-lo-paga-dal-budget-del-passaggio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il contesto RAG include il frontmatter YAML delle pagine, e lo paga dal budget del passaggio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#la-cancellazione-a-cascata-limita-al-vault-solo-uno-dei-tre-metodi-di-ricerca-dei-riferimenti" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        La cancellazione a cascata limita al vault solo uno dei tre metodi di ricerca dei riferimenti
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3016,6 +3110,92 @@ giorno senza mai ripagarsi.</p>
   vada abbassato per i token generati con <code>secrets</code> (ad alta entropia), dove 260k iterazioni
   difendono da un attacco a dizionario che non è applicabile.</li>
 <li><strong>Trovato:</strong> 2026-09-11</li>
+</ul>
+<h3 id="pypdf-e-bloccato-a-590-da-un-vincolo-6-e-le-correzioni-di-sicurezza-vivono-solo-nella-6x">pypdf è bloccato a 5.9.0 da un vincolo <code>&lt;6</code>, e le correzioni di sicurezza vivono solo nella 6.x<a class="headerlink" href="#pypdf-e-bloccato-a-590-da-un-vincolo-6-e-le-correzioni-di-sicurezza-vivono-solo-nella-6x" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>pypdf</code> è l'estrattore PDF <strong>predefinito e incondizionato</strong> (<code>pdf_extractor:
+  str = "pypdf"</code>; anche con Marker o MinerU attivi, <code>extract.py</code> ricade su pypdf su
+  qualunque fallimento — decisione PM, documentata). Parsa quindi input non fidato per
+  costruzione: upload da <code>POST /ingest/upload</code>, pagine catturate dal clipper, e i PDF che
+  la deep research scarica da risultati di ricerca web. <code>pip-audit</code> sull'albero risolto
+  riporta <strong>oltre 80 advisory note</strong> per pypdf 5.9.0 — in larga parte loop infiniti,
+  ricorsione illimitata ed esaurimento di memoria su PDF malformati, cioè esattamente la
+  classe raggiungibile da un file che un estraneo sceglie. Nessuna ha una correzione nella
+  linea 5.x: le versioni di fix dichiarate partono da 6.0.0 e arrivano a 6.16.1.</li>
+<li><strong>Evidenza:</strong> <code>backend/pyproject.toml:34</code> (<code>"pypdf&gt;=4.2,&lt;6"</code> — il tetto che impedisce
+  l'aggiornamento); <code>backend/requirements-lock.txt:242</code> e
+  <code>backend/requirements-prod-lock.txt:207</code> (<code>pypdf==5.9.0</code>, immagine di produzione inclusa);
+  <code>backend/app/config.py:866-873</code> (default <code>"pypdf"</code>) e <code>:904</code> (fallback permanente e
+  incondizionato); <code>backend/app/ops/deep_research.py:699-700</code> (<code>_extract_pdf_body</code>, PDF presi
+  dal web). Riproducibile con <code>pip-audit</code> nel venv di backend.</li>
+<li><strong>Impatto:</strong> medio-alto. Non è esecuzione di codice: è denial of service su un percorso
+  che un file può innescare da solo. Un PDF costruito ad arte — caricato, clippato, o
+  semplicemente <strong>linkato da un risultato SearXNG durante una deep research</strong>, dove nessun
+  umano ha scelto il file — può impegnare CPU o RAM in un thread worker finché il container
+  non viene riavviato. Il tetto <code>&lt;6</code> significa anche che ogni advisory futura su pypdf
+  resterà non applicabile finché il vincolo non cambia: il debito non è statico, cresce.</li>
+<li><strong>Sforzo:</strong> M. Il salto 5.9 → 6.x è <strong>major</strong>, quindi fuori dal mandato della manutenzione
+  settimanale per definizione (§3 del runbook). pypdf 6 ha rimosso API deprecate della linea
+  4/5, perciò va verificato che <code>ingest/extract.py</code> non ne usi nessuna, che l'estrazione di
+  testo continui a produrre lo stesso output sul corpus di test (la resa cambia tra versioni:
+  è una regressione silenziosa sul contenuto del wiki, non un errore), e vanno rigenerati
+  entrambi i lock. Da fare come voce a sé, con un confronto prima/dopo su PDF reali, non
+  infilato in una patch.</li>
+<li><strong>Trovato:</strong> 2026-09-18</li>
+</ul>
+<h3 id="il-contesto-rag-include-il-frontmatter-yaml-delle-pagine-e-lo-paga-dal-budget-del-passaggio">Il contesto RAG include il frontmatter YAML delle pagine, e lo paga dal budget del passaggio<a class="headerlink" href="#il-contesto-rag-include-il-frontmatter-yaml-delle-pagine-e-lo-paga-dal-budget-del-passaggio" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>_load_passage()</code> legge il file sorgente con <code>read_text()</code> e lo passa
+  direttamente all'assemblaggio del blocco <code>[n]</code>. Nessuno rimuove il frontmatter: ogni
+  pagina wiki citata entra nel contesto del modello con il suo blocco <code>---</code> in testa
+  (<code>type</code>, <code>title</code>, <code>sources[]</code>, <code>tags</code>, <code>domain</code>, <code>generation_key</code>…). Il docstring della
+  funzione dice "Read the <strong>body</strong> of a single source file", e tutto il resto del codice che
+  legge una pagina usa <code>frontmatter.loads(raw).content</code> per ottenerla davvero — questo è
+  l'unico punto che non lo fa.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/rag/retrieval.py:884-908</code> (<code>_load_passage</code>, nessun parse del
+  frontmatter); <code>backend/app/rag/retrieval.py:811</code> e <code>:818-830</code> (il passaggio finisce
+  verbatim nel blocco <code>[n]</code>); da confrontare con <code>backend/app/ops/cascade_delete.py:204-218</code>
+  e <code>backend/app/ops/lint/fixes.py:108-118</code>, che separano le due parti. Il caso non è
+  coperto: i test di assemblaggio scrivono file sorgente <strong>senza</strong> frontmatter
+  (<code>backend/tests/test_retrieval.py:591</code>), quindi la differenza non è mai osservata.</li>
+<li><strong>Impatto:</strong> basso-medio, ma su ogni turno di chat. Il costo è doppio: il frontmatter
+  consuma il <code>per_passage_cap</code> (<code>budget_chars // len(ranked)</code>), quindi su un contesto stretto
+  taglia testo reale in coda al passaggio; e immette nel prompt chiavi che il modello può
+  citare come se fossero contenuto (<code>sources: [raw/sources/…]</code> è un percorso di filesystem,
+  non una fonte da mostrare all'utente). Su una pagina corta con <code>sources[]</code> lungo il
+  frontmatter può essere la maggioranza del blocco.</li>
+<li><strong>Sforzo:</strong> S per il codice, M per il resto. La riga è una sola, ma cambia <strong>il testo
+  inviato al provider a ogni turno</strong>: è un cambio funzionale su un flusso esistente, cioè
+  esattamente ciò che una patch settimanale non deve fare (§3 del runbook). Va accompagnato
+  da una decisione esplicita su cosa tenere — <code>title</code> e <code>type</code> hanno valore come contesto,
+  <code>generation_key</code> e <code>sources[]</code> no — e da un confronto di qualità delle risposte prima/dopo,
+  non dedotto.</li>
+<li><strong>Trovato:</strong> 2026-09-18</li>
+</ul>
+<h3 id="la-cancellazione-a-cascata-limita-al-vault-solo-uno-dei-tre-metodi-di-ricerca-dei-riferimenti">La cancellazione a cascata limita al vault solo uno dei tre metodi di ricerca dei riferimenti<a class="headerlink" href="#la-cancellazione-a-cascata-limita-al-vault-solo-uno-dei-tre-metodi-di-ricerca-dei-riferimenti" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>cascade_delete</code> trova le pagine che referenziano quella da eliminare con tre
+  metodi. Il metodo (b) filtra esplicitamente <code>Page.vault_id == settings.vault_id</code>, con un
+  commento che spiega perché: il confronto avviene su <code>slugify(target_title)</code>, che può
+  collidere tra vault. Il metodo (a) fa un <code>OR</code> che include <code>Link.target_title == title</code> —
+  lo stesso confronto per titolo, sulla stessa tabella — e il metodo (c) enumera
+  <code>Page.file_path LIKE 'wiki/%'</code>: <strong>nessuno dei due applica quel filtro</strong>. La protezione è
+  stata messa su uno dei tre punti che ne hanno bisogno.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/ops/cascade_delete.py:296-306</code> (metodo (b), il filtro presente
+  e commentato); <code>backend/app/ops/cascade_delete.py:236-258</code> (metodo (a), <code>or_(target_page_id
+  == page_id, target_title == title)</code> e risoluzione delle pagine sorgente senza <code>vault_id</code>);
+  <code>backend/app/ops/cascade_delete.py:340-352</code> (metodo (c), enumerazione senza <code>vault_id</code>).</li>
+<li><strong>Impatto:</strong> nullo oggi, per la stessa ragione dichiarata nel commento del metodo (b): il
+  processo serve un solo <code>settings.vault_id</code>. Diventa una perdita di dati — riscrittura di
+  <code>[[wikilink]]</code> in file di un altro vault — il giorno in cui più vault condividono un
+  database, che è la direzione in cui il modello dati già punta (<code>Page.vault_id</code>,
+  <code>project_registry</code>, il selettore di vault nel frontend).</li>
+<li><strong>Sforzo:</strong> S come diff, M come verifica. Aggiungere il predicato è banale; stabilire che
+  i tre metodi abbiano ora <em>esattamente</em> lo stesso perimetro, e che nessun test esistente
+  dipenda dal comportamento attuale, è il lavoro vero. Non urgente, ma va fatto <strong>prima</strong> e
+  non dopo la prima funzionalità multi-vault reale: dopo, il bug è una cancellazione già
+  avvenuta.</li>
+<li><strong>Trovato:</strong> 2026-09-18</li>
 </ul>
 
 

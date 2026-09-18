@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/reference/BRAND-v1-INTEGRATION/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.14/">
       
       
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
+      
+      
+        <link rel="next" href="../v2.1.13/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>Brand v1.0 integration (2026-07-10) - Synapse</title>
+        <title>v2.1.14 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#brand-v10-integration-2026-07-10" class="md-skip">
+        <a href="#synapse-v2114-degrade-dont-die" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Brand v1.0 integration (2026-07-10)
+              v2.1.14
             
           </span>
         </div>
@@ -475,7 +479,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ROADMAP-3.0-IDEAS/" class="md-nav__link">
+      <a href="../../reference/ROADMAP-3.0-IDEAS/" class="md-nav__link">
         
   
   
@@ -503,7 +507,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ROADMAP-v1.3-v2.0/" class="md-nav__link">
+      <a href="../../reference/ROADMAP-v1.3-v2.0/" class="md-nav__link">
         
   
   
@@ -531,7 +535,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../ROADMAP-v0.7-v1.0/" class="md-nav__link">
+      <a href="../../reference/ROADMAP-v0.7-v1.0/" class="md-nav__link">
         
   
   
@@ -650,8 +654,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -662,11 +668,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
           <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
@@ -687,7 +693,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -702,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.14/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.14
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -721,6 +754,115 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-transport-hiccup-from-searxng-failed-the-whole-deep-research-run-instead-of-returning-zero-hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A transport hiccup from SearXNG failed the whole deep-research run instead of returning zero hits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-manual-import-scan-spun-the-scheduler-loop-at-zero-delay-for-as-long-as-it-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A manual import scan spun the scheduler loop at zero delay for as long as it ran
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frontend-build-chain-7-advisories-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend build chain: 7 advisories closed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recorded-not-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded, not fixed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -733,7 +875,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.13/" class="md-nav__link">
+      <a href="../v2.1.13/" class="md-nav__link">
         
   
   
@@ -761,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.12/" class="md-nav__link">
+      <a href="../v2.1.12/" class="md-nav__link">
         
   
   
@@ -789,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.11/" class="md-nav__link">
+      <a href="../v2.1.11/" class="md-nav__link">
         
   
   
@@ -817,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+      <a href="../v2.1.10/" class="md-nav__link">
         
   
   
@@ -845,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.9/" class="md-nav__link">
+      <a href="../v2.1.9/" class="md-nav__link">
         
   
   
@@ -873,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.8/" class="md-nav__link">
+      <a href="../v2.1.8/" class="md-nav__link">
         
   
   
@@ -901,7 +1043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+      <a href="../v2.1.7/" class="md-nav__link">
         
   
   
@@ -929,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+      <a href="../v2.1.6/" class="md-nav__link">
         
   
   
@@ -957,7 +1099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -985,7 +1127,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -1013,7 +1155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -1041,7 +1183,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -1069,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -1097,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -1125,7 +1267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -1153,7 +1295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -1181,7 +1323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -1209,7 +1351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -1237,7 +1379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -1265,7 +1407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -1293,7 +1435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -1321,7 +1463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1349,7 +1491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1377,7 +1519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1405,7 +1547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1433,7 +1575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1461,7 +1603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1489,7 +1631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1517,7 +1659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1545,7 +1687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1573,7 +1715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1601,7 +1743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1629,7 +1771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1657,7 +1799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1685,7 +1827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1713,7 +1855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1741,7 +1883,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1769,7 +1911,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1797,7 +1939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1825,7 +1967,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1853,7 +1995,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1881,7 +2023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1909,7 +2051,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1937,7 +2079,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1965,7 +2107,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -2020,10 +2162,77 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#facts-from-the-guidelines-pdf" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Facts (from the guidelines PDF)
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-transport-hiccup-from-searxng-failed-the-whole-deep-research-run-instead-of-returning-zero-hits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A transport hiccup from SearXNG failed the whole deep-research run instead of returning zero hits
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-manual-import-scan-spun-the-scheduler-loop-at-zero-delay-for-as-long-as-it-ran" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A manual import scan spun the scheduler loop at zero delay for as long as it ran
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frontend-build-chain-7-advisories-closed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend build chain: 7 advisories closed
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recorded-not-fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recorded, not fixed
       
     </span>
   </a>
@@ -2031,32 +2240,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#alignment-vs-current-synapse" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Alignment vs current Synapse
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#integration-targets-br-stream" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Integration targets (BR stream)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#guardrails" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Guardrails
+        Upgrade notes
       
     </span>
   </a>
@@ -2080,66 +2267,245 @@
 
 
 
-<h1 id="brand-v10-integration-2026-07-10">Brand v1.0 integration (2026-07-10)<a class="headerlink" href="#brand-v10-integration-2026-07-10" title="Permanent link">&para;</a></h1>
-<blockquote>
-<p>Source: owner-provided <code>Brand/</code> (absolute: <code>&lt;repo&gt;/Brand/</code>) — <code>Synapse Brand Guidelines.pdf</code>
-+ <code>png/</code> (app-icon light + dark, favicon, mark variants). This is the <strong>BR (branding) stream</strong>
-of the v1.5 program, run in parallel with the feature phases.</p>
-</blockquote>
-<h2 id="facts-from-the-guidelines-pdf">Facts (from the guidelines PDF)<a class="headerlink" href="#facts-from-the-guidelines-pdf" title="Permanent link">&para;</a></h2>
-<p><strong>Concept:</strong> neural connection + linked-notes graph + a hidden "S". Two terminals firing across a
-central junction. Tagline: <em>"Connect everything."</em></p>
-<p><strong>Color (light):</strong>
-- Blue <code>#1D4ED8</code> · Indigo <code>#4338CA</code> · Violet <code>#7C3AED</code> · Accent·light <code>#2563EB</code>
-- Gradient runs <strong>diagonally, bottom-left → top-right</strong>. Max 2–3 colors, never rainbow.</p>
-<p><strong>Color (dark icon):</strong> background <code>#0B0E20 → #211A4F</code> (deep indigo-black); mark
-<code>#58A6FF → #C084FC</code> (brighter blue→violet — "a signal firing in the dark").</p>
-<p><strong>App icon:</strong> squircle, <strong>corner radius 22%</strong>. Master icon at <strong>≥48px</strong>; below <strong>24px</strong> use the
-<strong>simplified favicon variant</strong> (three nodes, one thicker S, no satellites). Keep gradient BL→TR;
-give clear space. Do NOT rotate/reflow, add text inside, recolor, or stretch/skew.</p>
-<p><strong>Typography:</strong> <strong>Geist</strong> — Regular 400 / Medium 500 / Semibold 600. Wordmark = Geist Semibold,
-letter-spacing <strong>−0.02em</strong>. Mono reserved for labels, code, metadata.</p>
-<p><strong>Provided assets (<code>Brand/png/</code>):</strong>
-- <code>app-icon/synapse-icon-{16,32,64,180,256,512,1024}.png</code> — light squircle icon.
-- <code>app-icon-dark/synapse-icon-dark-{...}.png</code> — dark squircle icon.
-- <code>favicon/synapse-favicon-{16,32,48}.png</code> — simplified small-size mark.
-- <code>mark/synapse-mark-{blue,ink,lightblue,white}-1024.png</code> — the S-mark, no tile.</p>
-<h2 id="alignment-vs-current-synapse">Alignment vs current Synapse<a class="headerlink" href="#alignment-vs-current-synapse" title="Permanent link">&para;</a></h2>
+<h1 id="synapse-v2114-degrade-dont-die">Synapse v2.1.14 — "degrade, don't die"<a class="headerlink" href="#synapse-v2114-degrade-dont-die" title="Permanent link">&para;</a></h1>
+<p>Patch release closing two defects found by reading the web-search client and the import
+scheduler during weekly maintenance, plus a dependency sweep of the frontend build chain. No
+schema migrations, no new endpoints, no API changes, no new configuration keys.</p>
+<p>Like 2.1.8 through 2.1.13, neither defect came from a live failure report, and both are the
+same familiar shape: <em>code that states an intent the code does not keep</em>. One is a function
+whose own abstraction documents "never raise into the caller" and that raises. The other is a
+loop that paces itself on a clock which two of its three exits remember to advance and the
+third does not — the same root cause 2.1.9 fixed, through the one door it did not cover.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="a-transport-hiccup-from-searxng-failed-the-whole-deep-research-run-instead-of-returning-zero-hits">A transport hiccup from SearXNG failed the whole deep-research run instead of returning zero hits<a class="headerlink" href="#a-transport-hiccup-from-searxng-failed-the-whole-deep-research-run-instead-of-returning-zero-hits" title="Permanent link">&para;</a></h3>
+<p>Every web-search backend in Synapse sits behind one abstraction, and that abstraction is
+explicit about what a backend owes its caller:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@abstractmethod</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_search_one</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">SearchHit</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Run ONE query → hits. Best-effort: on ANY failure return [] and log a WARNING —</span>
+<span class="sd">    never raise into the caller (degrade to fewer/zero hits, same as SearXNG, I9).</span>
+<span class="sd">    """</span>
+</code></pre></div>
+<p>Every opt-in adapter under <code>app/ops/web_search/</code> implements exactly that, with a blanket
+<code>except Exception</code> around the whole call. The <strong>default</strong> backend did not:</p>
+<div class="highlight"><pre><span></span><code><span class="k">try</span><span class="p">:</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">httpx</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">15.0</span><span class="p">)</span> <span class="k">as</span> <span class="n">client</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="n">params</span><span class="p">)</span>
+<span class="k">except</span> <span class="p">(</span><span class="n">httpx</span><span class="o">.</span><span class="n">TimeoutException</span><span class="p">,</span> <span class="n">httpx</span><span class="o">.</span><span class="n">ConnectError</span><span class="p">,</span> <span class="n">httpx</span><span class="o">.</span><span class="n">NetworkError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"searxng_search: request failed for </span><span class="si">%r</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> — returning []"</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[]</span>
+</code></pre></div>
+<p>That reads like three failure types. It is two: <code>ConnectError</code> is already a subclass of
+<code>NetworkError</code>.</p>
+<p><strong>Root cause.</strong> A function whose contract is <em>"never raise"</em>, written with an allow-list of the
+failures its author happened to think of instead of the deny-nothing guard the contract calls
+for.</p>
+<p>What escaped, from the same <code>httpx</code> tree:</p>
+<table>
+<thead>
+<tr>
+<th>Exception</th>
+<th>Parent</th>
+<th>Realistic trigger</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RemoteProtocolError</code></td>
+<td><code>ProtocolError</code> → <code>TransportError</code></td>
+<td>the server disconnects mid-response — the ordinary failure behind a Cloudflare tunnel, or a SearXNG container that restarts under load</td>
+</tr>
+<tr>
+<td><code>UnsupportedProtocol</code></td>
+<td><code>TransportError</code></td>
+<td>an operator saves a scheme-less <code>searxng.local:8080</code> through <code>PUT /web-search/config</code>; the value is stored and used verbatim</td>
+</tr>
+<tr>
+<td><code>ProxyError</code></td>
+<td><code>TransportError</code></td>
+<td>an outbound proxy refuses the tunnel</td>
+</tr>
+<tr>
+<td><code>DecodingError</code></td>
+<td><code>RequestError</code></td>
+<td>a mis-declared <code>Content-Encoding</code> on the response</td>
+</tr>
+<tr>
+<td><code>InvalidURL</code></td>
+<td><code>Exception</code></td>
+<td>a malformed base URL — not a <code>TransportError</code> at all</td>
+</tr>
+</tbody>
+</table>
+<p>The same hole existed one layer further in, on the <em>shape</em> of the decoded body. That body is a
+remote service's JSON, not a validated schema: a top-level array made <code>data.get(...)</code> an
+<code>AttributeError</code>, a non-list <code>results</code> made <code>raw_results[:max_results]</code> a <code>TypeError</code>, and a
+non-string <code>url</code> or <code>title</code> made the <code>SearchHit(...)</code> construction a pydantic
+<code>ValidationError</code>.</p>
+<p><strong>The blast radius is not one query.</strong> <code>searxng_search_many</code> fans queries out through
+<code>asyncio.gather</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">results_nested</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">_bounded_search</span><span class="p">(</span><span class="n">q</span><span class="p">)</span> <span class="k">for</span> <span class="n">q</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">])</span>
+</code></pre></div>
+<p>A bare <code>gather</code> propagates the first exception and abandons its siblings, so one bad query
+takes the other two down with it. From there the exception climbs to <code>run_deep_research</code>'s
+terminal handler, which does exactly what it is supposed to do with an unhandled error —
+marks the whole run <code>error</code> and stops:</p>
+<div class="highlight"><pre><span></span><code><span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">"error"</span>
+    <span class="n">error_message</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+</code></pre></div>
+<p>So a single mid-response disconnect ends a multi-iteration research run, discarding the
+sources already collected and skipping synthesis entirely. The identical failure through any
+opt-in backend returns <code>[]</code>, and the run simply continues with fewer sources.</p>
+<p>This never showed up as a 500, which is why it went unnoticed: the other caller, chat
+web-context, already wraps <code>build_web_context</code> in a broad <code>except</code> (<code>app/chat/stream.py</code>) and
+carries on without web results. The symptom was only ever "deep research sometimes dies".</p>
+<p><strong>Fixed</strong> by honouring the documented contract. Any transport, decode or payload-shape failure
+now logs a WARNING and returns <code>[]</code>. <code>asyncio.CancelledError</code> is a <code>BaseException</code> in Python
+3.11+, so <code>except Exception</code> still lets cancellation through untouched — the streaming and
+shutdown paths are unaffected.</p>
+<p>Nine regression tests: one per escaping <code>httpx</code> type, one per malformed payload shape, and one
+that fails a single query inside the <code>gather</code> and asserts the other queries' hits still come
+back. All nine fail against the previous code. A tenth pins the happy path, so the hardening
+cannot quietly change parsing.</p>
+<h3 id="a-manual-import-scan-spun-the-scheduler-loop-at-zero-delay-for-as-long-as-it-ran">A manual import scan spun the scheduler loop at zero delay for as long as it ran<a class="headerlink" href="#a-manual-import-scan-spun-the-scheduler-loop-at-zero-delay-for-as-long-as-it-ran" title="Permanent link">&para;</a></h3>
+<p>2.1.9 closed a zero-delay retry storm in <code>ImportScheduler._run()</code>. The loop computed its sleep
+from <code>_last_run_at</code>, which only advances on success, so a scan that <em>raised</em> left the reference
+frozen, <code>max(0.0, full_interval - elapsed)</code> clamped to <code>0.0</code> on every subsequent iteration, and
+the loop re-fired with no delay at all. The fix added a second clock — <code>_last_attempt_at</code>,
+stamped in the <code>finally</code> on every exit — and paced on the later of the two.</p>
+<p>That covered two of the tick's three exits. Here is the third:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Single in-flight guard (I7 — never overlap)</span>
+<span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_scan_in_flight</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"ImportScheduler: scan already in-flight — skipping tick"</span><span class="p">)</span>
+    <span class="k">continue</span>
+</code></pre></div>
+<p>It stamps nothing. <code>continue</code> returns to the top of the loop, which recomputes the sleep from
+the <em>same</em> already-expired reference, clamps to <code>0.0</code> again, and comes straight back — two
+<code>load_schedule()</code> database round-trips per iteration, with only an <code>asyncio.sleep(0)</code> between
+them.</p>
+<p><strong>Root cause.</strong> The same one as 2.1.9: a pacing clock advanced by some exits of a tick and not
+others, so any exit that forgets it re-enters an interval that has already expired.</p>
+<p>It is reachable with no adversary. The only producer of a concurrent scan is <code>run_now()</code>
+(<code>POST /import-schedule/run-now</code>), and a manual scan of a large import folder runs for minutes
+— it hashes every file it considers. The spin needs the scheduled tick to come due <em>while</em> that
+scan is in flight, which is precisely when an operator reaches for <strong>Run now</strong>: because the
+import is overdue.</p>
+<p><strong>Fixed</strong> with two stamps.</p>
+<p>The skip path now advances the attempt clock. That is not only a brake, it is the correct
+semantics: the in-flight scan <strong>is</strong> this interval's scan, so the next tick belongs a full
+interval later.</p>
+<p><code>run_now()</code> advances it too, in its own <code>finally</code>, exactly as <code>_run()</code>'s <code>finally</code> already did.
+It was the one scan producer entirely invisible to the clock, so a tick that computed its sleep
+right after a manual scan still measured its interval from a reference that scan had already
+satisfied.</p>
+<p><code>_last_attempt_at</code> remains deliberately unpersisted, as 2.1.9 established: a manual or failed
+attempt must not look like a completed run across a restart. The R13-4/T4 catch-up behaviour on
+boot is unchanged, and a skipped tick still never touches <code>_last_run_at</code> — it is not a
+completed run.</p>
+<p>Regression test <code>T-SP-011</code> puts a scan in flight on an overdue schedule and asserts the sleeps
+stay at the full interval — without the fix it records <code>[0.0, 0.0, 0.0, 0.0]</code> — and that the
+loop never started a scan of its own. <code>T-SP-011b</code>/<code>c</code> pin the <code>run_now()</code> stamp on both the
+success and the raising path.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h3 id="frontend-build-chain-7-advisories-closed">Frontend build chain: 7 advisories closed<a class="headerlink" href="#frontend-build-chain-7-advisories-closed" title="Permanent link">&para;</a></h3>
+<p><code>npm audit fix</code> (without <code>--force</code>): transitive patch/minor bumps only, <code>package.json</code>
+untouched, 13 advisories down to 6.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>From → to</th>
+<th>Advisory</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>postcss</code></td>
+<td>8.5.16 → 8.5.28</td>
+<td>two <code>sourceMappingURL</code> path-traversal advisories — arbitrary <code>.map</code> file disclosure</td>
+</tr>
+<tr>
+<td><code>js-yaml</code></td>
+<td>4.3.0 → 4.3.2</td>
+<td>quadratic CPU consumption in <code>!!omap</code> resolution</td>
+</tr>
+<tr>
+<td><code>nanoid</code></td>
+<td>3.3.15 → 3.3.19</td>
+<td>non-secure generators loop indefinitely on zero/negative size</td>
+</tr>
+<tr>
+<td><code>brace-expansion</code></td>
+<td>four pinned copies</td>
+<td>ReDoS via consecutive non-expanding <code>{}</code> groups</td>
+</tr>
+<tr>
+<td><code>fast-uri</code></td>
+<td>3.1.3 → 3.1.8</td>
+<td>host confusion via a backslash authority delimiter</td>
+</tr>
+<tr>
+<td><code>browserslist</code></td>
+<td>4.28.4 → 4.29.0</td>
+<td>unbounded cache growth leading to OOM</td>
+</tr>
+</tbody>
+</table>
+<p>Plus the <code>caniuse-lite</code> / <code>electron-to-chromium</code> / <code>node-releases</code> / <code>update-browserslist-db</code>
+data packages those pull in.</p>
+<p>All of these are <strong>dev/build-chain only</strong> — <code>npm audit --omit=dev</code> reported 0 both before and
+after, so nothing here ships in the production bundle. They are worth taking anyway: <code>postcss</code>
+runs over project CSS at build time and the two path-traversal advisories are against exactly
+that, and the rest are a developer-machine surface.</p>
+<p>The 6 remaining advisories all require a <strong>major</strong> bump of <code>vite</code> or <code>vitest</code>, which is out of
+scope for a patch release and is not attempted here.</p>
+<h2 id="recorded-not-fixed">Recorded, not fixed<a class="headerlink" href="#recorded-not-fixed" title="Permanent link">&para;</a></h2>
+<p>Three findings from this pass were too large for a patch and went into
+<a href="../../reference/ROADMAP-3.0-IDEAS/"><code>docs/reference/ROADMAP-3.0-IDEAS.md</code></a> instead:</p>
 <ul>
-<li>Accent tokens already match: <code>--syn-accent</code> <code>#2563eb</code> (light) / <code>#58a6ff</code> (dark) in
-  <code>frontend/src/styles/theme.css</code>. <strong>No accent change needed.</strong></li>
-<li>New/changed: the <strong>logo art</strong> (new master mark), the <strong>dark app-icon variant</strong>, <strong>Geist</strong>
-  wordmark, and formalized <strong>gradient tokens</strong>.</li>
+<li><strong><code>pypdf</code> is pinned to 5.9.0 by a <code>&lt;6</code> constraint</strong>, and every fix version for its 80+ known
+  advisories lives in the 6.x line. <code>pypdf</code> is the default and unconditional PDF extractor, so
+  it parses untrusted input — uploads, clipped pages, and PDFs the deep-research loop downloads
+  from web-search results. The advisories are overwhelmingly denial-of-service (infinite loops,
+  unbounded recursion, memory exhaustion on malformed files), not code execution. The bump is
+  <strong>major</strong>, and it changes text-extraction output, so it needs a before/after comparison on
+  real PDFs rather than a lockfile edit.</li>
+<li><strong>The RAG context includes each page's YAML frontmatter.</strong> <code>_load_passage()</code> reads the raw
+  file, where every other page reader in the codebase takes <code>frontmatter.loads(raw).content</code>.
+  One line to change — but it alters the text sent to the provider on <em>every</em> chat turn, which
+  is a functional change to an existing flow and therefore not a patch.</li>
+<li><strong><code>cascade_delete</code> scopes only one of its three reference-matching methods to the vault.</strong>
+  Latent while the process serves a single vault; a data-loss bug the day one database holds
+  several.</li>
 </ul>
-<h2 id="integration-targets-br-stream">Integration targets (BR stream)<a class="headerlink" href="#integration-targets-br-stream" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>Copy brand source</strong> into the repo: <code>docs/assets/brand/</code> (light+dark+favicon+mark PNGs) +
-   keep the PDF under <code>docs/assets/brand/</code>. Single source of truth in-repo.</li>
-<li><strong>Web app icon / favicon:</strong> <code>frontend/public/favicon.svg</code> (+ any <code>favicon.png</code>) → the simplified
-   favicon variant; wire <code>&lt;link rel="icon"&gt;</code> to serve the right size. Update
-   <code>frontend/src/assets/synapse-appicon.svg</code> + <code>docs/assets/synapse-appicon.svg</code> /
-   <code>synapse-logo.svg</code> to the new master mark (rebuild SVG from the new art, or embed PNG).</li>
-<li><strong>In-app logo/mark:</strong> the inline logo SVG in <code>frontend/src/components/connect/ConnectScreen.tsx</code>
-   and <code>TokenGate.tsx</code> → new mark. Must be <strong>theme-aware</strong>: light mark on light, white-knockout
-   mark on dark (use <code>mark/synapse-mark-white</code> on dark surfaces).</li>
-<li><strong>Tauri desktop icons:</strong> replace <code>src-tauri/icons/*</code> (Square*Logo.png, appicon-1024.png,
-   StoreLogo.png, <code>icon.icns</code>, <code>icon.ico</code>) from the light master; verify <code>tauri.conf.json</code> icon list.</li>
-<li><strong>macOS tray/menu-bar icon</strong> (v1.4 system-tray): use a monochrome/template version so it adapts
-   to the menu-bar theme.</li>
-<li><strong>iOS AppIcon:</strong> <code>ios/Synapse/Assets.xcassets/AppIcon.appiconset</code> — light (+ dark/tinted slots
-   if the iOS build uses them).</li>
-<li><strong>Theme tokens:</strong> add brand gradient tokens to <code>theme.css</code>
-   (<code>--syn-brand-grad: linear-gradient(to top right, #1D4ED8, #4338CA, #7C3AED)</code>;
-   dark-icon variant tokens). Do NOT change existing <code>--syn-accent</code> values.</li>
-<li><strong>Typography — Geist:</strong> self-host Geist (Regular/Medium/Semibold) locally (no external CDN — CSP
-   / offline-first), wire as the UI font stack; wordmark Geist Semibold <code>-0.02em</code>; keep the current
-   mono for labels/code.</li>
-</ol>
-<h2 id="guardrails">Guardrails<a class="headerlink" href="#guardrails" title="Permanent link">&para;</a></h2>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<p><strong>Nothing to do.</strong> Pull the image (or rebuild) and restart:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
 <ul>
-<li>Self-hosted / offline-first: <strong>no external font or asset CDNs</strong> (bundle Geist locally).</li>
-<li>Dark-mode variants are mandatory (icon + in-app mark).</li>
-<li>Keep changes on the BR worktree branch; merge into <code>release/v1.5.0-llmwiki-parity</code> after review + preview.</li>
+<li><strong>No schema migration.</strong> No SQLAlchemy model changed, so <code>docs/er/schema.mmd</code> is unchanged
+  and no Alembic revision ships with this release.</li>
+<li><strong>No API change.</strong> <code>docs/api/openapi.json</code> differs only in the version string. Request and
+  response shapes for <code>/research/start</code>, <code>/web-search/config</code> and <code>/import-schedule/run-now</code>
+  are identical.</li>
+<li><strong>No new configuration.</strong> <code>SEARXNG_URL</code>, the <code>web_search_provider</code> key and the import-schedule
+  frequency settings keep their meanings and defaults; nothing new to set in <code>.env</code>.</li>
+<li><strong>Two observable differences, both by design:</strong></li>
+<li>A deep-research run whose SearXNG queries hit a transport or protocol error now <strong>continues
+    with fewer sources</strong> and logs a WARNING per failed query, where it previously ended with
+    status <code>error</code>. If you have runs that died mysteriously mid-way, this is the likely cause,
+    and it resolves on upgrade with no action. A run that genuinely collects nothing still
+    skips synthesis, exactly as before.</li>
+<li>After a manual <strong>Run now</strong> import scan, the next <em>scheduled</em> scan is paced a full interval
+    from that scan rather than from the previous scheduled one. This is intended: a scan just
+    happened.</li>
+<li><strong>Frontend rebuild only for the dependency bumps.</strong> <code>package.json</code> is unchanged, so a
+  <code>npm ci</code> picks the new lockfile up automatically; no action if you deploy the published
+  image or desktop build.</li>
+<li><strong>No client-side state to clear.</strong> Existing OAuth grants, refresh tokens, API tokens,
+  conversations and vault content are untouched.</li>
 </ul>
 
 
