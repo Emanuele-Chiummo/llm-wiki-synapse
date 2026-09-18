@@ -534,6 +534,12 @@ class ImportScheduler:
                 raise
         finally:
             self._scan_in_flight = False
+            # A manual scan is a scan attempt: the pacing clock _run() reads must see it,
+            # exactly as _run()'s own finally stamps it. Without this, run_now() was the
+            # one scan producer invisible to the clock, so a tick that woke up right after
+            # it still measured its interval from a reference the manual scan had already
+            # satisfied.
+            self._last_attempt_at = self._clock.now()
 
     async def _run(self) -> None:
         """Main scheduler loop (ADR-0020 §4.5 sketch)."""
@@ -587,6 +593,19 @@ class ImportScheduler:
             # Single in-flight guard (I7 — never overlap)
             if self._scan_in_flight:
                 logger.debug("ImportScheduler: scan already in-flight — skipping tick")
+                # Advance the retry clock here too. A tick has three exits — success
+                # (stamps _last_run_at + _last_attempt_at), failure (stamps
+                # _last_attempt_at in the finally below), and THIS skip, which used to
+                # stamp nothing. `continue` then recomputed the sleep from the SAME
+                # already-expired reference, so `full_interval - elapsed` clamped to 0.0
+                # and the loop spun at zero delay — two load_schedule() queries per
+                # iteration, for as long as the other scan ran. Identical failure to the
+                # one closed for the failure path, through the one door left open: the
+                # only producer of a concurrent scan is run_now() (POST
+                # /import-schedule/run-now), and a manual scan of a large import folder
+                # runs for minutes. The in-flight scan IS this interval's scan, so pacing
+                # the next tick a full interval from here is also the correct semantics.
+                self._last_attempt_at = self._clock.now()
                 continue
 
             self._scan_in_flight = True

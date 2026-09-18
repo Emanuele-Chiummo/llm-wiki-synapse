@@ -617,3 +617,139 @@ class TestImportSchedulerFailedScanPacing:
         assert scheduler._last_run_at == start - timedelta(hours=2)
         saved = await load_scheduler_ts("import_scheduler.last_run")
         assert saved is None
+
+
+# ── T-SP-011: a tick skipped for an in-flight scan must not spin either (I7) ──
+
+
+class TestImportSchedulerInFlightSkipPacing:
+    async def test_skipped_tick_does_not_spin_at_zero_delay(
+        self, db_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        T-SP-011 (regression, 2.1.14): a tick that finds a scan already in flight must pace
+        the next one, not re-loop immediately.
+
+        A tick has three exits: success (stamps _last_run_at + _last_attempt_at), failure
+        (stamps _last_attempt_at in the finally — T-SP-010), and "skipped, a scan is already
+        in flight", which stamped NOTHING. `continue` then recomputed the sleep from the same
+        already-expired reference, `max(0.0, full_interval - elapsed)` clamped to 0.0, and the
+        loop spun at zero delay — two load_schedule() round-trips per iteration for as long as
+        the other scan ran. The only producer of a concurrent scan is run_now()
+        (POST /import-schedule/run-now), and a manual scan of a large import folder runs for
+        minutes.
+        """
+        from app.import_scheduler import FREQ_SECONDS, ImportScheduler
+
+        start = datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC)
+        clock = _AdvancingClock(start=start, max_sleeps=4)
+
+        mock_cfg = MagicMock()
+        mock_cfg.enabled = True
+        mock_cfg.frequency = "1h"
+        mock_cfg.source_dir = "/some/dir"
+
+        load_calls = {"n": 0}
+
+        async def mock_load_schedule(vault_id: str) -> Any:
+            load_calls["n"] += 1
+            return mock_cfg
+
+        monkeypatch.setattr("app.import_scheduler.load_schedule", mock_load_schedule)
+
+        scan_fn = AsyncMock(return_value=(0, "ok", None))
+        scheduler = ImportScheduler(clock=clock, scan_fn=scan_fn)
+        # Overdue by an hour, and a manual run_now() scan is currently in flight.
+        scheduler._last_run_at = start - timedelta(hours=2)
+        scheduler._scan_in_flight = True
+
+        try:
+            await asyncio.wait_for(scheduler._run(), timeout=5.0)
+        except (TimeoutError, asyncio.CancelledError):
+            pass
+
+        # The in-flight guard must have held: the loop never started its own scan.
+        scan_fn.assert_not_awaited()
+
+        assert len(clock.sleep_calls) >= 3, "loop should have iterated several times"
+        # The first sleep is legitimately 0.0 — the run really is overdue (R13-4/T4).
+        assert clock.sleep_calls[0] == 0.0
+        # Every sleep after a skipped tick must be a full interval. Without the fix
+        # these are all 0.0 and the loop spins for the lifetime of the manual scan.
+        for i, slept in enumerate(clock.sleep_calls[1:], start=1):
+            assert slept == FREQ_SECONDS["1h"], (
+                f"sleep #{i} was {slept}s — a tick skipped for an in-flight scan must not "
+                f"re-fire before the next interval (got sleeps={clock.sleep_calls})"
+            )
+
+        # A skipped tick is not a completed run: the success clock must be untouched.
+        assert scheduler._last_run_at == start - timedelta(hours=2)
+
+    async def test_run_now_advances_the_retry_clock(
+        self, db_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """
+        T-SP-011b: run_now() is the second scan producer — the pacing clock _run() reads
+        must see it, exactly as _run()'s own finally stamps it.
+        """
+        from app.import_scheduler import ImportScheduler
+
+        start = datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC)
+        clock = _AdvancingClock(start=start, max_sleeps=1)
+
+        mock_cfg = MagicMock()
+        mock_cfg.enabled = True
+        mock_cfg.frequency = "1h"
+        mock_cfg.source_dir = str(tmp_path)
+
+        async def mock_load_schedule(vault_id: str) -> Any:
+            return mock_cfg
+
+        async def mock_upsert_schedule(vault_id: str, **kwargs: Any) -> None:
+            return None
+
+        monkeypatch.setattr("app.import_scheduler.load_schedule", mock_load_schedule)
+        monkeypatch.setattr("app.import_scheduler.upsert_schedule", mock_upsert_schedule)
+
+        scheduler = ImportScheduler(clock=clock, scan_fn=AsyncMock(return_value=(3, "ok", None)))
+        assert scheduler._last_attempt_at is None
+
+        await scheduler.run_now()
+
+        assert scheduler._last_attempt_at == start
+        assert scheduler._scan_in_flight is False
+
+    async def test_run_now_advances_the_retry_clock_on_failure_too(
+        self, db_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        """T-SP-011c: the stamp is in the finally — a raising manual scan advances it too."""
+        from app.import_scheduler import ImportScheduler
+
+        start = datetime(2026, 4, 1, 12, 0, 0, tzinfo=UTC)
+        clock = _AdvancingClock(start=start, max_sleeps=1)
+
+        mock_cfg = MagicMock()
+        mock_cfg.enabled = True
+        mock_cfg.frequency = "1h"
+        mock_cfg.source_dir = str(tmp_path)
+
+        async def mock_load_schedule(vault_id: str) -> Any:
+            return mock_cfg
+
+        async def mock_upsert_schedule(vault_id: str, **kwargs: Any) -> None:
+            return None
+
+        monkeypatch.setattr("app.import_scheduler.load_schedule", mock_load_schedule)
+        monkeypatch.setattr("app.import_scheduler.upsert_schedule", mock_upsert_schedule)
+
+        scheduler = ImportScheduler(
+            clock=clock,
+            scan_fn=AsyncMock(side_effect=OSError("[Errno 30] Read-only file system")),
+        )
+
+        with pytest.raises(OSError, match="Read-only"):
+            await scheduler.run_now()
+
+        assert scheduler._last_attempt_at == start
+        assert scheduler._last_run_at is None
+        assert scheduler._scan_in_flight is False
