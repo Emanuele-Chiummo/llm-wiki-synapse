@@ -262,3 +262,145 @@ async def test_web_search_many_routes_to_selected_provider(monkeypatch: pytest.M
     hits = await web_search_many(["alpha", "beta"])
     assert called["queries"] == ["alpha", "beta"]
     assert [h.url for h in hits] == ["https://sx.example"]
+
+
+# ── SearXNG honours the same best-effort contract as every other backend ──────
+#
+# Regression for 2.1.14. ``WebSearchProvider._search_one`` documents, for EVERY backend,
+# "on ANY failure return [] and log a WARNING — never raise into the caller", and the five
+# opt-in cloud adapters implement it with a blanket ``except Exception``. The DEFAULT
+# backend did not: ``ops/searxng.searxng_search`` named three httpx types, of which
+# ConnectError is already a NetworkError — so everything else under TransportError, plus
+# the non-TransportError httpx errors and any malformed payload, escaped. The escape is
+# not contained: it propagates through ``searxng_search_many``'s gather (cancelling the
+# other in-flight queries) into ``run_deep_research``'s terminal handler, which fails the
+# whole research run.
+
+
+class _RaisingClient:
+    """httpx.AsyncClient stand-in whose GET raises the configured exception."""
+
+    def __init__(self, exc: BaseException) -> None:
+        self._exc = exc
+
+    async def __aenter__(self) -> _RaisingClient:
+        return self
+
+    async def __aexit__(self, *_a: Any) -> None:
+        return None
+
+    async def get(self, *_a: Any, **_k: Any) -> Any:
+        raise self._exc
+
+
+def _searxng_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point the resolver at a URL so searxng_search gets as far as the HTTP call."""
+    from app import config as cfg
+    from app import runtime_state
+
+    monkeypatch.setattr(cfg.settings, "searxng_url", "http://searxng.local:8080")
+    monkeypatch.setattr(runtime_state.web_search_config_cache, "_url_db", None, raising=False)
+
+
+def _transport_failures() -> list[BaseException]:
+    import httpx
+
+    return [
+        # Server closed the connection mid-response — a ProtocolError, NOT a NetworkError.
+        httpx.RemoteProtocolError("server disconnected without sending a response"),
+        # Operator saved a scheme-less base URL through PUT /web-search/config.
+        httpx.UnsupportedProtocol("Request URL is missing an 'http://' or 'https://' protocol"),
+        httpx.ProxyError("proxy refused the tunnel"),
+        httpx.DecodingError("failed to decode the response body"),
+        httpx.InvalidURL("malformed URL"),
+    ]
+
+
+@pytest.mark.parametrize("exc", _transport_failures(), ids=lambda e: type(e).__name__)
+async def test_searxng_transport_failure_degrades_to_empty(
+    monkeypatch: pytest.MonkeyPatch, exc: BaseException
+) -> None:
+    """Each of these used to propagate out of searxng_search instead of returning []."""
+    from app.ops.searxng import searxng_search
+
+    _searxng_configured(monkeypatch)
+    monkeypatch.setattr("app.ops.searxng.httpx.AsyncClient", lambda *a, **k: _RaisingClient(exc))
+
+    assert await searxng_search("q") == []
+
+
+async def test_searxng_transport_failure_does_not_fail_the_whole_fan_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The blast radius, not just the single call: one failing query inside
+    searxng_search_many's gather must not take the other queries (or the caller) down.
+    """
+    import httpx
+    from app.ops.searxng import searxng_search_many
+
+    _searxng_configured(monkeypatch)
+
+    good = _FakeResponse({"results": [{"url": "https://ok.example", "title": "OK"}]})
+
+    def _client_for(*_a: Any, **kwargs: Any) -> Any:
+        # First query raises, the rest succeed — the gather must still return the good hits.
+        if calls["n"] == 0:
+            calls["n"] += 1
+            return _RaisingClient(httpx.RemoteProtocolError("server disconnected"))
+        calls["n"] += 1
+        return _FakeClient(good)
+
+    calls = {"n": 0}
+    monkeypatch.setattr("app.ops.searxng.httpx.AsyncClient", _client_for)
+
+    hits = await searxng_search_many(["boom", "fine", "fine-too"])
+    assert [h.url for h in hits] == ["https://ok.example"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        ["not", "a", "dict"],  # top-level array → data.get was an AttributeError
+        {"results": {"not": "a list"}},  # non-list results → the slice was a TypeError
+        {"results": [{"url": 12345, "title": "numeric url"}]},  # → pydantic ValidationError
+    ],
+    ids=["top-level-array", "results-not-a-list", "non-string-url"],
+)
+async def test_searxng_malformed_payload_degrades_to_empty(
+    monkeypatch: pytest.MonkeyPatch, payload: Any
+) -> None:
+    """A remote service's JSON is not a validated schema — a bad shape returns [], not 500."""
+    from app.ops.searxng import searxng_search
+
+    _searxng_configured(monkeypatch)
+    monkeypatch.setattr(
+        "app.ops.searxng.httpx.AsyncClient",
+        lambda *a, **k: _FakeClient(_FakeResponse(payload)),
+    )
+
+    assert await searxng_search("q") == []
+
+
+async def test_searxng_well_formed_results_still_parse(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-regression: the hardening must not change the happy path."""
+    from app.ops.searxng import searxng_search
+
+    _searxng_configured(monkeypatch)
+    payload = {
+        "results": [
+            {"url": "https://a.example", "title": "A", "content": "ca", "engine": "duckduckgo"},
+            {"link": "https://b.example", "title": "B", "snippet": "cb"},
+            {"title": "no url at all"},  # dropped, as before
+        ]
+    }
+    monkeypatch.setattr(
+        "app.ops.searxng.httpx.AsyncClient",
+        lambda *a, **k: _FakeClient(_FakeResponse(payload)),
+    )
+
+    hits = await searxng_search("q")
+    assert [h.url for h in hits] == ["https://a.example", "https://b.example"]
+    assert hits[0].snippet == "ca"
+    assert hits[0].engine == "duckduckgo"
+    assert hits[1].snippet == "cb"
