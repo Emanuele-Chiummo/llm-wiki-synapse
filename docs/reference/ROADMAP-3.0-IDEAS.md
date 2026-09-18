@@ -496,3 +496,89 @@ giorno senza mai ripagarsi.
   vada abbassato per i token generati con `secrets` (ad alta entropia), dove 260k iterazioni
   difendono da un attacco a dizionario che non è applicabile.
 - **Trovato:** 2026-09-11
+
+### pypdf è bloccato a 5.9.0 da un vincolo `<6`, e le correzioni di sicurezza vivono solo nella 6.x
+
+- **Problema:** `pypdf` è l'estrattore PDF **predefinito e incondizionato** (`pdf_extractor:
+  str = "pypdf"`; anche con Marker o MinerU attivi, `extract.py` ricade su pypdf su
+  qualunque fallimento — decisione PM, documentata). Parsa quindi input non fidato per
+  costruzione: upload da `POST /ingest/upload`, pagine catturate dal clipper, e i PDF che
+  la deep research scarica da risultati di ricerca web. `pip-audit` sull'albero risolto
+  riporta **oltre 80 advisory note** per pypdf 5.9.0 — in larga parte loop infiniti,
+  ricorsione illimitata ed esaurimento di memoria su PDF malformati, cioè esattamente la
+  classe raggiungibile da un file che un estraneo sceglie. Nessuna ha una correzione nella
+  linea 5.x: le versioni di fix dichiarate partono da 6.0.0 e arrivano a 6.16.1.
+- **Evidenza:** `backend/pyproject.toml:34` (`"pypdf>=4.2,<6"` — il tetto che impedisce
+  l'aggiornamento); `backend/requirements-lock.txt:242` e
+  `backend/requirements-prod-lock.txt:207` (`pypdf==5.9.0`, immagine di produzione inclusa);
+  `backend/app/config.py:866-873` (default `"pypdf"`) e `:904` (fallback permanente e
+  incondizionato); `backend/app/ops/deep_research.py:699-700` (`_extract_pdf_body`, PDF presi
+  dal web). Riproducibile con `pip-audit` nel venv di backend.
+- **Impatto:** medio-alto. Non è esecuzione di codice: è denial of service su un percorso
+  che un file può innescare da solo. Un PDF costruito ad arte — caricato, clippato, o
+  semplicemente **linkato da un risultato SearXNG durante una deep research**, dove nessun
+  umano ha scelto il file — può impegnare CPU o RAM in un thread worker finché il container
+  non viene riavviato. Il tetto `<6` significa anche che ogni advisory futura su pypdf
+  resterà non applicabile finché il vincolo non cambia: il debito non è statico, cresce.
+- **Sforzo:** M. Il salto 5.9 → 6.x è **major**, quindi fuori dal mandato della manutenzione
+  settimanale per definizione (§3 del runbook). pypdf 6 ha rimosso API deprecate della linea
+  4/5, perciò va verificato che `ingest/extract.py` non ne usi nessuna, che l'estrazione di
+  testo continui a produrre lo stesso output sul corpus di test (la resa cambia tra versioni:
+  è una regressione silenziosa sul contenuto del wiki, non un errore), e vanno rigenerati
+  entrambi i lock. Da fare come voce a sé, con un confronto prima/dopo su PDF reali, non
+  infilato in una patch.
+- **Trovato:** 2026-09-18
+
+### Il contesto RAG include il frontmatter YAML delle pagine, e lo paga dal budget del passaggio
+
+- **Problema:** `_load_passage()` legge il file sorgente con `read_text()` e lo passa
+  direttamente all'assemblaggio del blocco `[n]`. Nessuno rimuove il frontmatter: ogni
+  pagina wiki citata entra nel contesto del modello con il suo blocco `---` in testa
+  (`type`, `title`, `sources[]`, `tags`, `domain`, `generation_key`…). Il docstring della
+  funzione dice "Read the **body** of a single source file", e tutto il resto del codice che
+  legge una pagina usa `frontmatter.loads(raw).content` per ottenerla davvero — questo è
+  l'unico punto che non lo fa.
+- **Evidenza:** `backend/app/rag/retrieval.py:884-908` (`_load_passage`, nessun parse del
+  frontmatter); `backend/app/rag/retrieval.py:811` e `:818-830` (il passaggio finisce
+  verbatim nel blocco `[n]`); da confrontare con `backend/app/ops/cascade_delete.py:204-218`
+  e `backend/app/ops/lint/fixes.py:108-118`, che separano le due parti. Il caso non è
+  coperto: i test di assemblaggio scrivono file sorgente **senza** frontmatter
+  (`backend/tests/test_retrieval.py:591`), quindi la differenza non è mai osservata.
+- **Impatto:** basso-medio, ma su ogni turno di chat. Il costo è doppio: il frontmatter
+  consuma il `per_passage_cap` (`budget_chars // len(ranked)`), quindi su un contesto stretto
+  taglia testo reale in coda al passaggio; e immette nel prompt chiavi che il modello può
+  citare come se fossero contenuto (`sources: [raw/sources/…]` è un percorso di filesystem,
+  non una fonte da mostrare all'utente). Su una pagina corta con `sources[]` lungo il
+  frontmatter può essere la maggioranza del blocco.
+- **Sforzo:** S per il codice, M per il resto. La riga è una sola, ma cambia **il testo
+  inviato al provider a ogni turno**: è un cambio funzionale su un flusso esistente, cioè
+  esattamente ciò che una patch settimanale non deve fare (§3 del runbook). Va accompagnato
+  da una decisione esplicita su cosa tenere — `title` e `type` hanno valore come contesto,
+  `generation_key` e `sources[]` no — e da un confronto di qualità delle risposte prima/dopo,
+  non dedotto.
+- **Trovato:** 2026-09-18
+
+### La cancellazione a cascata limita al vault solo uno dei tre metodi di ricerca dei riferimenti
+
+- **Problema:** `cascade_delete` trova le pagine che referenziano quella da eliminare con tre
+  metodi. Il metodo (b) filtra esplicitamente `Page.vault_id == settings.vault_id`, con un
+  commento che spiega perché: il confronto avviene su `slugify(target_title)`, che può
+  collidere tra vault. Il metodo (a) fa un `OR` che include `Link.target_title == title` —
+  lo stesso confronto per titolo, sulla stessa tabella — e il metodo (c) enumera
+  `Page.file_path LIKE 'wiki/%'`: **nessuno dei due applica quel filtro**. La protezione è
+  stata messa su uno dei tre punti che ne hanno bisogno.
+- **Evidenza:** `backend/app/ops/cascade_delete.py:296-306` (metodo (b), il filtro presente
+  e commentato); `backend/app/ops/cascade_delete.py:236-258` (metodo (a), `or_(target_page_id
+  == page_id, target_title == title)` e risoluzione delle pagine sorgente senza `vault_id`);
+  `backend/app/ops/cascade_delete.py:340-352` (metodo (c), enumerazione senza `vault_id`).
+- **Impatto:** nullo oggi, per la stessa ragione dichiarata nel commento del metodo (b): il
+  processo serve un solo `settings.vault_id`. Diventa una perdita di dati — riscrittura di
+  `[[wikilink]]` in file di un altro vault — il giorno in cui più vault condividono un
+  database, che è la direzione in cui il modello dati già punta (`Page.vault_id`,
+  `project_registry`, il selettore di vault nel frontend).
+- **Sforzo:** S come diff, M come verifica. Aggiungere il predicato è banale; stabilire che
+  i tre metodi abbiano ora *esattamente* lo stesso perimetro, e che nessun test esistente
+  dipenda dal comportamento attuale, è il lavoro vero. Non urgente, ma va fatto **prima** e
+  non dopo la prima funzionalità multi-vault reale: dopo, il bug è una cancellazione già
+  avvenuta.
+- **Trovato:** 2026-09-18
