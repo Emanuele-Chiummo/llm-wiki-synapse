@@ -816,6 +816,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#le-dipendenze-backend-non-sono-bloccate-un-minor-a-monte-puo-rompere-la-ci-senza-un-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le dipendenze backend non sono bloccate: un minor a monte può rompere la CI senza un commit
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1031,6 +1042,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.15/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.15
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2629,6 +2668,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#le-dipendenze-backend-non-sono-bloccate-un-minor-a-monte-puo-rompere-la-ci-senza-un-commit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Le dipendenze backend non sono bloccate: un minor a monte può rompere la CI senza un commit
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3196,6 +3246,41 @@ giorno senza mai ripagarsi.</p>
   non dopo la prima funzionalità multi-vault reale: dopo, il bug è una cancellazione già
   avvenuta.</li>
 <li><strong>Trovato:</strong> 2026-09-18</li>
+</ul>
+<h3 id="le-dipendenze-backend-non-sono-bloccate-un-minor-a-monte-puo-rompere-la-ci-senza-un-commit">Le dipendenze backend non sono bloccate: un minor a monte può rompere la CI senza un commit<a class="headerlink" href="#le-dipendenze-backend-non-sono-bloccate-un-minor-a-monte-puo-rompere-la-ci-senza-un-commit" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>backend/pyproject.toml</code> dichiara le dipendenze di runtime con vincoli aperti
+  (<code>sqlalchemy[asyncio]&gt;=2.0.0</code>, <code>fastapi&gt;=0.111</code>, …) e la CI installa con <code>pip install -e .</code>
+  senza lockfile né constraints. La versione che finisce nel job — e nell'immagine Docker —
+  è quindi quella che PyPI serve nel momento in cui il job gira, non quella verificata
+  all'ultimo merge. La deriva non è teorica: fra il 2026-09-18 (CI verde sulla 2.1.14) e il
+  2026-09-25 è uscita SQLAlchemy 2.1, che ha reso più preciso il tipo degli elementi di
+  <code>Row</code>/<code>Result</code>, e <code>mypy app</code> — invariato, con mypy bloccato a <code>==2.1.0</code> — ha iniziato a
+  fallire su <code>main</code> con due errori in file che nessuno aveva toccato. Lo stage <code>typecheck</code>
+  blocca il merge, quindi per una settimana <strong>ogni</strong> PR sarebbe stata rossa per una causa
+  esterna al repository. Le due righe sono state corrette nella 2.1.15, ma la correzione è
+  il sintomo: il prossimo minor a monte ripresenta lo stesso problema, e non è detto che la
+  volta dopo sia un errore di tipi invece di un cambio di comportamento a runtime.</li>
+<li><strong>Evidenza:</strong> <code>backend/pyproject.toml:13</code> (<code>"sqlalchemy[asyncio]&gt;=2.0.0"</code>, nessun tetto) e
+  in generale <code>backend/pyproject.toml:10-46</code>; <code>.github/workflows/ci.yml:128-136</code> (il job
+  <code>typecheck</code> installa con <code>pip install -e .</code> + <code>pip install -e ".[dev]"</code>, la cache di
+  <code>setup-python</code> è la cache dei download di pip e non fissa le versioni risolte);
+  <code>backend/app/ingest/context.py:94</code> e <code>backend/app/ops/lint/detectors.py:102</code> (i due punti
+  che SQLAlchemy 2.1 ha fatto emergere). Il contrasto è netto con il frontend, che ha
+  <code>package-lock.json</code> versionato e usa <code>npm ci</code>.</li>
+<li><strong>Impatto:</strong> medio, ma sulla capacità di rilasciare. Una CI che può diventare rossa da sola
+  fa perdere il segnale: la prima reazione a un fallimento non riconducibile al diff è
+  ririgare il job, che è esattamente l'abitudine che il runbook vieta (§3, «mai retry alla
+  cieca»). E il rischio non si ferma ai tipi: lo stesso meccanismo può far entrare in
+  produzione un minor con un cambio di comportamento — la serializzazione di un tipo, il
+  default di un pool — che nessun test copre, senza che alcun commit lo registri.</li>
+<li><strong>Sforzo:</strong> M. Il diff è piccolo (generare un <code>constraints.txt</code> o un <code>requirements.lock</code>
+  con <code>pip-compile</code>/<code>uv pip compile</code> e farlo usare a CI e Dockerfile), ma la parte vera è
+  decidere il processo: chi rigenera il lock e con quale cadenza, come si distingue un bump
+  deliberato da una deriva, e come si evita che il lock diventi il posto dove le advisory
+  invecchiano indisturbate (il problema opposto, già visibile su pypdf). Va deciso insieme
+  a quello, non separatamente.</li>
+<li><strong>Trovato:</strong> 2026-09-25</li>
 </ul>
 
 

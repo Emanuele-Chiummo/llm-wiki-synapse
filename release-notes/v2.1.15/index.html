@@ -12,9 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/adr/0064-missing-page-fanout/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.15/">
       
       
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
+      
+      
+        <link rel="next" href="../v2.1.14/">
       
       
         
@@ -25,7 +29,7 @@
     
     
       
-        <title>ADR-0064 — missing-page review item fan-out to multiple pages - Synapse</title>
+        <title>v2.1.15 - Synapse</title>
       
     
     
@@ -76,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#adr-0064-missing-page-review-item-fan-out-to-multiple-pages" class="md-skip">
+        <a href="#synapse-v2115-a-prefix-is-not-a-name" class="md-skip">
           Skip to content
         </a>
       
@@ -111,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              ADR-0064 — missing-page review item fan-out to multiple pages
+              v2.1.15
             
           </span>
         </div>
@@ -342,7 +346,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../adr/" class="md-nav__link">
         
   
   
@@ -650,8 +654,10 @@
       
   
   
+    
   
   
+  
     
     
     
@@ -662,11 +668,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
           <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
@@ -687,7 +693,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
@@ -702,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.15/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.15
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -721,6 +754,143 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#one-vaults-backup-retention-deleted-another-vaults-dumps-and-kept-none-of-its-own" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One vault's backup retention deleted another vault's dumps — and kept none of its own
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overwriting-one-wiki-page-deleted-another-pages-history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overwriting one wiki page deleted another page's history
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-postgres-password-reached-the-backend-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Postgres password reached the backend log
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Changed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mypy-strict-restored-after-a-sqlalchemy-minor-landed-underneath-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mypy strict restored after a SQLAlchemy minor landed underneath CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -733,7 +903,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.14/" class="md-nav__link">
+      <a href="../v2.1.14/" class="md-nav__link">
         
   
   
@@ -761,7 +931,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.13/" class="md-nav__link">
+      <a href="../v2.1.13/" class="md-nav__link">
         
   
   
@@ -789,7 +959,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.12/" class="md-nav__link">
+      <a href="../v2.1.12/" class="md-nav__link">
         
   
   
@@ -817,7 +987,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.11/" class="md-nav__link">
+      <a href="../v2.1.11/" class="md-nav__link">
         
   
   
@@ -845,7 +1015,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.10/" class="md-nav__link">
+      <a href="../v2.1.10/" class="md-nav__link">
         
   
   
@@ -873,7 +1043,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.9/" class="md-nav__link">
+      <a href="../v2.1.9/" class="md-nav__link">
         
   
   
@@ -901,7 +1071,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.8/" class="md-nav__link">
+      <a href="../v2.1.8/" class="md-nav__link">
         
   
   
@@ -929,7 +1099,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.7/" class="md-nav__link">
+      <a href="../v2.1.7/" class="md-nav__link">
         
   
   
@@ -957,7 +1127,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.6/" class="md-nav__link">
+      <a href="../v2.1.6/" class="md-nav__link">
         
   
   
@@ -985,7 +1155,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.5/" class="md-nav__link">
+      <a href="../v2.1.5/" class="md-nav__link">
         
   
   
@@ -1013,7 +1183,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.4/" class="md-nav__link">
+      <a href="../v2.1.4/" class="md-nav__link">
         
   
   
@@ -1041,7 +1211,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.3/" class="md-nav__link">
+      <a href="../v2.1.3/" class="md-nav__link">
         
   
   
@@ -1069,7 +1239,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.2/" class="md-nav__link">
+      <a href="../v2.1.2/" class="md-nav__link">
         
   
   
@@ -1097,7 +1267,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.1/" class="md-nav__link">
+      <a href="../v2.1.1/" class="md-nav__link">
         
   
   
@@ -1125,7 +1295,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.1.0/" class="md-nav__link">
+      <a href="../v2.1.0/" class="md-nav__link">
         
   
   
@@ -1153,7 +1323,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v2.0.0/" class="md-nav__link">
+      <a href="../v2.0.0/" class="md-nav__link">
         
   
   
@@ -1181,7 +1351,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.4/" class="md-nav__link">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -1209,7 +1379,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.3/" class="md-nav__link">
+      <a href="../v1.9.3/" class="md-nav__link">
         
   
   
@@ -1237,7 +1407,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.2/" class="md-nav__link">
+      <a href="../v1.9.2/" class="md-nav__link">
         
   
   
@@ -1265,7 +1435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.1/" class="md-nav__link">
+      <a href="../v1.9.1/" class="md-nav__link">
         
   
   
@@ -1293,7 +1463,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.9.0/" class="md-nav__link">
+      <a href="../v1.9.0/" class="md-nav__link">
         
   
   
@@ -1321,7 +1491,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.1/" class="md-nav__link">
+      <a href="../v1.8.1/" class="md-nav__link">
         
   
   
@@ -1349,7 +1519,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.8.0/" class="md-nav__link">
+      <a href="../v1.8.0/" class="md-nav__link">
         
   
   
@@ -1377,7 +1547,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.4/" class="md-nav__link">
+      <a href="../v1.7.4/" class="md-nav__link">
         
   
   
@@ -1405,7 +1575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.3/" class="md-nav__link">
+      <a href="../v1.7.3/" class="md-nav__link">
         
   
   
@@ -1433,7 +1603,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.2/" class="md-nav__link">
+      <a href="../v1.7.2/" class="md-nav__link">
         
   
   
@@ -1461,7 +1631,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.1/" class="md-nav__link">
+      <a href="../v1.7.1/" class="md-nav__link">
         
   
   
@@ -1489,7 +1659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.7.0/" class="md-nav__link">
+      <a href="../v1.7.0/" class="md-nav__link">
         
   
   
@@ -1517,7 +1687,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.1/" class="md-nav__link">
+      <a href="../v1.6.1/" class="md-nav__link">
         
   
   
@@ -1545,7 +1715,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.6.0/" class="md-nav__link">
+      <a href="../v1.6.0/" class="md-nav__link">
         
   
   
@@ -1573,7 +1743,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.11/" class="md-nav__link">
+      <a href="../v1.3.11/" class="md-nav__link">
         
   
   
@@ -1601,7 +1771,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.10/" class="md-nav__link">
+      <a href="../v1.3.10/" class="md-nav__link">
         
   
   
@@ -1629,7 +1799,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.9/" class="md-nav__link">
+      <a href="../v1.3.9/" class="md-nav__link">
         
   
   
@@ -1657,7 +1827,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.8/" class="md-nav__link">
+      <a href="../v1.3.8/" class="md-nav__link">
         
   
   
@@ -1685,7 +1855,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.7/" class="md-nav__link">
+      <a href="../v1.3.7/" class="md-nav__link">
         
   
   
@@ -1713,7 +1883,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.6/" class="md-nav__link">
+      <a href="../v1.3.6/" class="md-nav__link">
         
   
   
@@ -1741,7 +1911,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.5/" class="md-nav__link">
+      <a href="../v1.3.5/" class="md-nav__link">
         
   
   
@@ -1769,7 +1939,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.4/" class="md-nav__link">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1797,7 +1967,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.3/" class="md-nav__link">
+      <a href="../v1.3.3/" class="md-nav__link">
         
   
   
@@ -1825,7 +1995,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.2/" class="md-nav__link">
+      <a href="../v1.3.2/" class="md-nav__link">
         
   
   
@@ -1853,7 +2023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.1/" class="md-nav__link">
+      <a href="../v1.3.1/" class="md-nav__link">
         
   
   
@@ -1881,7 +2051,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.3.0/" class="md-nav__link">
+      <a href="../v1.3.0/" class="md-nav__link">
         
   
   
@@ -1909,7 +2079,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.6/" class="md-nav__link">
+      <a href="../v1.2.6/" class="md-nav__link">
         
   
   
@@ -1937,7 +2107,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.5/" class="md-nav__link">
+      <a href="../v1.2.5/" class="md-nav__link">
         
   
   
@@ -1965,7 +2135,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.4/" class="md-nav__link">
+      <a href="../v1.2.4/" class="md-nav__link">
         
   
   
@@ -1993,7 +2163,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../release-notes/v1.2.1/" class="md-nav__link">
+      <a href="../v1.2.1/" class="md-nav__link">
         
   
   
@@ -2048,33 +2218,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#1-context" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Context
+        Fixed
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-decision" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Decision
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="2. Decision">
+    <nav class="md-nav" aria-label="Fixed">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#2a-fan-out-for-missing-page-only" class="md-nav__link">
+  <a href="#one-vaults-backup-retention-deleted-another-vaults-dumps-and-kept-none-of-its-own" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2a. Fan-out for missing-page only
+        One vault's backup retention deleted another vault's dumps — and kept none of its own
       
     </span>
   </a>
@@ -2082,21 +2241,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2b-fan-out-loop-in-create_page_from_review" class="md-nav__link">
+  <a href="#overwriting-one-wiki-page-deleted-another-pages-history" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2b. Fan-out loop in create_page_from_review
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2c-api-compatibility-preserved-i8" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2c. API compatibility preserved (I8)
+        Overwriting one wiki page deleted another page's history
       
     </span>
   </a>
@@ -2109,10 +2257,66 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-lintreview-queue-separation-k8" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Lint/review queue separation (K8)
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-postgres-password-reached-the-backend-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Postgres password reached the backend log
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#changed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Changed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Changed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mypy-strict-restored-after-a-sqlalchemy-minor-landed-underneath-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        mypy strict restored after a SQLAlchemy minor landed underneath CI
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
       
     </span>
   </a>
@@ -2120,21 +2324,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-alternatives-considered" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Alternatives considered
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#5-consequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Consequences
+        Upgrade notes
       
     </span>
   </a>
@@ -2158,128 +2351,176 @@
 
 
 
-<h1 id="adr-0064-missing-page-review-item-fan-out-to-multiple-pages">ADR-0064 — missing-page review item fan-out to multiple pages<a class="headerlink" href="#adr-0064-missing-page-review-item-fan-out-to-multiple-pages" title="Permanent link">&para;</a></h1>
-<p><strong>Status:</strong> Accepted<br />
-<strong>Date:</strong> 2026-07-09<br />
-<strong>Feature IDs:</strong> F9, K8<br />
-<strong>Sprint:</strong> v1.3.13 (llm_wiki parity)</p>
-<hr />
-<h2 id="1-context">1. Context<a class="headerlink" href="#1-context" title="Permanent link">&para;</a></h2>
-<p>The nashsu/llm_wiki reference (<code>src/lib/review-create-page.ts</code>) allows a single
-<code>missing-page</code> review item to fan out into <strong>multiple wiki pages</strong> when the <code>proposed_title</code>
-encodes a comma- / 、- / " and "-separated list (e.g. "Galaxy Formation, Star Formation,
-and Nebulae" → three pages). This is the <code>extractMissingPageCandidates</code> pattern (line 34).</p>
-<p>In Synapse v1.3.12 and earlier, <code>create_page_from_review</code> produced exactly ONE page per
-review item, regardless of how many concepts the proposed title listed. This was a parity
-gap (R1).</p>
-<hr />
-<h2 id="2-decision">2. Decision<a class="headerlink" href="#2-decision" title="Permanent link">&para;</a></h2>
-<h3 id="2a-fan-out-for-missing-page-only">2a. Fan-out for <code>missing-page</code> only<a class="headerlink" href="#2a-fan-out-for-missing-page-only" title="Permanent link">&para;</a></h3>
-<p><code>_extract_missing_page_candidates(proposed_title: str) -&gt; list[str]</code> splits on:</p>
-<table>
-<thead>
-<tr>
-<th>Delimiter</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>,</code></td>
-<td>ASCII comma</td>
-</tr>
-<tr>
-<td><code>，</code></td>
-<td>CJK fullwidth comma</td>
-</tr>
-<tr>
-<td><code>、</code></td>
-<td>Japanese ideographic comma</td>
-</tr>
-<tr>
-<td><code>;</code></td>
-<td>ASCII semicolon</td>
-</tr>
-<tr>
-<td><code>；</code></td>
-<td>CJK fullwidth semicolon</td>
-</tr>
-<tr>
-<td><code>and</code></td>
-<td>English conjunction (whole-word, case-insensitive)</td>
-</tr>
-<tr>
-<td><code>e</code></td>
-<td>Italian conjunction (whole-word, case-insensitive)</td>
-</tr>
-</tbody>
-</table>
-<p>After splitting: whitespace-strip; drop empties; deduplicate case-insensitively
-(first-seen casing preserved). Cap at <strong>5</strong> candidates (<code>_MISSING_PAGE_FANOUT_CAP</code>, I7).</p>
-<p>If the split yields ≤1 usable candidate, <code>[proposed_title]</code> is returned unchanged —
-preserving existing single-page Create behavior with zero regression.</p>
-<h3 id="2b-fan-out-loop-in-create_page_from_review">2b. Fan-out loop in <code>create_page_from_review</code><a class="headerlink" href="#2b-fan-out-loop-in-create_page_from_review" title="Permanent link">&para;</a></h3>
-<p>For <code>missing-page</code> items, <code>create_page_from_review</code> iterates over the candidate list and
-calls <code>_run_generation</code> + write path for <strong>each</strong> candidate:</p>
+<h1 id="synapse-v2115-a-prefix-is-not-a-name">Synapse v2.1.15 — "a prefix is not a name"<a class="headerlink" href="#synapse-v2115-a-prefix-is-not-a-name" title="Permanent link">&para;</a></h1>
+<p>Patch release closing two defects that <strong>delete data</strong> and one that <strong>leaks a credential</strong>,
+found by reading the backup and page-history retention paths during weekly maintenance. No
+schema migrations, no new endpoints, no API changes, no new configuration keys.</p>
+<p>Like 2.1.8 through 2.1.14, none of the three came from a live failure report. Two of them are
+literally the same mistake in two different modules, which is what makes this week worth
+writing down:</p>
+<blockquote>
+<p>A glob of the form <code>&lt;name&gt;-*</code> does not select "the files of <code>&lt;name&gt;</code>". The <code>*</code> also swallows
+the <code>&lt;suffix&gt;-</code> of every longer name that begins with <code>&lt;name&gt;-</code>.</p>
+</blockquote>
+<p>Both places then <em>deleted</em> what they had over-matched. In one, a vault's retention pruned a
+sibling vault's database dumps and kept none of its own; in the other, saving one wiki page
+erased a differently-named page's revision history. The third defect is the familiar
+"code that states an intent the code does not keep": a module whose header promises the DSN is
+never logged, and one error path that logs it.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="one-vaults-backup-retention-deleted-another-vaults-dumps-and-kept-none-of-its-own">One vault's backup retention deleted another vault's dumps — and kept none of its own<a class="headerlink" href="#one-vaults-backup-retention-deleted-another-vaults-dumps-and-kept-none-of-its-own" title="Permanent link">&para;</a></h3>
+<p><code>run_backup()</code> writes <code>synapse-&lt;vault_id&gt;-&lt;UTC stamp&gt;.dump</code> and then calls <code>_apply_retention()</code>
+to keep the newest N. That function decided what belonged to a vault with a glob:</p>
+<div class="highlight"><pre><span></span><code><span class="n">pattern</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_ARCHIVE_GLOB_PREFIX</span><span class="si">}{</span><span class="n">vault_id</span><span class="si">}</span><span class="s2">-*</span><span class="si">{</span><span class="n">_ARCHIVE_SUFFIX</span><span class="si">}</span><span class="s2">"</span>
+<span class="n">archives</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">backup_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">pattern</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">stale</span> <span class="o">=</span> <span class="n">archives</span><span class="p">[</span><span class="n">keep</span><span class="p">:]</span>
+</code></pre></div>
+<p>For vault <code>home</code> that is <code>synapse-home-*.dump</code> — which also matches every archive belonging to
+a vault called <code>home-lab</code>, because <code>*</code> happily absorbs <code>lab-20260101T000000Z</code>. Vault ids that
+are <code>-</code>-separated extensions of each other are not exotic; <code>home</code> / <code>home-lab</code> and <code>work</code> /
+<code>work-notes</code> are the names people actually choose.</p>
+<p>Over-matching alone would merely be wasteful. What makes it destructive is the line
+immediately after, which sorts by name to decide which archives are newest. After the shared
+<code>synapse-home-</code> prefix, the next character is <code>l</code> for the sibling and a digit for the real
+archives — and <code>l</code> (0x6C) sorts above <code>2</code> (0x32). So with <code>reverse=True</code> <strong>all of <code>home-lab</code>'s
+archives sort first and are kept as "the newest"</strong>, while every one of <code>home</code>'s own dumps falls
+past the keep window and is unlinked.</p>
+<p>Reproduced before the fix, three archives each and <code>keep=3</code>:</p>
+<div class="highlight"><pre><span></span><code>before: synapse-home-2026010{1,2,3}…, synapse-home-lab-2026010{1,2,3}…
+deleted: 3
+after : synapse-home-lab-2026010{1,2,3}…          ← vault "home" has zero backups
+</code></pre></div>
+<p>Vault <code>home</code> asked to keep three and was left with none, while its retention counter reported
+a healthy prune. This is the disaster-recovery artifact — the thing <code>run_backup</code> exists to
+produce before Watchtower recreates the containers — so the failure mode is discovering there
+is no backup at the moment one is needed.</p>
+<p>Archives are now enumerated with a <strong>vault-agnostic</strong> glob and filtered through an anchored
+matcher that also pins the fixed-width timestamp:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_archive_name_re</span><span class="p">(</span><span class="n">vault_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
+        <span class="sa">rf</span><span class="s2">"^</span><span class="si">{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">_ARCHIVE_GLOB_PREFIX</span><span class="p">)</span><span class="si">}{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">vault_id</span><span class="p">)</span><span class="si">}</span><span class="s2">-"</span>
+        <span class="sa">rf</span><span class="s2">"</span><span class="si">{</span><span class="n">_ARCHIVE_STAMP_PATTERN</span><span class="si">}{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">_ARCHIVE_SUFFIX</span><span class="p">)</span><span class="si">}</span><span class="s2">$"</span>
+    <span class="p">)</span>
+</code></pre></div>
+<p>Three things follow. Only this vault's archives can be pruned. The name sort stays
+chronological, because every surviving name shares an identical prefix and differs only in the
+fixed-width stamp. And foreign filenames — a half-written <code>…dump.tmp</code>, a hand-renamed archive
+with no timestamp — are no longer candidates for deletion at all. Escaping the vault id also
+closes the latent case of an id containing glob metacharacters.</p>
+<h3 id="overwriting-one-wiki-page-deleted-another-pages-history">Overwriting one wiki page deleted another page's history<a class="headerlink" href="#overwriting-one-wiki-page-deleted-another-pages-history" title="Permanent link">&para;</a></h3>
+<p><code>write_block_page()</code> keeps a bounded on-disk history of each page's previous bytes under
+<code>.synapse/page-history/&lt;stem&gt;-&lt;n&gt;.md</code>, capped by <code>ingest_page_history_max_per_page</code>. The
+listing had the <em>same</em> prefix-glob flaw, compounded by an unanchored index regex:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_BACKUP_INDEX_RE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"-(\d+)\.md$"</span><span class="p">)</span>
+<span class="o">...</span>
+<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">history_dir</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-*.md"</span><span class="p">):</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">_BACKUP_INDEX_RE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</code></pre></div>
+<p>Neither half is an identity test. <code>_sanitize_backup_stem()</code> deliberately keeps <code>-</code> (it is
+inside the allowed character class <code>[A-Za-z0-9._-]</code>), so <code>concepts/rag.md</code> and
+<code>concepts/rag-pipeline.md</code> become <code>wiki__concepts__rag</code> and <code>wiki__concepts__rag-pipeline</code> —
+one a <code>-</code>-separated prefix of the other. The glob for <code>rag</code> returns
+<code>wiki__concepts__rag-pipeline-7.md</code>, and an unanchored <code>search</code> reads <code>7</code> straight out of it.</p>
+<p>The listing feeds two callers, and the harmful one is the trim that runs after every overwrite:</p>
+<div class="highlight"><pre><span></span><code><span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">backups</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">cap</span><span class="p">:</span>
+    <span class="n">_idx</span><span class="p">,</span> <span class="n">oldest</span> <span class="o">=</span> <span class="n">backups</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">oldest</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>It deletes the <strong>lowest</strong> index first. Because the list held another page's files, churning the
+shorter-named page deleted the longer-named page's history. The regression test drives this
+through the real <code>write_block_page()</code> path, and without the fix the sibling's history comes
+back as <code>[]</code> — both of its revisions gone, while the page that caused it kept all of its own.
+The other caller, <code>next_idx = existing[-1][0] + 1</code>, is the benign half: it takes the maximum,
+so it skips index numbers rather than overwriting.</p>
+<p>The regex is now the authoritative gate, anchored on the exact escaped stem:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_backup_index_re</span><span class="p">(</span><span class="n">stem</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">re</span><span class="o">.</span><span class="n">Pattern</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">rf</span><span class="s2">"^</span><span class="si">{</span><span class="n">re</span><span class="o">.</span><span class="n">escape</span><span class="p">(</span><span class="n">stem</span><span class="p">)</span><span class="si">}</span><span class="s2">-(\d+)\.md$"</span><span class="p">)</span>
+</code></pre></div>
+<p>The glob stays narrow, so the OS still does the coarse filtering and the directory is not
+re-scanned in full; every name the regex accepts is a subset of what the glob returns.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h3 id="the-postgres-password-reached-the-backend-log">The Postgres password reached the backend log<a class="headerlink" href="#the-postgres-password-reached-the-backend-log" title="Permanent link">&para;</a></h3>
+<p><code>app/ops/backup.py</code> opens with an explicit promise:</p>
+<blockquote>
+<p>Security: the Postgres password is passed via the <code>PGPASSWORD</code> subprocess env var (never on
+the command line, so it never appears in <code>ps</code>/logs); the DSN itself is never logged.</p>
+</blockquote>
+<p>The command line honours that. The parse-failure path did not:</p>
+<div class="highlight"><pre><span></span><code><span class="k">raise</span> <span class="n">_DsnParseError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"database_url is missing host or database name: </span><span class="si">{</span><span class="n">database_url</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p><code>run_backup()</code> catches that error, logs it at ERROR, <strong>and</strong> returns the same string in
+<code>BackupSummary.error_message</code> — which <code>trigger_system_update()</code> logs a second time when a
+pre-update backup fails. So a password configured in <code>DATABASE_URL</code> lands in plaintext in the
+application log, twice, in the one place the module had declared off-limits.</p>
+<p>The root cause is a guard written to be helpful — <em>here is the DSN I could not parse</em> — about a
+value the module had classified as a secret everywhere else.</p>
+<p>It needs no adversary. <code>_DsnParseError</code> fires when the DSN has no host or no database name, and
+a unix-socket DSN has no host by construction:</p>
+<div class="highlight"><pre><span></span><code>postgresql+asyncpg://synapse:SuperSecret123@/synapse
+</code></pre></div>
+<p>That is ordinary Postgres configuration, and the resulting log line is exactly what an operator
+would paste into a bug report or a support thread.</p>
+<p>The message is now redacted, and the netloc is <strong>rebuilt from the parsed components</strong> rather
+than string-replaced, so a password containing <code>@</code> or <code>:</code> cannot survive into the output:</p>
+<div class="highlight"><pre><span></span><code>database_url is missing host or database name: 'postgresql+asyncpg://synapse:***@/synapse'
+</code></pre></div>
+<p>A DSN with no password is returned unchanged — there is nothing in it to hide — and the
+message stays actionable: the operator can still see which DSN was rejected and why.</p>
+<h2 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
+<h3 id="mypy-strict-restored-after-a-sqlalchemy-minor-landed-underneath-ci"><code>mypy</code> strict restored after a SQLAlchemy minor landed underneath CI<a class="headerlink" href="#mypy-strict-restored-after-a-sqlalchemy-minor-landed-underneath-ci" title="Permanent link">&para;</a></h3>
+<p><code>mypy app</code> began failing on <code>main</code> with two errors, in two files nobody had touched:</p>
+<div class="highlight"><pre><span></span><code>app/ingest/context.py:94: Argument 1 to "append" of "list" has incompatible type "str | None"
+app/ops/lint/detectors.py:102: Need type annotation for "target_rows"
+</code></pre></div>
+<p>Nothing in the repository changed. CI was green on <code>main</code> on 2026-09-18 (the 2.1.14 merge),
+with mypy pinned to <code>==2.1.0</code> — still the installed version. What changed is underneath:
+<code>backend/pyproject.toml</code> asks for <code>sqlalchemy[asyncio]&gt;=2.0.0</code> with no upper bound, and CI
+installs with a bare <code>pip install -e .</code>, so the job now resolves <strong>SQLAlchemy 2.1</strong>, which
+narrowed the element typing of <code>Row</code>/<code>Result</code>. Both sites were always loosely typed; 2.0 simply
+inferred <code>Any</code> and said nothing.</p>
+<p>Both fixes are type-only, with no runtime behaviour change. <code>Page.title</code> is
+<code>Mapped[str | None]</code> and the query already excludes NULLs with <code>Page.title.is_not(None)</code>, which
+the checker cannot see, so the guard is now explicit and is a no-op at runtime;
+<code>func.distinct()</code> erases the column type, so <code>target_rows</code> carries the annotation the line
+below it already assumes.</p>
+<p>This is included in a patch release because the <code>typecheck</code> stage blocks merge: left alone it
+makes <em>every</em> PR red for a cause outside the repository — which is also how a team learns to
+re-run a red job without reading it. The underlying problem is a process one, and is filed in
+<code>docs/reference/ROADMAP-3.0-IDEAS.md</code> rather than attempted here.</p>
+<h2 id="also-in-this-release">Also in this release<a class="headerlink" href="#also-in-this-release" title="Permanent link">&para;</a></h2>
+<p>One new entry in the 3.0 backlog (<code>docs/reference/ROADMAP-3.0-IDEAS.md</code>): <strong>backend
+dependencies are unpinned, so a minor upstream can break CI without a commit</strong> — the mechanism
+behind the mypy failure above. The two lines are fixed; the mechanism that let them appear on a
+branch nobody touched is not, because closing it means a lockfile or constraints file plus a
+decision about who regenerates it and how a deliberate bump is told apart from drift. That
+decision interacts with the long-standing pypdf entry (41 distinct advisories, all fixed only
+in the 6.x line, behind a <code>&lt;6</code> pin) and should be taken together with it, not separately.</p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
 <ul>
-<li><strong>Primary (first) candidate failure</strong> → 502, item left pending (identical to
-  pre-fan-out behavior).</li>
-<li><strong>Secondary candidate failure</strong> → log warning, skip, continue. The primary is already
-  committed.</li>
-<li>Each write is exactly one <code>data_version</code> bump (I1 — no batch write).</li>
-</ul>
-<p>All other item types (<code>suggestion</code>, <code>contradiction</code>, <code>duplicate</code>, <code>confirm</code>,
-<code>purpose-suggestion</code>, <code>schema-suggestion</code>) remain on the single-page path.</p>
-<h3 id="2c-api-compatibility-preserved-i8">2c. API compatibility preserved (I8)<a class="headerlink" href="#2c-api-compatibility-preserved-i8" title="Permanent link">&para;</a></h3>
-<p><code>created_page_id</code> on the review item is set to the <strong>first/primary</strong> created page ID.
-The 201 response shape (<code>ReviewItemResponse</code>) is unchanged — no new required fields.
-Existing OpenAPI clients and tests are unaffected.</p>
-<hr />
-<h2 id="3-lintreview-queue-separation-k8">3. Lint/review queue separation (K8)<a class="headerlink" href="#3-lintreview-queue-separation-k8" title="Permanent link">&para;</a></h2>
-<p>Synapse keeps lint findings <strong>OUT</strong> of the review queue. The explicit <code>send-to-review</code>
-bridge in lint.py already provides equivalent capability — the human can escalate any lint
-finding to a review item when needed. Routing all lint findings into the queue automatically
-(as the reference does) adds noise and dilutes the human curation signal (K8). This is a
-deliberate divergence from nashsu/llm_wiki. <code>_extract_missing_page_candidates</code> is therefore
-applied only at Create time, not at lint time.</p>
-<hr />
-<h2 id="4-alternatives-considered">4. Alternatives considered<a class="headerlink" href="#4-alternatives-considered" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Alternative</th>
-<th>Rejected because</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Create one page with a composite title</td>
-<td>Loses granularity; Obsidian wikilinks would not resolve (I5)</td>
-</tr>
-<tr>
-<td>Fan-out at enqueue time (multiple items)</td>
-<td>Changes the contract for callers that enqueue a single item; breaks idempotency key (ADR-0044 §3.2)</td>
-</tr>
-<tr>
-<td>Expose <code>created_page_ids[]</code> in response</td>
-<td>Breaks existing OpenAPI clients; the primary ID is sufficient for the UI to navigate</td>
-</tr>
-<tr>
-<td>Lint→review auto-bridge</td>
-<td>Noisy; K8 requires human curation, not automation (see §3)</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2 id="5-consequences">5. Consequences<a class="headerlink" href="#5-consequences" title="Permanent link">&para;</a></h2>
-<ul>
-<li><code>_extract_missing_page_candidates</code> is a pure function with no I/O — straightforward to
-  test in isolation.</li>
-<li><code>_MISSING_PAGE_FANOUT_CAP = 5</code> bounds provider call volume (I7); a pathological title
-  with 20 commas generates at most 5 provider calls.</li>
-<li>The fan-out is transparent to the UI: <code>created_page_id</code> still points to the primary;
-  the user sees the first page opened immediately and finds the siblings in the vault.</li>
-<li>No migration needed: the <code>review_items</code> schema is unchanged.</li>
+<li><strong>No schema migration.</strong> No SQLAlchemy model changed, so <code>docs/er/schema.mmd</code> is unchanged
+  and no Alembic revision ships with this release.</li>
+<li><strong>No API change.</strong> <code>docs/api/openapi.json</code> differs only in the version string.</li>
+<li><strong>No new configuration.</strong> <code>DATABASE_URL</code>, <code>BACKUP_ROOT</code>, <code>BACKUP_RETENTION_COUNT</code> and
+  <code>INGEST_PAGE_HISTORY_MAX_PER_PAGE</code> keep their meanings and defaults; nothing new to set in
+  <code>.env</code>.</li>
+<li><strong>Check your backup directory if you run more than one vault.</strong> The retention fix stops
+  further damage but cannot restore what earlier runs deleted. If two of your vault ids are
+  <code>-</code>-separated extensions of each other (<code>home</code> / <code>home-lab</code>), list
+  <code>$BACKUP_ROOT/synapse-*.dump</code> and confirm the shorter-named vault still has the number of
+  archives you expect. If it does not, take a fresh dump — <code>POST /ops/schedules/backup/run-now</code>
+  — before relying on the next scheduled one.</li>
+<li><strong>Page history may look shorter than the cap on some pages.</strong> Same reason: revisions deleted
+  by an earlier run are gone. New revisions accumulate correctly from this release on, per
+  page, up to <code>ingest_page_history_max_per_page</code>. No page <em>content</em> was ever at risk — the
+  live files in <code>wiki/</code> are untouched by this path, only the <code>.synapse/page-history/</code> copies.</li>
+<li><strong>If you have ever seen a <code>database_url is missing host or database name</code> line in your
+  logs</strong>, treat the password in it as disclosed and rotate it. The line is redacted from this
+  release forward, but existing log files, shipped logs and <code>docker logs</code> buffers still hold
+  the original.</li>
+<li><strong>No client-side state to clear.</strong> Existing OAuth grants, refresh tokens, API tokens,
+  conversations and vault content are untouched.</li>
 </ul>
 
 
