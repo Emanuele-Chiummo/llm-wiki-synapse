@@ -275,7 +275,21 @@ def _atomic_write(abs_path: Path, data: bytes) -> None:
         raise
 
 
-_BACKUP_INDEX_RE = re.compile(r"-(\d+)\.md$")
+def _backup_index_re(stem: str) -> re.Pattern[str]:
+    """
+    Exact-identity matcher for ONE page's history files: ``<stem>-<n>.md``, fully anchored.
+
+    A bare ``-(\\d+)\\.md$`` search is NOT an identity test. ``_sanitize_backup_stem`` keeps
+    ``-`` (it is in the allowed character class), so page ``concepts/rag.md`` and page
+    ``concepts/rag-pipeline.md`` produce stems where one is a ``-``-separated prefix of the
+    other. The glob ``wiki__concepts__rag-*.md`` then also matches
+    ``wiki__concepts__rag-pipeline-7.md``, and an unanchored search happily reads ``7`` out
+    of it — so one page's history listing contained another page's files, and the
+    ``max_per_page`` trim (which unlinks the lowest index first) deleted them. Anchoring on
+    the exact stem closes that. Hyphenated page names are ordinary, so this needed no
+    adversary.
+    """
+    return re.compile(rf"^{re.escape(stem)}-(\d+)\.md$")
 
 
 def _sanitize_backup_stem(normalized_rel: str) -> str:
@@ -315,8 +329,11 @@ def _backup_page_history(normalized_rel: str, abs_path: Path) -> None:
 def _existing_backups(history_dir: Path, stem: str) -> list[tuple[int, Path]]:
     """Return ``(index, path)`` for every ``<stem>-<n>.md`` backup, sorted ascending by index."""
     found: list[tuple[int, Path]] = []
+    index_re = _backup_index_re(stem)
+    # The glob stays narrow (the OS filters); the anchored regex is the authoritative gate —
+    # every name it accepts is a subset of what the glob returns.
     for path in history_dir.glob(f"{stem}-*.md"):
-        match = _BACKUP_INDEX_RE.search(path.name)
+        match = index_re.match(path.name)
         if match is not None:
             found.append((int(match.group(1)), path))
     found.sort(key=lambda item: item[0])

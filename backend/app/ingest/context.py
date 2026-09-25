@@ -91,6 +91,12 @@ async def _load_existing_pages_catalogue() -> str:
     # Group titles by page_type, preserving the most-recent-first order within each group.
     grouped: dict[str, list[str]] = {}
     for title, page_type in kept_rows:
+        # `Page.title` is Mapped[str | None]; the query already filters NULLs out with
+        # `Page.title.is_not(None)`, which the type checker cannot see. SQLAlchemy 2.1
+        # narrowed Row element typing, so the guard now has to be explicit. It is a no-op
+        # at runtime.
+        if title is None:  # pragma: no cover — excluded by the WHERE clause above
+            continue
         grouped.setdefault(page_type or "other", []).append(title)
 
     header = (
