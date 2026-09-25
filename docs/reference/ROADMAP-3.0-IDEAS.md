@@ -582,3 +582,38 @@ giorno senza mai ripagarsi.
   non dopo la prima funzionalità multi-vault reale: dopo, il bug è una cancellazione già
   avvenuta.
 - **Trovato:** 2026-09-18
+
+### Le dipendenze backend non sono bloccate: un minor a monte può rompere la CI senza un commit
+
+- **Problema:** `backend/pyproject.toml` dichiara le dipendenze di runtime con vincoli aperti
+  (`sqlalchemy[asyncio]>=2.0.0`, `fastapi>=0.111`, …) e la CI installa con `pip install -e .`
+  senza lockfile né constraints. La versione che finisce nel job — e nell'immagine Docker —
+  è quindi quella che PyPI serve nel momento in cui il job gira, non quella verificata
+  all'ultimo merge. La deriva non è teorica: fra il 2026-09-18 (CI verde sulla 2.1.14) e il
+  2026-09-25 è uscita SQLAlchemy 2.1, che ha reso più preciso il tipo degli elementi di
+  `Row`/`Result`, e `mypy app` — invariato, con mypy bloccato a `==2.1.0` — ha iniziato a
+  fallire su `main` con due errori in file che nessuno aveva toccato. Lo stage `typecheck`
+  blocca il merge, quindi per una settimana **ogni** PR sarebbe stata rossa per una causa
+  esterna al repository. Le due righe sono state corrette nella 2.1.15, ma la correzione è
+  il sintomo: il prossimo minor a monte ripresenta lo stesso problema, e non è detto che la
+  volta dopo sia un errore di tipi invece di un cambio di comportamento a runtime.
+- **Evidenza:** `backend/pyproject.toml:13` (`"sqlalchemy[asyncio]>=2.0.0"`, nessun tetto) e
+  in generale `backend/pyproject.toml:10-46`; `.github/workflows/ci.yml:128-136` (il job
+  `typecheck` installa con `pip install -e .` + `pip install -e ".[dev]"`, la cache di
+  `setup-python` è la cache dei download di pip e non fissa le versioni risolte);
+  `backend/app/ingest/context.py:94` e `backend/app/ops/lint/detectors.py:102` (i due punti
+  che SQLAlchemy 2.1 ha fatto emergere). Il contrasto è netto con il frontend, che ha
+  `package-lock.json` versionato e usa `npm ci`.
+- **Impatto:** medio, ma sulla capacità di rilasciare. Una CI che può diventare rossa da sola
+  fa perdere il segnale: la prima reazione a un fallimento non riconducibile al diff è
+  ririgare il job, che è esattamente l'abitudine che il runbook vieta (§3, «mai retry alla
+  cieca»). E il rischio non si ferma ai tipi: lo stesso meccanismo può far entrare in
+  produzione un minor con un cambio di comportamento — la serializzazione di un tipo, il
+  default di un pool — che nessun test copre, senza che alcun commit lo registri.
+- **Sforzo:** M. Il diff è piccolo (generare un `constraints.txt` o un `requirements.lock`
+  con `pip-compile`/`uv pip compile` e farlo usare a CI e Dockerfile), ma la parte vera è
+  decidere il processo: chi rigenera il lock e con quale cadenza, come si distingue un bump
+  deliberato da una deriva, e come si evita che il lock diventi il posto dove le advisory
+  invecchiano indisturbate (il problema opposto, già visibile su pypdf). Va deciso insieme
+  a quello, non separatamente.
+- **Trovato:** 2026-09-25
