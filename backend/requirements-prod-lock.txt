@@ -173,7 +173,7 @@ pathable==0.6.0
     # via jsonschema-path
 pillow==12.3.0
     # via python-pptx
-platformdirs==4.10.0
+platformdirs==4.10.1
     # via fastmcp-slim
 portalocker==3.2.0
     # via qdrant-client
