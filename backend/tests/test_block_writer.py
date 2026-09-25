@@ -407,3 +407,69 @@ async def test_page_history_backup_created_and_capped(
     # The live file still holds the latest revision.
     live = (block_env["vault_root"] / "wiki" / "thesis" / "hist.md").read_text(encoding="utf-8")
     assert "Rev 5" in live
+
+
+# ── Regression: page-history must not span pages with a shared hyphen prefix ──
+# `_sanitize_backup_stem` keeps "-", so page "rag.md" and page "rag-pipeline.md" yield stems
+# where one is a "-"-separated prefix of the other. The old unanchored `-(\d+)\.md$` search
+# read an index out of the OTHER page's files, so one page's listing contained the other's
+# backups — and the max_per_page trim (which unlinks the lowest index first) deleted them.
+
+
+def test_existing_backups_excludes_hyphen_prefix_sibling(tmp_path: Path) -> None:
+    """`_existing_backups` lists ONLY the files of the stem it was asked about."""
+    from app.ingest.block_writer import _existing_backups, _sanitize_backup_stem
+
+    stem = _sanitize_backup_stem("wiki/concepts/rag.md")
+    sibling = _sanitize_backup_stem("wiki/concepts/rag-pipeline.md")
+    assert sibling.startswith(f"{stem}-")  # the collision precondition
+
+    for i in range(3):
+        (tmp_path / f"{stem}-{i}.md").write_text("own", encoding="utf-8")
+        (tmp_path / f"{sibling}-{i}.md").write_text("sibling", encoding="utf-8")
+
+    found = _existing_backups(tmp_path, stem)
+    assert [p.name for _i, p in found] == [f"{stem}-{i}.md" for i in range(3)]
+
+
+@pytest.mark.asyncio
+async def test_page_history_trim_does_not_delete_sibling_pages_backups(
+    block_env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Overwriting `rag.md` never prunes the history of `rag-pipeline.md`."""
+    from app import config as cfg
+    from app.ingest.block_writer import write_block_page
+
+    monkeypatch.setattr(cfg.settings, "ingest_page_history_max_per_page", 2)
+    history_dir = block_env["vault_root"] / ".synapse" / "page-history"
+
+    # Fill the sibling page up to its cap (3 writes → 2 backups).
+    for rev in range(1, 4):
+        await write_block_page(
+            rel_path="wiki/thesis/rag-pipeline.md",
+            content=_thesis_content(f"Pipeline rev {rev}"),
+            origin_source=ORIGIN,
+            routing=ROUTING,
+        )
+    sibling_before = sorted(p.name for p in history_dir.glob("wiki__thesis__rag-pipeline-*.md"))
+    assert len(sibling_before) == 2
+
+    # Now churn the SHORTER-named page well past its own cap.
+    for rev in range(1, 6):
+        await write_block_page(
+            rel_path="wiki/thesis/rag.md",
+            content=_thesis_content(f"Rag rev {rev}"),
+            origin_source=ORIGIN,
+            routing=ROUTING,
+        )
+
+    sibling_after = sorted(p.name for p in history_dir.glob("wiki__thesis__rag-pipeline-*.md"))
+    assert sibling_after == sibling_before, "rag.md's retention deleted rag-pipeline.md's history"
+
+    # And `rag.md` honours its own cap, counting only its own files.
+    own = [
+        p
+        for p in history_dir.glob("wiki__thesis__rag-*.md")
+        if not p.name.startswith("wiki__thesis__rag-pipeline-")
+    ]
+    assert len(own) == 2
