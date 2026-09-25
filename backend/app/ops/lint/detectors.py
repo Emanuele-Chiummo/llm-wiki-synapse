@@ -99,7 +99,10 @@ async def _detect_orphans(vault_id: str) -> list[FindingDTO]:
             # excluded). The vault join stops a cross-vault same-id link from masking an
             # orphan (from 1.3.12); the index/log exclusion stops index.md — which links
             # nearly everything — from masking true orphans (llm_wiki parity, L-bug1).
-            target_rows = list(
+            # Explicit annotation: `func.distinct()` erases the column type, so under
+            # SQLAlchemy 2.1's narrowed Result typing mypy can no longer infer the element
+            # type from `.scalars()`. `Link.target_page_id` is Mapped[uuid.UUID | None].
+            target_rows: list[uuid.UUID | None] = list(
                 (
                     await session.execute(
                         select(func.distinct(Link.target_page_id))
