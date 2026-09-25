@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.15] — 2026-09-25 — "a prefix is not a name"
+
+Patch release closing two defects that delete data and one that leaks a credential, found by
+reading the backup and page-history retention paths during weekly maintenance. None came from
+a live failure report. No schema migrations, no API changes, no new config.
+
+Two of the three are literally the same mistake in two modules: **a `-`-separated prefix used
+as if it were an identity**. A glob of the form `<name>-*` does not select "the files of
+`<name>`" — `*` also swallows the `<suffix>-` of every longer name that starts with `<name>-`.
+Both places then *deleted* what they had over-matched.
+
+### Fixed
+
+- **One vault's backup retention deleted another vault's dumps — and kept none of its own**:
+  `_apply_retention` (`app/ops/backup.py`) globbed `synapse-<vault_id>-*.dump` and treated the
+  result as this vault's archives. Vault `home` therefore also matched vault `home-lab`'s
+  dumps. The damage is worse than over-matching, because the list is then sorted by name to
+  decide which are newest: after the shared `synapse-home-` prefix the next character is `l`
+  for the sibling and a digit for the real archives, and `l` > `2`, so *all* of `home-lab`'s
+  archives sorted first and were kept as "newest" while every one of `home`'s own dumps fell
+  past the keep window and was unlinked. Verified with three archives each and `keep=3`: vault
+  `home` is left with zero. Root cause: a prefix glob used as an identity test. The archives
+  are now enumerated with a vault-agnostic glob and filtered through an anchored regex that
+  also pins the fixed-width UTC stamp — so the name sort stays chronological, foreign
+  filenames (a stray `.dump.tmp`, a name with no timestamp) are ignored, and a vault id
+  containing glob metacharacters can no longer widen the match. This is the disaster-recovery
+  artifact: the failure mode was silently having no backup while the retention count said
+  otherwise.
+- **Overwriting one wiki page deleted another page's history**: `_existing_backups`
+  (`app/ingest/block_writer.py`) listed a page's `.synapse/page-history/<stem>-<n>.md` files
+  with the same shape of prefix glob, and pulled the index out with an *unanchored*
+  `-(\d+)\.md$` search — so neither half was an identity test. `_sanitize_backup_stem` keeps
+  `-`, so pages `concepts/rag.md` and `concepts/rag-pipeline.md` produce stems where one is a
+  `-`-separated prefix of the other, and the listing for `rag` contained `rag-pipeline`'s
+  files. The trim that follows each overwrite unlinks the *lowest* index first, so churning
+  the shorter-named page deleted the longer-named page's history outright — the regression
+  test, run without the fix, comes back with the sibling's two revisions gone. Hyphenated page
+  names are ordinary, so this needed no adversary, only two pages a vault would naturally
+  hold. The anchored per-stem regex is now the authoritative gate; the glob stays narrow so
+  the OS still does the filtering.
+
+### Security
+
+- **The Postgres password reached the backend log**: `app/ops/backup.py`'s header promises that
+  the password travels via `PGPASSWORD` "so it never appears in `ps`/logs" and that "the DSN
+  itself is never logged". The parse-failure path broke exactly that: `_pg_dump_args`
+  interpolated the raw `settings.database_url` into `_DsnParseError`, and `run_backup` both
+  logs that message at ERROR *and* returns it verbatim in `BackupSummary.error_message` —
+  which `trigger_system_update()` then logs a second time when a pre-update backup fails. Root
+  cause: a guard written to be helpful ("here is the DSN I could not parse") about a value the
+  module had classified as a secret everywhere else. Reachable with no adversary: the error
+  fires when the DSN has no host or no database name, and a unix-socket DSN
+  (`postgresql+asyncpg://user:pw@/synapse`) has no host by construction — and the resulting
+  log line is precisely what an operator would paste into a bug report. The DSN is now
+  redacted by rebuilding the netloc from the parsed parts rather than string-replacing, so a
+  password containing `@` or `:` cannot survive into the output.
+
+### Changed
+
+- **`mypy` strict restored after a SQLAlchemy minor landed underneath CI**: `mypy app` began
+  failing on `main` with two errors in files nobody had touched (`ingest/context.py`,
+  `ops/lint/detectors.py`). Nothing in the repository changed — `backend/pyproject.toml` asks
+  for `sqlalchemy[asyncio]>=2.0.0` with no upper bound and CI installs with a bare
+  `pip install -e .`, so the job resolved SQLAlchemy 2.1, which narrowed `Row`/`Result`
+  element typing and exposed two sites that 2.0 had inferred as `Any`. Both fixes are
+  type-only with no runtime behaviour change. Included here because the typecheck stage blocks
+  merge, so left alone it makes *every* PR red for a cause outside the repository — which is
+  also how a team learns to re-run a red job without reading it. The underlying problem
+  (unpinned backend dependencies, no lockfile, so the resolved versions are whatever PyPI
+  serves when the job runs) is a process change and is filed in
+  `docs/reference/ROADMAP-3.0-IDEAS.md` rather than attempted in a patch.
+
 ## [2.1.14] — 2026-09-18 — "degrade, don't die"
 
 Patch release closing two defects found by reading the web-search client and the import
