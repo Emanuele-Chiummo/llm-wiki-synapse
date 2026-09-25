@@ -233,3 +233,81 @@ async def test_run_backup_prunes_after_success(tmp_path: Path) -> None:
     assert summary.deleted_count == 1
     remaining = list(tmp_path.glob("synapse-testvault-*.dump"))
     assert len(remaining) == 2
+
+
+# ── Regression: the DSN (hence the password) must never reach a message ───────
+# The module contract is "the DSN itself is never logged". The parse-failure path broke it:
+# the raw DSN was interpolated into _DsnParseError, and run_backup both logs that message at
+# ERROR and returns it in BackupSummary.error_message (which system_update logs again).
+
+
+def test_dsn_parse_error_redacts_the_password() -> None:
+    """A DSN missing the host still reports usefully — without the credentials."""
+    from app.ops.backup import _DsnParseError
+
+    # A unix-socket DSN: ordinary operator config, no host → the reachable failure path.
+    with pytest.raises(_DsnParseError) as excinfo:
+        _pg_dump_args("postgresql+asyncpg://synapse:SuperSecret123@/synapse")
+
+    message = str(excinfo.value)
+    assert "SuperSecret123" not in message
+    assert "***" in message
+    # Still actionable: the operator can see which DSN was rejected.
+    assert "synapse" in message
+
+
+def test_redact_dsn_handles_awkward_passwords_and_no_password() -> None:
+    """The netloc is rebuilt from parsed parts, so '@'/':' in a password cannot survive."""
+    from app.ops.backup import _redact_dsn
+
+    out = _redact_dsn("postgresql+asyncpg://user:p@ss:word@dbhost:5432/synapse")
+    assert "p@ss:word" not in out
+    assert out.startswith("postgresql+asyncpg://user:***@")
+
+    # Nothing to redact → returned unchanged.
+    plain = "postgresql+asyncpg://user@dbhost/synapse"
+    assert _redact_dsn(plain) == plain
+
+
+# ── Regression: retention is scoped to ONE vault, exactly ────────────────────
+# `synapse-<vault_id>-*.dump` is not an identity test: '*' also swallows the '<suffix>-' of a
+# vault whose id starts with this one plus '-', so vault 'home' matched vault 'home-lab''s
+# archives — and, because 'l' > '2', sorted them FIRST, pruning all of 'home''s real dumps.
+
+
+def test_apply_retention_ignores_vault_whose_id_shares_a_hyphen_prefix(tmp_path: Path) -> None:
+    stamps = ["20260101T000000Z", "20260102T000000Z", "20260103T000000Z"]
+    for s in stamps:
+        (tmp_path / f"synapse-home-{s}.dump").write_bytes(b"x")
+        (tmp_path / f"synapse-home-lab-{s}.dump").write_bytes(b"x")
+
+    # keep=3 and vault 'home' owns exactly 3 archives → nothing is due for pruning.
+    deleted = _apply_retention(tmp_path, "home", keep=3)
+    assert deleted == 0
+    assert len({p.name for p in tmp_path.glob("synapse-home-2*.dump")}) == 3
+    assert len({p.name for p in tmp_path.glob("synapse-home-lab-*.dump")}) == 3
+
+
+def test_apply_retention_prunes_only_its_own_vault_when_over_keep(tmp_path: Path) -> None:
+    for s in ["20260101T000000Z", "20260102T000000Z", "20260103T000000Z"]:
+        (tmp_path / f"synapse-home-{s}.dump").write_bytes(b"x")
+        (tmp_path / f"synapse-home-lab-{s}.dump").write_bytes(b"x")
+
+    deleted = _apply_retention(tmp_path, "home", keep=1)
+    assert deleted == 2
+    assert {p.name for p in tmp_path.glob("synapse-home-2*.dump")} == {
+        "synapse-home-20260103T000000Z.dump"
+    }
+    # The other vault is untouched.
+    assert len({p.name for p in tmp_path.glob("synapse-home-lab-*.dump")}) == 3
+
+
+def test_apply_retention_ignores_foreign_filenames(tmp_path: Path) -> None:
+    """Only well-formed `synapse-<vault>-<stamp>.dump` names are ever considered."""
+    (tmp_path / "synapse-v1-20260101T000000Z.dump").write_bytes(b"x")
+    (tmp_path / "synapse-v1-notatimestamp.dump").write_bytes(b"x")
+    (tmp_path / "synapse-v1-20260101T000000Z.dump.tmp").write_bytes(b"x")
+
+    assert _apply_retention(tmp_path, "v1", keep=0) == 1
+    assert (tmp_path / "synapse-v1-notatimestamp.dump").exists()
+    assert (tmp_path / "synapse-v1-20260101T000000Z.dump.tmp").exists()
