@@ -617,3 +617,85 @@ giorno senza mai ripagarsi.
   invecchiano indisturbate (il problema opposto, già visibile su pypdf). Va deciso insieme
   a quello, non separatamente.
 - **Trovato:** 2026-09-25
+
+### Nessun controllo automatico che un file pubblicato nel vault sia leggibile dagli altri lettori
+
+- **Problema:** la 2.1.16 ha corretto sei siti che pubblicavano file nel vault con i permessi
+  `0600` di `mkstemp`, e li ha fatti passare tutti per `app/vault_io.py`. Ma nulla *impedisce*
+  al settimo di nascere: il prossimo `tempfile.mkstemp(...)` + `os.replace(...)` scritto a mano
+  reintroduce esattamente lo stesso difetto, in silenzio, e la 2.1.12 dimostra che succede
+  davvero (la `chmod` fu aggiunta solo nel sito appena creato, senza cercarne i fratelli). Il
+  difetto non è visibile in nessun log, non rompe nessun test funzionale, e si manifesta solo
+  sul lato Obsidian/LiveSync del vault condiviso — cioè fuori dal processo che lo ha causato.
+- **Evidenza:** `backend/app/vault_io.py` (la correzione, con la motivazione nell'header);
+  `backend/tests/test_vault_file_mode.py` (i sette punti pinnati uno per uno, enumerati a
+  mano); `backend/app/routers/ingest.py:947` nella 2.1.12 (la `chmod` open-coded, unico sito
+  corretto per quattro settimane). Il contrasto utile è con `I5`, che *è* verificato in CI da
+  `backend/scripts/check_obsidian.py`: la validità strutturale del vault ha un guardiano
+  automatico, la sua leggibilità no.
+- **Impatto:** medio, e crescente con la superficie di scrittura. Ogni nuovo ingresso (un
+  formato sorgente, un'operazione di manutenzione, un export) è un'occasione di regressione, e
+  il costo di una regressione è un vault che Obsidian non riesce più a leggere — il tipo di
+  guasto che l'utente attribuisce a LiveSync, non a Synapse. La difesa attuale è un test che
+  elenca i siti noti: cresce solo se chi aggiunge un sito si ricorda di aggiungerlo.
+- **Sforzo:** M. Il diff è piccolo in entrambe le direzioni possibili, ma sono scelte diverse e
+  vanno decise, non sommate: (a) un gate statico in `test_code_quality.py` che vieti
+  `mkstemp` + `replace` fuori da `vault_io` — semplice, ma va insegnato a distinguere i temp
+  file del vault da quelli legittimamente `0600` in `/tmp` (`provider/cli.py`,
+  `deep_research.py`); (b) un controllo a runtime nel `check_obsidian` esistente, che segnali i
+  file del vault non leggibili in gruppo — copre anche i file arrivati da fuori Synapse, ma
+  introduce una nozione di "permessi attesi" che oggi non esiste da nessuna parte. La parte
+  vera è decidere quale delle due è la fonte di verità, perché averle entrambe significa due
+  posti dove la regola invecchia.
+- **Trovato:** 2026-10-02
+
+### `GraphCache` perde il recompute di follow-up quando il bump arriva durante la rivalidazione in background
+
+- **Problema:** `_kick_background_revalidate()` imposta `_in_flight = True` in modo sincrono e
+  poi crea il task — ma il corpo del task non parte fino al successivo giro di event loop, e la
+  prima cosa che fa è `self._pending = False`, con il commento «safe: nothing could have set it
+  between in_flight=True and here». Per `tick()` è vero (non c'è `await` in mezzo); per il kick
+  in background no: in quella finestra il chiamante ritorna lo snapshot stale e continua ad
+  await-are, quindi un `notify_bump()` concorrente può impostare `_pending = True` e vederselo
+  azzerare subito dopo. Il follow-up previsto da AC-F16db-3 non viene mai schedulato.
+- **Evidenza:** `backend/app/graph/cache.py:417-419` (il set sincrono + `create_task`);
+  `backend/app/graph/cache.py:196` (`self._pending = False` con la precondizione che vale solo
+  per il chiamante sincrono); `backend/app/graph/cache.py:139-142` (`notify_bump` che imposta
+  `_pending` quando `_in_flight`).
+- **Impatto:** basso. Il difetto si auto-ripara: il marker non corrisponde più alla
+  `data_version`, quindi la `GET /graph` successiva è un MISS e serve stale + rivalida. Il costo
+  reale è che il grafo resta indietro di un bump finché qualcuno non lo richiede, invece di
+  essere ricalcolato proattivamente — e che un invariante dichiarato nel docstring (un
+  follow-up esattamente per ogni bump durante un run) non è vero su uno dei tre ingressi.
+- **Sforzo:** S come diff (passare al task la generazione/il flag catturato al momento del
+  kick, o spostare l'azzeramento di `_pending` nel chiamante sincrono), M come verifica: la
+  macchina a stati ha tre ingressi (`tick`, MISS inline, kick in background) e cinque campi
+  condivisi, e i test attuali la guidano con un clock iniettato ma mai con un bump *dentro* la
+  finestra fra `create_task` e la prima riga del task. Serve un test che sappia schedulare in
+  quella finestra, ed è quel test — non la riga corretta — il lavoro.
+- **Trovato:** 2026-10-02
+
+### Il controllo aggiornamenti non ha cache negativa: un 403 di GitHub lo fa ripartire a ogni richiesta
+
+- **Problema:** `_fetch_latest_version()` dichiara nel docstring di essere «cached ~1h to respect
+  the unauthenticated rate limit (60/h)», ma la cache viene scritta **solo** sul percorso di
+  successo. Un non-200 (compreso il 403 da rate-limit) e qualsiasi eccezione ritornano il valore
+  stale *senza* aggiornare il timestamp, quindi la condizione d'ingresso della cache resta falsa
+  e la chiamata successiva ritenta subito. Nel momento esatto in cui GitHub ci sta dicendo di
+  rallentare, smettiamo di avere una cache.
+- **Evidenza:** `backend/app/ops/system_update.py:68-88`: `if cached is not None and (now -
+  cached_at) < _CACHE_TTL_SECONDS` legge una tupla che il ramo `resp.status_code != 200`
+  (`:81-83`) e l'`except` (`:87-88`) non riscrivono mai. Il chiamante è
+  `GET /ops/update-status`, che la Home interroga.
+- **Impatto:** basso-medio. Non rompe nulla di visibile — il ramo di fallimento è progettato per
+  degradare — ma trasforma ogni caricamento della Home in una richiesta uscente da 8 secondi di
+  timeout verso un'API che ci ha già rifiutato, e il rate limit unauth è per IP: dietro un NAT
+  condiviso o con più schede aperte si auto-alimenta.
+- **Sforzo:** S come diff (scrivere `_latest_cache = (now, cached)` anche sui rami di
+  fallimento), ma la decisione non è il diff: una cache negativa con lo stesso TTL di un successo
+  significa che un 403 transitorio nasconde per un'ora un aggiornamento appena pubblicato, e il
+  pulsante «Aggiorna sistema» è esattamente ciò che l'utente va a guardare dopo aver letto le
+  release notes. Servono due TTL distinti (breve sul fallimento, lungo sul successo) e una
+  decisione su cosa mostrare in UI mentre la cache negativa è calda — cioè un cambio di
+  comportamento su un flusso esistente, non una correzione.
+- **Trovato:** 2026-10-02

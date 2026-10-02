@@ -106,27 +106,17 @@ async def reindex_wiki_page_body(
     (the link targets already exist; the catalogue is unchanged by adding an inline link). The
     caller is responsible for the single ``bump_version()`` when batching with ``bump=False``.
     """
-    import os
-    import tempfile
+    from app.vault_io import atomic_write_bytes  # noqa: PLC0415
 
     abs_path = (settings.vault_root / page.file_path).resolve()
     new_bytes = new_file_text.encode("utf-8")
 
-    def _atomic_write() -> None:
-        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(abs_path.parent), suffix=".enrich_tmp")
-        try:
-            os.write(tmp_fd, new_bytes)
-            os.close(tmp_fd)
-            Path(tmp_name).replace(abs_path)
-        except Exception:
-            try:
-                os.close(tmp_fd)
-            except OSError:
-                pass
-            Path(tmp_name).unlink(missing_ok=True)
-            raise
-
-    await asyncio.get_event_loop().run_in_executor(None, _atomic_write)
+    # atomic_write_bytes keeps the page at VAULT_FILE_MODE: mkstemp creates 0600 and
+    # os.replace carries the TEMP file's mode onto the destination, so rewriting a page
+    # through here used to downgrade an existing 0644 vault file (I5 — see app/vault_io.py).
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: atomic_write_bytes(abs_path, new_bytes, suffix=".enrich_tmp")
+    )
 
     # Refresh content_hash; preserve existing metadata verbatim (frontmatter untouched, I5).
     # summary IS recomputed here (unlike apply_domain_tags/apply_page_type below): the body

@@ -622,3 +622,86 @@ def test_summary_as_dict() -> None:
     assert d["apply"] is True
     assert len(d["plan"]) == 1
     assert d["plan"][0]["slug"] == "aws"
+
+
+# ── T9: collision safety (2.1.16) ─────────────────────────────────────────────
+
+
+async def test_move_refuses_to_overwrite_an_existing_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    2.1.16 regression: the destination path is derived from the stub's own stem, so it
+    collides with a REAL page whenever the vault already holds the page the stub stood in
+    for — Lint writes wiki/queries/<slug>.md for a missing [[Target]], nothing removes that
+    stub once the genuine page is authored, and wikilinks resolve by TITLE, so the dangling
+    link quietly starts resolving to the real page while the stub keeps the same slug.
+
+    Without the guard, the move renamed the stub OVER wiki/entities/<slug>.md: the real
+    page's body was destroyed and two live rows pointed at one file. _move_and_retype must
+    raise FileExistsError and leave BOTH files untouched (the per-page handler in
+    _run_inner then counts the page as failed and carries on with the batch).
+
+    Mirrors ops/reconcile_folders._move_page, which has always had this guard.
+    """
+    # ── The stub, and the real page it would have clobbered ──────────────────
+    (tmp_path / "wiki" / "queries").mkdir(parents=True)
+    (tmp_path / "wiki" / "entities").mkdir(parents=True)
+
+    old_file = tmp_path / "wiki" / "queries" / "google-cloud.md"
+    old_file.write_text(
+        f"---\ntype: query\ntitle: Google Cloud\ntags:\n  - stub\n  - lint\n---\n"
+        f"# Google Cloud\n\n{mls.LEGACY_PLACEHOLDER_BODY}\n",
+        encoding="utf-8",
+    )
+    real_body = (
+        "---\ntype: entity\ntitle: Google Cloud\n---\n"
+        "# Google Cloud\n\nHand-written content that must survive.\n"
+    )
+    existing = tmp_path / "wiki" / "entities" / "google-cloud.md"
+    existing.write_text(real_body, encoding="utf-8")
+
+    monkeypatch.setattr(
+        "app.ops.migrate_lint_query_stubs.settings",
+        type(
+            "S",
+            (),
+            {"vault_root": tmp_path, "vault_id": "test", "migrate_lint_stubs_max_pages": 200},
+        )(),
+    )
+
+    # DB / Qdrant must never be reached: the guard fires before any mutation.
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def fail_get_session() -> AsyncIterator[Any]:
+        raise AssertionError("get_session must not be reached — the guard fires first")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr("app.ops.migrate_lint_query_stubs.get_session", fail_get_session)
+
+    upsert_calls: list[dict[str, Any]] = []
+
+    async def fake_upsert_vector(**kwargs: Any) -> None:
+        upsert_calls.append(kwargs)
+
+    import app.ingest.orchestrator as orch
+
+    monkeypatch.setattr(orch, "upsert_vector", fake_upsert_vector)
+
+    page = _fake_page(
+        title="Google Cloud",
+        file_path="wiki/queries/google-cloud.md",
+        tags=["stub", "lint"],
+    )
+
+    with pytest.raises(FileExistsError, match="destination already exists"):
+        await mls._move_and_retype(page, "entity", "wiki/entities/google-cloud.md")
+
+    # The real page is intact — this is the assertion that fails without the guard.
+    assert (
+        existing.read_text(encoding="utf-8") == real_body
+    ), "the real page's content was overwritten by the stub"
+    # And the stub is still where it was, so the operator can resolve the collision by hand.
+    assert old_file.exists(), "source stub must be left intact when the move is refused"
+    assert upsert_calls == []

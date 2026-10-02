@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hmac
 import logging
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
@@ -229,8 +228,6 @@ async def clip_ingest(
     7. Atomic write to raw/sources/
     8. Watcher picks up file (async, I1)
     """
-    import tempfile
-
     # ── 1. CLIP_ENABLED gate (ADR-0040: DB wins over env when set) ─────────────
     # Resolution: DB clip_enabled_db (if not None) else CLIP_ENABLED env.
     if not runtime_state.clip_config_cache.resolved_enabled():
@@ -371,20 +368,14 @@ async def clip_ingest(
     content_bytes = md_content.encode("utf-8")
 
     # ── 8. Atomic write (I5) ─────────────────────────────────────────────────
-    overwritten: bool = dst.exists()
-    tmp_fd, tmp_name = tempfile.mkstemp(dir=str(raw_sources), suffix=".clip_tmp")
-    try:
-        import os as _os
+    # Via app.vault_io so the clipped source lands at VAULT_FILE_MODE: mkstemp creates 0600
+    # and os.replace carries the TEMP file's mode onto the destination (see app/vault_io.py).
+    from app.vault_io import atomic_write_bytes  # noqa: PLC0415
 
-        _os.write(tmp_fd, content_bytes)
-        _os.close(tmp_fd)
-        Path(tmp_name).replace(dst)
+    overwritten: bool = dst.exists()
+    try:
+        atomic_write_bytes(dst, content_bytes, suffix=".clip_tmp")
     except OSError as exc:
-        Path(tmp_name).unlink(missing_ok=True)
-        try:
-            _os.close(tmp_fd)
-        except OSError:
-            pass
         raise HTTPException(status_code=500, detail=f"Failed to write clip file: {exc}") from exc
 
     # ── 9. Watcher picks up the file asynchronously (I1) ────────────────────
