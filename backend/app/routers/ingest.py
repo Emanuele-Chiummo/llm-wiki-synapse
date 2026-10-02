@@ -36,6 +36,7 @@ from app.ingest.pipeline import IngestResult, ingest_file
 from app.models import IngestRun
 from app.rate_limit import rate_limit
 from app.upload import _SEP_RE, resolve_under_sources, safe_source_name
+from app.vault_io import publish_tmp_file
 
 logger = logging.getLogger(__name__)
 
@@ -633,9 +634,12 @@ async def upload_ingest(
     dst.parent.mkdir(parents=True, exist_ok=True)
 
     # ── Atomic move (same-fs: rename within /vault/raw/sources/) ────────────
+    # publish_tmp_file, not a bare rename: mkstemp created the temp file 0600 and
+    # os.replace carries the TEMP file's mode onto the destination, so an uploaded source
+    # would land in the shared vault readable only by the backend's uid (I5 — app/vault_io.py).
     overwritten: bool = dst.exists()
     try:
-        Path(tmp_name).replace(dst)
+        publish_tmp_file(tmp_name, dst)
     except OSError as exc:
         Path(tmp_name).unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"Failed to write file: {exc}") from exc
@@ -825,7 +829,6 @@ async def convert_marker(
     - On per-file failure: marks that file 'failed'; continues with next file.
     NO silent pypdf fallback — the user explicitly chose Marker (ADR-0051).
     """
-    import os  # noqa: PLC0415
     import tempfile  # noqa: PLC0415
 
     from app.marker_converter import (  # noqa: PLC0415
@@ -943,9 +946,10 @@ async def convert_marker(
             pdf_dst = raw_sources / pdf_name
             # mkstemp() creates 0600; the vault is shared with Obsidian/LiveSync and was
             # previously written by write_bytes() at the process umask, so restore 0644
-            # rather than handing the vault a file only this UID can read.
-            os.chmod(tmp_name, 0o644)  # noqa: S103 — vault files are user-readable by design
-            Path(tmp_name).replace(pdf_dst)
+            # rather than handing the vault a file only this UID can read. The chmod+rename
+            # pair now lives in app/vault_io.publish_tmp_file, which is where the other
+            # temp-file write sites get it from too (2.1.16 — it was open-coded only here).
+            publish_tmp_file(tmp_name, pdf_dst)
 
             pdf_rel = str(pdf_dst.relative_to(settings.vault_root))
             entries.append(
@@ -1150,7 +1154,9 @@ async def ingest_from_text(body: IngestFromTextRequest) -> IngestFromTextRespons
         raise HTTPException(status_code=500, detail=f"Failed to write text: {exc}") from exc
 
     try:
-        Path(tmp_name).replace(dst)
+        # publish_tmp_file: mkstemp's 0600 would otherwise survive the rename onto dst and
+        # hand the shared vault a source only this uid can read (I5 — app/vault_io.py).
+        publish_tmp_file(tmp_name, dst)
     except OSError as exc:
         Path(tmp_name).unlink(missing_ok=True)
         raise HTTPException(status_code=500, detail=f"Failed to persist file: {exc}") from exc

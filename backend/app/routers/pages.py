@@ -809,8 +809,6 @@ async def put_page_content(
     page_id: uuid.UUID,
     body: PageContentPutRequest,
 ) -> PageContentPutResponse:
-    import tempfile
-
     # ── Body size guard (ADR-0035, I7) ───────────────────────────────────────
     if len(body.content.encode("utf-8")) > _MAX_PAGE_CONTENT_BYTES:
         raise HTTPException(
@@ -896,29 +894,15 @@ async def put_page_content(
                 )
 
         # ── Atomic write: tmp file in same dir + os.replace — under the row lock ──
-        def _write() -> None:
-            tmp_fd, tmp_name = tempfile.mkstemp(
-                dir=str(abs_path.parent),
-                suffix=".content_tmp",
-            )
-            try:
-                import os
+        # Via app.vault_io so the edited page keeps VAULT_FILE_MODE. mkstemp creates 0600
+        # and os.replace carries the TEMP file's mode onto the destination, so saving an
+        # edit here used to downgrade a 0644 page to owner-only — unreadable from the
+        # Obsidian/LiveSync side of the shared vault (I5, see app/vault_io.py).
+        from app.vault_io import atomic_write_bytes  # noqa: PLC0415
 
-                os.write(tmp_fd, new_bytes)
-                os.close(tmp_fd)
-                Path(tmp_name).replace(abs_path)
-            except Exception:  # noqa: BLE001
-                try:
-                    os.close(tmp_fd)
-                except Exception:  # noqa: BLE001, S110
-                    pass
-                try:
-                    Path(tmp_name).unlink(missing_ok=True)
-                except Exception:  # noqa: BLE001, S110
-                    pass
-                raise
-
-        await asyncio.get_event_loop().run_in_executor(None, _write)
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: atomic_write_bytes(abs_path, new_bytes, suffix=".content_tmp")
+        )
     # Session commits here → FOR UPDATE lock released; page (expire_on_commit=False) is usable
 
     # ── Inline incremental re-index (I1, ADR-0035) ───────────────────────────

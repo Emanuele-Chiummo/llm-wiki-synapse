@@ -21,10 +21,8 @@ back up the prior bytes to ``page-history`` before an overwrite.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import shutil
-import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
@@ -36,6 +34,7 @@ from app.config import settings
 from app.ingest.blocks import is_safe_ingest_path
 from app.ingest.provider.base import InferenceProvider
 from app.models import Page
+from app.vault_io import atomic_write_bytes
 from app.wiki.schema import validate_page_routing
 from app.wiki.summary import extract_first_paragraph_summary
 
@@ -259,20 +258,13 @@ async def _load_existing_block_page(normalized_rel: str) -> Page | None:
 
 
 def _atomic_write(abs_path: Path, data: bytes) -> None:
-    """Write *data* to *abs_path* atomically (temp file + ``os.replace`` — no partial file)."""
-    abs_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_fd, tmp_name = tempfile.mkstemp(dir=str(abs_path.parent), suffix=".block_tmp")
-    try:
-        os.write(tmp_fd, data)
-        os.close(tmp_fd)
-        Path(tmp_name).replace(abs_path)
-    except Exception:
-        try:
-            os.close(tmp_fd)
-        except OSError:
-            pass
-        Path(tmp_name).unlink(missing_ok=True)
-        raise
+    """Write *data* to *abs_path* atomically (temp file + ``os.replace`` — no partial file).
+
+    Delegates to :func:`app.vault_io.atomic_write_bytes` so the generated page lands at
+    ``VAULT_FILE_MODE`` rather than ``mkstemp``'s ``0600`` — ``wiki/`` is a shared Obsidian
+    vault (I5), see that module's header.
+    """
+    atomic_write_bytes(abs_path, data, suffix=".block_tmp")
 
 
 def _backup_index_re(stem: str) -> re.Pattern[str]:
