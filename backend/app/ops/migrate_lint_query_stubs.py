@@ -15,6 +15,8 @@ Architecture mirrors ``ops/reclassify_types.py``:
   - Idempotent: re-running on already-moved pages finds 0 candidates (I1).
   - ``--dry-run`` (default ``apply=False``): reports the plan, writes nothing.
   - ``--apply``: performs the move, updates DB + Qdrant, reconnects wikilinks.
+  - Collision safety: if the destination path already exists, skip + log (never overwrite)
+    — same guard, and for the same reason, as ``ops/reconcile_folders``.
 
 Type inference:
   Reuses ``_infer_stub_page_type`` from ``app.ops.lint`` (NOT re-implemented here).
@@ -397,10 +399,11 @@ async def _move_and_retype(page: Any, new_type: str, new_rel_path: str) -> None:
       2. Rewrite ``type:`` in frontmatter.
       3. If body contains the LEGACY placeholder sentence, upgrade it to the current
          stub body (keeps the page usable after migration).
-      4. Write new file at the new path; create parent dirs if needed.
-      5. Delete old file.
-      6. UPDATE ``pages`` row: ``file_path``, ``page_type``, ``content_hash``.
-      7. Re-embed via ``upsert_vector`` to keep the Qdrant payload's ``type`` in sync.
+      4. Guard: destination must NOT exist → ``FileExistsError`` (the caller skips the page).
+      5. Write new file at the new path; create parent dirs if needed.
+      6. Delete old file.
+      7. UPDATE ``pages`` row: ``file_path``, ``page_type``, ``content_hash``.
+      8. Re-embed via ``upsert_vector`` to keep the Qdrant payload's ``type`` in sync.
 
     No ``data_version`` bump here — the caller does ONE bump after the whole batch (I1).
     """
@@ -416,6 +419,25 @@ async def _move_and_retype(page: Any, new_type: str, new_rel_path: str) -> None:
 
     if not old_abs.exists():
         raise FileNotFoundError(f"migrate-lint-stubs: source file missing: {old_abs}")
+
+    # ── Destination must NOT exist (never overwrite) ───────────────────────────
+    # The target path is derived from the stub's own stem, so it collides with a REAL page
+    # whenever the vault already holds the page the stub was standing in for: Lint writes
+    # wiki/queries/<slug>.md for a missing [[Target]], nothing deletes that stub once the
+    # genuine page is authored, and wikilinks resolve by TITLE — so the dangling link
+    # silently starts resolving to the real page while the stub keeps sitting in queries/
+    # with the same slug and title. Migrating it then renamed the stub over
+    # wiki/entities/<slug>.md, destroying the real page's body and leaving two live rows
+    # pointing at one file (the real page's row with a now-wrong content_hash).
+    # ops/reconcile_folders._move_page states and enforces this same guard; this module —
+    # whose docstring says it mirrors that architecture — was missing it. The per-page
+    # handler in _run_inner catches the exception, counts the page as failed and continues,
+    # so one collision no longer costs the rest of the batch either.
+    if new_abs.exists():
+        raise FileExistsError(
+            f"migrate-lint-stubs: destination already exists: {new_abs} "
+            f"(would have overwritten; source left intact: {old_abs})"
+        )
 
     # ── 1. Read + parse ───────────────────────────────────────────────────────
     raw_text = old_abs.read_text(encoding="utf-8")
