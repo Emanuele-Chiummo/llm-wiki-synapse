@@ -7,6 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.16] — 2026-10-02 — "a rename carries its own mode"
+
+Patch release closing a defect that quietly makes the shared vault unreadable from the
+Obsidian side, a data-loss guard missing from one of two sibling maintenance ops, and the only
+dependency advisory that reaches the production bundle. Found by reading the vault write paths
+during weekly maintenance; none came from a live failure report. No schema migrations, no API
+changes, no new config.
+
+The shape is the one this project keeps finding, and this time the repository had already
+written the fix down: four weeks ago 2.1.12 added an `os.chmod` to the ONE write site it was
+converting, with a comment explaining exactly why the vault needs it — and did not look for
+the six older sites that write the same way. The same sentence describes the second fix:
+`reconcile_folders` documents and enforces a "never overwrite" guard that its twin module,
+whose header says it mirrors that architecture, does not have.
+
+### Fixed
+
+- **Every file published into the vault was owner-only, and saving a page edit *downgraded* an
+  existing one**: all crash-safe vault writes are `tempfile.mkstemp` followed by `os.replace`.
+  `mkstemp` creates its file `0600`, and `os.replace` does not copy the destination's mode onto
+  the incoming file — it unlinks the destination inode and hands its NAME to the temp file,
+  which keeps its own `0600`. So the bug is not merely that new vault files were owner-only:
+  rewriting an existing `0644` page took it DOWN to `0600`, which is what
+  `PUT /pages/{page_id}/content` did on every save. The backend runs as uid 1000 inside its
+  container while `vault/` is a bind mount shared with Obsidian/LiveSync on the host
+  (`CLAUDE.md` §1), so the result is a file the Obsidian side of the vault cannot read — a
+  silent **I5** violation produced by ordinary use, invisible in every log and in every
+  functional test, and the kind of failure a user attributes to LiveSync rather than to
+  Synapse. Six sites were affected: `ingest/block_writer._atomic_write` (every page the ingest
+  loop generates), `ingest/orchestrator.reindex_wiki_page_body` (the in-place rewrite behind
+  wikilink enrichment), `PUT /pages/{page_id}/content`, `POST /ingest/upload`,
+  `POST /ingest/from-text` and `POST /clip`. The sites that still use
+  `write_text()`/`write_bytes()` — `wiki/index.py`, so `index.md` — were never affected,
+  because those create at the process umask; it is precisely the sites converted to `mkstemp`
+  for streaming or atomicity that regressed, which is why `POST /ingest/convert-marker` grew an
+  open-coded `os.chmod` in 2.1.12 and nothing else did. Root cause: a mode treated as a
+  property of the destination when it is a property of the inode being renamed into place. The
+  chmod+rename pair now lives in ONE place (`app/vault_io.py`, `VAULT_FILE_MODE`), which the
+  marker site uses too instead of its own copy. The same helper also closes the descriptor
+  exactly once: the previous per-site idiom closed it in the happy path and closed it AGAIN in
+  the error path, so a failure in the rename — the one step that happens after the close —
+  called `os.close` on a descriptor number the process may already have reissued to an
+  unrelated file or socket.
+- **Migrating a lint stub could overwrite the real page it was standing in for**:
+  `_move_and_retype` (`app/ops/migrate_lint_query_stubs.py`) renamed
+  `wiki/queries/<slug>.md` onto `wiki/<type_subdir>/<slug>.md` with no destination-exists
+  check. The target path is derived from the stub's own stem, so it collides with a genuine
+  page whenever the vault already holds the page the stub was a placeholder for — and that is
+  the ordinary end state, not an adversarial one: Lint writes a stub for a missing
+  `[[Target]]`, nothing removes that stub once the real page is later authored, and wikilinks
+  resolve by TITLE, so the dangling link quietly starts resolving to the real page while the
+  stub keeps sitting in `queries/` under the same slug and title. Applying the migration then
+  destroyed the real page's body and left two live rows pointing at one file, the survivor
+  carrying a `content_hash` that no longer matched its own bytes. `ops/reconcile_folders`
+  states this guard in its header ("Collision safety: ... never overwrite") and enforces it in
+  `_move_page`; this module's header says it mirrors that architecture, and it was the one of
+  the two without it. Root cause: a path derived from a slug treated as necessarily free. The
+  move now raises `FileExistsError` before any mutation, and `_run_inner`'s existing per-page
+  handler counts the page as failed and continues, so one collision no longer costs the rest
+  of the batch either. **Latent today**: nothing in the app reaches this module — it is a
+  hand-run remediation tool (ADR-0067 D1, 133 stubs on prod) — so the defect has never fired.
+  Fixed rather than filed because the day it is run is the day it would matter.
+
+### Security
+
+- **`dompurify` 3.4.13 → 3.4.16** (GHSA-p98j-92pf-mc4p, DOM XSS) — the only advisory that
+  reaches the PRODUCTION bundle: `npm audit --omit=dev` goes from 1 to 0. A patch bump inside
+  the existing `^3.4.13` range, so `package.json` is untouched and only the lockfile moves.
+  Honestly scoped: the advisory requires `IN_PLACE: true` together with a node-removing
+  `afterSanitize` hook, and `renderMarkdown.ts` uses neither — there is no `DOMPurify.addHook`
+  anywhere in the codebase — so it is not reachable through Synapse's own usage. Taken anyway
+  because this is the one library whose entire job is to be the XSS boundary for LLM output,
+  wiki page bodies and web-fetched research text, and the bump costs nothing. The 6 remaining
+  advisories are dev/build-chain only and each needs a MAJOR bump of `vite` or `vitest`, which
+  stays out of scope for a patch (already filed in `docs/reference/ROADMAP-3.0-IDEAS.md`).
+
 ## [2.1.15] — 2026-09-25 — "a prefix is not a name"
 
 Patch release closing two defects that delete data and one that leaks a credential, found by
