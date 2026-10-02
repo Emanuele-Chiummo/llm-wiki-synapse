@@ -12,13 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.9.4/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.16/">
       
       
-        <link rel="prev" href="../v2.0.0/">
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
       
       
-        <link rel="next" href="../v1.9.3/">
+        <link rel="next" href="../v2.1.15/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>v1.9.4 - Synapse</title>
+        <title>v2.1.16 - Synapse</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synapse-v194-completion-pack" class="md-skip">
+        <a href="#synapse-v2116-a-rename-carries-its-own-mode" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              v1.9.4
+              v2.1.16
             
           </span>
         </div>
@@ -708,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v2.1.16/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.16
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -727,6 +754,115 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#every-file-published-into-the-vault-was-owner-only-and-saving-a-page-edit-downgraded-an-existing-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Every file published into the vault was owner-only, and saving a page edit downgraded an existing one
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migrating-a-lint-stub-could-overwrite-the-real-page-it-was-standing-in-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating a lint stub could overwrite the real page it was standing in for
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dompurify-3413-3416" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dompurify 3.4.13 → 3.4.16
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1212,37 +1348,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    v1.9.4
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../v1.9.4/" class="md-nav__link">
         
   
   
@@ -1258,70 +1367,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Added
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changed
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fixed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Fixed
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrade" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrade
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2173,28 +2218,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#added" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Added
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#changed" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Changed
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2203,13 +2226,80 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#every-file-published-into-the-vault-was-owner-only-and-saving-a-page-edit-downgraded-an-existing-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Every file published into the vault was owner-only, and saving a page edit downgraded an existing one
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#migrating-a-lint-stub-could-overwrite-the-real-page-it-was-standing-in-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Migrating a lint stub could overwrite the real page it was standing in for
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
-  <a href="#upgrade" class="md-nav__link">
+  <a href="#security" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Upgrade
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dompurify-3413-3416" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dompurify 3.4.13 → 3.4.16
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
       
     </span>
   </a>
@@ -2233,58 +2323,223 @@
 
 
 
-<h1 id="synapse-v194-completion-pack">Synapse v1.9.4 — "completion pack"<a class="headerlink" href="#synapse-v194-completion-pack" title="Permanent link">&para;</a></h1>
-<p>Fifth release of the v2.0 train — the last of the refactor/feature "completion" set before
-2.0.0's breaking changes. Long-source chunking finally reaches the default block-loop pipeline
-(closing the last blocker to deleting the legacy JSON path), review-create moves onto the same
-engine, ingest gets a self-healing 429 queue, per-device scoped API tokens land, MCP/clipper
-go multi-vault-aware, pages get a one-line gloss in the index catalogue, and the deprecations
-that 2.0.0 will act on start warning now. Five workstreams, two migrations.</p>
-<h2 id="added">Added<a class="headerlink" href="#added" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Chunked-analysis long-source support in the block loop</strong> (flagship, PF-LONGSRC-1):
-  <code>run_block_loop</code>'s Stage 1 now chunks sources past <code>ingest_long_source_char_threshold</code>
-  (48K chars) via the same bounded chunker <code>long_source.py</code> already used for the legacy JSON
-  path, then merges per-chunk analyses under <code>## Source section i/N analysis</code> headers. This
-  fixes the silent truncation of long regulatory PDFs.</li>
-<li><strong>Smart ingest queue</strong> (PF-QUEUE-429-1): the queue now auto-pauses on a 429 from any provider
-  with a decaying backoff ladder (30s → 60s → 120s → 300s, hard-capped per I7) instead of
-  failing the run outright. New per-capability concurrency caps
-  (<code>ingest_concurrency_cli</code>/<code>_api</code>/<code>_local</code>, default 1/3/1).</li>
-<li><strong>Scoped, revocable API tokens</strong> (PF-AUTH-1): new <code>api_tokens</code> table (migration) — label,
-  PBKDF2-hashed secret (plaintext returned once, at creation, never again), optional vault
-  scope, read-only flag, <code>last_used_at</code>. <code>POST/GET/DELETE /config/api-tokens</code> + a Settings →
-  Security UI card.</li>
-<li><strong>Multi-vault MCP and clipper</strong> (PF-MCP-VAULT-1, PF-F11-PICKER-1): every MCP tool gains an
-  optional <code>vault</code> parameter (falls back to the active vault when omitted or unknown). The Chrome
-  clipper's <code>ClipRequest</code> gains <code>vault_id</code> and its popup UI gets a vault picker.</li>
-<li><strong>Gloss catalogue</strong> (PF-INDEX-GLOSS-1): a new nullable <code>Page.summary</code> column (migration),
-  populated from each page's first paragraph at write time and rendered as an em-dash gloss next
-  to every <code>index.md</code> entry, capped at 120 chars.</li>
-<li><strong>Deprecation warnings for 2.0.0's planned removals</strong>: a startup warning fires when
-  <code>ingest_pipeline_format</code> is set to <code>"json"</code>, and importing from the orchestrator compatibility
-  facade or the <code>app.main.*</code> aliases now raises <code>DeprecationWarning</code>.</li>
-</ul>
-<h2 id="changed">Changed<a class="headerlink" href="#changed" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Review-create migrated onto the block loop</strong> (BE-DEBT-1): the single-page generation route
-  now calls <code>ingest.block_loop.run_block_loop</code> instead of <code>ingest.loop.run_orchestrated_loop</code>.</li>
-</ul>
+<h1 id="synapse-v2116-a-rename-carries-its-own-mode">Synapse v2.1.16 — "a rename carries its own mode"<a class="headerlink" href="#synapse-v2116-a-rename-carries-its-own-mode" title="Permanent link">&para;</a></h1>
+<p>Patch release closing a defect that quietly makes the shared vault <strong>unreadable from the
+Obsidian side</strong>, a <strong>data-loss guard</strong> missing from one of two sibling maintenance ops, and the
+only dependency advisory that reaches the <strong>production bundle</strong>. No schema migrations, no new
+endpoints, no API changes, no new configuration keys.</p>
+<p>Like 2.1.8 through 2.1.15, none of them came from a live failure report — all three were found
+by reading code during weekly maintenance. And like most of those weeks, the shape is a guard
+applied at <em>one</em> of the places that need it. What makes this week worth writing down is that
+the repository had already written the fix down and then not generalised it:</p>
+<blockquote>
+<p>Four weeks ago, 2.1.12 added an <code>os.chmod</code> to the one vault write site it was converting,
+with a comment explaining exactly why the vault needs it. Six older sites write the same way.
+None of them got it.</p>
+</blockquote>
+<p>The second fix is the same sentence about a different pair: <code>ops/reconcile_folders</code> documents
+and enforces a "never overwrite" guard, and its twin module — whose header says it mirrors that
+architecture — does not have one.</p>
 <h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="every-file-published-into-the-vault-was-owner-only-and-saving-a-page-edit-downgraded-an-existing-one">Every file published into the vault was owner-only, and saving a page edit <em>downgraded</em> an existing one<a class="headerlink" href="#every-file-published-into-the-vault-was-owner-only-and-saving-a-page-edit-downgraded-an-existing-one" title="Permanent link">&para;</a></h3>
+<p>Every crash-safe vault write in Synapse has the same two steps: write the bytes to a temp file
+in the destination's own directory, then rename it over the destination, so no reader — Obsidian,
+LiveSync, the watcher — ever observes a half-written file. The temp file comes from
+<code>tempfile.mkstemp</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">tmp_fd</span><span class="p">,</span> <span class="n">tmp_name</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">abs_path</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">".block_tmp"</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">)</span>
+<span class="n">Path</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">abs_path</span><span class="p">)</span>          <span class="c1"># ← the destination's mode does not survive this</span>
+</code></pre></div>
+<p><code>mkstemp</code> creates its file <code>0600</code> — correct, it is a temp file. The mistake is in the last
+line. <code>os.replace</code> does not copy the destination's permissions onto the incoming file: it
+unlinks the destination inode and gives its <em>name</em> to the temp file, which keeps the mode it
+already had. So the consequence is worse than "new vault files are owner-only":</p>
 <ul>
-<li>A real import-linter layering violation found during this release's own verification: the new
-  MCP vault-parameter code picked up a transitive import of <code>app.main</code> through <code>app.projects</code>.
-  Fixed with a clean extraction: the pure, read-only registry model moved into a new
-  <code>app/project_registry.py</code>.</li>
-<li>Two rounds of docs-gate drift caught before merge (ER diagram missing the new <code>api_tokens</code>
-  table and <code>pages.summary</code>; OpenAPI missing the new MCP <code>vault</code> parameters).</li>
-<li>A migration-number collision between this release's two independently-developed branches —
-  resolved at merge time by renumbering the second-merged migration to <code>0037</code>.</li>
+<li>a <strong>newly generated</strong> page lands at <code>0600</code>;</li>
+<li><strong>rewriting an existing</strong> <code>0644</code> page takes it <strong>down</strong> to <code>0600</code>.</li>
 </ul>
-<h2 id="upgrade">Upgrade<a class="headerlink" href="#upgrade" title="Permanent link">&para;</a></h2>
-<p>Run Alembic migrations <code>0036</code> (<code>api_tokens</code> table) and <code>0037</code> (<code>pages.summary</code> column). Both
-are additive. A one-time idempotent <code>--dry-run</code>-capable backfill script covers the <code>summary</code>
-column for pages written before this release.</p>
+<p>The second is the one a user meets. <code>PUT /pages/{page_id}/content</code> — the editor's save — goes
+through this path on every call, so editing a page through the UI silently changed its
+permissions.</p>
+<p>Why that matters here and not in a generic app: the backend runs as uid 1000 inside its
+container, while <code>vault/</code> is a bind mount shared with Obsidian/LiveSync on the host
+(<code>CLAUDE.md</code> §1 — the vault-within-vault model is the whole point of the product). A <code>0600</code>
+file is one that <em>only the backend</em> can read. Invariant <strong>I5</strong> says <code>wiki/</code> must remain a valid
+Obsidian vault; a vault whose pages Obsidian cannot open is not one. And the failure is
+completely silent: nothing logs it, no functional test notices (the backend reads its own
+files fine), and the symptom surfaces on the <em>other</em> side of the sync — which is why a user
+would file it against LiveSync, not against Synapse.</p>
+<p>Six sites were affected:</p>
+<table>
+<thead>
+<tr>
+<th>Site</th>
+<th>What it writes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ingest/block_writer._atomic_write</code></td>
+<td>every page the ingest loop generates</td>
+</tr>
+<tr>
+<td><code>ingest/orchestrator.reindex_wiki_page_body</code></td>
+<td>the in-place rewrite behind wikilink enrichment</td>
+</tr>
+<tr>
+<td><code>PUT /pages/{page_id}/content</code></td>
+<td>the editor's save — <strong>downgrades a live page</strong></td>
+</tr>
+<tr>
+<td><code>POST /ingest/upload</code></td>
+<td>uploaded source files</td>
+</tr>
+<tr>
+<td><code>POST /ingest/from-text</code></td>
+<td>pasted / save-to-wiki sources</td>
+</tr>
+<tr>
+<td><code>POST /clip</code></td>
+<td>Chrome clipper captures</td>
+</tr>
+</tbody>
+</table>
+<p>The sites that still use <code>write_text()</code>/<code>write_bytes()</code> — <code>wiki/index.py</code>, so <code>index.md</code> — were
+never affected: those create at the process umask, i.e. <code>0644</code>. That is the tell. It is
+precisely the sites that were converted to <code>mkstemp</code> (for streaming, or for atomicity) that
+regressed, one at a time, each conversion silently importing the mode along with the
+crash-safety. <code>POST /ingest/convert-marker</code> was the most recent such conversion, in 2.1.12, and
+it is the only one that noticed:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># mkstemp() creates 0600; the vault is shared with Obsidian/LiveSync and was</span>
+<span class="c1"># previously written by write_bytes() at the process umask, so restore 0644</span>
+<span class="c1"># rather than handing the vault a file only this UID can read.</span>
+<span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">,</span> <span class="mo">0o644</span><span class="p">)</span>
+</code></pre></div>
+<p>The comment is right, and it is the diagnosis for all seven sites. It was applied to one.</p>
+<p><strong>Root cause:</strong> a file's mode treated as a property of the <em>destination path</em> when it is a
+property of the <em>inode being renamed into place</em>.</p>
+<p>The chmod and the rename are now a single operation in a single place — <code>app/vault_io.py</code>, with
+<code>VAULT_FILE_MODE</code> as the one named constant — and every site goes through it, including the
+marker site, which no longer carries its own copy:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">publish_tmp_file</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">dst</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">chmod</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">,</span> <span class="n">VAULT_FILE_MODE</span><span class="p">)</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+</code></pre></div>
+<p>The chmod deliberately happens <em>before</em> the rename, so <code>dst</code> is never momentarily owner-only:
+the rename stays the single atomic step that publishes the bytes and the mode together.</p>
+<p>The same helper fixes a second, narrower bug it inherited from the open-coded idiom. Each site
+closed the descriptor in the happy path and closed it <strong>again</strong> in its error path:</p>
+<div class="highlight"><pre><span></span><code><span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">)</span>
+<span class="n">Path</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">abs_path</span><span class="p">)</span>     <span class="c1"># if THIS raises…</span>
+<span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">)</span>                 <span class="c1"># …the fd is already closed</span>
+</code></pre></div>
+<p>A failure in the rename is the one failure that happens <em>after</em> the close, so the handler
+called <code>os.close</code> on a descriptor number the process may already have reissued to an unrelated
+file or socket — closing someone else's file. <code>atomic_write_bytes</code> tracks the close and does it
+exactly once.</p>
+<p><code>backend/tests/test_vault_file_mode.py</code> pins the invariant at all seven sites and at both
+primitives. All 11 cases fail without the fix, reading <code>0o600</code> where <code>0o644</code> is asserted, and
+so does the pre-existing <code>convert-marker</code> mode assertion — confirming the refactor kept its
+coverage.</p>
+<h3 id="migrating-a-lint-stub-could-overwrite-the-real-page-it-was-standing-in-for">Migrating a lint stub could overwrite the real page it was standing in for<a class="headerlink" href="#migrating-a-lint-stub-could-overwrite-the-real-page-it-was-standing-in-for" title="Permanent link">&para;</a></h3>
+<p><code>ops/migrate_lint_query_stubs</code> moves the legacy <code>type=query</code> stubs Wiki Lint used to write for
+missing wikilink targets out of <code>wiki/queries/</code> and into <code>entities/</code> or <code>concepts/</code>. The move
+had no destination-exists check.</p>
+<p>The destination path is built from the stub's own stem, so it collides with a genuine page
+whenever the vault already holds the page the stub was a placeholder for. That is not an
+adversarial case — it is the ordinary end state:</p>
+<ol>
+<li>a page links <code>[[Google Cloud]]</code>, which does not exist yet;</li>
+<li>Lint writes the placeholder <code>wiki/queries/google-cloud.md</code>, <code>title: Google Cloud</code>;</li>
+<li>later, ingest authors the real <code>wiki/entities/google-cloud.md</code> with the same title;</li>
+<li>wikilinks resolve by <strong>title</strong>, so the link quietly starts resolving to the real page —
+   and nothing removes the stub, which keeps sitting in <code>queries/</code> under the same slug.</li>
+</ol>
+<p>Applying the migration then renamed the stub over the real page: the real body was destroyed,
+and two live rows ended up pointing at one file, the surviving row carrying a <code>content_hash</code>
+that no longer matched its own bytes.</p>
+<p>The sibling module states the rule in its header and enforces it:</p>
+<div class="highlight"><pre><span></span><code>ops/reconcile_folders.py:
+  - Collision safety: if the destination path already exists, skip + log (never overwrite).
+</code></pre></div>
+<p><code>migrate_lint_query_stubs</code>'s own header says it mirrors that architecture. It was the one of
+the two without the guard.</p>
+<p><strong>Root cause:</strong> a path derived from a slug treated as necessarily free.</p>
+<p>The move now raises <code>FileExistsError</code> before any mutation, leaving both files intact so an
+operator can resolve the collision by hand. <code>_run_inner</code>'s existing per-page handler catches
+it, counts the page as <code>failed</code> and continues — so one collision no longer costs the rest of
+the batch either.</p>
+<p><strong>Latent today.</strong> Nothing in the running app reaches this module: no router, no scheduler. It
+is a hand-run remediation tool (ADR-0067 D1 — 133 stubs on prod), so the defect has never
+fired. It is fixed here rather than filed in the 3.0 backlog because the day someone runs it
+is the day it would matter, and the guard is six lines.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h3 id="dompurify-3413-3416"><code>dompurify</code> 3.4.13 → 3.4.16<a class="headerlink" href="#dompurify-3413-3416" title="Permanent link">&para;</a></h3>
+<p>GHSA-p98j-92pf-mc4p (DOM XSS). This is the only advisory that reaches the <strong>production</strong>
+bundle: <code>npm audit --omit=dev</code> goes from 1 to 0. <code>dompurify</code> is a direct dependency and the
+sanitizer that every rendered markdown string passes through (<code>renderMarkdown.ts</code>) — LLM chat
+output, wiki page bodies, and web-fetched research text.</p>
+<p>A patch bump inside the existing <code>^3.4.13</code> range, so <code>package.json</code> is untouched and only
+<code>package-lock.json</code> moves.</p>
+<p>Scoped honestly: the advisory needs <code>IN_PLACE: true</code> together with a node-removing
+<code>afterSanitize</code> hook, and <code>renderMarkdown.ts</code> uses neither — there is no <code>DOMPurify.addHook</code>
+anywhere in the codebase — so it is <strong>not reachable through Synapse's own usage</strong>. It is taken
+anyway because this is the one library whose entire job is to be the XSS boundary for
+model-generated and web-fetched HTML, and the bump costs nothing.</p>
+<p>The 6 remaining advisories are dev/build-chain only and each requires a MAJOR bump of <code>vite</code> or
+<code>vitest</code>, which stays out of scope for a patch release. They are already recorded in
+<code>docs/reference/ROADMAP-3.0-IDEAS.md</code>.</p>
+<h2 id="also-in-this-release">Also in this release<a class="headerlink" href="#also-in-this-release" title="Permanent link">&para;</a></h2>
+<p>Three new entries in the 3.0 backlog (<code>docs/reference/ROADMAP-3.0-IDEAS.md</code>):</p>
+<ul>
+<li><strong>No automatic check that a file published into the vault is readable by the vault's other
+  readers.</strong> This release routes all seven write sites through one helper, but nothing
+  <em>prevents</em> the eighth: the next hand-written <code>mkstemp</code> + <code>os.replace</code> reintroduces the same
+  defect, silently, and 2.1.12 shows that this is what actually happens. The current defence is
+  a test that enumerates the known sites, which grows only if whoever adds a site remembers to.
+  Closing it means choosing between a static gate and a runtime check in <code>check_obsidian</code> —
+  a decision, not a patch.</li>
+<li><strong><code>GraphCache</code> loses the follow-up recompute when a bump lands during a background
+  revalidate.</strong> <code>_kick_background_revalidate()</code> sets <code>_in_flight</code> synchronously and then
+  <code>create_task</code>s, so the task body's <code>_pending = False</code> — whose comment holds for <code>tick()</code>,
+  which has no <code>await</code> in between — can erase a <code>notify_bump()</code> that arrived in that window.
+  Low impact: it self-heals on the next <code>GET /graph</code> miss. The small diff comes with a hard
+  test to write, because the state machine has three entry points and no existing test can
+  schedule inside that window.</li>
+<li><strong>The update check has no negative cache: a GitHub 403 makes it retry on every request.</strong>
+  <code>_fetch_latest_version()</code> promises an ~1h cache "to respect the unauthenticated rate limit",
+  but only the success path writes the cache, so a rate-limit response is exactly when the cache
+  stops existing. Fixing it needs two TTLs and a decision about what the UI shows while a
+  negative cache is warm — a behaviour change on an existing flow.</li>
+</ul>
+<p>The long-standing <strong>pypdf</strong> entry is unchanged and still growing: <code>pip-audit</code> now reports 49
+distinct advisories against the pinned 5.9.0 — up from 41 at 2.1.15 — every one fixed only in
+the 6.x line, behind a <code>&lt;6</code> constraint. Still a major bump, still out of scope for a patch.</p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
+<ul>
+<li><strong>No schema migration.</strong> No SQLAlchemy model changed, so <code>docs/er/schema.mmd</code> is unchanged
+  and no Alembic revision ships with this release.</li>
+<li><strong>No API change.</strong> <code>docs/api/openapi.json</code> differs only in the version string.</li>
+<li><strong>No new configuration.</strong> Nothing new to set in <code>.env</code>; no existing key changes meaning.</li>
+<li><strong>Existing vault files keep the permissions they already have.</strong> This release fixes the
+  writes; it does not sweep the vault. Pages written or edited before upgrading are still
+  <code>0600</code>, and they will be corrected individually the next time each one is written — which for
+  a page nobody edits is never. If your <code>wiki/</code> is shared with Obsidian/LiveSync (the standard
+  setup), fix the existing files once, from the host, as the user that owns the mount:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>find<span class="w"> </span>/path/to/vault<span class="w"> </span>-type<span class="w"> </span>f<span class="w"> </span>-perm<span class="w"> </span>/u+r<span class="w"> </span>!<span class="w"> </span>-perm<span class="w"> </span>-g+r<span class="w"> </span>-exec<span class="w"> </span>chmod<span class="w"> </span><span class="m">644</span><span class="w"> </span><span class="o">{}</span><span class="w"> </span>+
+</code></pre></div>
+<p>Then confirm Obsidian can open a page it previously could not. If your vault is accessed
+  only by the Synapse container, nothing was ever broken for you and there is nothing to do.
+- <strong>If the Obsidian side has been failing to read recently-edited pages</strong>, this was the cause.
+  No page <em>content</em> was ever lost or corrupted by this defect — only the permission bits
+  changed; the bytes on disk were always written correctly.
+- <strong>No client-side state to clear.</strong> Existing OAuth grants, refresh tokens, API tokens,
+  conversations and vault content are untouched.</p>
 
 
 

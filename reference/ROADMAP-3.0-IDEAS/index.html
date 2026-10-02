@@ -827,6 +827,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#nessun-controllo-automatico-che-un-file-pubblicato-nel-vault-sia-leggibile-dagli-altri-lettori" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nessun controllo automatico che un file pubblicato nel vault sia leggibile dagli altri lettori
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graphcache-perde-il-recompute-di-follow-up-quando-il-bump-arriva-durante-la-rivalidazione-in-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphCache perde il recompute di follow-up quando il bump arriva durante la rivalidazione in background
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#il-controllo-aggiornamenti-non-ha-cache-negativa-un-403-di-github-lo-fa-ripartire-a-ogni-richiesta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il controllo aggiornamenti non ha cache negativa: un 403 di GitHub lo fa ripartire a ogni richiesta
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1042,6 +1075,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.16/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.16
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2679,6 +2740,39 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#nessun-controllo-automatico-che-un-file-pubblicato-nel-vault-sia-leggibile-dagli-altri-lettori" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Nessun controllo automatico che un file pubblicato nel vault sia leggibile dagli altri lettori
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graphcache-perde-il-recompute-di-follow-up-quando-il-bump-arriva-durante-la-rivalidazione-in-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GraphCache perde il recompute di follow-up quando il bump arriva durante la rivalidazione in background
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#il-controllo-aggiornamenti-non-ha-cache-negativa-un-403-di-github-lo-fa-ripartire-a-ogni-richiesta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Il controllo aggiornamenti non ha cache negativa: un 403 di GitHub lo fa ripartire a ogni richiesta
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3281,6 +3375,88 @@ giorno senza mai ripagarsi.</p>
   invecchiano indisturbate (il problema opposto, già visibile su pypdf). Va deciso insieme
   a quello, non separatamente.</li>
 <li><strong>Trovato:</strong> 2026-09-25</li>
+</ul>
+<h3 id="nessun-controllo-automatico-che-un-file-pubblicato-nel-vault-sia-leggibile-dagli-altri-lettori">Nessun controllo automatico che un file pubblicato nel vault sia leggibile dagli altri lettori<a class="headerlink" href="#nessun-controllo-automatico-che-un-file-pubblicato-nel-vault-sia-leggibile-dagli-altri-lettori" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> la 2.1.16 ha corretto sei siti che pubblicavano file nel vault con i permessi
+  <code>0600</code> di <code>mkstemp</code>, e li ha fatti passare tutti per <code>app/vault_io.py</code>. Ma nulla <em>impedisce</em>
+  al settimo di nascere: il prossimo <code>tempfile.mkstemp(...)</code> + <code>os.replace(...)</code> scritto a mano
+  reintroduce esattamente lo stesso difetto, in silenzio, e la 2.1.12 dimostra che succede
+  davvero (la <code>chmod</code> fu aggiunta solo nel sito appena creato, senza cercarne i fratelli). Il
+  difetto non è visibile in nessun log, non rompe nessun test funzionale, e si manifesta solo
+  sul lato Obsidian/LiveSync del vault condiviso — cioè fuori dal processo che lo ha causato.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/vault_io.py</code> (la correzione, con la motivazione nell'header);
+  <code>backend/tests/test_vault_file_mode.py</code> (i sette punti pinnati uno per uno, enumerati a
+  mano); <code>backend/app/routers/ingest.py:947</code> nella 2.1.12 (la <code>chmod</code> open-coded, unico sito
+  corretto per quattro settimane). Il contrasto utile è con <code>I5</code>, che <em>è</em> verificato in CI da
+  <code>backend/scripts/check_obsidian.py</code>: la validità strutturale del vault ha un guardiano
+  automatico, la sua leggibilità no.</li>
+<li><strong>Impatto:</strong> medio, e crescente con la superficie di scrittura. Ogni nuovo ingresso (un
+  formato sorgente, un'operazione di manutenzione, un export) è un'occasione di regressione, e
+  il costo di una regressione è un vault che Obsidian non riesce più a leggere — il tipo di
+  guasto che l'utente attribuisce a LiveSync, non a Synapse. La difesa attuale è un test che
+  elenca i siti noti: cresce solo se chi aggiunge un sito si ricorda di aggiungerlo.</li>
+<li><strong>Sforzo:</strong> M. Il diff è piccolo in entrambe le direzioni possibili, ma sono scelte diverse e
+  vanno decise, non sommate: (a) un gate statico in <code>test_code_quality.py</code> che vieti
+  <code>mkstemp</code> + <code>replace</code> fuori da <code>vault_io</code> — semplice, ma va insegnato a distinguere i temp
+  file del vault da quelli legittimamente <code>0600</code> in <code>/tmp</code> (<code>provider/cli.py</code>,
+  <code>deep_research.py</code>); (b) un controllo a runtime nel <code>check_obsidian</code> esistente, che segnali i
+  file del vault non leggibili in gruppo — copre anche i file arrivati da fuori Synapse, ma
+  introduce una nozione di "permessi attesi" che oggi non esiste da nessuna parte. La parte
+  vera è decidere quale delle due è la fonte di verità, perché averle entrambe significa due
+  posti dove la regola invecchia.</li>
+<li><strong>Trovato:</strong> 2026-10-02</li>
+</ul>
+<h3 id="graphcache-perde-il-recompute-di-follow-up-quando-il-bump-arriva-durante-la-rivalidazione-in-background"><code>GraphCache</code> perde il recompute di follow-up quando il bump arriva durante la rivalidazione in background<a class="headerlink" href="#graphcache-perde-il-recompute-di-follow-up-quando-il-bump-arriva-durante-la-rivalidazione-in-background" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>_kick_background_revalidate()</code> imposta <code>_in_flight = True</code> in modo sincrono e
+  poi crea il task — ma il corpo del task non parte fino al successivo giro di event loop, e la
+  prima cosa che fa è <code>self._pending = False</code>, con il commento «safe: nothing could have set it
+  between in_flight=True and here». Per <code>tick()</code> è vero (non c'è <code>await</code> in mezzo); per il kick
+  in background no: in quella finestra il chiamante ritorna lo snapshot stale e continua ad
+  await-are, quindi un <code>notify_bump()</code> concorrente può impostare <code>_pending = True</code> e vederselo
+  azzerare subito dopo. Il follow-up previsto da AC-F16db-3 non viene mai schedulato.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/graph/cache.py:417-419</code> (il set sincrono + <code>create_task</code>);
+  <code>backend/app/graph/cache.py:196</code> (<code>self._pending = False</code> con la precondizione che vale solo
+  per il chiamante sincrono); <code>backend/app/graph/cache.py:139-142</code> (<code>notify_bump</code> che imposta
+  <code>_pending</code> quando <code>_in_flight</code>).</li>
+<li><strong>Impatto:</strong> basso. Il difetto si auto-ripara: il marker non corrisponde più alla
+  <code>data_version</code>, quindi la <code>GET /graph</code> successiva è un MISS e serve stale + rivalida. Il costo
+  reale è che il grafo resta indietro di un bump finché qualcuno non lo richiede, invece di
+  essere ricalcolato proattivamente — e che un invariante dichiarato nel docstring (un
+  follow-up esattamente per ogni bump durante un run) non è vero su uno dei tre ingressi.</li>
+<li><strong>Sforzo:</strong> S come diff (passare al task la generazione/il flag catturato al momento del
+  kick, o spostare l'azzeramento di <code>_pending</code> nel chiamante sincrono), M come verifica: la
+  macchina a stati ha tre ingressi (<code>tick</code>, MISS inline, kick in background) e cinque campi
+  condivisi, e i test attuali la guidano con un clock iniettato ma mai con un bump <em>dentro</em> la
+  finestra fra <code>create_task</code> e la prima riga del task. Serve un test che sappia schedulare in
+  quella finestra, ed è quel test — non la riga corretta — il lavoro.</li>
+<li><strong>Trovato:</strong> 2026-10-02</li>
+</ul>
+<h3 id="il-controllo-aggiornamenti-non-ha-cache-negativa-un-403-di-github-lo-fa-ripartire-a-ogni-richiesta">Il controllo aggiornamenti non ha cache negativa: un 403 di GitHub lo fa ripartire a ogni richiesta<a class="headerlink" href="#il-controllo-aggiornamenti-non-ha-cache-negativa-un-403-di-github-lo-fa-ripartire-a-ogni-richiesta" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>_fetch_latest_version()</code> dichiara nel docstring di essere «cached ~1h to respect
+  the unauthenticated rate limit (60/h)», ma la cache viene scritta <strong>solo</strong> sul percorso di
+  successo. Un non-200 (compreso il 403 da rate-limit) e qualsiasi eccezione ritornano il valore
+  stale <em>senza</em> aggiornare il timestamp, quindi la condizione d'ingresso della cache resta falsa
+  e la chiamata successiva ritenta subito. Nel momento esatto in cui GitHub ci sta dicendo di
+  rallentare, smettiamo di avere una cache.</li>
+<li><strong>Evidenza:</strong> <code>backend/app/ops/system_update.py:68-88</code>: <code>if cached is not None and (now -
+  cached_at) &lt; _CACHE_TTL_SECONDS</code> legge una tupla che il ramo <code>resp.status_code != 200</code>
+  (<code>:81-83</code>) e l'<code>except</code> (<code>:87-88</code>) non riscrivono mai. Il chiamante è
+  <code>GET /ops/update-status</code>, che la Home interroga.</li>
+<li><strong>Impatto:</strong> basso-medio. Non rompe nulla di visibile — il ramo di fallimento è progettato per
+  degradare — ma trasforma ogni caricamento della Home in una richiesta uscente da 8 secondi di
+  timeout verso un'API che ci ha già rifiutato, e il rate limit unauth è per IP: dietro un NAT
+  condiviso o con più schede aperte si auto-alimenta.</li>
+<li><strong>Sforzo:</strong> S come diff (scrivere <code>_latest_cache = (now, cached)</code> anche sui rami di
+  fallimento), ma la decisione non è il diff: una cache negativa con lo stesso TTL di un successo
+  significa che un 403 transitorio nasconde per un'ora un aggiornamento appena pubblicato, e il
+  pulsante «Aggiorna sistema» è esattamente ciò che l'utente va a guardare dopo aver letto le
+  release notes. Servono due TTL distinti (breve sul fallimento, lungo sul successo) e una
+  decisione su cosa mostrare in UI mentre la cache negativa è calda — cioè un cambio di
+  comportamento su un flusso esistente, non una correzione.</li>
+<li><strong>Trovato:</strong> 2026-10-02</li>
 </ul>
 
 
