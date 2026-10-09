@@ -860,6 +860,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#katex-ha-unadvisory-in-produzione-e-il-suo-trustfalse-e-cio-su-cui-poggia-il-bypass-di-dompurify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        katex ha un'advisory in produzione, e il suo trust:false è ciò su cui poggia il bypass di DOMPurify
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1075,6 +1086,34 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../release-notes/v2.1.17/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.17
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -2773,6 +2812,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#katex-ha-unadvisory-in-produzione-e-il-suo-trustfalse-e-cio-su-cui-poggia-il-bypass-di-dompurify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        katex ha un'advisory in produzione, e il suo trust:false è ciò su cui poggia il bypass di DOMPurify
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3457,6 +3507,40 @@ giorno senza mai ripagarsi.</p>
   decisione su cosa mostrare in UI mentre la cache negativa è calda — cioè un cambio di
   comportamento su un flusso esistente, non una correzione.</li>
 <li><strong>Trovato:</strong> 2026-10-02</li>
+</ul>
+<h3 id="katex-ha-unadvisory-in-produzione-e-il-suo-trustfalse-e-cio-su-cui-poggia-il-bypass-di-dompurify"><code>katex</code> ha un'advisory in produzione, e il suo <code>trust:false</code> è ciò su cui poggia il bypass di DOMPurify<a class="headerlink" href="#katex-ha-unadvisory-in-produzione-e-il-suo-trustfalse-e-cio-su-cui-poggia-il-bypass-di-dompurify" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Problema:</strong> <code>katex</code> 0.16.47 è coperta da GHSA-238p-pmpm-9mq7 (<em>"existing prototype
+  pollution can bypass trust restrictions"</em>, severity low, range <code>0.11.0 – 0.18.1</code>). La fix
+  è in <code>katex@0.19.0</code>, cioè un <strong>major</strong> — fuori portata per una patch. Ma il punto non è
+  l'advisory in sé: è <em>dove</em> cade. <code>renderMarkdown.ts</code> rende il LaTeX con <code>trust: false</code> e
+  poi <strong>reinserisce l'HTML di KaTeX DOPO</strong> la sanitizzazione DOMPurify, con il commento
+  «KaTeX output (trust:false) is XSS-safe by construction; injecting it here avoids
+  DOMPurify stripping KaTeX's span/MathML markup». L'advisory dice esattamente che quel
+  <code>trust:false</code> è aggirabile. La giustificazione del bypass e il contenuto dell'advisory
+  sono la stessa proposizione, una affermata e una negata: se il <code>trust</code> cade, l'output di
+  KaTeX non è più "safe by construction" e passa in un punto in cui nessuno lo filtra più.</li>
+<li><strong>Evidenza:</strong> <code>frontend/package.json</code> (<code>"katex": "^0.16.47"</code>);
+  <code>frontend/src/components/chat/renderMarkdown.ts:88-93</code> (<code>trust: false</code>),
+  <code>:268-270</code> (la reinserzione post-sanitizzazione). <code>npm audit --omit=dev</code> da <code>frontend/</code>
+  al 2026-10-09: <strong>1 advisory</strong> (era 0 quando è stata scritta la voce del 2026-08-14 sulle
+  dipendenze di build — quella voce afferma «nulla di tutto questo finisce nel bundle», e
+  per katex non è più vero).</li>
+<li><strong>Impatto:</strong> basso <strong>oggi</strong>, ma è l'unico advisory che raggiunge il bundle servito e sta
+  sul confine XSS del contenuto meno fidato che l'app tratta: output dell'LLM, corpi di
+  pagina del vault e testo recuperato dal web in deep research. L'attacco non è
+  autosufficiente — serve una prototype pollution <em>già presente</em> nella pagina, che oggi non
+  c'è — quindi è un gadget di defense-in-depth, non una via sfruttabile da sola. È il
+  motivo per cui va schedulato, non per cui va corso.</li>
+<li><strong>Sforzo:</strong> S per il bump (<code>^0.16</code> → <code>^0.19</code>), M per la verifica: 0.19 cambia i default di
+  <code>strict</code>/<code>trust</code> e l'output <code>htmlAndMathml</code>, quindi vanno riviste le prove di rendering
+  LaTeX e lo screenshot E2E del tema scuro con KaTeX (quello già messo in quarantena e
+  riabilitato in 2.1.0). La decisione che vale più del bump: se la pipeline debba continuare
+  a reinserire HTML non sanitizzato fidandosi di un'opzione di una libreria terza, o se
+  l'HTML di KaTeX vada sanitizzato con un profilo DOMPurify che conosca <code>span</code>/MathML —
+  cioè non fidarsi più di <code>trust:false</code> come perimetro unico. Quella è una riprogettazione
+  del confine di sanitizzazione, non un aggiornamento di dipendenza.</li>
+<li><strong>Trovato:</strong> 2026-10-09</li>
 </ul>
 
 

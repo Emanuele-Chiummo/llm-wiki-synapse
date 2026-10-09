@@ -12,13 +12,13 @@
         <meta name="author" content="Emanuele Chiummo">
       
       
-        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v1.3.4/">
+        <link rel="canonical" href="https://github.com/Emanuele-Chiummo/llm-wiki-synapse/release-notes/v2.1.17/">
       
       
-        <link rel="prev" href="../v1.3.5/">
+        <link rel="prev" href="../../process/WEEKLY-MAINTENANCE/">
       
       
-        <link rel="next" href="../v1.3.3/">
+        <link rel="next" href="../v2.1.16/">
       
       
         
@@ -29,7 +29,7 @@
     
     
       
-        <title>v1.3.4 - Synapse</title>
+        <title>v2.1.17 - Synapse</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#synapse-134-allineamento-ui-a-llm_wiki" class="md-skip">
+        <a href="#synapse-v2117-a-secret-in-a-url-and-a-syscall-that-only-offers" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              v1.3.4
+              v2.1.17
             
           </span>
         </div>
@@ -708,10 +708,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../v2.1.17/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    v2.1.17
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -727,6 +754,115 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#fixed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-page-write-could-publish-a-truncated-file-over-a-good-one-atomically-and-in-silence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A page write could publish a truncated file over a good one — atomically, and in silence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-date-sorted-citation-list-put-the-undated-entries-first-having-promised-to-put-them-last" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A date-sorted citation list put the undated entries first, having promised to put them last
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-serpapi-api-key-was-written-to-the-log-in-plaintext-on-every-failed-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The SerpApi API key was written to the log in plaintext on every failed search
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1828,37 +1964,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    v1.3.4
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../v1.3.4/" class="md-nav__link">
         
   
   
@@ -1874,103 +1983,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#lint-parita-piena" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🧹 Lint — parità piena
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#chat-composer-come-llm_wiki" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        💬 Chat — composer come llm_wiki
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#grafo-il-grosso-del-lavoro" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🕸️ Grafo — il grosso del lavoro
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sorgenti-lettore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        📁 Sorgenti &amp; Lettore
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mcp-agent-skill-deep-research" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🔌 MCP + Agent Skill · 🔬 Deep Research
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verifica" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ✅ Verifica
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#artefatti" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Artefatti
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -2234,10 +2246,77 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#lint-parita-piena" class="md-nav__link">
+  <a href="#fixed" class="md-nav__link">
     <span class="md-ellipsis">
       
-        🧹 Lint — parità piena
+        Fixed
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fixed">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a-page-write-could-publish-a-truncated-file-over-a-good-one-atomically-and-in-silence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A page write could publish a truncated file over a good one — atomically, and in silence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a-date-sorted-citation-list-put-the-undated-entries-first-having-promised-to-put-them-last" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A date-sorted citation list put the undated entries first, having promised to put them last
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-serpapi-api-key-was-written-to-the-log-in-plaintext-on-every-failed-search" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The SerpApi API key was written to the log in plaintext on every failed search
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#also-in-this-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Also in this release
       
     </span>
   </a>
@@ -2245,65 +2324,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#chat-composer-come-llm_wiki" class="md-nav__link">
+  <a href="#upgrade-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        💬 Chat — composer come llm_wiki
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#grafo-il-grosso-del-lavoro" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🕸️ Grafo — il grosso del lavoro
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sorgenti-lettore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        📁 Sorgenti &amp; Lettore
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#mcp-agent-skill-deep-research" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        🔌 MCP + Agent Skill · 🔬 Deep Research
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verifica" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ✅ Verifica
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#artefatti" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Artefatti
+        Upgrade notes
       
     </span>
   </a>
@@ -2327,45 +2351,165 @@
 
 
 
-<h1 id="synapse-134-allineamento-ui-a-llm_wiki">Synapse 1.3.4 — Allineamento UI a llm_wiki 🪞<a class="headerlink" href="#synapse-134-allineamento-ui-a-llm_wiki" title="Permanent link">&para;</a></h1>
-<p>Release grande: un intero programma di parità <strong>screenshot-driven</strong> con nashsu/llm_wiki, feature per feature, mantenendo gli interni superiori di Synapse (grafo server-side, indice incrementale, loop bounded). Tutto verificato dal vivo contro il vault reale. Governato da ADR-0058 → ADR-0061.</p>
-<h2 id="lint-parita-piena">🧹 Lint — parità piena<a class="headerlink" href="#lint-parita-piena" title="Permanent link">&para;</a></h2>
+<h1 id="synapse-v2117-a-secret-in-a-url-and-a-syscall-that-only-offers">Synapse v2.1.17 — "a secret in a URL, and a syscall that only offers"<a class="headerlink" href="#synapse-v2117-a-secret-in-a-url-and-a-syscall-that-only-offers" title="Permanent link">&para;</a></h1>
+<p>Patch release closing a <strong>credential written to the log in plaintext</strong>, a page write that can
+<strong>publish a truncated file without raising</strong>, and an <strong>inverted sort sentinel</strong>. No schema
+migrations, no new endpoints, no API changes, no new configuration keys.</p>
+<p>Like 2.1.8 through 2.1.16, none came from a live failure report — all three were found by
+reading code during weekly maintenance. Two of them are this project's recurring shape, <strong>one
+sibling of N missing the guard the others have</strong>, and this week both odd ones out are odd for a
+structural reason rather than by oversight:</p>
+<blockquote>
+<p>SerpApi is the only web-search backend whose credential is in the request URL, because its
+API accepts no auth header. <code>vault_io.atomic_write_bytes</code> is the only vault write that calls
+the write syscall directly, because it is the one handed the whole payload up front — the
+streaming siblings wrap the descriptor in a buffered writer and got short-write handling from
+the standard library without asking for it.</p>
+</blockquote>
+<p>That is worth saying plainly: neither site is careless. Each is the one place where the
+cheap, obvious idiom was unavailable, and in both cases what filled the gap was an idiom that
+looks complete and is not.</p>
+<h2 id="fixed">Fixed<a class="headerlink" href="#fixed" title="Permanent link">&para;</a></h2>
+<h3 id="a-page-write-could-publish-a-truncated-file-over-a-good-one-atomically-and-in-silence">A page write could publish a truncated file over a good one — atomically, and in silence<a class="headerlink" href="#a-page-write-could-publish-a-truncated-file-over-a-good-one-atomically-and-in-silence" title="Permanent link">&para;</a></h3>
+<p><code>os.write()</code> is a thin wrapper over <code>write(2)</code>, and <code>write(2)</code> is permitted to accept <strong>fewer
+bytes than it was offered</strong> and report how many it took. So a single unchecked call is not
+"write this payload", it is <em>offer</em> this payload:</p>
+<div class="highlight"><pre><span></span><code><span class="n">tmp_fd</span><span class="p">,</span> <span class="n">tmp_name</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">dst</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="n">suffix</span><span class="o">=</span><span class="n">suffix</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>        <span class="c1"># ← returns a COUNT. Nobody read it.</span>
+<span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">tmp_fd</span><span class="p">)</span>
+<span class="n">publish_tmp_file</span><span class="p">(</span><span class="n">tmp_name</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>   <span class="c1"># ← renames whatever did get written onto the live page</span>
+</code></pre></div>
+<p>On a regular file the short write is not hypothetical: it is what the kernel does when the
+filesystem fills mid-write. It writes into the blocks it could allocate and returns the partial
+count <strong>instead of raising <code>ENOSPC</code></strong>. The bytes it did not take are gone, nothing in the
+process notices, and the very next step is the rename that <em>publishes</em> the temp file. The
+result is a page whose body has been cut off, committed over the intact one, atomically, with
+no exception raised and nothing in any log.</p>
+<p>The blast radius is exactly what 2.1.16 created. That release consolidated all six vault write
+sites into this one function — deliberately, and the consolidation was right — which means this
+defect covers <strong>every page body the system writes</strong>:</p>
 <ul>
-<li>Nuova categoria deterministica <strong>Link interrotto</strong> (broken-wikilink) dai dangling link della tabella <code>links</code> — a costo LLM zero (era tracciata ma mai mostrata)</li>
-<li><strong>Suggested target</strong> (risolutore tollerante) + <strong>Correggi</strong> che riscrive il link nel body</li>
-<li><strong>Batch bar</strong> (Correggi/Ignora/Invia a revisione selezionati), <strong>Apri</strong> per riga, <strong>bridge → coda Revisione</strong>, header per severità con <strong>totale vero</strong> (es. "Avvertimenti (259)"), toggle <strong>Semantico (LLM)</strong>, <strong>Elimina</strong> per pagine orfane</li>
+<li>every page the ingest loop generates (<code>ingest/block_writer</code>),</li>
+<li>the in-place rewrite behind wikilink enrichment (<code>ingest/orchestrator.reindex_wiki_page_body</code>),</li>
+<li><code>PUT /pages/{page_id}/content</code> — an ordinary page edit from the UI,</li>
+<li><code>POST /ingest/upload</code>, <code>POST /ingest/from-text</code> and <code>POST /clip</code>.</li>
 </ul>
-<h2 id="chat-composer-come-llm_wiki">💬 Chat — composer come llm_wiki<a class="headerlink" href="#chat-composer-come-llm_wiki" title="Permanent link">&para;</a></h2>
+<p>It needs no adversary, only a full disk — an ordinary event on a self-hosted TrueNAS box
+(<code>CLAUDE.md</code> §1) — and its symptom, a page that lost its body, points at anything other than a
+return value nobody read.</p>
+<p>The streaming siblings were never affected, and they are where the intended shape already
+lived: <code>routers/ingest.py</code> hands the descriptor to <code>open(fd, "wb")</code> and <code>ops/deep_research.py</code>
+to <code>os.fdopen(fd, "wb")</code>, and a buffered writer loops internally and raises on <code>ENOSPC</code>. This
+one site called the raw syscall once because it had the whole payload in hand and nothing about
+that looked like a loop.</p>
+<p><strong>Root cause:</strong> a syscall's return value treated as a status rather than as a count.</p>
+<p><code>_write_all</code> now loops until the kernel has accepted every byte, and raises <code>OSError</code> if the
+descriptor stops accepting data — a 0-byte return would otherwise spin there forever — so the
+function's existing cleanup removes the temp file and the destination keeps its previous
+contents. The close-exactly-once property added in 2.1.16 is unchanged; the loop sits inside
+it, not around it.</p>
+<h3 id="a-date-sorted-citation-list-put-the-undated-entries-first-having-promised-to-put-them-last">A date-sorted citation list put the undated entries first, having promised to put them last<a class="headerlink" href="#a-date-sorted-citation-list-put-the-undated-entries-first-having-promised-to-put-them-last" title="Permanent link">&para;</a></h3>
+<p><code>_sort_citations_by_date</code> (<code>app/rag/retrieval.py</code>) re-orders the assembled <code>[n]</code> citations by
+<code>pages.updated_at</code>, fetched for all cited ids in one bounded read. The comment above the sort
+states the contract: <em>"pages without an <code>updated_at</code> entry stay at the end in their original
+order"</em>. The fallback key for a page the read did not return was:</p>
+<div class="highlight"><pre><span></span><code><span class="n">_SORT_MISSING</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">reverse</span> <span class="k">else</span> <span class="s2">"</span><span class="se">\xff\xff</span><span class="s2">"</span>
+</code></pre></div>
+<p>Both branches are the wrong way round, because the sentinel has to sit on the far side of the
+direction being sorted. Ascending puts the <strong>largest</strong> key last, so a miss needed the high
+sentinel and got the empty string. Descending puts the <strong>smallest</strong> key last, so it needed the
+empty string and got the high one. In both directions the undated citation led the list.</p>
+<p><strong>Latent today.</strong> Phase 4 builds the citation list from the same <code>pages</code> table the sort then
+reads, so a miss requires a row to vanish between two reads inside a single request. Fixed
+rather than filed because the correction is two characters and the comment above it already
+specified the right answer — a tie-break that is inverted is worth less than one that admits it.</p>
+<p><strong>Root cause:</strong> a sentinel derived from the sort flag instead of from the position it has to
+land in.</p>
+<h2 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h2>
+<h3 id="the-serpapi-api-key-was-written-to-the-log-in-plaintext-on-every-failed-search">The SerpApi API key was written to the log in plaintext on every failed search<a class="headerlink" href="#the-serpapi-api-key-was-written-to-the-log-in-plaintext-on-every-failed-search" title="Permanent link">&para;</a></h3>
+<p><code>app/ops/web_search/keys.py</code> opens with the invariant: <em>"Plaintext is NEVER logged or returned
+by any endpoint — only a masked posture is exposed."</em> Of the five opt-in web-search backends,
+SerpApi is the one that broke it, and the reason is structural. Its API accepts no
+authentication header, so the key has to travel as a query parameter:</p>
+<div class="highlight"><pre><span></span><code><span class="n">params</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"engine"</span><span class="p">:</span> <span class="s2">"google"</span><span class="p">,</span> <span class="s2">"q"</span><span class="p">:</span> <span class="n">query</span><span class="p">,</span> <span class="s2">"api_key"</span><span class="p">:</span> <span class="n">api_key</span><span class="p">}</span>   <span class="c1"># ← part of the request URL</span>
+<span class="o">...</span>
+<span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"serpapi: search failed for </span><span class="si">%r</span><span class="s2">: </span><span class="si">%s</span><span class="s2"> — returning []"</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</code></pre></div>
+<p><code>httpx</code> formats <code>HTTPStatusError</code> as <code>Client error '401 Unauthorized' for url '&lt;full url&gt;'</code> —
+query string included. So the best-effort <code>except</code> clause, written precisely to <em>explain</em> why
+the search degraded to zero hits, wrote the operator's credential into the log line:</p>
+<div class="highlight"><pre><span></span><code>WARNING serpapi: search failed for 'some query': Client error '401 Unauthorized' for url
+'https://serpapi.com/search.json?engine=google&amp;q=some+query&amp;api_key=sk-…-SECRET' — returning []
+</code></pre></div>
+<p>The triggering responses are the ordinary ones, not an attack:</p>
 <ul>
-<li><strong>Allega immagine</strong> (capability-aware sul provider, I6), toggle <strong>Ricerca web</strong> (SearXNG, namespace citazioni <code>[W]</code> separato), modalità <strong>Veloce / Standard / Profondo / Locale prima</strong> (preset deterministici). AnyTXT ⛔ non-applicabile (servizio solo-Windows)</li>
+<li><strong>401</strong> — a wrong, revoked or expired key. The most likely failure in this adapter's life.</li>
+<li><strong>429</strong> — rate-limited. Which means a key that is perfectly <strong>valid</strong> leaks too.</li>
 </ul>
-<h2 id="grafo-il-grosso-del-lavoro">🕸️ Grafo — il grosso del lavoro<a class="headerlink" href="#grafo-il-grosso-del-lavoro" title="Permanent link">&para;</a></h2>
+<p>The other four backends never had the problem, because none of them has the key in the URL:
+<code>brave</code> sends <code>X-Subscription-Token</code>, <code>firecrawl</code> an <code>Authorization: Bearer</code> header, <code>tavily</code>
+puts it in the JSON body, and <code>ollama_web</code> has no cloud key at all.</p>
+<p>Honestly scoped: this backend is opt-in and <strong>off by default</strong> (ADR-0066/ADR-0070), the key is
+env-only and never exposed on the config-override surface, and a log file is not a public
+surface. What makes it worth a release rather than a note is the combination of <em>where it goes</em>
+— shipped to whoever can read container logs, which on this deployment includes anyone with
+access to the TrueNAS host — and <em>when it fires</em>: on the single most common failure the adapter
+has, with no error on the operator's side to suggest that anything was disclosed.</p>
+<p><strong>Root cause:</strong> a secret placed in a URL, and then a URL-bearing exception stringified into a
+log record.</p>
+<p>Every <code>str(exc)</code> at that site now goes through <code>_redact_key</code>, which masks the raw key <strong>and</strong>
+its percent-encoded form. The second replacement is not decoration: <code>httpx</code> builds the URL from
+<code>params=</code>, so a key containing a URL-unsafe byte reaches the exception text percent-encoded, and
+a raw-only replacement would miss exactly the keys that are hardest to notice in a log.</p>
+<h2 id="also-in-this-release">Also in this release<a class="headerlink" href="#also-in-this-release" title="Permanent link">&para;</a></h2>
+<p>One new entry in the 3.0 backlog (<code>docs/reference/ROADMAP-3.0-IDEAS.md</code>):</p>
 <ul>
-<li><strong>Header</strong>: statistiche <code>pagine/link/nascosti</code>, <strong>Cerca</strong> nel grafo, <strong>Filtro</strong> per tipo (I2-safe), Reset, schermo intero</li>
-<li><strong>Community per dominio</strong> con <strong>nomi unici</strong> ("SAM · Reconciliation", "SAM · Reporting") — niente più duplicati; colorate per cluster Louvain, nominate dal dominio F18</li>
-<li><strong>Flusso "Obsidian"</strong>: culling degli archi ridotto → cluster riconnessi (non più isole); il chip link riflette il culling</li>
-<li><strong>Legenda collassabile</strong>; pannello Insights <strong>collassato di default</strong>; etichette centroide clampate al canvas</li>
-<li>Le <strong>dimensioni</strong> dei nodi restano scalate per link count (√)</li>
+<li><strong><code>katex</code> has a production advisory, and its <code>trust:false</code> is what the DOMPurify bypass rests
+  on.</strong> <code>katex</code> 0.16.47 is covered by GHSA-238p-pmpm-9mq7 ("existing prototype pollution can
+  bypass trust restrictions", severity low); the fix is <code>katex@0.19.0</code>, a <strong>major</strong>, so it stays
+  out of a patch. The reason it is worth scheduling rather than ignoring is where it lands:
+  <code>renderMarkdown.ts</code> renders with <code>trust: false</code> and then re-inserts KaTeX HTML <strong>after</strong>
+  DOMPurify, justified in a comment by <em>"KaTeX output (trust:false) is XSS-safe by
+  construction"</em> — which is the proposition the advisory denies. The justification for the
+  bypass and the content of the advisory are the same sentence, one asserted and one negated.
+  Not exploitable on its own today: the attack needs a prototype pollution already present in
+  the page, and there is none. It also retires a claim in the 2026-08-14 backlog entry —
+  <code>npm audit --omit=dev</code> is no longer 0, and katex is the first advisory to reach the served
+  bundle.</li>
 </ul>
-<h2 id="sorgenti-lettore">📁 Sorgenti &amp; Lettore<a class="headerlink" href="#sorgenti-lettore" title="Permanent link">&para;</a></h2>
+<p>The long-standing <strong>pypdf</strong> entry is unchanged: <code>pip-audit</code> still reports every advisory against
+the pinned 5.9.0 as fixed only in the 6.x line, behind a <code>&lt;6</code> constraint. Still a major bump,
+still out of scope for a patch.</p>
+<p>The remaining <code>npm audit</code> findings are dev/build-chain only (<code>vitest</code>, <code>vite</code>/<code>esbuild</code>,
+<code>tinypool</code>) and each needs a major bump, as already filed. <code>source-map-js</code> has a non-breaking
+fix available but is build-chain only and rode no code change this week, so it was left alone
+rather than bundled in for the sake of a tidier audit line.</p>
+<h2 id="upgrade-notes">Upgrade notes<a class="headerlink" href="#upgrade-notes" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>pull<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
 <ul>
-<li><strong>Import cartella</strong> ("+ Folder", ricorsivo) + <strong>elimina cartella</strong> (cascade bounded) + footer conteggio</li>
-<li>Reader: <strong>"More" sui tag</strong> (i ~100 tag non wrappano più all'infinito) + riga <code>updated:</code></li>
-<li><strong>Nuovo tab "Wiki"</strong> nelle Sorgenti: sfoglia la struttura della cartella <code>wiki/</code> (sola lettura, con preview) — come il "Files" di llm_wiki</li>
+<li><strong>No schema migration.</strong> No SQLAlchemy model changed, so <code>docs/er/schema.mmd</code> is unchanged and
+  no Alembic revision ships with this release.</li>
+<li><strong>No API change.</strong> <code>docs/api/openapi.json</code> differs only in the version string.</li>
+<li><strong>No new configuration.</strong> Nothing new to set in <code>.env</code>; no existing key changes meaning.</li>
+<li><strong>Rotate your SerpApi key if you have ever used that backend and keep your logs.</strong> This is the
+  one action this release asks for, and only if <code>WEB_SEARCH_PROVIDER=serpapi</code> was ever selected
+  <em>and</em> <code>SERPAPI_API_KEY</code> was set. Any failed search before this version wrote the key into the
+  backend log, so the key should be treated as disclosed to everyone who can read those logs or
+  any copy of them — shipped log aggregation, a backup of <code>/var/lib/docker</code>, a pasted bug report.
+  Rotate at the SerpApi dashboard, update <code>SERPAPI_API_KEY</code>, restart. If you never enabled
+  SerpApi — the default, since it is off by default — nothing was ever logged and there is
+  nothing to do. The four other backends were never affected.</li>
+<li><strong>Pages already written are not re-checked.</strong> The truncation fix applies to writes from here
+  on; it does not scan the vault for pages that were cut short earlier. If the host has ever hit
+  a full disk, the pages written in that window are the ones to look at — a truncated page is
+  valid Markdown that simply stops, so nothing flags it. <code>make lint</code> / the Lint op will surface
+  the resulting dangling wikilinks and missing frontmatter, which is the cheapest way to find
+  them.</li>
+<li><strong>No client-side state to clear.</strong> Existing OAuth grants, refresh tokens, API tokens,
+  conversations and vault content are untouched.</li>
 </ul>
-<h2 id="mcp-agent-skill-deep-research">🔌 MCP + Agent Skill · 🔬 Deep Research<a class="headerlink" href="#mcp-agent-skill-deep-research" title="Permanent link">&para;</a></h2>
-<ul>
-<li>MCP esteso da 4 a <strong>9 tool</strong> (graph-neighborhood, list/resolve-reviews, read-source-file, trigger-rescan) + REST <code>review/bulk-resolve</code> + <code>PATCH</code></li>
-<li><strong>Skill installabile</strong> <code>tools/synapse-skill/</code> — interroga Synapse da Claude Code/Codex (read-only, trigger-disciplined)</li>
-<li><strong>Deep Research</strong>: dai Graph Insights, topic + query <strong>ottimizzati dall'LLM</strong> (legge overview+purpose) in un <strong>dialog editabile</strong> prima di partire</li>
-</ul>
-<h2 id="verifica">✅ Verifica<a class="headerlink" href="#verifica" title="Permanent link">&para;</a></h2>
-<ul>
-<li>Suite completa verde (backend ~2000 test · frontend ~2000 test); ruff/mypy/eslint/tsc puliti; OpenAPI + ER rigenerati</li>
-<li>Ogni batch verificato live in preview sul vault reale (986 pagine); merge d'integrazione pulito, migration single-head 0025, ADR 0058–0061 distinti</li>
-</ul>
-<h2 id="artefatti">Artefatti<a class="headerlink" href="#artefatti" title="Permanent link">&para;</a></h2>
-<p><code>Synapse_1.3.4_aarch64.dmg</code> · <code>_x64-setup.exe</code> · <code>synapse-clipper-1.3.4.zip</code> · <code>latest.json</code> firmato · immagini GHCR <code>backend</code>/<code>frontend</code>/<code>marker</code> <code>v1.3.4</code>+<code>latest</code></p>
 
 
 
