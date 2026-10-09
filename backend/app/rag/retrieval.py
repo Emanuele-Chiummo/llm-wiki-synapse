@@ -1104,11 +1104,15 @@ async def _sort_citations_by_date(
         async with get_session() as sess:
             updated_at_map = await _run(sess)
 
-    # Sort: pages without an updated_at entry stay at the end in their original order.
+    # Sort: pages without an updated_at entry stay at the end in their original order
+    # (sorted() is stable, so equal keys keep their Phase-4 rank order).
     reverse = sort == "date_desc"
-    # Use a fallback string that sorts to the end (empty string sorts before any ISO date in
-    # both ascending and descending modes via the NOT-FOUND path being last).
-    _SORT_MISSING = "" if not reverse else "\xff\xff"
+    # The sentinel has to be on the far side of the direction being sorted, so it depends on
+    # `reverse` the opposite way round to how it reads: ascending puts the LARGEST key last,
+    # so a missing date must sort HIGH; descending puts the SMALLEST key last, so it must
+    # sort LOW. The two values were the wrong way round, which put the undated citations
+    # FIRST in both directions — the opposite of what this comment promises.
+    _SORT_MISSING = "\xff\xff" if not reverse else ""
     sorted_citations = sorted(
         citations,
         key=lambda c: updated_at_map.get(c.ref.id, _SORT_MISSING),
