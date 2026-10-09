@@ -374,7 +374,7 @@ watchfiles==1.2.0
     # via
     #   fastmcp-slim
     #   uvicorn
-websockets==16.1
+websockets==16.1.1
     # via
     #   fastmcp-slim
     #   uvicorn
