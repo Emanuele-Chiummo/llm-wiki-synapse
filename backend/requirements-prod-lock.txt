@@ -53,7 +53,7 @@ cryptography==49.0.0
     #   authlib
     #   joserfc
     #   pyjwt
-cyclopts==4.21.1
+cyclopts==4.22.0
     # via fastmcp-slim
 defusedxml==0.7.1
     # via odfpy
