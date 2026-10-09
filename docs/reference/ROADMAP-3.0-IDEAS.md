@@ -699,3 +699,37 @@ giorno senza mai ripagarsi.
   decisione su cosa mostrare in UI mentre la cache negativa è calda — cioè un cambio di
   comportamento su un flusso esistente, non una correzione.
 - **Trovato:** 2026-10-02
+
+### `katex` ha un'advisory in produzione, e il suo `trust:false` è ciò su cui poggia il bypass di DOMPurify
+
+- **Problema:** `katex` 0.16.47 è coperta da GHSA-238p-pmpm-9mq7 (*"existing prototype
+  pollution can bypass trust restrictions"*, severity low, range `0.11.0 – 0.18.1`). La fix
+  è in `katex@0.19.0`, cioè un **major** — fuori portata per una patch. Ma il punto non è
+  l'advisory in sé: è *dove* cade. `renderMarkdown.ts` rende il LaTeX con `trust: false` e
+  poi **reinserisce l'HTML di KaTeX DOPO** la sanitizzazione DOMPurify, con il commento
+  «KaTeX output (trust:false) is XSS-safe by construction; injecting it here avoids
+  DOMPurify stripping KaTeX's span/MathML markup». L'advisory dice esattamente che quel
+  `trust:false` è aggirabile. La giustificazione del bypass e il contenuto dell'advisory
+  sono la stessa proposizione, una affermata e una negata: se il `trust` cade, l'output di
+  KaTeX non è più "safe by construction" e passa in un punto in cui nessuno lo filtra più.
+- **Evidenza:** `frontend/package.json` (`"katex": "^0.16.47"`);
+  `frontend/src/components/chat/renderMarkdown.ts:88-93` (`trust: false`),
+  `:268-270` (la reinserzione post-sanitizzazione). `npm audit --omit=dev` da `frontend/`
+  al 2026-10-09: **1 advisory** (era 0 quando è stata scritta la voce del 2026-08-14 sulle
+  dipendenze di build — quella voce afferma «nulla di tutto questo finisce nel bundle», e
+  per katex non è più vero).
+- **Impatto:** basso **oggi**, ma è l'unico advisory che raggiunge il bundle servito e sta
+  sul confine XSS del contenuto meno fidato che l'app tratta: output dell'LLM, corpi di
+  pagina del vault e testo recuperato dal web in deep research. L'attacco non è
+  autosufficiente — serve una prototype pollution *già presente* nella pagina, che oggi non
+  c'è — quindi è un gadget di defense-in-depth, non una via sfruttabile da sola. È il
+  motivo per cui va schedulato, non per cui va corso.
+- **Sforzo:** S per il bump (`^0.16` → `^0.19`), M per la verifica: 0.19 cambia i default di
+  `strict`/`trust` e l'output `htmlAndMathml`, quindi vanno riviste le prove di rendering
+  LaTeX e lo screenshot E2E del tema scuro con KaTeX (quello già messo in quarantena e
+  riabilitato in 2.1.0). La decisione che vale più del bump: se la pipeline debba continuare
+  a reinserire HTML non sanitizzato fidandosi di un'opzione di una libreria terza, o se
+  l'HTML di KaTeX vada sanitizzato con un profilo DOMPurify che conosca `span`/MathML —
+  cioè non fidarsi più di `trust:false` come perimetro unico. Quella è una riprogettazione
+  del confine di sanitizzazione, non un aggiornamento di dipendenza.
+- **Trovato:** 2026-10-09

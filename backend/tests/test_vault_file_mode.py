@@ -123,6 +123,75 @@ class TestVaultIoPrimitives:
         assert list(tmp_path.glob("*.t_tmp")) == [], "temp file not cleaned up after failure"
 
 
+class TestAtomicWriteBytesWritesEveryByte:
+    """
+    2.1.17 — ``os.write()`` offers bytes, it does not guarantee writing them.
+
+    ``write(2)`` may accept FEWER bytes than it was given and return the short count. On a
+    regular file that is what happens when the filesystem fills mid-write: the kernel takes
+    the blocks it could allocate and reports the partial count instead of raising ``ENOSPC``.
+    The old single unchecked ``os.write(tmp_fd, data)`` then went straight on to the
+    ``os.replace`` that PUBLISHES the temp file, so a truncated page was committed over the
+    intact one — atomically, with no exception and nothing in any log. This is the one write
+    path every wiki page body goes through (2.1.16 consolidated all six sites here), so the
+    blast radius is "any page written while the vault's disk is full".
+    """
+
+    def test_a_short_os_write_still_publishes_the_complete_payload(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A kernel that takes one byte per call must not cost us the other 4095."""
+        real_write = os.write
+
+        def _one_byte_at_a_time(fd: int, data: Any) -> int:
+            view = memoryview(data)
+            if not len(view):
+                return 0
+            return real_write(fd, bytes(view[:1]))
+
+        monkeypatch.setattr(os, "write", _one_byte_at_a_time)
+
+        payload = b"# Page\n\n" + (b"body line\n" * 400)
+        dst = tmp_path / "page.md"
+        atomic_write_bytes(dst, payload, suffix=".t_tmp")
+
+        written = dst.read_bytes()
+        assert written == payload, (
+            f"published {len(written)} of {len(payload)} bytes — a short write was treated "
+            f"as a complete one and the truncated file was renamed over the destination"
+        )
+        assert list(tmp_path.glob("*.t_tmp")) == [], "temp file left behind"
+
+    def test_a_descriptor_that_stops_accepting_bytes_raises_and_keeps_the_old_page(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """
+        A 0-byte return is the pathological case: it must raise, not spin. The destination
+        keeps its previous contents, which is the whole point of writing via a temp file.
+        """
+        real_write = os.write
+        calls: list[int] = []
+
+        def _stalls_after_the_first_byte(fd: int, data: Any) -> int:
+            calls.append(1)
+            if len(calls) == 1:
+                return real_write(fd, bytes(memoryview(data)[:1]))
+            return 0
+
+        monkeypatch.setattr(os, "write", _stalls_after_the_first_byte)
+
+        dst = tmp_path / "page.md"
+        dst.write_text("good content\n", encoding="utf-8")
+
+        with pytest.raises(OSError, match="short write"):
+            atomic_write_bytes(dst, b"new content that cannot be written\n", suffix=".t_tmp")
+
+        assert (
+            dst.read_text(encoding="utf-8") == "good content\n"
+        ), "the destination lost its contents to a write that never completed"
+        assert list(tmp_path.glob("*.t_tmp")) == [], "temp file not cleaned up after failure"
+
+
 # ── PUT /pages/{id}/content — the edit that downgraded a live page ────────────
 
 

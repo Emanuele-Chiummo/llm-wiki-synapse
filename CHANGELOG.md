@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.17] — 2026-10-09 — "a secret in a URL, and a syscall that only offers"
+
+Patch release closing a credential that reaches the log in plaintext, a page write that can
+publish a truncated file without raising, and an inverted sort sentinel. Found by reading the
+web-search adapters and the consolidated vault write path during weekly maintenance; none came
+from a live failure report. No schema migrations, no API changes, no new config.
+
+Two of the three are the shape this project keeps finding — **one sibling of N without the
+guard the others have** — and in both cases the odd one out is odd for a structural reason, not
+by oversight. SerpApi is the only web-search backend whose credential is in the request URL,
+because its API accepts no auth header. `vault_io.atomic_write_bytes` is the only vault write
+that calls the write syscall directly, because it is the one that was given the whole payload
+up front; the streaming siblings wrap the descriptor in a buffered writer and got short-write
+handling from the stdlib for free.
+
+### Fixed
+
+- **A page write could publish a truncated file over a good one, atomically and silently**:
+  `os.write()` is a thin wrapper over `write(2)`, which is permitted to accept FEWER bytes than
+  it was offered and return the short count. A single unchecked `os.write()` is therefore not
+  "write this payload", it is "offer this payload" — and the bytes it did not take are simply
+  lost. On a regular file this is what happens when the filesystem fills mid-write: the kernel
+  writes into the blocks it could allocate and returns the partial count instead of raising
+  `ENOSPC`. `atomic_write_bytes` ignored that count and went straight on to the `os.replace`
+  that PUBLISHES the temp file, so the truncated bytes were committed over the intact page —
+  atomically, with no exception raised and nothing in any log. The blast radius is what 2.1.16
+  made it: that release consolidated all six vault write sites into this one function, so the
+  defect covers every page body the system writes — the ingest loop's generated pages,
+  `reindex_wiki_page_body`'s in-place rewrite behind wikilink enrichment,
+  `PUT /pages/{page_id}/content`, and the `POST /ingest/upload` / `from-text` / `clip` source
+  writes. The failure needs no adversary, only a full disk — an ordinary event on the TrueNAS
+  box this runs on (`CLAUDE.md` §1), and one whose symptom (a page that lost its body) points
+  at anything but a return value that was never read. The streaming siblings were never
+  affected and show the shape that was wanted: `routers/ingest.py` and `ops/deep_research.py`
+  hand the descriptor to `open(fd, "wb")` / `os.fdopen`, whose buffered writer loops internally
+  and raises on `ENOSPC`. Root cause: a syscall's return value treated as a status rather than
+  as a count. `_write_all` now loops until the kernel has taken every byte and raises `OSError`
+  if the descriptor stops accepting data — a 0-byte return would otherwise spin there forever —
+  so the existing cleanup removes the temp file and the destination keeps its previous
+  contents. The close-exactly-once property added in 2.1.16 is unchanged.
+- **A date-sorted citation list put the undated entries first, having promised to put them
+  last**: `_sort_citations_by_date` (`app/rag/retrieval.py`) fetches `updated_at` for the cited
+  page ids in one bounded read, and the comment above the sort states that "pages without an
+  `updated_at` entry stay at the end in their original order". The fallback key it used for a
+  page the read did not return was `"" if not reverse else "\xff\xff"` — the wrong way round on
+  BOTH branches, because the sentinel has to sit on the far side of the direction being sorted:
+  ascending puts the LARGEST key last, so a miss needed the high sentinel and got the empty
+  string; descending puts the SMALLEST key last, so it needed the empty string and got the high
+  one. **Latent today**: Phase 4 builds the citation list from the same `pages` table the sort
+  then reads, so a miss requires the row to vanish between two reads inside one request. Fixed
+  rather than filed because the correction is two characters and the comment above it already
+  specified the right answer. Root cause: a sentinel derived from the sort flag instead of from
+  the position it needs to land in.
+
+### Security
+
+- **The SerpApi API key was written to the log in plaintext on every failed search**:
+  `app/ops/web_search/keys.py` opens with the invariant "Plaintext is NEVER logged or returned
+  by any endpoint", and of the five opt-in web-search backends, SerpApi is the one that broke
+  it — structurally, not by oversight. Its API accepts no auth header, so the key must travel
+  as a query parameter and is part of the request URL, where `brave` uses
+  `X-Subscription-Token`, `firecrawl` an `Authorization: Bearer` header and `tavily` a JSON
+  body. `httpx` formats `HTTPStatusError` as `Client error '401 Unauthorized' for url
+  '<full url>'`, so the adapter's best-effort `except` clause — which interpolated the
+  exception into a WARNING precisely in order to explain why the search degraded to zero hits
+  — wrote the operator's credential into the log line. The triggering responses are the
+  ordinary ones, not an attack: **401** for a wrong or expired key, and **429** for a
+  rate-limited one, which means a key that is perfectly VALID leaks too. Severity is bounded by
+  reach, not by likelihood: this backend is opt-in and OFF by default (ADR-0066/ADR-0070), the
+  key is env-only and never on the config-override surface, and a log file is not a public
+  surface — but it is shipped to whoever reads container logs, and the leak fires on the single
+  most common failure in the backend's life. Root cause: a secret placed in a URL, and then a
+  URL-bearing exception stringified into a log record. Every `str(exc)` at that site now goes
+  through `_redact_key`, which masks the raw key and its percent-encoded form both — `httpx`
+  builds the URL from `params=`, so a key containing a URL-unsafe byte arrives in the
+  exception text percent-encoded, and a raw-only replacement would miss it.
+
+### Known issues
+
+- **`katex` 0.16.47 — GHSA-238p-pmpm-9mq7, not fixed here.** The first advisory to reach the
+  PRODUCTION bundle (`npm audit --omit=dev` goes from 0 to 1): "existing prototype pollution
+  can bypass trust restrictions". The fix is `katex@0.19.0`, a MAJOR bump, so it stays out of a
+  patch. Filed in `docs/reference/ROADMAP-3.0-IDEAS.md` with the detail that makes it worth
+  scheduling rather than ignoring: `renderMarkdown.ts` renders with `trust: false` and then
+  re-inserts KaTeX HTML *after* DOMPurify, justified in a comment by "KaTeX output
+  (trust:false) is XSS-safe by construction" — which is the proposition the advisory denies.
+  Not exploitable on its own today: the attack needs a prototype pollution already present in
+  the page, and there is none.
+
 ## [2.1.16] — 2026-10-02 — "a rename carries its own mode"
 
 Patch release closing a defect that quietly makes the shared vault unreadable from the

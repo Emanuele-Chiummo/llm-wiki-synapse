@@ -26,6 +26,7 @@ itself (an upload body that must never be buffered whole).
 
 from __future__ import annotations
 
+import errno
 import os
 import tempfile
 from pathlib import Path
@@ -36,6 +37,36 @@ from pathlib import Path
 # literal lives in ONE place instead of being re-derived at each write site — the way it
 # was missed at six of seven of them.
 VAULT_FILE_MODE: int = 0o644
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    """
+    Write ALL of *data* to *fd*, looping until the kernel has accepted every byte.
+
+    ``os.write()`` is a thin wrapper over ``write(2)``, which is allowed to accept FEWER bytes
+    than it was offered and report how many it took. A single unchecked ``os.write()`` is
+    therefore not "write this payload", it is "offer this payload" — and the bytes it did not
+    take are simply lost. On a regular file that happens when the filesystem fills mid-write:
+    the kernel writes into the blocks it could allocate and returns the short count instead of
+    raising ``ENOSPC``. Nothing in the caller notices, and the next step is the ``os.replace``
+    that publishes the temp file — so a truncated page gets committed over the good one,
+    atomically and without an error anywhere.
+
+    Raises ``OSError`` if the descriptor stops accepting bytes (a 0-byte return would
+    otherwise spin here forever), so the caller's cleanup removes the temp file and the
+    destination keeps its previous contents.
+    """
+    view = memoryview(data)
+    offset = 0
+    while offset < len(view):
+        written = os.write(fd, view[offset:])
+        if written <= 0:
+            raise OSError(
+                errno.ENOSPC,
+                f"short write: {offset} of {len(view)} bytes accepted before the "
+                f"descriptor stopped taking data",
+            )
+        offset += written
 
 
 def publish_tmp_file(tmp_name: str | Path, dst: Path) -> None:
@@ -61,6 +92,9 @@ def atomic_write_bytes(dst: Path, data: bytes, *, suffix: str) -> None:
     :func:`publish_tmp_file`. *suffix* names the temp file so a leftover is attributable to
     its write site.
 
+    The payload is written through :func:`_write_all`, so a SHORT write (the filesystem
+    filling up mid-write) raises instead of silently publishing a truncated page.
+
     On ANY failure the temp file is removed and the exception propagates — ``dst`` keeps its
     previous contents. The descriptor is closed exactly ONCE: the previous per-site idiom
     closed it in the happy path and closed it AGAIN in the error path, so a failure in the
@@ -71,7 +105,7 @@ def atomic_write_bytes(dst: Path, data: bytes, *, suffix: str) -> None:
     tmp_fd, tmp_name = tempfile.mkstemp(dir=str(dst.parent), suffix=suffix)
     closed = False
     try:
-        os.write(tmp_fd, data)
+        _write_all(tmp_fd, data)
         os.close(tmp_fd)
         closed = True
         publish_tmp_file(tmp_name, dst)

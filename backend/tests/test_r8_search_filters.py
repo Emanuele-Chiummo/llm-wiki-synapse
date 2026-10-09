@@ -704,3 +704,70 @@ async def test_sort_relevance_explicit_is_unchanged(
     # Relevance order: p1 (cosine 0.95) must be n=1, not p2 (newer but lower score).
     assert ctx.citations[0].ref.id == p1
     assert ctx.citations[0].n == 1
+
+
+# ── T-R85-012: a citation with no resolvable date sorts LAST, both directions ───
+
+
+async def test_undated_citation_sorts_last_in_both_directions(env: _Env) -> None:
+    """
+    2.1.17 — the missing-date sentinel was inverted, so undated citations sorted FIRST.
+
+    ``_sort_citations_by_date`` fetches ``updated_at`` for the cited page ids in one read and
+    documents that "pages without an updated_at entry stay at the end in their original
+    order". The fallback key it used for a page the read did not return was
+    ``"" if not reverse else "\\xff\\xff"`` — which is the wrong way round on BOTH branches:
+    ascending puts the LARGEST key last (so a miss needed the high sentinel, and got the
+    empty string), descending puts the SMALLEST last (so it needed the empty string, and got
+    the high one). The undated citation therefore led the list in both directions.
+
+    Driven at the function level on purpose: Phase 4 loads the citation list from the same
+    ``pages`` table the sort then reads, so through ``retrieve()`` a miss needs the row to
+    disappear mid-call. The sentinel is what is under test, not the race that exposes it.
+    """
+    p_dated = _uid(41)
+    p_undated = _uid(42)
+
+    async with env.factory() as sess:
+        # Only p_dated exists, so the sort's bounded read returns one row of the two.
+        await _insert_page(
+            sess,
+            page_id=p_dated,
+            vault_id=VAULT,
+            file_path="wiki/concepts/dated.md",
+            title="Dated Page",
+            page_type="concept",
+            updated_at="2025-06-01T00:00:00",
+        )
+        await sess.commit()
+
+    def _citations() -> list[retrieval_mod.Citation]:
+        """Rank order from Phase 4: the undated page first, so a no-op sort would keep it."""
+        return [
+            retrieval_mod.Citation(
+                n=1,
+                ref=retrieval_mod.PageRef(id=p_undated, title="Undated Page", slug="undated-page"),
+                score=0.9,
+                phase="vector",
+            ),
+            retrieval_mod.Citation(
+                n=2,
+                ref=retrieval_mod.PageRef(id=p_dated, title="Dated Page", slug="dated-page"),
+                score=0.8,
+                phase="vector",
+            ),
+        ]
+
+    for sort in ("date_asc", "date_desc"):
+        async with env.factory() as sess:
+            ordered = await retrieval_mod._sort_citations_by_date(
+                _citations(), sort=sort, session=sess
+            )
+
+        ids = [c.ref.id for c in ordered]
+        assert ids == [
+            p_dated,
+            p_undated,
+        ], f"sort={sort}: expected the undated citation last, got {ids}"
+        # n stays 1-based and contiguous after the re-order.
+        assert [c.n for c in ordered] == [1, 2]
