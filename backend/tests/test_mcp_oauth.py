@@ -135,6 +135,32 @@ class TestDiscovery:
         body = resp.json()
         assert body["resource"].endswith("/mcp/server")
 
+    async def test_discovery_uses_forwarded_proto_behind_proxy(self, client: AsyncClient) -> None:
+        """Behind the Cloudflare Tunnel the issuer must be https, not uvicorn's http."""
+        headers = {"X-Forwarded-Proto": "https"}
+        as_resp = await client.get("/.well-known/oauth-authorization-server", headers=headers)
+        pr_resp = await client.get("/.well-known/oauth-protected-resource", headers=headers)
+        assert as_resp.status_code == 200, as_resp.text
+        assert pr_resp.status_code == 200, pr_resp.text
+        as_body = as_resp.json()
+        pr_body = pr_resp.json()
+        assert as_body["issuer"] == "https://test"
+        assert as_body["authorization_endpoint"] == "https://test/authorize"
+        assert as_body["token_endpoint"] == "https://test/token"
+        assert as_body["registration_endpoint"] == "https://test/register"
+        assert pr_body["resource"] == "https://test/mcp/server"
+        assert pr_body["authorization_servers"] == ["https://test"]
+
+    async def test_discovery_ignores_unknown_forwarded_proto(self, client: AsyncClient) -> None:
+        """Without the header, or with a junk value, the transport scheme is kept."""
+        plain = await client.get("/.well-known/oauth-authorization-server")
+        junk = await client.get(
+            "/.well-known/oauth-authorization-server",
+            headers={"X-Forwarded-Proto": "javascript"},
+        )
+        assert plain.json()["issuer"] == "http://test"
+        assert junk.json()["issuer"] == "http://test"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2-3. Dynamic Client Registration
