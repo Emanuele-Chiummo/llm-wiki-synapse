@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.18] — 2026-10-24 — "the scheme the tunnel saw"
+
+Patch release. The OAuth discovery metadata of the remote MCP surface advertised `http://`
+behind the Cloudflare Tunnel, so `mcp-remote` failed with `IssuerMismatchError`.
+
+### Fixed
+
+- **mcp/oauth**: the issuer honours `X-Forwarded-Proto` (first hop, http/https only), so both
+  `.well-known` endpoints advertise `https://` behind a TLS terminating proxy [F17]. uvicorn
+  `--proxy-headers` was rejected because it would bypass the trusted-proxy model of
+  `app.client_ip` (ADR-0033 §2.3).
+
 ## [2.1.17] — 2026-10-09 — "a secret in a URL, and a syscall that only offers"
 
 Patch release closing a credential that reaches the log in plaintext, a page write that can
