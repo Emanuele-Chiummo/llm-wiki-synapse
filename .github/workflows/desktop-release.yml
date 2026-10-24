@@ -201,7 +201,7 @@ jobs:
       # bundles + signed updater artifacts + latest.json (includeUpdaterJson).
       # workflow_dispatch = build-only (empty tagName -> no release).
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         with:
           tauriScript: node frontend/node_modules/@tauri-apps/cli/tauri.js
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
