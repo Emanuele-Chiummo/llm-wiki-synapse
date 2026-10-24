@@ -14,7 +14,8 @@ simply an ADDITIONAL way to satisfy the SAME ``/mcp/server`` gate (see
 
 Endpoints (mounted at the APP ROOT, not under ``/mcp/server`` — see ADR-0090 §2 for why):
     GET  /.well-known/oauth-authorization-server  — RFC 8414 discovery
-    GET  /.well-known/oauth-protected-resource    — RFC 9728 discovery
+    GET  /.well-known/oauth-protected-resource    — RFC 9728 discovery (also served at the
+                                                      §3.1 path-suffixed /mcp/server variant)
     POST /register                                — RFC 7591 Dynamic Client Registration
     GET  /authorize                                — renders the consent form
     POST /authorize                                — verifies the STATIC MCP token, issues a
@@ -89,22 +90,8 @@ def _not_found() -> HTTPException:
 
 
 def _issuer(request: Request) -> str:
-    """
-    Build the issuer URL from the incoming request, no hardcoded domain (I6).
-
-    Behind the Cloudflare Tunnel uvicorn sees plain http, so ``request.url.scheme`` alone
-    advertised ``http://`` and strict clients (mcp-remote) failed with IssuerMismatchError.
-    The proxy's ``X-Forwarded-Proto`` wins when it is http/https (first hop, the same rule
-    as ``SecurityHeadersMiddleware._request_is_https``). uvicorn ``--proxy-headers`` was
-    not used because it would also rewrite ``scope["client"]`` from X-Forwarded-For and
-    bypass the trusted-proxy model in ``app.client_ip`` (ADR-0033 §2.3). A spoofed header
-    only changes the metadata echoed back to the caller that sent it.
-    """
-    scheme = request.url.scheme
-    forwarded = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
-    if forwarded in ("http", "https"):
-        scheme = forwarded
-    return f"{scheme}://{request.url.netloc}"
+    """Issuer URL from the incoming request (see ``runtime_state.public_origin``)."""
+    return runtime_state.public_origin(request.scope)
 
 
 # ── In-process authorization-code store (ephemeral — see module docstring) ───
@@ -223,7 +210,13 @@ async def oauth_authorization_server_metadata(request: Request) -> dict[str, Any
 
 
 @router.get("/.well-known/oauth-protected-resource", include_in_schema=False)
+@router.get(
+    f"/.well-known/oauth-protected-resource{runtime_state.MCP_MOUNT_PATH}", include_in_schema=False
+)
 async def oauth_protected_resource_metadata(request: Request) -> dict[str, Any]:
+    # Two paths, one document: RFC 9728 §3.1 inserts the resource path after the well-known
+    # prefix, and that suffixed URL is what the 401's ``resource_metadata`` advertises and what
+    # MCP clients probe first; the bare path stays for clients that only try the root.
     if not _gate_open():
         raise _not_found()
     issuer = _issuer(request)
