@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.21] — 2026-10-24 — "a query string is part of the path"
+
+Patch release fixing the MCP OAuth flow in a browser.
+
+### Fixed
+
+- **frontend/pwa**: the service-worker navigateFallback denylist also matches paths followed by
+  a query string, so `/authorize?...` reaches the backend consent page instead of the SPA [F17].
+- **mcp/oauth**: an invalid token on the consent page shows a visible alert and an "Error:"
+  tab title [F17].
+
 ## [2.1.20] — 2026-10-24 — "where the metadata lives"
 
 Patch release completing OAuth discovery for the remote MCP surface.

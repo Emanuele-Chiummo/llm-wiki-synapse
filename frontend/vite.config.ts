@@ -7,6 +7,8 @@ const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), 
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+import { navigateFallbackDenylist } from "./src/pwa/navigateDenylist";
+
 /**
  * Content Security Policy for the Vite dev server and preview server (ADR-0087 / SEC-CSP-1).
  *
@@ -122,9 +124,9 @@ export default defineConfig({
         // from cache (offline shell).  The denylist excludes all API paths
         // so deep-links into the API never get the HTML fallback.
         navigateFallback: "index.html",
-        navigateFallbackDenylist: API_PREFIXES.map(
-          (p) => new RegExp(`^${p.replace("/", "\\/")}(\\/|$)`),
-        ),
+        // Matched against pathname + search, so a query string must not defeat it
+        // (see src/pwa/navigateDenylist.ts).
+        navigateFallbackDenylist: navigateFallbackDenylist(API_PREFIXES),
 
         // --- Runtime caching -----------------------------------------------
         runtimeCaching: [

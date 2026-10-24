@@ -302,9 +302,14 @@ def _render_consent_form(
     """Minimal, dependency-free HTML consent page. Every interpolated value originates from
     an untrusted query string / prior form post — html.escape() everywhere (reflected-XSS
     guard); values are carried through as hidden fields, never rendered as raw HTML/JS."""
-    error_html = (
-        f'<p style="color:#b00020;font-weight:600">{_html.escape(error)}</p>' if error else ""
+    # A failed attempt must not look like the same page redrawn: a bordered alert box (read
+    # out by screen readers via role="alert") and a title change that shows in the tab.
+    error_style = (
+        "color:#8a0015;background:#fdecee;border:1px solid #f1aeb5;border-radius:6px;"
+        "padding:.75rem 1rem;margin:1rem 0;font-weight:600;"
     )
+    error_html = f'<p role="alert" style="{error_style}">{_html.escape(error)}</p>' if error else ""
+    title_prefix = "Error: " if error else ""
     body_style = (
         "font-family: system-ui, -apple-system, sans-serif; max-width: 440px; "
         "margin: 4rem auto; padding: 0 1.5rem; color: #1a1a1a;"
@@ -319,7 +324,7 @@ def _render_consent_form(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authorize MCP access — Synapse</title>
+<title>{title_prefix}Authorize MCP access — Synapse</title>
 </head>
 <body style="{body_style}">
 <h1 style="font-size: 1.25rem;">Authorize MCP access</h1>
@@ -420,7 +425,10 @@ async def authorize_submit(
                 redirect_uri=redirect_uri,
                 code_challenge=code_challenge,
                 state=state,
-                error="Incorrect token — try again.",
+                error=(
+                    "Invalid token: access was not granted. Paste the Synapse MCP token "
+                    "and try again."
+                ),
             ),
             status_code=401,
         )
