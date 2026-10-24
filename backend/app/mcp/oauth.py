@@ -89,8 +89,22 @@ def _not_found() -> HTTPException:
 
 
 def _issuer(request: Request) -> str:
-    """Build the issuer URL from the incoming request — no hardcoded domain (I6)."""
-    return f"{request.url.scheme}://{request.url.netloc}"
+    """
+    Build the issuer URL from the incoming request, no hardcoded domain (I6).
+
+    Behind the Cloudflare Tunnel uvicorn sees plain http, so ``request.url.scheme`` alone
+    advertised ``http://`` and strict clients (mcp-remote) failed with IssuerMismatchError.
+    The proxy's ``X-Forwarded-Proto`` wins when it is http/https (first hop, the same rule
+    as ``SecurityHeadersMiddleware._request_is_https``). uvicorn ``--proxy-headers`` was
+    not used because it would also rewrite ``scope["client"]`` from X-Forwarded-For and
+    bypass the trusted-proxy model in ``app.client_ip`` (ADR-0033 §2.3). A spoofed header
+    only changes the metadata echoed back to the caller that sent it.
+    """
+    scheme = request.url.scheme
+    forwarded = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+    if forwarded in ("http", "https"):
+        scheme = forwarded
+    return f"{scheme}://{request.url.netloc}"
 
 
 # ── In-process authorization-code store (ephemeral — see module docstring) ───
