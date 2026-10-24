@@ -303,7 +303,9 @@ class TestAuthorize:
             },
         )
         assert resp.status_code == 401
-        assert "Incorrect token" in resp.text
+        assert "Invalid token" in resp.text
+        assert 'role="alert"' in resp.text
+        assert "<title>Error: " in resp.text
 
     async def test_post_correct_token_redirects_with_code_and_jit_registers(
         self, client: AsyncClient
