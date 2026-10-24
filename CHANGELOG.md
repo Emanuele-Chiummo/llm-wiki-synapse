@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.19] — 2026-10-24 — "the scheme nginx overwrote"
+
+Patch release completing 2.1.18: behind the Cloudflare Tunnel the frontend nginx replaced the
+edge's `X-Forwarded-Proto: https` with its own `$scheme` (`http`), so the MCP OAuth issuer was
+still advertised as `http://`.
+
+### Fixed
+
+- **frontend/nginx**: forward the incoming `X-Forwarded-Proto`, falling back to `$scheme` only
+  when absent [F17].
+
 ## [2.1.18] — 2026-10-24 — "the scheme the tunnel saw"
 
 Patch release. The OAuth discovery metadata of the remote MCP surface advertised `http://`
