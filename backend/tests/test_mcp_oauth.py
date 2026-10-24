@@ -161,6 +161,51 @@ class TestDiscovery:
         assert plain.json()["issuer"] == "http://test"
         assert junk.json()["issuer"] == "http://test"
 
+    async def test_protected_resource_served_at_path_suffixed_url(
+        self, client: AsyncClient
+    ) -> None:
+        """RFC 9728 §3.1: the /mcp/server-suffixed URL serves the same document as the root."""
+        headers = {"X-Forwarded-Proto": "https"}
+        root = await client.get("/.well-known/oauth-protected-resource", headers=headers)
+        suffixed = await client.get(
+            "/.well-known/oauth-protected-resource/mcp/server", headers=headers
+        )
+        assert suffixed.status_code == 200, suffixed.text
+        assert suffixed.headers["content-type"].startswith("application/json")
+        assert suffixed.json() == root.json()
+        assert suffixed.json()["resource"] == "https://test/mcp/server"
+
+    async def test_path_suffixed_discovery_404_when_remote_mcp_disabled(
+        self, client: AsyncClient
+    ) -> None:
+        from app import runtime_state
+
+        runtime_state.remote_mcp_flag._enabled = False
+        resp = await client.get("/.well-known/oauth-protected-resource/mcp/server")
+        assert resp.status_code == 404
+
+    async def test_unknown_well_known_suffix_is_404_not_html(self, client: AsyncClient) -> None:
+        """Clients fall back to the root document only on a 404."""
+        resp = await client.get("/.well-known/oauth-protected-resource/elsewhere")
+        assert resp.status_code == 404
+
+    async def test_mcp_401_advertises_resource_metadata(self, client: AsyncClient) -> None:
+        """RFC 9728 §5.1: the 401 points clients at the metadata, with the proxied scheme."""
+        resp = await client.post(
+            "/mcp/server",
+            json={},
+            headers={"X-Forwarded-Proto": "https", "Authorization": "Bearer wrong"},
+        )
+        assert resp.status_code == 401
+        assert resp.headers["www-authenticate"] == (
+            'Bearer resource_metadata="https://test/.well-known/oauth-protected-resource/mcp/server"'
+        )
+        metadata = await client.get(
+            "/.well-known/oauth-protected-resource/mcp/server",
+            headers={"X-Forwarded-Proto": "https"},
+        )
+        assert metadata.status_code == 200
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2-3. Dynamic Client Registration

@@ -69,6 +69,41 @@ logger = logging.getLogger(__name__)
 # Never duplicate this literal elsewhere (I6).
 MCP_MOUNT_PATH: str = "/mcp/server"
 
+
+def public_origin(scope: Scope) -> str:
+    """
+    ``scheme://host`` the client used to reach us, no hardcoded domain (I6).
+
+    Behind the Cloudflare Tunnel (and the frontend nginx) the ASGI scheme is plain http, so
+    the proxy's ``X-Forwarded-Proto`` wins when it is http/https (first hop, the same rule as
+    ``SecurityHeadersMiddleware._request_is_https``). uvicorn ``--proxy-headers`` is not used
+    because it would also rewrite ``scope["client"]`` from X-Forwarded-For and bypass the
+    trusted-proxy model in ``app.client_ip`` (ADR-0033 §2.3). A spoofed header only changes
+    the URLs echoed back to the caller that sent it. Shared by the OAuth discovery documents
+    (``app.mcp.oauth``) and the ``resource_metadata`` hint of the /mcp/server 401.
+    """
+    scheme = str(scope.get("scheme") or "http")
+    host = ""
+    forwarded = ""
+    for name, value in scope.get("headers", []):
+        if name == b"host" and not host:
+            host = value.decode("latin-1").strip()
+        elif name == b"x-forwarded-proto" and not forwarded:
+            forwarded = value.decode("latin-1").split(",")[0].strip().lower()
+    if forwarded in ("http", "https"):
+        scheme = forwarded
+    if not host:
+        # Same fallback as starlette.datastructures.URL: the server socket address.
+        server = scope.get("server")
+        host = f"{server[0]}:{server[1]}" if server else "localhost"
+    return f"{scheme}://{host}"
+
+
+def protected_resource_metadata_url(scope: Scope) -> str:
+    """RFC 9728 §3.1 path-suffixed metadata URL for the /mcp/server resource."""
+    return f"{public_origin(scope)}/.well-known/oauth-protected-resource{MCP_MOUNT_PATH}"
+
+
 # ── Private CIDR ranges for source classification (ADR-0033 §2.3) ─────────────
 # Named constant (I6 — no scattered literals). Used by classify_source() to
 # determine if a request is PRIVATE (eligible for allow-without-token) or PUBLIC
@@ -857,7 +892,13 @@ class BearerAuthMiddleware:
             content='{"detail":"Unauthorized"}',
             status_code=401,
             media_type="application/json",
-            headers={"WWW-Authenticate": "Bearer"},
+            # RFC 9728 §5.1: point OAuth clients (claude.ai connector, mcp-remote, Claude Code)
+            # at the protected-resource metadata instead of making them guess well-known paths.
+            headers={
+                "WWW-Authenticate": (
+                    f'Bearer resource_metadata="{protected_resource_metadata_url(scope)}"'
+                )
+            },
         )
         await response(scope, receive, send)
 

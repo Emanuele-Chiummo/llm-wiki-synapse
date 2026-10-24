@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [2.1.20] — 2026-10-24 — "where the metadata lives"
+
+Patch release completing OAuth discovery for the remote MCP surface.
+
+### Fixed
+
+- **mcp**: the /mcp/server 401 carries `resource_metadata` (RFC 9728 §5.1) [F17].
+- **mcp/oauth**: protected-resource metadata also served at the RFC 9728 §3.1 path-suffixed
+  URL `/.well-known/oauth-protected-resource/mcp/server` [F17].
+- **frontend/nginx**: OAuth well-known URLs with a path suffix reach the backend; every other
+  `/.well-known/` URL is a 404 instead of the SPA's index.html [F17].
+
 ## [2.1.19] — 2026-10-24 — "the scheme nginx overwrote"
 
 Patch release completing 2.1.18: behind the Cloudflare Tunnel the frontend nginx replaced the
