@@ -7970,7 +7970,7 @@ All code, test, and documentation artifacts are current. No functional gaps rema
 <p>All other D-artifacts are UP-TO-DATE:
 - D2: 12 tables, zero drift vs models.py (confirmed through Phase 5; no Phase 5 migration)
 - D3: deep-research.mmd + cascade-delete.mmd both present, valid Mermaid, architect-reviewed
-- D4: all M5 endpoints present (GET /search + /ingest/from-text + /research/<em> + /review/queue</em> + /pages/{id}/cascade-delete/preview + DELETE /pages/{id} + GET /mcp/info); zero drift confirmed at each phase gate
+- D4: all M5 endpoints present (GET /search + /ingest/from-text + /research/* + /review/queue* + /pages/{id}/cascade-delete/preview + DELETE /pages/{id} + GET /mcp/info); zero drift confirmed at each phase gate
 - D7: ADRs 0022/0024/0025/0026/0027 all present and indexed; ADR-0023 skipped/reserved (documented in README); no ADR has unresolved conditions
 - TRACEABILITY: all M5 phase ACs GREEN except PENDING-LIVE D5 rows</p>
 <p><strong>Signed: tech-writer (claude-sonnet-4-6) | 2026-06-29 | M5 milestone docs consolidation</strong></p>

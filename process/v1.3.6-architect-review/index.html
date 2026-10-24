@@ -2389,9 +2389,9 @@ future wiring and does not violate any invariant. Recommend a follow-up to compl
 <p>File: <code>components/home/HomeDashboard.tsx</code> (<code>ActiveJobsBlock</code>).</p>
 <ul>
 <li><strong>I3 (CSS-only, no per-tick heavy work) HELD.</strong> The progress bar is a pure DOM <code>&lt;div&gt;</code> with a
-  CSS <code>width: ${pct}%</code> fill (<code>HomeDashboard.tsx:701</code>) and a <code>role="progressbar"</code> with aria-value<em>.
+  CSS <code>width: ${pct}%</code> fill (<code>HomeDashboard.tsx:701</code>) and a <code>role="progressbar"</code> with aria-value*.
   No canvas, no animation library — only a CSS <code>transition: width 0.4s ease</code>. The polling source is the
-  </em><em>existing</em>* ActivityBar 1.5s tick feeding <code>activityStore</code> — no new loop (AC-WS-C-5, I3).</li>
+  <strong>existing</strong> ActivityBar 1.5s tick feeding <code>activityStore</code> — no new loop (AC-WS-C-5, I3).</li>
 <li><strong>Arithmetic is pure and derived from existing store data</strong> (<code>useActivityBatch</code>, <code>useActivityTasks</code>
   confirmed to exist in <code>store/activityStore.ts:227/232/253</code>). Batch mode: <code>round(done/total*100)</code>;
   single-file mode: mean of per-task <code>progress</code>, min non-null <code>eta_seconds</code>.</li>
@@ -2555,8 +2555,8 @@ future wiring and does not violate any invariant. Recommend a follow-up to compl
 1. The dataVersion-polling refresh strategy introduces <strong>no new architectural seam</strong>: no new table,
    no new column, no new endpoint, no new contract, no new dependency. It reuses (a) the existing
    <code>/status</code> response field <code>data_version</code> (<code>status.py:41</code>, already covered by the F16dv work and
-   AC-F16dv-<em>), (b) the existing ActivityBar <code>STATUS_POLL_MS</code> poll, and (c) the existing server-side
-   graph cache decision already recorded in </em><em>ADR-0045 (ForceAtlas2 server-side layout)</em>*.
+   AC-F16dv-*), (b) the existing ActivityBar <code>STATUS_POLL_MS</code> poll, and (c) the existing server-side
+   graph cache decision already recorded in <strong>ADR-0045 (ForceAtlas2 server-side layout)</strong>.
 2. The decision it embodies — "detect a version bump and re-pull, never push, never compute layout
    client-side" — is a direct application of invariants I2/I3 that are already ADR-backed; writing a
    new ADR would restate settled decisions.

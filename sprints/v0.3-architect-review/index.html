@@ -2267,8 +2267,8 @@ Code was reviewed read-only; no implementation files were modified.</p>
   layout function is called anywhere. Sigma is instantiated over the prebuilt graphology graph and
   renders the fixed positions; no rAF physics loop, no supervisor. ✅
 - <code>package.json</code> dependencies = graphology, react, react-dom, sigma, zustand. <strong>No</strong>
-  forceatlas2 / d3-force / graphology-layout-<em> dependency. Confirmed absent from <code>package.json</code>
-  </em><em>and</em>* <code>package-lock.json</code> (transitive deps included). ✅
+  forceatlas2 / d3-force / graphology-layout-* dependency. Confirmed absent from <code>package.json</code>
+  <strong>and</strong> <code>package-lock.json</code> (transitive deps included). ✅
 - Enforcement is genuine and double-layered:
   - eslint <code>no-restricted-imports</code> blocks forceatlas2, d3-force, @antv/layout, graphology-layout
     (+ random/circular variants) — P0 message.

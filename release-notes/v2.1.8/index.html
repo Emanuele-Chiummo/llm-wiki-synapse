@@ -2269,7 +2269,7 @@ which is worth a release on its own.</p>
   <code>remote_mcp_enabled</code> off, which also disconnects Claude Desktop and every other MCP client.</p>
 <p>This was an omission rather than a deliberate design decision: <code>revoked_at</code> was already
   modelled and documented for precisely this case — <em>"set when rotated-away-from (refresh)
-  </em><em>or explicitly revoked</em><em>"</em> (<code>app/models.py</code>, <code>McpOAuthToken</code>) — the "explicitly revoked"
+  <strong>or explicitly revoked</strong>"</em> (<code>app/models.py</code>, <code>McpOAuthToken</code>) — the "explicitly revoked"
   half simply had no caller.</p>
 <p>Fixed by cascading the credential change onto the grants. When <code>PUT /mcp/auth</code> results in
   an actually-different <code>mcp_access_token_hash</code>, it bulk soft-revokes every non-revoked row

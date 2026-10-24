@@ -2871,7 +2871,7 @@ Applicazione in <code>calculateRelevance</code> (<code>:247-287</code>): direct 
 - Allocatore <code>context-budget.ts:54-90</code>, ben testato (<code>context-budget.test.ts</code>), con clamp per-page <code>min(pageBudget, max(5000, pageBudget*0.3))</code>.</p>
 <p><strong>Gap vs README</strong>
 - Split reale <strong>5% index / 50% pagine / 15% response-reserve / ~30% headroom</strong> — <strong>NON</strong> "60/20/5/15".
-- <strong>Mismatch UI↔allocatore</strong>: la label <code>context-size-selector.tsx:39</code> mostra "~{value<em>0.6/1000}K chars for wiki content" (</em><em>60%</em><em>) ma l'allocatore dà al wiki solo </em><em>55%</em>* (50% pagine + 5% index). Sovrastima ~9%.</p>
+- <strong>Mismatch UI↔allocatore</strong>: la label <code>context-size-selector.tsx:39</code> mostra "~{value*0.6/1000}K chars for wiki content" (<strong>60%</strong>) ma l'allocatore dà al wiki solo <strong>55%</strong> (50% pagine + 5% index). Sovrastima ~9%.</p>
 <hr />
 <h3 id="f15-cross-platform-completo">F15 — Cross-platform — ✅ COMPLETO<a class="headerlink" href="#f15-cross-platform-completo" title="Permanent link">&para;</a></h3>
 <p><strong>Evidenza</strong>

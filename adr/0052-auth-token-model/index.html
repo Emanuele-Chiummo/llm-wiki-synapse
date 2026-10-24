@@ -2622,8 +2622,8 @@ place</strong> — <code>base.ts</code> — and <strong>no component constructs 
 - Key: <strong><code>synapse.authToken</code></strong> (namespaced like the existing <code>synapse.serverUrl</code>, <code>synapse.servers</code>
   in <code>base.ts</code>). It survives across sessions exactly like <code>serverUrl</code> does (ADR-0047 semantics).
   <em>(The PM brief also names a per-server-keyed form <code>synapse_token_{serverUrl}</code>; the implementer
-  MAY key per server URL to match multi-server support — the contract is: </em><em>one namespaced key,
-  read by <code>base.ts</code> at request time, scoped to the current server</em><em>. Whichever form is chosen must
+  MAY key per server URL to match multi-server support — the contract is: <strong>one namespaced key,
+  read by <code>base.ts</code> at request time, scoped to the current server</strong>. Whichever form is chosen must
   be a single constant in <code>base.ts</code>, mirroring <code>LS_SERVER_URL</code>.)</em>
 - <strong>Never</strong> stored in Zustand state (avoids accidental serialization into persisted store blobs).
   Read at request time only.</p>

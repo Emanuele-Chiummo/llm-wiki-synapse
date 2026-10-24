@@ -2322,7 +2322,7 @@ boolean:</p>
 </code></pre></div>
 <p><code>stop()</code> sets <code>stopped = true</code> and aborts <code>controller</code>; <code>start()</code> sets it back to false and
 starts a loop. That works for one loop. It stops working the moment there can transiently be
-two — because <code>stopped</code> cannot distinguish <em>"the stream is stopped"</em> from <em>"a </em><em>newer</em><em> loop
+two — because <code>stopped</code> cannot distinguish <em>"the stream is stopped"</em> from <em>"a <strong>newer</strong> loop
 owns the stream now"</em>.</p>
 <p><strong>Root cause.</strong> One shared flag used as the exit condition for what is not always a single
 loop.</p>
