@@ -2189,13 +2189,22 @@ OR when you want to restore to a new host without migrating the database.
    ```bash
    docker compose up -d
    ```
-5. The watchdog detects all files in `raw/sources/` on startup and triggers incremental
-   ingest for each one (I1 — the mtime-then-hash gate ensures only genuinely new content
-   is re-ingested). Existing `wiki/` pages are indexed as-is.
+5. The watcher does NOT index pre-existing files on startup (I1, ADR-0006), so rebuild the
+   index from the restored `wiki/` pages with the recovery script. It makes no LLM call and
+   never writes to the vault: it upserts one `pages` row per `wiki/**/*.md` from its
+   frontmatter, re-embeds the body into Qdrant (bge-m3), re-derives the `links` rows and
+   bumps `data_version` once.
+   ```bash
+   docker compose exec backend python scripts/reindex_wiki_from_vault.py --dry-run
+   docker compose exec backend python scripts/reindex_wiki_from_vault.py
+   ```
+   It is idempotent (existing rows are reused by `file_path`), so an interrupted run can
+   simply be repeated. About 7 minutes for ~6,000 pages on an RTX 3060. The next
+   `GET /graph` recomputes the layout. Do NOT use `POST /sources/ingest-all` for this: it
+   recompiles every raw source with the model (token cost) and rewrites existing pages.
 
-**What is NOT restored** by this path: Qdrant vector embeddings, Postgres metadata
-(pages, links, edges, provider_config rows, conversation history). The re-ingest
-recreates metadata and re-embeds content, but conversation history is lost.
+**What is NOT restored** by this path: provider_config rows, review items, lint runs and
+conversation history. Pages, links, vectors and the graph are rebuilt from `wiki/`.
 
 ### 19.3 Restore path B — full restore with Postgres volume
 
