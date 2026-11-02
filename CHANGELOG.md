@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
+## [Unreleased]
+
+### Added
+
+- **ops/recovery**: `scripts/reindex_wiki_from_vault.py` rebuilds `pages`, `links` and the
+  Qdrant vectors from the `wiki/` files after a database loss, with no LLM call and no vault
+  write. Restore path A in `docs/DEPLOY.md` now uses it instead of relying on the watcher.
+
 ## [2.1.21] — 2026-10-24 — "a query string is part of the path"
 
 Patch release fixing the MCP OAuth flow in a browser.
