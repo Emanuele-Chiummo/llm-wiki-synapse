@@ -7416,13 +7416,21 @@ OR when you want to restore to a new host without migrating the database.</p>
 <li>Start the stack:
    <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div></li>
-<li>The watchdog detects all files in <code>raw/sources/</code> on startup and triggers incremental
-   ingest for each one (I1 — the mtime-then-hash gate ensures only genuinely new content
-   is re-ingested). Existing <code>wiki/</code> pages are indexed as-is.</li>
+<li>The watcher does NOT index pre-existing files on startup (I1, ADR-0006), so rebuild the
+   index from the restored <code>wiki/</code> pages with the recovery script. It makes no LLM call and
+   never writes to the vault: it upserts one <code>pages</code> row per <code>wiki/**/*.md</code> from its
+   frontmatter, re-embeds the body into Qdrant (bge-m3), re-derives the <code>links</code> rows and
+   bumps <code>data_version</code> once.
+   <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>scripts/reindex_wiki_from_vault.py<span class="w"> </span>--dry-run
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>scripts/reindex_wiki_from_vault.py
+</code></pre></div>
+   It is idempotent (existing rows are reused by <code>file_path</code>), so an interrupted run can
+   simply be repeated. About 7 minutes for ~6,000 pages on an RTX 3060. The next
+   <code>GET /graph</code> recomputes the layout. Do NOT use <code>POST /sources/ingest-all</code> for this: it
+   recompiles every raw source with the model (token cost) and rewrites existing pages.</li>
 </ol>
-<p><strong>What is NOT restored</strong> by this path: Qdrant vector embeddings, Postgres metadata
-(pages, links, edges, provider_config rows, conversation history). The re-ingest
-recreates metadata and re-embeds content, but conversation history is lost.</p>
+<p><strong>What is NOT restored</strong> by this path: provider_config rows, review items, lint runs and
+conversation history. Pages, links, vectors and the graph are rebuilt from <code>wiki/</code>.</p>
 <h3 id="193-restore-path-b-full-restore-with-postgres-volume">19.3 Restore path B — full restore with Postgres volume<a class="headerlink" href="#193-restore-path-b-full-restore-with-postgres-volume" title="Permanent link">&para;</a></h3>
 <p>Use this path when: you have a Postgres volume snapshot (e.g. <code>docker volume create</code> +
 <code>docker cp</code>) in addition to the vault ZIP. This is the fastest restore and preserves
