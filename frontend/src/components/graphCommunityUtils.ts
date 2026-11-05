@@ -213,3 +213,35 @@ export function computeDomainCentroids(
   }
   return result;
 }
+
+// ─── Domain legend rows (colorMode === "domain") ─────────────────────────────
+
+export interface DomainLegendRows {
+  /** One row per distinct domain name, sorted by node count desc. */
+  named: Array<{ domain: string; count: number }>;
+  /** Nodes with no domain (null / empty) — shown as one "untagged" bucket at the end. */
+  untaggedCount: number;
+}
+
+/**
+ * Aggregate graph nodes by their server-provided domain for the "domain" legend.
+ *
+ * I2: `GraphNode.domain` always comes from the server (GET /graph) — never computed here.
+ * I3: pure function, called from a useMemo keyed on `nodes`.
+ */
+export function computeDomainLegendRows(nodes: GraphNode[]): DomainLegendRows {
+  const counts = new Map<string, number>();
+  let untaggedCount = 0;
+  for (const n of nodes) {
+    const d = n.domain ?? null;
+    if (d === null || d.trim() === "") {
+      untaggedCount += 1;
+    } else {
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+  }
+  const named = [...counts.entries()]
+    .map(([domain, count]) => ({ domain, count }))
+    .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain));
+  return { named, untaggedCount };
+}

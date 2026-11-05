@@ -10,7 +10,7 @@
 
 import type { Attributes } from "graphology-types";
 import type { ColorMode } from "../graphPalette";
-import { colorForCommunity } from "../graphPalette";
+import { colorForCommunity, colorForDomain } from "../graphPalette";
 import type { GraphNode, GraphEdge } from "../../api/types";
 import { buildGraphologyGraph } from "../../api/graphTransform";
 import { colorForType } from "./graphViewerShared";
@@ -54,11 +54,16 @@ export function buildSigmaGraph(
     // Color is determined by active color-mode (I2: all values come from server).
     // "community" mode colors by Louvain community id — one distinct color per cluster
     // from COMMUNITY_PALETTE (cycles for >12 communities; -1 = unassigned → gray).
+    // "domain" mode colors by the server-derived vocabulary domain (one stable color per
+    // domain name, untagged → gray) — the thematic-area view (ADR-0054 F18).
     // "type" mode colors by page type (concept, entity, source, …).
+    const theme = isDarkTheme ? "dark" : "light";
     const nodeColor =
       mode === "community"
-        ? colorForCommunity(nodeCommunity, isDarkTheme ? "dark" : "light")
-        : colorForType(nodeType ?? null);
+        ? colorForCommunity(nodeCommunity, theme)
+        : mode === "domain"
+          ? colorForDomain(nodeDomain, theme)
+          : colorForType(nodeType ?? null);
     sigmaGraph.addNode(nodeKey, {
       x: attrs["x"] as number,
       y: attrs["y"] as number,

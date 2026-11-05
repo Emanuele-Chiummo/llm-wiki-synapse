@@ -5,9 +5,9 @@
 
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { LOW_COHESION_THRESHOLD, colorForCommunity } from "../graphPalette";
+import { LOW_COHESION_THRESHOLD, colorForCommunity, colorForDomain } from "../graphPalette";
 import type { ColorMode, GraphTheme } from "../graphPalette";
-import { communityDisplayName } from "../graphCommunityUtils";
+import { communityDisplayName, computeDomainLegendRows } from "../graphCommunityUtils";
 import type { GraphCommunity, GraphNode } from "../../api/types";
 import { DEFAULT_NODE_COLOR, TYPE_COLORS } from "./graphViewerShared";
 
@@ -81,6 +81,13 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
       }));
   }, [colorMode, communities, t, theme]);
 
+  // DOMAIN mode = one row per vocabulary domain (thematic area), untagged bucket last.
+  // I2: GraphNode.domain is server-derived; I3: memoized on nodes/colorMode only.
+  const domainRows = React.useMemo(
+    () => (colorMode === "domain" ? computeDomainLegendRows(nodes) : { named: [], untaggedCount: 0 }),
+    [colorMode, nodes],
+  );
+
   return (
     <div
       className="syn-card"
@@ -95,7 +102,13 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
         maxHeight: "calc(100% - 96px)",
         overflowY: "auto",
       }}
-      aria-label={colorMode === "type" ? "Graph node type legend" : "Graph community legend"}
+      aria-label={
+        colorMode === "type"
+          ? "Graph node type legend"
+          : colorMode === "domain"
+            ? "Graph domain legend"
+            : "Graph community legend"
+      }
       data-testid="graph-legend"
     >
       {/* Collapsible header — pointerEvents:auto so it's clickable inside the pointer-events:none card */}
@@ -125,7 +138,11 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
           {collapsed ? "▸" : "▾"}
         </span>
         <span>
-          {colorMode === "type" ? t("graph.legendNodeTypes") : t("graph.legendCommunities")}
+          {colorMode === "type"
+            ? t("graph.legendNodeTypes")
+            : colorMode === "domain"
+              ? t("graph.legendDomains")
+              : t("graph.legendCommunities")}
         </span>
       </button>
       {!collapsed &&
@@ -195,6 +212,70 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
                   {otherCount}
                 </span>
               </div>
+            )}
+          </>
+        ) : colorMode === "domain" ? (
+          <>
+            {/* DOMAIN mode = thematic-area legend: ONE row per vocabulary domain (sorted by
+                node count desc) plus an untagged bucket. CVD-safe: name + swatch. */}
+            {domainRows.named.length === 0 && domainRows.untaggedCount === 0 ? (
+              <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+                {t("common.unknown")}
+              </span>
+            ) : (
+              <>
+                {domainRows.named.map(({ domain, count }) => (
+                  <div
+                    key={domain}
+                    data-testid={`domain-legend-item-${domain}`}
+                    style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+                  >
+                    <span
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        background: colorForDomain(domain, theme),
+                        flexShrink: 0,
+                        boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
+                      <span data-testid={`domain-legend-name-${domain}`} style={{ fontWeight: 500 }}>
+                        {domain}
+                      </span>
+                      <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
+                        {t("graph.legendCommunitySize", { size: count })}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                {domainRows.untaggedCount > 0 && (
+                  <div
+                    data-testid="domain-legend-untagged"
+                    style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}
+                  >
+                    <span
+                      style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        background: colorForDomain(null, theme),
+                        flexShrink: 0,
+                        boxShadow: `0 0 0 1px rgba(0,0,0,0.12)`,
+                      }}
+                      aria-hidden="true"
+                    />
+                    <span style={{ fontSize: 11, color: "var(--syn-text-dim)" }}>
+                      {t("graph.legendDomainUntagged")}
+                      <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
+                        {t("graph.legendCommunitySize", { size: domainRows.untaggedCount })}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </>
         ) : (

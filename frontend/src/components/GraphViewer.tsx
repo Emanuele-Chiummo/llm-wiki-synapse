@@ -279,6 +279,16 @@ export const GraphViewer: React.FC = () => {
     return result;
   }, [nodes, communities, graphTheme]);
 
+  // ── Domain centroid map (domain color mode) — I3 memoized, I2 server coords/domains only
+  const domainCentroids = useMemo(() => {
+    const raw = computeDomainCentroids(nodes, graphTheme);
+    const result = new Map<string, CommunityCentroid>();
+    for (const [name, centroid] of raw) {
+      result.set(name, centroid);
+    }
+    return result;
+  }, [nodes, graphTheme]);
+
   // ── R9-5: Community panel state ──────────────────────────────────────────
   const [communityPanel, setCommunityPanel] = useState<{ id: number; color: string } | null>(null);
 
@@ -1035,6 +1045,14 @@ export const GraphViewer: React.FC = () => {
           sigmaRef={sigmaRef}
           active={colorMode === "community"}
           testId="community-overlay"
+        />
+
+        {/* Domain centroid labels overlay (domain mode: one label per thematic area). */}
+        <CentroidOverlay
+          centroids={domainCentroids}
+          sigmaRef={sigmaRef}
+          active={colorMode === "domain"}
+          testId="domain-overlay"
         />
 
         {/* R9-5: Community drill-down panel */}
