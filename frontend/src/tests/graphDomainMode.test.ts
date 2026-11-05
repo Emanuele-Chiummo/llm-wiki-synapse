@@ -11,7 +11,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { colorForCommunity, colorForDomain, DOMAIN_UNTAGGED_COLOR } from "../components/graphPalette";
+import {
+  colorForCommunity,
+  colorForDomain,
+  DOMAIN_UNTAGGED_COLOR,
+} from "../components/graphPalette";
 import type { ColorMode } from "../components/graphPalette";
 import { buildSigmaGraph } from "../components/graph/buildSigmaGraph";
 import { colorForType } from "../components/graph/graphViewerShared";
@@ -47,7 +51,9 @@ describe("buildSigmaGraph — domain color mode (I2: server domain only)", () =>
 
   it("same domain → same color; different domains → different colors", () => {
     const { sigmaGraph } = buildSigmaGraph(nodes, edges, "domain");
-    expect(sigmaGraph.getNodeAttribute("n1", "color")).toBe(sigmaGraph.getNodeAttribute("n2", "color"));
+    expect(sigmaGraph.getNodeAttribute("n1", "color")).toBe(
+      sigmaGraph.getNodeAttribute("n2", "color"),
+    );
     expect(sigmaGraph.getNodeAttribute("n1", "color")).not.toBe(
       sigmaGraph.getNodeAttribute("n3", "color"),
     );

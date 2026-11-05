@@ -84,7 +84,8 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
   // DOMAIN mode = one row per vocabulary domain (thematic area), untagged bucket last.
   // I2: GraphNode.domain is server-derived; I3: memoized on nodes/colorMode only.
   const domainRows = React.useMemo(
-    () => (colorMode === "domain" ? computeDomainLegendRows(nodes) : { named: [], untaggedCount: 0 }),
+    () =>
+      colorMode === "domain" ? computeDomainLegendRows(nodes) : { named: [], untaggedCount: 0 },
     [colorMode, nodes],
   );
 
@@ -242,7 +243,10 @@ export const GraphLegend: React.FC<GraphLegendProps> = ({
                       aria-hidden="true"
                     />
                     <span style={{ fontSize: 11, color: "var(--syn-text)" }}>
-                      <span data-testid={`domain-legend-name-${domain}`} style={{ fontWeight: 500 }}>
+                      <span
+                        data-testid={`domain-legend-name-${domain}`}
+                        style={{ fontWeight: 500 }}
+                      >
                         {domain}
                       </span>
                       <span style={{ color: "var(--syn-text-muted)", marginLeft: 4 }}>
