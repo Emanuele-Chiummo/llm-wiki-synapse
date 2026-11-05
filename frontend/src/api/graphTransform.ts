@@ -41,6 +41,11 @@ export interface NodeAttributes {
    */
   community: number;
   /**
+   * Dominant vocabulary domain (server-derived from domain/<Name> tags, ADR-0054 F18).
+   * null when untagged or on older servers. INVARIANT I2: passed through verbatim.
+   */
+  domain: string | null;
+  /**
    * Visual radius in pixels (normalized sqrt over degree range).
    * MIN_R=2.5, MAX_R=11. t = (sqrt(d)-sqrt(dMin))/(sqrt(dMax)-sqrt(dMin));
    * radius = MIN_R + t*(MAX_R-MIN_R). If dMax==dMin use (MIN_R+MAX_R)/2.
@@ -327,6 +332,8 @@ export function buildGraphologyGraph(
       type: node.type,
       // community passed verbatim; -1 when absent (I2: no client computation)
       community: node.community ?? -1,
+      // domain passed verbatim; null when absent (I2: the "domain" color mode reads it)
+      domain: node.domain ?? null,
       size: radii.get(node.id) ?? MID_R,
       degree: node.degree ?? 0,
       // GL2: hub nodes always show truncated label (nodeReducer reads this)

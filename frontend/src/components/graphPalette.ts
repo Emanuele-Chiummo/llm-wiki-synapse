@@ -99,8 +99,11 @@ export const LOW_COHESION_THRESHOLD = 0.1;
  *                 One distinct color per cluster from COMMUNITY_PALETTE (12-color cycle).
  *                 Community legend rows are labeled with communityDisplayName(c):
  *                 "{dominant_domain} · {top_page_subtopic}" — unique per cluster.
+ *   "domain"    — colors nodes by their dominant vocabulary domain (GraphNode.domain,
+ *                 server-derived from domain/<Name> tags, ADR-0054). One stable color per
+ *                 domain name via colorForDomain; untagged nodes → neutral gray.
  */
-export type ColorMode = "type" | "community";
+export type ColorMode = "type" | "community" | "domain";
 
 /** Resolved app theme — read from document.documentElement.dataset.theme. */
 export type GraphTheme = "light" | "dark";

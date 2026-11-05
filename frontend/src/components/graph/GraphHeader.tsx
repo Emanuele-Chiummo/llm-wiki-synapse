@@ -13,6 +13,7 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Shapes,
   Tag,
   X,
 } from "lucide-react";
@@ -819,6 +820,25 @@ export const GraphHeader: React.FC<GraphHeaderProps> = ({
           <span style={{ fontSize: 11, whiteSpace: "nowrap" }}>
             {t("graph.colorModeCommunity")}
           </span>
+        </button>
+
+        {/* Color mode: Domain — thematic areas from the vocabulary (ADR-0054 F18) */}
+        <button
+          type="button"
+          data-testid="color-mode-domain"
+          onClick={() => onSetColorMode("domain")}
+          aria-pressed={colorMode === "domain"}
+          aria-label={t("graph.colorModeDomain")}
+          title={t("graph.colorModeDomain")}
+          style={{
+            ...iconBtnStyle(colorMode === "domain"),
+            width: "auto",
+            padding: "0 6px",
+            gap: 4,
+          }}
+        >
+          <Shapes size={13} strokeWidth={1.8} aria-hidden="true" />
+          <span style={{ fontSize: 11, whiteSpace: "nowrap" }}>{t("graph.colorModeDomain")}</span>
         </button>
 
         {/* Insights toggle — Lightbulb + text label + count badge (G1 v1.3.14 parity).

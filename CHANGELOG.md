@@ -7,13 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Full, per-release notes live under [`docs/release-notes/`](docs/release-notes/) and on
 the [GitHub Releases](https://github.com/Emanuele-Chiummo/llm-wiki-synapse/releases) page.
 
-## [Unreleased]
+## [2.1.22] — 2026-11-05 — "one color per area"
+
+Patch release adding a third color mode to the knowledge graph so the vault can be read by
+thematic area, plus the recovery script that was waiting in Unreleased. No schema
+migrations, no new endpoints, no new configuration keys.
 
 ### Added
 
+- **graph**: a "Domain" color mode next to "Type" and "Community". Nodes take one stable
+  color per vocabulary domain (`colorForDomain(node.domain)`, untagged nodes in neutral
+  gray), the legend shows one row per domain sorted by node count with an "Untagged" bucket
+  last, and a centroid label marks each area on the canvas. The domain comes from the server
+  (`GraphNode.domain`, ADR-0054 F18); the client never assigns it. New i18n keys
+  `graph.colorModeDomain`, `graph.legendDomains`, `graph.legendDomainUntagged`.
 - **ops/recovery**: `scripts/reindex_wiki_from_vault.py` rebuilds `pages`, `links` and the
   Qdrant vectors from the `wiki/` files after a database loss, with no LLM call and no vault
   write. Restore path A in `docs/DEPLOY.md` now uses it instead of relying on the watcher.
+
+### Fixed
+
+- **graph**: `buildGraphologyGraph` dropped `GraphNode.domain` on the way to sigma, so every
+  consumer reading `nodeDomain` from the sigma graph saw `null` (a leftover of the 1.9.3 W2
+  extraction). The field is now passed through verbatim like `community`.
 
 ## [2.1.21] — 2026-10-24 — "a query string is part of the path"
 
